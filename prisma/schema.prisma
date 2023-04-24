@@ -11,12 +11,6 @@ generator client {
     provider = "prisma-client-js"
 }
 
-model Example {
-    id        String   @id @default(cuid())
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
-}
-
 // Necessary for Next auth
 model Account {
     id                String  @id @default(cuid())
@@ -33,6 +27,7 @@ model Account {
     session_state     String?
     user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+    @@index([userId])
     @@unique([provider, providerAccountId])
 }
 
@@ -42,6 +37,8 @@ model Session {
     userId       String
     expires      DateTime
     user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    @@index([userId])
 }
 
 model User {
@@ -60,4 +57,28 @@ model VerificationToken {
     expires    DateTime
 
     @@unique([identifier, token])
+}
+
+model Test {
+    id        String   @id @default(cuid())
+    userId    String
+    typeId    String
+    speed     Float
+    accuracy  Float
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+    type         TestType     @relation(fields: [typeId], references: [id], onDelete: Cascade)
+
+    @@index([typeId])
+}
+
+model TestType {
+    id        String   @id @default(cuid())
+    mode      String
+    options   String
+    competitive Boolean
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    tests     Test[]
 }
