@@ -1,12 +1,32 @@
 
-import { signIn, signOut, useSession } from "next-auth/react";
-import Image from "next/image";
+import { signIn, useSession } from "next-auth/react";
+import { Avatar } from "./Avatar";
 
 export const Navigation = () => {
     const { data: sessionData } = useSession();
 
     return (
         <>
+            {/* Top Navigation, if user is not signed in */}
+            {!sessionData?.user ?
+                <div className="navbar">
+                    <div className="flex-1">
+                        <a className="btn btn-ghost normal-case text-xl">TypeCafe</a>
+                    </div>
+                    <div className="flex-none gap-2">
+                        {/* If the user is not signed in, display auth buttons */}
+                        <button
+                            className="btn btn-primary btn-sm"
+                            onClick={() => void signIn()}
+                        >
+                            Log In
+                        </button>
+                    </div>
+                </div>
+                :
+                <Avatar />
+            }
+
             {/* Desktop Navigation */}
             <div className="hidden md:flex">
 
@@ -14,17 +34,6 @@ export const Navigation = () => {
 
             {/* Mobile Navigation */}
             <div className="flex md:hidden">
-                {/* Top Navigation */}
-                <div className="navbar">
-                    <div className="flex-1">
-                        <a className="btn btn-ghost normal-case text-xl">TypeCafe</a>
-                    </div>
-                    <div className="flex-none gap-2">
-                        {/* If the user is not signed in, display auth buttons */}
-                        <button className="btn btn-ghost btn-sm">Log In</button>
-                        <button className="btn btn-primary btn-sm">Sign Up</button>
-                    </div>
-                </div>
                 {/* Bottom Navigation */}
                 <div className="btm-nav">
                     {/* Home */}
@@ -39,17 +48,9 @@ export const Navigation = () => {
                     <button className="hover:active">
                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="currentColor" d="M4 11v8h4v-8H4Zm6-6v14h4V5h-4Zm6 8v6h4v-6h-4Zm4 8H4q-.825 0-1.413-.588T2 19v-8q0-.825.588-1.413T4 9h4V5q0-.825.588-1.413T10 3h4q.825 0 1.413.588T16 5v6h4q.825 0 1.413.588T22 13v6q0 .825-.588 1.413T20 21Z" /></svg>
                     </button>
-                    {/* Profile */}
+                    {/* Color */}
                     <button className="hover:active">
-                        <div className="avatar placeholder">
-                            {sessionData?.user?.image ?
-                                <Image src={sessionData.user.image} alt="avatar" />
-                                :
-                                <div className="bg-neutral-focus text-neutral-content rounded-full w-8">
-                                    <span>A</span>
-                                </div>
-                            }
-                        </div>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="currentColor" d="M12 22C6.49 22 2 17.51 2 12S6.49 2 12 2s10 4.04 10 9c0 3.31-2.69 6-6 6h-1.77c-.28 0-.5.22-.5.5c0 .12.05.23.13.33c.41.47.64 1.06.64 1.67A2.5 2.5 0 0 1 12 22zm0-18c-4.41 0-8 3.59-8 8s3.59 8 8 8c.28 0 .5-.22.5-.5a.54.54 0 0 0-.14-.35c-.41-.46-.63-1.05-.63-1.65a2.5 2.5 0 0 1 2.5-2.5H16c2.21 0 4-1.79 4-4c0-3.86-3.59-7-8-7z"/><circle cx="6.5" cy="11.5" r="1.5" fill="currentColor"/><circle cx="9.5" cy="7.5" r="1.5" fill="currentColor"/><circle cx="14.5" cy="7.5" r="1.5" fill="currentColor"/><circle cx="17.5" cy="11.5" r="1.5" fill="currentColor"/></svg>
                     </button>
                 </div>
             </div>
