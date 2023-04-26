@@ -1,10 +1,15 @@
 
-import { signIn, useSession } from "next-auth/react";
+import { signIn, signOut, useSession } from "next-auth/react";
 import { Avatar } from "./Avatar";
 import { ThemeSwitch } from "./ThemeSwitch";
 
 export const Navigation = () => {
     const { data: sessionData } = useSession();
+
+    const handleSignIn = (e: React.MouseEvent<HTMLButtonElement, MouseEvent>) => {
+        e.stopPropagation();
+        void signIn("google")
+    }
 
     return (
         <>
@@ -21,7 +26,7 @@ export const Navigation = () => {
                     {!sessionData?.user ?
                         <button
                             className="btn btn-primary btn-sm"
-                            onClick={() => void signIn("google")}
+                            onClick={(e) => handleSignIn(e)}
                         >
                             Log In
                         </button>
