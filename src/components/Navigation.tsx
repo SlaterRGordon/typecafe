@@ -21,7 +21,7 @@ export const Navigation = () => {
                     {!sessionData?.user ?
                         <button
                             className="btn btn-primary btn-sm"
-                            onClick={() => void signIn()}
+                            onClick={() => void signIn("google")}
                         >
                             Log In
                         </button>
