@@ -21,7 +21,7 @@ export const Navigation = () => {
 
     const togglePopover = (e: React.MouseEvent<HTMLButtonElement, MouseEvent>) => {
         e.stopPropagation()
-        setPosition({ left: e.currentTarget.getBoundingClientRect().left, top: e.currentTarget.getBoundingClientRect().top+32})
+        setPosition({ left: e.currentTarget.getBoundingClientRect().left+32, top: e.currentTarget.getBoundingClientRect().top-204})
         setIsOpen(isOpen => !isOpen)
     }
 

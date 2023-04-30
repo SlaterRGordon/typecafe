@@ -7,7 +7,7 @@ export const Avatar = () => {
         <div className="avatar placeholder">
             <div className="w-6 rounded-full bg-neutral-focus text-neutral-content">
                 {sessionData?.user?.image ?
-                    <img src={sessionData.user.image} alt={sessionData.user.name ?? ""} />
+                    <img src={sessionData.user.image} alt={sessionData.user.name ?? ""} referrerPolicy="no-referrer" />
                     :
                     <span>AA</span>
                 }
