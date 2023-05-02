@@ -30,7 +30,7 @@ export const Popover = ({color, setColor, isOpen, togglePopover, position}: Prop
             ${isOpen ? 'visible opacity-100 pointer-events-auto' : 'invisible opacity-0 pointer-events-none'}
         `}>
             <div ref={ref} style={{top: `${position.top}px`, left: `${position.left}px`}} className={`flex flex-col items-start absolute w-[200px] space-y-1`}>
-                <HexColorPicker color={color} onChange={setColor} />
+                <HexColorPicker className="!w-[180px] sm:!w-[200px]" color={color} onChange={setColor} />
                 <input 
                     value={color.slice(1)} 
                     onChange={(e) => setColor('#' + e.target.value)} 
