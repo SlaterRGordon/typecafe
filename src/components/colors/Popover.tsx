@@ -23,7 +23,7 @@ export const Popover = ({color, setColor, isOpen, togglePopover, position}: Prop
             document.removeEventListener('click', handleClickOutside, true);
         };
     }, [togglePopover, isOpen]);
-
+    
     return (
         <div className={`
             absolute flex justify-center items-center inset-0 z-[999] transition-all duration-200 cursor-pointer

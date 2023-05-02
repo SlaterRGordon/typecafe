@@ -33,9 +33,9 @@ export const hexToHsl = (hexCode: string): string => {
 }
 
 export const hslToHex = (hslCss: string): string => {
-  const regexp = /hsl\(\s*(\d+)\s*,\s*(\d+(?:\.\d+)?%)\s*,\s*(\d+(?:\.\d+)?%)\)/g;
+  const regexp = /hsl\(\s*(\d+(?:\.\d+))\s*,\s*(\d+(?:\.\d+)?%)\s*,\s*(\d+(?:\.\d+)?%)\)/g;
   const hsl = regexp.exec(hslCss)?.slice(1);
-  
+
   if(!hsl){
     return "#000000";
   }

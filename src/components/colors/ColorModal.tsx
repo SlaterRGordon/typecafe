@@ -3,10 +3,13 @@ import { useWindowSize } from "usehooks-ts";
 import useLocalStorage from "~/utils/hooks/useLocalStorage";
 import { Popover } from "./Popover";
 import { getDarkerShades, hexToHsl, hslToHex } from "~/utils/convertColor";
+import { ColorButton } from "./ColorButton";
 
 interface Colors {
     "--b1": string,
     "--bc": string,
+    "--p": string,
+    "--s": string,
 }
 
 // get hex from css property
@@ -18,6 +21,8 @@ export const ColorModal = () => {
     const [colors, setColors] = useLocalStorage<Colors>("colors", {
         "--b1": "#2a303c",
         "--bc": "#a6adba",
+        "--p": "#6419e6",
+        "--s": "#d926ac",
     })
     const [currentKey, setCurrentKey] = useState<keyof Colors>("--b1")
 
@@ -65,26 +70,10 @@ export const ColorModal = () => {
                 <label htmlFor="" className="modal-box space-y-2 !overflow-y-visible">
                     <h3 className="font-bold text-2xl">Color Configuration</h3>
                     <p className="text-sm">Select a color for the background of the website.</p>
-                    {/* Background Color */}
-                    <h3 className="flex items-center text-xl">Background Color</h3>
-                    <div className="flex space-x-2">
-                        {colors["--b1"] == "" ?
-                            <button onClick={(e) => togglePopover(e, "--b1")} className={`btn btn-square btn-outline btn-sm`} />
-                            :
-                            <button onClick={(e) => togglePopover(e, "--b1")} style={{ backgroundColor: colors["--b1"] }} className={`btn btn-square btn-outline btn-sm`} />
-                        }
-                        <h2 className="flex items-center font-bold">{colors["--b1"]}</h2>
-                    </div>
-                    {/* Text Color */}
-                    <h3 className="flex items-center text-xl">Text Color</h3>
-                    <div className="flex space-x-2">
-                        {colors["--bc"] == "" ?
-                            <button onClick={(e) => togglePopover(e, "--bc")} className={`btn btn-square btn-outline btn-sm`} />
-                            :
-                            <button onClick={(e) => togglePopover(e, "--bc")} style={{ backgroundColor: colors["--bc"] }} className={`btn btn-square btn-outline btn-sm`} />
-                        }
-                        <h2 className="flex items-center font-bold">{colors["--bc"]}</h2>
-                    </div>
+                    <ColorButton name="Background Color" color={colors["--b1"]} colorKey={"--b1"} togglePopover={togglePopover} />
+                    <ColorButton name="Text Color" color={colors["--bc"]} colorKey={"--bc"} togglePopover={togglePopover} />
+                    <ColorButton name="Primary Color" color={colors["--p"]} colorKey={"--p"} togglePopover={togglePopover} />
+                    <ColorButton name="Secondary Color" color={colors["--s"]} colorKey={"--s"} togglePopover={togglePopover} />
                 </label>
             </label>
             <Popover color={colors[currentKey]} setColor={setColor} isOpen={isOpen} togglePopover={() => setIsOpen(isOpen => !isOpen)} position={position} />
