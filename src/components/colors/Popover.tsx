@@ -29,13 +29,13 @@ export const Popover = ({color, setColor, isOpen, togglePopover, position}: Prop
             absolute flex justify-center items-center inset-0 z-[999] transition-all duration-200 cursor-pointer
             ${isOpen ? 'visible opacity-100 pointer-events-auto' : 'invisible opacity-0 pointer-events-none'}
         `}>
-            <div ref={ref} style={{top: `${position.top}px`, left: `${position.left}px`}} className={`flex flex-col items-center absolute w-[200px] space-y-1`}>
+            <div ref={ref} style={{top: `${position.top}px`, left: `${position.left}px`}} className={`flex flex-col items-start absolute w-[200px] space-y-1`}>
                 <HexColorPicker color={color} onChange={setColor} />
                 <input 
                     value={color.slice(1)} 
                     onChange={(e) => setColor('#' + e.target.value)} 
                     type="text" placeholder="Type here" 
-                    className="input input-bordered input-sm w-full max-w-xs" 
+                    className="input input-bordered input-sm w-8/12 max-w-xs sm:w-full" 
                 />
             </div>
         </div>

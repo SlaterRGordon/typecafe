@@ -67,13 +67,17 @@ export const ColorModal = () => {
         <>
             <input type="checkbox" id="colorModal" className="modal-toggle" />
             <label htmlFor="colorModal" className="modal modal-bottom sm:modal-middle cursor-pointer">
-                <label htmlFor="" className="modal-box space-y-2 !overflow-y-visible">
+                <label htmlFor="" className="modal-box !w-[600px] !max-w-5xl space-y-2 !overflow-y-visible">
                     <h3 className="font-bold text-2xl">Color Configuration</h3>
                     <p className="text-sm">Select a color for the background of the website.</p>
-                    <ColorButton name="Background Color" color={colors["--b1"]} colorKey={"--b1"} togglePopover={togglePopover} />
-                    <ColorButton name="Text Color" color={colors["--bc"]} colorKey={"--bc"} togglePopover={togglePopover} />
-                    <ColorButton name="Primary Color" color={colors["--p"]} colorKey={"--p"} togglePopover={togglePopover} />
-                    <ColorButton name="Secondary Color" color={colors["--s"]} colorKey={"--s"} togglePopover={togglePopover} />
+                    <div className="flex">
+                        <ColorButton name="Background Color" color={colors["--b1"]} colorKey={"--b1"} togglePopover={togglePopover} />
+                        <ColorButton name="Text Color" color={colors["--bc"]} colorKey={"--bc"} togglePopover={togglePopover} />
+                    </div>
+                    <div className="flex">
+                        <ColorButton name="Primary Color" color={colors["--p"]} colorKey={"--p"} togglePopover={togglePopover} />
+                        <ColorButton name="Secondary Color" color={colors["--s"]} colorKey={"--s"} togglePopover={togglePopover} />
+                    </div>
                 </label>
             </label>
             <Popover color={colors[currentKey]} setColor={setColor} isOpen={isOpen} togglePopover={() => setIsOpen(isOpen => !isOpen)} position={position} />
