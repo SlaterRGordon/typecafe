@@ -1,10 +1,54 @@
+import { useEffect, useState } from "react";
+import { useWindowSize } from "usehooks-ts";
+import useLocalStorage from "~/utils/hooks/useLocalStorage";
+import { Popover } from "./Popover";
+import { getDarkerShades, hexToHsl } from "~/utils/convertColor";
 
-interface Props {
-    color: string,
-    onClick: (e: React.MouseEvent<HTMLButtonElement, MouseEvent>) => void,
+interface Colors {
+    "--b1": string,
 }
 
-export const ColorModal = ({ color, onClick }: Props) => {
+export const ColorModal = () => {
+    const [colors, setColors] = useLocalStorage<Colors>("colors", {
+        "--b1": "",
+    });
+    const [currentKey, setCurrentKey] = useState<keyof Colors>("--b1");
+
+    // convert hex to hsl and set color
+    const setColor = (color: string) => {
+        setColors({ ...colors, [currentKey]: color})
+    }
+
+    // states to manage color picker popover
+    const [isOpen, setIsOpen] = useState(false);
+    const [position, setPosition] = useState({ left: 0, top: 0 });
+    const { width, height } = useWindowSize()
+
+    // hook on resize to color picker close popover
+    useEffect(() => {
+        setIsOpen(false)
+    }, [width, height])
+
+    const togglePopover = (e: React.MouseEvent<HTMLButtonElement, MouseEvent>, key: keyof Colors) => {
+        e.stopPropagation()
+        setCurrentKey(key)
+        // set position to that of the button clicked
+        setPosition({ left: e.currentTarget.getBoundingClientRect().left + 32, top: e.currentTarget.getBoundingClientRect().top - 204 })
+        setIsOpen(isOpen => !isOpen)
+    }
+
+    useEffect(() => {
+        for (const key in colors) {
+            if (colors[key as keyof Colors] != "") {
+                document.documentElement.style.setProperty(key, hexToHsl(colors[key as keyof Colors]));
+                if (key == "--b1") {
+                    const darkerShades = getDarkerShades(hexToHsl(colors[key as keyof Colors]))
+                    document.documentElement.style.setProperty("--b2", darkerShades[0] as string);
+                    document.documentElement.style.setProperty("--b3", darkerShades[1] as string);
+                }
+            }
+        }
+    }, [colors, currentKey])
 
     return (
         <>
@@ -15,16 +59,16 @@ export const ColorModal = ({ color, onClick }: Props) => {
                     <p className="text-sm">Select a color for the background of the website.</p>
                     <h3 className="flex items-center text-xl">Background Color</h3>
                     <div className="flex space-x-2">
-                        <button onClick={(e) => onClick(e)} style={{ backgroundColor: color }} className={`btn btn-square btn-outline btn-sm`} />
-                        <h2 className="flex items-center font-bold">{color}</h2>
+                        {colors["--b1"] == "" ?
+                            <button onClick={(e) => togglePopover(e, "--b1")} className={`btn btn-square btn-outline btn-sm`} />
+                            :
+                            <button onClick={(e) => togglePopover(e, "--b1")} style={{ backgroundColor: colors["--b1"] }} className={`btn btn-square btn-outline btn-sm`} />
+                        }
+                        <h2 className="flex items-center font-bold">{colors["--b1"]}</h2>
                     </div>
-                    {/* <h3 className="flex items-center text-xl">Background Color</h3>
-                    <div className="flex space-x-2">
-                        <button onClick={(e) => onClick(e)} style={{ backgroundColor: color }} className={`btn btn-square btn-outline btn-sm`} />
-                        <h2 className="flex items-center font-bold">{color}</h2>
-                    </div> */}
                 </label>
             </label>
+            <Popover color={colors[currentKey]} setColor={setColor} isOpen={isOpen} togglePopover={() => setIsOpen(isOpen => !isOpen)} position={position} />
         </>
     )
 }
