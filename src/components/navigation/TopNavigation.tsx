@@ -1,5 +1,5 @@
 import { signOut, useSession } from "next-auth/react";
-import { ThemeSwitch } from "../ThemeSwitch";
+import { ThemeSwitch } from "../colors/ThemeSwitch";
 
 export const TopNavigation = () => {
     const { data: sessionData } = useSession();

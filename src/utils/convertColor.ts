@@ -33,14 +33,16 @@ export const hexToHsl = (hexCode: string): string => {
 }
 
 export const hslToHex = (hslCss: string): string => {
-  const hsl = hslCss.match(/^hsl?\(\s?(\d+)(?:deg)?,?\s(\d+)%,?\s(\d+)%,?\s?(?:\/\s?\d+%|\s+[\d+]?\.?\d+)?\)$/i);
+  const regexp = /hsl\(\s*(\d+)\s*,\s*(\d+(?:\.\d+)?%)\s*,\s*(\d+(?:\.\d+)?%)\)/g;
+  const hsl = regexp.exec(hslCss)?.slice(1);
+  
   if(!hsl){
     return "#000000";
   }
 
-  let h = parseInt(hsl[1] as string, 16);
-  let s = parseInt(hsl[2] as string, 16);
-  let l = parseInt(hsl[3] as string, 16);
+  let h = parseInt(hsl[0] as string);
+  let s = parseInt(hsl[1]?.split("%")[0] as string);
+  let l = parseInt(hsl[2]?.split("%")[0] as string);
 
   h /= 360;
   s /= 100;
@@ -73,11 +75,10 @@ export const hslToHex = (hslCss: string): string => {
 
 export const getDarkerShades = (hsl: string) => {
   const hslValues = hsl.split(' ');
-  const l = parseInt((hslValues[2] as string).split('%')[0] as string, 16);
-
+  const l = parseInt((hslValues[2] as string).split('%')[0] as string);
   // Calculate the darker shades of the color
-  const shade200 = `${hslValues[0] as string} ${hslValues[1] as string} ${(l * 0.8).toFixed(0)}%`;
-  const shade300 = `${hslValues[0] as string} ${hslValues[1] as string} ${(l * 0.7).toFixed(0)}%`;
+  const shade200 = `${hslValues[0] as string} ${hslValues[1] as string} ${(l * 0.9).toFixed(0)}%`;
+  const shade300 = `${hslValues[0] as string} ${hslValues[1] as string} ${(l * 0.8).toFixed(0)}%`;
 
   return [shade200, shade300];
 }

@@ -15,7 +15,6 @@ export const Popover = ({color, setColor, isOpen, togglePopover, position}: Prop
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             if (ref.current && !ref.current.contains(event.target as Node) && isOpen) {
-                console.log('clicked outside')
                 togglePopover();
             }
         };
