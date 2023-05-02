@@ -1,5 +1,4 @@
 import { signOut, useSession } from "next-auth/react";
-import { ThemeSwitch } from "../colors/ThemeSwitch";
 
 export const TopNavigation = () => {
     const { data: sessionData } = useSession();
@@ -10,8 +9,6 @@ export const TopNavigation = () => {
                 <a className="btn btn-ghost normal-case text-xl">TypeCafe</a>
             </div>
             <div className="flex-none gap-2 px-4">
-                {/* Theme Switch */}
-                <ThemeSwitch />
 
                 {/* Color Button */}
                 <label
