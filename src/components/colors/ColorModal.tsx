@@ -53,11 +53,18 @@ export const ColorModal = () => {
     useEffect(() => {
         for (const key in colors) {
             if (colors[key as keyof Colors] != "") {
-                document.documentElement.style.setProperty(key, hexToHsl(colors[key as keyof Colors]))
+                const hsl = hexToHsl(colors[key as keyof Colors])
+                document.documentElement.style.setProperty(key, hsl)
                 if (key == "--b1") {
                     const darkerShades = getDarkerShades(hexToHsl(colors[key as keyof Colors]))
                     document.documentElement.style.setProperty("--b2", darkerShades[0] as string)
                     document.documentElement.style.setProperty("--b3", darkerShades[1] as string)
+                } else if (key == "--p") {
+                    const darkerShades = getDarkerShades(hexToHsl(colors[key as keyof Colors]))
+                    document.documentElement.style.setProperty("--pf", darkerShades[3] as string)
+                    const lightness = hsl.split(" ")[2]?.slice(0, -1)
+                    if (parseFloat(lightness as string) < 50) document.documentElement.style.setProperty("--pc", "0 0% 100%")
+                    else document.documentElement.style.setProperty("--pc", "0 0% 0%")
                 }
             }
         }
@@ -69,7 +76,6 @@ export const ColorModal = () => {
             <label htmlFor="colorModal" className="modal modal-bottom sm:modal-middle cursor-pointer">
                 <label htmlFor="" className="modal-box !w-[600px] !max-w-5xl space-y-2 !overflow-y-visible">
                     <h3 className="font-bold text-2xl">Color Configuration</h3>
-                    <p className="text-sm">Select a color for the background of the website.</p>
                     <div className="flex">
                         <ColorButton name="Background Color" color={colors["--b1"]} colorKey={"--b1"} togglePopover={togglePopover} />
                         <ColorButton name="Text Color" color={colors["--bc"]} colorKey={"--bc"} togglePopover={togglePopover} />
@@ -77,6 +83,15 @@ export const ColorModal = () => {
                     <div className="flex">
                         <ColorButton name="Primary Color" color={colors["--p"]} colorKey={"--p"} togglePopover={togglePopover} />
                         <ColorButton name="Secondary Color" color={colors["--s"]} colorKey={"--s"} togglePopover={togglePopover} />
+                    </div>
+
+                    <h3 className="font-bold text-2xl">Color Presets</h3>
+                    <div className="flex space-x-2">
+                        <button className="btn btn-sm btn-primary border-valentine bg-valentine text-valentine-text hover:border-valentine-hover hover:bg-valentine-hover" 
+                            onClick={() => {return}}
+                        >
+                            Valentine
+                        </button>
                     </div>
                 </label>
             </label>

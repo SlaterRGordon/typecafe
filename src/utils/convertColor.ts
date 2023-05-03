@@ -79,6 +79,9 @@ export const getDarkerShades = (hsl: string) => {
   // Calculate the darker shades of the color
   const shade200 = `${hslValues[0] as string} ${hslValues[1] as string} ${(l * 0.9).toFixed(0)}%`;
   const shade300 = `${hslValues[0] as string} ${hslValues[1] as string} ${(l * 0.8).toFixed(0)}%`;
+  const shade400 = `${hslValues[0] as string} ${hslValues[1] as string} ${(l * 0.7).toFixed(0)}%`;
+  const shade500 = `${hslValues[0] as string} ${hslValues[1] as string} ${(l * 0.6).toFixed(0)}%`;
 
-  return [shade200, shade300];
+
+  return [shade200, shade300, shade400, shade500];
 }
