@@ -1,24 +1,14 @@
 import { type Config } from "tailwindcss";
 
-// this function handles the opacity of color
-function withOpacityValue(variable: string) {
-  return ({ opacityValue }: any) => {
-    if (opacityValue === undefined) {
-      return `hsl(var(${variable}))`
-    }
-    return `hsl(var(${variable}) / ${opacityValue})`
-  }
-}
-
 export default {
   mode: 'jit',
   content: ["./src/**/*.{js,ts,jsx,tsx}"],
   theme: {
     extend: {
       colors: {
-        'retro': withOpacityValue('--retro'),
-        'valentine': withOpacityValue('--valentine'),
-        'cyberpunk': withOpacityValue('--cyberpunk'),
+        'retro': `hsl(var(--retro))`,
+        'valentine': `hsl(var(--valentine))`,
+        'cyberpunk': `hsl(var(--cyberpunk))`,
       },
     },
   },
