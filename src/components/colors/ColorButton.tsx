@@ -1,11 +1,4 @@
-
-
-interface Colors {
-    "--b1": string,
-    "--bc": string,
-    "--p": string,
-    "--s": string,
-}
+import type { Colors } from "./colorPresets"
 
 interface Props {
     name: string,

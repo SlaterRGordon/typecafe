@@ -2,33 +2,24 @@ import { useEffect, useState } from "react";
 import { useWindowSize } from "usehooks-ts";
 import useLocalStorage from "~/utils/hooks/useLocalStorage";
 import { Popover } from "./Popover";
-import { getDarkerShades, hexToHsl, hslToHex } from "~/utils/convertColor";
+import { getDarkerShades, hexToHsl } from "~/utils/convertColor";
 import { ColorButton } from "./ColorButton";
+import { Colors, presets } from "./colorPresets";
+import { PresetButton } from "./PresetButton";
 
-interface Colors {
-    "--b1": string,
-    "--bc": string,
-    "--p": string,
-    "--s": string,
-}
-
-// get hex from css property
-const getHexFromProperty = (property: string) => {
-    return hslToHex(`hsl(${getComputedStyle(document.documentElement).getPropertyValue(property).trim().split(" ").join(",")})`)
-}
 
 export const ColorModal = () => {
-    const [colors, setColors] = useLocalStorage<Colors>("colors", {
-        "--b1": "#2a303c",
-        "--bc": "#a6adba",
-        "--p": "#6419e6",
-        "--s": "#d926ac",
-    })
+    const [colors, setColors] = useLocalStorage<Colors>("colors", presets.dark)
     const [currentKey, setCurrentKey] = useState<keyof Colors>("--b1")
 
     // convert hex to hsl and set color
     const setColor = (color: string) => {
         setColors({ ...colors, [currentKey]: color })
+    }
+
+    // set colors to a preset
+    const setPreset = (preset: Colors) => {
+        setColors(preset)
     }
 
     // states to manage color picker popover
@@ -59,12 +50,12 @@ export const ColorModal = () => {
                     const darkerShades = getDarkerShades(hexToHsl(colors[key as keyof Colors]))
                     document.documentElement.style.setProperty("--b2", darkerShades[0] as string)
                     document.documentElement.style.setProperty("--b3", darkerShades[1] as string)
-                } else if (key == "--p") {
+                } else if (key == "--p" || key == "--s" || key == "--n") {
                     const darkerShades = getDarkerShades(hexToHsl(colors[key as keyof Colors]))
-                    document.documentElement.style.setProperty("--pf", darkerShades[3] as string)
+                    document.documentElement.style.setProperty(`${key}f`, darkerShades[3] as string)
                     const lightness = hsl.split(" ")[2]?.slice(0, -1)
-                    if (parseFloat(lightness as string) < 50) document.documentElement.style.setProperty("--pc", "0 0% 100%")
-                    else document.documentElement.style.setProperty("--pc", "0 0% 0%")
+                    if (parseFloat(lightness as string) < 50) document.documentElement.style.setProperty(`${key}c`, "0 0% 100%")
+                    else document.documentElement.style.setProperty(`${key}c`, "0 0% 0%")
                 }
             }
         }
@@ -87,11 +78,9 @@ export const ColorModal = () => {
 
                     <h3 className="font-bold text-2xl">Color Presets</h3>
                     <div className="flex space-x-2">
-                        <button className="btn btn-sm btn-primary border-valentine bg-valentine text-valentine-text hover:border-valentine-hover hover:bg-valentine-hover" 
-                            onClick={() => {return}}
-                        >
-                            Valentine
-                        </button>
+                        <PresetButton name="Retro" preset={presets.retro} hoverStyle="hover:!bg-retro" setColors={setPreset} />
+                        <PresetButton name="Valentine" preset={presets.valentine} hoverStyle="hover:!bg-valentine" setColors={setPreset} />
+                        <PresetButton name="Cyberpunk" preset={presets.cyberpunk} hoverStyle="hover:!bg-cyberpunk" setColors={setPreset} />
                     </div>
                 </label>
             </label>
