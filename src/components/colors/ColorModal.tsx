@@ -77,10 +77,12 @@ export const ColorModal = () => {
                     </div>
 
                     <h3 className="font-bold text-2xl">Color Presets</h3>
-                    <div className="flex space-x-2">
+                    <div className="flex">
                         <PresetButton name="Retro" preset={presets.retro} hoverStyle="hover:!bg-retro" setColors={setPreset} />
                         <PresetButton name="Valentine" preset={presets.valentine} hoverStyle="hover:!bg-valentine" setColors={setPreset} />
                         <PresetButton name="Cyberpunk" preset={presets.cyberpunk} hoverStyle="hover:!bg-cyberpunk" setColors={setPreset} />
+                    </div>
+                    <div className="flex space-x-2">
                     </div>
                 </label>
             </label>
