@@ -39,19 +39,27 @@ const cyberpunkPreset: Colors = {
 }
 
 const pastelPreset: Colors = {
-    "--b1": "#f7f7f7",
-    "--bc": "#f7f7f7",
-    "--p": "#f7f7f7",
-    "--s": "#f7f7f7",
-    "--n": "#7d7259",
+    "--b1": "#ffffff",
+    "--bc": "#333333",
+    "--p": "#d1c1d7",
+    "--s": "#f6cbd1",
+    "--n": "#70acc7",
 }
 
 const draculaPreset: Colors = {
-    "--b1": "#f7f7f7",
-    "--bc": "#f7f7f7",
-    "--p": "#f7f7f7",
-    "--s": "#f7f7f7",
-    "--n": "#7d7259",
+    "--b1": "#282a36",
+    "--bc": "#f8f8f2",
+    "--p": "#ff79c6",
+    "--s": "#bd93f9",
+    "--n": "#414558",
+}
+
+const aquaPreset: Colors = {
+    "--b1": "#345da7",
+    "--bc": "#c5daff",
+    "--p": "#09ecf3",
+    "--s": "#966fb3",
+    "--n": "#3b8ac4",
 }
 
 export interface Presets {
@@ -61,6 +69,7 @@ export interface Presets {
     "cyberpunk": Colors,
     "pastel": Colors,
     "dracula": Colors,
+    "aqua": Colors,
 }
 
 export const presets: Presets = {
@@ -70,4 +79,5 @@ export const presets: Presets = {
     "cyberpunk": cyberpunkPreset,
     "pastel": pastelPreset,
     "dracula": draculaPreset,
+    "aqua": aquaPreset,
 }
