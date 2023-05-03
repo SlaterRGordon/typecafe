@@ -66,7 +66,7 @@ export const ColorModal = () => {
             <input type="checkbox" id="colorModal" className="modal-toggle" />
             <label htmlFor="colorModal" className="modal modal-bottom sm:modal-middle cursor-pointer">
                 <label htmlFor="" className="modal-box !w-[600px] !max-w-5xl space-y-2 !overflow-y-visible">
-                    <div className="mb-4">
+                    <div>
                         <h3 className="font-bold text-2xl">Color Configuration</h3>
                         <div className="flex mx-1">
                             <ColorButton name="Background Color" color={colors["--b1"]} colorKey={"--b1"} togglePopover={togglePopover} />
@@ -76,6 +76,9 @@ export const ColorModal = () => {
                             <ColorButton name="Primary Color" color={colors["--p"]} colorKey={"--p"} togglePopover={togglePopover} />
                             <ColorButton name="Secondary Color" color={colors["--s"]} colorKey={"--s"} togglePopover={togglePopover} />
                         </div>
+                        <button className="btn btn-block btn-primary my-4">
+                            Save
+                        </button>
                     </div>
 
                     <div className="mb-6">  
