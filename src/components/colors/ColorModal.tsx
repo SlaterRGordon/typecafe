@@ -92,6 +92,9 @@ export const ColorModal = () => {
                             <PresetButton name="Dracula" preset={presets.dracula} hoverStyle="hover:!bg-dracula" setColors={setPreset} />
                             <PresetButton name="Pastel" preset={presets.pastel} hoverStyle="hover:!bg-pastel" setColors={setPreset} />
                         </div>
+                        <button className="btn btn-block btn-primary my-4">
+                            Save
+                        </button>
                     </div>
                     <div>  
                         <h3 className="font-bold text-2xl">Saved Colors</h3>
