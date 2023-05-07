@@ -40,6 +40,7 @@ export const ColorModal = () => {
         })
     }
 
+    const [tab, setTab] = useState<"custom" | "presets">("custom")
     const [name, setName] = useState("")
     const [nameError, setNameError] = useState(false)
     const [colors, setColors] = useLocalStorage<Colors>("colors", presets.dark)
@@ -106,7 +107,56 @@ export const ColorModal = () => {
         <>
             <input type="checkbox" id="colorModal" className="modal-toggle" />
             <label htmlFor="colorModal" className="modal modal-bottom sm:modal-middle cursor-pointer">
-                <label htmlFor="" className="modal-box !w-[600px] !max-w-5xl space-y-2 !overflow-y-visible overflow-x-hidden">
+                <label htmlFor="" className="modal-box !w-[640px] !max-w-5xl space-y-2 !overflow-y-visible overflow-x-hidden">
+                    <div className="tabs tabs-boxed">
+                        <a
+                            className={`tab ${tab == "custom" ? 'tab-active' : ''}`}
+                            onClick={() => { setTab("custom") }}
+                        >Saved</a>
+                        <a
+                            className={`tab ${tab == "presets" ? 'tab-active' : ''}`}
+                            onClick={() => { setTab("presets") }}
+                        >Presets</a>
+                    </div>
+                    {tab == "custom" &&
+                        <div>
+                            <h3 className="font-bold text-2xl">Saved Colors</h3>
+                            {sessionData?.user?.id ?
+                                <div className="flex space-x-1">
+                                    {savedColors?.map((colorConfiguration) => {
+                                        const colors: Colors = {
+                                            "--b1": colorConfiguration.background,
+                                            "--bc": colorConfiguration.text,
+                                            "--p": colorConfiguration.primary,
+                                            "--s": colorConfiguration.secondary,
+                                            "--n": colorConfiguration.neutral,
+                                        }
+
+                                        return <CustomColorButton key={colorConfiguration.id} id={colorConfiguration.id} name={colorConfiguration.name} preset={colors} setColors={setPreset} refetch={refetchSavedColors} />
+                                    })}
+                                    {savedColors?.length == 0 && <h2 className="text-xl">No saved colors yet</h2>}
+                                </div>
+                                :
+                                <>
+                                    <h3 className="font-bold text-2xl">Saved Colors</h3>
+                                    <h2 className="text-xl">Please log in to see saved colors</h2>
+                                </>
+                            }
+                        </div>
+                    }
+                    {tab == "presets" &&
+                        <div>
+                            <h3 className="font-bold text-2xl">Color Presets</h3>
+                            <div className="flex gap-1 flex-wrap">
+                                <PresetButton name="Retro" preset={presets.retro} hoverStyle="hover:!bg-retro" setColors={setPreset} />
+                                <PresetButton name="Valentine" preset={presets.valentine} hoverStyle="hover:!bg-valentine" setColors={setPreset} />
+                                <PresetButton name="Cyberpunk" preset={presets.cyberpunk} hoverStyle="hover:!bg-cyberpunk" setColors={setPreset} />
+                                <PresetButton name="Aqua" preset={presets.aqua} hoverStyle="hover:!bg-aqua" setColors={setPreset} />
+                                <PresetButton name="Dracula" preset={presets.dracula} hoverStyle="hover:!bg-dracula" setColors={setPreset} />
+                                <PresetButton name="Pastel" preset={presets.pastel} hoverStyle="hover:!bg-pastel" setColors={setPreset} />
+                            </div>
+                        </div>
+                    }
                     <div>
                         <h3 className="font-bold text-2xl">Color Configuration</h3>
                         {sessionData?.user?.id &&
@@ -133,37 +183,6 @@ export const ColorModal = () => {
                             </div>
                         }
                     </div>
-                    <div>
-                        <h3 className="font-bold text-2xl">Color Presets</h3>
-                        <div className="flex gap-1 flex-wrap">
-                            <PresetButton name="Retro" preset={presets.retro} hoverStyle="hover:!bg-retro" setColors={setPreset} />
-                            <PresetButton name="Valentine" preset={presets.valentine} hoverStyle="hover:!bg-valentine" setColors={setPreset} />
-                            <PresetButton name="Cyberpunk" preset={presets.cyberpunk} hoverStyle="hover:!bg-cyberpunk" setColors={setPreset} />
-                            <PresetButton name="Aqua" preset={presets.aqua} hoverStyle="hover:!bg-aqua" setColors={setPreset} />
-                            <PresetButton name="Dracula" preset={presets.dracula} hoverStyle="hover:!bg-dracula" setColors={setPreset} />
-                            <PresetButton name="Pastel" preset={presets.pastel} hoverStyle="hover:!bg-pastel" setColors={setPreset} />
-                        </div>
-                    </div>
-                    {sessionData?.user?.id &&
-                        <div>
-                            <h3 className="font-bold text-2xl">Saved Colors</h3>
-                            <div className="flex space-x-1">
-                                {savedColors?.map((colorConfiguration) => {
-                                    const colors: Colors = {
-                                        "--b1": colorConfiguration.background,
-                                        "--bc": colorConfiguration.text,
-                                        "--p": colorConfiguration.primary,
-                                        "--s": colorConfiguration.secondary,
-                                        "--n": colorConfiguration.neutral,
-                                    }
-
-                                    return <CustomColorButton key={colorConfiguration.id} id={colorConfiguration.id} name={colorConfiguration.name} preset={colors} setColors={setPreset} refetch={refetchSavedColors} />
-                                })}
-
-                                {savedColors?.length == 0 && <h2 className="text-xl">No saved colors yet</h2>}
-                            </div>
-                        </div>
-                    }
                 </label>
             </label>
             <Popover color={colors[currentKey]} setColor={setColor} isOpen={isOpen} togglePopover={() => setIsOpen(isOpen => !isOpen)} position={position} />
