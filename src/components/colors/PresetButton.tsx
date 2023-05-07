@@ -4,7 +4,7 @@ interface Props {
     name: string,
     preset: Colors,
     hoverStyle: string,
-    setColors: (preset: Colors) => void
+    setColors: (preset: Colors, name: string) => void
 }
 
 export const PresetButton = ({ name, preset, hoverStyle, setColors }: Props) => {
@@ -14,8 +14,8 @@ export const PresetButton = ({ name, preset, hoverStyle, setColors }: Props) => 
             backgroundColor: preset["--b1"], 
             borderColor: preset["--n"], 
             color: preset["--bc"],
-        }} className={`btn flex flex-col basis-0 grow !h-[unset] border rounded-md px-4 py-2 my-1 ${hoverStyle}`} 
-            onClick={() => {setColors(preset)}}
+        }} className={`btn flex flex-col w-44 !h-[unset] border rounded-md px-4 py-2 my-1 ${hoverStyle}`} 
+            onClick={() => {setColors(preset, "")}}
         >
             <h2 className="uppercase font-bold">{name}</h2>
             <div className="flex">
