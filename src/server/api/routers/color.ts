@@ -15,17 +15,19 @@ export const colorRouter = createTRPCRouter({
       });
     }),
   create: protectedProcedure
-    .input(z.object({ 
-        background: z.string(), 
-        text: z.string(),
-        primary: z.string(),
-        secondary: z.string(),
-        neutral: z.string(),
+    .input(z.object({
+      name: z.string(),
+      background: z.string(),
+      text: z.string(),
+      primary: z.string(),
+      secondary: z.string(),
+      neutral: z.string(),
     }))
     .mutation(({ ctx, input }) => {
       return ctx.prisma.colorConfiguration.create({
         data: {
           userId: ctx.session?.user.id,
+          name: input.name,
           background: input.background,
           text: input.text,
           primary: input.primary,
@@ -33,6 +35,15 @@ export const colorRouter = createTRPCRouter({
           neutral: input.neutral,
         },
       });
-    })
-    
+    }),
+  delete: protectedProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      return ctx.prisma.colorConfiguration.delete({
+        where: {
+          id: input.id,
+        },
+      });
+    }),
+
 });
