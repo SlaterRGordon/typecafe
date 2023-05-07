@@ -138,7 +138,6 @@ export const ColorModal = () => {
                                 </div>
                                 :
                                 <>
-                                    <h3 className="font-bold text-2xl">Saved Colors</h3>
                                     <h2 className="text-xl">Please log in to see saved colors</h2>
                                 </>
                             }
