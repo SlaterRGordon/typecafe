@@ -4,15 +4,20 @@ import useLocalStorage from "~/utils/hooks/useLocalStorage";
 import { Popover } from "./Popover";
 import { getDarkerShades, hexToHsl } from "~/utils/convertColor";
 import { ColorButton } from "./ColorButton";
-import { Colors, presets } from "./colorPresets";
+import { presets } from "./colorPresets";
+import type { Colors } from "./colorPresets";
 import { PresetButton } from "./PresetButton";
 import { api } from "~/utils/api";
 import { useSession } from "next-auth/react";
 import { CustomColorButton } from "./CustomColorButton";
+import { useDispatch } from "react-redux";
+import { addAlert } from "~/state/alert/alertSlice";
 
 
 export const ColorModal = () => {
-    const { data: sessionData } = useSession();
+    const dispatch = useDispatch()
+
+    const { data: sessionData } = useSession()
 
     // fetch saved colors
     const { data: savedColors, refetch: refetchSavedColors } = api.color.getByUser.useQuery()
@@ -22,6 +27,11 @@ export const ColorModal = () => {
         onSuccess: () => {
             void refetchSavedColors();
         },
+        onError: (error) => {
+            if (error.message == "\nInvalid `prisma.colorConfiguration.create()` invocation:\n\n\nUnique constraint failed on the (not available)") {
+                dispatch(addAlert({ message: "Color configuration with that name already exists!", type: "error" }))
+            }
+        }
     })
 
     const saveColors = () => {
@@ -166,7 +176,7 @@ export const ColorModal = () => {
                                 </div>
                             </div>
                         }
-                        <div className="flex gap-3 flex-wrap">
+                        <div className="flex gap-1 flex-wrap">
                             <ColorButton name="Background" color={colors["--b1"]} colorKey={"--b1"} togglePopover={togglePopover} />
                             <ColorButton name="Text" color={colors["--bc"]} colorKey={"--bc"} togglePopover={togglePopover} />
                             <ColorButton name="Primary" color={colors["--p"]} colorKey={"--p"} togglePopover={togglePopover} />
