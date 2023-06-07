@@ -64,7 +64,7 @@ model VerificationToken {
 model ColorConfiguration {
     id         String   @id @default(cuid())
     userId     String
-    name       String
+    name       String  @unique
     background String
     text       String
     primary    String
