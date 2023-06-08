@@ -6,7 +6,8 @@ interface Props {
     preset: Colors,
     id: string,
     setColors: (preset: Colors, name: string) => void,
-    refetch: () => void}
+    refetch: () => void
+}
 
 export const CustomColorButton = ({ name, preset, id, setColors, refetch }: Props) => {
     const deleteColorConfiguration = api.color.delete.useMutation({
