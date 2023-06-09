@@ -8,7 +8,7 @@ export const SideNavigation = () => {
 
     return (
         <div
-            className={`fixed flex-col h-screen bg-base-200 hidden md:flex transition-all duration-400 ease-out ${isExpanded ? 'w-64' : 'w-[4.6rem]'}`}
+            className={`fixed flex-col h-full pt-[4rem] z-40 bg-base-200 hidden md:flex transition-all duration-400 ease-out ${isExpanded ? 'w-64' : 'w-[4.6rem]'}`}
             onMouseEnter={() => setIsExpanded(true)}
             onMouseLeave={() => setIsExpanded(false)}
         >

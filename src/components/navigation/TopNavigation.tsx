@@ -4,7 +4,7 @@ export const TopNavigation = () => {
     const { data: sessionData } = useSession();
 
     return (
-        <div className="navbar bg-base-300">
+        <div className="fixed navbar z-50 bg-base-300">
             <div className="flex-1">
                 <a className="btn btn-ghost normal-case text-xl">TypeCafe</a>
             </div>
