@@ -45,8 +45,7 @@ export const ColorModal = () => {
             background: colors["--b1"],
             text: colors["--bc"],
             primary: colors["--p"],
-            secondary: colors["--s"],
-            neutral: colors["--n"],
+            secondary: colors["--s"]
         })
     }
 
@@ -102,7 +101,9 @@ export const ColorModal = () => {
                     const darkerShades = getDarkerShades(hexToHsl(colors[key as keyof Colors]))
                     document.documentElement.style.setProperty("--b2", darkerShades[0] as string)
                     document.documentElement.style.setProperty("--b3", darkerShades[1] as string)
-                } else if (key == "--p" || key == "--s" || key == "--n") {
+                    document.documentElement.style.setProperty("--n", darkerShades[3] as string)
+                    document.documentElement.style.setProperty("--nf", darkerShades[3] as string)
+                } else if (key == "--p" || key == "--s") {
                     const darkerShades = getDarkerShades(hexToHsl(colors[key as keyof Colors]))
                     document.documentElement.style.setProperty(`${key}f`, darkerShades[3] as string)
                     const lightness = hsl.split(" ")[2]?.slice(0, -1)
@@ -138,8 +139,7 @@ export const ColorModal = () => {
                                             "--b1": colorConfiguration.background,
                                             "--bc": colorConfiguration.text,
                                             "--p": colorConfiguration.primary,
-                                            "--s": colorConfiguration.secondary,
-                                            "--n": colorConfiguration.neutral,
+                                            "--s": colorConfiguration.secondary
                                         }
 
                                         return <CustomColorButton key={colorConfiguration.id} id={colorConfiguration.id} name={colorConfiguration.name} preset={colors} setColors={setPreset} refetch={refetchSavedColors} />

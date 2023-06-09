@@ -20,8 +20,7 @@ export const colorRouter = createTRPCRouter({
       background: z.string(),
       text: z.string(),
       primary: z.string(),
-      secondary: z.string(),
-      neutral: z.string(),
+      secondary: z.string()
     }))
     .mutation(({ ctx, input }) => {
       return ctx.prisma.colorConfiguration.create({
@@ -31,8 +30,7 @@ export const colorRouter = createTRPCRouter({
           background: input.background,
           text: input.text,
           primary: input.primary,
-          secondary: input.secondary,
-          neutral: input.neutral,
+          secondary: input.secondary
         },
       });
     }),
