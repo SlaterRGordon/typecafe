@@ -18,7 +18,7 @@ export const Typer = () => {
     }, [restart, mode, count])
 
     return (
-        <div className="flex flex-col justify-center items-center w-8/12 space-y-2">
+        <div className="flex flex-col justify-center items-center w-11/12 md:w-8/12 space-y-2">
             <div className="flex justify-center w-full">
                 {/* settings button */}
                 <button className="btn btn-ghost btn-circle">
