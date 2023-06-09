@@ -17,6 +17,8 @@ export const Typer = () => {
     }, [mode, count])
 
     return (
-        <Text text={text} />
+        <div className="flex justify-center items-center w-full">
+            <Text text={text} />
+        </div>
     )
 }
