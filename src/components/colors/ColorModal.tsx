@@ -168,22 +168,22 @@ export const ColorModal = () => {
                     }
                     <div>
                         <h3 className="font-bold text-2xl">Color Configuration</h3>
-                        {sessionData?.user?.id &&
-                            <div className="flex flex-col mb-1">
-                                <h3 className="flex items-center text-xl">Name</h3>
-                                <div className="flex space-x-2">
-                                    <input type="text" placeholder="Name" className={`input input-sm input-bordered max-w-xs ${nameError ? "input-error" : ""}`} value={name} onChange={onNameChange} />
+                            <div className="space-y-2">
+                            {sessionData?.user?.id &&
+                                <div className="flex flex-col mb-1">
+                                    <h3 className="flex items-center text-xl">Name</h3>
+                                    <div className="flex space-x-2">
+                                        <input type="text" placeholder="Name" className={`input input-sm input-bordered max-w-xs ${nameError ? "input-error" : ""}`} value={name} onChange={onNameChange} />
+                                    </div>
                                 </div>
+                            }
+                            <div className="flex gap-1 flex-wrap">
+                                <ColorButton name="Background" color={colors["--b1"]} colorKey={"--b1"} togglePopover={togglePopover} />
+                                <ColorButton name="Text" color={colors["--bc"]} colorKey={"--bc"} togglePopover={togglePopover} />
+                                <ColorButton name="Primary" color={colors["--p"]} colorKey={"--p"} togglePopover={togglePopover} />
+                                <ColorButton name="Secondary" color={colors["--s"]} colorKey={"--s"} togglePopover={togglePopover} />
                             </div>
-                        }
-                        <div className="flex gap-1 flex-wrap">
-                            <ColorButton name="Background" color={colors["--b1"]} colorKey={"--b1"} togglePopover={togglePopover} />
-                            <ColorButton name="Text" color={colors["--bc"]} colorKey={"--bc"} togglePopover={togglePopover} />
-                            <ColorButton name="Primary" color={colors["--p"]} colorKey={"--p"} togglePopover={togglePopover} />
-                            <ColorButton name="Secondary" color={colors["--s"]} colorKey={"--s"} togglePopover={togglePopover} />
-                            <ColorButton name="Neutral" color={colors["--n"]} colorKey={"--n"} togglePopover={togglePopover} />
                         </div>
-
                         {sessionData?.user?.id &&
                             <div className="space-x-1 my-3">
                                 <button onClick={saveColors} className="btn btn-sm btn-primary btn-block">
