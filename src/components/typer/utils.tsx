@@ -11,7 +11,7 @@ export const generateText = (count: number) => {
     }
 
     // Remove last space
-    return text.slice(0, -1)
+    return text.toLowerCase().slice(0, -1)
 }
 
 export const buildText = (text: string, index=0) => {
