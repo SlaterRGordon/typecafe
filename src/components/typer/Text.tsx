@@ -48,7 +48,10 @@ export const Text = (props: TextProps) => {
 
             if (keys['Tab']) {
                 const restartBtn = props.restartRef.current
-                if (restartBtn) restartBtn.focus()
+                if (restartBtn) {
+                    restartBtn.classList.add("btn-active")
+                    restartBtn.focus()
+                }
             }
 
             if (keys['Tab'] && (keys[' '] || keys['Enter']) && !restarting) {
@@ -59,6 +62,14 @@ export const Text = (props: TextProps) => {
         document.addEventListener("keyup", (e) => {
             // remove from currently pressed keys
             keys = {...keys, [e.key]: false};
+
+            if (e.key == 'Tab') {
+                const restartBtn = props.restartRef.current
+                if (restartBtn) {
+                    restartBtn.classList.remove("btn-active")
+                    restartBtn.blur()
+                }
+            }
         });
     }, [inputRef, props, restarting])
 
