@@ -4,6 +4,7 @@ import { set } from "zod"
 
 interface TextProps {
     text: string,
+    restartRef: React.MutableRefObject<HTMLButtonElement | null>,
     restart: () => void,
 }
 
@@ -44,6 +45,11 @@ export const Text = (props: TextProps) => {
             
             // add to currently pressed keys
             keys = {...keys, [e.key]: true};
+
+            if (keys['Tab']) {
+                const restartBtn = props.restartRef.current
+                if (restartBtn) restartBtn.focus()
+            }
 
             if (keys['Tab'] && (keys[' '] || keys['Enter']) && !restarting) {
                 setRestarting(true)
