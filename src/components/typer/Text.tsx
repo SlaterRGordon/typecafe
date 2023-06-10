@@ -1,12 +1,20 @@
 import { useEffect, useRef, createRef, useState } from "react"
 import { buildText } from "./utils"
+import { set } from "zod"
 
 interface TextProps {
-    text: string
+    text: string,
+    restart: () => void,
+}
+
+interface Keys {
+    [key: string]: boolean
 }
 
 export const Text = (props: TextProps) => {
+    const [restarting, setRestarting] = useState(false)
     const [elements, setElements] = useState<JSX.Element[]>([])
+    const [position, setPosition] = useState(0)
 
     // ref div to scroll text
     const typerRef = useRef(null)
@@ -22,17 +30,35 @@ export const Text = (props: TextProps) => {
         setElements(buildText(props.text))
     }, [props.text])
 
-    // event listeners to focus input
+    // event listeners to focus input or restart
     useEffect(() => {
+        let keys: Keys = {};
         window.addEventListener("click", () => {
             const input = inputRef.current as HTMLInputElement | null
             if (input) input.focus()
         })
-        window.addEventListener("keydown", () => {
+        document.addEventListener("keydown", (e) => {
+            e.preventDefault()
             const input = inputRef.current as HTMLInputElement | null
             if (input) input.focus()
+            
+            // add to currently pressed keys
+            keys = {...keys, [e.key]: true};
+
+            if (keys['Tab'] && (keys[' '] || keys['Enter']) && !restarting) {
+                setRestarting(true)
+                props.restart()
+            }
         })
-    }, [inputRef])
+        document.addEventListener("keyup", (e) => {
+            // remove from currently pressed keys
+            keys = {...keys, [e.key]: false};
+        });
+    }, [inputRef, props, restarting])
+
+    // useEffect(() => {
+
+    // }, [position])
 
     return (
         <div className="flex flex-col max-h-24 w-full overflow-hidden text-[22px] max-w-screen-xl z-30">
