@@ -42,8 +42,8 @@ export const Timer = (props: TimerProps) => {
 
     return (
         <div className={`py-2`}>
-            <span className={`font-mono text-4xl`}>
-                <span>{(time / 1000).toFixed(0)}</span>
+            <span className={`flex font-mono text-4xl gap-4`}>
+                <span className="flex">{time <= 0 ? 0 : (time / 1000).toFixed(0)}</span>
             </span>
         </div>
     )
