@@ -1,34 +1,49 @@
 import { useEffect, useState } from "react"
 
 interface TimerProps {
-    time: number | null,
+    time: number,
     started: boolean,
     onComplete: () => void,
 }
 
 export const Timer = (props: TimerProps) => {
-    const [timer, setTimer] = useState(props.time ? props.time : 0)
+    const [time, setTime] = useState(props.time * 1000)
+    const [referenceTime, setReferenceTime] = useState(Date.now())
 
     useEffect(() => {
-        if (!props.started) {
-            setTimer(props.time ? props.time : 0)
-            return
+        const countdown = () => {
+            setTime(prevTime => {
+                if (prevTime <= 0) return 0
+
+                const now = Date.now()
+                const interval = now - referenceTime
+                setReferenceTime(now)
+
+                return prevTime - interval
+            })
         }
 
-        const interval = setInterval(() => {
-            setTimer((timer) => timer - 1)
-            if (timer <= 0) {
-                props.onComplete()
-            }
-        }, 1000)
+        if (props.started) {
+            const timeout = setTimeout(countdown, 1000)
 
-        return () => clearInterval(interval)
-    }, [props, timer])
+            return () => {
+                clearTimeout(timeout)
+            }
+        } else {
+            setTime(props.time * 1000)
+        }
+    }, [referenceTime, props])
+
+    useEffect(() => {
+        if (props.started) {
+            setReferenceTime(Date.now())
+        }
+    }, [props.started])
 
     return (
         <div className={`py-2`}>
             <span className={`font-mono text-4xl`}>
-                <span>{timer}</span>
+                <span>{(time / 1000).toFixed(0)}</span>
             </span>
         </div>
     )
