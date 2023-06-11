@@ -24,10 +24,8 @@ export const buildText = (text: string, index=0) => {
         })
 
         // add space to end of word
-        if (index != text.length) {
-            letters.push(<div key={index} id={index.toString()}>&nbsp;</div>);
-            index += 1;
-        }
+        letters.push(<div key={index} id={index.toString()}>&nbsp;</div>);
+        index += 1;
 
         // add word
         words.push(<div key={index} className="inline-flex">{letters}</div>);

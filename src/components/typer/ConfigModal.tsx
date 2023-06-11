@@ -14,7 +14,7 @@ export const ConfigModal = () => {
         <>
             <input type="checkbox" id="configModal" className="modal-toggle" />
             <label htmlFor="configModal" className="modal modal-bottom !my-0 sm:modal-middle cursor-pointer">
-                <label htmlFor="" className="modal-box !w-[640px] !max-w-5xl !overflow-y-visible overflow-x-hidden">
+                <label htmlFor="" className="modal-box !w-[640px] !max-w-5xl space-y-2 !overflow-y-visible overflow-x-hidden">
                     <div className="tabs tabs-boxed">
                         <a
                             className={`tab ${tab == "normal" ? 'tab-active' : ''}`}
@@ -36,6 +36,7 @@ export const ConfigModal = () => {
                     {tab == "normal" &&
                         <div>
                             <h3 className="font-bold text-2xl">Normal</h3>
+
                         </div>
                     }
                     {tab == "progression" &&
@@ -53,9 +54,6 @@ export const ConfigModal = () => {
                             <h3 className="font-bold text-2xl">Paced</h3>
                         </div>
                     }
-                    <div>
-                        <h3 className="font-bold text-2xl">Typing Configuration</h3>
-                    </div>
                 </label>
             </label>
         </>

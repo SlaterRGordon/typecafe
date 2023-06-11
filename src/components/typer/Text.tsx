@@ -6,6 +6,7 @@ interface TextProps {
     text: string,
     restartRef: React.MutableRefObject<HTMLButtonElement | null>,
     restart: () => void,
+    onStart: () => void,
 }
 
 interface Keys {
@@ -24,7 +25,7 @@ export const Text = (props: TextProps) => {
     const inputRef = useRef(null)
 
     const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
-        console.log(e.key)
+        if (position == 0) props.onStart()
     }
 
     useEffect(() => {
@@ -78,7 +79,7 @@ export const Text = (props: TextProps) => {
     // }, [position])
 
     return (
-        <div className="flex flex-col max-h-24 w-full overflow-hidden text-[22px] max-w-screen-xl z-30">
+        <div className="flex flex-col max-h-24 w-full overflow-hidden text-[22px] mb-8 max-w-screen-xl z-30">
             <input id="input" autoComplete="off" className="h-0 p-0 m-0 border-none" onKeyDown={handleKeyPress} ref={inputRef} autoFocus />
             <div className="flex flex-wrap justify-center overflow-y-hidden no-scrollbar scroll-smooth text-textPrimary select-none" id="words" ref={typerRef}>
                 {elements}

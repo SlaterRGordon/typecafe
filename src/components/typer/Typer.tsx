@@ -3,11 +3,13 @@ import type { TestModes } from "./types"
 import { generateText } from "./utils"
 import { Text } from "./Text"
 import { ConfigModal } from "./ConfigModal"
+import { Timer } from "./Timer"
 
 export const Typer = () => {
     const [mode, setMode] = useState<TestModes>("timed")
     const [count, setCount] = useState(15)
     const [text, setText] = useState("")
+    const [started, setStarted] = useState(false)
 
     // ref for restart button
     const restartRef = useRef(null)
@@ -18,11 +20,21 @@ export const Typer = () => {
         } else if (mode === "words") {
             setText(generateText(count))
         }
+
+        setStarted(false)
     }, [mode, count])
 
     useEffect(() => {
         handleRestart()
     }, [handleRestart])
+
+    const handleStart = () => {
+        setStarted(true)
+    }
+
+    const handleComplete = () => {
+        setStarted(false)
+    }
 
     return (
         <div className="flex flex-col justify-center items-center w-11/12 md:w-8/12 space-y-2">
@@ -36,7 +48,8 @@ export const Typer = () => {
                     <svg id="restart" xmlns="http://www.w3.org/2000/svg" className="w-7 h-7" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5"><path d="M12 3a9 9 0 1 1-5.657 2" /><path d="M3 4.5h4v4" /></g></svg>
                 </button>
             </div>
-            <Text text={text} restartRef={restartRef} restart={handleRestart} />
+            <Text text={text} restartRef={restartRef} restart={handleRestart} onStart={handleStart} />
+            <Timer started={started} onComplete={handleComplete} time={mode == "timed" ? count : null} />
             <ConfigModal />
         </div>
     )
