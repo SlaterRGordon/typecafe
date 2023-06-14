@@ -5,7 +5,7 @@ import { Text } from "./Text"
 import { Timer } from "./Timer"
 import { Stats } from "./Stats"
 import { Modal } from "../Modal"
-import { TyperConfig } from "../config/Config"
+import { Config } from "./config/Config"
 
 export const Typer = () => {
     const [showStats, setShowStats] = useState(true)
@@ -65,7 +65,7 @@ export const Typer = () => {
                 </div>
             </div>
             <Modal>
-                <TyperConfig 
+                <Config 
                     mode={mode} setMode={setMode} 
                     subMode={subMode} setSubMode={setSubMode} 
                     count={count} setCount={setCount} 
