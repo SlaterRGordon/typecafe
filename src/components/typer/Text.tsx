@@ -1,6 +1,5 @@
-import { useEffect, useRef, createRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { buildText } from "./utils"
-import { set } from "zod"
 
 interface TextProps {
     text: string,

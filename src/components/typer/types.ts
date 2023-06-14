@@ -1,2 +1,11 @@
-export type TestModes = 'normal' | 'progression' | "ngrams" | "pace"
-export type TestSubModes = 'timed' | 'words'
+export enum TestModes {
+    normal,
+    progression,
+    ngrams,
+    pace
+}
+
+export enum TestSubModes {
+    timed,
+    words
+}

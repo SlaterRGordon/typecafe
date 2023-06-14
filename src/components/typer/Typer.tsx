@@ -1,15 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from "react"
-import type { TestModes, TestSubModes } from "./types"
+import { TestModes, TestSubModes } from "./types"
 import { generateText } from "./utils"
 import { Text } from "./Text"
-import { ConfigModal } from "./ConfigModal"
 import { Timer } from "./Timer"
 import { Stats } from "./Stats"
+import { Modal } from "../Modal"
+import { TyperConfig } from "../config/Config"
 
 export const Typer = () => {
     const [showStats, setShowStats] = useState(true)
-    const [mode, setMode] = useState<TestModes>("normal")
-    const [subMode, setSubMode] = useState<TestSubModes>("timed")
+    const [mode, setMode] = useState<TestModes>(TestModes.normal)
+    const [subMode, setSubMode] = useState<TestSubModes>(TestSubModes.timed)
     const [count, setCount] = useState(15)
     const [text, setText] = useState("")
     const [started, setStarted] = useState(false)
@@ -18,9 +19,9 @@ export const Typer = () => {
     const restartRef = useRef(null)
 
     const handleRestart = useCallback(() => {
-        if (subMode === "timed") {
+        if (subMode === TestSubModes.timed) {
             setText(generateText(500))
-        } else if (subMode === "words") {
+        } else if (subMode === TestSubModes.words) {
             setText(generateText(count))
         }
 
@@ -56,19 +57,21 @@ export const Typer = () => {
             </div>
             <Text text={text} restartRef={restartRef} restart={handleRestart} onStart={handleStart} />
             <div className="flex flex-col relative items-center w-full gap-4">
-                {subMode === "timed" &&
+                {subMode === TestSubModes.timed &&
                     <Timer started={started} onComplete={handleComplete} time={count} />
                 }
                 <div className="visible md:invisible">
                     {showStats && <Stats wpm={0} accuracy={0.00} />}
                 </div>
             </div>
-            <ConfigModal 
-                mode={mode} setMode={setMode} 
-                subMode={subMode} setSubMode={setSubMode} 
-                count={count} setCount={setCount} 
-                showStats={showStats} setShowStats={setShowStats} 
-            />
+            <Modal>
+                <TyperConfig 
+                    mode={mode} setMode={setMode} 
+                    subMode={subMode} setSubMode={setSubMode} 
+                    count={count} setCount={setCount} 
+                    showStats={showStats} setShowStats={setShowStats} 
+                />
+            </Modal>
         </div>
     )
 }
