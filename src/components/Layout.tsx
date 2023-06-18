@@ -6,7 +6,9 @@ export default function Layout({ children }: any) {
         <>  
             <Alerts />
             <Navigation />
-            <main className="flex w-full h-full justify-center items-center box-border py-[4rem] md:pl-[4.6rem]">{children}</main>
+            <main 
+                id="main" 
+                className="flex w-full h-full justify-center items-center box-border py-[4rem] md:pl-[4.6rem]">{children}</main>
         </>
     );
 }
