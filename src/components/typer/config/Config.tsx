@@ -26,7 +26,7 @@ export const Config = (props: ConfigProps) => {
             <ConfigOption
                 options={["Normal", "Learn", "nGram", "Paced"]}
                 active={props.mode}
-                onChange={(newMode: number) => { props.setMode(newMode) }}
+                onChange={(newMode: string | number) => { props.setMode(newMode as TestModes) }}
             />
             {props.mode == TestModes.normal &&
                 <>
@@ -34,7 +34,7 @@ export const Config = (props: ConfigProps) => {
                     <ConfigOption
                         options={["Timed", "Words"]}
                         active={props.subMode}
-                        onChange={(newSubMode: number) => { handleSubModeChange(newSubMode) }}
+                        onChange={(newSubMode: string | number) => { handleSubModeChange(newSubMode as TestSubModes) }}
                     />
                     {props.subMode == TestSubModes.timed &&
                     <>
@@ -43,7 +43,7 @@ export const Config = (props: ConfigProps) => {
                             options={["15s", "30s", "60s", "120s"]}
                             values={[15, 30, 60, 120]}
                             active={props.count}
-                            onChange={(newCount: number) => { props.setCount(newCount) }}
+                            onChange={(newCount: string | number) => { props.setCount(newCount as number) }}
                         />
                     </>
                     }
@@ -54,7 +54,7 @@ export const Config = (props: ConfigProps) => {
                             options={["10", "25", "50", "100"]}
                             values={[10, 25, 50, 100]}
                             active={props.count}
-                            onChange={(newCount: number) => { props.setCount(newCount) }}
+                            onChange={(newCount: string | number) => { props.setCount(newCount as number) }}
                         />
                     </>
                     }
@@ -77,6 +77,12 @@ export const Config = (props: ConfigProps) => {
                     <h3 className="font-bold text-2xl">Paced</h3>
                 </div>
             }
+            <h3 className="font-semibold text-2xl px-1">Live Stats</h3>
+            <ConfigOption
+                options={["off", "on"]}
+                active={props.showStats ? 1 : 0}
+                onChange={(newShowStats: string | number) => { props.setShowStats(newShowStats == 1 ? true : false) }}
+            />
         </>
     )
 }
