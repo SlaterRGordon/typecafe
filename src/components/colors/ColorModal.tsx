@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useWindowSize } from "usehooks-ts";
 import useLocalStorage from "~/utils/hooks/useLocalStorage";
 import { Popover } from "./Popover";
@@ -12,6 +12,7 @@ import { useSession } from "next-auth/react";
 import { CustomColorButton } from "./CustomColorButton";
 import { useDispatch } from "react-redux";
 import { addAlert } from "~/state/alert/alertSlice";
+import { ConfigOption } from "../typer/config/ConfigOption";
 
 
 export const ColorModal = () => {
@@ -49,11 +50,13 @@ export const ColorModal = () => {
         })
     }
 
-    const [tab, setTab] = useState<"custom" | "presets">("custom")
+    const [tab, setTab] = useState<"custom" | "presets" | "saved">("presets")
     const [name, setName] = useState("")
     const [nameError, setNameError] = useState(false)
     const [colors, setColors] = useLocalStorage<Colors>("colors", presets.dark)
     const [currentKey, setCurrentKey] = useState<keyof Colors>("--b1")
+
+    const nameRef = useRef(null);
 
     const onNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setName(e.target.value)
@@ -87,7 +90,7 @@ export const ColorModal = () => {
         e.stopPropagation()
         setCurrentKey(key)
         // set position to that of the button clicked
-        setPosition({ left: e.currentTarget.getBoundingClientRect().left + 32, top: e.currentTarget.getBoundingClientRect().top - 204 })
+        setPosition({ left: e.currentTarget.getBoundingClientRect().left + 34, top: e.currentTarget.getBoundingClientRect().top - 175 })
         setIsOpen(isOpen => !isOpen)
     }
 
@@ -118,18 +121,15 @@ export const ColorModal = () => {
         <>
             <input type="checkbox" id="colorModal" className="modal-toggle" />
             <label htmlFor="colorModal" className="modal modal-bottom sm:modal-middle cursor-pointer">
-                <label htmlFor="" className="modal-box !w-[640px] !max-w-5xl space-y-2 !overflow-y-visible overflow-x-hidden">
-                    <div className="tabs tabs-boxed">
-                        <a
-                            className={`tab ${tab == "custom" ? 'tab-active' : ''}`}
-                            onClick={() => { setTab("custom") }}
-                        >Saved</a>
-                        <a
-                            className={`tab ${tab == "presets" ? 'tab-active' : ''}`}
-                            onClick={() => { setTab("presets") }}
-                        >Presets</a>
-                    </div>
-                    {tab == "custom" &&
+                <label htmlFor="" className="flex flex-col modal-box sm:!w-[440px] !h-[420px] !max-w-5xl space-y-2 !overflow-y-visible overflow-x-hidden">
+                    <h3 className="font-bold text-4xl px-1">Colors</h3>
+                    <ConfigOption
+                        options={["presets", "saved", "custom"]}
+                        values={["presets", "saved", "custom"]}
+                        active={tab}
+                        onChange={(newTab: string | number) => { setTab(newTab as "presets" | "custom" | "saved") }}
+                    />
+                    {tab == "saved" &&
                         <div>
                             <h3 className="font-bold text-2xl">Saved Colors</h3>
                             {sessionData?.user?.id ?
@@ -166,32 +166,49 @@ export const ColorModal = () => {
                             </div>
                         </div>
                     }
-                    <div>
-                        <h3 className="font-bold text-2xl">Color Configuration</h3>
-                            <div className="space-y-2">
-                            {sessionData?.user?.id &&
-                                <div className="flex flex-col mb-1">
-                                    <h3 className="flex items-center text-xl">Name</h3>
-                                    <div className="flex space-x-2">
-                                        <input type="text" placeholder="Name" className={`input input-sm input-bordered max-w-xs ${nameError ? "input-error" : ""}`} value={name} onChange={onNameChange} />
+                    {tab == "custom" &&
+                        <>
+                            <div>
+                                <h3 className="font-bold text-2xl">Custom Color</h3>
+                                <div className="space-y-2">
+                                    {sessionData?.user?.id &&
+                                        <div className="flex flex-col mb-1">
+                                            <h3 className="flex items-center text-xl">Name</h3>
+                                            <div className="flex space-x-2">
+                                                <input 
+                                                    type="text" placeholder="Name" 
+                                                    className={`input input-sm input-bordered max-w-xs ${nameError ? "input-error" : ""}`} 
+                                                    value={name} 
+                                                    ref={nameRef}
+                                                    onClick={() => {
+                                                        const input = nameRef.current as HTMLInputElement | null
+                                                        if (input) input.focus()
+                                                    }}
+                                                    onKeyDown={() => {
+                                                        const input = nameRef.current as HTMLInputElement | null
+                                                        if (input) input.focus()
+                                                    }}
+                                                    onChange={onNameChange} />
+                                            </div>
+                                        </div>
+                                    }
+                                    <div className="flex gap-1 flex-wrap">
+                                        <ColorButton name="Background" color={colors["--b1"]} colorKey={"--b1"} togglePopover={togglePopover} />
+                                        <ColorButton name="Text" color={colors["--bc"]} colorKey={"--bc"} togglePopover={togglePopover} />
+                                        <ColorButton name="Primary" color={colors["--p"]} colorKey={"--p"} togglePopover={togglePopover} />
+                                        <ColorButton name="Secondary" color={colors["--s"]} colorKey={"--s"} togglePopover={togglePopover} />
                                     </div>
                                 </div>
+                            </div>
+                            {sessionData?.user?.id &&
+                                <div className="!mt-4 w-full">
+                                    <button onClick={saveColors} className="btn btn-sm btn-primary btn-block">
+                                        Save
+                                    </button>
+                                </div>
                             }
-                            <div className="flex gap-1 flex-wrap">
-                                <ColorButton name="Background" color={colors["--b1"]} colorKey={"--b1"} togglePopover={togglePopover} />
-                                <ColorButton name="Text" color={colors["--bc"]} colorKey={"--bc"} togglePopover={togglePopover} />
-                                <ColorButton name="Primary" color={colors["--p"]} colorKey={"--p"} togglePopover={togglePopover} />
-                                <ColorButton name="Secondary" color={colors["--s"]} colorKey={"--s"} togglePopover={togglePopover} />
-                            </div>
-                        </div>
-                        {sessionData?.user?.id &&
-                            <div className="space-x-1 my-3">
-                                <button onClick={saveColors} className="btn btn-sm btn-primary btn-block">
-                                    Save
-                                </button>
-                            </div>
-                        }
-                    </div>
+                        </>
+                    }
                 </label>
             </label>
             <Popover color={colors[currentKey]} setColor={setColor} isOpen={isOpen} togglePopover={() => setIsOpen(isOpen => !isOpen)} position={position} />
