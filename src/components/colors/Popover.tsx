@@ -29,8 +29,8 @@ export const Popover = ({color, setColor, isOpen, togglePopover, position}: Prop
             absolute flex justify-center items-center inset-0 z-[999] transition-all duration-200 cursor-pointer
             ${isOpen ? 'visible opacity-100 pointer-events-auto' : 'invisible opacity-0 pointer-events-none'}
         `}>
-            <div ref={ref} style={{top: `${position.top}px`, left: `${position.left}px`}} className={`flex flex-col items-start absolute w-[200px] space-y-1`}>
-                <HexColorPicker color={color} onChange={setColor} />
+            <div ref={ref} style={{top: `${position.top}px`, left: `${position.left}px`}} className={`flex flex-col items-start absolute w-[140px] space-y-1`}>
+                <HexColorPicker className="!w-[170px] !h-[170px]" color={color} onChange={setColor} />
                 <input 
                     value={color.slice(1)} 
                     onChange={(e) => setColor('#' + e.target.value)} 
