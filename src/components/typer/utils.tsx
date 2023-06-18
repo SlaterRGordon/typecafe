@@ -19,12 +19,13 @@ export const buildText = (text: string, index=0) => {
     text.split(" ").forEach(word => {
         const letters: JSX.Element[] = []
         word.split("").forEach(letter => {
-            letters.push(<div key={index} id={index.toString()}>{letter}</div>);
+            if (index == 0) letters.push(<div key={index} id={"c" + index.toString()}>{letter}</div>);
+            else letters.push(<div key={index} id={"c" + index.toString()}>{letter}</div>);
             index += 1;
         })
 
         // add space to end of word
-        letters.push(<div key={index} id={index.toString()}>&nbsp;</div>);
+        letters.push(<div key={index} id={"c" + index.toString()}>&nbsp;</div>);
         index += 1;
 
         // add word

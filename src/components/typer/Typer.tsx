@@ -4,20 +4,26 @@ import { generateText } from "./utils"
 import { Text } from "./Text"
 import { Timer } from "./Timer"
 import { Stats } from "./Stats"
-import { Modal } from "../Modal"
-import { Config } from "./config/Config"
 
-export const Typer = () => {
-    const [showStats, setShowStats] = useState(true)
-    const [mode, setMode] = useState<TestModes>(TestModes.normal)
-    const [subMode, setSubMode] = useState<TestSubModes>(TestSubModes.timed)
-    const [count, setCount] = useState(15)
+interface Keys {
+    [key: string]: boolean
+}
+
+interface TyperProps {
+    mode: TestModes,
+    subMode: TestSubModes,
+    count: number,
+    showStats: boolean,
+}
+
+export const Typer = (props: TyperProps) => {
+    const { mode, subMode, count, showStats } = props
     const [text, setText] = useState("")
     const [started, setStarted] = useState(false)
 
     // ref for restart button
     const restartRef = useRef(null)
-
+    
     const handleRestart = useCallback(() => {
         if (subMode === TestSubModes.timed) {
             setText(generateText(500))
@@ -40,6 +46,38 @@ export const Typer = () => {
         setStarted(false)
     }
 
+    useEffect(() => {
+        let keys: Keys = {};
+        document.addEventListener("keydown", (e) => {
+            // add to currently pressed keys
+            keys = { ...keys, [e.key]: true };
+
+            if (keys['Tab']) {
+                const restartBtn = restartRef.current as HTMLButtonElement | null
+                if (restartBtn) {
+                    restartBtn.classList.add("btn-active")
+                    restartBtn.focus()
+                }
+            }
+
+            if (keys['Tab'] && (keys[' '] || keys['Enter'])) {
+                handleRestart()
+            }
+        })
+        document.addEventListener("keyup", (e) => {
+            // remove from currently pressed keys
+            keys = { ...keys, [e.key]: false };
+
+            if (e.key == 'Tab') {
+                const restartBtn = restartRef.current as HTMLButtonElement | null
+                if (restartBtn) {
+                    restartBtn.classList.remove("btn-active")
+                    restartBtn.blur()
+                }
+            }
+        });
+    }, [handleRestart])
+
     return (
         <div className="flex flex-col justify-center items-center w-11/12 md:w-8/12 space-y-2">
             <div className="flex relative justify-center items-center w-full gap-2 max-w-screen-xl">
@@ -55,7 +93,7 @@ export const Typer = () => {
                     <svg id="restart" xmlns="http://www.w3.org/2000/svg" className="w-7 h-7" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5"><path d="M12 3a9 9 0 1 1-5.657 2" /><path d="M3 4.5h4v4" /></g></svg>
                 </button>
             </div>
-            <Text text={text} restartRef={restartRef} restart={handleRestart} onStart={handleStart} />
+            <Text text={text} restarted={!started} onStart={handleStart} />
             <div className="flex flex-col relative items-center w-full gap-4">
                 {subMode === TestSubModes.timed &&
                     <Timer started={started} onComplete={handleComplete} time={count} />
@@ -64,14 +102,6 @@ export const Typer = () => {
                     {showStats && <Stats wpm={0} accuracy={0.00} />}
                 </div>
             </div>
-            <Modal>
-                <Config 
-                    mode={mode} setMode={setMode} 
-                    subMode={subMode} setSubMode={setSubMode} 
-                    count={count} setCount={setCount} 
-                    showStats={showStats} setShowStats={setShowStats} 
-                />
-            </Modal>
         </div>
     )
 }

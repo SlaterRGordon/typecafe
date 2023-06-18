@@ -3,84 +3,113 @@ import { buildText } from "./utils"
 
 interface TextProps {
     text: string,
-    restartRef: React.MutableRefObject<HTMLButtonElement | null>,
-    restart: () => void,
+    restarted: boolean,
     onStart: () => void,
 }
 
-interface Keys {
-    [key: string]: boolean
-}
-
 export const Text = (props: TextProps) => {
-    const [restarting, setRestarting] = useState(false)
     const [elements, setElements] = useState<JSX.Element[]>([])
     const [position, setPosition] = useState(0)
 
     // ref div to scroll text
-    const typerRef = useRef(null)
+    const typerRef = useRef<HTMLDivElement>(null)
 
     // ref input to focus
-    const inputRef = useRef(null)
+    const inputRef = useRef<HTMLInputElement>(null)
+
+    // event listeners to focus input
+    useEffect(() => {
+        document.getElementById("typer")?.addEventListener("click", () => {
+            console.log("clicked")
+            const input = inputRef.current
+            if (input) input.focus()
+        })
+    }, [inputRef])
+
+    useEffect(() => {
+        if (props.restarted) {
+            setPosition(0)
+            setElements(buildText(props.text))
+        }
+    }, [props.restarted, props.text])
+
+    // remove classes on reset/init
+    useEffect(() => {
+        const words = typerRef.current?.children
+        if (words) {
+            Array.from(words).forEach(word => {
+                const letters = word.children
+                Array.from(letters).forEach(letter => {
+                    letter.setAttribute("class", "");
+                })
+            })
+        }
+    }, [elements])
+
+    useEffect(() => {
+        const current = typerRef.current?.querySelector("#c" + position.toString()) as HTMLDivElement
+        if (current && typerRef.current) {
+            current.classList.add("active-char", "text-primary")
+
+            // scroll typer if new line
+            const offset = current.offsetTop - typerRef.current.offsetTop;
+            if (offset !== typerRef.current.scrollTop) {
+                typerRef.current.scrollBy(0, offset - typerRef.current.scrollTop);
+            }
+        }
+    }, [position, elements, typerRef])
 
     const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
-        if (position == 0) props.onStart()
+        const current = typerRef.current?.querySelector("#c" + position.toString()) as HTMLDivElement
+
+        if (current) {
+            // check for correct key or incorrect
+            if ((current.innerText.trim() === '' && e.key === ' ') || current.innerText.trim() === e.key) {
+                nextLetter(true);
+            } else if (
+                (e.code == 'Space' && position > 0) || 
+                e.key.length == 1 && ((e.key >= 'a' && e.key <= 'z') || (e.key >= 'A' && e.key <= 'Z'))
+            ) {
+                console.log(e.key)
+                nextLetter(false);
+            } else if (e.code === 'Backspace' && position > 0) {
+                prevLetter();
+            }
+        }
     }
 
-    useEffect(() => {
-        setElements(buildText(props.text))
-    }, [props.text])
+    const nextLetter = (correct: boolean) => {
+        const current = typerRef.current?.querySelector("#c" + position.toString()) as HTMLDivElement
+        if (current) {
+            // update current char before moving on
+            current.classList.remove("active-char", "text-primary")
+            correct ? current.classList.add("text-base-300") : current.classList.add("text-secondary", "underline")
 
-    // event listeners to focus input or restart
-    useEffect(() => {
-        let keys: Keys = {};
-        window.addEventListener("click", () => {
-            const input = inputRef.current as HTMLInputElement | null
-            if (input) input.focus()
-        })
-        document.addEventListener("keydown", (e) => {
-            e.preventDefault()
-            const input = inputRef.current as HTMLInputElement | null
-            if (input) input.focus()
-            
-            // add to currently pressed keys
-            keys = {...keys, [e.key]: true};
-
-            if (keys['Tab']) {
-                const restartBtn = props.restartRef.current
-                if (restartBtn) {
-                    restartBtn.classList.add("btn-active")
-                    restartBtn.focus()
-                }
+            // if position is at end of text
+            if (position + 1 === props.text.length) {
+                // complete test
             }
 
-            if (keys['Tab'] && (keys[' '] || keys['Enter']) && !restarting) {
-                setRestarting(true)
-                props.restart()
-            }
-        })
-        document.addEventListener("keyup", (e) => {
-            // remove from currently pressed keys
-            keys = {...keys, [e.key]: false};
+            setPosition(position => position + 1)
+        }
+    }
 
-            if (e.key == 'Tab') {
-                const restartBtn = props.restartRef.current
-                if (restartBtn) {
-                    restartBtn.classList.remove("btn-active")
-                    restartBtn.blur()
-                }
-            }
-        });
-    }, [inputRef, props, restarting])
+    const prevLetter = () => {
+        const current = typerRef.current?.querySelector("#c" + position.toString()) as HTMLDivElement
+        const previous = typerRef.current?.querySelector("#c" + (position-1).toString()) as HTMLDivElement
 
-    // useEffect(() => {
+        if (current) {
+            current.classList.remove("active-char", "text-primary")
+            previous?.setAttribute("class", "")
 
-    // }, [position])
+            setPosition(position => position - 1)
+        }
+    }
 
     return (
-        <div className="flex flex-col max-h-24 w-full overflow-hidden text-[22px] mb-8 max-w-screen-xl z-30">
+        <div id="text" className="relative flex flex-col max-h-24 leading-[2rem] w-full overflow-hidden text-[22px] mb-8 max-w-screen-xl z-30">
             <input id="input" autoComplete="off" className="h-0 p-0 m-0 border-none" onKeyDown={handleKeyPress} ref={inputRef} autoFocus />
-            <div className="flex flex-wrap justify-center overflow-y-hidden no-scrollbar scroll-smooth text-textPrimary select-none" id="words" ref={typerRef}>
+            <div className="flex flex-wrap justify-center overflow-y-hidden no-scrollbar scroll-smooth font-mono select-none" id="words" ref={typerRef}>
                 {elements}
             </div>
         </div>
