@@ -65,7 +65,6 @@ export const Text = (props: TextProps) => {
         const current = typerRef.current?.querySelector("#c" + position.toString()) as HTMLDivElement
 
         if (current && props.restarted) {
-            console.log("key: ", e.key)
             // check for correct key or incorrect
             if ((current.innerText.trim() === '' && e.key === ' ') || current.innerText.trim() === e.key) {
                 nextLetter(true)

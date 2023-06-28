@@ -27,7 +27,6 @@ export const Typer = (props: TyperProps) => {
         endTime: 0,
         timerType: 'DECREMENTAL',
         onTimeOver: () => {
-            console.log("time over")
             setStarted(false)
             setRestarted(false)
         },
@@ -67,7 +66,6 @@ export const Typer = (props: TyperProps) => {
 
     useEffect(() => {
         const minutes = (count - time) / 60
-        console.log(characterCount, minutes)
         // calculate wpm
         if (minutes == 0) setWpm(0)
         else setWpm((characterCount / 5) / minutes)
