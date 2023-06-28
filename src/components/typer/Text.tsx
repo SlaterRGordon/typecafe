@@ -3,7 +3,10 @@ import { buildText } from "./utils"
 
 interface TextProps {
     text: string,
+    started: boolean,
     restarted: boolean,
+    setCharacterCount: (count: number) => void,
+    setIncorrectCount: (count: number) => void,
     onStart: () => void,
 }
 
@@ -20,7 +23,6 @@ export const Text = (props: TextProps) => {
     // event listeners to focus input
     useEffect(() => {
         document.getElementById("typer")?.addEventListener("click", () => {
-            console.log("clicked")
             const input = inputRef.current
             if (input) input.focus()
         })
@@ -62,18 +64,21 @@ export const Text = (props: TextProps) => {
     const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
         const current = typerRef.current?.querySelector("#c" + position.toString()) as HTMLDivElement
 
-        if (current) {
+        if (current && props.restarted) {
+            console.log("key: ", e.key)
             // check for correct key or incorrect
             if ((current.innerText.trim() === '' && e.key === ' ') || current.innerText.trim() === e.key) {
-                nextLetter(true);
+                nextLetter(true)
+                // start timer
+                if (position === 0 && !props.started) props.onStart()
             } else if (
-                (e.code == 'Space' && position > 0) || 
-                e.key.length == 1 && ((e.key >= 'a' && e.key <= 'z') || (e.key >= 'A' && e.key <= 'Z'))
+                position > 0 &&
+                (e.code == 'Space' || 
+                e.key.length == 1 && ((e.key >= 'a' && e.key <= 'z') || (e.key >= 'A' && e.key <= 'Z')))
             ) {
-                console.log(e.key)
-                nextLetter(false);
-            } else if (e.code === 'Backspace' && position > 0) {
-                prevLetter();
+                nextLetter(false)
+            } else if (position > 0 && e.code === 'Backspace') {
+                prevLetter()
             }
         }
     }
@@ -83,7 +88,11 @@ export const Text = (props: TextProps) => {
         if (current) {
             // update current char before moving on
             current.classList.remove("active-char", "text-primary")
-            correct ? current.classList.add("text-base-300") : current.classList.add("text-secondary", "underline")
+            if (correct) {
+                current.classList.add("text-base-300") 
+            } else {
+                current.classList.add("text-secondary", "underline")
+            }
 
             // if position is at end of text
             if (position + 1 === props.text.length) {
@@ -105,6 +114,12 @@ export const Text = (props: TextProps) => {
             setPosition(position => position - 1)
         }
     }
+
+    useEffect(() => {
+        props.setCharacterCount(position)
+        const incorrect = typerRef.current?.querySelectorAll(".underline").length
+        if (incorrect) props.setIncorrectCount(incorrect)
+    }, [position, props])
 
     return (
         <div id="text" className="relative flex flex-col max-h-24 leading-[2rem] w-full overflow-hidden text-[22px] mb-8 max-w-screen-xl z-30">

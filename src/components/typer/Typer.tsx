@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from "react"
+import React, { useCallback, useEffect, useRef, useState } from "react"
 import { TestModes, TestSubModes } from "./types"
 import { generateText } from "./utils"
+import { useTimer } from "use-timer"
 import { Text } from "./Text"
-import { Timer } from "./Timer"
 import { Stats } from "./Stats"
 
 interface Keys {
@@ -20,10 +20,26 @@ export const Typer = (props: TyperProps) => {
     const { mode, subMode, count, showStats } = props
     const [text, setText] = useState("")
     const [started, setStarted] = useState(false)
+    const [restarted, setRestarted] = useState(true)
+
+    const { time, start, reset } = useTimer({
+        initialTime: count,
+        endTime: 0,
+        timerType: 'DECREMENTAL',
+        onTimeOver: () => {
+            console.log("time over")
+            setStarted(false)
+            setRestarted(false)
+        },
+    });
+    const [characterCount, setCharacterCount] = useState(0)
+    const [incorrectCount, setIncorrectCount] = useState(0)
+    const [wpm, setWpm] = useState(0.00)
+    const [accuracy, setAccuracy] = useState(0.00)
 
     // ref for restart button
     const restartRef = useRef(null)
-    
+
     const handleRestart = useCallback(() => {
         if (subMode === TestSubModes.timed) {
             setText(generateText(500))
@@ -31,20 +47,36 @@ export const Typer = (props: TyperProps) => {
             setText(generateText(count))
         }
 
+        reset()
         setStarted(false)
-    }, [subMode, count])
+        setRestarted(true)
+        setCharacterCount(0)
+    }, [subMode, count, reset])
 
     useEffect(() => {
         handleRestart()
     }, [handleRestart])
 
     const handleStart = () => {
+        start()
         setStarted(true)
     }
 
-    const handleComplete = () => {
-        setStarted(false)
-    }
+    const handleSetCharacterCount = (charCount: number) => setCharacterCount(charCount)
+    const handleSetIncorrectCount = (charCount: number) => setIncorrectCount(charCount)
+
+    useEffect(() => {
+        const minutes = (count - time) / 60
+        console.log(characterCount, minutes)
+        // calculate wpm
+        if (minutes == 0) setWpm(0)
+        else setWpm((characterCount / 5) / minutes)
+
+        // calculate accuracy
+        const correct = characterCount - incorrectCount
+        if (minutes == 0) setAccuracy(0)
+        else setAccuracy(correct / characterCount * 100)
+    }, [count, characterCount, incorrectCount, time])
 
     useEffect(() => {
         let keys: Keys = {};
@@ -82,7 +114,7 @@ export const Typer = (props: TyperProps) => {
         <div className="flex flex-col justify-center items-center w-11/12 md:w-8/12 space-y-2">
             <div className="flex relative justify-center items-center w-full gap-2 max-w-screen-xl">
                 <div className="absolute left-0 invisible md:visible">
-                    {showStats && <Stats wpm={0} accuracy={0.00} />}
+                    {showStats && <Stats wpm={wpm} accuracy={accuracy} />}
                 </div>
                 {/* settings button */}
                 <label className="btn btn-ghost btn-circle" htmlFor="configModal">
@@ -93,13 +125,23 @@ export const Typer = (props: TyperProps) => {
                     <svg id="restart" xmlns="http://www.w3.org/2000/svg" className="w-7 h-7" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5"><path d="M12 3a9 9 0 1 1-5.657 2" /><path d="M3 4.5h4v4" /></g></svg>
                 </button>
             </div>
-            <Text text={text} restarted={!started} onStart={handleStart} />
+            <Text
+                text={text}
+                started={started} restarted={restarted}
+                onStart={handleStart}
+                setCharacterCount={handleSetCharacterCount}
+                setIncorrectCount={handleSetIncorrectCount}
+            />
             <div className="flex flex-col relative items-center w-full gap-4">
                 {subMode === TestSubModes.timed &&
-                    <Timer started={started} onComplete={handleComplete} time={count} />
+                    <div className={`py-2`}>
+                        <span className={`flex font-mono text-4xl gap-4`}>
+                            <span className="flex">{time <= 0 ? 0 : time}</span>
+                        </span>
+                    </div>
                 }
                 <div className="visible md:invisible">
-                    {showStats && <Stats wpm={0} accuracy={0.00} />}
+                    {showStats && <Stats wpm={wpm} accuracy={accuracy} />}
                 </div>
             </div>
         </div>
