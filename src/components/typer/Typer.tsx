@@ -72,9 +72,7 @@ export const Typer = (props: TyperProps) => {
     useEffect(() => {
         // calculate minutes
         const normalizedSeconds = subMode == TestSubModes.timed ? count - time : time
-        console.log(normalizedSeconds)
         const minutes = normalizedSeconds / 60
-        console.log(minutes, characterCount)
         // calculate wpm
         if (minutes == 0) setWpm(0)
         else setWpm((characterCount / 5) / minutes)
