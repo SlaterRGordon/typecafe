@@ -8,11 +8,13 @@ interface TextProps {
     setCharacterCount: (count: number) => void,
     setIncorrectCount: (count: number) => void,
     onStart: () => void,
+    onComplete: () => void,
 }
 
 export const Text = (props: TextProps) => {
     const [elements, setElements] = useState<JSX.Element[]>([])
     const [position, setPosition] = useState(0)
+    const [incorrect, setIncorrect] = useState<number>(0)
 
     // ref div to scroll text
     const typerRef = useRef<HTMLDivElement>(null)
@@ -31,6 +33,7 @@ export const Text = (props: TextProps) => {
     useEffect(() => {
         if (props.restarted) {
             setPosition(0)
+            setIncorrect(0)
             setElements(buildText(props.text))
         }
     }, [props.restarted, props.text])
@@ -76,6 +79,7 @@ export const Text = (props: TextProps) => {
                 e.key.length == 1 && ((e.key >= 'a' && e.key <= 'z') || (e.key >= 'A' && e.key <= 'Z')))
             ) {
                 nextLetter(false)
+                setIncorrect(incorrect => incorrect + 1)
             } else if (position > 0 && e.code === 'Backspace') {
                 prevLetter()
             }
@@ -94,8 +98,8 @@ export const Text = (props: TextProps) => {
             }
 
             // if position is at end of text
-            if (position + 1 === props.text.length) {
-                // complete test
+            if (position === props.text.length) {
+                props.onComplete()
             }
 
             setPosition(position => position + 1)
@@ -107,6 +111,7 @@ export const Text = (props: TextProps) => {
         const previous = typerRef.current?.querySelector("#c" + (position-1).toString()) as HTMLDivElement
 
         if (current) {
+            if (current.classList.contains("text-secondary underline")) setIncorrect(incorrect => incorrect - 1)
             current.classList.remove("active-char", "text-primary")
             previous?.setAttribute("class", "")
 
@@ -116,9 +121,8 @@ export const Text = (props: TextProps) => {
 
     useEffect(() => {
         props.setCharacterCount(position)
-        const incorrect = typerRef.current?.querySelectorAll(".underline").length
-        if (incorrect) props.setIncorrectCount(incorrect)
-    }, [position, props])
+        props.setIncorrectCount(incorrect)
+    }, [position, incorrect, props])
 
     return (
         <div id="text" className="relative flex flex-col max-h-24 leading-[2rem] w-full overflow-hidden text-[22px] mb-8 max-w-screen-xl z-30">

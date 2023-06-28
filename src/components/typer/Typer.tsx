@@ -22,10 +22,10 @@ export const Typer = (props: TyperProps) => {
     const [started, setStarted] = useState(false)
     const [restarted, setRestarted] = useState(true)
 
-    const { time, start, reset } = useTimer({
-        initialTime: count,
-        endTime: 0,
-        timerType: 'DECREMENTAL',
+    const { time, start, pause, reset } = useTimer({
+        initialTime: subMode === TestSubModes.timed ? count : 0,
+        timerType: subMode === TestSubModes.timed ? 'DECREMENTAL' : 'INCREMENTAL',
+        endTime: subMode === TestSubModes.timed ? 0 : 999999,
         onTimeOver: () => {
             setStarted(false)
             setRestarted(false)
@@ -60,12 +60,21 @@ export const Typer = (props: TyperProps) => {
         start()
         setStarted(true)
     }
+    const handleComplete = () => {
+        pause()
+        setStarted(false)
+        setRestarted(false)
+    }
 
     const handleSetCharacterCount = (charCount: number) => setCharacterCount(charCount)
     const handleSetIncorrectCount = (charCount: number) => setIncorrectCount(charCount)
 
     useEffect(() => {
-        const minutes = (count - time) / 60
+        // calculate minutes
+        const normalizedSeconds = subMode == TestSubModes.timed ? count - time : time
+        console.log(normalizedSeconds)
+        const minutes = normalizedSeconds / 60
+        console.log(minutes, characterCount)
         // calculate wpm
         if (minutes == 0) setWpm(0)
         else setWpm((characterCount / 5) / minutes)
@@ -74,7 +83,7 @@ export const Typer = (props: TyperProps) => {
         const correct = characterCount - incorrectCount
         if (minutes == 0) setAccuracy(0)
         else setAccuracy(correct / characterCount * 100)
-    }, [count, characterCount, incorrectCount, time])
+    }, [count, characterCount, incorrectCount, time, subMode])
 
     useEffect(() => {
         let keys: Keys = {};
@@ -127,6 +136,7 @@ export const Typer = (props: TyperProps) => {
                 text={text}
                 started={started} restarted={restarted}
                 onStart={handleStart}
+                onComplete={handleComplete}
                 setCharacterCount={handleSetCharacterCount}
                 setIncorrectCount={handleSetIncorrectCount}
             />
@@ -134,7 +144,7 @@ export const Typer = (props: TyperProps) => {
                 {subMode === TestSubModes.timed &&
                     <div className={`py-2`}>
                         <span className={`flex font-mono text-4xl gap-4`}>
-                            <span className="flex">{time <= 0 ? 0 : time}</span>
+                            <span className="flex">{time}</span>
                         </span>
                     </div>
                 }
