@@ -50,6 +50,15 @@ export const ColorModal = () => {
         })
     }
 
+    const handleClickOutside = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const input = document.getElementById("input") as HTMLInputElement
+        
+        if (input) {
+            if (!e.target.checked) input.focus()
+            else input.blur()
+        }
+    }
+
     const [tab, setTab] = useState<"custom" | "presets" | "saved">("presets")
     const [name, setName] = useState("")
     const [nameError, setNameError] = useState(false)
@@ -119,7 +128,7 @@ export const ColorModal = () => {
 
     return (
         <>
-            <input type="checkbox" id="colorModal" className="modal-toggle" />
+            <input onChange={handleClickOutside} type="checkbox" id="colorModal" className="modal-toggle" />
             <label htmlFor="colorModal" className="modal modal-bottom sm:modal-middle cursor-pointer">
                 <label htmlFor="" className="flex flex-col modal-box sm:!w-[440px] !h-[420px] !max-w-5xl space-y-2 !overflow-y-visible overflow-x-hidden">
                     <h3 className="font-bold text-4xl px-1">Colors</h3>

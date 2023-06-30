@@ -28,7 +28,26 @@ export const Text = (props: TextProps) => {
             const input = inputRef.current
             if (input) input.focus()
         })
+        window.addEventListener("keydown", () => {
+            const configModal = document.getElementById("configModal") as HTMLInputElement
+            const colorModal = document.getElementById("colorModal") as HTMLInputElement
+            
+            const input = inputRef.current
+
+            if (!configModal.checked && !colorModal.checked){
+                if (input) input.focus()
+            } else {
+                if (input) input.blur()
+            }
+        })
     }, [inputRef])
+
+    const handleInputBlur = () => {
+        console.log("input blur")
+        // const typer = typerRef.current
+        // if (typer && typer.parentElement) typer.parentElement.parentElement?.classList.add("opacity-[10%]")
+        return
+    }
 
     useEffect(() => {
         if (props.restarted) {
@@ -37,6 +56,8 @@ export const Text = (props: TextProps) => {
             setElements(buildText(props.text))
             const restartBtn = document.getElementById("restart") as HTMLButtonElement
             if(restartBtn) restartBtn.classList.remove("blinking", "text-primary")
+            const input = inputRef.current
+            if (input) input.focus()
         }
     }, [props.restarted, props.text])
 
@@ -137,7 +158,7 @@ export const Text = (props: TextProps) => {
 
     return (
         <div id="text" className="relative flex flex-col max-h-24 leading-[2rem] w-full overflow-hidden text-[22px] mb-8 max-w-screen-xl z-30">
-            <input id="input" autoComplete="off" className="h-0 p-0 m-0 border-none" onKeyDown={handleKeyPress} ref={inputRef} autoFocus />
+            <input id="input" onBlur={handleInputBlur} autoComplete="off" className="h-0 p-0 m-0 border-none" onKeyDown={handleKeyPress} ref={inputRef} autoFocus />
             <div className="flex flex-wrap justify-center overflow-y-hidden no-scrollbar scroll-smooth font-mono select-none" id="words" ref={typerRef}>
                 {elements}
             </div>
