@@ -116,7 +116,7 @@ export const Typer = (props: TyperProps) => {
     }, [handleRestart])
 
     return (
-        <div className="flex flex-col justify-center items-center w-11/12 md:w-8/12 space-y-2">
+        <div className="flex flex-col py-8 sm:py-0 sm:justify-center items-center w-11/12 md:w-8/12 space-y-2">
             <div className="flex relative justify-center items-center w-full gap-2 max-w-screen-xl">
                 <div className="absolute left-0 invisible md:visible">
                     {showStats && <Stats wpm={wpm} accuracy={accuracy} />}
