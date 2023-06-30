@@ -50,15 +50,6 @@ export const ColorModal = () => {
         })
     }
 
-    const handleClickOutside = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const input = document.getElementById("input") as HTMLInputElement
-        
-        if (input) {
-            if (!e.target.checked) input.focus()
-            else input.blur()
-        }
-    }
-
     const [tab, setTab] = useState<"custom" | "presets" | "saved">("presets")
     const [name, setName] = useState("")
     const [nameError, setNameError] = useState(false)
@@ -71,6 +62,17 @@ export const ColorModal = () => {
         setName(e.target.value)
         if (e.target.value.length > 0) {
             setNameError(false)
+        }
+    }
+
+    const handleClickOutside = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const input = document.getElementById("input") as HTMLInputElement
+        
+        if (input) {
+            if (!e.target.checked) input.focus()
+            else {
+                input.blur()
+            }
         }
     }
 
@@ -185,6 +187,7 @@ export const ColorModal = () => {
                                             <h3 className="flex items-center text-xl">Name</h3>
                                             <div className="flex space-x-2">
                                                 <input 
+                                                    id="nameInput"
                                                     type="text" placeholder="Name" 
                                                     className={`input input-sm input-bordered max-w-xs ${nameError ? "input-error" : ""}`} 
                                                     value={name} 

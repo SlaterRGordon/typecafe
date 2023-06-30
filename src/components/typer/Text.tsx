@@ -34,6 +34,11 @@ export const Text = (props: TextProps) => {
             
             const input = inputRef.current
 
+            if (colorModal.checked) {
+                const nameInput = document.getElementById("nameInput") as HTMLInputElement
+                if (nameInput) nameInput.focus()
+            }
+
             if (!configModal.checked && !colorModal.checked){
                 if (input) input.focus()
             } else {
