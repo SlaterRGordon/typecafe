@@ -35,8 +35,19 @@ export const Text = (props: TextProps) => {
             setPosition(0)
             setIncorrect(0)
             setElements(buildText(props.text))
+            const restartBtn = document.getElementById("restart") as HTMLButtonElement
+            if(restartBtn) restartBtn.classList.remove("blinking", "text-primary")
         }
     }, [props.restarted, props.text])
+
+    useEffect(() => {
+        if (!props.started && !props.restarted) {
+            const current = typerRef.current?.querySelector("#c" + position.toString()) as HTMLDivElement
+            const restartBtn = document.getElementById("restart") as HTMLButtonElement
+            if(restartBtn) restartBtn.classList.add("blinking", "text-primary")
+            if (current) current.classList.value = ""
+        }
+    }, [props.started, props.restarted, position])
 
     // remove classes on reset/init
     useEffect(() => {

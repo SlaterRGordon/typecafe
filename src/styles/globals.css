@@ -15,6 +15,10 @@
     animation: blinking-underline 0.9s ease-in-out infinite;
 }
 
+.blinking {
+    animation: blinking 0.9s ease-in-out infinite;
+}
+
 .correct-char {
     color: var(--secondary-text-color);
 }
@@ -30,4 +34,12 @@
     60% {text-decoration: none;}
     99% {text-decoration: none;}
     100% {text-decoration: underline;}
+}
+
+@keyframes blinking {
+    0% {opacity: 1;}
+    50% {opacity: 1;}
+    60% {opacity: 0;}
+    99% {opacity: 0;}
+    100% {opacity: 1;}
 }
