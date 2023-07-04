@@ -39,20 +39,13 @@ export const Text = (props: TextProps) => {
                 if (nameInput) nameInput.focus()
             }
 
-            if (!configModal.checked && !colorModal.checked){
+            if (!configModal?.checked && !colorModal?.checked){
                 if (input) input.focus()
             } else {
                 if (input) input.blur()
             }
         })
     }, [inputRef])
-
-    const handleInputBlur = () => {
-        console.log("input blur")
-        // const typer = typerRef.current
-        // if (typer && typer.parentElement) typer.parentElement.parentElement?.classList.add("opacity-[10%]")
-        return
-    }
 
     useEffect(() => {
         if (props.restarted) {
