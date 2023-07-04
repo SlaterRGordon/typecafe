@@ -60,7 +60,7 @@ export const Config = (props: ConfigProps) => {
                     }
                 </>
             }
-            {props.mode == TestModes.progression &&
+            {props.mode == TestModes.learn &&
                 <div>
                     <h3 className="font-bold text-2xl">Progression</h3>
                 </div>

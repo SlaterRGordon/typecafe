@@ -1,6 +1,6 @@
 export enum TestModes {
     normal,
-    progression,
+    learn,
     ngrams,
     pace
 }

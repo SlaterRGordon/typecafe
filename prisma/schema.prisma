@@ -64,7 +64,7 @@ model VerificationToken {
 model ColorConfiguration {
     id         String   @id @default(cuid())
     userId     String
-    name       String  @unique
+    name       String   @unique
     background String
     text       String
     primary    String
@@ -82,6 +82,9 @@ model Test {
     typeId    String
     speed     Float
     accuracy  Float
+    score     Float
+    count     Int      @default(0)
+    options   String
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
     user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -93,8 +96,8 @@ model Test {
 
 model TestType {
     id          String   @id @default(cuid())
-    mode        String
-    options     String
+    mode        Int
+    subMode     Int
     competitive Boolean
     createdAt   DateTime @default(now())
     updatedAt   DateTime @updatedAt

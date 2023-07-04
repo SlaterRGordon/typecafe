@@ -4,6 +4,7 @@ import { generateText } from "./utils"
 import { Text } from "./Text"
 import { Stats } from "./Stats"
 import { useTimer } from "~/hooks/timer/useTimer"
+import { api } from "~/utils/api"
 
 interface Keys {
     [key: string]: boolean
@@ -35,6 +36,19 @@ export const Typer = (props: TyperProps) => {
     const [incorrectCount, setIncorrectCount] = useState(0)
     const [wpm, setWpm] = useState(0.00)
     const [accuracy, setAccuracy] = useState(0.00)
+
+    // fetch types
+    const { data: testType, refetch: refetchTestType } = api.type.get.useQuery({mode, subMode})
+
+    // create test
+    const createTest = api.test.create.useMutation({
+        onSuccess: () => {
+            console.log("test created")
+        },
+        onError: (error) => {
+            console.log(error)
+        }
+    })
 
     useEffect(() => {
         if (subMode === TestSubModes.timed) setInitialTime(count)
@@ -69,6 +83,15 @@ export const Typer = (props: TyperProps) => {
         pause()
         setStarted(false)
         setRestarted(false)
+
+        createTest.mutate({
+            typeId: testType?.id as string,
+            accuracy: accuracy,
+            speed: wpm,
+            score: wpm * accuracy,
+            count: count,
+            options: ""
+        })
     }
 
     const handleSetCharacterCount = (charCount: number) => setCharacterCount(charCount)
