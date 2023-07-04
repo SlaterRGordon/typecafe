@@ -3,12 +3,61 @@
 @tailwind components;
 @tailwind utilities;
 
-#root, html, body , body > div {
+#root,
+html,
+body,
+body>div {
     height: 100%;
     width: 100%;
     margin: 0px;
     overflow: hidden;
     text-underline-position: under;
+}
+
+.my-react-select-container .my-react-select__control {
+    --tw-bg-opacity: 1;
+    background-color: hsl(var(--b2, var(--b1)) / var(--tw-bg-opacity));
+    border-color: hsl(var(--b2, var(--b1)) / var(--tw-bg-opacity));
+}
+.my-react-select-container .my-react-select__control--is-focused, .my-react-select-container .my-react-select__control:hover {
+    border-color: transparent !important;
+    outline: none !important;
+    outline-offset: unset !important;
+    box-shadow: none !important;
+}
+.my-react-select-container .my-react-select__menu {
+    --tw-bg-opacity: 1;
+    background-color: hsl(var(--b2, var(--b1)) / var(--tw-bg-opacity));
+    border-color: transparent !important;
+    z-index: 100;
+}
+.my-react-select-container .my-react-select__option {
+    --tw-bg-opacity: 1;
+    background-color: hsl(var(--b2, var(--b1)) / var(--tw-bg-opacity));
+}
+.my-react-select-container .my-react-select__option--is-focused {
+    outline: none !important;
+    outline-offset: unset !important;
+    cursor: pointer;
+    background-color: hsl(var(--b3, var(--b2)) / var(--tw-bg-opacity));
+}
+
+.my-react-select-container .my-react-select__indicator-separator {
+    background-color: hsl(var(--b2, var(--b1)) / var(--tw-bg-opacity));
+}
+
+.my-react-select-container .my-react-select__indicator,
+.my-react-select-container .my-react-select__input-container,
+.my-react-select-container .my-react-select__placeholder,
+.my-react-select-container .my-react-select__single-value {
+    color: hsla(var(--bc) / var(--tw-text-opacity, 1));
+}
+.my-react-select-container .my-react-select__indicator:hover,
+.my-react-select-container .my-react-select__input-container:hover,
+.my-react-select-container .my-react-select__placeholder:hover,
+.my-react-select-container .my-react-select__single-value:hover {
+    cursor: pointer;
+    color: hsla(var(--bc) / var(--tw-text-opacity, 1));
 }
 
 .active-char {
@@ -29,17 +78,45 @@
 }
 
 @keyframes blinking-underline {
-    0% {text-decoration: underline;}
-    50% {text-decoration: underline;}
-    60% {text-decoration: none;}
-    99% {text-decoration: none;}
-    100% {text-decoration: underline;}
+    0% {
+        text-decoration: underline;
+    }
+
+    50% {
+        text-decoration: underline;
+    }
+
+    60% {
+        text-decoration: none;
+    }
+
+    99% {
+        text-decoration: none;
+    }
+
+    100% {
+        text-decoration: underline;
+    }
 }
 
 @keyframes blinking {
-    0% {opacity: 1;}
-    50% {opacity: 1;}
-    60% {opacity: 0;}
-    99% {opacity: 0;}
-    100% {opacity: 1;}
+    0% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 1;
+    }
+
+    60% {
+        opacity: 0;
+    }
+
+    99% {
+        opacity: 0;
+    }
+
+    100% {
+        opacity: 1;
+    }
 }
