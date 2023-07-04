@@ -17,7 +17,10 @@ export const testRouter = createTRPCRouter({
         },
         orderBy: {
           [input.orderBy]: input.order,
-        }
+        },
+        include: {
+          user: true,
+        },
       });
     }),
   getByUser: protectedProcedure
@@ -30,7 +33,10 @@ export const testRouter = createTRPCRouter({
         },
         orderBy: {
           [input.orderBy]: input.order,
-        }
+        },
+        include: {
+          user: true,
+        },
       });
     }),
   create: protectedProcedure
