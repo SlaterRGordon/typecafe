@@ -37,8 +37,9 @@ export const Typer = (props: TyperProps) => {
     const [accuracy, setAccuracy] = useState(0.00)
 
     useEffect(() => {
-        setInitialTime(count)
-    }, [count, setInitialTime])
+        if (subMode === TestSubModes.timed) setInitialTime(count)
+        else setInitialTime(0)
+    }, [count, setInitialTime, subMode])
 
     // ref for restart button
     const restartRef = useRef(null)
@@ -78,12 +79,13 @@ export const Typer = (props: TyperProps) => {
         const normalizedSeconds = subMode == TestSubModes.timed ? count - time : time
         const minutes = normalizedSeconds / 60
         // calculate wpm
+        console.log(subMode == TestSubModes.timed, normalizedSeconds, minutes)
         if (minutes == 0) setWpm(0)
         else setWpm((characterCount / 5) / minutes)
 
         // calculate accuracy
         const correct = characterCount - incorrectCount
-        if (minutes == 0) setAccuracy(0)
+        if (characterCount == 0) setAccuracy(0)
         else setAccuracy(correct / characterCount * 100)
     }, [count, characterCount, incorrectCount, time, subMode])
 
