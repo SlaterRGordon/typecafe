@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from "react"
 import { TestModes, TestSubModes } from "./types"
 import { generateText } from "./utils"
-import { useTimer } from "use-timer"
 import { Text } from "./Text"
 import { Stats } from "./Stats"
+import { useTimer } from "~/hooks/timer/useTimer"
 
 interface Keys {
     [key: string]: boolean
@@ -22,19 +22,23 @@ export const Typer = (props: TyperProps) => {
     const [started, setStarted] = useState(false)
     const [restarted, setRestarted] = useState(true)
 
-    const { time, start, pause, reset } = useTimer({
-        initialTime: subMode === TestSubModes.timed ? count : 0,
+    const { time, start, pause, reset, setInitialTime } = useTimer({
+        _initialTime: subMode === TestSubModes.timed ? count : 0,
         timerType: subMode === TestSubModes.timed ? 'DECREMENTAL' : 'INCREMENTAL',
         endTime: subMode === TestSubModes.timed ? 0 : 999999,
         onTimeOver: () => {
             setStarted(false)
             setRestarted(false)
         },
-    });
+    })
     const [characterCount, setCharacterCount] = useState(0)
     const [incorrectCount, setIncorrectCount] = useState(0)
     const [wpm, setWpm] = useState(0.00)
     const [accuracy, setAccuracy] = useState(0.00)
+
+    useEffect(() => {
+        setInitialTime(count)
+    }, [count, setInitialTime])
 
     // ref for restart button
     const restartRef = useRef(null)
