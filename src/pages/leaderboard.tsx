@@ -27,7 +27,7 @@ const Leadboard: NextPage = () => {
         { value: 2, label: 'Monthly' },
         { value: 2, label: 'All Time' },
     ]
-    const handleChangeTimeRange = (value: SingleValue<Option>, actionMeta: ActionMeta<Option>) => {
+    const handleChangeTimeRange = (value: SingleValue<Option>) => {
         if (value) setTimeRange(value.value)
     }
 
@@ -43,7 +43,7 @@ const Leadboard: NextPage = () => {
         { value: 120, label: '120' },
 
     ]
-    const handleChangeSubMode = (value: SingleValue<Option>, actionMeta: ActionMeta<Option>) => {
+    const handleChangeSubMode = (value: SingleValue<Option>) => {
         if (value) {
             if (value.value == TestSubModes.timed) setCount(15)
             else setCount(10)
@@ -58,7 +58,7 @@ const Leadboard: NextPage = () => {
         { value: 50, label: '50' },
         { value: 100, label: '100' },
     ]
-    const handleChangeCount = (value: SingleValue<Option>, actionMeta: ActionMeta<Option>) => {
+    const handleChangeCount = (value: SingleValue<Option>) => {
         if (value) setCount(value.value)
     }
 
@@ -78,6 +78,7 @@ const Leadboard: NextPage = () => {
                             options={subModeOptions}
                             value={subModeOptions[subMode]}
                             onChange={handleChangeSubMode}
+                            isSearchable={false}
                             className="my-react-select-container"
                             classNamePrefix="my-react-select"
                         />
@@ -91,6 +92,7 @@ const Leadboard: NextPage = () => {
                                     wordsCountOptions.find(option => option.value == count)
                             }
                             onChange={handleChangeCount}
+                            isSearchable={false}
                             className="my-react-select-container"
                             classNamePrefix="my-react-select"
                         />
@@ -100,6 +102,7 @@ const Leadboard: NextPage = () => {
                             options={timeRangeOptions}
                             value={timeRangeOptions[timeRange]}
                             onChange={handleChangeTimeRange}
+                            isSearchable={false}
                             className="my-react-select-container"
                             classNamePrefix="my-react-select"
                         />
