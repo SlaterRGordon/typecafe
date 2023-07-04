@@ -22,23 +22,13 @@ export const Typer = (props: TyperProps) => {
     const [text, setText] = useState("")
     const [started, setStarted] = useState(false)
     const [restarted, setRestarted] = useState(true)
-
-    const { time, start, pause, reset, setInitialTime } = useTimer({
-        _initialTime: subMode === TestSubModes.timed ? count : 0,
-        timerType: subMode === TestSubModes.timed ? 'DECREMENTAL' : 'INCREMENTAL',
-        endTime: subMode === TestSubModes.timed ? 0 : 999999,
-        onTimeOver: () => {
-            setStarted(false)
-            setRestarted(false)
-        },
-    })
     const [characterCount, setCharacterCount] = useState(0)
     const [incorrectCount, setIncorrectCount] = useState(0)
     const [wpm, setWpm] = useState(0.00)
     const [accuracy, setAccuracy] = useState(0.00)
 
     // fetch types
-    const { data: testType, refetch: refetchTestType } = api.type.get.useQuery({mode, subMode})
+    const { data: testType, refetch: refetchTestType } = api.type.get.useQuery({ mode, subMode })
 
     // create test
     const createTest = api.test.create.useMutation({
@@ -48,6 +38,25 @@ export const Typer = (props: TyperProps) => {
         onError: (error) => {
             console.log(error)
         }
+    })
+
+    const { time, start, pause, reset, setInitialTime } = useTimer({
+        _initialTime: subMode === TestSubModes.timed ? count : 0,
+        timerType: subMode === TestSubModes.timed ? 'DECREMENTAL' : 'INCREMENTAL',
+        endTime: subMode === TestSubModes.timed ? 0 : 999999,
+        onTimeOver: () => {
+            setStarted(false)
+            setRestarted(false)
+
+            createTest.mutate({
+                typeId: testType?.id as string,
+                accuracy: accuracy,
+                speed: wpm,
+                score: wpm * accuracy,
+                count: count,
+                options: ""
+            })
+        },
     })
 
     useEffect(() => {
@@ -83,15 +92,6 @@ export const Typer = (props: TyperProps) => {
         pause()
         setStarted(false)
         setRestarted(false)
-
-        createTest.mutate({
-            typeId: testType?.id as string,
-            accuracy: accuracy,
-            speed: wpm,
-            score: wpm * accuracy,
-            count: count,
-            options: ""
-        })
     }
 
     const handleSetCharacterCount = (charCount: number) => setCharacterCount(charCount)
@@ -102,7 +102,6 @@ export const Typer = (props: TyperProps) => {
         const normalizedSeconds = subMode == TestSubModes.timed ? count - time : time
         const minutes = normalizedSeconds / 60
         // calculate wpm
-        console.log(subMode == TestSubModes.timed, normalizedSeconds, minutes)
         if (minutes == 0) setWpm(0)
         else setWpm((characterCount / 5) / minutes)
 
