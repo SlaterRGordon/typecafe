@@ -79,7 +79,7 @@ const Leadboard: NextPage = () => {
                             value={subModeOptions[subMode]}
                             onChange={handleChangeSubMode}
                             isSearchable={false}
-                            className="w-1/12 max-w-xs my-react-select-container"
+                            className="max-w-xs my-react-select-container"
                             classNamePrefix="my-react-select"
                         />
                         <Select
@@ -93,7 +93,7 @@ const Leadboard: NextPage = () => {
                             }
                             onChange={handleChangeCount}
                             isSearchable={false}
-                            className="w-1/12 max-w-xs my-react-select-container"
+                            className="max-w-xs my-react-select-container"
                             classNamePrefix="my-react-select"
                         />
                         <Select
@@ -103,7 +103,7 @@ const Leadboard: NextPage = () => {
                             value={timeRangeOptions[timeRange]}
                             onChange={handleChangeTimeRange}
                             isSearchable={false}
-                            className="w-1/12 max-w-xs my-react-select-container"
+                            className="max-w-xs my-react-select-container"
                             classNamePrefix="my-react-select"
                         />
                     </div>
