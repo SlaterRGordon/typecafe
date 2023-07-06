@@ -11,6 +11,7 @@ export const testRouter = createTRPCRouter({
     .input(z.object({
       typeId: z.string(),
       count: z.number(),
+      date: z.date().optional(),
       orderBy: z.string(),
       order: z.string(),
       limit: z.number(),
@@ -21,6 +22,9 @@ export const testRouter = createTRPCRouter({
         where: {
           typeId: input.typeId,
           count: input.count,
+          createdAt: {
+            gte: input.date,
+          },
         },
         orderBy: {
           [input.orderBy]: input.order,

@@ -18,6 +18,7 @@ function isBottom(ref: React.RefObject<HTMLDivElement>) {
 const Leadboard: NextPage = () => {
     const mode = TestModes.normal
     const [allTests, setAllTests] = useState<(Test & {user: User;})[] | undefined>(undefined)
+    const [date, setDate] = useState<Date | undefined>(undefined)
     const [timeRange, setTimeRange] = useState(0)
     const [subMode, setSubMode] = useState<TestSubModes>(TestSubModes.timed)
     const [count, setCount] = useState(15)
@@ -33,6 +34,7 @@ const Leadboard: NextPage = () => {
         orderBy: "score",
         order: "desc",
         count,
+        date,
         typeId: testType ? testType.id : "",
         limit,
         page,
@@ -54,7 +56,7 @@ const Leadboard: NextPage = () => {
                 list.removeEventListener('scroll', onScroll);
             }
         }
-    }, [contentRef, count, mode, timeRange, limit, page, isLoadingTests]);
+    }, [contentRef, count, mode, date, limit, page, isLoadingTests]);
 
     useEffect(() => {
         if (tests && !isLoadingTests && !isRefetching) {
@@ -68,7 +70,7 @@ const Leadboard: NextPage = () => {
     useEffect(() => {
         setAllTests(undefined)
         setPage(0)
-    }, [subMode, count, timeRange])
+    }, [subMode, count, date])
 
     useEffect(() => {
         console.log(allTests)
@@ -78,11 +80,34 @@ const Leadboard: NextPage = () => {
         { value: 0, label: 'Daily' },
         { value: 1, label: 'Weekly' },
         { value: 2, label: 'Monthly' },
-        { value: 2, label: 'All Time' },
+        { value: 3, label: 'All Time' },
     ]
     const handleChangeTimeRange = (value: SingleValue<Option>) => {
-        if (value) setTimeRange(value.value)
+        if (value) {
+            setTimeRange(value.value)
+        }
     }
+
+    useEffect(() => {
+        const today = new Date()
+        switch (timeRange) {
+            case 0:
+                today.setDate(today.getDate() - 1)
+                setDate(today)
+                break;
+            case 1:
+                today.setDate(today.getDate() - 7)
+                setDate(today)
+                break;
+            case 2:
+                today.setDate(today.getDate() - 30)
+                setDate(today)
+                break;
+            case 3:
+                setDate(undefined)
+                break;        
+        }
+    }, [timeRange])
 
     const subModeOptions = [
         { value: TestSubModes.timed, label: 'Timed' },
