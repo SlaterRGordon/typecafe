@@ -84,27 +84,30 @@ const Leadboard: NextPage = () => {
     ]
     const handleChangeTimeRange = (value: SingleValue<Option>) => {
         if (value) {
-            const today = new Date()
-            switch (value.value) {
-                case 0:
-                    today.setDate(today.getDate() - 1)
-                    setDate(today)
-                    break;
-                case 1:
-                    today.setDate(today.getDate() - 7)
-                    setDate(today)
-                    break;
-                case 2:
-                    today.setDate(today.getDate() - 30)
-                    setDate(today)
-                    break;
-                case 3:
-                    setDate(undefined)
-                    break;        
-            }
             setTimeRange(value.value)
         }
     }
+
+    useEffect(() => {
+        const today = new Date()
+        switch (timeRange) {
+            case 0:
+                today.setDate(today.getDate() - 1)
+                setDate(today)
+                break;
+            case 1:
+                today.setDate(today.getDate() - 7)
+                setDate(today)
+                break;
+            case 2:
+                today.setDate(today.getDate() - 30)
+                setDate(today)
+                break;
+            case 3:
+                setDate(undefined)
+                break;        
+        }
+    }, [timeRange])
 
     const subModeOptions = [
         { value: TestSubModes.timed, label: 'Timed' },
