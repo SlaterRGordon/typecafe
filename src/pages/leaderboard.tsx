@@ -180,7 +180,7 @@ const Leadboard: NextPage = () => {
                             classNamePrefix="my-react-select"
                         />
                     </div>
-                    <div ref={contentRef} id="list" className="flex h-[100vh] overflow-auto">
+                    <div ref={contentRef} id="list" className="h-[100vh] overflow-auto">
                         <table className="table table-zebra w-full z-0">
                             <thead className="sticky top-0 z-50">
                                 <tr>
