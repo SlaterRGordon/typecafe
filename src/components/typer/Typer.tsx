@@ -11,6 +11,7 @@ interface Keys {
 }
 
 interface TyperProps {
+    language: string,
     mode: TestModes,
     subMode: TestSubModes,
     count: number,
@@ -18,7 +19,7 @@ interface TyperProps {
 }
 
 export const Typer = (props: TyperProps) => {
-    const { mode, subMode, count, showStats } = props
+    const { language, mode, subMode, count, showStats } = props
     const [text, setText] = useState("")
     const [started, setStarted] = useState(false)
     const [restarted, setRestarted] = useState(true)
@@ -28,7 +29,7 @@ export const Typer = (props: TyperProps) => {
     const [accuracy, setAccuracy] = useState(0.00)
 
     // fetch types
-    const { data: testType, refetch: refetchTestType } = api.type.get.useQuery({ mode, subMode })
+    const { data: testType } = api.type.get.useQuery({ mode, subMode, language })
 
     // create test
     const createTest = api.test.create.useMutation({
@@ -69,16 +70,16 @@ export const Typer = (props: TyperProps) => {
 
     const handleRestart = useCallback(() => {
         if (subMode === TestSubModes.timed) {
-            setText(generateText(500))
+            setText(generateText(500, language))
         } else if (subMode === TestSubModes.words) {
-            setText(generateText(count))
+            setText(generateText(count, language))
         }
 
         reset()
         setStarted(false)
         setRestarted(true)
         setCharacterCount(0)
-    }, [subMode, count, reset])
+    }, [language, subMode, count, reset])
 
     useEffect(() => {
         handleRestart()

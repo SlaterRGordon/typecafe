@@ -1,7 +1,12 @@
+import { useEffect, useState, useRef } from "react"
+import type { SingleValue } from "react-select"
+import Select from 'react-select'
 import { TestModes, TestSubModes } from "../types"
 import { ConfigOption } from "./ConfigOption"
 
 interface ConfigProps {
+    language: string,
+    setLanguage: (newLanguage: string) => void,
     mode: TestModes,
     setMode: (newMode: TestModes) => void,
     subMode: TestSubModes,
@@ -12,6 +17,8 @@ interface ConfigProps {
     setShowStats: (show: boolean) => void,
 }
 
+type Option = { label: string, value: string }
+
 export const Config = (props: ConfigProps) => {
 
     const handleSubModeChange = (newSubMode: number) => {
@@ -19,9 +26,43 @@ export const Config = (props: ConfigProps) => {
         props.setCount(newSubMode == TestSubModes.timed ? 15 : 10)
     }
 
+    const languageOptions = [
+        { value: "english", label: 'English' },
+        { value: "french", label: 'French' },
+        { value: "hindi", label: 'Hindi' },
+        { value: "chinese", label: 'Chinese' },
+        { value: "spanish", label: 'Spanish' },
+    ]
+    const handleChangeLanguage = (value: SingleValue<Option>) => {
+        console.log("changing language")
+        if (value) props.setLanguage(value.value)
+    }
+
+    useEffect(() => {
+        document.addEventListener("click", (e) => {
+            const target = e.target as HTMLDivElement
+            if (target.id.startsWith("react-select-languageSelect-option-")) {
+                e.preventDefault()
+            }
+        })
+    }, [])
+
     return (
-        <>  
+        <div>  
             <h3 className="font-bold text-4xl px-1">Settings</h3>
+            <h3 className="font-semibold text-2xl px-1">Languages</h3>
+            <Select
+                instanceId="languageSelect"
+                defaultValue={languageOptions[0]}
+                options={languageOptions}
+                value={languageOptions.filter(option => option.value == props.language)[0]}
+                onChange={handleChangeLanguage}
+                isSearchable={false}
+                className="max-w-xs my-react-select-container"
+                classNamePrefix="my-react-select"
+                menuPosition="fixed"
+            />
+            
             <h3 className="font-semibold text-2xl px-1">Modes</h3>
             <ConfigOption
                 options={["Normal", "Learn", "nGram", "Paced"]}
@@ -83,6 +124,6 @@ export const Config = (props: ConfigProps) => {
                 active={props.showStats ? 1 : 0}
                 onChange={(newShowStats: string | number) => { props.setShowStats(newShowStats == 1 ? true : false) }}
             />
-        </>
+        </div>
     )
 }
