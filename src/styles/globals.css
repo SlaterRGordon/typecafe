@@ -24,6 +24,12 @@ display: none;
     scrollbar-width: none;  /* Firefox */
 }
 
+.my-react-select__menu-portal {
+    z-index: 100 !important;
+    position: fixed !important;
+    top: 130px !important;
+    left: 24px !important;
+}
 .my-react-select-container .my-react-select__control {
     --tw-bg-opacity: 1;
     background-color: hsl(var(--b2, var(--b1)) / var(--tw-bg-opacity));
