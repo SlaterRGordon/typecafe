@@ -44,7 +44,6 @@ const Leadboard: NextPage = () => {
     useEffect(() => {
         const onScroll = () => {
             if (isBottom(contentRef) && !isLoadingTests) {
-                console.log("bottom")
                 setPage(page + 1)
             }
         };
@@ -61,7 +60,12 @@ const Leadboard: NextPage = () => {
     useEffect(() => {
         if (tests && !isLoadingTests && !isRefetching) {
             setAllTests(prevTests => {
-                if (prevTests) return [...prevTests, ...tests]
+                if (prevTests) {
+                    const unqiueTests = [...prevTests, ...tests].filter(function(elem, pos) {
+                        return [prevTests, ...tests].indexOf(elem) == pos;
+                    }); 
+                    return unqiueTests
+                }
                 else return tests
             })
         }
@@ -71,10 +75,6 @@ const Leadboard: NextPage = () => {
         setAllTests(undefined)
         setPage(0)
     }, [subMode, count, date])
-
-    useEffect(() => {
-        console.log(allTests)
-    }, [allTests])
 
     const timeRangeOptions = [
         { value: 0, label: 'Daily' },
@@ -180,7 +180,7 @@ const Leadboard: NextPage = () => {
                             classNamePrefix="my-react-select"
                         />
                     </div>
-                    <div ref={contentRef} id="list" className="flex h-[100vh] overflow-auto">
+                    <div ref={contentRef} id="list" className="h-[100vh] overflow-auto">
                         <table className="table table-zebra w-full z-0">
                             <thead className="sticky top-0 z-50">
                                 <tr>
