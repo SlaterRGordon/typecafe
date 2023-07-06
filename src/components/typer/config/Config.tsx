@@ -49,8 +49,9 @@ export const Config = (props: ConfigProps) => {
 
     return (
         <div>  
-            <h3 className="font-bold text-4xl px-1">Settings</h3>
-            <h3 className="font-semibold text-2xl px-1">Languages</h3>
+            <h3 className="font-bold text-4xl p-1">Settings</h3>
+            
+            <h3 className="font-semibold text-2xl p-1">Languages</h3>
             <Select
                 instanceId="languageSelect"
                 defaultValue={languageOptions[0]}
@@ -63,7 +64,7 @@ export const Config = (props: ConfigProps) => {
                 menuPosition="fixed"
             />
             
-            <h3 className="font-semibold text-2xl px-1">Modes</h3>
+            <h3 className="font-semibold text-2xl p-1">Modes</h3>
             <ConfigOption
                 options={["Normal", "Learn", "nGram", "Paced"]}
                 active={props.mode}
@@ -71,7 +72,7 @@ export const Config = (props: ConfigProps) => {
             />
             {props.mode == TestModes.normal &&
                 <>
-                    <h3 className="font-semibold text-2xl px-1">Type</h3>
+                    <h3 className="font-semibold text-2xl p-1">Type</h3>
                     <ConfigOption
                         options={["Timed", "Words"]}
                         active={props.subMode}
@@ -79,7 +80,7 @@ export const Config = (props: ConfigProps) => {
                     />
                     {props.subMode == TestSubModes.timed &&
                     <>
-                        <h3 className="font-semibold text-2xl px-1">Time</h3>
+                        <h3 className="font-semibold text-2xl p-1">Time</h3>
                         <ConfigOption
                             options={["15s", "30s", "60s", "120s"]}
                             values={[15, 30, 60, 120]}
@@ -90,7 +91,7 @@ export const Config = (props: ConfigProps) => {
                     }
                     {props.subMode == TestSubModes.words &&
                     <>
-                        <h3 className="font-semibold text-2xl px-1">Words</h3>
+                        <h3 className="font-semibold text-2xl p-1">Words</h3>
                         <ConfigOption
                             options={["10", "25", "50", "100"]}
                             values={[10, 25, 50, 100]}
