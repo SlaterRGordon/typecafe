@@ -8,7 +8,14 @@ import {
 
 export const testRouter = createTRPCRouter({
   getAll: publicProcedure
-    .input(z.object({ typeId: z.string(), count: z.number(), orderBy: z.string(), order: z.string() }))
+    .input(z.object({
+      typeId: z.string(),
+      count: z.number(),
+      orderBy: z.string(),
+      order: z.string(),
+      limit: z.number(),
+      page: z.number()
+    }))
     .query(({ ctx, input }) => {
       return ctx.prisma.test.findMany({
         where: {
@@ -18,6 +25,8 @@ export const testRouter = createTRPCRouter({
         orderBy: {
           [input.orderBy]: input.order,
         },
+        take: input.limit,
+        skip: input.page * input.limit,
         include: {
           user: true,
         },
