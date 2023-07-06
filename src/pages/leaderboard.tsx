@@ -29,7 +29,7 @@ const Leadboard: NextPage = () => {
     const contentRef = useRef<HTMLTableSectionElement>(null);
 
     // fetch types
-    const { data: testType } = api.type.get.useQuery({ mode, subMode })
+    const { data: testType } = api.type.get.useQuery({ mode, subMode, language: "english" })
     const { data: tests, isLoading: isLoadingTests, isRefetching } = api.test.getAll.useQuery({
         orderBy: "score",
         order: "desc",
