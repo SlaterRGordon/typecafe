@@ -31,7 +31,7 @@ export const SideNavigation = () => {
             </button>
             {/* Profile, if signed in */}
             {sessionData?.user &&
-                <button className={`btn btn-ghost m-2 flex flex-col content-start`}>
+                <button onClick={() => router.push('/profile')} className={`btn btn-ghost m-2 flex flex-col content-start`}>
                     <Avatar />
                     <div className={`text-lg normal-case ml-2 ${isExpanded ? 'block' : 'hidden'}`}>Profile</div>
                 </button>
