@@ -23,19 +23,18 @@ const options = { attributes: true };
 
 const useStyle = () => {
   const [style, setStyle] = useState<string | undefined>("");
+
+  useEffect(() => {
+    setStyle(document.documentElement.style.getPropertyValue('--p'));
+  }, []);
   
   const handler = useCallback((mutationList: MutationRecord[]) => { 
     mutationList.forEach(mutation => {
       if(mutation.type !== 'attributes' || mutation.attributeName !== 'style') return;
 
-      console.log("style changed")
       setStyle(document.documentElement.style.getPropertyValue('--p'));
     });
   }, []);
-
-  useEffect(() => {
-    console.log(style)
-  }, [style]);
   
   useMutationObserver('html', options, handler);
 
