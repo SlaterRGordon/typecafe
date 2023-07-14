@@ -70,9 +70,29 @@ export const testRouter = createTRPCRouter({
           accuracy: input.accuracy,
           score: input.score,
           count: input.count,
-          options: input.options
+          options: input.options,
+          summaryDate: new Date(),
         },
       });
-    })
-
+    }),
+    getActivityByDate: publicProcedure
+    .input(z.object({
+      startDate: z.date(),
+      endDate: z.date(),
+    }))
+    .query(({ ctx, input }) => {
+      return ctx.prisma.test.groupBy({
+        by: ["summaryDate"],
+        _count: {
+          _all: true,
+        },
+        where: {
+          userId: ctx.session?.user.id,
+          summaryDate: {
+            gte: input.startDate,
+            lte: input.endDate,
+          },
+        },
+      });
+    }),
 });

@@ -93,6 +93,13 @@ display: none;
     text-decoration: underline;
 }
 
+.react-activity-calendar__footer {
+    justify-content: center !important;
+}
+.react-activity-calendar__legend-colors {
+    margin-left: 0px !important;
+}
+
 @keyframes blinking-underline {
     0% {
         text-decoration: underline;

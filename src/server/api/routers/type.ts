@@ -8,9 +8,9 @@ import {
 export const typeRouter = createTRPCRouter({
   get: publicProcedure
     .input(z.object({ 
-      mode: z.number(), 
-      subMode: z.number(), 
-      language: z.string() 
+      mode: z.number().optional(), 
+      subMode: z.number().optional(), 
+      language: z.string().optional()
     }))
     .query(({ ctx, input }) => {
       return ctx.prisma.testType.findFirst({
