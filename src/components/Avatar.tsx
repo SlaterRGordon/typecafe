@@ -1,17 +1,27 @@
 import { useSession } from "next-auth/react";
+import Image from "next/image";
 
-export const Avatar = () => {
+interface AvatarProps {
+    size: number;
+}
+
+export const Avatar = (props: AvatarProps) => {
     const { data: sessionData } = useSession();
 
     return (
-        <div className="avatar placeholder">
-            <div className="w-6 rounded-full bg-neutral-focus text-neutral-content">
-                {sessionData?.user?.image ?
-                    <img src={sessionData.user.image} alt={sessionData.user.name ?? ""} referrerPolicy="no-referrer" />
-                    :
-                    <span>AA</span>
-                }
-            </div>
+        <div className="rounded-full bg-neutral-focus text-neutral-content">
+            {sessionData?.user?.image ?
+                <Image
+                    width={props.size}
+                    height={props.size}
+                    src={sessionData.user.image}
+                    alt={sessionData.user.name ?? ""}
+                    referrerPolicy="no-referrer"
+                    style={{ objectFit: "cover" }}
+                />
+                :
+                <span>AA</span>
+            }
         </div>
     )
 }
