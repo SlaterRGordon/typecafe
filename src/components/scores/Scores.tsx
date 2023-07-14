@@ -19,7 +19,7 @@ interface LeaderboardProps {
 
 const Scores = (props: LeaderboardProps) => {
     const { mode, subMode, count, date } = props;
-    const [allTests, setAllTests] = useState<(Test & {user: User;})[] | undefined>(undefined)
+    const [allTests, setAllTests] = useState<(Test & { user: User; })[] | undefined>(undefined)
     const limit = 16
     const [page, setPage] = useState(0)
 
@@ -56,14 +56,20 @@ const Scores = (props: LeaderboardProps) => {
     }, [contentRef, count, mode, date, limit, page, isLoadingTests]);
 
     useEffect(() => {
+        function uniqueById(items: (Test & {
+            user: User;
+        })[]) {
+            const set = new Set();
+            return items.filter((item) => {
+                const isDuplicate = set.has(item.id);
+                set.add(item.id);
+                return !isDuplicate;
+            });
+        }
         if (tests && !isLoadingTests && !isRefetching) {
             setAllTests(prevTests => {
-                if (prevTests) {
-                    const unqiueTests = [...prevTests, ...tests].filter(function(elem, pos) {
-                        return [prevTests, ...tests].indexOf(elem) == pos;
-                    }); 
-                    return unqiueTests
-                }
+                if (prevTests)
+                    return uniqueById([...prevTests, ...tests]);
                 else return tests
             })
         }
@@ -73,6 +79,10 @@ const Scores = (props: LeaderboardProps) => {
         setAllTests(undefined)
         setPage(0)
     }, [subMode, count, date])
+
+    useEffect(() => {
+        console.log(allTests)
+    }, [allTests])
 
     return (
         <>
