@@ -11,6 +11,7 @@ function isBottom(ref: React.RefObject<HTMLDivElement>) {
 }
 
 interface LeaderboardProps {
+    byUser?: boolean,
     mode: TestModes,
     subMode: TestSubModes,
     count: number,
@@ -29,6 +30,7 @@ const Scores = (props: LeaderboardProps) => {
     // fetch types
     const { data: testType } = api.type.get.useQuery({ mode, subMode, language: "english" })
     const { data: tests, isLoading: isLoadingTests, isRefetching } = api.test.getAll.useQuery({
+        byUser: props.byUser ? props.byUser : false,
         orderBy: "score",
         order: "desc",
         count,

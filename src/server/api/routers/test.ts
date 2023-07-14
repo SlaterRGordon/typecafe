@@ -9,6 +9,7 @@ import {
 export const testRouter = createTRPCRouter({
   getAll: publicProcedure
     .input(z.object({
+      byUser: z.boolean().default(false),
       typeId: z.string(),
       count: z.number(),
       date: z.date().optional(),
@@ -20,6 +21,7 @@ export const testRouter = createTRPCRouter({
     .query(({ ctx, input }) => {
       return ctx.prisma.test.findMany({
         where: {
+          userId: input.byUser ? ctx.session?.user.id : undefined,
           typeId: input.typeId,
           count: input.count,
           createdAt: {
