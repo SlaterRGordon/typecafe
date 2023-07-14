@@ -25,7 +25,7 @@ export const BottomNavigation = () => {
                 {/* Profile, if signed in */}
                 {sessionData?.user &&
                     <button onClick={() => router.push('/profile')} className="hover:active">
-                        <div className="avatar placeholder"><Avatar size={20} /></div>
+                        <div className="avatar placeholder"><Avatar size={25} /></div>
                     </button>
                 }
             </div>

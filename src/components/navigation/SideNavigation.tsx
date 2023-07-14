@@ -32,7 +32,7 @@ export const SideNavigation = () => {
             {/* Profile, if signed in */}
             {sessionData?.user &&
                 <button onClick={() => router.push('/profile')} className={`btn btn-ghost m-2 flex flex-col content-start`}>
-                    <div className="avatar placeholder"><Avatar size={20} /></div>
+                    <div className="avatar placeholder"><Avatar size={25} /></div>
                     <div className={`text-lg normal-case ml-2 ${isExpanded ? 'block' : 'hidden'}`}>Profile</div>
                 </button>
             }
