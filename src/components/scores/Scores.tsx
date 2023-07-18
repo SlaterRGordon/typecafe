@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react"
 import { TestModes, TestSubModes } from "~/components/typer/types"
 import { api } from "~/utils/api"
 import type { Test, User } from "@prisma/client"
+import Image from "next/image";
 
 function isBottom(ref: React.RefObject<HTMLDivElement>) {
     if (!ref.current) {
@@ -110,7 +111,7 @@ const Scores = (props: LeaderboardProps) => {
                                                 <div className="flex items-center space-x-3">
                                                     <div className="avatar">
                                                         <div className="mask mask-squircle w-12 h-12">
-                                                            <img src={test.user.image ?? ""} alt="" />
+                                                            <Image width={500} height={500} src={test.user.image ?? ""} alt="" />
                                                         </div>
                                                     </div>
                                                     <div>

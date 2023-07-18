@@ -21,6 +21,21 @@ export const typeRouter = createTRPCRouter({
         },
       });
     }),
+    getAll: publicProcedure
+    .input(z.object({ 
+      mode: z.number().optional(), 
+      subMode: z.number().optional(), 
+      language: z.string().optional()
+    }))
+    .query(({ ctx, input }) => {
+      return ctx.prisma.testType.findMany({
+        where: {
+          mode: input.mode,
+          subMode: input.subMode,
+          language: input.language,
+        },
+      });
+    }),
   create: publicProcedure
     .input(z.object({
       mode: z.number(),

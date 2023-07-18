@@ -77,7 +77,7 @@ export const testRouter = createTRPCRouter({
         },
       });
     }),
-    getActivityByDate: publicProcedure
+  getActivityByDate: publicProcedure
     .input(z.object({
       startDate: z.date(),
       endDate: z.date(),
@@ -97,4 +97,64 @@ export const testRouter = createTRPCRouter({
         },
       });
     }),
-});
+  getTimeTyped: publicProcedure
+    .input(z.object({ typeIds: z.string().array() }))
+    .query(({ ctx, input }) => {
+      return ctx.prisma.test.aggregate({
+        _sum: {
+          count: true,
+        },
+        where: {
+          userId: ctx.session?.user.id,
+          typeId: { in: input.typeIds },
+        },
+      });
+    }),
+  getBestScore: publicProcedure
+    .query(({ ctx }) => {
+      return ctx.prisma.test.findFirst({
+        where: {
+          userId: ctx.session?.user.id,
+        },
+        orderBy: {
+          score: "desc",
+        },
+      });
+    }),
+  getPercentile: publicProcedure
+    .query(async ({ ctx }) => {
+      const userBest = await ctx.prisma.test.findFirst({
+        where: {
+          userId: ctx.session?.user.id,
+        },
+        orderBy: {
+          score: "desc",
+        },
+      })
+      const scoresBetter = await ctx.prisma.test.findMany({
+        where: {
+          score: {
+            gt: userBest ? userBest.score : 0
+          }
+        },
+        distinct: ['userId'],
+        orderBy: { score: 'desc' },
+      })
+      const scoresWorse = await ctx.prisma.test.findMany({
+        where: {
+          score: {
+            lt: userBest ? userBest.score : 999999
+          }
+        },
+        distinct: ['userId'],
+        orderBy: { score: 'desc' },
+      })
+
+      return {
+        better: scoresBetter.length,
+        worse: scoresWorse.length,
+        total: scoresBetter.length + scoresWorse.length,
+        percentile: (scoresBetter.length / (scoresBetter.length + scoresWorse.length)) * 100,
+      }
+    }),
+  });

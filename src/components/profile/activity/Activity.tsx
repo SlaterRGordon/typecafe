@@ -58,10 +58,6 @@ export const Activity = () => {
     setData(getActivityData(testCounts))
   }, [testCounts])
 
-  useEffect(() => {
-    console.log(style)
-  }, [style]);
-
   return (
     <ActivityCalendar 
       data={data}

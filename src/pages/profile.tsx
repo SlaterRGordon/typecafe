@@ -2,7 +2,7 @@ import { Typography } from "@mui/material";
 import { type NextPage } from "next";
 import { useSession } from "next-auth/react";
 import { Avatar } from "~/components/Avatar";
-import { Stats } from "~/components/profile/Stats";
+import { Stats } from "~/components/profile/stats/Stats";
 import { Activity } from "~/components/profile/activity/Activity";
 import Scores from "~/components/scores/Scores";
 import { TestModes, TestSubModes } from "~/components/typer/types";
