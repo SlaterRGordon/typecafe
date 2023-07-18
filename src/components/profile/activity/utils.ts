@@ -7,10 +7,10 @@ export const getActivityData = (activity: (Prisma.PickArray<Prisma.TestGroupByOu
     };
 })[] | undefined) => {
     const date = new Date()
-    date.setDate(date.getDate() - 69)
+    date.setDate(date.getDate() - 365)
 
     const data: CalendarActivity[] = []
-    for (let i = 0; i < 70; i++) {
+    for (let i = 0; i < 365; i++) {
         const found = activity?.find((item) => item.summaryDate.toISOString().split("T")[0] as string === date.toISOString().split("T")[0] as string)
         date.setDate(date.getDate() + 1)
         if (!found) {
@@ -38,6 +38,8 @@ export const getActivityData = (activity: (Prisma.PickArray<Prisma.TestGroupByOu
             })
         }
     }
+
+    console.log(data)
     
     return data;
 }

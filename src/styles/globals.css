@@ -15,13 +15,19 @@ body>div {
 }
 
 #list::-webkit-scrollbar {
-display: none;
+    display: none;
 }
 
 /* Hide scrollbar for IE, Edge and Firefox */
 #list {
-    -ms-overflow-style: none;  /* IE and Edge */
-    scrollbar-width: none;  /* Firefox */
+    -ms-overflow-style: none;
+    /* IE and Edge */
+    scrollbar-width: none;
+    /* Firefox */
+}
+
+.bg-b2 {
+    background-color: hsl(var(--b2, var(--b1)));
 }
 
 .my-react-select__menu-portal {
@@ -30,27 +36,33 @@ display: none;
     top: 144px !important;
     left: 24px !important;
 }
+
 .my-react-select-container .my-react-select__control {
     --tw-bg-opacity: 1;
     background-color: hsl(var(--b2, var(--b1)) / var(--tw-bg-opacity));
     border-color: hsl(var(--b2, var(--b1)) / var(--tw-bg-opacity));
 }
-.my-react-select-container .my-react-select__control--is-focused, .my-react-select-container .my-react-select__control:hover {
+
+.my-react-select-container .my-react-select__control--is-focused,
+.my-react-select-container .my-react-select__control:hover {
     border-color: transparent !important;
     outline: none !important;
     outline-offset: unset !important;
     box-shadow: none !important;
 }
+
 .my-react-select-container .my-react-select__menu {
     --tw-bg-opacity: 1;
     background-color: hsl(var(--b2, var(--b1)) / var(--tw-bg-opacity));
     border-color: transparent !important;
     z-index: 100;
 }
+
 .my-react-select-container .my-react-select__option {
     --tw-bg-opacity: 1;
     background-color: hsl(var(--b2, var(--b1)) / var(--tw-bg-opacity));
 }
+
 .my-react-select-container .my-react-select__option--is-focused {
     outline: none !important;
     outline-offset: unset !important;
@@ -68,6 +80,7 @@ display: none;
 .my-react-select-container .my-react-select__single-value {
     color: hsla(var(--bc) / var(--tw-text-opacity, 1));
 }
+
 .my-react-select-container .my-react-select__indicator:hover,
 .my-react-select-container .my-react-select__input-container:hover,
 .my-react-select-container .my-react-select__placeholder:hover,
@@ -93,11 +106,32 @@ display: none;
     text-decoration: underline;
 }
 
-.react-activity-calendar__footer {
+/* .react-activity-calendar__footer {
     justify-content: center !important;
-}
-.react-activity-calendar__legend-colors {
+} */
+/* .react-activity-calendar__legend-colors {
     margin-left: 0px !important;
+} */
+/* width */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+/* Track */
+::-webkit-scrollbar-track {
+    border-radius: 8px;
+    background-color: hsla(var(--b2) / var(--tw-bg-opacity, 0.2));
+}
+
+/* Handle */
+::-webkit-scrollbar-thumb {
+    border-radius: 8px;
+    background-color: hsla(var(--b3) / var(--tw-text-opacity, 1));
+}
+
+/* Handle on hover */
+::-webkit-scrollbar-thumb:hover {
+    background-color: hsla(var(--b2) / var(--tw-text-opacity, 1));
 }
 
 @keyframes blinking-underline {

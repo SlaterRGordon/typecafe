@@ -43,7 +43,7 @@ const useStyle = () => {
 
 export const Activity = () => {
   const date = new Date()
-  date.setDate(date.getDate() - 69)
+  date.setDate(date.getDate() - 365)
   const [startDate] = useState(date)
   const [endDate] = useState(new Date())
   const [data, setData] = useState<CalendarActivity[]>([])
@@ -69,8 +69,10 @@ export const Activity = () => {
         light: [style ? `hsla(${style.split(" ").join(",")},0.2)` : "hsl(0, 0%, 92%)", style ? `hsla(${style.split(" ").join(",")},1)` : 'rebeccapurple'],
       }}
       hideMonthLabels={false}
+      showWeekdayLabels={false}
       hideColorLegend={false}
-      hideTotalCount={true}
+      hideTotalCount={false}
+      blockSize={12}
       labels={{
         months: [
           'Jan',
@@ -86,7 +88,7 @@ export const Activity = () => {
           'Nov',
           'Dec'
         ],
-        totalCount: '{{count}} activities in {{year}}',
+        totalCount: '{{count}} tests in {{year}}',
         weekdays: [
           'Sun',
           'Mon',
