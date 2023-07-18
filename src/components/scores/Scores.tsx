@@ -17,10 +17,11 @@ interface LeaderboardProps {
     subMode: TestSubModes,
     count: number,
     date: Date | undefined,
+    language: string,
 }
 
 const Scores = (props: LeaderboardProps) => {
-    const { mode, subMode, count, date } = props;
+    const { mode, subMode, count, date, language } = props;
     const [allTests, setAllTests] = useState<(Test & { user: User; })[] | undefined>(undefined)
     const limit = 16
     const [page, setPage] = useState(0)
@@ -29,7 +30,7 @@ const Scores = (props: LeaderboardProps) => {
     const contentRef = useRef<HTMLTableSectionElement>(null);
 
     // fetch types
-    const { data: testType } = api.type.get.useQuery({ mode, subMode, language: "english" })
+    const { data: testType } = api.type.get.useQuery({ mode, subMode, language: language })
     const { data: tests, isLoading: isLoadingTests, isRefetching } = api.test.getAll.useQuery({
         byUser: props.byUser ? props.byUser : false,
         orderBy: "score",
@@ -81,7 +82,7 @@ const Scores = (props: LeaderboardProps) => {
     useEffect(() => {
         setAllTests(undefined)
         setPage(0)
-    }, [subMode, count, date])
+    }, [subMode, count, date, language])
 
     useEffect(() => {
         console.log(allTests)

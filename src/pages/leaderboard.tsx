@@ -117,7 +117,7 @@ const Leaderboard: NextPage = () => {
                             classNamePrefix="my-react-select"
                         />
                     </div>
-                    <Scores mode={TestModes.normal} subMode={subMode} count={count} date={date} />
+                    <Scores mode={TestModes.normal} subMode={subMode} count={count} date={date} language={"english"} />
                 </div>
             </div>
         </>
