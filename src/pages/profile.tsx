@@ -12,15 +12,15 @@ const Profile: NextPage = () => {
 
   return (
     <>
-      <div className="flex flex-col w-full md:w-10/12 h-full overflow-auto md:overflow-hidden my-4">
+      <div className="flex flex-col w-full md:w-10/12 h-full overflow-auto overflow-x-hidden md:overflow-hidden my-4">
         <div className="flex w-full md:max-w-7xl mt-8">
-          <div className="flex flex-col items-center justify-center mx-8">
-            <Avatar size={"12rem"} />
+          <div className="flex flex-col items-center justify-center mx-6">
+            <Avatar size={"10rem"} />
           </div>
           <div className="flex flex-col justify-center gap-1">
-            <Typography variant="h4" className="text-xl sm:text-2xl md:text-4xl"><strong>{sessionData?.user.name}</strong></Typography>
-            <Typography variant="h5" className="text-lg sm:text-xl md:text-2xl">Owner of type.cafe</Typography>
-            <Typography variant="h5" className="cursor-pointer text-lg sm:text-xl md:text-2xl"><a href="http://github.com/SlaterRGordon">http://github.com/SlaterRGordon</a></Typography>
+            <Typography variant="h4" className="text-base sm:text-lg md:text-xl"><strong>{sessionData?.user.name}</strong></Typography>
+            <Typography variant="h5" className="text-sm sm:text-base md:text-lg">Owner of type.cafe</Typography>
+            <Typography variant="h5" className="cursor-pointer text-sm sm:text-base md:text-lg"><a href="http://github.com/SlaterRGordon">http://github.com/SlaterRGordon</a></Typography>
           </div>
         </div>
         <div className="divider mb-8 mx-8 mt-3"></div>
