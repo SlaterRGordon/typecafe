@@ -117,9 +117,9 @@ const Profile: NextPage = () => {
             <Avatar size={"10rem"} />
           </div>
           <div className="flex flex-col justify-center gap-1">
-            <Typography variant="h4" className="text-base sm:text-lg md:text-xl"><strong>{sessionData?.user.name}</strong></Typography>
-            <Typography variant="h5" className="text-sm sm:text-base md:text-lg">Owner of type.cafe</Typography>
-            <Typography variant="h5" className="cursor-pointer text-sm sm:text-base md:text-lg"><a href="http://github.com/SlaterRGordon">http://github.com/SlaterRGordon</a></Typography>
+            <p className="text-sm md:text-xl"><strong>{sessionData?.user.name}</strong></p>
+            <p className="text-xs md:text-lg">Owner of type.cafe</p>
+            <p className="cursor-pointer text-xs md:text-lg"><a href="http://github.com/SlaterRGordon">http://github.com/SlaterRGordon</a></p>
           </div>
         </div>
         <div className="divider mb-8 mx-8 mt-3"></div>
