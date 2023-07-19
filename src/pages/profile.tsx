@@ -127,7 +127,7 @@ const Profile: NextPage = () => {
             <p className="cursor-pointer text-xs md:text-lg"><a href="http://github.com/SlaterRGordon">http://github.com/SlaterRGordon</a></p>
           </div>
         </div>
-        <div className="divider mb-8 mx-8 mt-3"></div>
+        <div className="divider mb-4 mx-8 mt-3"></div>
         <div className="flex w-10/12">
           <div className="flex flex-col 2xl:items-center w-full">
             <div className="flex w-full 2xl:items-center gap-4 2xl:gap-12 px-4 flex-col 2xl:flex-row">
@@ -139,7 +139,7 @@ const Profile: NextPage = () => {
                 <Activity />
               </div>
             </div>
-            <div className="flex flex-col overflow-x-auto h-[60vh] overflow-y-hidden w-full px-4 py-8 gap-2">
+            <div className="flex flex-col overflow-x-auto h-[60vh] overflow-y-hidden w-full px-4 py-4 gap-2">
               <Typography variant="h5" className="my-2"><strong>Best Scores</strong></Typography>
               <div className="flex gap-2">
                 <Select
