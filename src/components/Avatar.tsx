@@ -9,9 +9,9 @@ export const Avatar = (props: AvatarProps) => {
     const { data: sessionData } = useSession();
 
     return (
-        <div className="avatar">
-            <div style={{maxWidth: props.size, minWidth: '1.5rem'}} className="mask mask-circle">
-                <Image width={500} height={500} src={sessionData?.user.image ?? ""} alt="" />
+        <div className="avatar placeholder">
+            <div style={{maxWidth: props.size, minWidth: '1.5rem'}} className="mask mask-circle md:w-max">
+                <Image width={500} height={500} src={sessionData?.user.image ?? ""} alt="" referrerPolicy="no-referrer" />
             </div>
         </div>
         // <div className="avatar placeholder">
