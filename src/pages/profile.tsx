@@ -112,8 +112,8 @@ const Profile: NextPage = () => {
 
   return (
     <>
-      <div className="flex flex-col w-full md:w-10/12 h-full overflow-auto overflow-x-hidden md:overflow-hidden my-4">
-        <div className="flex w-full md:max-w-7xl mt-8 mx-4">
+      <div className="flex flex-col w-full h-full overflow-auto overflow-x-hidden my-4 items-center">
+        <div className="flex w-10/12 md:max-w-7xl mt-8 mx-4">
           <div className="flex flex-col items-center justify-center mx-6">
             <div className="avatar">
               <div className="mask mask-circle w-24 h-24">
@@ -128,7 +128,7 @@ const Profile: NextPage = () => {
           </div>
         </div>
         <div className="divider mb-8 mx-8 mt-3"></div>
-        <div className="flex w-full">
+        <div className="flex w-10/12">
           <div className="flex flex-col 2xl:items-center w-full">
             <div className="flex w-full 2xl:items-center gap-4 2xl:gap-12 px-4 flex-col 2xl:flex-row">
               <div className="flex flex-col">
