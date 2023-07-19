@@ -8,11 +8,13 @@ import Scores from "~/components/scores/Scores";
 import { TestModes, TestSubModes } from "~/components/typer/types";
 import Select, { SingleValue } from 'react-select'
 import { useEffect, useState } from "react";
+import { useRouter } from "next/router";
 
 type Option = { label: string, value: number | string }
 
 const Profile: NextPage = () => {
-  const { data: sessionData } = useSession();
+  const router = useRouter()
+  const { data: sessionData, status } = useSession();
   const [language, setLanguage] = useState<string>("english")
   const [date, setDate] = useState<Date | undefined>(undefined)
   const [timeRange, setTimeRange] = useState(3)
@@ -95,6 +97,17 @@ const Profile: NextPage = () => {
   const handleChangeCount = (value: SingleValue<Option>) => {
     if (value) setCount(value.value as number)
   }
+
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      router.push("/")
+        .catch(err => console.log(err))
+    }
+  }, [status, router])
+
+  console.log(status)
+  if (status === "loading") return <div className="loading-spinner"></div>;
+  else if (status === "unauthenticated") return <div className="loading-spinner"></div>;
 
   return (
     <>
