@@ -10,18 +10,9 @@ export const Avatar = (props: AvatarProps) => {
 
     return (
         <div className="avatar placeholder">
-            <div style={{maxWidth: props.size, minWidth: '1.5rem'}} className="mask mask-circle md:w-max">
+            <div style={{width: props.size, minWidth: '1.5rem'}} className="mask mask-circle">
                 <Image width={500} height={500} src={sessionData?.user.image ?? ""} alt="" referrerPolicy="no-referrer" />
             </div>
         </div>
-        // <div className="avatar placeholder">
-        //     <div style={{maxWidth: props.size, minWidth: '1.5rem'}} className="rounded-full bg-neutral-focus text-neutral-content">
-        //         {sessionData?.user?.image ?
-        //             <Image width={500} height={500} src={sessionData.user.image} alt={sessionData.user.name ?? ""} referrerPolicy="no-referrer" />
-        //             :
-        //             <span>AA</span>
-        //         }
-        //     </div>
-        // </div>
     )
 }

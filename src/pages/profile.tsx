@@ -9,6 +9,7 @@ import { TestModes, TestSubModes } from "~/components/typer/types";
 import Select, { SingleValue } from 'react-select'
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
+import Image from "next/image";
 
 type Option = { label: string, value: number | string }
 
@@ -112,9 +113,13 @@ const Profile: NextPage = () => {
   return (
     <>
       <div className="flex flex-col w-full md:w-10/12 h-full overflow-auto overflow-x-hidden md:overflow-hidden my-4">
-        <div className="flex w-full md:max-w-7xl mt-8">
+        <div className="flex w-full md:max-w-7xl mt-8 mx-4">
           <div className="flex flex-col items-center justify-center mx-6">
-            <Avatar size={"10rem"} />
+            <div className="avatar">
+              <div className="mask mask-circle w-24 h-24">
+                <Image width={500} height={500} src={sessionData?.user.image ?? ""} alt="" />
+              </div>
+            </div>
           </div>
           <div className="flex flex-col justify-center gap-1">
             <p className="text-sm md:text-xl"><strong>{sessionData?.user.name}</strong></p>
