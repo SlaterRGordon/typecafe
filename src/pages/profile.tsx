@@ -144,7 +144,7 @@ const Profile: NextPage = () => {
                 <Activity />
               </div>
             </div>
-            <div className="flex basis-0 grow justify-stretch flex-col overflow-x-auto w-full py-4 gap-2">
+            <div className="flex basis-0 grow justify-stretch flex-col overflow-x-auto overflow-y-auto min-h-[532px] w-full py-4 gap-2">
               <Typography variant="h5" className="my-2"><strong>Best Scores</strong></Typography>
               <div className="flex gap-2">
                 <Select
