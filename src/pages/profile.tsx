@@ -114,23 +114,28 @@ const Profile: NextPage = () => {
     <>
       <div className="flex justify-stretch flex-col w-full h-full overflow-auto overflow-x-hidden items-center">
         <div className="flex w-11/12 md:max-w-7xl mt-8 mx-4">
-          <div className="flex flex-col items-center justify-center mx-6">
-            <div className="avatar">
-              <div className="mask mask-circle w-24 h-24">
-                <Image width={500} height={500} src={sessionData?.user.image ?? ""} alt="" />
+          <div className="flex flex-col gap-2">
+            <div className="flex gap-4">
+              <div className="flex flex-col items-center justify-center">
+                <div className="avatar">
+                  <div className="mask mask-circle w-24 h-24">
+                    <Image width={500} height={500} src={sessionData?.user.image ?? ""} alt="" />
+                  </div>
+                </div>
+              </div>
+              <div className="flex flex-col justify-center gap-1">
+                <p className="text-sm md:text-xl"><strong>{sessionData?.user.name}</strong></p>
+                <p className="text-xs md:text-lg">Owner of type.cafe</p>
+                <p className="cursor-pointer text-xs md:text-lg"><a href="http://github.com/SlaterRGordon">http://github.com/SlaterRGordon</a></p>
               </div>
             </div>
-          </div>
-          <div className="flex flex-col justify-center gap-1">
-            <p className="text-sm md:text-xl"><strong>{sessionData?.user.name}</strong></p>
-            <p className="text-xs md:text-lg">Owner of type.cafe</p>
-            <p className="cursor-pointer text-xs md:text-lg"><a href="http://github.com/SlaterRGordon">http://github.com/SlaterRGordon</a></p>
+            <button className="btn btn-secondary btn-sm w-full my-[0.2rem]">Edit Profile</button>
           </div>
         </div>
         <div className="divider mb-4 mx-8 mt-3"></div>
         <div className="flex basis-0 grow items-stretch w-11/12">
           <div className="flex basis-0 grow justify-stretch flex-col 2xl:items-center w-full">
-            <div className="flex w-full 2xl:items-center gap-4 2xl:gap-12 px-4 flex-col 2xl:flex-row">
+            <div className="flex w-full 2xl:items-center gap-4 2xl:gap-12 flex-col 2xl:flex-row">
               <div className="flex flex-col">
                 <Stats />
               </div>
@@ -139,7 +144,7 @@ const Profile: NextPage = () => {
                 <Activity />
               </div>
             </div>
-            <div className="flex basis-0 grow justify-stretch flex-col overflow-x-auto w-full px-4 py-4 gap-2">
+            <div className="flex basis-0 grow justify-stretch flex-col overflow-x-auto w-full py-4 gap-2">
               <Typography variant="h5" className="my-2"><strong>Best Scores</strong></Typography>
               <div className="flex gap-2">
                 <Select
