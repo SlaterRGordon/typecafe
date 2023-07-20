@@ -112,7 +112,7 @@ const Profile: NextPage = () => {
 
   return (
     <>
-      <div className="flex flex-col w-full h-full overflow-auto overflow-x-hidden my-4 items-center">
+      <div className="flex flex-col w-full h-full overflow-auto overflow-x-hidden items-center">
         <div className="flex w-10/12 md:max-w-7xl mt-8 mx-4">
           <div className="flex flex-col items-center justify-center mx-6">
             <div className="avatar">
@@ -139,7 +139,7 @@ const Profile: NextPage = () => {
                 <Activity />
               </div>
             </div>
-            <div className="flex flex-col overflow-x-auto h-[60vh] overflow-y-hidden w-full px-4 py-4 gap-2">
+            <div className="flex flex-col overflow-x-auto w-full px-4 py-4 gap-2">
               <Typography variant="h5" className="my-2"><strong>Best Scores</strong></Typography>
               <div className="flex gap-2">
                 <Select
@@ -187,7 +187,9 @@ const Profile: NextPage = () => {
                   classNamePrefix="my-react-select"
                 />
               </div>
-              <Scores byUser={true} mode={TestModes.normal} subMode={subMode} count={count} date={date} language={language} />
+              <div className="flex h-[40vh] overflow-y-hidden">
+                <Scores byUser={true} mode={TestModes.normal} subMode={subMode} count={count} date={date} language={language} />
+              </div>
             </div>
           </div>
         </div>

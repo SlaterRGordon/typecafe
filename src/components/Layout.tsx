@@ -10,7 +10,7 @@ export default function Layout({ children }: any) {
             <Navigation />
             <main
                 id="main"
-                className="flex w-full h-full justify-center items-center box-border py-[4rem] md:pl-[4.6rem]">
+                className="flex w-full h-full justify-center items-center box-border pt-[4rem] pb-[4rem] md:pl-[4.6rem] md:pb-[0rem]">
                 {children}
             </main>
         </>
