@@ -96,7 +96,7 @@ const Scores = (props: LeaderboardProps) => {
                         <table className="flex basis-0 grow justify-stretch flex-col table-zebra w-full z-0">
                             <thead className="flex w-full sticky top-0 z-50">
                                 <div className="flex w-full justify-stretch bg-b2 p-4 rounded-t-lg">
-                                    <div className="flex w-[4%]"></div>
+                                    <div className="flex w-[10%] md:[5%]"></div>
                                     <div className="flex basis-0 grow">User</div>
                                     <div className="flex basis-0 grow rounded-tr-lg sm:rounded-tr-none">WPM</div>
                                     <div className="flex basis-0 grow hidden rounded-tr-lg md:rounded-tr-none sm:table-cell">Accuracy</div>
