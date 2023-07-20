@@ -107,7 +107,7 @@ const Scores = (props: LeaderboardProps) => {
                                 {allTests?.map((test, index) => {
                                     return (
                                         <div className={`flex w-full justify-stretch px-4 py-4 ${index % 2 == 1 ? 'bg-b2' : '' }`} key={index}>
-                                            <div className="flex w-[4%] items-center">{index + 1}</div>
+                                            <div className="flex w-[10%] md:[5%] items-center">{index + 1}</div>
                                             <div className="flex basis-0 grow items-center">
                                                 <div className="flex basis-0 grow items-center items-center space-x-3">
                                                     <div className="avatar">
