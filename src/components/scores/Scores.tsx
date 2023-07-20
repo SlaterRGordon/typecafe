@@ -84,10 +84,6 @@ const Scores = (props: LeaderboardProps) => {
         setPage(0)
     }, [subMode, count, date, language])
 
-    useEffect(() => {
-        console.log(allTests)
-    }, [allTests])
-
     return (
         <>
             <div id="leaderboard" className="flex basis-0 grow w-full items-stretch justify-center">

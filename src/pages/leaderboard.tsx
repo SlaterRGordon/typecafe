@@ -5,13 +5,27 @@ import type { SingleValue } from 'react-select'
 import Select from 'react-select'
 import Scores from "~/components/scores/Scores"
 
-type Option = { label: string, value: number }
+type Option = { label: string, value: number | string }
 
 const Leaderboard: NextPage = () => {
+    const [language, setLanguage] = useState<string>("english")
     const [date, setDate] = useState<Date | undefined>(undefined)
     const [timeRange, setTimeRange] = useState(0)
     const [subMode, setSubMode] = useState<TestSubModes>(TestSubModes.timed)
     const [count, setCount] = useState(15)
+
+    const languageOptions = [
+        { value: "english", label: 'English' },
+        { value: "french", label: 'French' },
+        { value: "Hindi", label: 'Hindi' },
+        { value: "Chinese", label: 'Chinese' },
+        { value: "Spanish", label: 'Spanish' },
+      ]
+      const handleChangeLanguage = (value: SingleValue<Option>) => {
+        if (value) {
+          setLanguage(value.value as string)
+        }
+      }
 
     const timeRangeOptions = [
         { value: 0, label: 'Daily' },
@@ -21,7 +35,7 @@ const Leaderboard: NextPage = () => {
     ]
     const handleChangeTimeRange = (value: SingleValue<Option>) => {
         if (value) {
-            setTimeRange(value.value)
+            setTimeRange(value.value as number)
         }
     }
 
@@ -42,7 +56,7 @@ const Leaderboard: NextPage = () => {
                 break;
             case 3:
                 setDate(undefined)
-                break;        
+                break;
         }
     }, [timeRange])
 
@@ -63,7 +77,7 @@ const Leaderboard: NextPage = () => {
             if (value.value == TestSubModes.timed) setCount(15)
             else setCount(10)
 
-            setSubMode(value.value)
+            setSubMode(value.value as number)
         }
     }
 
@@ -74,14 +88,24 @@ const Leaderboard: NextPage = () => {
         { value: 100, label: '100' },
     ]
     const handleChangeCount = (value: SingleValue<Option>) => {
-        if (value) setCount(value.value)
+        if (value) setCount(value.value as number)
     }
 
     return (
         <>
             <div id="leaderboard" className="flex w-full h-full justify-center">
-                <div className="flex flex-col overflow-x-auto overflow-y-hidden w-full mx-4 py-8 gap-2">
+                <div className="flex flex-col overflow-x-auto overflow-y-hidden w-11/12 mx-4 py-8 gap-2">
                     <div className="flex gap-2">
+                        <Select
+                            instanceId="languageSeelect"
+                            defaultValue={languageOptions[0]}
+                            options={languageOptions}
+                            value={languageOptions.find(option => option.value == language)}
+                            onChange={handleChangeLanguage}
+                            isSearchable={false}
+                            className="max-w-xs my-react-select-container"
+                            classNamePrefix="my-react-select"
+                        />
                         <Select
                             instanceId="subModeSelect"
                             defaultValue={subModeOptions[0]}
@@ -117,7 +141,7 @@ const Leaderboard: NextPage = () => {
                             classNamePrefix="my-react-select"
                         />
                     </div>
-                    <Scores mode={TestModes.normal} subMode={subMode} count={count} date={date} language={"english"} />
+                    <Scores mode={TestModes.normal} subMode={subMode} count={count} date={date} language={language} />
                 </div>
             </div>
         </>
