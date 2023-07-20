@@ -43,6 +43,7 @@ const useStyle = () => {
 
 export const Activity = () => {
   const date = new Date()
+  const [totalCount, setTotalCount] = useState(0)
   date.setDate(date.getDate() - 365)
   const [startDate] = useState(date)
   const [endDate] = useState(new Date())
@@ -56,6 +57,11 @@ export const Activity = () => {
 
   useEffect(() => {
     setData(getActivityData(testCounts))
+    let total = 0
+    testCounts?.forEach((testCount) => {
+      total += testCount._count._all
+    })
+    setTotalCount(total)
   }, [testCounts])
 
   return (
@@ -84,7 +90,7 @@ export const Activity = () => {
           'Nov',
           'Dec'
         ],
-        totalCount: '{{count}} tests in {{year}}',
+        totalCount: `${totalCount} tests in ${new Date().getFullYear()}`,
         weekdays: [
           'Sun',
           'Mon',
