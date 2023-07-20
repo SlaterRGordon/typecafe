@@ -113,7 +113,7 @@ const Profile: NextPage = () => {
   return (
     <>
       <div className="flex justify-stretch flex-col w-full h-full overflow-auto overflow-x-hidden items-center">
-        <div className="flex w-11/12 md:max-w-7xl mt-8 mx-4">
+        <div className="flex w-11/12 mt-8 mx-4">
           <div className="flex flex-col gap-2">
             <div className="flex gap-4">
               <div className="flex flex-col items-center justify-center">
