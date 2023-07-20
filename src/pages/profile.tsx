@@ -112,8 +112,8 @@ const Profile: NextPage = () => {
 
   return (
     <>
-      <div className="flex flex-col w-full h-full overflow-auto overflow-x-hidden items-center">
-        <div className="flex w-10/12 md:max-w-7xl mt-8 mx-4">
+      <div className="flex justify-stretch flex-col w-full h-full overflow-auto overflow-x-hidden items-center">
+        <div className="flex w-11/12 md:max-w-7xl mt-8 mx-4">
           <div className="flex flex-col items-center justify-center mx-6">
             <div className="avatar">
               <div className="mask mask-circle w-24 h-24">
@@ -128,8 +128,8 @@ const Profile: NextPage = () => {
           </div>
         </div>
         <div className="divider mb-4 mx-8 mt-3"></div>
-        <div className="flex w-10/12">
-          <div className="flex flex-col 2xl:items-center w-full">
+        <div className="flex basis-0 grow items-stretch w-11/12">
+          <div className="flex basis-0 grow justify-stretch flex-col 2xl:items-center w-full">
             <div className="flex w-full 2xl:items-center gap-4 2xl:gap-12 px-4 flex-col 2xl:flex-row">
               <div className="flex flex-col">
                 <Stats />
@@ -139,7 +139,7 @@ const Profile: NextPage = () => {
                 <Activity />
               </div>
             </div>
-            <div className="flex flex-col overflow-x-auto w-full px-4 py-4 gap-2">
+            <div className="flex basis-0 grow justify-stretch flex-col overflow-x-auto w-full px-4 py-4 gap-2">
               <Typography variant="h5" className="my-2"><strong>Best Scores</strong></Typography>
               <div className="flex gap-2">
                 <Select
@@ -187,9 +187,7 @@ const Profile: NextPage = () => {
                   classNamePrefix="my-react-select"
                 />
               </div>
-              <div className="flex h-[40vh] overflow-y-hidden">
-                <Scores byUser={true} mode={TestModes.normal} subMode={subMode} count={count} date={date} language={language} />
-              </div>
+              <Scores byUser={true} mode={TestModes.normal} subMode={subMode} count={count} date={date} language={language} />
             </div>
           </div>
         </div>

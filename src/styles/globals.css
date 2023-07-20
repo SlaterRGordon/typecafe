@@ -113,6 +113,9 @@ body>div {
     margin-left: 0px !important;
 } */
 /* width */
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
 ::-webkit-scrollbar {
     width: 8px;
 }
