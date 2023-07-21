@@ -30,7 +30,7 @@ export const Stats = () => {
                         <div className="stat-value text-secondary">{timeTyped?._sum.count ? formatValue(timeTyped._sum.count) : 0}</div>
                     }
                 </div>
-                <div className="flex flex-col py-4 px-6 rounded-md bg-b2">
+                <div className="flex flex-col items-center py-4 px-6 rounded-md bg-b2">
                     <div className="stat-title">Total Words</div>
                     {isLoadingWords || isLoadingWordsType ?
                         <div className="flex basis-0 grow items-center">
@@ -42,7 +42,7 @@ export const Stats = () => {
                 </div>
             </div>
             <div className="flex flex-col lg:flex-row 2xl:flex-col gap-4">
-                <div className="flex flex-col py-4 px-6 rounded-md bg-b2">
+                <div className="flex flex-col items-center py-4 px-6 rounded-md bg-b2">
                     <div className="stat-title">Top Speed</div>
                     {isLoadingScore ?
                         <div className="flex basis-0 grow items-center">
@@ -52,7 +52,7 @@ export const Stats = () => {
                         <div className="stat-value text-primary">{bestScore ? bestScore.speed.toFixed(2) : 0.00}</div>
                     }
                 </div>
-                <div className="flex flex-col py-4 px-6 rounded-md bg-b2">
+                <div className="flex flex-col items-center py-4 px-6 rounded-md bg-b2">
                     <div className="stat-title">Percentile</div>
                     {isLoadingPercentile ?
                         <div className="flex basis-0 grow items-center">
