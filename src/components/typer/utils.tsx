@@ -15,8 +15,6 @@ const languages = {
 export const generateText = (count: number, language: string) => {
     let text = ''
 
-    console.log(language)
-
     // Generate random text
     for (let i = 0; i < count; i++) {
         const words = languages[language as keyof typeof languages].words

@@ -34,7 +34,6 @@ export const Config = (props: ConfigProps) => {
         { value: "spanish", label: 'Spanish' },
     ]
     const handleChangeLanguage = (value: SingleValue<Option>) => {
-        console.log("changing language")
         if (value) props.setLanguage(value.value)
     }
 

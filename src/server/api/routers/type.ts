@@ -13,7 +13,6 @@ export const typeRouter = createTRPCRouter({
       language: z.string().optional()
     }))
     .query(({ ctx, input }) => {
-      console.log(input);
       return ctx.prisma.testType.findFirst({
         where: {
           mode: input.mode,
@@ -29,7 +28,6 @@ export const typeRouter = createTRPCRouter({
       language: z.string().optional()
     }))
     .query(({ ctx, input }) => {
-      console.log(input);
       return ctx.prisma.testType.findMany({
         where: {
           mode: input.mode,

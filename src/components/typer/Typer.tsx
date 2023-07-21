@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react"
-import { TestModes, TestSubModes } from "./types"
+import { TestSubModes } from "./types"
+import type { TestModes } from "./types"
 import { generateText } from "./utils"
 import { Text } from "./Text"
 import { Stats } from "./Stats"

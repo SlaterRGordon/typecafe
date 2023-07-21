@@ -1,28 +1,58 @@
-import { useSession } from "next-auth/react"
-import { useState } from "react"
+import { User } from "@prisma/client"
+import { use, useEffect, useState } from "react"
+import { api } from "~/utils/api"
 
-export const Edit = () => {
+interface EditProps {
+    userData: User | null | undefined
+    onClose: () => void
+}
 
-    // useEffect(() => {
+export const Edit = (props: EditProps) => {
+    const [name, setName] = useState(props.userData?.name ?? "")
+    const [bio, setBio] = useState(props.userData?.bio ?? "")
+    const [link, setLink] = useState(props.userData?.link ?? "")
 
-    // }, [])
+    useEffect(() => {
+        setName(props.userData?.name ?? "")
+        setBio(props.userData?.bio ?? "")
+        setLink(props.userData?.link ?? "")
+    }, [props.userData])
 
-    const { data: sessionData } = useSession()
+    // create test
+    const updateUser = api.user.update.useMutation({
+        onSuccess: () => {
+            console.log("user updated")
+            props.onClose()
+        },
+        onError: (error) => {
+            console.log(error)
+        }
+    })
 
     const [nameError, setNameError] = useState(false)
     const onNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        // setName(e.target.value)
+        setName(e.target.value)
         if (e.target.value.length > 0) {
             setNameError(false)
         }
     }
-    const [bioError, setBioError] = useState(false)
     const onBioChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-        // setName(e.target.value)
+        setBio(e.target.value)
     }
-    const [linkError, setLinkError] = useState(false)
     const onLinkChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        // setName(e.target.value)
+        setLink(e.target.value)
+    }
+
+    const saveChanges = () => {
+        if (name.length === 0) {
+            setNameError(true)
+            return
+        }
+        updateUser.mutate({
+            name: name,
+            bio: bio,
+            link: link,
+        })
     }
 
     return (
@@ -34,16 +64,16 @@ export const Edit = () => {
                     id="nameInput"
                     type="text" placeholder="Name"
                     className={`w-full input input-bordered ${nameError ? "input-error" : ""}`}
-                    value={sessionData?.user.name ?? ""}
+                    value={name}
                     onChange={onNameChange}
                 />
             </div>
             <div className="flex flex-col">
                 <h3 className="font-semibold text-2xl p-1">Bio</h3>
                 <textarea
-                    className={`w-full textarea textarea-bordered ${bioError ? "input-error" : ""}`}
+                    className={`w-full textarea textarea-bordered`}
                     placeholder="Bio"
-                    value={sessionData?.user.bio ?? ""}
+                    value={bio}
                     onChange={onBioChange}
                 />
             </div>
@@ -52,13 +82,13 @@ export const Edit = () => {
                 <input
                     id="linkInput"
                     type="text" placeholder="Link"
-                    className={`w-full input input-bordered ${linkError ? "input-error" : ""}`}
-                    value={sessionData?.user.link ?? ""}
+                    className={`w-full input input-bordered`}
+                    value={link}
                     onChange={onLinkChange}
                 />
             </div>
             <div className="absolute bottom-0 w-full">
-                <button onClick={() => { return; }} className="btn btn-sm btn-primary btn-block">
+                <button onClick={saveChanges} className="btn btn-sm btn-primary btn-block">
                     Save
                 </button>
             </div>

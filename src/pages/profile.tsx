@@ -1,17 +1,18 @@
 import { Typography } from "@mui/material";
 import { type NextPage } from "next";
 import { useSession } from "next-auth/react";
-import { Avatar } from "~/components/Avatar";
 import { Stats } from "~/components/profile/stats/Stats";
 import { Activity } from "~/components/profile/activity/Activity";
 import Scores from "~/components/scores/Scores";
 import { TestModes, TestSubModes } from "~/components/typer/types";
-import Select, { SingleValue } from 'react-select'
+import Select from 'react-select'
+import type { SingleValue } from 'react-select'
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import Image from "next/image";
 import { Modal } from "~/components/Modal";
 import { Edit } from "~/components/profile/edit/Edit";
+import { api } from "~/utils/api";
 
 type Option = { label: string, value: number | string }
 
@@ -23,6 +24,14 @@ const Profile: NextPage = () => {
   const [timeRange, setTimeRange] = useState(3)
   const [subMode, setSubMode] = useState<TestSubModes>(TestSubModes.timed)
   const [count, setCount] = useState(15)
+  const [update, setUpdate] = useState(false)
+  
+  const { data: userData, refetch: refetchUserData, isLoading } = api.user.get.useQuery()
+
+  const onModalClose = async () => {
+    setUpdate(prevUpdate => !prevUpdate)
+    await refetchUserData()
+  }
 
   const languageOptions = [
     { value: "english", label: 'English' },
@@ -125,9 +134,17 @@ const Profile: NextPage = () => {
                 </div>
               </div>
               <div className="flex flex-col justify-center gap-1">
-                <p className="text-sm md:text-xl"><strong>{sessionData?.user.name}</strong></p>
-                <p className="text-xs md:text-lg">Owner of type.cafe</p>
-                <p className="cursor-pointer text-xs md:text-lg"><a href="http://github.com/SlaterRGordon">http://github.com/SlaterRGordon</a></p>
+                {isLoading ?
+                  <div className="flex basis-0 grow items-center">
+                    <div className="w-8 h-8 rounded-full animate-spin border border-solid text-primary border-t-transparent"></div>
+                  </div>
+                  :
+                  <>
+                    <p className="text-sm md:text-xl"><strong>{userData?.name ?? ""}</strong></p>
+                    <p className="text-xs md:text-lg">{userData?.bio ?? ""}</p>
+                    <p className="cursor-pointer text-xs md:text-lg"><a href={userData?.link ?? ""}>{userData?.link ?? ""}</a></p>
+                  </>
+                }
               </div>
             </div>
             <label className="btn btn-secondary btn-sm w-full my-[0.2rem]" htmlFor="configModal">Edit Profile</label>
@@ -193,13 +210,13 @@ const Profile: NextPage = () => {
                   classNamePrefix="my-react-select"
                 />
               </div>
-              <Scores byUser={true} mode={TestModes.normal} subMode={subMode} count={count} date={date} language={language} />
+              <Scores update={update} byUser={true} mode={TestModes.normal} subMode={subMode} count={count} date={date} language={language} />
             </div>
           </div>
         </div>
       </div>
       <Modal>
-        <Edit />
+        <Edit userData={userData} onClose={onModalClose} />
       </Modal>
     </>
   );

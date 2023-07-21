@@ -38,8 +38,6 @@ export const getActivityData = (activity: (Prisma.PickArray<Prisma.TestGroupByOu
             })
         }
     }
-
-    console.log(data)
     
     return data;
 }

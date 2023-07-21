@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, use } from "react"
 import { TestModes, TestSubModes } from "~/components/typer/types"
 import { api } from "~/utils/api"
 import type { Test, User } from "@prisma/client"
@@ -18,6 +18,7 @@ interface LeaderboardProps {
     count: number,
     date: Date | undefined,
     language: string,
+    update?: boolean,
 }
 
 const Scores = (props: LeaderboardProps) => {
@@ -31,7 +32,7 @@ const Scores = (props: LeaderboardProps) => {
 
     // fetch types
     const { data: testType } = api.type.get.useQuery({ mode, subMode, language: language })
-    const { data: tests, isLoading: isLoadingTests, isRefetching } = api.test.getAll.useQuery({
+    const { data: tests, isLoading: isLoadingTests, refetch, isRefetching } = api.test.getAll.useQuery({
         byUser: props.byUser ? props.byUser : false,
         orderBy: "score",
         order: "desc",
@@ -41,6 +42,16 @@ const Scores = (props: LeaderboardProps) => {
         limit,
         page,
     })
+
+    useEffect(() => {
+        setAllTests(undefined)
+        setPage(0)
+        refetch().then(() => {
+            console.log("refetched")
+        }).catch((err) => {
+            console.log(err)
+        })
+    }, [props.update, refetch])
 
     // Hook on scroll
     useEffect(() => {
