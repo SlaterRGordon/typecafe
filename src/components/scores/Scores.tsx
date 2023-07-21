@@ -89,8 +89,8 @@ const Scores = (props: LeaderboardProps) => {
             <div id="leaderboard" className="flex basis-0 grow w-full items-stretch justify-center">
                 <div className="flex basis-0 grow justify-stretch flex-col overflow-x-auto overflow-y-hidden w-full gap-2">
                     <div ref={contentRef} id="list" className="flex basis-0 grow items-stretch overflow-auto mb-[2rem]">
-                        <table className="flex basis-0 grow justify-stretch flex-col table-zebra w-full z-0">
-                            <thead className="flex w-full sticky top-0 z-50">
+                        <div className="flex basis-0 grow justify-stretch flex-col table-zebra w-full z-0">
+                            <div className="flex w-full sticky top-0 z-50">
                                 <div className="flex w-full justify-stretch bg-b2 p-4 rounded-t-lg">
                                     <div className="flex w-[10%] md:[5%]"></div>
                                     <div className="flex basis-0 grow">User</div>
@@ -98,11 +98,11 @@ const Scores = (props: LeaderboardProps) => {
                                     <div className="flex basis-0 grow hidden rounded-tr-lg md:rounded-tr-none sm:table-cell">Accuracy</div>
                                     <div className="flex basis-0 grow hidden md:table-cell">Date</div>
                                 </div>
-                            </thead>
-                            <tbody className="flex basis-0 grow flex-col w-full overflow-auto no-scrollbar">
-                                {allTests?.map((test, index) => {
+                            </div>
+                            <div className="flex basis-0 grow flex-col w-full items-center overflow-auto no-scrollbar">
+                                {!isLoadingTests ? allTests?.map((test, index) => {
                                     return (
-                                        <div className={`flex w-full justify-stretch px-4 py-4 ${index % 2 == 1 ? 'bg-b2' : '' }`} key={index}>
+                                        <div className={`flex w-full justify-stretch px-4 py-4 ${index % 2 == 1 ? 'bg-b2' : ''}`} key={index}>
                                             <div className="flex w-[10%] md:[5%] items-center">{index + 1}</div>
                                             <div className="flex basis-0 grow items-center">
                                                 <div className="flex basis-0 grow items-center items-center space-x-3">
@@ -125,9 +125,14 @@ const Scores = (props: LeaderboardProps) => {
                                             <div className="flex basis-0 grow items-center hidden md:flex">{test.createdAt.toLocaleDateString()}</div>
                                         </div>
                                     )
-                                })}
-                            </tbody>
-                        </table>
+                                })
+                                :
+                                <div className="flex w-full basis-0 grow justify-center items-center">
+                                    <div className="w-8 h-8 rounded-full animate-spin border border-solid text-primary border-t-transparent"></div>
+                                </div>
+                                }
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
