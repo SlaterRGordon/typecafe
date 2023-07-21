@@ -10,6 +10,8 @@ import Select, { SingleValue } from 'react-select'
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import Image from "next/image";
+import { Modal } from "~/components/Modal";
+import { Edit } from "~/components/profile/edit/Edit";
 
 type Option = { label: string, value: number | string }
 
@@ -106,7 +108,6 @@ const Profile: NextPage = () => {
     }
   }, [status, router])
 
-  console.log(status)
   if (status === "loading") return <div className="loading-spinner"></div>;
   else if (status === "unauthenticated") return <div className="loading-spinner"></div>;
 
@@ -129,7 +130,7 @@ const Profile: NextPage = () => {
                 <p className="cursor-pointer text-xs md:text-lg"><a href="http://github.com/SlaterRGordon">http://github.com/SlaterRGordon</a></p>
               </div>
             </div>
-            <button className="btn btn-secondary btn-sm w-full my-[0.2rem]">Edit Profile</button>
+            <label className="btn btn-secondary btn-sm w-full my-[0.2rem]" htmlFor="configModal">Edit Profile</label>
           </div>
         </div>
         <div className="divider mb-4 mx-8 mt-3"></div>
@@ -197,6 +198,9 @@ const Profile: NextPage = () => {
           </div>
         </div>
       </div>
+      <Modal>
+        <Edit />
+      </Modal>
     </>
   );
 };

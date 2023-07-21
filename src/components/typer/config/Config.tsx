@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react"
+import { useEffect } from "react"
 import type { SingleValue } from "react-select"
 import Select from 'react-select'
 import { TestModes, TestSubModes } from "../types"
