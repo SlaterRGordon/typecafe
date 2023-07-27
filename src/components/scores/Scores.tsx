@@ -26,6 +26,7 @@ const Scores = (props: LeaderboardProps) => {
     const [allTests, setAllTests] = useState<(Test & { user: User; })[] | undefined>(undefined)
     const limit = 16
     const [page, setPage] = useState(0)
+    const [loadingList, setLoadingList] = useState(true)
 
     // scrollable div
     const contentRef = useRef<HTMLTableSectionElement>(null);
@@ -57,6 +58,7 @@ const Scores = (props: LeaderboardProps) => {
     useEffect(() => {
         const onScroll = () => {
             if (isBottom(contentRef) && !isLoadingTests) {
+                setLoadingList(true)
                 setPage(page + 1)
             }
         };
@@ -64,6 +66,7 @@ const Scores = (props: LeaderboardProps) => {
         const list = contentRef.current;
         if (list) {
             list.addEventListener('scroll', onScroll);
+
             return () => {
                 list.removeEventListener('scroll', onScroll);
             }
@@ -71,22 +74,29 @@ const Scores = (props: LeaderboardProps) => {
     }, [contentRef, count, mode, date, limit, page, isLoadingTests]);
 
     useEffect(() => {
-        function uniqueById(items: (Test & {
-            user: User;
-        })[]) {
-            const set = new Set();
-            return items.filter((item) => {
-                const isDuplicate = set.has(item.id);
-                set.add(item.id);
-                return !isDuplicate;
-            });
+        function uniqueById(
+            prev: (Test & { user: User; })[] | undefined,
+            curr: (Test & { user: User; })[] | undefined
+        ) {
+            if (!prev) return curr ?? [];
+            if (!curr) return prev ?? [];
+
+            return curr.filter((currItem) => {
+                if (prev.find((prevItem) => prevItem.id === currItem.id)) return false;
+                else return true;
+            })
         }
+
         if (tests && !isLoadingTests && !isRefetching) {
             setAllTests(prevTests => {
-                if (prevTests)
-                    return uniqueById([...prevTests, ...tests]);
-                else return tests
+                const uniqueTests = uniqueById(prevTests ?? undefined, tests ?? undefined)
+                if (prevTests) {
+                    return [...prevTests, ...uniqueTests]
+                }
+                else return uniqueTests
             })
+
+            setLoadingList(false)
         }
     }, [isLoadingTests, tests, isRefetching])
 
@@ -99,7 +109,7 @@ const Scores = (props: LeaderboardProps) => {
         <>
             <div id="leaderboard" className="flex basis-0 grow w-full items-stretch justify-center">
                 <div className="flex basis-0 grow justify-stretch flex-col overflow-x-auto overflow-y-hidden w-full gap-2">
-                    <div ref={contentRef} id="list" className="flex basis-0 grow items-stretch overflow-auto mb-[2rem]">
+                    <div className="flex basis-0 grow items-stretch overflow-auto mb-[2rem]">
                         <div className="flex basis-0 grow justify-stretch flex-col table-zebra w-full z-0">
                             <div className="flex w-full sticky top-0 z-50">
                                 <div className="flex w-full justify-stretch bg-b2 p-4 rounded-t-lg">
@@ -110,8 +120,8 @@ const Scores = (props: LeaderboardProps) => {
                                     <div className="flex basis-0 grow hidden md:table-cell">Date</div>
                                 </div>
                             </div>
-                            <div className="flex basis-0 grow flex-col w-full items-center overflow-auto no-scrollbar">
-                                {!isLoadingTests ? allTests?.map((test, index) => {
+                            <div ref={contentRef} id="list" className="flex basis-0 grow flex-col w-full items-center overflow-auto no-scrollbar">
+                                {allTests?.map((test, index) => {
                                     return (
                                         <div className={`flex w-full justify-stretch px-4 py-4 ${index % 2 == 1 ? 'bg-b2' : ''}`} key={index}>
                                             <div className="flex w-[10%] md:[5%] items-center">{index + 1}</div>
@@ -136,11 +146,15 @@ const Scores = (props: LeaderboardProps) => {
                                             <div className="flex basis-0 grow items-center hidden md:flex">{test.createdAt.toLocaleDateString()}</div>
                                         </div>
                                     )
-                                })
-                                :
-                                <div className="flex w-full basis-0 grow justify-center items-center">
-                                    <div className="w-8 h-8 rounded-full animate-spin border border-solid text-primary border-t-transparent"></div>
-                                </div>
+                                })}
+                                {loadingList ?
+                                    <div className={`flex w-full justify-center px-4 py-4 ${allTests ? allTests.length + 1 : 0 % 2 == 1 ? 'bg-b2' : ''}`}>
+                                        <div className="w-8 h-8 rounded-full animate-spin border border-solid text-primary border-t-transparent"></div>
+                                    </div>
+                                    :
+                                    <div className={`flex w-full justify-center px-4 py-4 ${allTests ? allTests.length + 1 : 0 % 2 == 1 ? 'bg-b2' : ''}`}>
+                                        <div className="w-8 h-8"></div>
+                                    </div>
                                 }
                             </div>
                         </div>
