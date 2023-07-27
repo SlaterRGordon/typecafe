@@ -30,6 +30,26 @@ body>div {
     background-color: hsl(var(--b2, var(--b1)));
 }
 
+@media screen and (max-width: 640px) {
+    .my-react-select__dropdown-indicator {
+        padding-top: 0px !important;
+        padding-bottom: 0px !important;
+        padding-left: 4px !important;
+        padding-right: 4px !important;
+    }
+    .my-react-select__dropdown-indicator > svg {
+        width: 14px !important;
+        height: 14px !important;
+    }
+    .my-react-select__single-value {
+        font-size: 14px !important;
+    }
+    .my-react-select__value-container {
+        padding-left: 4px !important;
+        padding-right: 4px !important;
+    }
+}
+
 .my-react-select__menu-portal {
     z-index: 100 !important;
     position: fixed !important;

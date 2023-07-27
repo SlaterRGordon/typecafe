@@ -28,7 +28,7 @@ export const Stats = () => {
                                 <div className="w-8 h-8 rounded-full animate-spin border border-solid text-primary border-t-transparent"></div>
                             </div>
                             :
-                            <div className="stat-value text-secondary">{timeTyped?._sum.count ? formatValue(timeTyped._sum.count/60) : 0.00} mins</div>
+                            <div className="stat-value text-secondary text-[1.5rem] sm:text-[2.25rem]">{timeTyped?._sum.count ? formatValue(timeTyped._sum.count/60) : 0.00} mins</div>
                         }
                     </div>
                 </div>
@@ -40,7 +40,7 @@ export const Stats = () => {
                                 <div className="w-8 h-8 rounded-full animate-spin border border-solid text-primary border-t-transparent"></div>
                             </div>
                             :
-                            <div className="stat-value text-secondary">{wordsTyped?._sum?.count != null ? formatValue(wordsTyped._sum.count) : 0} words</div>
+                            <div className="stat-value text-secondary text-[1.5rem] sm:text-[2.25rem]">{wordsTyped?._sum?.count != null ? formatValue(wordsTyped._sum.count) : 0} words</div>
                         }
                     </div>
                 </div>
@@ -55,7 +55,7 @@ export const Stats = () => {
                                     <div className="w-8 h-8 rounded-full animate-spin border border-solid text-primary border-t-transparent"></div>
                                 </div>
                                 :
-                                <div className="stat-value text-primary">{bestScore ? bestScore.speed.toFixed(2) : 0.00} wpm</div>
+                                <div className="stat-value text-primary text-[1.5rem] sm:text-[2.25rem]">{bestScore ? bestScore.speed.toFixed(2) : 0.00} wpm</div>
                             }
                         </div>
                     </div>
@@ -67,7 +67,7 @@ export const Stats = () => {
                                     <div className="w-8 h-8 rounded-full animate-spin border border-solid text-primary border-t-transparent"></div>
                                 </div>
                                 :
-                                <div className="stat-value text-primary">{percentile ? formatPercentile(percentile.percentile, percentile.better, percentile.worse) : 'N/A'}</div>
+                                <div className="stat-value text-primary text-[1.5rem] sm:text-[2.25rem]">{percentile ? formatPercentile(percentile.percentile, percentile.better, percentile.worse) : 'N/A'}</div>
                             }
                         </div>
                     </div>
