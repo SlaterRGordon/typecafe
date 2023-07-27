@@ -123,7 +123,7 @@ const Profile: NextPage = () => {
   return (
     <>
       <div className="flex justify-stretch flex-col w-full h-full overflow-auto overflow-x-hidden items-center">
-        <div className="flex w-11/12 mt-8 mx-4">
+        <div className="flex w-11/12 space-x-4 mt-8 mx-4">
           <div className="flex flex-col gap-2">
             <div className="flex gap-4">
               <div className="flex flex-col items-center justify-center">
@@ -153,8 +153,9 @@ const Profile: NextPage = () => {
         <div className="divider mb-4 mx-8 mt-3"></div>
         <div className="flex basis-0 grow items-stretch w-11/12">
           <div className="flex basis-0 grow justify-stretch flex-col 2xl:items-center w-full">
-            <div className="flex w-full 2xl:items-center gap-4 2xl:gap-12 flex-col 2xl:flex-row">
+            <div className="flex w-full gap-4 flex-col">
               <div className="flex flex-col">
+                <Typography variant="h5" className="my-2"><strong>Stats</strong></Typography>
                 <Stats />
               </div>
               <div className="hidden flex-col md:flex">
