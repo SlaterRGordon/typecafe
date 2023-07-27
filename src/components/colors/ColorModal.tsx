@@ -53,7 +53,7 @@ export const ColorModal = () => {
     const [tab, setTab] = useState<"custom" | "presets" | "saved">("presets")
     const [name, setName] = useState("")
     const [nameError, setNameError] = useState(false)
-    const [colors, setColors] = useLocalStorage<Colors>("colors", presets.dark)
+    const [colors, setColors] = useLocalStorage<Colors>("colors", presets.dracula)
     const [currentKey, setCurrentKey] = useState<keyof Colors>("--b1")
 
     const nameRef = useRef(null);
@@ -169,12 +169,12 @@ export const ColorModal = () => {
                             <div>
                                 <h3 className="font-bold text-2xl">Color Presets</h3>
                                 <div className="flex gap-1 flex-wrap">
-                                    <PresetButton name="Retro" preset={presets.retro} hoverStyle="hover:!bg-retro" setColors={setPreset} />
-                                    <PresetButton name="Valentine" preset={presets.valentine} hoverStyle="hover:!bg-valentine" setColors={setPreset} />
-                                    <PresetButton name="Cyberpunk" preset={presets.cyberpunk} hoverStyle="hover:!bg-cyberpunk" setColors={setPreset} />
-                                    <PresetButton name="Aqua" preset={presets.aqua} hoverStyle="hover:!bg-aqua" setColors={setPreset} />
                                     <PresetButton name="Dracula" preset={presets.dracula} hoverStyle="hover:!bg-dracula" setColors={setPreset} />
                                     <PresetButton name="Pastel" preset={presets.pastel} hoverStyle="hover:!bg-pastel" setColors={setPreset} />
+                                    <PresetButton name="Aqua" preset={presets.aqua} hoverStyle="hover:!bg-aqua" setColors={setPreset} />
+                                    <PresetButton name="Valentine" preset={presets.valentine} hoverStyle="hover:!bg-valentine" setColors={setPreset} />
+                                    <PresetButton name="Cyberpunk" preset={presets.cyberpunk} hoverStyle="hover:!bg-cyberpunk" setColors={setPreset} />
+                                    <PresetButton name="Retro" preset={presets.retro} hoverStyle="hover:!bg-retro" setColors={setPreset} />
                                 </div>
                             </div>
                         }
