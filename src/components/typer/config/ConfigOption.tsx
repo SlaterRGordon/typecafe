@@ -14,7 +14,7 @@ export const ConfigOption = (props: ConfigOptionProps) => {
                     <button
                         onClick={() => props.onChange(props.values ? props.values[i] as string | number : i)}
                         key={i}
-                        className={`flex flex-col bg-base-200 border-base-200 btn btn-sm normal-case w-[90px] ${props.active == (props.values ? props.values[i] as string | number : i) ? "!btn-primary" : ""}`}>
+                        className={`flex flex-col bg-base-200 border-base-200 btn btn-sm normal-case basis-0 grow max-w-[100px] ${props.active == (props.values ? props.values[i] as string | number : i) ? "!btn-primary" : ""}`}>
                         {option}
                     </button>
                 )

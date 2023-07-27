@@ -47,57 +47,61 @@ export const Config = (props: ConfigProps) => {
     }, [])
 
     return (
-        <div>  
-            <h3 className="font-bold text-4xl p-1">Settings</h3>
-            
-            <h3 className="font-semibold text-2xl p-1">Languages</h3>
-            <Select
-                instanceId="languageSelect"
-                defaultValue={languageOptions[0]}
-                options={languageOptions}
-                value={languageOptions.filter(option => option.value == props.language)[0]}
-                onChange={handleChangeLanguage}
-                isSearchable={false}
-                className="max-w-xs my-react-select-container"
-                classNamePrefix="my-react-select"
-                menuPosition="fixed"
-            />
-            
-            <h3 className="font-semibold text-2xl p-1">Modes</h3>
-            <ConfigOption
-                options={["Normal", "Learn", "nGram", "Paced"]}
-                active={props.mode}
-                onChange={(newMode: string | number) => { props.setMode(newMode as TestModes) }}
-            />
+        <div className="flex flex-col h-full justify-between">
+            <h3 className="font-bold text-4xl py-1">Settings</h3>
+            <div className="flex flex-col">
+                <h3 className="font-semibold text-2xl py-1">Languages</h3>
+                <Select
+                    instanceId="languageSelect"
+                    defaultValue={languageOptions[0]}
+                    options={languageOptions}
+                    value={languageOptions.filter(option => option.value == props.language)[0]}
+                    onChange={handleChangeLanguage}
+                    isSearchable={false}
+                    className="max-w-xs my-react-select-container"
+                    classNamePrefix="my-react-select"
+                    menuPosition="fixed"
+                />
+            </div>
+            <div className="flex flex-col">
+                <h3 className="font-semibold text-2xl py-1">Modes</h3>
+                <ConfigOption
+                    options={["Normal", "Learn", "nGram", "Paced"]}
+                    active={props.mode}
+                    onChange={(newMode: string | number) => { props.setMode(newMode as TestModes) }}
+                />
+            </div>
             {props.mode == TestModes.normal &&
                 <>
-                    <h3 className="font-semibold text-2xl p-1">Type</h3>
-                    <ConfigOption
-                        options={["Timed", "Words"]}
-                        active={props.subMode}
-                        onChange={(newSubMode: string | number) => { handleSubModeChange(newSubMode as TestSubModes) }}
-                    />
-                    {props.subMode == TestSubModes.timed &&
-                    <>
-                        <h3 className="font-semibold text-2xl p-1">Time</h3>
+                    <div className="flex flex-col">
+                        <h3 className="font-semibold text-2xl py-1">Type</h3>
                         <ConfigOption
-                            options={["15s", "30s", "60s", "120s"]}
-                            values={[15, 30, 60, 120]}
-                            active={props.count}
-                            onChange={(newCount: string | number) => { props.setCount(newCount as number) }}
+                            options={["Timed", "Words"]}
+                            active={props.subMode}
+                            onChange={(newSubMode: string | number) => { handleSubModeChange(newSubMode as TestSubModes) }}
                         />
-                    </>
+                    </div>
+                    {props.subMode == TestSubModes.timed &&
+                        <div className="flex flex-col">
+                            <h3 className="font-semibold text-2xl py-1">Time</h3>
+                            <ConfigOption
+                                options={["15s", "30s", "60s", "120s"]}
+                                values={[15, 30, 60, 120]}
+                                active={props.count}
+                                onChange={(newCount: string | number) => { props.setCount(newCount as number) }}
+                            />
+                        </div>
                     }
                     {props.subMode == TestSubModes.words &&
-                    <>
-                        <h3 className="font-semibold text-2xl p-1">Words</h3>
-                        <ConfigOption
-                            options={["10", "25", "50", "100"]}
-                            values={[10, 25, 50, 100]}
-                            active={props.count}
-                            onChange={(newCount: string | number) => { props.setCount(newCount as number) }}
-                        />
-                    </>
+                        <div className="flex flex-col">
+                            <h3 className="font-semibold text-2xl py-1">Words</h3>
+                            <ConfigOption
+                                options={["10", "25", "50", "100"]}
+                                values={[10, 25, 50, 100]}
+                                active={props.count}
+                                onChange={(newCount: string | number) => { props.setCount(newCount as number) }}
+                            />
+                        </div>
                     }
                 </>
             }
@@ -118,12 +122,14 @@ export const Config = (props: ConfigProps) => {
                     <h3 className="font-bold text-2xl">Paced</h3>
                 </div>
             }
-            <h3 className="font-semibold text-2xl px-1">Live Stats</h3>
-            <ConfigOption
-                options={["off", "on"]}
-                active={props.showStats ? 1 : 0}
-                onChange={(newShowStats: string | number) => { props.setShowStats(newShowStats == 1 ? true : false) }}
-            />
+            <div className="flex flex-col">
+                <h3 className="font-semibold text-2xl py-1">Live Stats</h3>
+                <ConfigOption
+                    options={["off", "on"]}
+                    active={props.showStats ? 1 : 0}
+                    onChange={(newShowStats: string | number) => { props.setShowStats(newShowStats == 1 ? true : false) }}
+                />
+            </div>
         </div>
     )
 }
