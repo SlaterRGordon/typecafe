@@ -57,7 +57,7 @@ const Scores = (props: LeaderboardProps) => {
     // Hook on scroll
     useEffect(() => {
         const onScroll = () => {
-            if (isBottom(contentRef) && !isLoadingTests) {
+            if (isBottom(contentRef) && !isLoadingTests && !isRefetching) {
                 setLoadingList(true)
                 setPage(page + 1)
             }
@@ -71,16 +71,13 @@ const Scores = (props: LeaderboardProps) => {
                 list.removeEventListener('scroll', onScroll);
             }
         }
-    }, [contentRef, count, mode, date, limit, page, isLoadingTests]);
+    }, [contentRef, count, mode, date, limit, page, isLoadingTests, isRefetching]);
 
     useEffect(() => {
         function uniqueById(
-            prev: (Test & { user: User; })[] | undefined,
-            curr: (Test & { user: User; })[] | undefined
+            prev: (Test & { user: User; })[],
+            curr: (Test & { user: User; })[]
         ) {
-            if (!prev) return curr ?? [];
-            if (!curr) return prev ?? [];
-
             return curr.filter((currItem) => {
                 if (prev.find((prevItem) => prevItem.id === currItem.id)) return false;
                 else return true;
@@ -89,7 +86,7 @@ const Scores = (props: LeaderboardProps) => {
 
         if (tests && !isLoadingTests && !isRefetching) {
             setAllTests(prevTests => {
-                const uniqueTests = uniqueById(prevTests ?? undefined, tests ?? undefined)
+                const uniqueTests = uniqueById(prevTests ?? [], tests ?? [])
                 if (prevTests) {
                     return [...prevTests, ...uniqueTests]
                 }
