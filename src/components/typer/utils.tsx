@@ -1,3 +1,8 @@
+import biGrams from './languages/nGrams/biGrams.json'
+import triGrams from './languages/nGrams/triGrams.json'
+import quadGrams from './languages/nGrams/quadGrams.json'
+import pentaGrams from './languages/nGrams/pentaGrams.json'
+
 import english10k from './languages/english10k.json'
 import french10k from './languages/french10k.json'
 import chinese10k from './languages/chinese10k.json'
@@ -12,12 +17,56 @@ const languages = {
     hindi: hindi1k,
 }
 
+interface NGrams {
+    biGrams: string[],
+    triGrams: string[],
+    quadGrams: string[],
+    pentaGrams: string[],
+}
+
+const ngrams: NGrams = {
+    biGrams: biGrams.grams,
+    triGrams: triGrams.grams,
+    quadGrams: quadGrams.grams,
+    pentaGrams: pentaGrams.grams,
+}
+
+export const generatePseudoText = (count: number, language: string, characters: string[]) => {
+    let text = ''
+    const frequencies = [0.1944, 0.4166, 0.5888, 0.7000, 0.7833, 0.8592, 0.9142, 0.9558, 0.9835, 1.000]
+    const words = languages[language as keyof typeof languages].words
+    const filteredWords = words.filter((word: string) => {
+        if (!word.includes(characters[characters.length-1] as string)) return false
+
+        for (let i = 0; i < word.length; i++) {
+            if (!characters.includes(word[i] as string)) return false
+        }
+
+        return true
+    })
+
+    // Generate random text
+    for (let i = 0; i < count; i++) {
+        const randomDecimal = Math.random()
+        for (let j = 0; j < frequencies.length; j++) {
+            if (randomDecimal <= (frequencies[j] as number)) {
+                const randomIndex = Math.floor(Math.random() * filteredWords.length)
+                text = text += (filteredWords[randomIndex] as string) + ' '
+                break;
+            }
+        }
+    }
+
+    // Remove last space
+    return text.toLowerCase().slice(0, -1)
+}
+
 export const generateText = (count: number, language: string) => {
     let text = ''
 
     // Generate random text
+    const words = languages[language as keyof typeof languages].words
     for (let i = 0; i < count; i++) {
-        const words = languages[language as keyof typeof languages].words
         const randomIndex = Math.floor(Math.random() * words.length)
         const randomWord = String(words[randomIndex])
         text = text += randomWord + ' '
@@ -38,8 +87,10 @@ export const buildText = (text: string, index=0) => {
         })
 
         // add space to end of word
-        letters.push(<div key={index} id={"c" + index.toString()}>&nbsp;</div>);
-        index += 1;
+        if (index !== text.length) {
+            letters.push(<div key={index} id={"c" + index.toString()}>&nbsp;</div>);
+            index += 1;
+        }
 
         // add word
         words.push(<div key={index} className="inline-flex">{letters}</div>);

@@ -14,13 +14,14 @@ const Home: NextPage = () => {
 
   return (
     <>
-      <div id="typer" className="flex w-full h-full justify-center">
+      <div id="typer" className="flex md:w-10/12 h-full justify-center">
         <Typer
           language={language}
           mode={mode}
           subMode={subMode}
           count={count}
           showStats={showStats}
+          showConfig={true}
         />
       </div>
       <Modal>

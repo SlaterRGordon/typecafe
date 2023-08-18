@@ -157,4 +157,20 @@ export const testRouter = createTRPCRouter({
         percentile: (scoresBetter.length / (scoresBetter.length + scoresWorse.length)) * 100,
       }
     }),
+    getByLevels: protectedProcedure
+    .input(z.object({ typeId: z.string() }))
+    .query(({ ctx, input }) => {
+      return ctx.prisma.test.findMany({
+        where: {
+          userId: ctx.session?.user.id,
+          typeId: input.typeId,
+          accuracy: { gte: 90 },
+        },
+        orderBy: { score: 'desc' },
+        distinct: ['options'],
+        include: {
+          user: true,
+        },
+      });
+    }),
   });

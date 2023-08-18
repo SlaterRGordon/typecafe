@@ -128,7 +128,7 @@ export const Text = (props: TextProps) => {
             }
 
             // if position is at end of text
-            if (position === props.text.length) {
+            if (position === props.text.length - 1) {
                 props.onComplete()
             }
 
@@ -155,7 +155,7 @@ export const Text = (props: TextProps) => {
     }, [position, incorrect, props])
 
     return (
-        <div id="text" className="relative flex flex-col max-h-24 leading-[2rem] w-full overflow-hidden text-[22px] mb-8 max-w-screen-xl z-30">
+        <div id="text" className="relative flex flex-col max-h-24 leading-[2rem] overflow-hidden text-[22px] mb-8 max-w-screen-xl z-30">
             <input id="input" autoCapitalize="none" autoComplete="off" className="h-0 p-0 m-0 border-none" onKeyDown={handleKeyPress} ref={inputRef} autoFocus />
             <div className="flex flex-wrap justify-center overflow-y-hidden no-scrollbar scroll-smooth font-mono select-none" id="words" ref={typerRef}>
                 {elements}
