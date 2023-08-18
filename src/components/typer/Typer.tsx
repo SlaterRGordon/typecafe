@@ -136,11 +136,11 @@ export const Typer = (props: TyperProps) => {
     useEffect(() => {
         let keys: Keys = {};
         document.addEventListener("keydown", (e) => {
-            e.preventDefault()
             // add to currently pressed keys
             keys = { ...keys, [e.key]: true };
 
             if (keys['Tab']) {
+                e.preventDefault()
                 const restartBtn = restartRef.current as HTMLButtonElement | null
                 if (restartBtn) {
                     restartBtn.classList.add("btn-active")
@@ -157,7 +157,6 @@ export const Typer = (props: TyperProps) => {
             keys = { ...keys, [e.key]: false };
 
             if (e.key == 'Tab') {
-                console.log("tab released")
                 const restartBtn = restartRef.current as HTMLButtonElement | null
                 if (restartBtn) {
                     restartBtn.classList.remove("btn-active")

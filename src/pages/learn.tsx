@@ -87,7 +87,7 @@ const Learn: NextPage = () => {
     }, [levelOptions, levelChanged])
 
     return (
-        <div id="typer" className="relative flex flex-col w-full h-full justify-center">
+        <div className="relative flex flex-col w-full h-full justify-center">
             <div className="absolute top-0 flex flex-col w-full items-center gap-4 px-8 py-12">
                 <div className="flex w-full">
                     <div className="flex w-6/12 gap-2">
