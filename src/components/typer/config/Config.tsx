@@ -41,24 +41,24 @@ export const Config = (props: ConfigProps) => {
         props.setGramCombination(newTestGramCombination)
     }
 
-    const handleTestGramCombinationBlur = (e: React.FocusEvent<HTMLInputElement>) => {
-        const newTestGramCombination = parseInt(e.target.value)
-        if (!(newTestGramCombination > 0)) {
-            props.setGramCombination(1)
-        }
-    }
+    // const handleTestGramCombinationBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    //     const newTestGramCombination = parseInt(e.target.value)
+    //     if (!(newTestGramCombination > 0)) {
+    //         props.setGramCombination(1)
+    //     }
+    // }
 
     const handleTestGramRepetitionChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const newTestGramRepetition = parseInt(e.target.value)
         props.setGramRepetition(newTestGramRepetition)
     }
     
-    const handleTestGramRepetitionBlur = (e: React.FocusEvent<HTMLInputElement>) => {
-        const newTestGramRepetition = parseInt(e.target.value)
-        if (!(newTestGramRepetition > 0)) {
-            props.setGramRepetition(1)
-        }
-    }
+    // const handleTestGramRepetitionBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    //     const newTestGramRepetition = parseInt(e.target.value)
+    //     if (!(newTestGramRepetition > 0)) {
+    //         props.setGramRepetition(1)
+    //     }
+    // }
 
     const languageOptions = [
         { value: "english", label: 'English' },
@@ -158,7 +158,7 @@ export const Config = (props: ConfigProps) => {
                                 className={`w-1/4 input input-bordered input-sm`}
                                 value={props.gramCombination}
                                 onChange={handleTestGramCombinationChange}
-                                onBlur={handleTestGramCombinationBlur}
+                                // onBlur={handleTestGramCombinationBlur}
                             />
                         </div>
                     </div>
@@ -171,7 +171,7 @@ export const Config = (props: ConfigProps) => {
                                 className={`w-1/4 input input-bordered input-sm`}
                                 value={props.gramRepetition}
                                 onChange={handleTestGramRepetitionChange}
-                                onBlur={handleTestGramRepetitionBlur}
+                                // onBlur={handleTestGramRepetitionBlur}
                             />
                         </div>
                     </div>

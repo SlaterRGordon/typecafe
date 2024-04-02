@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react"
 import { TestSubModes } from "./types"
-import type { TestModes } from "./types"
-import { generatePseudoText, generateText } from "./utils"
+import { TestGramSources, TestModes } from "./types"
+import { generateNGram, generatePseudoText, generateText } from "./utils"
 import { Text } from "./Text"
 import { Stats } from "./Stats"
 import { useTimer } from "~/hooks/timer/useTimer"
@@ -16,6 +16,9 @@ interface TyperProps {
     language: string,
     mode: TestModes,
     subMode: TestSubModes,
+    gramSource: TestGramSources, 
+    gramCombination: number, 
+    gramRepetition: number,
     count: number,
     level?: Level,
     onKeyChange?(key: string): void,
@@ -25,7 +28,13 @@ interface TyperProps {
 }
 
 export const Typer = (props: TyperProps) => {
-    const { language, mode, subMode, count, showStats, showConfig } = props
+    const { 
+        language, 
+        mode, subMode, 
+        gramSource, gramCombination, gramRepetition, 
+        count, showStats, showConfig 
+    } = props
+
     const [text, setText] = useState("")
     const [started, setStarted] = useState(false)
     const [restarted, setRestarted] = useState(true)
@@ -75,18 +84,22 @@ export const Typer = (props: TyperProps) => {
     const restartRef = useRef(null)
 
     const handleRestart = useCallback(() => {
-        if (subMode === TestSubModes.timed) {
-            setText(generateText(500, language))
-        } else if (subMode === TestSubModes.words) {
-            if (props.level) setText(generatePseudoText(count, language, props.level.keys.split("")))
-            else setText(generateText(count, language))
+        if (mode === TestModes.normal) {
+            if (subMode === TestSubModes.timed) {
+                setText(generateText(500, language))
+            } else if (subMode === TestSubModes.words) {
+                if (props.level) setText(generatePseudoText(count, language, props.level.keys.split("")))
+                else setText(generateText(count, language))
+            }
+        } else if (mode === TestModes.ngrams) {
+            setText(generateNGram(language, gramSource, gramCombination, gramRepetition))
         }
 
         reset()
         setStarted(false)
         setRestarted(true)
         setCharacterCount(0)
-    }, [language, subMode, count, props.level, reset])
+    }, [language, mode, subMode, gramSource, gramCombination, gramRepetition, count, props.level, reset])
 
     useEffect(() => {
         handleRestart()
@@ -131,7 +144,7 @@ export const Typer = (props: TyperProps) => {
         const correct = characterCount - incorrectCount
         if (characterCount == 0) setAccuracy(0)
         else setAccuracy(correct / characterCount * 100)
-    }, [count, characterCount, incorrectCount, time, subMode])
+    }, [count, characterCount, incorrectCount, time, mode, subMode, gramSource, gramCombination, gramRepetition])
 
     useEffect(() => {
         let keys: Keys = {};
@@ -169,7 +182,7 @@ export const Typer = (props: TyperProps) => {
     return (
         <div className="flex flex-col py-8 sm:py-0 sm:justify-center items-center mx-4 md:mx-0 space-y-2">
             <div className="flex relative justify-center items-center w-full gap-2 max-w-screen-xl">
-                <div className="absolute flex items-center h-full left-0 invisible md:visible">
+                <div className={`absolute flex items-center h-full left-0 invisible ${ text.length > 20 ? "md:visible" : ""}`}>
                     {showStats && <Stats wpm={wpm} accuracy={accuracy} />}
                 </div>
                 {/* settings button */}
@@ -199,7 +212,7 @@ export const Typer = (props: TyperProps) => {
                         </span>
                     </div>
                 }
-                <div className="visible md:invisible">
+                <div className={`visible ${ text.length > 20 ? "md:invisible" : ""}`} >
                     {showStats && <Stats wpm={wpm} accuracy={accuracy} />}
                 </div>
             </div>

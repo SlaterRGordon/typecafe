@@ -22,6 +22,9 @@ const Home: NextPage = () => {
           language={language}
           mode={mode}
           subMode={subMode}
+          gramSource={gramSource}
+          gramCombination={gramCombination}
+          gramRepetition={gramRepetition}
           count={count}
           showStats={showStats}
           showConfig={true}

@@ -1,6 +1,6 @@
 import biGrams from './languages/nGrams/biGrams.json'
 import triGrams from './languages/nGrams/triGrams.json'
-import quadGrams from './languages/nGrams/quadGrams.json'
+import tetraGrams from './languages/nGrams/tetraGrams.json'
 import pentaGrams from './languages/nGrams/pentaGrams.json'
 
 import english10k from './languages/english10k.json'
@@ -8,6 +8,8 @@ import french10k from './languages/french10k.json'
 import chinese10k from './languages/chinese10k.json'
 import spanish10k from './languages/spanish10k.json'
 import hindi1k from './languages/hindi1k.json'
+import exp from 'constants'
+import { TestGramSources } from './types'
 
 const languages = {
     english: english10k,
@@ -20,14 +22,14 @@ const languages = {
 interface NGrams {
     biGrams: string[],
     triGrams: string[],
-    quadGrams: string[],
+    tetraGrams: string[],
     pentaGrams: string[],
 }
 
 const ngrams: NGrams = {
     biGrams: biGrams.grams,
     triGrams: triGrams.grams,
-    quadGrams: quadGrams.grams,
+    tetraGrams: tetraGrams.grams,
     pentaGrams: pentaGrams.grams,
 }
 
@@ -74,6 +76,34 @@ export const generateText = (count: number, language: string) => {
 
     // Remove last space
     return text.toLowerCase().slice(0, -1)
+}
+
+export const generateNGram = (language: string, source: TestGramSources, combination: number, repetition: number) => {
+    let ngram = ''
+    let words: string[] = []
+
+    if (source === TestGramSources.words) {
+        words = languages[language as keyof typeof languages].words 
+    } else if (source === TestGramSources.bigrams) {
+        words = ngrams.biGrams
+    } else if (source === TestGramSources.trigrams) {
+        words = ngrams.triGrams
+    } else if (source === TestGramSources.tetragrams) {
+        words = ngrams.tetraGrams
+    }
+    
+    for (let i = 0; i < combination; i++) {
+        const randomIndex = Math.floor(Math.random() * words.length)
+        const randomGram = words[randomIndex] as string
+        ngram = ngram += randomGram + ' '
+    }
+
+    for (let i = 0; i < repetition; i++) {
+        ngram = ngram += ngram
+    }
+
+    // Remove last space
+    return ngram.toLowerCase().slice(0, -1)
 }
 
 export const buildText = (text: string, index=0) => {
