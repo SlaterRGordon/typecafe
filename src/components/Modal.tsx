@@ -1,5 +1,5 @@
 interface ModalProps {
-    children: JSX.Element,
+    children: JSX.Element
 }
 
 export const Modal = (props: ModalProps) => {

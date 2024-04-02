@@ -11,6 +11,8 @@ export const Edit = (props: EditProps) => {
     const [name, setName] = useState(props.userData?.name ?? "")
     const [bio, setBio] = useState(props.userData?.bio ?? "")
     const [link, setLink] = useState(props.userData?.link ?? "")
+    
+    const [saving, setSaving] = useState(false)
 
     useEffect(() => {
         setName(props.userData?.name ?? "")
@@ -23,9 +25,11 @@ export const Edit = (props: EditProps) => {
         onSuccess: () => {
             console.log("user updated")
             props.onClose()
+            setSaving(false)
         },
         onError: (error) => {
             console.log(error)
+            setSaving(false)
         }
     })
 
@@ -44,10 +48,13 @@ export const Edit = (props: EditProps) => {
     }
 
     const saveChanges = () => {
+        setSaving(true)
+
         if (name.length === 0) {
             setNameError(true)
             return
         }
+
         updateUser.mutate({
             name: name,
             bio: bio,
@@ -89,7 +96,7 @@ export const Edit = (props: EditProps) => {
             </div>
             <div className="absolute bottom-0 w-full">
                 <button onClick={saveChanges} className="btn btn-sm btn-primary btn-block">
-                    Save
+                    {saving ? <div className="w-6 h-6 rounded-full animate-spin border border-solid text-primary border-t-transparent"></div> : "Save"}
                 </button>
             </div>
         </div>
