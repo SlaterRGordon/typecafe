@@ -1,11 +1,16 @@
 export enum TestModes {
     normal,
-    learn,
-    ngrams,
-    pace
+    ngrams
 }
 
 export enum TestSubModes {
     timed,
+    words
+}
+
+export enum TestGramSources {
+    bigrams,
+    trigrams,
+    tetragrams,
     words
 }
