@@ -66,7 +66,8 @@ export const Config = (props: ConfigProps) => {
             <div className="flex flex-col">
                 <h3 className="font-semibold text-2xl py-1">Modes</h3>
                 <ConfigOption
-                    options={["Normal", "Learn", "nGram", "Paced"]}
+                    // options={["Normal", "nGram", "Paced"]}
+                    options={["Normal",]}
                     active={props.mode}
                     onChange={(newMode: string | number) => { props.setMode(newMode as TestModes) }}
                 />
@@ -105,12 +106,7 @@ export const Config = (props: ConfigProps) => {
                     }
                 </>
             }
-            {props.mode == TestModes.learn &&
-                <div>
-                    <h3 className="font-bold text-2xl">Progression</h3>
-                </div>
-            }
-            {
+            {/* {
                 props.mode == TestModes.ngrams &&
                 <div>
                     <h3 className="font-bold text-2xl">N-Grams</h3>
@@ -121,7 +117,7 @@ export const Config = (props: ConfigProps) => {
                 <div>
                     <h3 className="font-bold text-2xl">Paced</h3>
                 </div>
-            }
+            } */}
             <div className="flex flex-col">
                 <h3 className="font-semibold text-2xl py-1">Live Stats</h3>
                 <ConfigOption
