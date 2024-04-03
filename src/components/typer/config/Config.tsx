@@ -1,7 +1,7 @@
 import { useEffect } from "react"
 import type { SingleValue } from "react-select"
 import Select from 'react-select'
-import { TestModes, TestSubModes } from "../types"
+import { TestModes, TestSubModes, TestGramSources, TestGramScopes } from "../types"
 import { ConfigOption } from "./ConfigOption"
 
 interface ConfigProps {
@@ -13,6 +13,14 @@ interface ConfigProps {
     setSubMode: (newSubMode: TestSubModes) => void,
     count: number,
     setCount: (newCount: number) => void,
+    gramSource: TestGramSources,
+    setGramSource: (newTestGramSource: TestGramSources) => void,
+    gramScope: TestGramScopes,
+    setGramScope: (newTestGramScope: TestGramScopes) => void,
+    gramCombination: number,
+    setGramCombination: (newTestGramRepetition: number) => void,
+    gramRepetition: number,
+    setGramRepetition: (newTestGramRepetition: number) => void,
     showStats: boolean,
     setShowStats: (show: boolean) => void,
 }
@@ -20,10 +28,39 @@ interface ConfigProps {
 type Option = { label: string, value: string }
 
 export const Config = (props: ConfigProps) => {
+    const handleModeChange = (newMode: number) => {
+        props.setMode(newMode)
+
+        if (newMode != TestModes.normal) {
+            props.setSubMode(TestSubModes.words)
+        }
+    }
 
     const handleSubModeChange = (newSubMode: number) => {
         props.setSubMode(newSubMode)
         props.setCount(newSubMode == TestSubModes.timed ? 15 : 10)
+    }
+
+    const handleTestGramSourceChange = (newTestGramSource: number) => {
+        props.setGramSource(newTestGramSource)
+    }
+
+    const handleTestGramScopeChange = (newTestGramScope: number) => {
+        props.setGramScope(newTestGramScope)
+    }
+
+    const handleTestGramCombinationChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const newCombination = parseInt(e.target.value)
+        if (newCombination < 1) return
+
+        props.setGramCombination(newCombination)
+    }
+
+    const handleTestGramRepetitionChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const newRepetition = parseInt(e.target.value)
+        if (newRepetition < 0) return
+        
+        props.setGramRepetition(newRepetition)
     }
 
     const languageOptions = [
@@ -47,32 +84,32 @@ export const Config = (props: ConfigProps) => {
     }, [])
 
     return (
-        <div className="flex flex-col h-full justify-between">
+        <div className="flex flex-col h-full justify-between mb-8">
             <h3 className="font-bold text-4xl py-1">Settings</h3>
-            <div className="flex flex-col">
-                <h3 className="font-semibold text-2xl py-1">Languages</h3>
-                <Select
-                    instanceId="languageSelect"
-                    defaultValue={languageOptions[0]}
-                    options={languageOptions}
-                    value={languageOptions.filter(option => option.value == props.language)[0]}
-                    onChange={handleChangeLanguage}
-                    isSearchable={false}
-                    className="max-w-xs my-react-select-container"
-                    classNamePrefix="my-react-select"
-                    menuPosition="fixed"
-                />
-            </div>
             <div className="flex flex-col">
                 <h3 className="font-semibold text-2xl py-1">Modes</h3>
                 <ConfigOption
-                    options={["Normal", "Learn", "nGram", "Paced"]}
+                    options={["Normal", "nGram"]}
                     active={props.mode}
-                    onChange={(newMode: string | number) => { props.setMode(newMode as TestModes) }}
+                    onChange={(newMode: string | number) => { handleModeChange(newMode as TestModes) }}
                 />
             </div>
             {props.mode == TestModes.normal &&
                 <>
+                    <div className="flex flex-col">
+                        <h3 className="font-semibold text-2xl py-1">Languages</h3>
+                        <Select
+                            instanceId="languageSelect"
+                            defaultValue={languageOptions[0]}
+                            options={languageOptions}
+                            value={languageOptions.filter(option => option.value == props.language)[0]}
+                            onChange={handleChangeLanguage}
+                            isSearchable={false}
+                            className="max-w-xs my-react-select-container"
+                            classNamePrefix="my-react-select"
+                            menuPosition="fixed"
+                        />
+                    </div>
                     <div className="flex flex-col">
                         <h3 className="font-semibold text-2xl py-1">Type</h3>
                         <ConfigOption
@@ -105,22 +142,51 @@ export const Config = (props: ConfigProps) => {
                     }
                 </>
             }
-            {props.mode == TestModes.learn &&
-                <div>
-                    <h3 className="font-bold text-2xl">Progression</h3>
-                </div>
-            }
-            {
-                props.mode == TestModes.ngrams &&
-                <div>
-                    <h3 className="font-bold text-2xl">N-Grams</h3>
-                </div>
-            }
-            {
-                props.mode == TestModes.pace &&
-                <div>
-                    <h3 className="font-bold text-2xl">Paced</h3>
-                </div>
+            {props.mode == TestModes.ngrams &&
+                <>
+                    <div className="flex flex-col">
+                        <h3 className="font-semibold text-2xl py-1">Source</h3>
+                        <ConfigOption
+                            options={["Bigrams", "Trigrams", "Tetragrams", "Words"]}
+                            active={props.gramSource}
+                            onChange={(newTestGramSource: string | number) => { handleTestGramSourceChange(newTestGramSource as TestGramSources) }}
+                        />
+                    </div>
+                    <div className="flex flex-col">
+                        <h3 className="font-semibold text-2xl py-1">Scope</h3>
+                        <ConfigOption
+                            options={["Top 50", "Top 100", "Top 200"]}
+                            active={props.gramScope}
+                            onChange={(newGramScope: string | number) => { handleTestGramScopeChange(newGramScope as TestGramScopes) }}
+                        />
+                    </div>
+                    <div className="flex flex-col">
+                        <h3 className="font-semibold text-2xl py-1">Combinations</h3>
+                        <div className="flex gap-2">
+                            <input
+                                id="testGramCombinationInput"
+                                type="number"
+                                className={`w-1/4 input input-bordered input-sm`}
+                                value={props.gramCombination}
+                                onChange={handleTestGramCombinationChange}
+                                // onBlur={handleTestGramCombinationBlur}
+                            />
+                        </div>
+                    </div>
+                    <div className="flex flex-col">
+                        <h3 className="font-semibold text-2xl py-1">Repetitions</h3>
+                        <div className="flex gap-2">
+                            <input
+                                id="testGramRepetitionInput"
+                                type="number"
+                                className={`w-1/4 input input-bordered input-sm`}
+                                value={props.gramRepetition}
+                                onChange={handleTestGramRepetitionChange}
+                                // onBlur={handleTestGramRepetitionBlur}
+                            />
+                        </div>
+                    </div>
+                </>
             }
             <div className="flex flex-col">
                 <h3 className="font-semibold text-2xl py-1">Live Stats</h3>

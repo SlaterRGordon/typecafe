@@ -47,17 +47,24 @@ export const reducer = (state: State, action: TimerActionsType): State => {
         }
         case "start": {
             const { initialTime } = action.payload;
+            const actualTime = Date.now();
+            console.log('start', initialTime, actualTime);
 
             return {
                 ...state,
                 status: 'RUNNING',
                 time: initialTime,
+                actualStartTime: actualTime,
             };
         }
         case "stop": {
+            console.log('stop');
+            const actualTime = Date.now();
+
             return {
                 ...state,
                 status: 'STOPPED',
+                actualEndTime: actualTime,
             };
         }
         default: {
