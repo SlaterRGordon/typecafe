@@ -13,7 +13,7 @@ const Home: NextPage = () => {
   const [gramSource, setGramSource] = useState<TestGramSources>(TestGramSources.bigrams)
   const [gramScope, setGramScope] = useState<TestGramScopes>(TestGramScopes.fifty)
   const [gramCombination, setGramCombination] = useState<number>(1)
-  const [gramRepetition, setGramRepetition] = useState<number>(1)
+  const [gramRepetition, setGramRepetition] = useState<number>(0)
   const [count, setCount] = useState(15)
 
   return (
