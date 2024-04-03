@@ -1,6 +1,6 @@
 import biGrams from './languages/nGrams/biGrams.json'
 import triGrams from './languages/nGrams/triGrams.json'
-import quadGrams from './languages/nGrams/quadGrams.json'
+import tetraGrams from './languages/nGrams/tetraGrams.json'
 import pentaGrams from './languages/nGrams/pentaGrams.json'
 
 import english10k from './languages/english10k.json'
@@ -8,6 +8,8 @@ import french10k from './languages/french10k.json'
 import chinese10k from './languages/chinese10k.json'
 import spanish10k from './languages/spanish10k.json'
 import hindi1k from './languages/hindi1k.json'
+import exp from 'constants'
+import { TestGramScopes, TestGramSources } from './types'
 
 const languages = {
     english: english10k,
@@ -20,14 +22,14 @@ const languages = {
 interface NGrams {
     biGrams: string[],
     triGrams: string[],
-    quadGrams: string[],
+    tetraGrams: string[],
     pentaGrams: string[],
 }
 
 const ngrams: NGrams = {
     biGrams: biGrams.grams,
     triGrams: triGrams.grams,
-    quadGrams: quadGrams.grams,
+    tetraGrams: tetraGrams.grams,
     pentaGrams: pentaGrams.grams,
 }
 
@@ -76,6 +78,37 @@ export const generateText = (count: number, language: string) => {
     return text.toLowerCase().slice(0, -1)
 }
 
+export const generateNGram = (source: TestGramSources, scope: TestGramScopes, combination: number, repetition: number, level: number) => {
+    let ngram = ''
+    let words: string[] = []
+
+    if (source === TestGramSources.words) {
+        words = languages["english"].words 
+    } else if (source === TestGramSources.bigrams) {
+        words = ngrams.biGrams
+    } else if (source === TestGramSources.trigrams) {
+        words = ngrams.triGrams
+    } else if (source === TestGramSources.tetragrams) {
+        words = ngrams.tetraGrams
+    }
+
+    if (scope === TestGramScopes.fifty) words = words.slice(0, 50)
+    else if (scope === TestGramScopes.oneHundred) words = words.slice(0, 100)
+    else if (scope === TestGramScopes.twoHundred) words = words.slice(0, 200)
+    
+    for (let i = 0; i < combination; i++) {
+        const levelGram = words[(level * combination) + i] as string
+        ngram = ngram += levelGram + ' '
+    }
+
+    for (let i = 0; i < repetition; i++) {
+        ngram = ngram += ngram
+    }
+
+    // Remove last space
+    return ngram.toLowerCase().slice(0, -1)
+}
+
 export const buildText = (text: string, index=0) => {
     const words: JSX.Element[] = []
     text.split(" ").forEach(word => {
@@ -97,4 +130,22 @@ export const buildText = (text: string, index=0) => {
     })
 
     return words;
+}
+
+export const getGramLevelText = (level: number, combination: number, scope: TestGramScopes) => {
+    if (scope === TestGramScopes.fifty) {
+        const total: number = Math.ceil(50 / combination)
+        
+        return `${level}/${total}`
+    }
+    else if (scope === TestGramScopes.oneHundred) {
+        const total: number = Math.ceil(100 / combination)
+        
+        return `${level}/${total}`
+    }
+    else {
+        const total: number = Math.ceil(200 / combination)
+        
+        return `${level}/${total}`
+    }
 }

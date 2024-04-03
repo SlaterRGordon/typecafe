@@ -7,6 +7,8 @@ export interface State {
     initialTime: number;
     time: number;
     timerType: TimerType;
+    actualStartTime: number;
+    actualEndTime: number;
 }
 
 export type ReturnValue = {
@@ -17,6 +19,8 @@ export type ReturnValue = {
     setInitialTime: (newInitialTime: number) => void;
     status: Status;
     time: number;
+    actualStartTime: number;
+    actualEndTime: number;
 };
 
 export type Config = {
@@ -24,9 +28,12 @@ export type Config = {
     endTime: number | null;
     initialStatus: Status;
     _initialTime: number;
+    _initialActualTime: number,
     interval: number;
     onTimeOver?: () => void;
     onTimeUpdate?: (time: number) => void;
     step: number;
     timerType: TimerType;
+    actualStartTime: number;
+    actualEndTime: number;
 };
