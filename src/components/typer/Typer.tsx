@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react"
-import { TestSubModes } from "./types"
+import { TestGramScopes, TestSubModes } from "./types"
 import { TestGramSources, TestModes } from "./types"
-import { generateNGram, generatePseudoText, generateText } from "./utils"
+import { generateNGram, generatePseudoText, generateText, getGramLevelText } from "./utils"
 import { Text } from "./Text"
 import { Stats } from "./Stats"
 import { useTimer } from "~/hooks/timer/useTimer"
@@ -17,6 +17,7 @@ interface TyperProps {
     mode: TestModes,
     subMode: TestSubModes,
     gramSource: TestGramSources, 
+    gramScope: TestGramScopes,
     gramCombination: number, 
     gramRepetition: number,
     count: number,
@@ -31,7 +32,7 @@ export const Typer = (props: TyperProps) => {
     const { 
         language, 
         mode, subMode, 
-        gramSource, gramCombination, gramRepetition, 
+        gramSource, gramScope, gramCombination, gramRepetition, 
         count, showStats, showConfig 
     } = props
 
@@ -41,7 +42,9 @@ export const Typer = (props: TyperProps) => {
     const [characterCount, setCharacterCount] = useState(0)
     const [incorrectCount, setIncorrectCount] = useState(0)
     const [wpm, setWpm] = useState(0.00)
+    const [gramWpm, setGramWpm] = useState(0.00)
     const [accuracy, setAccuracy] = useState(0.00)
+    const [gramLevel, setGramLevel] = useState<number>(1)
 
     // fetch types
     const { data: testType } = api.type.get.useQuery({ mode, subMode, language })
@@ -56,7 +59,7 @@ export const Typer = (props: TyperProps) => {
         }
     })
 
-    const { time, start, pause, reset, setInitialTime } = useTimer({
+    const { time, start, pause, reset, setInitialTime, actualStartTime } = useTimer({
         _initialTime: subMode === TestSubModes.timed ? count : 0,
         timerType: subMode === TestSubModes.timed ? 'DECREMENTAL' : 'INCREMENTAL',
         endTime: subMode === TestSubModes.timed ? 0 : 999999,
@@ -76,9 +79,17 @@ export const Typer = (props: TyperProps) => {
     })
 
     useEffect(() => {
-        if (subMode === TestSubModes.timed) setInitialTime(count)
+        if (subMode === TestSubModes.timed && mode === TestModes.normal) setInitialTime(count)
         else setInitialTime(0)
-    }, [count, setInitialTime, subMode])
+
+    }, [count, setInitialTime, mode, subMode])
+
+    useEffect(() => {
+        if (mode === TestModes.ngrams) {
+            setGramLevel(1)
+            setGramWpm(0.00)
+        }
+    }, [mode, subMode, gramSource, gramScope, gramCombination, gramRepetition])
 
     // ref for restart button
     const restartRef = useRef(null)
@@ -92,14 +103,14 @@ export const Typer = (props: TyperProps) => {
                 else setText(generateText(count, language))
             }
         } else if (mode === TestModes.ngrams) {
-            setText(generateNGram(language, gramSource, gramCombination, gramRepetition))
+            setText(generateNGram(gramSource, gramScope, gramCombination, gramRepetition, gramLevel))
         }
 
         reset()
         setStarted(false)
         setRestarted(true)
         setCharacterCount(0)
-    }, [language, mode, subMode, gramSource, gramCombination, gramRepetition, count, props.level, reset])
+    }, [language, mode, subMode, gramSource, gramScope, gramCombination, gramRepetition, gramLevel, count, props.level, reset])
 
     useEffect(() => {
         handleRestart()
@@ -109,19 +120,43 @@ export const Typer = (props: TyperProps) => {
         start()
         setStarted(true)
     }
-    const handleComplete = () => {
-        pause()
+    const handleComplete = (correct: boolean) => {
+        const actualEndTime = Date.now()
         setStarted(false)
         setRestarted(false)
 
-        createTest.mutate({
-            typeId: testType?.id as string,
-            accuracy: accuracy,
-            speed: wpm,
-            score: wpm * accuracy,
-            count: count,
-            options: props.level ? props.level.name : ""
-        })
+        if (mode == TestModes.normal) {
+            createTest.mutate({
+                typeId: testType?.id as string,
+                accuracy: accuracy,
+                speed: wpm,
+                score: wpm * accuracy,
+                count: count,
+                options: props.level ? props.level.name : ""
+            })
+        } else if (mode == TestModes.ngrams) {
+
+            if (incorrectCount == 0 && correct) {
+                if (gramScope == TestGramScopes.fifty && gramLevel < 49) {
+                    const minutes = (actualEndTime - actualStartTime) / 60000;
+                    const newWpm = (characterCount / 5) / minutes
+                    
+                    console.log("newWpm", newWpm)
+                    console.log("gramWpm", gramWpm)
+                    console.log("gramLevel", gramLevel)
+
+                    if (gramLevel !== 1) setGramWpm(((gramWpm * gramLevel) + newWpm) / (gramLevel + 1))
+                    else setGramWpm(newWpm)
+
+                    setGramLevel(gramLevel + 1)
+
+                    handleRestart()
+                } else if (gramScope == TestGramScopes.fifty && gramLevel == 49) {
+                    setGramWpm(0.00)
+                    setGramLevel(1)
+                }
+            }
+        }
 
         if (props.onTestComplete) props.onTestComplete()
     }
@@ -140,11 +175,13 @@ export const Typer = (props: TyperProps) => {
         if (minutes == 0) setWpm(0)
         else setWpm((characterCount / 5) / minutes)
 
+
+
         // calculate accuracy
         const correct = characterCount - incorrectCount
         if (characterCount == 0) setAccuracy(0)
         else setAccuracy(correct / characterCount * 100)
-    }, [count, characterCount, incorrectCount, time, mode, subMode, gramSource, gramCombination, gramRepetition])
+    }, [count, characterCount, incorrectCount, time, mode, subMode, gramSource, gramScope, gramCombination, gramRepetition, gramLevel])
 
     useEffect(() => {
         let keys: Keys = {};
@@ -182,8 +219,12 @@ export const Typer = (props: TyperProps) => {
     return (
         <div className="flex flex-col py-8 sm:py-0 sm:justify-center items-center mx-4 md:mx-0 space-y-2">
             <div className="flex relative justify-center items-center w-full gap-2 max-w-screen-xl">
-                <div className={`absolute flex items-center h-full left-0 invisible ${ text.length > 20 ? "md:visible" : ""}`}>
-                    {showStats && <Stats wpm={wpm} accuracy={accuracy} />}
+                <div className={`absolute flex items-center h-full left-0 invisible ${ text.length > 38 ? "md:visible" : ""}`}>
+                    {showStats && 
+                        <Stats mode={mode} wpm={wpm} accuracy={accuracy} 
+                            averageWpm={gramWpm} levelText={getGramLevelText(gramLevel, gramCombination, gramScope)} 
+                        />
+                    }
                 </div>
                 {/* settings button */}
                 {showConfig &&
@@ -212,8 +253,19 @@ export const Typer = (props: TyperProps) => {
                         </span>
                     </div>
                 }
-                <div className={`visible ${ text.length > 20 ? "md:invisible" : ""}`} >
-                    {showStats && <Stats wpm={wpm} accuracy={accuracy} />}
+                {/* {mode === TestModes.ngrams &&
+                    <div className={`py-2`}>
+                        <span className={`flex font-mono text-4xl gap-4`}>
+                            <span className="flex">{getGramLevelText(gramLevel, gramCombination, gramScope)}</span>
+                        </span>
+                    </div>
+                } */}
+                <div className={`visible ${ text.length > 38 ? "md:invisible" : ""}`} >
+                    {showStats && 
+                        <Stats mode={mode} wpm={wpm} accuracy={accuracy} 
+                            averageWpm={gramWpm} levelText={getGramLevelText(gramLevel, gramCombination, gramScope)} 
+                        />
+                    }
                 </div>
             </div>
         </div>

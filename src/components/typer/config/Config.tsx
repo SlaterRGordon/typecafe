@@ -1,7 +1,7 @@
 import { useEffect } from "react"
 import type { SingleValue } from "react-select"
 import Select from 'react-select'
-import { TestModes, TestSubModes, TestGramSources } from "../types"
+import { TestModes, TestSubModes, TestGramSources, TestGramScopes } from "../types"
 import { ConfigOption } from "./ConfigOption"
 
 interface ConfigProps {
@@ -15,6 +15,8 @@ interface ConfigProps {
     setCount: (newCount: number) => void,
     gramSource: TestGramSources,
     setGramSource: (newTestGramSource: TestGramSources) => void,
+    gramScope: TestGramScopes,
+    setGramScope: (newTestGramScope: TestGramScopes) => void,
     gramCombination: number,
     setGramCombination: (newTestGramRepetition: number) => void,
     gramRepetition: number,
@@ -26,6 +28,13 @@ interface ConfigProps {
 type Option = { label: string, value: string }
 
 export const Config = (props: ConfigProps) => {
+    const handleModeChange = (newMode: number) => {
+        props.setMode(newMode)
+
+        if (newMode != TestModes.normal) {
+            props.setSubMode(TestSubModes.words)
+        }
+    }
 
     const handleSubModeChange = (newSubMode: number) => {
         props.setSubMode(newSubMode)
@@ -36,29 +45,19 @@ export const Config = (props: ConfigProps) => {
         props.setGramSource(newTestGramSource)
     }
 
+    const handleTestGramScopeChange = (newTestGramScope: number) => {
+        props.setGramScope(newTestGramScope)
+    }
+
     const handleTestGramCombinationChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const newTestGramCombination = parseInt(e.target.value)
         props.setGramCombination(newTestGramCombination)
     }
 
-    // const handleTestGramCombinationBlur = (e: React.FocusEvent<HTMLInputElement>) => {
-    //     const newTestGramCombination = parseInt(e.target.value)
-    //     if (!(newTestGramCombination > 0)) {
-    //         props.setGramCombination(1)
-    //     }
-    // }
-
     const handleTestGramRepetitionChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const newTestGramRepetition = parseInt(e.target.value)
         props.setGramRepetition(newTestGramRepetition)
     }
-    
-    // const handleTestGramRepetitionBlur = (e: React.FocusEvent<HTMLInputElement>) => {
-    //     const newTestGramRepetition = parseInt(e.target.value)
-    //     if (!(newTestGramRepetition > 0)) {
-    //         props.setGramRepetition(1)
-    //     }
-    // }
 
     const languageOptions = [
         { value: "english", label: 'English' },
@@ -84,29 +83,29 @@ export const Config = (props: ConfigProps) => {
         <div className="flex flex-col h-full justify-between mb-8">
             <h3 className="font-bold text-4xl py-1">Settings</h3>
             <div className="flex flex-col">
-                <h3 className="font-semibold text-2xl py-1">Languages</h3>
-                <Select
-                    instanceId="languageSelect"
-                    defaultValue={languageOptions[0]}
-                    options={languageOptions}
-                    value={languageOptions.filter(option => option.value == props.language)[0]}
-                    onChange={handleChangeLanguage}
-                    isSearchable={false}
-                    className="max-w-xs my-react-select-container"
-                    classNamePrefix="my-react-select"
-                    menuPosition="fixed"
-                />
-            </div>
-            <div className="flex flex-col">
                 <h3 className="font-semibold text-2xl py-1">Modes</h3>
                 <ConfigOption
                     options={["Normal", "nGram"]}
                     active={props.mode}
-                    onChange={(newMode: string | number) => { props.setMode(newMode as TestModes) }}
+                    onChange={(newMode: string | number) => { handleModeChange(newMode as TestModes) }}
                 />
             </div>
             {props.mode == TestModes.normal &&
                 <>
+                    <div className="flex flex-col">
+                        <h3 className="font-semibold text-2xl py-1">Languages</h3>
+                        <Select
+                            instanceId="languageSelect"
+                            defaultValue={languageOptions[0]}
+                            options={languageOptions}
+                            value={languageOptions.filter(option => option.value == props.language)[0]}
+                            onChange={handleChangeLanguage}
+                            isSearchable={false}
+                            className="max-w-xs my-react-select-container"
+                            classNamePrefix="my-react-select"
+                            menuPosition="fixed"
+                        />
+                    </div>
                     <div className="flex flex-col">
                         <h3 className="font-semibold text-2xl py-1">Type</h3>
                         <ConfigOption
@@ -147,6 +146,14 @@ export const Config = (props: ConfigProps) => {
                             options={["Bigrams", "Trigrams", "Tetragrams", "Words"]}
                             active={props.gramSource}
                             onChange={(newTestGramSource: string | number) => { handleTestGramSourceChange(newTestGramSource as TestGramSources) }}
+                        />
+                    </div>
+                    <div className="flex flex-col">
+                        <h3 className="font-semibold text-2xl py-1">Scope</h3>
+                        <ConfigOption
+                            options={["Top 50", "Top 100", "Top 200"]}
+                            active={props.gramScope}
+                            onChange={(newGramScope: string | number) => { handleTestGramScopeChange(newGramScope as TestGramScopes) }}
                         />
                     </div>
                     <div className="flex flex-col">

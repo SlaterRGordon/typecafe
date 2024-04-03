@@ -8,7 +8,7 @@ interface TextProps {
     setCharacterCount: (count: number) => void,
     setIncorrectCount: (count: number) => void,
     onStart: () => void,
-    onComplete: () => void,
+    onComplete: (correct: boolean) => void,
 }
 
 export const Text = (props: TextProps) => {
@@ -129,7 +129,7 @@ export const Text = (props: TextProps) => {
 
             // if position is at end of text
             if (position === props.text.length - 1) {
-                props.onComplete()
+                props.onComplete(correct)
             }
 
             setPosition(position => position + 1)
@@ -141,7 +141,10 @@ export const Text = (props: TextProps) => {
         const previous = typerRef.current?.querySelector("#c" + (position-1).toString()) as HTMLDivElement
 
         if (current) {
-            if (current.classList.contains("text-secondary underline")) setIncorrect(incorrect => incorrect - 1)
+            console.log(previous.classList)
+            if (["text-secondary", "underline"].some(className => previous.classList.contains(className))) {
+                setIncorrect(incorrect => incorrect - 1)
+            }
             current.classList.remove("active-char", "text-primary")
             previous?.setAttribute("class", "")
 

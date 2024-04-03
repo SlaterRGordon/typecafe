@@ -14,3 +14,9 @@ export enum TestGramSources {
     tetragrams,
     words
 }
+
+export enum TestGramScopes {
+    fifty,
+    oneHundred,
+    twoHundred
+}

@@ -9,7 +9,7 @@ import chinese10k from './languages/chinese10k.json'
 import spanish10k from './languages/spanish10k.json'
 import hindi1k from './languages/hindi1k.json'
 import exp from 'constants'
-import { TestGramSources } from './types'
+import { TestGramScopes, TestGramSources } from './types'
 
 const languages = {
     english: english10k,
@@ -78,12 +78,12 @@ export const generateText = (count: number, language: string) => {
     return text.toLowerCase().slice(0, -1)
 }
 
-export const generateNGram = (language: string, source: TestGramSources, combination: number, repetition: number) => {
+export const generateNGram = (source: TestGramSources, scope: TestGramScopes, combination: number, repetition: number, level: number) => {
     let ngram = ''
     let words: string[] = []
 
     if (source === TestGramSources.words) {
-        words = languages[language as keyof typeof languages].words 
+        words = languages["english"].words 
     } else if (source === TestGramSources.bigrams) {
         words = ngrams.biGrams
     } else if (source === TestGramSources.trigrams) {
@@ -91,11 +91,14 @@ export const generateNGram = (language: string, source: TestGramSources, combina
     } else if (source === TestGramSources.tetragrams) {
         words = ngrams.tetraGrams
     }
+
+    if (scope === TestGramScopes.fifty) words = words.slice(0, 50)
+    else if (scope === TestGramScopes.oneHundred) words = words.slice(0, 100)
+    else if (scope === TestGramScopes.twoHundred) words = words.slice(0, 200)
     
     for (let i = 0; i < combination; i++) {
-        const randomIndex = Math.floor(Math.random() * words.length)
-        const randomGram = words[randomIndex] as string
-        ngram = ngram += randomGram + ' '
+        const levelGram = words[(level * combination) + i] as string
+        ngram = ngram += levelGram + ' '
     }
 
     for (let i = 0; i < repetition; i++) {
@@ -127,4 +130,22 @@ export const buildText = (text: string, index=0) => {
     })
 
     return words;
+}
+
+export const getGramLevelText = (level: number, combination: number, scope: TestGramScopes) => {
+    if (scope === TestGramScopes.fifty) {
+        const total: number = Math.ceil(50 / combination)
+        
+        return `${level}/${total}`
+    }
+    else if (scope === TestGramScopes.oneHundred) {
+        const total: number = Math.ceil(100 / combination)
+        
+        return `${level}/${total}`
+    }
+    else {
+        const total: number = Math.ceil(200 / combination)
+        
+        return `${level}/${total}`
+    }
 }
