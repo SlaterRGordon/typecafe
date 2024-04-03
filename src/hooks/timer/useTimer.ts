@@ -20,9 +20,11 @@ export const useTimer = ({
         time: _initialTime,
         timerType,
         initialTime: _initialTime,
+        actualStartTime: Date.now(),
+        actualEndTime: Date.now(),
     });
 
-    const { status, time, initialTime } = state;
+    const { status, time, initialTime, actualStartTime, actualEndTime } = state;
 
     const advanceTime = useCallback((timeToAdd: number) => {
         dispatch({ type: 'advanceTime', payload: { timeToAdd } });
@@ -89,5 +91,5 @@ export const useTimer = ({
         };
     }, [status, step, timerType, interval, time]);
 
-    return { advanceTime, pause, reset, start, setInitialTime, status, time };
+    return { advanceTime, pause, reset, start, setInitialTime, status, time, actualStartTime, actualEndTime};
 };
