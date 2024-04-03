@@ -50,13 +50,17 @@ export const Config = (props: ConfigProps) => {
     }
 
     const handleTestGramCombinationChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const newTestGramCombination = parseInt(e.target.value)
-        props.setGramCombination(newTestGramCombination)
+        const newCombination = parseInt(e.target.value)
+        if (newCombination < 1) return
+
+        props.setGramCombination(newCombination)
     }
 
     const handleTestGramRepetitionChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const newTestGramRepetition = parseInt(e.target.value)
-        props.setGramRepetition(newTestGramRepetition)
+        const newRepetition = parseInt(e.target.value)
+        if (newRepetition < 0) return
+        
+        props.setGramRepetition(newRepetition)
     }
 
     const languageOptions = [
