@@ -5,6 +5,16 @@ export default function Document() {
     return (
         <Html data-theme="dark">
             <Head>
+                <title>Type Cafe</title>
+                <meta name="description" content="TypeCafe is a user-centered typing test with a clean, asthetic feel. Level up your typing and track your progress." />
+                <meta name="keywords" content="typing, test, asthetic, minimalistic, keyboard, speed, leaderboard, track" />
+                <meta property="og:title" content="Title Here" />
+                <meta property="og:description" content="TypeCafe is a user-centered typing test with a clean, asthetic feel. Level up your typing and track your progress." />
+                <meta property="og:image" content="/images/preview-image.png" />
+                <link rel="shortcut icon" href="/images/favicon.ico" />
+                <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16.png"/>
+                <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32.png"/>
+                <link rel="icon" type="image/png" sizes="64x64" href="/images/favicon-64x64.png"/>
                 <Script
                     src="https://www.googletagmanager.com/gtag/js?id=G-16KETVK938"
                     strategy="afterInteractive"
@@ -18,10 +28,6 @@ export default function Document() {
                     gtag('config', 'G-16KETVK938');
                     `}
                 </Script>
-                <link rel="shortcut icon" href="/images/favicon.ico" />
-                <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16.png"/>
-                <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32.png"/>
-                <link rel="icon" type="image/png" sizes="64x64" href="/images/favicon-64x64.png"/>
             </Head>
             <body className="overflow-hidden">
                 <Main />
