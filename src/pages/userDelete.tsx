@@ -8,8 +8,8 @@ const UserDelete: NextPage = () => {
       <p>To delete your profile, please follow these steps:</p>
       <ol>
         <li>Navigate to your profile page.</li>
-        <li>Click on the 'Edit Profile' button.</li>
-        <li>Press the 'Delete Profile' button located in the top right of the modal.</li>
+        <li>Click on the &quot;Edit Profile&quot; button.</li>
+        <li>Press the &quot;Delete Profile&quot; button located in the top right of the modal.</li>
       </ol>
       <p>Please note that this action is irreversible.</p>
     </div>
