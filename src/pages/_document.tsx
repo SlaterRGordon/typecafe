@@ -5,7 +5,6 @@ export default function Document() {
     return (
         <Html data-theme="dark">
             <Head>
-                <title>Type Cafe</title>
                 <meta name="description" content="TypeCafe is a user-centered typing test with a clean, asthetic feel. Level up your typing and track your progress." />
                 <meta name="keywords" content="typing, test, asthetic, minimalistic, keyboard, speed, leaderboard, track" />
                 <meta property="og:title" content="Title Here" />

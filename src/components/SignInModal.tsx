@@ -18,12 +18,11 @@ export const SignInModal = () => {
                 redirect: false,
             })
             if (result?.error) {
-                console.log(result)
                 setError(result.error)
             }
         },
         onError: (error) => {
-            setError("Incorrect email or password")
+            setError(error.message)
         }
     })
 
