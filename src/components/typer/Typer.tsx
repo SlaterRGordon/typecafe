@@ -140,10 +140,6 @@ export const Typer = (props: TyperProps) => {
                 if (gramScope == TestGramScopes.fifty && gramLevel < 49) {
                     const minutes = (actualEndTime - actualStartTime) / 60000;
                     const newWpm = (characterCount / 5) / minutes
-                    
-                    console.log("newWpm", newWpm)
-                    console.log("gramWpm", gramWpm)
-                    console.log("gramLevel", gramLevel)
 
                     if (gramLevel !== 1) setGramWpm(((gramWpm * gramLevel) + newWpm) / (gramLevel + 1))
                     else setGramWpm(newWpm)

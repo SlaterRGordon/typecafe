@@ -25,7 +25,7 @@ const Profile: NextPage = () => {
   const [subMode, setSubMode] = useState<TestSubModes>(TestSubModes.timed)
   const [count, setCount] = useState(15)
   const [update, setUpdate] = useState(false)
-  
+
   const { data: userData, refetch: refetchUserData, isLoading } = api.user.get.useQuery()
 
   const onModalClose = async () => {
@@ -135,7 +135,15 @@ const Profile: NextPage = () => {
               <div className="flex flex-col items-center justify-center">
                 <div className="avatar">
                   <div className="mask mask-circle w-24 h-24">
-                    <Image width={500} height={500} src={sessionData?.user.image ?? ""} alt="" />
+                    {sessionData?.user.image ?
+                      <Image width={500} height={500} src={sessionData?.user.image ?? ""} alt={"Profile Picture"} />
+                      :
+                      <div className="avatar placeholder">
+                        <div className="bg-neutral text-neutral-content rounded-full w-24">
+                          <span className="text-4xl font-bold">{sessionData?.user.name?.charAt(0).toUpperCase() ?? ""}</span>
+                        </div>
+                      </div>
+                    }
                   </div>
                 </div>
               </div>

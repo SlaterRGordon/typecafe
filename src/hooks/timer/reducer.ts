@@ -48,7 +48,6 @@ export const reducer = (state: State, action: TimerActionsType): State => {
         case "start": {
             const { initialTime } = action.payload;
             const actualTime = Date.now();
-            console.log('start', initialTime, actualTime);
 
             return {
                 ...state,
@@ -58,7 +57,6 @@ export const reducer = (state: State, action: TimerActionsType): State => {
             };
         }
         case "stop": {
-            console.log('stop');
             const actualTime = Date.now();
 
             return {

@@ -1,7 +1,7 @@
 import { signOut, useSession } from "next-auth/react";
 
 export const TopNavigation = () => {
-    const { data: sessionData } = useSession();
+    const { data: sessionData } = useSession();    
 
     return (
         <div className="fixed navbar z-50 bg-base-300">
