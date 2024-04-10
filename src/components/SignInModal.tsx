@@ -28,8 +28,9 @@ export const SignInModal = () => {
 
     const [usernameError, setUsernameError] = useState(true)
     const onUsernameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setUsername(e.target.value)
-        if (e.target.value.length > 0) {
+        const newUsername = e.target.value
+        setUsername(newUsername)
+        if (newUsername.length > 0) {
             setUsernameError(false)
         } else {
             setUsernameError(true)
@@ -38,7 +39,6 @@ export const SignInModal = () => {
 
     const [emailError, setEmailError] = useState(true)
     const onEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        console.log(e.target.value)
         const newEmail = e.target.value
         setEmail(newEmail)
 
@@ -55,16 +55,17 @@ export const SignInModal = () => {
 
     const [passwordError, setPasswordError] = useState(true)
     const onPasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setPassword(e.target.value)
+        const newPassword = e.target.value
+        setPassword(newPassword)
 
         const lowerCaseLetters = /[a-z]/g;
         const upperCaseLetters = /[A-Z]/g;
         const numbers = /[0-9]/g;
 
-        if (password.match(lowerCaseLetters) &&
-            password.match(upperCaseLetters) &&
-            password.match(numbers) &&
-            password.length >= 8
+        if (newPassword.match(lowerCaseLetters) &&
+            newPassword.match(upperCaseLetters) &&
+            newPassword.match(numbers) &&
+            newPassword.length >= 8
         ) {
             setPasswordError(false)
         } else {
