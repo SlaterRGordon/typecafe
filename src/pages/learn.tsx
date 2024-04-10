@@ -152,6 +152,10 @@ const Learn: NextPage = () => {
                     gramRepetition={gramRepetition}
                     count={level.count}
                     level={level}
+                    gramSource={TestGramSources.bigrams}
+                    gramScope={TestGramScopes.fifty}
+                    gramCombination={1}
+                    gramRepetition={0}
                     onKeyChange={onKeyChange}
                     onTestComplete={onTestComplete}
                     showStats={true}
