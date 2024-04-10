@@ -19,7 +19,7 @@ const MyApp: AppType<{ session: Session | null }> = ({
       <SessionProvider session={session}>
         <Layout>
           <Head>
-            <title>My new cool app</title>
+            <title>Type Cafe</title>
           </Head>
           <Component {...pageProps} />
         </Layout>
