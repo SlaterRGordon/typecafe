@@ -23,6 +23,7 @@ declare module "next-auth" {
     token: string,
     user: {
       id: string;
+      name: string;
       // ...other properties
       // role: UserRole;
     } & DefaultSession["user"];
@@ -42,11 +43,12 @@ declare module "next-auth" {
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
   callbacks: {
-    session: ({ session, user, token }) => {
+    session: ({ session, token }) => {
       return {
         ...session,
         user: {
           ...session.user,
+          name: session.user.name,
           id: token.id,
         },
       }
@@ -90,6 +92,7 @@ export const authOptions: NextAuthOptions = {
           id: user.id,
           email: user.email,
           username: user.username,
+          name: user.name,
         }
       },
     }),
