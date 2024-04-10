@@ -9,20 +9,25 @@ export const SignInModal = () => {
     const [showPassword, setShowPassword] = useState(false)
     const [signInForm, setSignInForm] = useState(true)
 
+    const [error, setError] = useState("")
     const register = api.user.registerUser.useMutation({
         onSuccess: async () => {
-            await signIn("login", {
+            const result = await signIn("login", {
                 email,
                 password,
-                redirect: true
+                redirect: false,
             })
+            if (result?.error) {
+                console.log(result)
+                setError(result.error)
+            }
         },
         onError: (error) => {
-            console.log(error)
+            setError("Incorrect email or password")
         }
     })
 
-    const [usernameError, setUsernameError] = useState(false)
+    const [usernameError, setUsernameError] = useState(true)
     const onUsernameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setUsername(e.target.value)
         if (e.target.value.length > 0) {
@@ -32,11 +37,13 @@ export const SignInModal = () => {
         }
     }
 
-    const [emailError, setEmailError] = useState(false)
+    const [emailError, setEmailError] = useState(true)
     const onEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setEmail(e.target.value)
+        console.log(e.target.value)
+        const newEmail = e.target.value
+        setEmail(newEmail)
 
-        if (email.toLowerCase()
+        if (newEmail.toLowerCase()
             .match(
                 /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|.(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/
             )
@@ -47,7 +54,7 @@ export const SignInModal = () => {
         }
     }
 
-    const [passwordError, setPasswordError] = useState(false)
+    const [passwordError, setPasswordError] = useState(true)
     const onPasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setPassword(e.target.value)
 
@@ -73,12 +80,23 @@ export const SignInModal = () => {
 
     const handleSumbit = async () => {
         if (signInForm) {
-            await signIn("login", {
+            if (emailError || passwordError) {
+                return
+            }
+
+            const result = await signIn("login", {
                 email,
                 password,
-                redirect: true
+                redirect: false,
             })
+            if (result?.error) {
+                setError("Incorrect email or password")
+            }
         } else {
+            if (emailError || usernameError || passwordError) {
+                return
+            }
+
             register.mutate({
                 email,
                 username,
@@ -93,6 +111,12 @@ export const SignInModal = () => {
             <label htmlFor="signInModal" className="modal modal-bottom sm:modal-middle cursor-pointer">
                 <label htmlFor="" className="modal-box space-y-4">
                     <div className="flex flex-col gap-2">
+                        {error != "" &&
+                            <div role="alert" className="alert alert-error justify-normal">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                <span>{error}</span>
+                            </div>
+                        }
                         <div className="flex flex-col">
                             <h3 className="font-semibold text-2xl p-1">Email</h3>
                             <input
@@ -122,7 +146,7 @@ export const SignInModal = () => {
                                     id="passwordInput"
                                     type={`${showPassword ? "text" : "password"}`} placeholder="Password"
                                     value={password}
-                                    className="grow input input-bordered "
+                                    className={`grow input input-bordered  ${passwordError ? "input-error" : ""}`}
                                     onChange={onPasswordChange} />
                                 <button className="btn btn-outline" onClick={() => setShowPassword(!showPassword)}>
                                     {showPassword ?

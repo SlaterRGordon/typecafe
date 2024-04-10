@@ -82,13 +82,24 @@ export const userRouter = createTRPCRouter({
         }))
         .mutation(async ({ ctx, input }) => {
             const { username, email, password } = input;
-            const exists = await ctx.prisma.user.findFirst({
+
+            const emailExists = await ctx.prisma.user.findFirst({
                 where: { email },
             });
-            if (exists) {
+            if (emailExists) {
                 throw new TRPCError({
                     code: "CONFLICT",
-                    message: "User already exists.",
+                    message: "Email already in use.",
+                });
+            }
+
+            const usernameExists = await ctx.prisma.user.findFirst({
+                where: { username },
+            });
+            if (usernameExists) {
+                throw new TRPCError({
+                    code: "CONFLICT",
+                    message: "Username already in use.",
                 });
             }
 
