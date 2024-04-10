@@ -1,4 +1,6 @@
 import { User } from "@prisma/client"
+import { signOut, useSession } from "next-auth/react";
+import { useRouter } from "next/router"
 import { use, useEffect, useState } from "react"
 import { api } from "~/utils/api"
 
@@ -8,11 +10,14 @@ interface EditProps {
 }
 
 export const Edit = (props: EditProps) => {
+    const router = useRouter();
+
     const [name, setName] = useState(props.userData?.name ?? "")
     const [bio, setBio] = useState(props.userData?.bio ?? "")
     const [link, setLink] = useState(props.userData?.link ?? "")
     
     const [saving, setSaving] = useState(false)
+    const [deleting, setDeleting] = useState(false)
 
     useEffect(() => {
         setName(props.userData?.name ?? "")
@@ -20,7 +25,22 @@ export const Edit = (props: EditProps) => {
         setLink(props.userData?.link ?? "")
     }, [props.userData])
 
-    // create test
+    // delete user
+    const deleteUser = api.user.delete.useMutation({
+        onSuccess: () => {
+            console.log("user deleted")
+            setDeleting(false)
+            void signOut()
+            void router.push("/")
+
+        },
+        onError: (error) => {
+            console.log(error)
+            setDeleting(false)
+        }
+    })
+
+    // create user
     const updateUser = api.user.update.useMutation({
         onSuccess: () => {
             console.log("user updated")
@@ -47,6 +67,12 @@ export const Edit = (props: EditProps) => {
         setLink(e.target.value)
     }
 
+    const deleteProfile = () => {
+        setDeleting(true)
+
+        deleteUser.mutate()
+    }
+
     const saveChanges = () => {
         setSaving(true)
 
@@ -64,7 +90,12 @@ export const Edit = (props: EditProps) => {
 
     return (
         <div className="flex flex-col h-full gap-2 relative">
-            <h3 className="font-bold text-4xl p-1">Edit Profile</h3>
+            <div className="flex justify-between align-center">
+                <h3 className="font-bold text-4xl p-1">Edit Profile</h3>
+                <button onClick={deleteProfile} className="btn btn-sm btn-primary">
+                    {deleting ? <div className="w-6 h-6 rounded-full animate-spin border border-solid text-primary border-t-transparent"></div> : "Delete Profile"}
+                </button>
+            </div>
             <div className="flex flex-col">
                 <h3 className="font-semibold text-2xl p-1">Name</h3>
                 <input
