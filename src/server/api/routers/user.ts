@@ -114,10 +114,18 @@ export const userRouter = createTRPCRouter({
               },
           });
 
-          return {
-              status: 201,
-              message: "Account created successfully",
-              result: result.email,
-          };
-      }),
+            return {
+                status: 201,
+                message: "Account created successfully",
+                result: result.email,
+            };
+        }),
+    delete: protectedProcedure
+        .mutation(({ ctx }) => {
+            return ctx.prisma.user.delete({
+                where: {
+                    id: ctx.session?.user.id,
+                },
+            });
+        }),
 });
