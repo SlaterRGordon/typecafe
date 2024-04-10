@@ -31,6 +31,7 @@ export const Text = (props: TextProps) => {
         window.addEventListener("keydown", () => {
             const configModal = document.getElementById("configModal") as HTMLInputElement
             const colorModal = document.getElementById("colorModal") as HTMLInputElement
+            const signInModal = document.getElementById("signInModal") as HTMLInputElement
             
             const input = inputRef.current
 
@@ -39,7 +40,7 @@ export const Text = (props: TextProps) => {
                 if (nameInput) nameInput.focus()
             }
 
-            if (!configModal?.checked && !colorModal?.checked){
+            if (!configModal?.checked && !colorModal?.checked && !signInModal?.checked){
                 if (input) input.focus()
             } else {
                 if (input) input.blur()
@@ -141,7 +142,6 @@ export const Text = (props: TextProps) => {
         const previous = typerRef.current?.querySelector("#c" + (position-1).toString()) as HTMLDivElement
 
         if (current) {
-            console.log(previous.classList)
             if (["text-secondary", "underline"].some(className => previous.classList.contains(className))) {
                 setIncorrect(incorrect => incorrect - 1)
             }
