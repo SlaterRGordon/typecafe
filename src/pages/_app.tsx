@@ -8,6 +8,7 @@ import "~/styles/globals.css";
 import Layout from "~/components/Layout";
 import { store } from '../state/store';
 import { Provider } from 'react-redux';
+import Head from "next/head";
 
 const MyApp: AppType<{ session: Session | null }> = ({
   Component,
@@ -17,6 +18,9 @@ const MyApp: AppType<{ session: Session | null }> = ({
     <Provider store={store}>
       <SessionProvider session={session}>
         <Layout>
+          <Head>
+            <title>My new cool app</title>
+          </Head>
           <Component {...pageProps} />
         </Layout>
       </SessionProvider>
