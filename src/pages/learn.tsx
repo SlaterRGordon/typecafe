@@ -1,7 +1,7 @@
 import { type NextPage } from "next";
 import { useEffect, useState } from "react";
 import { Typer } from "~/components/typer/Typer";
-import { TestModes, TestSubModes } from "~/components/typer/types";
+import { TestGramScopes, TestGramSources, TestModes, TestSubModes } from "~/components/typer/types";
 import type { Difficulty, Level } from "~/components/typer/learn/levels";
 import { levels } from "~/components/typer/learn/levels";
 import { api } from "~/utils/api";
@@ -13,7 +13,7 @@ const letters = "qwertyuiopasdfghjklzxcvbnm/"
 
 const Learn: NextPage = () => {
     const [language, setLanguage] = useState<string>("english")
-    const [mode, setMode] = useState<TestModes>(TestModes.learn)
+    const [mode, setMode] = useState<TestModes>(TestModes.normal)
     const [subMode, setSubMode] = useState<TestSubModes>(TestSubModes.words)
     const [count, setCount] = useState(15)
     const [difficulty, setDifficulty] = useState("easy")
@@ -144,6 +144,10 @@ const Learn: NextPage = () => {
                     subMode={subMode}
                     count={level.count}
                     level={level}
+                    gramSource={TestGramSources.bigrams}
+                    gramScope={TestGramScopes.fifty}
+                    gramCombination={1}
+                    gramRepetition={0}
                     onKeyChange={onKeyChange}
                     onTestComplete={onTestComplete}
                     showStats={true}
