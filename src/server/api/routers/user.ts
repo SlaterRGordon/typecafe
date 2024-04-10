@@ -120,4 +120,12 @@ export const userRouter = createTRPCRouter({
                 result: result.email,
             };
         }),
+    delete: protectedProcedure
+        .mutation(({ ctx }) => {
+            return ctx.prisma.user.delete({
+                where: {
+                    id: ctx.session?.user.id,
+                },
+            });
+        }),
 });
