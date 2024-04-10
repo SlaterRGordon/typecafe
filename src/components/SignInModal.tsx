@@ -75,6 +75,7 @@ export const SignInModal = () => {
 
     const handleSignIn = (e: React.MouseEvent<HTMLButtonElement, MouseEvent>, provider: string) => {
         e.stopPropagation();
+        e.preventDefault();
         void signIn(provider)
     }
 
