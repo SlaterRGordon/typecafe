@@ -32,7 +32,7 @@ const Profile: NextPage = () => {
     setUpdate(prevUpdate => !prevUpdate)
     await refetchUserData()
 
-    const input = document.getElementById("configModal") as HTMLInputElement
+    const input = document.getElementById("editModal") as HTMLInputElement
     if (input) {
       if (!input.checked) input.checked = true
       else input.checked = false
@@ -140,7 +140,7 @@ const Profile: NextPage = () => {
                       :
                       <div className="avatar placeholder">
                         <div className="bg-neutral text-neutral-content rounded-full w-24">
-                          <span className="text-4xl font-bold">{sessionData?.user.name?.charAt(0).toUpperCase() ?? ""}</span>
+                          <span className="text-4xl font-bold">{sessionData?.user.username?.charAt(0).toUpperCase() ?? ""}</span>
                         </div>
                       </div>
                     }
@@ -154,7 +154,7 @@ const Profile: NextPage = () => {
                   </div>
                   :
                   <>
-                    <p className="text-sm md:text-xl"><strong>{userData?.name ?? ""}</strong></p>
+                    <p className="text-sm md:text-xl"><strong>{userData?.username ?? ""}</strong></p>
                     <p className="text-xs md:text-lg">{userData?.bio ?? ""}</p>
                     <p className="cursor-pointer text-xs md:text-lg"><a href={userData?.link ?? ""}>{userData?.link ?? ""}</a></p>
                   </>
@@ -225,7 +225,7 @@ const Profile: NextPage = () => {
                   classNamePrefix="my-react-select"
                 />
               </div>
-              <Scores update={update} byUser={true} mode={TestModes.normal} subMode={subMode} count={count} date={date} language={language} />
+              <Scores update={update} userId={sessionData?.user.id} mode={TestModes.normal} subMode={subMode} count={count} date={date} language={language} />
             </div>
           </div>
         </div>

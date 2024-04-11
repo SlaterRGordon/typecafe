@@ -16,7 +16,7 @@ export const Avatar = (props: AvatarProps) => {
                     :
                     <div className="avatar placeholder">
                         <div className="bg-neutral text-neutral-content rounded-full w-24">
-                            <span className="text-md">{sessionData?.user.name?.charAt(0).toUpperCase() ?? ""}</span>
+                            <span className="text-md">{sessionData?.user.username?.charAt(0).toUpperCase() ?? ""}</span>
                         </div>
                     </div>
                 }

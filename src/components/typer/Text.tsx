@@ -32,6 +32,7 @@ export const Text = (props: TextProps) => {
             const configModal = document.getElementById("configModal") as HTMLInputElement
             const colorModal = document.getElementById("colorModal") as HTMLInputElement
             const signInModal = document.getElementById("signInModal") as HTMLInputElement
+            const usernameModal = document.getElementById("usernameModal") as HTMLInputElement
             
             const input = inputRef.current
 
@@ -40,7 +41,11 @@ export const Text = (props: TextProps) => {
                 if (nameInput) nameInput.focus()
             }
 
-            if (!configModal?.checked && !colorModal?.checked && !signInModal?.checked){
+            if (!configModal?.checked && 
+                !colorModal?.checked && 
+                !signInModal?.checked && 
+                !usernameModal?.classList.contains("modal-open")
+            ){
                 if (input) input.focus()
             } else {
                 if (input) input.blur()

@@ -12,7 +12,7 @@ interface EditProps {
 export const Edit = (props: EditProps) => {
     const router = useRouter();
 
-    const [name, setName] = useState(props.userData?.name ?? "")
+    const [name, setName] = useState(props.userData?.username ?? "")
     const [bio, setBio] = useState(props.userData?.bio ?? "")
     const [link, setLink] = useState(props.userData?.link ?? "")
     
@@ -20,7 +20,7 @@ export const Edit = (props: EditProps) => {
     const [deleting, setDeleting] = useState(false)
 
     useEffect(() => {
-        setName(props.userData?.name ?? "")
+        setName(props.userData?.username ?? "")
         setBio(props.userData?.bio ?? "")
         setLink(props.userData?.link ?? "")
     }, [props.userData])
@@ -82,7 +82,7 @@ export const Edit = (props: EditProps) => {
         }
 
         updateUser.mutate({
-            name: name,
+            username: name,
             bio: bio,
             link: link,
         })
@@ -97,7 +97,7 @@ export const Edit = (props: EditProps) => {
                 </button>
             </div>
             <div className="flex flex-col">
-                <h3 className="font-semibold text-2xl p-1">Name</h3>
+                <h3 className="font-semibold text-2xl p-1">Username</h3>
                 <input
                     id="nameInput"
                     type="text" placeholder="Name"

@@ -3,6 +3,7 @@ import { TestModes, TestSubModes } from "~/components/typer/types"
 import { api } from "~/utils/api"
 import type { Test, User } from "@prisma/client"
 import Image from "next/image";
+import { useRouter } from "next/router";
 
 function isBottom(ref: React.RefObject<HTMLDivElement>) {
     if (!ref.current) {
@@ -12,7 +13,7 @@ function isBottom(ref: React.RefObject<HTMLDivElement>) {
 }
 
 interface LeaderboardProps {
-    byUser?: boolean,
+    userId?: string,
     mode: TestModes,
     subMode: TestSubModes,
     count: number,
@@ -22,6 +23,8 @@ interface LeaderboardProps {
 }
 
 const Scores = (props: LeaderboardProps) => {
+    console.log(props)
+    const router = useRouter()
     const { mode, subMode, count, date, language } = props;
     const [allTests, setAllTests] = useState<(Test & { user: User; })[] | undefined>(undefined)
     const limit = 16
@@ -34,7 +37,7 @@ const Scores = (props: LeaderboardProps) => {
     // fetch types
     const { data: testType } = api.type.get.useQuery({ mode, subMode, language: language })
     const { data: tests, isLoading: isLoadingTests, refetch, isRefetching } = api.test.getAll.useQuery({
-        byUser: props.byUser ? props.byUser : false,
+        userId: props.userId ? props.userId : undefined,
         orderBy: "score",
         order: "desc",
         count,
@@ -43,6 +46,12 @@ const Scores = (props: LeaderboardProps) => {
         limit,
         page,
     })
+
+    const navigateProfile = async (username: string | null) => {
+        if (!username) return
+        await router.push(`/profile/${username}`)
+        return
+    }
 
     useEffect(() => {
         setAllTests(undefined)
@@ -123,14 +132,14 @@ const Scores = (props: LeaderboardProps) => {
                                         <div className={`flex w-full justify-stretch px-4 py-4 ${index % 2 == 1 ? 'bg-b2' : ''}`} key={index}>
                                             <div className="flex w-[10%] md:[5%] items-center">{index + 1}</div>
                                             <div className="flex basis-0 grow items-center">
-                                                <div className="flex basis-0 grow items-center items-center space-x-3">
+                                                <div className="flex basis-0 grow items-center items-center space-x-3 cursor-pointer" onClick={(e) => navigateProfile(test.user.username)}>
                                                     <div className="avatar">
                                                         <div className="mask mask-squircle w-12 h-12">
                                                             <Image width={500} height={500} src={test.user.image ?? ""} alt="" />
                                                         </div>
                                                     </div>
                                                     <div>
-                                                        <div className="font-bold">{test.user.name}</div>
+                                                        <div className="font-bold">{test.user.username}</div>
                                                     </div>
                                                 </div>
                                             </div>
