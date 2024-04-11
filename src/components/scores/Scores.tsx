@@ -92,8 +92,6 @@ const Scores = (props: LeaderboardProps) => {
             })
         }
 
-        if (isLoadingTests) setAllTests([])
-
         if (tests && !isLoadingTests && !isRefetching) {
             setAllTests(prevTests => {
                 let uniqueTests = uniqueById(prevTests ?? [], tests ?? [])
@@ -106,12 +104,14 @@ const Scores = (props: LeaderboardProps) => {
                 if (prevTests) {
                     return [...prevTests, ...uniqueTests]
                 }
-                else return uniqueTests
+                else {
+                    return uniqueTests
+                }
             })
 
             setLoadingList(false)
         }
-    }, [isLoadingTests, tests, isRefetching])
+    }, [isLoadingTests, tests, isRefetching, props.userId])
 
     useEffect(() => {
         setAllTests(undefined)
