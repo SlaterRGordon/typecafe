@@ -61,13 +61,22 @@ export const UsernameModal = () => {
                         }
                         <div className="flex flex-col">
                             <h3 className="font-semibold text-2xl p-1">Username</h3>
-                            <input
-                                id="usernamInput"
-                                type="text" placeholder="Username"
-                                className={`w-full input input-bordered ${usernameError ? "input-error" : ""}`}
-                                value={username}
-                                onChange={onUsernameChange}
-                            />
+                            <label className={`flex items-center gap-2`}>
+                                <input
+                                    id="usernameInput"
+                                    placeholder="Username"
+                                    value={username}
+                                    className={`grow input input-bordered ${usernameError ? "input-error" : ""}`}
+                                    onChange={onUsernameChange} />
+                                {isLoading ?
+                                    <div className="w-6 h-6 rounded-full animate-spin border border-solid text-primary border-t-transparent"></div>
+                                    :
+                                    usernameExists || username.length < 3 ?
+                                        <svg style={{ color: "red" }} xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 -960 960 960" width="24"><path fill="currentColor" d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z" /></svg>
+                                        :
+                                        <svg style={{ color: "green" }} xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 -960 960 960" width="24"><path fill="currentColor" d="M382-240 154-468l57-57 171 171 367-367 57 57-424 424Z" /></svg>
+                                }
+                            </label>
                         </div>
                         {isLoading ?
                             <button className="btn btn-block btn-primary mt-2 cursor-not-allowed">

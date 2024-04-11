@@ -92,9 +92,17 @@ const Scores = (props: LeaderboardProps) => {
             })
         }
 
+        if (isLoadingTests) setAllTests([])
+
         if (tests && !isLoadingTests && !isRefetching) {
             setAllTests(prevTests => {
-                const uniqueTests = uniqueById(prevTests ?? [], tests ?? [])
+                let uniqueTests = uniqueById(prevTests ?? [], tests ?? [])
+                
+                if (props.userId) {
+                    prevTests = prevTests?.filter((test) => test.user.id === props.userId)
+                    uniqueTests = uniqueTests.filter((test) => test.user.id === props.userId)
+                }
+
                 if (prevTests) {
                     return [...prevTests, ...uniqueTests]
                 }
