@@ -11,6 +11,8 @@ import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import { env } from "~/env.mjs";
 import { prisma } from "~/server/db";
 import { compare } from "bcrypt";
+import type { GoogleProfile } from "next-auth/providers/google";
+import { api } from "~/utils/api";
 
 /**
  * Module augmentation for `next-auth` types. Allows us to add custom properties to the `session`
@@ -24,6 +26,7 @@ declare module "next-auth" {
     user: {
       id: string;
       name: string;
+      username: string;
       // ...other properties
       // role: UserRole;
     } & DefaultSession["user"];
@@ -43,12 +46,28 @@ declare module "next-auth" {
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
   callbacks: {
-    session: ({ session, token }) => {
+    session: async ({ session, token }) => {
+
+      if (session?.user) {
+        // If the user is logged in, we can fetch their username and pass it to the context
+        const user = await prisma.user.findFirst({
+          where: {
+            email: session.user.email,
+          },
+          select: {
+            username: true,
+          }
+        });
+    
+        session.user.username = user?.username ? user.username : "";
+      }
+
       return {
         ...session,
         user: {
           ...session.user,
           name: session.user.name,
+          username: session.user.username,
           id: token.id,
         },
       }
@@ -98,7 +117,7 @@ export const authOptions: NextAuthOptions = {
     }),
     GoogleProvider({
       clientId: env.GOOGLE_CLIENT_ID,
-      clientSecret: env.GOOGLE_CLIENT_SECRET
+      clientSecret: env.GOOGLE_CLIENT_SECRET,
     }),
     GithubProvider({
       clientId: env.GITHUB_CLIENT_ID,

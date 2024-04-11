@@ -4,6 +4,7 @@ import { TopNavigation } from "./TopNavigation";
 import { SideNavigation } from "./SideNavigation";
 import { BottomNavigation } from "./BottomNavigation";
 import { ColorModal } from "../colors/ColorModal";
+import { UsernameModal } from "../UsernameModal";
 
 export const Navigation = () => {
 
@@ -14,6 +15,7 @@ export const Navigation = () => {
             <BottomNavigation />
             <SignInModal />
             <ColorModal />
+            <UsernameModal />
         </>
     )
 }
