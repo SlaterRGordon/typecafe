@@ -138,7 +138,12 @@ export const userRouter = createTRPCRouter({
         }))
         .query(async ({ ctx, input }) => {
             const usernameExists = await ctx.prisma.user.findFirst({
-                where: { username: input.username },
+                where: {
+                    username: {
+                        equals: input.username,
+                        mode: "insensitive",
+                    }
+                },
             });
 
             return usernameExists ? true : false;

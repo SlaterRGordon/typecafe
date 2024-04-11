@@ -32,7 +32,7 @@ const Profile: NextPage = () => {
     setUpdate(prevUpdate => !prevUpdate)
     await refetchUserData()
 
-    const input = document.getElementById("editModal") as HTMLInputElement
+    const input = document.getElementById("configModal") as HTMLInputElement
     if (input) {
       if (!input.checked) input.checked = true
       else input.checked = false

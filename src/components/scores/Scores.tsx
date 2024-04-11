@@ -23,7 +23,6 @@ interface LeaderboardProps {
 }
 
 const Scores = (props: LeaderboardProps) => {
-    console.log(props)
     const router = useRouter()
     const { mode, subMode, count, date, language } = props;
     const [allTests, setAllTests] = useState<(Test & { user: User; })[] | undefined>(undefined)
