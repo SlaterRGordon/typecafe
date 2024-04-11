@@ -215,7 +215,7 @@ export const ColorModal = () => {
                                 </div>
 
                                 {sessionData?.user?.id &&
-                                    <div className="absolute bottom-[-48px] w-full">
+                                    <div className="absolute bottom-0 w-full">
                                         <button onClick={saveColors} className="btn btn-sm btn-primary btn-block">
                                             Save
                                         </button>
