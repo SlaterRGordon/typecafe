@@ -37,7 +37,6 @@ export const UsernameModal = () => {
     }
 
     useEffect(() => {
-        console.log(session.data)
         if (session.data?.user.username) {
             const usernameModal = document.getElementById("usernameModal") as HTMLInputElement
             usernameModal.classList.remove("modal-open")

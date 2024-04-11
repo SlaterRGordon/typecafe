@@ -56,7 +56,7 @@ const Scores = (props: LeaderboardProps) => {
         setAllTests(undefined)
         setPage(0)
         refetch().then(() => {
-            console.log("refetched")
+            // console.log("refetched")
         }).catch((err) => {
             console.log(err)
         })

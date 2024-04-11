@@ -20,10 +20,6 @@ const ProfilePage: NextPage = () => {
         username,
     });
 
-    useEffect(() => {
-        console.log(username)
-    }, [data])
-
     const [language, setLanguage] = useState<string>("english")
     const [date, setDate] = useState<Date | undefined>(undefined)
     const [timeRange, setTimeRange] = useState(3)

@@ -47,7 +47,6 @@ export const Edit = (props: EditProps) => {
     // create user
     const updateUser = api.user.update.useMutation({
         onSuccess: () => {
-            console.log("user updated")
             props.onClose()
             setSaving(false)
         },

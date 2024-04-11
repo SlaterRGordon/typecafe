@@ -52,7 +52,7 @@ export const Typer = (props: TyperProps) => {
     // create test
     const createTest = api.test.create.useMutation({
         onSuccess: () => {
-            console.log("test created")
+            // console.log("test created")
         },
         onError: (error) => {
             console.log(error)

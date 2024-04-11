@@ -76,7 +76,7 @@ const Learn: NextPage = () => {
 
     const onTestComplete = () => {
         refetchTests().then(() => {
-            console.log("tests refetched")
+            // console.log("tests refetched")
             setLevelChanged(false)
         }).catch((error) => {
             console.log(error)
