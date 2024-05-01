@@ -2,20 +2,33 @@ import { useEffect } from "react"
 import { api } from "~/utils/api"
 import { formatPercentile, formatValue } from "./utils"
 
-export const Stats = () => {
+interface StatsProps {
+    profile: {
+        username: string | null;
+        bio: string | null;
+        link: string | null;
+        id: string;
+        image: string | null;
+    } | null | undefined,
+}
+
+export const Stats = (props: StatsProps) => {
+    const { profile } = props
     // fetch types
     const { data: wordTypes, isLoading: isLoadingWordsType } = api.type.getAll.useQuery({ subMode: 1 })
     const { data: wordsTyped, isLoading: isLoadingWords } = api.test.getTimeTyped.useQuery({
         typeIds: wordTypes ? wordTypes.map(type => { return type.id; }) : [],
+        userId: profile?.id
     })
 
     const { data: timeTypes, isLoading: isLoadingTimeType } = api.type.getAll.useQuery({ subMode: 0 })
     const { data: timeTyped, isLoading: isLoadingTime } = api.test.getTimeTyped.useQuery({
         typeIds: timeTypes ? timeTypes.map(type => { return type.id; }) : [],
+        userId: profile?.id
     })
 
-    const { data: bestScore, isLoading: isLoadingScore } = api.test.getBestScore.useQuery()
-    const { data: percentile, isLoading: isLoadingPercentile } = api.test.getPercentile.useQuery()
+    const { data: bestScore, isLoading: isLoadingScore } = api.test.getBestScore.useQuery({ userId: profile?.id })
+    const { data: percentile, isLoading: isLoadingPercentile } = api.test.getPercentile.useQuery({ userId: profile?.id })
 
     return (
         <div className="flex gap-4">
@@ -28,7 +41,7 @@ export const Stats = () => {
                                 <div className="w-8 h-8 rounded-full animate-spin border border-solid text-primary border-t-transparent"></div>
                             </div>
                             :
-                            <div className="stat-value text-secondary text-[1.5rem] sm:text-[2.25rem]">{timeTyped?._sum.count ? formatValue(timeTyped._sum.count/60) : 0.00} mins</div>
+                            <div className="stat-value text-secondary text-[1.5rem] sm:text-[2.25rem]">{timeTyped?._sum.count ? formatValue(timeTyped._sum.count / 60) : 0.00} mins</div>
                         }
                     </div>
                 </div>

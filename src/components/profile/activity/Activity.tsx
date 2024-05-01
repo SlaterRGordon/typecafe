@@ -8,11 +8,11 @@ import { getActivityData } from "./utils"
 const useMutationObserver = (domNodeSelector: string, observerOptions: MutationObserverInit | undefined, cb: MutationCallback) => {
   useEffect(() => {
     const targetNode = document.querySelector(domNodeSelector);
-    
+
     const observer = new MutationObserver(cb);
-    
+
     observer.observe(targetNode as Node, observerOptions);
-    
+
     return () => {
       observer.disconnect();
     };
@@ -27,21 +27,33 @@ const useStyle = () => {
   useEffect(() => {
     setStyle(document.documentElement.style.getPropertyValue('--p'));
   }, []);
-  
-  const handler = useCallback((mutationList: MutationRecord[]) => { 
+
+  const handler = useCallback((mutationList: MutationRecord[]) => {
     mutationList.forEach(mutation => {
-      if(mutation.type !== 'attributes' || mutation.attributeName !== 'style') return;
+      if (mutation.type !== 'attributes' || mutation.attributeName !== 'style') return;
 
       setStyle(document.documentElement.style.getPropertyValue('--p'));
     });
   }, []);
-  
+
   useMutationObserver('html', options, handler);
 
   return style; // locale[lang]
 };
 
-export const Activity = () => {
+interface ActivityProps {
+  profile: {
+    username: string | null;
+    bio: string | null;
+    link: string | null;
+    id: string;
+    image: string | null;
+  } | null | undefined,
+}
+
+export const Activity = (props: ActivityProps) => {
+  const { profile } = props
+
   const date = new Date()
   const [totalCount, setTotalCount] = useState(0)
   date.setDate(date.getDate() - 365)
@@ -53,6 +65,7 @@ export const Activity = () => {
   const { data: testCounts } = api.test.getActivityByDate.useQuery({
     startDate,
     endDate,
+    userId: profile?.id
   })
 
   useEffect(() => {
@@ -65,7 +78,7 @@ export const Activity = () => {
   }, [testCounts])
 
   return (
-    <ActivityCalendar 
+    <ActivityCalendar
       data={data}
       theme={{
         light: [style ? `hsla(${style.split(" ").join(",")},0.2)` : "hsl(0, 0%, 92%)", style ? `hsla(${style.split(" ").join(",")},1)` : 'rebeccapurple'],

@@ -81,6 +81,7 @@ export const testRouter = createTRPCRouter({
     .input(z.object({
       startDate: z.date(),
       endDate: z.date(),
+      userId: z.string().optional(),
     }))
     .query(({ ctx, input }) => {
       return ctx.prisma.test.groupBy({
@@ -89,7 +90,7 @@ export const testRouter = createTRPCRouter({
           _all: true,
         },
         where: {
-          userId: ctx.session?.user.id,
+          userId: input.userId ? input.userId : ctx.session?.user.id,
           summaryDate: {
             gte: input.startDate,
             lte: input.endDate,
@@ -98,23 +99,29 @@ export const testRouter = createTRPCRouter({
       });
     }),
   getTimeTyped: publicProcedure
-    .input(z.object({ typeIds: z.string().array() }))
+    .input(z.object({
+      typeIds: z.string().array(),
+      userId: z.string().optional()
+    }))
     .query(({ ctx, input }) => {
       return ctx.prisma.test.aggregate({
         _sum: {
           count: true,
         },
         where: {
-          userId: ctx.session?.user.id,
+          userId: input.userId ? input.userId : ctx.session?.user.id,
           typeId: { in: input.typeIds },
         },
       });
     }),
   getBestScore: publicProcedure
-    .query(({ ctx }) => {
+    .input(z.object({
+      userId: z.string().optional()
+    }))
+    .query(({ ctx, input }) => {
       return ctx.prisma.test.findFirst({
         where: {
-          userId: ctx.session?.user.id,
+          userId: input.userId ? input.userId : ctx.session?.user.id,
         },
         orderBy: {
           score: "desc",
@@ -122,10 +129,13 @@ export const testRouter = createTRPCRouter({
       });
     }),
   getPercentile: publicProcedure
-    .query(async ({ ctx }) => {
+    .input(z.object({
+      userId: z.string().optional()
+    }))
+    .query(async ({ ctx, input }) => {
       const userBest = await ctx.prisma.test.findFirst({
         where: {
-          userId: ctx.session?.user.id,
+          userId: input.userId ? input.userId : ctx.session?.user.id,
         },
         orderBy: {
           score: "desc",
@@ -157,12 +167,15 @@ export const testRouter = createTRPCRouter({
         percentile: (scoresBetter.length / (scoresBetter.length + scoresWorse.length)) * 100,
       }
     }),
-    getByLevels: protectedProcedure
-    .input(z.object({ typeId: z.string() }))
+  getByLevels: protectedProcedure
+    .input(z.object({ 
+      typeId: z.string(),
+      userId: z.string().optional()
+    }))
     .query(({ ctx, input }) => {
       return ctx.prisma.test.findMany({
         where: {
-          userId: ctx.session?.user.id,
+          userId: input.userId ? input.userId : ctx.session?.user.id,
           typeId: input.typeId,
           accuracy: { gte: 90 },
         },
@@ -173,4 +186,4 @@ export const testRouter = createTRPCRouter({
         },
       });
     }),
-  });
+});
