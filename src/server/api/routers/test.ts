@@ -118,10 +118,22 @@ export const testRouter = createTRPCRouter({
     .input(z.object({
       userId: z.string().optional()
     }))
-    .query(({ ctx, input }) => {
+    .query(async ({ ctx, input }) => {
+      const competetiveTypes = await ctx.prisma.testType.findMany({
+        where: {
+          competitive: true,
+        },
+        select: {
+          id: true,
+        },
+      });
+
       return ctx.prisma.test.findFirst({
         where: {
           userId: input.userId ? input.userId : ctx.session?.user.id,
+          typeId: {
+            in: competetiveTypes.map((type) => type.id),
+          },
         },
         orderBy: {
           score: "desc",
