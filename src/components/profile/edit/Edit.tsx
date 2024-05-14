@@ -1,5 +1,5 @@
 import { User } from "@prisma/client"
-import { signOut, useSession } from "next-auth/react";
+import { useSession } from "next-auth/react";
 import { useRouter } from "next/router"
 import { useEffect, useState } from "react"
 import { api } from "~/utils/api"
@@ -7,10 +7,10 @@ import { api } from "~/utils/api"
 interface EditProps {
     userData: User | null | undefined
     onClose: () => void
+    openConfirmModal: () => void
 }
 
 export const Edit = (props: EditProps) => {
-    const router = useRouter()
     const session = useSession()
 
     const [name, setName] = useState(props.userData?.username ?? "")
@@ -20,7 +20,6 @@ export const Edit = (props: EditProps) => {
     const [error, setError] = useState("")
 
     const [saving, setSaving] = useState(false)
-    const [deleting, setDeleting] = useState(false)
 
     const { data: usernameExists, isLoading } = api.user.checkUsernameExists.useQuery({ username: name })
 
@@ -29,20 +28,6 @@ export const Edit = (props: EditProps) => {
         setBio(props.userData?.bio ?? "")
         setLink(props.userData?.link ?? "")
     }, [props.userData])
-
-    // delete user
-    const deleteUser = api.user.delete.useMutation({
-        onSuccess: () => {
-            setDeleting(false)
-            void signOut()
-            void router.push("/")
-
-        },
-        onError: (error) => {
-            console.log(error)
-            setDeleting(false)
-        }
-    })
 
     // create user
     const updateUser = api.user.update.useMutation({
@@ -69,12 +54,6 @@ export const Edit = (props: EditProps) => {
     }
     const onLinkChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setLink(e.target.value)
-    }
-
-    const deleteProfile = () => {
-        setDeleting(true)
-
-        deleteUser.mutate()
     }
 
     const saveChanges = () => {
@@ -106,8 +85,8 @@ export const Edit = (props: EditProps) => {
         <div className="flex flex-col h-full gap-2 relative">
             <div className="flex justify-between align-center">
                 <h3 className="font-bold text-4xl p-1">Edit Profile</h3>
-                <button onClick={deleteProfile} className="btn btn-sm btn-primary">
-                    {deleting ? <div className="w-6 h-6 rounded-full animate-spin border border-solid text-primary border-t-transparent"></div> : "Delete Profile"}
+                <button onClick={props.openConfirmModal} className="btn btn-sm btn-primary">
+                    Delete Profile
                 </button>
             </div>
             {error != "" &&
