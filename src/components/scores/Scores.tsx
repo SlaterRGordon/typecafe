@@ -95,7 +95,7 @@ const Scores = (props: LeaderboardProps) => {
         if (tests && !isLoadingTests && !isRefetching) {
             setAllTests(prevTests => {
                 let uniqueTests = uniqueById(prevTests ?? [], tests ?? [])
-                
+
                 if (props.userId) {
                     prevTests = prevTests?.filter((test) => test.user.id === props.userId)
                     uniqueTests = uniqueTests.filter((test) => test.user.id === props.userId)
@@ -142,7 +142,15 @@ const Scores = (props: LeaderboardProps) => {
                                                 <div className="flex basis-0 grow items-center items-center space-x-3 cursor-pointer" onClick={(e) => navigateProfile(test.user.username)}>
                                                     <div className="avatar">
                                                         <div className="mask mask-squircle w-12 h-12">
-                                                            <Image width={500} height={500} src={test.user.image ?? ""} alt="" />
+                                                            {test?.user.image ?
+                                                                <Image className="rounded-full" width={500} height={500} src={test.user.image ?? ""} alt="Profile Picture" referrerPolicy="no-referrer" />
+                                                                :
+                                                                <div className="avatar placeholder">
+                                                                    <div className="bg-neutral text-white rounded-full w-12">
+                                                                        <span className="text-xl font-bold">{test?.user.username?.charAt(0).toUpperCase() ?? ""}</span>
+                                                                    </div>
+                                                                </div>
+                                                            }
                                                         </div>
                                                     </div>
                                                     <div>
