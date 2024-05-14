@@ -1,6 +1,6 @@
 import { Typography } from "@mui/material";
 import { type NextPage } from "next";
-import { useSession } from "next-auth/react";
+import { signOut, useSession } from "next-auth/react";
 import { Stats } from "~/components/profile/stats/Stats";
 import { Activity } from "~/components/profile/activity/Activity";
 import Scores from "~/components/scores/Scores";
@@ -13,6 +13,7 @@ import Image from "next/image";
 import { Modal } from "~/components/Modal";
 import { Edit } from "~/components/profile/edit/Edit";
 import { api } from "~/utils/api";
+import { ConfirmModal } from "~/components/ConfirmModal";
 
 type Option = { label: string, value: number | string }
 
@@ -25,6 +26,7 @@ const Profile: NextPage = () => {
   const [subMode, setSubMode] = useState<TestSubModes>(TestSubModes.timed)
   const [count, setCount] = useState(15)
   const [update, setUpdate] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   const { data: userData, refetch: refetchUserData, isLoading } = api.user.get.useQuery()
 
@@ -33,6 +35,14 @@ const Profile: NextPage = () => {
     await refetchUserData()
 
     const input = document.getElementById("configModal") as HTMLInputElement
+    if (input) {
+      if (!input.checked) input.checked = true
+      else input.checked = false
+    }
+  }
+
+  const onConfirmModalClose = () => {
+    const input = document.getElementById("confirmModal") as HTMLInputElement
     if (input) {
       if (!input.checked) input.checked = true
       else input.checked = false
@@ -114,6 +124,31 @@ const Profile: NextPage = () => {
   ]
   const handleChangeCount = (value: SingleValue<Option>) => {
     if (value) setCount(value.value as number)
+  }
+
+
+  // delete user
+  const deleteUser = api.user.delete.useMutation({
+    onSuccess: () => {
+      setDeleting(false)
+      void signOut()
+      void router.push("/")
+
+    },
+    onError: (error) => {
+      console.log(error)
+      setDeleting(false)
+    }
+  })
+
+  const deleteProfile = (result: boolean) => {
+    if (result) {
+      setDeleting(true)
+      deleteUser.mutate()
+    } else {
+      setDeleting(false)
+    }
+    onConfirmModalClose()
   }
 
   useEffect(() => {
@@ -231,8 +266,9 @@ const Profile: NextPage = () => {
         </div>
       </div>
       <Modal>
-        <Edit userData={userData} onClose={onModalClose} />
+        <Edit userData={userData} onClose={onModalClose} openConfirmModal={onConfirmModalClose} />
       </Modal>
+      <ConfirmModal loading={deleting} message="Are you sure you want to delete your account?" callback={(result) => deleteProfile(result)} />
     </>
   );
 };
