@@ -18,7 +18,7 @@ export default function Document() {
                     src="https://www.googletagmanager.com/gtag/js?id=G-16KETVK938"
                     strategy="afterInteractive"
                 />
-                <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9035590557240587" crossOrigin="anonymous"></script>
+                <Script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9035590557240587" crossOrigin="anonymous"></Script>
                 <Script id="google-analytics" strategy="afterInteractive">
                     {`
                     window.dataLayer = window.dataLayer || [];
