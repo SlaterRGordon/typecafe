@@ -4,21 +4,21 @@ import nodemailer from 'nodemailer';
 
 const handler = async (req: NextApiRequest, res: NextApiResponse) => {
     if (req.method === 'POST') {
-        const { name, email, message } = req.body;
+        const { name, email, message } = req.body as { name: string; email: string; message: string };
 
         // Create a transporter object using SMTP transport
         const transporter = nodemailer.createTransport({
             service: 'gmail', // Use your email service
             auth: {
-                user: process.env.EMAIL_USER, // Your email address
-                pass: process.env.EMAIL_PASS, // Your email password
+                user: process.env.EMAIL_USER as string, // Your email address
+                pass: process.env.EMAIL_PASS as string, // Your email password
             },
         });
 
         // Email options
         const mailOptions = {
             from: email,
-            to: process.env.EMAIL_USER, // Your email address
+            to: process.env.EMAIL_USER as string, // Your email address
             subject: `Contact form submission from ${name}`,
             text: message,
         };
