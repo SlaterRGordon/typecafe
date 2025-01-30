@@ -1,44 +1,16 @@
-import fs from "fs";
-import path from "path";
-import { globby } from "globby";
-import { PrismaClient } from "@prisma/client";
+import fs from 'fs';
+import path from 'path';
+import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
-const MAX_URLS_PER_SITEMAP = 50000; // Maximum number of URLs per sitemap file
+const MAX_URLS_PER_SITEMAP = 50000;
 
-async function getBlogPosts() {
-  return await prisma.blogPost.findMany({
-    select: {
-      id: true,
-    },
-  });
-}
+async function generateSitemap() {
+  const staticRoutes = ['/', '/about', '/contact'];
+  const blogPosts = await prisma.blogPost.findMany();
+  const users = await prisma.user.findMany();
 
-async function getUsers() {
-  return await prisma.user.findMany({
-    select: {
-      username: true,
-    },
-  });
-}
-
-(async () => {
-  const pages = await globby([
-    'src/pages/**/*{.js,.jsx,.ts,.tsx}',
-    '!src/pages/_*.{js,jsx,ts,tsx}',
-    '!src/pages/api',
-  ]);
-
-  const blogPosts = await getBlogPosts();
-  const users = await getUsers();
-
-  const staticPages = pages.map((page) => {
-    const routePath = page
-      .replace('src/pages', '')
-      .replace(/(.tsx|.ts|.jsx|.js)/, '')
-      .replace(/\/index$/, '');
-    const route = routePath === '/index' ? '' : routePath;
-
+  const staticPages = staticRoutes.map((route) => {
     return `
       <url>
         <loc>${`https://www.type.cafe${route}`}</loc>
@@ -57,9 +29,10 @@ async function getUsers() {
   });
 
   const dynamicUserPages = users.map((user) => {
+    const username = user.username ?? 'unknown';
     return `
       <url>
-        <loc>${`https://www.type.cafe/profile/${user.username}`}</loc>
+        <loc>${`https://www.type.cafe/profile/${username}`}</loc>
         <lastmod>${new Date().toISOString()}</lastmod>
       </url>
     `;
@@ -77,7 +50,7 @@ async function getUsers() {
       </urlset>
     `;
     const sitemapPath = path.join(process.cwd(), 'public', `sitemap-${i + 1}.xml`);
-    fs.writeFileSync(sitemapPath, sitemapContent.trim());
+    await fs.promises.writeFile(sitemapPath, sitemapContent.trim());
     sitemapIndex.push(`
       <sitemap>
         <loc>${`https://www.type.cafe/sitemap-${i + 1}.xml`}</loc>
@@ -93,5 +66,10 @@ async function getUsers() {
     </sitemapindex>
   `;
   const sitemapIndexPath = path.join(process.cwd(), 'public', 'sitemap-index.xml');
-  fs.writeFileSync(sitemapIndexPath, sitemapIndexContent.trim());
-})();
+  await fs.promises.writeFile(sitemapIndexPath, sitemapIndexContent.trim());
+}
+
+generateSitemap().catch((error) => {
+  console.error('Error generating sitemap:', error);
+  process.exit(1);
+});

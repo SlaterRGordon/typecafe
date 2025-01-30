@@ -29,7 +29,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
 
     const form = formidable({ multiples: true });
 
-    form.parse(req, async (err: any, fields: any, files: any) => {
+    form.parse(req, async (err: Error | null, fields: formidable.Fields, files: formidable.Files) => {
         if (err) {
             console.error(err);
             return res.status(500).json({ error: 'Failed to parse form data' });
@@ -39,19 +39,23 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
         const description = Array.isArray(fields.description) ? fields.description[0] : fields.description;
         const content = Array.isArray(fields.content) ? fields.content[0] : fields.content;
 
-        let imageId;
+        let imageId: string | undefined;
 
-        const imageFile = Array.isArray(files.image) ? files.image[0] : files.image;
-        const imageBuffer = await fs.readFile(imageFile.filepath);
+        if (files.image) {
+            const imageFile = Array.isArray(files.image) ? files.image[0] : files.image;
+            if (imageFile) {
+                const imageBuffer = await fs.readFile(imageFile.filepath);
 
-        // Create the image in the database
-        const image = await prisma.image.create({
-            data: {
-                blob: imageBuffer,
-            },
-        });
+                // Create the image in the database
+                const image = await prisma.image.create({
+                    data: {
+                        blob: imageBuffer,
+                    },
+                });
 
-        imageId = image.id;
+                imageId = image.id;
+            }
+        }
 
         try {
             const blogPost = await prisma.blogPost.create({

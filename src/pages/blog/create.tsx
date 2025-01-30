@@ -5,6 +5,7 @@ import { NextPage } from "next";
 import dynamic from "next/dynamic";
 import 'react-quill/dist/quill.snow.css';
 import { getSession } from "next-auth/react";
+import { User } from "@prisma/client";
 const ReactQuill = dynamic(() => import("react-quill"), { ssr: false });
 
 const CreateBlogPost: NextPage = () => {
@@ -19,20 +20,20 @@ const CreateBlogPost: NextPage = () => {
         const checkAdmin = async () => {
             const session = await getSession();
             if (session) {
-                const response = await fetch('/api/user');
-                const userData = await response.json();
-                if (!userData.isAdmin) {
+                const response: Response = await fetch('/api/user');
+                const userData: User = await response.json() as User;
+                if (userData.isAdmin) {
                     setIsAdmin(true);
                 } else {
-                    router.push('/');
+                    await router.push('/');
                 }
             } else {
-                router.push('/');
+                await router.push('/');
             }
         };
 
-        checkAdmin();
-    }, []);
+        void checkAdmin();
+    }, [router]);
 
     if (!isAdmin) {
         return null;
@@ -55,7 +56,7 @@ const CreateBlogPost: NextPage = () => {
         });
 
         if (response.ok) {
-            router.push("/blog");
+            await router.push("/blog");
         } else {
             console.error('Failed to create blog post');
         }
@@ -109,7 +110,7 @@ const CreateBlogPost: NextPage = () => {
                                 <span className="label-text">Blog Content</span>
                             </label>
                             <ReactQuill
-                                value={blogContent as string}
+                                value={blogContent}
                                 onChange={(content) => setBlogContent(content)}
                             />
                         </div>

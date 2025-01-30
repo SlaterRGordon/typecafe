@@ -9,9 +9,7 @@ interface BlogCardProps {
 }
 
 export const BlogCard = ({ id, title, description, imageBlob }: BlogCardProps) => {
-  console.log(imageBlob);
   const imageSrc = imageBlob ? `data:image/png;base64,${Buffer.from(imageBlob.data).toString('base64')}` : null;
-  console.log(imageSrc);
 
   return (
     <div className="card bg-base-100 shadow-xl">

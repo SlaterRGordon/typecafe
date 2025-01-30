@@ -1,10 +1,19 @@
 import { PrismaClient } from "@prisma/client";
 import { globby } from "globby";
+import { GetServerSidePropsContext } from "next";
 
 const prisma = new PrismaClient();
 const EXTERNAL_DATA_URL = "https://www.type.cafe";
 
-function generateSiteMap(staticPages, blogPosts, users) {
+interface BlogPost {
+    id: string;
+}
+
+interface User {
+    username: string;
+}
+
+function generateSiteMap(staticPages: string[], blogPosts: BlogPost[], users: User[]) {
     return `<?xml version="1.0" encoding="UTF-8"?>
   <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     ${staticPages
@@ -51,7 +60,7 @@ function SiteMap() {
     // getServerSideProps will do the heavy lifting
 }
 
-export async function getServerSideProps({ res }) {
+export async function getServerSideProps({ res }: GetServerSidePropsContext) {
     // Fetch static pages
     const staticPages = await globby([
         'src/pages/**/*{.js,.jsx,.ts,.tsx}',
@@ -73,8 +82,13 @@ export async function getServerSideProps({ res }) {
         },
     });
 
+    // Ensure usernames are strings and not null
+    const sanitizedUsers: User[] = users.map((user) => ({
+        username: user.username ?? 'unknown',
+    }));
+
     // Generate the XML sitemap with the fetched data
-    const sitemap = generateSiteMap(staticPages, blogPosts, users);
+    const sitemap = generateSiteMap(staticPages, blogPosts, sanitizedUsers);
 
     res.setHeader('Content-Type', 'text/xml');
     // Send the XML to the browser
