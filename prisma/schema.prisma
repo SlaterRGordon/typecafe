@@ -51,6 +51,7 @@ model User {
     image               String?
     bio                 String?
     link                String?
+    isAdmin             Boolean              @default(false)
     accounts            Account[]
     sessions            Session[]
     tests               Test[]
@@ -113,27 +114,27 @@ model TestType {
 }
 
 model BlogPost {
-    id          String   @id @default(cuid())
-    title       String
-    content     String
-    authorId    String
-    createdAt   DateTime @default(now())
-    updatedAt   DateTime @updatedAt
-    images      Image[]
+  id            String         @id @default(cuid())
+  title         String
+  description   String
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  authorId      String
+  imageId       String?        @unique
+  content       String
+  author        User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  image         Image?         @relation(fields: [imageId], references: [id], onDelete: Cascade)
 
-    author      User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
-
-    @@index([authorId])
+  @@index([authorId])
+  @@index([imageId])
 }
 
 model Image {
-    id          String   @id @default(cuid())
-    blogPostId  String
-    blob        Bytes
-    createdAt   DateTime @default(now())
-    updatedAt   DateTime @updatedAt
+  id          String   @id @default(cuid())
+  blob        Bytes
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now())
+  blogPost      BlogPost?
 
-    blogPost    BlogPost @relation(fields: [blogPostId], references: [id], onDelete: Cascade)
-
-    @@index([blogPostId])
+  @@index([id])
 }

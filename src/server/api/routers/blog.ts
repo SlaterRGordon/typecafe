@@ -1,5 +1,5 @@
 import { z } from "zod";
-
+import { zfd } from "zod-form-data";
 import {
   createTRPCRouter,
   publicProcedure,
@@ -7,15 +7,14 @@ import {
 } from "~/server/api/trpc";
 
 export const blogRouter = createTRPCRouter({
-  getAll: publicProcedure
-    .query(({ ctx }) => {
-      return ctx.prisma.blogPost.findMany({
-        include: {
-          images: true,
-          author: true,
-        },
-      });
-    }),
+  getAll: publicProcedure.query(({ ctx }) => {
+    return ctx.prisma.blogPost.findMany({
+      include: {
+        image: true,
+        author: true,
+      },
+    });
+  }),
   getById: publicProcedure
     .input(z.object({ id: z.string() }))
     .query(({ ctx, input }) => {
@@ -24,42 +23,56 @@ export const blogRouter = createTRPCRouter({
           id: input.id,
         },
         include: {
-          images: true,
           author: true,
         },
       });
     }),
-  create: protectedProcedure
-    .input(z.object({
-      title: z.string(),
-      content: z.string(),
-      images: z.array(z.object({
-        blob: z.instanceof(Buffer),
-      })),
-    }))
-    .mutation(({ ctx, input }) => {
-      return ctx.prisma.blogPost.create({
-        data: {
-          title: input.title,
-          content: input.content,
-          authorId: ctx.session?.user.id,
-          images: {
-            create: input.images.map(image => ({
-              blob: image.blob,
-            })),
-          },
+  create: publicProcedure
+    .input(
+      z.object({
+        formData: zfd.formData({
+          title: zfd.text(),
+          description: zfd.text(),
+          content: zfd.text(),
+          image: zfd.file(),
+        })
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const data: any = {
+        title: input.formData.title,
+        description: input.formData.description,
+        authorId: ctx.session?.user.id,
+        content: input.formData.content,
+      };
+
+      console.log(data);
+
+      const blob = await input.formData.image.arrayBuffer();
+      data.image = {
+        create: {
+          blob: blob,
         },
+      };
+
+      return ctx.prisma.blogPost.create({
+        data,
       });
     }),
   update: protectedProcedure
-    .input(z.object({
-      id: z.string(),
-      title: z.string().optional(),
-      content: z.string().optional(),
-      images: z.array(z.object({
-        blob: z.instanceof(Buffer),
-      })).optional(),
-    }))
+    .input(
+      z.object({
+        id: z.string(),
+        title: z.string().optional(),
+        description: z.string().optional(),
+        content: z.string().optional(),
+        image: z
+          .object({
+            blob: z.instanceof(Buffer),
+          })
+          .optional(),
+      })
+    )
     .mutation(({ ctx, input }) => {
       return ctx.prisma.blogPost.update({
         where: {
@@ -67,13 +80,15 @@ export const blogRouter = createTRPCRouter({
         },
         data: {
           title: input.title,
-          content: input.content,
-          images: input.images ? {
-            deleteMany: {},
-            create: input.images.map(image => ({
-              blob: image.blob,
-            })),
-          } : undefined,
+          description: input.description,
+          content: input.content || "",
+          image: input.image
+            ? {
+              create: {
+                blob: input.image.blob,
+              },
+            }
+            : undefined,
         },
       });
     }),
