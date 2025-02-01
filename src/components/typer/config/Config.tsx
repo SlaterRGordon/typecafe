@@ -23,6 +23,8 @@ interface ConfigProps {
     setGramRepetition: (newTestGramRepetition: number) => void,
     showStats: boolean,
     setShowStats: (show: boolean) => void,
+    showKeyboard: boolean,
+    setShowKeyboard: (show: boolean) => void,
 }
 
 type Option = { label: string, value: string }
@@ -84,7 +86,7 @@ export const Config = (props: ConfigProps) => {
     }, [])
 
     return (
-        <div className="flex flex-col h-full justify-between mb-8">
+        <div className="flex flex-col h-full justify-between mb-8 gap-2">
             <h3 className="font-bold text-4xl py-1">Settings</h3>
             <div className="flex flex-col">
                 <h3 className="font-semibold text-2xl py-1">Modes</h3>
@@ -194,6 +196,14 @@ export const Config = (props: ConfigProps) => {
                     options={["off", "on"]}
                     active={props.showStats ? 1 : 0}
                     onChange={(newShowStats: string | number) => { props.setShowStats(newShowStats == 1 ? true : false) }}
+                />
+            </div>
+            <div className="flex flex-col">
+                <h3 className="font-semibold text-2xl py-1">Live Keyboard</h3>
+                <ConfigOption
+                    options={["off", "on"]}
+                    active={props.showKeyboard ? 1 : 0}
+                    onChange={(newShowKeyboard: string | number) => { props.setShowKeyboard(newShowKeyboard == 1 ? true : false) }}
                 />
             </div>
         </div>

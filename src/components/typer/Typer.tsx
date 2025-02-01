@@ -170,9 +170,6 @@ export const Typer = (props: TyperProps) => {
         // calculate wpm
         if (minutes == 0) setWpm(0)
         else setWpm((characterCount / 5) / minutes)
-
-
-
         // calculate accuracy
         const correct = characterCount - incorrectCount
         if (characterCount == 0) setAccuracy(0)

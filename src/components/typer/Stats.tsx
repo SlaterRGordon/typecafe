@@ -13,8 +13,12 @@ export const Stats = (props: StatsProps) => {
         <span className={`flex font-mono text-xl gap-4`}>
         {props.mode === TestModes.ngrams ?
                 <>
-                <span><strong className="flex items-center">{props.averageWpm.toFixed(1)}<p className="flex h-full items-center ml-1 text-xl">wpm</p></strong></span>
-                <span><strong className="flex items-center">{props.levelText}</strong></span>
+                    <span><strong className="flex items-center">
+                        {props.wpm.toFixed(1)}
+                        <p className="flex h-full items-center ml-1 text-xl">wpm</p>
+                        <p className="flex h-full items-center ml-1 text-xl">({props.averageWpm.toFixed(1)}avg)</p>
+                    </strong></span>
+                    <span><strong className="flex items-center">{props.levelText}</strong></span>
                 </>
             :
                 <>
