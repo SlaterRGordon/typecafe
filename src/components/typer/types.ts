@@ -1,6 +1,7 @@
 export enum TestModes {
     normal,
-    ngrams
+    ngrams,
+    relaxed
 }
 
 export enum TestSubModes {

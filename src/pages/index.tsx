@@ -19,11 +19,14 @@ const Home: NextPage = () => {
   const [gramRepetition, setGramRepetition] = useState<number>(0)
   const [count, setCount] = useState(15)
   const [currentKey, setCurrentKey] = useState("")
-
   
   const onKeyChange = (key: string) => {
     setCurrentKey(key)
   }
+
+  useEffect(() => {
+    console.log("subMode", subMode)
+  },[subMode])
 
   return (
     <>
@@ -40,7 +43,6 @@ const Home: NextPage = () => {
           showStats={showStats}
           showConfig={true}
           modalOpen={modalOpen}
-          setModalOpen={setModalOpen}
           onKeyChange={onKeyChange}
         />
         {showKeyboard && <Keyboard currentKey={currentKey} />}

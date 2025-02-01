@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState } from "react"
-import { buildText } from "./utils"
+import { buildText, generateText } from "./utils"
+import { TestModes } from "./types"
 
 interface TextProps {
     text: string,
     started: boolean,
     restarted: boolean,
     modalOpen: boolean,
+    language: string,
+    mode: TestModes,
     setCharacterCount: (count: number) => void,
     setIncorrectCount: (count: number) => void,
     onStart: () => void,
@@ -97,6 +100,7 @@ export const Text = (props: TextProps) => {
             const offset = current.offsetTop - typerRef.current.offsetTop;
             if (offset !== typerRef.current.scrollTop) {
                 typerRef.current.scrollBy(0, offset - typerRef.current.scrollTop);
+                setElements(prev => [...prev, ...buildText(generateText(50, props.language))]);
             }
         }
     }, [position, elements, typerRef])
@@ -135,7 +139,7 @@ export const Text = (props: TextProps) => {
             }
 
             // if position is at end of text
-            if (position === props.text.length - 1) {
+            if (position === props.text.length - 1 && props.mode === TestModes.relaxed) {
                 props.onComplete(correct)
             }
 

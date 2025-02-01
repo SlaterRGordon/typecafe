@@ -31,9 +31,8 @@ type Option = { label: string, value: string }
 
 export const Config = (props: ConfigProps) => {
     const handleModeChange = (newMode: number) => {
-        props.setMode(newMode)
-
         if (newMode != TestModes.normal) {
+            console.log("setting submode to words")
             props.setSubMode(TestSubModes.words)
         }
     }
