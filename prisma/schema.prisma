@@ -51,10 +51,12 @@ model User {
     image               String?
     bio                 String?
     link                String?
+    isAdmin             Boolean              @default(false)
     accounts            Account[]
     sessions            Session[]
     tests               Test[]
     colorConfigurations ColorConfiguration[]
+    blogPosts   BlogPost[]
 }
 
 model VerificationToken {
@@ -109,4 +111,30 @@ model TestType {
     updatedAt   DateTime @updatedAt
 
     tests Test[]
+}
+
+model BlogPost {
+  id            String         @id @default(cuid())
+  title         String
+  description   String
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  authorId      String
+  imageId       String?        @unique
+  content       String
+  author        User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  image         Image?         @relation(fields: [imageId], references: [id], onDelete: Cascade)
+
+  @@index([authorId])
+  @@index([imageId])
+}
+
+model Image {
+  id          String   @id @default(cuid())
+  blob        Bytes
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now())
+  blogPost      BlogPost?
+
+  @@index([id])
 }

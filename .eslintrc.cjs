@@ -36,6 +36,7 @@ const config = {
       }
     ]
   },
+  ignorePatterns: ['src/pages/sitemap.xml.js'],
 };
 
 module.exports = config;
