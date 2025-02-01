@@ -7,7 +7,12 @@ export const UsernameModal = () => {
     const [username, setUsername] = useState("")
     const [error, setError] = useState("")
 
-    const { data: usernameExists, isLoading } = api.user.checkUsernameExists.useQuery({ username })
+    const { data: usernameExists, isLoading } = api.user.checkUsernameExists.useQuery(
+        { username },
+        {
+            enabled: !!session.data,
+        }
+    )
     const updateUsername = api.user.update.useMutation({
         onSuccess: async () => {
             await session.update()

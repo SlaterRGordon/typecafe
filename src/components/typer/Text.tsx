@@ -5,6 +5,7 @@ interface TextProps {
     text: string,
     started: boolean,
     restarted: boolean,
+    modalOpen: boolean,
     setCharacterCount: (count: number) => void,
     setIncorrectCount: (count: number) => void,
     onStart: () => void,
@@ -61,7 +62,7 @@ export const Text = (props: TextProps) => {
             const restartBtn = document.getElementById("restart") as HTMLButtonElement
             if(restartBtn) restartBtn.classList.remove("blinking", "text-primary")
             const input = inputRef.current
-            if (input) input.focus()
+            if (input && !props.modalOpen) input.focus()
         }
     }, [props.restarted, props.text])
 

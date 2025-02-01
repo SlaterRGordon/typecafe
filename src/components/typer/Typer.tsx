@@ -25,6 +25,8 @@ interface TyperProps {
     onKeyChange?(key: string): void,
     onTestComplete?(): void,
     showStats: boolean,
+    modalOpen: boolean,
+    setModalOpen(open: boolean): void,
     showConfig: boolean,
 }
 
@@ -33,7 +35,9 @@ export const Typer = (props: TyperProps) => {
         language, 
         mode, subMode, 
         gramSource, gramScope, gramCombination, gramRepetition, 
-        count, showStats, showConfig 
+        count, showStats, showConfig, 
+        modalOpen,
+        setModalOpen
     } = props
 
     const [text, setText] = useState("")
@@ -179,6 +183,8 @@ export const Typer = (props: TyperProps) => {
     useEffect(() => {
         let keys: Keys = {};
         document.addEventListener("keydown", (e) => {
+            console.log(modalOpen)
+            if (modalOpen) return;
             // add to currently pressed keys
             keys = { ...keys, [e.key]: true };
 
@@ -196,6 +202,7 @@ export const Typer = (props: TyperProps) => {
             }
         })
         document.addEventListener("keyup", (e) => {
+            if (modalOpen) return;
             // remove from currently pressed keys
             keys = { ...keys, [e.key]: false };
 
@@ -233,6 +240,7 @@ export const Typer = (props: TyperProps) => {
             <Text
                 text={text}
                 started={started} restarted={restarted}
+                modalOpen={props.modalOpen}
                 onStart={handleStart}
                 onComplete={handleComplete}
                 setCharacterCount={handleSetCharacterCount}
@@ -246,13 +254,6 @@ export const Typer = (props: TyperProps) => {
                         </span>
                     </div>
                 }
-                {/* {mode === TestModes.ngrams &&
-                    <div className={`py-2`}>
-                        <span className={`flex font-mono text-4xl gap-4`}>
-                            <span className="flex">{getGramLevelText(gramLevel, gramCombination, gramScope)}</span>
-                        </span>
-                    </div>
-                } */}
                 <div className={`visible ${ text.length > 38 ? "md:invisible" : ""}`} >
                     {showStats && 
                         <Stats mode={mode} wpm={wpm} accuracy={accuracy} 
