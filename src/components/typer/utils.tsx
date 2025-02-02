@@ -117,7 +117,7 @@ export const buildText = (text: string, charStates: ("incorrect" | "default" | "
 
         word.split("").forEach(letter => {
             letters.push(
-                <div key={"c-" + index} id={"c" + index.toString()}
+                <div key={"c-" + index.toString()} id={"c" + index.toString()}
                     className={`
                         ${charStates[index] === 'correct' ? 'text-base-300' : ''}
                         ${charStates[index] === 'incorrect' ? 'text-secondary underline' : ''}
@@ -130,7 +130,7 @@ export const buildText = (text: string, charStates: ("incorrect" | "default" | "
         // add space to end of word
         if (index !== (text.length + initialIndex)) {
             letters.push(
-                <div key={"c-" + index} id={"c" + index.toString()}
+                <div key={"c-" + index.toString()} id={"c" + index.toString()}
                     className={`
                     ${charStates[index] === 'correct' ? 'text-base-300' : ''}
                     ${charStates[index] === 'incorrect' ? 'text-secondary underline' : ''}

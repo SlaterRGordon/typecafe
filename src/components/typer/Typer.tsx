@@ -7,6 +7,7 @@ import { Stats } from "./Stats"
 import { useTimer } from "~/hooks/timer/useTimer"
 import { api } from "~/utils/api"
 import type { Level } from "./learn/levels"
+import { useSession } from "next-auth/react"
 
 interface Keys {
     [key: string]: boolean
@@ -37,6 +38,8 @@ export const Typer = (props: TyperProps) => {
         count, showStats, showConfig,
         modalOpen,
     } = props
+
+    const { data: sessionData } = useSession();
 
     const [text, setText] = useState("")
     const [started, setStarted] = useState(false)
@@ -90,6 +93,22 @@ export const Typer = (props: TyperProps) => {
     // ref for restart button
     const restartRef = useRef(null)
 
+    const handleCreateTest = () => {
+        if (!sessionData?.user) {
+          console.log('User not logged in. Test not created.');
+          return;
+        }
+    
+        createTest.mutate({
+          typeId: testType?.id as string,
+          accuracy: accuracy,
+          speed: wpm,
+          score: wpm * accuracy,
+          count: count,
+          options: props.level ? props.level.name : ""
+        });
+      };
+
     const handleRestart = useCallback(() => {
         if (mode === TestModes.normal) {
             if (subMode === TestSubModes.timed) {
@@ -122,14 +141,7 @@ export const Typer = (props: TyperProps) => {
         setRestarted(false)
 
         if (mode == TestModes.normal) {
-            createTest.mutate({
-                typeId: testType?.id as string,
-                accuracy: accuracy,
-                speed: wpm,
-                score: wpm * accuracy,
-                count: count,
-                options: props.level ? props.level.name : ""
-            })
+            handleCreateTest()
         } else if (mode == TestModes.ngrams) {
 
             if (incorrectCount == 0 && correct) {
