@@ -9,7 +9,7 @@ import { TestGramScopes, TestGramSources, TestModes, TestSubModes } from "~/comp
 const Home: NextPage = () => {
   const [modalOpen, setModalOpen] = useState(false)
   const [showStats, setShowStats] = useState(true)
-  const [showKeyboard, setShowKeyboard] = useState(true)
+  const [showKeyboard, setShowKeyboard] = useState(false)
   const [language, setLanguage] = useState("english" as string)
   const [mode, setMode] = useState<TestModes>(TestModes.normal)
   const [subMode, setSubMode] = useState<TestSubModes>(TestSubModes.timed)
