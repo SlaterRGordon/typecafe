@@ -145,6 +145,7 @@ const Learn: NextPage = () => {
             <div className="flex w-full justify-center">
                 <Typer
                     language={language}
+                    modalOpen={false}
                     mode={mode}
                     subMode={subMode}
                     gramSource={gramSource}

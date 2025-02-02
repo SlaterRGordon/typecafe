@@ -1,6 +1,6 @@
 interface ModalProps {
     children: JSX.Element,
-    setModalOpen: (open: boolean) => void
+    setModalOpen?: (open: boolean) => void
 }
 
 export const Modal = (props: ModalProps) => {
@@ -13,7 +13,7 @@ export const Modal = (props: ModalProps) => {
             else input.blur()
         }
         
-        props.setModalOpen(e.target.checked)
+        props.setModalOpen && props.setModalOpen(e.target.checked)
     }
 
     return (

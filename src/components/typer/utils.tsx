@@ -38,7 +38,7 @@ export const generatePseudoText = (count: number, language: string, characters: 
     const frequencies = [0.1944, 0.4166, 0.5888, 0.7000, 0.7833, 0.8592, 0.9142, 0.9558, 0.9835, 1.000]
     const words = languages[language as keyof typeof languages].words
     const filteredWords = words.filter((word: string) => {
-        if (!word.includes(characters[characters.length-1] as string)) return false
+        if (!word.includes(characters[characters.length - 1] as string)) return false
 
         for (let i = 0; i < word.length; i++) {
             if (!characters.includes(word[i] as string)) return false
@@ -83,7 +83,7 @@ export const generateNGram = (source: TestGramSources, scope: TestGramScopes, co
     let words: string[] = []
 
     if (source === TestGramSources.words) {
-        words = languages["english"].words 
+        words = languages["english"].words
     } else if (source === TestGramSources.bigrams) {
         words = ngrams.biGrams
     } else if (source === TestGramSources.trigrams) {
@@ -95,7 +95,7 @@ export const generateNGram = (source: TestGramSources, scope: TestGramScopes, co
     if (scope === TestGramScopes.fifty) words = words.slice(0, 50)
     else if (scope === TestGramScopes.oneHundred) words = words.slice(0, 100)
     else if (scope === TestGramScopes.twoHundred) words = words.slice(0, 200)
-    
+
     for (let i = 0; i < combination; i++) {
         const levelGram = words[(level * combination) + i] as string
         ngram = ngram += levelGram + ' '
@@ -109,19 +109,35 @@ export const generateNGram = (source: TestGramSources, scope: TestGramScopes, co
     return ngram.toLowerCase().slice(0, -1)
 }
 
-export const buildText = (text: string, index=0) => {
+export const buildText = (text: string, charStates: ("incorrect" | "default" | "correct")[], position: number, index = 0) => {
+    const initialIndex = index
     const words: JSX.Element[] = []
     text.split(" ").forEach(word => {
         const letters: JSX.Element[] = []
+
         word.split("").forEach(letter => {
-            if (index == 0) letters.push(<div key={index} id={"c" + index.toString()}>{letter}</div>);
-            else letters.push(<div key={index} id={"c" + index.toString()}>{letter}</div>);
+            letters.push(
+                <div key={"c-" + index} id={"c" + index.toString()}
+                    className={`
+                        ${charStates[index] === 'correct' ? 'text-base-300' : ''}
+                        ${charStates[index] === 'incorrect' ? 'text-secondary underline' : ''}
+                        ${index === position ? 'active-char text-primary' : ''}
+                `}>{letter}</div>
+            );
             index += 1;
         })
 
         // add space to end of word
-        if (index !== text.length) {
-            letters.push(<div key={index} id={"c" + index.toString()}>&nbsp;</div>);
+        if (index !== (text.length + initialIndex)) {
+            letters.push(
+                <div key={"c-" + index} id={"c" + index.toString()}
+                    className={`
+                    ${charStates[index] === 'correct' ? 'text-base-300' : ''}
+                    ${charStates[index] === 'incorrect' ? 'text-secondary underline' : ''}
+                    ${index === position ? 'active-char text-primary' : ''}
+                `}
+                >&nbsp;</div>
+            );
             index += 1;
         }
 
@@ -135,17 +151,17 @@ export const buildText = (text: string, index=0) => {
 export const getGramLevelText = (level: number, combination: number, scope: TestGramScopes) => {
     if (scope === TestGramScopes.fifty) {
         const total: number = Math.ceil(50 / combination)
-        
+
         return `${level}/${total}`
     }
     else if (scope === TestGramScopes.oneHundred) {
         const total: number = Math.ceil(100 / combination)
-        
+
         return `${level}/${total}`
     }
     else {
         const total: number = Math.ceil(200 / combination)
-        
+
         return `${level}/${total}`
     }
 }

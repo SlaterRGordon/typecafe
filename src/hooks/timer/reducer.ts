@@ -42,6 +42,7 @@ export const reducer = (state: State, action: TimerActionsType): State => {
 
             return {
                 ...state,
+                time: newInitialTime,
                 initialTime: newInitialTime,
             };
         }

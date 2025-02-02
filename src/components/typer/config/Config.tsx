@@ -31,15 +31,15 @@ type Option = { label: string, value: string }
 
 export const Config = (props: ConfigProps) => {
     const handleModeChange = (newMode: number) => {
-        if (newMode != TestModes.normal) {
-            console.log("setting submode to words")
+        props.setMode(newMode)
+        if (newMode !== TestModes.normal) {
             props.setSubMode(TestSubModes.words)
         }
     }
 
     const handleSubModeChange = (newSubMode: number) => {
-        props.setSubMode(newSubMode)
         props.setCount(newSubMode == TestSubModes.timed ? 15 : 10)
+        props.setSubMode(newSubMode)
     }
 
     const handleTestGramSourceChange = (newTestGramSource: number) => {
