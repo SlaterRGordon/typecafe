@@ -91,5 +91,5 @@ export const useTimer = ({
         };
     }, [status, step, timerType, interval, time]);
 
-    return { advanceTime, pause, reset, start, setInitialTime, status, time, actualStartTime, actualEndTime};
+    return { advanceTime, pause, reset, start, initialTime, setInitialTime, status, time, actualStartTime, actualEndTime};
 };

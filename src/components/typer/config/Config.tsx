@@ -23,6 +23,8 @@ interface ConfigProps {
     setGramRepetition: (newTestGramRepetition: number) => void,
     showStats: boolean,
     setShowStats: (show: boolean) => void,
+    showKeyboard: boolean,
+    setShowKeyboard: (show: boolean) => void,
 }
 
 type Option = { label: string, value: string }
@@ -30,15 +32,14 @@ type Option = { label: string, value: string }
 export const Config = (props: ConfigProps) => {
     const handleModeChange = (newMode: number) => {
         props.setMode(newMode)
-
-        if (newMode != TestModes.normal) {
+        if (newMode !== TestModes.normal) {
             props.setSubMode(TestSubModes.words)
         }
     }
 
     const handleSubModeChange = (newSubMode: number) => {
-        props.setSubMode(newSubMode)
         props.setCount(newSubMode == TestSubModes.timed ? 15 : 10)
+        props.setSubMode(newSubMode)
     }
 
     const handleTestGramSourceChange = (newTestGramSource: number) => {
@@ -51,7 +52,10 @@ export const Config = (props: ConfigProps) => {
 
     const handleTestGramCombinationChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const newCombination = parseInt(e.target.value)
-        if (newCombination < 1) return
+        if (newCombination < 1) {
+            props.setGramCombination(1)
+            return
+        }
 
         props.setGramCombination(newCombination)
     }
@@ -59,7 +63,7 @@ export const Config = (props: ConfigProps) => {
     const handleTestGramRepetitionChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const newRepetition = parseInt(e.target.value)
         if (newRepetition < 0) return
-        
+
         props.setGramRepetition(newRepetition)
     }
 
@@ -84,12 +88,12 @@ export const Config = (props: ConfigProps) => {
     }, [])
 
     return (
-        <div className="flex flex-col h-full justify-between mb-8">
+        <div className="flex flex-col h-full justify-between mb-8 gap-2">
             <h3 className="font-bold text-4xl py-1">Settings</h3>
             <div className="flex flex-col">
                 <h3 className="font-semibold text-2xl py-1">Modes</h3>
                 <ConfigOption
-                    options={["Normal", "nGram"]}
+                    options={["Normal", "Grams", "Relaxed"]}
                     active={props.mode}
                     onChange={(newMode: string | number) => { handleModeChange(newMode as TestModes) }}
                 />
@@ -160,30 +164,32 @@ export const Config = (props: ConfigProps) => {
                             onChange={(newGramScope: string | number) => { handleTestGramScopeChange(newGramScope as TestGramScopes) }}
                         />
                     </div>
-                    <div className="flex flex-col">
-                        <h3 className="font-semibold text-2xl py-1">Combinations</h3>
-                        <div className="flex gap-2">
-                            <input
-                                id="testGramCombinationInput"
-                                type="number"
-                                className={`w-1/4 input input-bordered input-sm`}
-                                value={props.gramCombination}
-                                onChange={handleTestGramCombinationChange}
+                    <div className="flex gap-2">
+                        <div className="flex flex-col">
+                            <h3 className="font-semibold text-2xl py-1">Combinations</h3>
+                            <div className="flex gap-2">
+                                <input
+                                    id="testGramCombinationInput"
+                                    type="number"
+                                    className={`w-full input input-bordered input-sm`}
+                                    value={props.gramCombination}
+                                    onChange={handleTestGramCombinationChange}
                                 // onBlur={handleTestGramCombinationBlur}
-                            />
+                                />
+                            </div>
                         </div>
-                    </div>
-                    <div className="flex flex-col">
-                        <h3 className="font-semibold text-2xl py-1">Repetitions</h3>
-                        <div className="flex gap-2">
-                            <input
-                                id="testGramRepetitionInput"
-                                type="number"
-                                className={`w-1/4 input input-bordered input-sm`}
-                                value={props.gramRepetition}
-                                onChange={handleTestGramRepetitionChange}
+                        <div className="flex flex-col">
+                            <h3 className="font-semibold text-2xl py-1">Repetitions</h3>
+                            <div className="flex gap-2">
+                                <input
+                                    id="testGramRepetitionInput"
+                                    type="number"
+                                    className={`w-full input input-bordered input-sm`}
+                                    value={props.gramRepetition}
+                                    onChange={handleTestGramRepetitionChange}
                                 // onBlur={handleTestGramRepetitionBlur}
-                            />
+                                />
+                            </div>
                         </div>
                     </div>
                 </>
@@ -194,6 +200,14 @@ export const Config = (props: ConfigProps) => {
                     options={["off", "on"]}
                     active={props.showStats ? 1 : 0}
                     onChange={(newShowStats: string | number) => { props.setShowStats(newShowStats == 1 ? true : false) }}
+                />
+            </div>
+            <div className="flex flex-col">
+                <h3 className="font-semibold text-2xl py-1">Live Keyboard</h3>
+                <ConfigOption
+                    options={["off", "on"]}
+                    active={props.showKeyboard ? 1 : 0}
+                    onChange={(newShowKeyboard: string | number) => { props.setShowKeyboard(newShowKeyboard == 1 ? true : false) }}
                 />
             </div>
         </div>

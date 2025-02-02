@@ -20,13 +20,17 @@ export const ColorModal = () => {
 
     const { data: sessionData } = useSession()
 
-    // fetch saved colors
-    const { data: savedColors, refetch: refetchSavedColors } = api.color.getByUser.useQuery()
+    // Conditionally fetch saved colors if a user is logged in
+    const { data: savedColors, refetch: refetchSavedColors } = api.color.getByUser.useQuery(
+        undefined,
+        {
+            enabled: !!sessionData,
+        }
+    );
 
     // create colors mutation
     const createSavedColors = api.color.create.useMutation({
         onSuccess: () => {
-            console.log("Colors saved")
             void refetchSavedColors();
         },
         onError: (error) => {

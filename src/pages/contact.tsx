@@ -15,7 +15,6 @@ const Contact: NextPage = () => {
         setStatus('Sending...');
 
         try {
-            console.log(formData);
             const response = await fetch('/api/contact', {
                 method: 'POST',
                 headers: {

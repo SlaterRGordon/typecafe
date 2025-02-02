@@ -6,7 +6,6 @@ import { api } from "~/utils/api";
 
 const BlogDetailPage: NextPage = () => {
   const router = useRouter()
-  console.log(router.query);
   const id = router.query?.Id?.toString() ?? ""
   const { data, isLoading } = api.blog.getById.useQuery({ id });
 

@@ -16,6 +16,7 @@ export type ReturnValue = {
     pause: () => void;
     reset: () => void;
     start: () => void;
+    initialTime: number;
     setInitialTime: (newInitialTime: number) => void;
     status: Status;
     time: number;

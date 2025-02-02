@@ -7,6 +7,7 @@ import { levels } from "~/components/typer/learn/levels";
 import { api } from "~/utils/api";
 import Select from 'react-select'
 import type { SingleValue } from "react-select";
+import { Keyboard } from "~/components/typer/Keyboard";
 
 type Option = { label: string, value: number | string, isDisabled: boolean }
 const letters = "qwertyuiopasdfghjklzxcvbnm/"
@@ -144,6 +145,7 @@ const Learn: NextPage = () => {
             <div className="flex w-full justify-center">
                 <Typer
                     language={language}
+                    modalOpen={false}
                     mode={mode}
                     subMode={subMode}
                     gramSource={gramSource}
@@ -158,48 +160,7 @@ const Learn: NextPage = () => {
                     showConfig={false}
                 />
             </div>
-            <div className="flex flex-col w-full justify-center py-4">
-                <div className="flex justify-center gap-1 my-1 w-full">
-                    {letters.slice(0, 10).split("").map((key: string, index: number) => {
-                        if (key == currentKey) return (
-                            <kbd key={index} className="kbd kbd-lg bg-primary text-primary-content">{key}</kbd>
-                        )
-
-                        return (
-                            <kbd key={index} className="kbd kbd-lg">{key}</kbd>
-                        )
-                    })}
-                </div>
-                <div className="flex justify-center gap-1 my-1 w-full">
-                    {letters.slice(10, 19).split("").map((key: string, index: number) => {
-                        if (key == currentKey) return (
-                            <kbd key={index} className="kbd kbd-lg bg-primary text-primary-content">{key}</kbd>
-                        )
-
-                        return (
-                            <kbd key={index} className="kbd kbd-lg">{key}</kbd>
-                        )
-                    })}
-                </div>
-                <div className="flex justify-center gap-1 my-1 w-full">
-                    {letters.slice(19, 26).split("").map((key: string, index: number) => {
-                        if (key == currentKey) return (
-                            <kbd key={index} className="kbd kbd-lg bg-primary text-primary-content">{key}</kbd>
-                        )
-
-                        return (
-                            <kbd key={index} className="kbd kbd-lg">{key}</kbd>
-                        )
-                    })}
-                </div>
-                <div className="flex justify-center gap-1 my-1 w-full">
-                    {currentKey == " " ?
-                        <kbd className="kbd kbd-lg bg-primary text-primary-content min-width-[10rem]">&nbsp;</kbd>
-                        :
-                        <kbd className="kbd kbd-lg min-w-[17.5rem]">&nbsp;</kbd>
-                    }
-                </div>
-            </div>
+            <Keyboard currentKey={currentKey} />
         </div>
     );
 };
