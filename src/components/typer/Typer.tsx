@@ -66,7 +66,6 @@ export const Typer = (props: TyperProps) => {
         timerType: subMode === TestSubModes.timed ? 'DECREMENTAL' : 'INCREMENTAL',
         endTime: subMode === TestSubModes.timed ? 0 : 999999,
         onTimeOver: () => {
-            console.log("time over")
             handleComplete(false)
         },
     })

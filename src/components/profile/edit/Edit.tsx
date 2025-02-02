@@ -36,7 +36,6 @@ export const Edit = (props: EditProps) => {
             setSaving(false)
         },
         onError: (error) => {
-            console.log(error)
             setError(error.message)
             setSaving(false)
         }

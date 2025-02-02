@@ -24,10 +24,6 @@ const Home: NextPage = () => {
     setCurrentKey(key)
   }
 
-  useEffect(() => {
-    console.log("subMode", subMode)
-  },[subMode])
-
   return (
     <>
       <div id="typer" className="flex flex-col md:w-10/12 h-full justify-center">

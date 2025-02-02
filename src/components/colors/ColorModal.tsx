@@ -31,7 +31,6 @@ export const ColorModal = () => {
     // create colors mutation
     const createSavedColors = api.color.create.useMutation({
         onSuccess: () => {
-            console.log("Colors saved")
             void refetchSavedColors();
         },
         onError: (error) => {
