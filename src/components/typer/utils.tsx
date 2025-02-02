@@ -8,7 +8,7 @@ import french10k from './languages/french10k.json'
 import chinese10k from './languages/chinese10k.json'
 import spanish10k from './languages/spanish10k.json'
 import hindi1k from './languages/hindi1k.json'
-import exp from 'constants'
+
 import { TestGramScopes, TestGramSources } from './types'
 
 const languages = {
