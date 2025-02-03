@@ -8,9 +8,9 @@
    version="1.0"
    id="svg162"
    sodipodi:docname="TypeCafeSVG.svg"
-   inkscape:export-filename="TypeCafe32x32.png"
-   inkscape:export-xdpi="7.3142858"
-   inkscape:export-ydpi="7.3142858"
+   inkscape:export-filename="TypeCafe.png"
+   inkscape:export-xdpi="98.304001"
+   inkscape:export-ydpi="98.304001"
    inkscape:version="1.4 (86a8ad7, 2024-10-11)"
    xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
    xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
@@ -34,7 +34,8 @@
      inkscape:window-y="-8"
      inkscape:window-maximized="1"
      inkscape:current-layer="svg162"
-     showguides="false" />
+     showguides="false"
+     inkscape:export-bgcolor="#ffffff00" />
   <defs
      id="defs81">
     <clipPath
@@ -608,14 +609,12 @@
     </clipPath>
   </defs>
   <rect
-     style="fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:22.5;stroke-linecap:square;stroke-linejoin:round;stroke-miterlimit:100;stroke-dasharray:none;stroke-opacity:1;paint-order:normal"
+     style="fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:22.5;stroke-linecap:square;stroke-linejoin:miter;stroke-miterlimit:100;stroke-dasharray:none;stroke-opacity:1;paint-order:normal"
      id="rect176"
      width="352.5"
      height="352.5"
      x="11.249997"
-     y="11.249997"
-     rx="37.5"
-     ry="37.5" />
+     y="11.249997" />
   <g
      id="g177"
      transform="translate(30.000005,30.00001)">

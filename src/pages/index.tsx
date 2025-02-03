@@ -1,12 +1,14 @@
 import { type NextPage } from "next";
 import { useEffect, useState } from "react";
 import { Modal } from "~/components/Modal";
+import { SupportCard } from "~/components/support/SupportCard";
 import { Keyboard } from "~/components/typer/Keyboard";
 import { Typer } from "~/components/typer/Typer";
 import { Config } from "~/components/typer/config/Config";
 import { TestGramScopes, TestGramSources, TestModes, TestSubModes } from "~/components/typer/types";
 
 const Home: NextPage = () => {
+  const [showSupport, setShowSupport] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
   const [showStats, setShowStats] = useState(true)
   const [showKeyboard, setShowKeyboard] = useState(false)
@@ -19,7 +21,7 @@ const Home: NextPage = () => {
   const [gramRepetition, setGramRepetition] = useState<number>(0)
   const [count, setCount] = useState(15)
   const [currentKey, setCurrentKey] = useState("")
-  
+
   const onKeyChange = (key: string) => {
     setCurrentKey(key)
   }
@@ -57,6 +59,11 @@ const Home: NextPage = () => {
           showKeyboard={showKeyboard} setShowKeyboard={setShowKeyboard}
         />
       </Modal>
+      {showSupport &&
+        <div className="absolute right-0 bottom-0 m-4 invisible md:visible">
+          <SupportCard showDismiss={true} onDismiss={() => setShowSupport(false)} />
+        </div>
+      }
     </>
   );
 };

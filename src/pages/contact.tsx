@@ -37,7 +37,7 @@ const Contact: NextPage = () => {
     return (
         <div className="container mx-auto p-4">
             <div className="flex flex-col justify-center items-center min-h-screen">
-                <div className="card w-full max-w-lg shadow-2xl bg-base-100">
+                <div className="card w-full max-w-lg shadow-2xl bg-base-300">
                     <div className="card-body">
                         <h2 className="card-title text-2xl font-bold">Contact Us</h2>
                         <form onSubmit={handleSubmit}>
