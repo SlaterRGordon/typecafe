@@ -22,7 +22,7 @@ export const SupportCard = (props: SupportCardProps) => {
                 <div className="flex flex-col">
                 <h2 className="card-title text-2xl font-bold">Support TypeCafe</h2>
                     <h5 className='card-description text-xl text-base-content'>
-                        Please consider support my work by buying me a coffee or donating to my Ko-fi page.
+                        Please consider supporting my work by buying me a coffee or donating to my Ko-fi page.
                         Your support helps me keep the site running. Thank you!
                     </h5>
                 </div>
