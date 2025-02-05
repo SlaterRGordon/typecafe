@@ -206,7 +206,7 @@ export const Text = (props: TextProps) => {
 
             // Check if test is complete
             if (currentIndex === currentTextRef.current.length - 1) {
-                props.onComplete(false)
+                props.onComplete(correct)
             }
     
             // Update active character styling for new position

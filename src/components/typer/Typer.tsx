@@ -87,7 +87,7 @@ export const Typer = (props: TyperProps) => {
 
     useEffect(() => {
         handleRestart()
-    }, [mode, subMode, language, count, gramSource, gramScope, gramCombination, gramRepetition])
+    }, [mode, subMode, language, count, gramSource, gramScope, gramCombination, gramRepetition, gramLevel])
 
     useEffect(() => {
         if (mode === TestModes.ngrams) {
@@ -150,13 +150,12 @@ export const Typer = (props: TyperProps) => {
             handleCreateTest()
         } else if (mode === TestModes.ngrams) {
 
-            if (wpm >= props.gramWpmThreshold && accuracy >= props.gramAccuracyThreshold) {
+            if (wpm >= props.gramWpmThreshold && (characterCount + (correct ? 1 : -1) - incorrectCount) / characterCount * 100 >= props.gramAccuracyThreshold) {
                 if (gramLevel < gramScope - 1) {
                     if (gramLevel !== 1) setGramWpm(((gramWpm * gramLevel) + wpm) / (gramLevel + 1))
                     else setGramWpm(wpm)
 
                     setGramLevel(gramLevel + 1)
-                    handleRestart()
                 } else if (gramLevel == gramScope - 1) {
                     setGramWpm(0.00)
                     setGramLevel(1)
