@@ -8,6 +8,7 @@ import { useTimer } from "~/hooks/timer/useTimer"
 import { api } from "~/utils/api"
 import type { Level } from "./learn/levels"
 import { useSession } from "next-auth/react"
+import { set } from "zod"
 
 interface Keys {
     [key: string]: boolean
@@ -21,6 +22,8 @@ interface TyperProps {
     gramScope: TestGramScopes,
     gramCombination: number,
     gramRepetition: number,
+    gramWpmThreshold: number,
+    gramAccuracyThreshold: number,
     count: number,
     level?: Level,
     onKeyChange(key: string): void,
@@ -126,7 +129,8 @@ export const Typer = (props: TyperProps) => {
             setText(generateText(50, language))
         }
 
-        setInitialTime(count);
+        setInitialTime(mode === TestModes.normal && subMode === TestSubModes.timed ? count : 0)
+        pause()
         setStarted(false)
         setRestarted(true)
         setCharacterCount(0)
@@ -138,26 +142,24 @@ export const Typer = (props: TyperProps) => {
     }
 
     const handleComplete = (correct: boolean) => {
-        const actualEndTime = Date.now()
         if (subMode !== TestSubModes.timed) pause()
         setStarted(false)
         setRestarted(false)
 
-        if (mode == TestModes.normal) {
+        if (mode === TestModes.normal) {
             handleCreateTest()
-        } else if (mode == TestModes.ngrams) {
+        } else if (mode === TestModes.ngrams) {
+            console.log(wpm, accuracy)
+            console.log(props.gramWpmThreshold, props.gramAccuracyThreshold)
 
-            if (incorrectCount == 0 && correct) {
-                if (gramScope == TestGramScopes.fifty && gramLevel < 49) {
-                    const minutes = (actualEndTime - actualStartTime) / 60000;
-                    const newWpm = (characterCount / 5) / minutes
-
-                    if (gramLevel !== 1) setGramWpm(((gramWpm * gramLevel) + newWpm) / (gramLevel + 1))
-                    else setGramWpm(newWpm)
+            if (wpm >= props.gramWpmThreshold && accuracy >= props.gramAccuracyThreshold) {
+                if (gramLevel < gramScope - 1) {
+                    if (gramLevel !== 1) setGramWpm(((gramWpm * gramLevel) + wpm) / (gramLevel + 1))
+                    else setGramWpm(wpm)
 
                     setGramLevel(gramLevel + 1)
                     handleRestart()
-                } else if (gramScope == TestGramScopes.fifty && gramLevel == 49) {
+                } else if (gramLevel == gramScope - 1) {
                     setGramWpm(0.00)
                     setGramLevel(1)
                 }
@@ -173,12 +175,18 @@ export const Typer = (props: TyperProps) => {
     const handleSetIncorrectCount = (charCount: number) => setIncorrectCount(charCount)
 
     useEffect(() => {
+        if (!started) return
+
+        const actualEndTime = Date.now()
         // calculate minutes
-        const normalizedSeconds = subMode === TestSubModes.timed ? count - time : time
-        const minutes = normalizedSeconds / 60
+        const minutes = (actualEndTime - actualStartTime) / 60000
+        if (mode !== TestModes.ngrams && minutes < 0.0001) return
+
+        const normalizedMinutes = subMode === TestSubModes.timed ? count - minutes : minutes
         // calculate wpm
-        if (minutes == 0) setWpm(0)
-        else setWpm((characterCount / 5) / minutes)
+        if (normalizedMinutes == 0) setWpm(0)
+        else setWpm((characterCount / 5) / normalizedMinutes)
+
         // calculate accuracy
         const correct = characterCount - incorrectCount
         if (characterCount == 0) setAccuracy(0)

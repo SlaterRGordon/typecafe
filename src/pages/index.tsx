@@ -20,6 +20,8 @@ const Home: NextPage = () => {
   const [gramScope, setGramScope] = useState<TestGramScopes>(TestGramScopes.fifty)
   const [gramCombination, setGramCombination] = useState<number>(1)
   const [gramRepetition, setGramRepetition] = useState<number>(0)
+  const [gramWpmThreshold, setGramWpmThreshold] = useState<number>(20)
+  const [gramAccuracyThreshold, setGramAccuracyThreshold] = useState<number>(100)
   const [count, setCount] = useState(15)
   const [currentKey, setCurrentKey] = useState("")
 
@@ -40,6 +42,8 @@ const Home: NextPage = () => {
           gramScope={gramScope}
           gramCombination={gramCombination}
           gramRepetition={gramRepetition}
+          gramWpmThreshold={gramWpmThreshold}
+          gramAccuracyThreshold={gramAccuracyThreshold}
           count={count}
           showStats={showStats}
           showConfig={true}
@@ -57,6 +61,8 @@ const Home: NextPage = () => {
           gramScope={gramScope} setGramScope={setGramScope}
           gramCombination={gramCombination} setGramCombination={setGramCombination}
           gramRepetition={gramRepetition} setGramRepetition={setGramRepetition}
+          gramWpmThreshold={gramWpmThreshold} setGramWpmThreshold={setGramWpmThreshold}
+          gramAccuracyThreshold={gramAccuracyThreshold} setGramAccuracyThreshold={setGramAccuracyThreshold}
           count={count} setCount={setCount}
           showStats={showStats} setShowStats={setShowStats}
           showKeyboard={showKeyboard} setShowKeyboard={setShowKeyboard}

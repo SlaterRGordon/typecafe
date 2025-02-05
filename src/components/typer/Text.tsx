@@ -166,6 +166,7 @@ export const Text = (props: TextProps) => {
             if ((current.innerText.trim() === '' && e.key === ' ') || current.innerText.trim() === e.key) {
                 nextLetter(true)
                 // start timer
+                console.log("start timer")
                 if (position === 0 && !props.started) props.onStart()
             } else if (
                 position > 0 &&
