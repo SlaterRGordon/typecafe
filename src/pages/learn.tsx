@@ -93,7 +93,7 @@ const Learn: NextPage = () => {
     }, [levelOptions, levelChanged])
 
     return (
-        <div className={`flex flex-col w-full h-full justify-center ${fullscreen ? 'absolute top-0 left-0 w-full h-full bg-base-100 z-[99999]' : "relative"}`}>
+        <div className={`flex flex-col w-full h-full justify-center ${fullscreen ? 'absolute top-0 left-0 w-full h-full bg-base-100 z-[500]' : "relative"}`}>
             <div className="absolute top-0 flex flex-col w-full items-center gap-4 px-8 py-12">
                 <div className="flex w-full">
                     <div className="flex w-6/12 gap-2">

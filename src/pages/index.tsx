@@ -29,7 +29,7 @@ const Home: NextPage = () => {
 
   return (
     <>
-      <div id="typer" className={`flex flex-col h-full justify-center ${fullscreen ? 'absolute top-0 left-0 w-full h-full bg-base-100 z-[99999]' : 'md:w-10/12'}`}>
+      <div id="typer" className={`flex flex-col h-full justify-center ${fullscreen ? 'absolute top-0 left-0 w-full h-full bg-base-100 z-[500] sm:px-8' : 'md:w-10/12'}`}>
         <Typer
           fullscreen={fullscreen}
           setFullscreen={(full) => setFullscreen(full)}
