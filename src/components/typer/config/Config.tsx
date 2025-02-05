@@ -62,9 +62,6 @@ export const Config = (props: ConfigProps) => {
             return
         }
 
-        console.log(props.gramScope)
-        console.log(props.gramScope.valueOf())
-
         if (newCombination > props.gramScope) {
             props.setGramCombination(props.gramScope)
             return

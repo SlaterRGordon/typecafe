@@ -149,8 +149,6 @@ export const Typer = (props: TyperProps) => {
         if (mode === TestModes.normal) {
             handleCreateTest()
         } else if (mode === TestModes.ngrams) {
-            console.log(wpm, accuracy)
-            console.log(props.gramWpmThreshold, props.gramAccuracyThreshold)
 
             if (wpm >= props.gramWpmThreshold && accuracy >= props.gramAccuracyThreshold) {
                 if (gramLevel < gramScope - 1) {
