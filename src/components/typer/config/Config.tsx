@@ -21,6 +21,10 @@ interface ConfigProps {
     setGramCombination: (newTestGramRepetition: number) => void,
     gramRepetition: number,
     setGramRepetition: (newTestGramRepetition: number) => void,
+    gramWpmThreshold: number,
+    setGramWpmThreshold: (newTestGramWpmThreshold: number) => void,
+    gramAccuracyThreshold: number,
+    setGramAccuracyThreshold: (newTestGramAccuracyThreshold: number) => void,
     showStats: boolean,
     setShowStats: (show: boolean) => void,
     showKeyboard: boolean,
@@ -34,6 +38,7 @@ export const Config = (props: ConfigProps) => {
         props.setMode(newMode)
         if (newMode !== TestModes.normal) {
             props.setSubMode(TestSubModes.words)
+            props.setCount(10)
         }
     }
 
@@ -46,14 +51,19 @@ export const Config = (props: ConfigProps) => {
         props.setGramSource(newTestGramSource)
     }
 
-    const handleTestGramScopeChange = (newTestGramScope: number) => {
-        props.setGramScope(newTestGramScope)
-    }
+    const handleTestGramScopeChange = (newGramScope: string | number) => {
+        props.setGramScope(newGramScope as TestGramScopes);
+    };
 
     const handleTestGramCombinationChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const newCombination = parseInt(e.target.value)
         if (newCombination < 1) {
             props.setGramCombination(1)
+            return
+        }
+
+        if (newCombination > props.gramScope) {
+            props.setGramCombination(props.gramScope)
             return
         }
 
@@ -65,6 +75,27 @@ export const Config = (props: ConfigProps) => {
         if (newRepetition < 0) return
 
         props.setGramRepetition(newRepetition)
+    }
+
+    const handleTestGramWpmThresholdChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const newWpmThreshold = parseInt(e.target.value)
+        if (newWpmThreshold < 0) return
+
+        props.setGramWpmThreshold(newWpmThreshold)
+    }
+
+    const handleTestGramAccuracyThresholdChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const newAccuracyThreshold = parseInt(e.target.value)
+        if (newAccuracyThreshold < 0) {
+            props.setGramAccuracyThreshold(0)
+            return
+        }
+        if (newAccuracyThreshold > 100) {
+            props.setGramAccuracyThreshold(100)
+            return
+        }
+
+        props.setGramAccuracyThreshold(newAccuracyThreshold)
     }
 
     const languageOptions = [
@@ -86,6 +117,10 @@ export const Config = (props: ConfigProps) => {
             }
         })
     }, [])
+
+    const getEnumValues = <T extends object>(enumObj: T): (T[keyof T])[] => {
+        return Object.values(enumObj).filter(value => typeof value === 'number') as (T[keyof T])[];
+    };
 
     return (
         <div className="flex flex-col h-full justify-between mb-8 gap-2">
@@ -159,9 +194,10 @@ export const Config = (props: ConfigProps) => {
                     <div className="flex flex-col">
                         <h3 className="font-semibold text-2xl py-1">Scope</h3>
                         <ConfigOption
-                            options={["Top 50", "Top 100", "Top 200"]}
-                            active={props.gramScope}
-                            onChange={(newGramScope: string | number) => { handleTestGramScopeChange(newGramScope as TestGramScopes) }}
+                            options={getEnumValues(TestGramScopes).map(scope => 'Top ' + scope.toString())}
+                            values={getEnumValues(TestGramScopes)}
+                            active={props.gramScope.toString()}
+                            onChange={(newGramScope: string | number) => { handleTestGramScopeChange(Number(newGramScope)) }}
                         />
                     </div>
                     <div className="flex gap-2">
@@ -174,7 +210,6 @@ export const Config = (props: ConfigProps) => {
                                     className={`w-full input input-bordered input-sm`}
                                     value={props.gramCombination}
                                     onChange={handleTestGramCombinationChange}
-                                // onBlur={handleTestGramCombinationBlur}
                                 />
                             </div>
                         </div>
@@ -187,7 +222,32 @@ export const Config = (props: ConfigProps) => {
                                     className={`w-full input input-bordered input-sm`}
                                     value={props.gramRepetition}
                                     onChange={handleTestGramRepetitionChange}
-                                // onBlur={handleTestGramRepetitionBlur}
+                                />
+                            </div>
+                        </div>
+                    </div>
+                    <div className="flex gap-2">
+                        <div className="flex flex-col">
+                            <h3 className="font-semibold text-2xl py-1">Wpm Threshold</h3>
+                            <div className="flex gap-2">
+                                <input
+                                    id="testGramWpmThresholdInput"
+                                    type="number"
+                                    className={`w-full input input-bordered input-sm`}
+                                    value={props.gramWpmThreshold}
+                                    onChange={handleTestGramWpmThresholdChange}
+                                />
+                            </div>
+                        </div>
+                        <div className="flex flex-col">
+                            <h3 className="font-semibold text-2xl py-1">Accuracy Threshold</h3>
+                            <div className="flex gap-2">
+                                <input
+                                    id="testGramAccuracyThresholdInput"
+                                    type="number"
+                                    className={`w-full input input-bordered input-sm`}
+                                    value={props.gramAccuracyThreshold}
+                                    onChange={handleTestGramAccuracyThresholdChange}
                                 />
                             </div>
                         </div>

@@ -17,7 +17,7 @@ export enum TestGramSources {
 }
 
 export enum TestGramScopes {
-    fifty,
-    oneHundred,
-    twoHundred
+    fifty = 50,
+    oneHundred = 100,
+    twoHundred = 200,
 }
