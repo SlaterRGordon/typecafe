@@ -20,6 +20,8 @@ const Learn: NextPage = () => {
     const [gramScope, setGramScope] = useState<TestGramScopes>(TestGramScopes.fifty)
     const [gramCombination, setGramCombination] = useState<number>(1)
     const [gramRepetition, setGramRepetition] = useState<number>(0)
+    const [gramWpmThreshold, setGramWpmThreshold] = useState<number>(20)
+    const [gramAccuracyThreshold, setGramAccuracyThreshold] = useState<number>(100)
     const [count, setCount] = useState(15)
     const [difficulty, setDifficulty] = useState("easy")
     const [level, setLevel] = useState<Level>(levels[0] as Level)
@@ -155,6 +157,8 @@ const Learn: NextPage = () => {
                     gramScope={gramScope}
                     gramCombination={gramCombination}
                     gramRepetition={gramRepetition}
+                    gramWpmThreshold={gramWpmThreshold}
+                    gramAccuracyThreshold={gramAccuracyThreshold}
                     count={level.count}
                     level={level}
                     onKeyChange={onKeyChange}
