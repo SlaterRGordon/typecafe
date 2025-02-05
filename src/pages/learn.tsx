@@ -25,6 +25,7 @@ const Learn: NextPage = () => {
     const [level, setLevel] = useState<Level>(levels[0] as Level)
     const [currentKey, setCurrentKey] = useState<string>("")
     const [levelChanged, setLevelChanged] = useState<boolean>(false)
+    const [fullscreen, setFullscreen] = useState(false)
 
     // fetch types
     const { data: testType } = api.type.get.useQuery({ mode, subMode, language: language })
@@ -92,7 +93,7 @@ const Learn: NextPage = () => {
     }, [levelOptions, levelChanged])
 
     return (
-        <div className="relative flex flex-col w-full h-full justify-center">
+        <div className={`flex flex-col w-full h-full justify-center ${fullscreen ? 'absolute top-0 left-0 w-full h-full bg-base-100 z-[99999]' : "relative"}`}>
             <div className="absolute top-0 flex flex-col w-full items-center gap-4 px-8 py-12">
                 <div className="flex w-full">
                     <div className="flex w-6/12 gap-2">
@@ -144,6 +145,8 @@ const Learn: NextPage = () => {
             </div>
             <div className="flex w-full justify-center">
                 <Typer
+                    fullscreen={fullscreen}
+                    setFullscreen={(full) => setFullscreen(full)}
                     language={language}
                     modalOpen={false}
                     mode={mode}
