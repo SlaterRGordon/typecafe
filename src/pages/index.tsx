@@ -9,6 +9,7 @@ import { TestGramScopes, TestGramSources, TestModes, TestSubModes } from "~/comp
 
 const Home: NextPage = () => {
   const [showSupport, setShowSupport] = useState(true)
+  const [fullscreen, setFullscreen] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
   const [showStats, setShowStats] = useState(true)
   const [showKeyboard, setShowKeyboard] = useState(false)
@@ -28,8 +29,10 @@ const Home: NextPage = () => {
 
   return (
     <>
-      <div id="typer" className="flex flex-col md:w-10/12 h-full justify-center">
+      <div id="typer" className={`flex flex-col h-full justify-center ${fullscreen ? 'absolute top-0 left-0 w-full h-full bg-base-100 z-[500] sm:px-8' : 'md:w-10/12'}`}>
         <Typer
+          fullscreen={fullscreen}
+          setFullscreen={(full) => setFullscreen(full)}
           language={language}
           mode={mode}
           subMode={subMode}
