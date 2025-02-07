@@ -104,8 +104,8 @@ export const generateBetterPseudoText = (count: number, characters: string[]) =>
     let wordLength = 0
     for (let i = 0; i < count; i++) {
         // Try to use real words 50% of the time
-        const isRealWord = Math.random() > 0.5
-        if (isRealWord && filteredWords.length > 0) {
+        // const isRealWord = Math.random() > 0.5
+        if (filteredWords.length > 0) {
             const randomIndex = Math.floor(Math.random() * filteredWords.length)
             text = text += (filteredWords[randomIndex] as string) + ' '
             continue

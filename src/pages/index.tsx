@@ -16,6 +16,7 @@ const Home: NextPage = () => {
   const [language, setLanguage] = useState("english" as string)
   const [mode, setMode] = useState<TestModes>(TestModes.normal)
   const [subMode, setSubMode] = useState<TestSubModes>(TestSubModes.timed)
+  const [selectedKeys, setSelectedKeys] = useState<string[]>("asdfghjkl".split(""))
   const [gramSource, setGramSource] = useState<TestGramSources>(TestGramSources.bigrams)
   const [gramScope, setGramScope] = useState<TestGramScopes>(TestGramScopes.fifty)
   const [gramCombination, setGramCombination] = useState<number>(1)
@@ -29,6 +30,10 @@ const Home: NextPage = () => {
     setCurrentKey(key)
   }
 
+  useEffect(() => {
+    console.log(selectedKeys)
+  }, [selectedKeys])
+
   return (
     <>
       <div id="typer" className={`flex flex-col h-full justify-center ${fullscreen ? 'absolute top-0 left-0 w-full h-full bg-base-100 z-[500] sm:px-8' : 'md:w-10/12'}`}>
@@ -38,6 +43,8 @@ const Home: NextPage = () => {
           language={language}
           mode={mode}
           subMode={subMode}
+          selectedKeys={selectedKeys}
+          setSelectedKeys={setSelectedKeys}
           gramSource={gramSource}
           gramScope={gramScope}
           gramCombination={gramCombination}
@@ -50,13 +57,14 @@ const Home: NextPage = () => {
           modalOpen={modalOpen}
           onKeyChange={onKeyChange}
         />
-        {showKeyboard && <Keyboard currentKey={currentKey} />}
+        {showKeyboard || mode === TestModes.practice && <Keyboard mode={mode} currentKey={currentKey} selectedKeys={selectedKeys} setSelectedKeys={setSelectedKeys} />}
       </div>
       <Modal setModalOpen={(open) => setModalOpen(open)}>
         <Config
           language={language} setLanguage={setLanguage}
           mode={mode} setMode={setMode}
           subMode={subMode} setSubMode={setSubMode}
+          selectedKeys={selectedKeys} setSelectedKeys={setSelectedKeys}
           gramSource={gramSource} setGramSource={setGramSource}
           gramScope={gramScope} setGramScope={setGramScope}
           gramCombination={gramCombination} setGramCombination={setGramCombination}

@@ -289,3 +289,11 @@ body>div {
 .blog-content a:hover {
     text-decoration: underline;
 }
+
+.kbd-unlocked {
+    cursor: pointer;
+}
+
+.kbd-locked {
+    cursor: pointer;
+}

@@ -167,7 +167,7 @@ const Learn: NextPage = () => {
                     showConfig={false}
                 />
             </div>
-            <Keyboard currentKey={currentKey} />
+            <Keyboard mode={mode} currentKey={currentKey} />
         </div>
     );
 };

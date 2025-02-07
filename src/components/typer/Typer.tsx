@@ -18,6 +18,8 @@ interface TyperProps {
     language: string,
     mode: TestModes,
     subMode: TestSubModes,
+    selectedKeys?: string[],
+    setSelectedKeys?: (keys: string[]) => void,
     gramSource: TestGramSources,
     gramScope: TestGramScopes,
     gramCombination: number,
@@ -39,8 +41,10 @@ export const Typer = (props: TyperProps) => {
     const {
         language,
         mode, subMode,
+        selectedKeys,
         gramSource, gramScope, gramCombination, gramRepetition,
         count, showStats, showConfig,
+        level,
         modalOpen,
         fullscreen
     } = props
@@ -87,7 +91,7 @@ export const Typer = (props: TyperProps) => {
 
     useEffect(() => {
         handleRestart()
-    }, [mode, subMode, language, count, gramSource, gramScope, gramCombination, gramRepetition, gramLevel])
+    }, [mode, subMode, language, count, gramSource, gramScope, gramCombination, gramRepetition, gramLevel, selectedKeys])
 
     useEffect(() => {
         if (mode === TestModes.ngrams) {
@@ -111,7 +115,7 @@ export const Typer = (props: TyperProps) => {
             speed: wpm,
             score: wpm * accuracy,
             count: count,
-            options: props.level ? props.level.name : ""
+            options: level ? level.name : ""
         });
     };
 
@@ -120,9 +124,12 @@ export const Typer = (props: TyperProps) => {
             if (subMode === TestSubModes.timed) {
                 setText(generateText(500, language))
             } else if (subMode === TestSubModes.words) {
-                if (props.level) setText(generateBetterPseudoText(count, language, props.level.keys.split("")))
+                if (level) setText(generateBetterPseudoText(count, level.keys.split("")))
                 else setText(generateText(count, language))
             }
+        } else if (mode === TestModes.practice) {
+            console.log(selectedKeys)
+            if (selectedKeys) setText(generateBetterPseudoText(500, selectedKeys))
         } else if (mode === TestModes.ngrams) {
             setText(generateNGram(gramSource, gramScope, gramCombination, gramRepetition, gramLevel))
         } else if (mode === TestModes.relaxed) {
@@ -134,7 +141,7 @@ export const Typer = (props: TyperProps) => {
         setStarted(false)
         setRestarted(true)
         setCharacterCount(0)
-    }, [mode, subMode, language, count, gramSource, gramScope, gramCombination, gramRepetition, gramLevel])
+    }, [mode, subMode, language, count, gramSource, gramScope, gramCombination, gramRepetition, gramLevel, selectedKeys])
 
     const handleStart = () => {
         start()
