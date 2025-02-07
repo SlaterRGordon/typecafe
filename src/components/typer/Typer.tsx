@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react"
 import { TestGramScopes, TestSubModes } from "./types"
 import { TestGramSources, TestModes } from "./types"
-import { generateNGram, generatePseudoText, generateText, getGramLevelText } from "./utils"
+import { generateBetterPseudoText, generateNGram, generatePseudoText, generateText, getGramLevelText } from "./utils"
 import { Text } from "./Text"
 import { Stats } from "./Stats"
 import { useTimer } from "~/hooks/timer/useTimer"
@@ -120,7 +120,7 @@ export const Typer = (props: TyperProps) => {
             if (subMode === TestSubModes.timed) {
                 setText(generateText(500, language))
             } else if (subMode === TestSubModes.words) {
-                if (props.level) setText(generatePseudoText(count, language, props.level.keys.split("")))
+                if (props.level) setText(generateBetterPseudoText(count, language, props.level.keys.split("")))
                 else setText(generateText(count, language))
             }
         } else if (mode === TestModes.ngrams) {

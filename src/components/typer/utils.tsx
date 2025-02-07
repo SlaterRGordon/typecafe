@@ -63,6 +63,66 @@ export const generatePseudoText = (count: number, language: string, characters: 
     return text.toLowerCase().slice(0, -1)
 }
 
+export const generateBetterPseudoText = (count: number, language: string, characters: string[]) => {
+    let text = ''
+
+    let allGrams: string[] = []
+    Object.keys(ngrams).map((key: string) => {
+        allGrams = allGrams.concat(ngrams[key as keyof typeof ngrams])
+    })
+    
+    const filteredGrams = allGrams.filter((gram: string) => {
+        if (!gram.includes(characters[characters.length - 1] as string)) return false
+
+        for (let i = 0; i < gram.length; i++) {
+            if (!characters.includes(gram[i] as string)) return false
+        }
+
+        return true
+    })
+
+    // Decide next word length
+    const wordLengths = [2, 3, 4, 5, 6, 7, 8, 9, 10]
+    const wordLengthFrequencies = [0.2, 0.4, 0.6, 0.75, 0.85, 0.9, 0.95, 0.98, 1.0];
+
+    // Generate random text
+    let wordLength = 0
+    for (let i = 0; i < count; i++) {
+        const randomDecimal = Math.random()
+        for (let i = 0; i < wordLengthFrequencies.length; i++) {
+            if (randomDecimal <= (wordLengthFrequencies[i] as number)) {
+                wordLength = wordLengths[i] as number
+                break;
+            }
+        }
+
+        let newWord = ''
+        while(newWord.length !== wordLength) {
+            let filteredGramsByLength: string[] = []
+            
+            if (wordLength === 2) {
+                // Add bigram that has a vowel
+                filteredGramsByLength = filteredGrams.filter((gram: string) => gram.length === 2 && gram.match(/[aeiou]/g))
+            } else if (!newWord.slice(-2).match(/[aeiou]/g)) {
+                // Add bigram that has a vowel as its first character
+                filteredGramsByLength = filteredGrams.filter((gram: string) => gram.length <= (wordLength - newWord.length) && gram.length != (wordLength - newWord.length - 1) && gram.match(/^[aeiou]/))
+            } else if (newWord.length === 0) {
+                // Add gram that has a vowel in it
+                filteredGramsByLength = filteredGrams.filter((gram: string) => gram.length <= (wordLength - newWord.length) && gram.length != (wordLength - newWord.length - 1) && gram.match(/[aeiou]/g))
+            } else {
+                filteredGramsByLength = filteredGrams.filter((gram: string) => gram.length <= (wordLength - newWord.length) && gram.length != (wordLength - newWord.length - 1))
+            }
+            const randomIndex = Math.floor(Math.random() * filteredGramsByLength.length)
+            let randomGram = filteredGramsByLength[randomIndex] as string
+
+            newWord += randomGram
+        }
+        text = text += newWord + ' '
+    }
+
+    return text.toLowerCase().slice(0, -1)
+}
+
 export const generateText = (count: number, language: string) => {
     let text = ''
 
