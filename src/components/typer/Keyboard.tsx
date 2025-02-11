@@ -1,4 +1,6 @@
+import { addAlert } from "~/state/alert/alertSlice";
 import { TestModes } from "./types";
+import { useDispatch } from "react-redux";
 
 interface KeyboardProps {
     mode: TestModes,
@@ -10,12 +12,29 @@ interface KeyboardProps {
 const letters = "qwertyuiopasdfghjklzxcvbnm/"
 
 export const Keyboard = (props: KeyboardProps) => {
-    const { mode, currentKey, selectedKeys, setSelectedKeys} = props;
+    const { mode, currentKey, selectedKeys, setSelectedKeys} = props
+        const dispatch = useDispatch()
 
     const handleKeyClicked = (key: string) => {
         if (!selectedKeys || !setSelectedKeys) return
 
         if (selectedKeys.includes(key)) {
+            // Make sure at least 6 keys are selected
+            if (selectedKeys.length <= 6) {
+                dispatch(addAlert({ message: "Must include at least 6 keys!", type: "error" }))
+                return
+            }
+
+            // Make sure at least 1 vowel and 1 consonant is selected
+            if ("aeiou".includes(key) && selectedKeys.filter(k => "aeiou".includes(k)).length <= 1) {
+                dispatch(addAlert({ message: "Must include at least 1 vowel!", type: "error" }))
+                return
+            }
+            if ("bcdfghjklmnpqrstvwxyz".includes(key) && selectedKeys.filter(k => "bcdfghjklmnpqrstvwxyz".includes(k)).length <= 1) {
+                dispatch(addAlert({ message: "Must include at least 1 consonant!", type: "error" }))
+                return
+            }
+
             setSelectedKeys(selectedKeys.filter(k => k != key))
         } else {
             setSelectedKeys([...selectedKeys, key])
@@ -27,7 +46,13 @@ export const Keyboard = (props: KeyboardProps) => {
             <div className="flex justify-center gap-1 my-1 w-full">
                 {letters.slice(0, 10).split("").map((key: string, index: number) => {
                     if (key == currentKey) return (
-                        <kbd key={index} className="kbd kbd-lg bg-primary text-primary-content">{key}</kbd>
+                        <kbd 
+                            key={index} 
+                            className="kbd kbd-lg bg-primary text-primary-content cursor-pointer" 
+                            onClick={() => handleKeyClicked(key)}
+                        >
+                            {key}
+                        </kbd>
                     )
 
                     return (
@@ -47,7 +72,13 @@ export const Keyboard = (props: KeyboardProps) => {
             <div className="flex justify-center gap-1 my-1 w-full">
                 {letters.slice(10, 19).split("").map((key: string, index: number) => {
                     if (key == currentKey) return (
-                        <kbd key={index} className="kbd kbd-lg bg-primary text-primary-content">{key}</kbd>
+                        <kbd 
+                            key={index} 
+                            className="kbd kbd-lg bg-primary text-primary-content cursor-pointer" 
+                            onClick={() => handleKeyClicked(key)}
+                        >
+                            {key}
+                        </kbd>
                     )
 
                     return (
@@ -67,7 +98,13 @@ export const Keyboard = (props: KeyboardProps) => {
             <div className="flex justify-center gap-1 my-1 w-full">
                 {letters.slice(19, 26).split("").map((key: string, index: number) => {
                     if (key == currentKey) return (
-                        <kbd key={index} className="kbd kbd-lg bg-primary text-primary-content">{key}</kbd>
+                        <kbd 
+                            key={index} 
+                            className="kbd kbd-lg bg-primary text-primary-content cursor-pointer" 
+                            onClick={() => handleKeyClicked(key)}
+                        >
+                            {key}
+                        </kbd>
                     )
 
                     return (

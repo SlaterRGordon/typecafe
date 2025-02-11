@@ -116,31 +116,39 @@ export const Typer = (props: TyperProps) => {
             score: wpm * accuracy,
             count: count,
             options: level ? level.name : ""
-        });
-    };
+        })
+    }
+
+    const cancelRestartRef = useRef(false)
 
     const handleRestart = useCallback(() => {
-        if (mode === TestModes.normal) {
-            if (subMode === TestSubModes.timed) {
-                setText(generateText(500, language))
-            } else if (subMode === TestSubModes.words) {
-                if (level) setText(generateBetterPseudoText(count, level.keys.split("")))
-                else setText(generateText(count, language))
+        cancelRestartRef.current = true; 
+        setTimeout(() => {
+            if (cancelRestartRef.current) {
+                cancelRestartRef.current = false; // Reset the cancel flag
+                if (mode === TestModes.normal) {
+                    if (subMode === TestSubModes.timed) {
+                        setText(generateText(500, language))
+                    } else if (subMode === TestSubModes.words) {
+                        if (level) setText(generateBetterPseudoText(count, level.keys.split("")))
+                        else setText(generateText(count, language))
+                    }
+                } else if (mode === TestModes.practice) {
+                    console.log(selectedKeys)
+                    if (selectedKeys) setText(generateBetterPseudoText(500, selectedKeys))
+                } else if (mode === TestModes.ngrams) {
+                    setText(generateNGram(gramSource, gramScope, gramCombination, gramRepetition, gramLevel))
+                } else if (mode === TestModes.relaxed) {
+                    setText(generateText(50, language))
+                }
+        
+                setInitialTime(mode === TestModes.normal && subMode === TestSubModes.timed ? count : 0)
+                pause()
+                setStarted(false)
+                setRestarted(true)
+                setCharacterCount(0)
             }
-        } else if (mode === TestModes.practice) {
-            console.log(selectedKeys)
-            if (selectedKeys) setText(generateBetterPseudoText(500, selectedKeys))
-        } else if (mode === TestModes.ngrams) {
-            setText(generateNGram(gramSource, gramScope, gramCombination, gramRepetition, gramLevel))
-        } else if (mode === TestModes.relaxed) {
-            setText(generateText(50, language))
-        }
-
-        setInitialTime(mode === TestModes.normal && subMode === TestSubModes.timed ? count : 0)
-        pause()
-        setStarted(false)
-        setRestarted(true)
-        setCharacterCount(0)
+        }, 0)
     }, [mode, subMode, language, count, gramSource, gramScope, gramCombination, gramRepetition, gramLevel, selectedKeys])
 
     const handleStart = () => {

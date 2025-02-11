@@ -91,8 +91,6 @@ export const generateBetterPseudoText = (count: number, characters: string[]) =>
 
     const englishWords = languages["english"].words
     const filteredWords = englishWords.filter((word: string) => {
-        if (!word.includes(characters[characters.length - 1] as string)) return false
-
         for (let i = 0; i < word.length; i++) {
             if (!characters.includes(word[i] as string)) return false
         }
@@ -161,8 +159,11 @@ export const generateBetterPseudoText = (count: number, characters: string[]) =>
                 const randomIndex = Math.floor(Math.random() * filteredGramsByLength.length)
                 randomGram = filteredGramsByLength[randomIndex] as string
             }
-
-            newWord += randomGram
+            if (randomGram == undefined) {
+                newWord += ''
+            } else {
+                newWord += randomGram
+            }
         }
         text = text += newWord + ' '
     }

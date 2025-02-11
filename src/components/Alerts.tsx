@@ -11,7 +11,7 @@ export const Alerts = () => {
         if (alerts.length > 0) {
             const timeout = setTimeout(() => {
                 dispatch(removeAlert())
-            }, 3000)
+            }, 5000)
 
             return () => clearTimeout(timeout)
         }
@@ -22,7 +22,7 @@ export const Alerts = () => {
             {/* If there are no alerts, don't render anything */}
             {alerts.length === 0 ? <></> :
                 <div className={`alert bg-primary`}>
-                    <span>{alerts[alerts.length - 1]?.message}</span>
+                    <span className="text-lg font-bold">{alerts[alerts.length - 1]?.message}</span>
                     <label
                         className="btn btn-ghost btn-circle btn-sm"
                         onClick={() => dispatch(removeAlert())}
