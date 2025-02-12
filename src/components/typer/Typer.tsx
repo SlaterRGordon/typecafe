@@ -178,11 +178,9 @@ export const Typer = (props: TyperProps) => {
         // calculate minutes
         const minutes = (actualEndTime - actualStartTime) / 60000
         if (mode !== TestModes.ngrams && minutes < 0.0001) return
-
-        const normalizedMinutes = subMode === TestSubModes.timed ? count - minutes : minutes
         // calculate wpm
-        if (normalizedMinutes == 0) setWpm(0)
-        else setWpm((characterCount / 5) / normalizedMinutes)
+        if (minutes == 0) setWpm(0)
+        else setWpm((characterCount / 5) / minutes)
 
         // calculate accuracy
         const correct = characterCount - incorrectCount
