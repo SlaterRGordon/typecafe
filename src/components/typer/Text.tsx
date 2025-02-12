@@ -10,6 +10,7 @@ interface TextProps {
     modalOpen: boolean,
     language: string,
     mode: TestModes,
+    charAttempts: Map<string, { attempts: number, correct: number }>
     setCharacterCount: (count: number) => void,
     setIncorrectCount: (count: number) => void,
     onStart: () => void,
@@ -67,6 +68,7 @@ export const Text = (props: TextProps) => {
         if (props.restarted) {
             currentTextRef.current = props.text
             charStatesRef.current.clear()
+            props.charAttempts.clear()
             renderInitialText(props.text)
             setPosition(0)
             setIncorrect(0)
@@ -94,15 +96,15 @@ export const Text = (props: TextProps) => {
 
     const renderInitialText = (text: string) => {
         if (!textContainerRef.current) return
-        
+
         textContainerRef.current.innerHTML = ''
         const fragment = document.createDocumentFragment()
-        
+
         text.split('').forEach((char, index) => {
             const span = createCharSpan(char, index)
             fragment.appendChild(span)
         })
-        
+
         textContainerRef.current.appendChild(fragment)
         setLoadingText(false)
     }
@@ -112,7 +114,7 @@ export const Text = (props: TextProps) => {
 
         const fragment = document.createDocumentFragment()
         const startIndex = currentTextRef.current.length
-        
+
         newText.split('').forEach((char, offset) => {
             const index = startIndex + offset
             const span = createCharSpan(char, index)
@@ -127,12 +129,12 @@ export const Text = (props: TextProps) => {
         span.id = `c${index}`
         span.className = index === 0 ? 'active-char text-primary char' : 'char'
         span.textContent = char
-        
+
         if (charStatesRef.current.has(index)) {
             const state = charStatesRef.current.get(index)
             span.classList.add(state === 'correct' ? 'text-base-300' : 'text-secondary')
         }
-        
+
         return span
     }
 
@@ -182,25 +184,33 @@ export const Text = (props: TextProps) => {
     const nextLetter = (correct: boolean) => {
         const currentIndex = position
         const currentChar = textContainerRef.current?.querySelector(`#c${currentIndex}`)
-        
+
         if (currentChar) {
+            const char = currentChar.textContent || '';
+
             // Update DOM immediately
             currentChar.classList.remove('active-char', 'text-primary')
             const stateClass = correct ? 'text-base-300' : 'text-secondary underline'
             currentChar.classList.add(...stateClass.split(' '))
-    
+
             // Update state tracking
             charStatesRef.current.set(currentIndex, correct ? 'correct' : 'incorrect')
-            
+
+            // Update attempts tracking
+            const attempts = props.charAttempts.get(char) || { attempts: 0, correct: 0 };
+            attempts.attempts += 1;
+            if (correct) attempts.correct += 1;
+            props.charAttempts.set(char, attempts);
+
             // Update React state for position and incorrect count
             setPosition(prev => {
                 const newPos = prev + 1
-                
+
                 // Track incorrect count in React state
                 if (!correct) {
                     setIncorrect(prevIncorrect => prevIncorrect + 1)
                 }
-                
+
                 return newPos
             })
 
@@ -208,7 +218,7 @@ export const Text = (props: TextProps) => {
             if (currentIndex === currentTextRef.current.length - 1) {
                 props.onComplete(correct)
             }
-    
+
             // Update active character styling for new position
             const nextChar = textContainerRef.current?.querySelector(`#c${currentIndex + 1}`)
             if (nextChar) {
@@ -216,29 +226,29 @@ export const Text = (props: TextProps) => {
             }
         }
     }
-    
+
     const prevLetter = () => {
         if (position === 0) return
-        
+
         const prevIndex = position - 1
         const prevChar = textContainerRef.current?.querySelector(`#c${prevIndex}`)
         const currentChar = textContainerRef.current?.querySelector(`#c${position}`)
         currentChar?.classList.remove('active-char', 'text-primary')
-        
+
         if (prevChar) {
             // Reset DOM styling
             prevChar.classList.remove('text-base-300', 'text-secondary', 'underline')
-            
+
             // Update state tracking
             const wasIncorrect = charStatesRef.current.get(prevIndex) === 'incorrect'
             charStatesRef.current.delete(prevIndex)
-    
+
             // Update React states
             setPosition(prev => prev - 1)
             if (wasIncorrect) {
                 setIncorrect(prev => prev - 1)
             }
-    
+
             // Update active character styling
             prevChar.classList.add('active-char', 'text-primary')
         }
@@ -254,10 +264,10 @@ export const Text = (props: TextProps) => {
         <div id="text" className="relative flex flex-col max-h-24 leading-[2rem] overflow-hidden text-[22px] mb-8 max-w-screen-xl z-30">
             <input id="input" autoCapitalize="none" autoComplete="off" className="h-0 p-0 m-0 border-none" onKeyDown={handleKeyPress} ref={inputRef} autoFocus />
             <div className="flex flex-wrap justify-center overflow-y-hidden no-scrollbar scroll-smooth font-mono select-none" id="words" ref={typerRef}>
-            <div 
-                ref={textContainerRef}
-                dangerouslySetInnerHTML={{ __html: '' }}
-            />
+                <div
+                    ref={textContainerRef}
+                    dangerouslySetInnerHTML={{ __html: '' }}
+                />
                 {loadingText && <div className="w-8 h-8 rounded-full animate-spin border border-solid text-primary border-t-transparent"></div>}
             </div>
         </div>

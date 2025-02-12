@@ -8,7 +8,6 @@ import { useTimer } from "~/hooks/timer/useTimer"
 import { api } from "~/utils/api"
 import type { Level } from "./learn/levels"
 import { useSession } from "next-auth/react"
-import { set } from "zod"
 
 interface Keys {
     [key: string]: boolean
@@ -60,12 +59,23 @@ export const Typer = (props: TyperProps) => {
     const [gramWpm, setGramWpm] = useState(0.00)
     const [accuracy, setAccuracy] = useState(0.00)
     const [gramLevel, setGramLevel] = useState<number>(1)
+    const charAttemptsRef = useRef<Map<string, { attempts: number, correct: number }>>(new Map())
 
     // fetch types
     const { data: testType } = api.type.get.useQuery({ mode, subMode, language })
 
     // create test
     const createTest = api.test.create.useMutation({
+        onSuccess: () => {
+            // console.log("test created")
+        },
+        onError: (error) => {
+            console.log(error)
+        }
+    })
+
+    // update stats
+    const updateStats = api.practiceStats.update.useMutation({
         onSuccess: () => {
             // console.log("test created")
         },
@@ -119,6 +129,21 @@ export const Typer = (props: TyperProps) => {
         })
     }
 
+    const handleUpdateStats = () => {
+        if (!sessionData?.user) {
+            console.log('User not logged in. Stats not created.');
+            return;
+        }
+        
+        for (const [key, value] of charAttemptsRef.current) {
+            updateStats.mutate({
+                character: key,
+                total: value.attempts,
+                correct: value.correct
+            })
+        }
+    }
+
     const cancelRestartRef = useRef(false)
 
     const handleRestart = useCallback(() => {
@@ -126,6 +151,7 @@ export const Typer = (props: TyperProps) => {
         setTimeout(() => {
             if (cancelRestartRef.current) {
                 cancelRestartRef.current = false; // Reset the cancel flag
+                if (mode !== TestModes.ngrams) handleUpdateStats()
                 if (mode === TestModes.normal) {
                     if (subMode === TestSubModes.timed) {
                         setText(generateText(500, language))
@@ -178,13 +204,17 @@ export const Typer = (props: TyperProps) => {
             }
         }
 
+        if (mode !== TestModes.ngrams) handleUpdateStats()
+
         if (props.onTestComplete) props.onTestComplete()
     }
 
     const handleSetCharacterCount = (charCount: number) => {
         setCharacterCount(charCount)
     }
-    const handleSetIncorrectCount = (charCount: number) => setIncorrectCount(charCount)
+    const handleSetIncorrectCount = (charCount: number) => {
+        setIncorrectCount(charCount)
+    }
 
     useEffect(() => {
         if (!started) return
@@ -194,10 +224,9 @@ export const Typer = (props: TyperProps) => {
         const minutes = (actualEndTime - actualStartTime) / 60000
         if (mode !== TestModes.ngrams && minutes < 0.0001) return
 
-        const normalizedMinutes = subMode === TestSubModes.timed ? count - minutes : minutes
         // calculate wpm
-        if (normalizedMinutes == 0) setWpm(0)
-        else setWpm((characterCount / 5) / normalizedMinutes)
+        if (minutes == 0) setWpm(0)
+        else setWpm((characterCount / 5) / minutes)
 
         // calculate accuracy
         const correct = characterCount - incorrectCount
@@ -294,6 +323,7 @@ export const Typer = (props: TyperProps) => {
                 mode={mode}
                 started={started} restarted={restarted}
                 modalOpen={props.modalOpen}
+                charAttempts={charAttemptsRef.current}
                 onStart={handleStart}
                 onComplete={handleComplete}
                 setCharacterCount={handleSetCharacterCount}

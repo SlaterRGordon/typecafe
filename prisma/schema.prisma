@@ -56,7 +56,7 @@ model User {
     sessions            Session[]
     tests               Test[]
     colorConfigurations ColorConfiguration[]
-    blogPosts   BlogPost[]
+    practiceStats PracticeStats[]
 }
 
 model VerificationToken {
@@ -113,28 +113,14 @@ model TestType {
     tests Test[]
 }
 
-model BlogPost {
-  id            String         @id @default(cuid())
-  title         String
-  description   String
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  authorId      String
-  imageId       String?        @unique
-  content       String
-  author        User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  image         Image?         @relation(fields: [imageId], references: [id], onDelete: Cascade)
+model PracticeStats {
+    id          String   @id @default(cuid())
+    userId    String
+    character String @db.VarChar(1)  @unique
+    total Int
+    correct Int
+    createdAt   DateTime @default(now())
+    updatedAt   DateTime @updatedAt
 
-  @@index([authorId])
-  @@index([imageId])
-}
-
-model Image {
-  id          String   @id @default(cuid())
-  blob        Bytes
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @default(now())
-  blogPost      BlogPost?
-
-  @@index([id])
+    user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
