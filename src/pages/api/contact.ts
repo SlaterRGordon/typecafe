@@ -20,7 +20,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
             from: email,
             to: process.env.EMAIL_USER as string, // Your email address
             subject: `Contact form submission from ${name}`,
-            text: message,
+            text: email + message,
         };
 
         try {
