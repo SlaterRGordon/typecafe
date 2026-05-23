@@ -1,7 +1,7 @@
 import { addAlert } from "~/state/alert/alertSlice";
 import { TestModes } from "./types";
 import { useDispatch } from "react-redux";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { hslToHex, interpolateColor } from "~/utils/convertColor";
 import { useSecondaryStyle, useStyle } from "~/utils/hooks/useMutationObserver";
 
@@ -22,9 +22,6 @@ export const Keyboard = (props: KeyboardProps) => {
     const secondaryStyle = useSecondaryStyle();
 
     const [showStats, setShowStats] = useState(false)
-
-    useEffect(() => {
-    }, [style, secondaryStyle]);
 
     const handleKeyClicked = (key: string) => {
         if (!selectedKeys || !setSelectedKeys || mode !== TestModes.practice) return

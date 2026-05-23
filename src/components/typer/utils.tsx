@@ -124,7 +124,10 @@ export const generateBetterPseudoText = (count: number, characters: string[]) =>
 
             if (availableVowelChoices.length > 0) {
                 const randomIndex = Math.floor(Math.random() * availableVowelChoices.length)
-                text = text += availableVowelChoices[randomIndex] + ' '
+                const vowel = availableVowelChoices[randomIndex]
+                if (vowel) {
+                    text += vowel + ' '
+                }
                 continue
             } else {
                 wordLength = 2
