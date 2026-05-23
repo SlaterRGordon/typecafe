@@ -75,14 +75,10 @@ export const Typer = (props: TyperProps) => {
         }
     })
 
-    // update stats
-    const updateStats = api.practiceStats.update.useMutation({
-        onSuccess: () => {
-            // console.log("test created")
-        },
+    const syncPracticeStats = api.practiceStats.batchSync.useMutation({
         onError: (error) => {
-            console.log(error)
-        }
+            console.error(error)
+        },
     })
 
     const { time, initialTime, start, pause, reset, setInitialTime, actualStartTime } = useTimer({
@@ -131,20 +127,26 @@ export const Typer = (props: TyperProps) => {
     }
 
     const handleUpdateStats = () => {
-        if (!sessionData?.user) {
-            console.log('User not logged in. Stats not created.');
-            return;
-        }
-        
-        for (const [key, value] of charAttemptsRef.current) {
-            updateStats.mutate({
-                character: key,
-                total: value.attempts,
-                correct: value.correct
-            })
+        if (mode !== TestModes.practice) return
+        if (!sessionData?.user) return
 
-            charAttemptsRef.current.delete(key)
-        }
+        const stats = Array.from(charAttemptsRef.current.entries()).map(
+            ([character, value]) => ({
+                character,
+                total: value.attempts,
+                correct: value.correct,
+            }),
+        )
+
+        if (stats.length === 0) return
+
+        syncPracticeStats.mutate({ stats }, {
+            onSuccess: () => {
+                for (const key of stats.map((s) => s.character)) {
+                    charAttemptsRef.current.delete(key)
+                }
+            },
+        })
     }
 
     const cancelRestartRef = useRef(false)
