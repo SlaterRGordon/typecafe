@@ -14,6 +14,7 @@ export const ThemeSwitch = () => {
     //modify data-theme when theme changes
     useEffect(() => {
         const body = document.documentElement;
+        console.log(theme)
         // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
         body.setAttribute('data-theme', theme);
     }, [theme])

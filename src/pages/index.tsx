@@ -1,5 +1,5 @@
 import { type NextPage } from "next";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Modal } from "~/components/Modal";
 import { SupportCard } from "~/components/support/SupportCard";
 import { Keyboard } from "~/components/typer/Keyboard";
@@ -25,14 +25,11 @@ const Home: NextPage = () => {
   const [gramAccuracyThreshold, setGramAccuracyThreshold] = useState<number>(100)
   const [count, setCount] = useState(15)
   const [currentKey, setCurrentKey] = useState("")
+  const charAttemptsRef = useRef<Map<string, { attempts: number, correct: number }>>(new Map())
 
   const onKeyChange = (key: string) => {
     setCurrentKey(key)
   }
-
-  useEffect(() => {
-    console.log(selectedKeys)
-  }, [selectedKeys])
 
   return (
     <>
@@ -56,8 +53,11 @@ const Home: NextPage = () => {
           showConfig={true}
           modalOpen={modalOpen}
           onKeyChange={onKeyChange}
+          charAttemptsRef={charAttemptsRef}
         />
-        {showKeyboard || mode === TestModes.practice && <Keyboard mode={mode} currentKey={currentKey} selectedKeys={selectedKeys} setSelectedKeys={setSelectedKeys} />}
+        {(showKeyboard || mode === TestModes.practice) && 
+          <Keyboard mode={mode} currentKey={currentKey} selectedKeys={selectedKeys} setSelectedKeys={setSelectedKeys} charAttemptsRef={charAttemptsRef} />
+        }
       </div>
       <Modal setModalOpen={(open) => setModalOpen(open)}>
         <Config

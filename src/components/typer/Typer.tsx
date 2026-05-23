@@ -33,7 +33,8 @@ interface TyperProps {
     modalOpen: boolean,
     showConfig: boolean,
     fullscreen: boolean,
-    setFullscreen(fullscreen: boolean): void
+    setFullscreen(fullscreen: boolean): void,
+    charAttemptsRef: React.MutableRefObject<Map<string, { attempts: number, correct: number }>>
 }
 
 export const Typer = (props: TyperProps) => {
@@ -45,7 +46,8 @@ export const Typer = (props: TyperProps) => {
         count, showStats, showConfig,
         level,
         modalOpen,
-        fullscreen
+        fullscreen,
+        charAttemptsRef
     } = props
 
     const { data: sessionData } = useSession();
@@ -59,7 +61,6 @@ export const Typer = (props: TyperProps) => {
     const [gramWpm, setGramWpm] = useState(0.00)
     const [accuracy, setAccuracy] = useState(0.00)
     const [gramLevel, setGramLevel] = useState<number>(1)
-    const charAttemptsRef = useRef<Map<string, { attempts: number, correct: number }>>(new Map())
 
     // fetch types
     const { data: testType } = api.type.get.useQuery({ mode, subMode, language })
@@ -141,6 +142,8 @@ export const Typer = (props: TyperProps) => {
                 total: value.attempts,
                 correct: value.correct
             })
+
+            charAttemptsRef.current.delete(key)
         }
     }
 

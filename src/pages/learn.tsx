@@ -1,5 +1,5 @@
 import { type NextPage } from "next";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Typer } from "~/components/typer/Typer";
 import { TestGramScopes, TestGramSources, TestModes, TestSubModes } from "~/components/typer/types";
 import type { Difficulty, Level } from "~/components/typer/learn/levels";
@@ -28,6 +28,7 @@ const Learn: NextPage = () => {
     const [currentKey, setCurrentKey] = useState<string>("")
     const [levelChanged, setLevelChanged] = useState<boolean>(false)
     const [fullscreen, setFullscreen] = useState(false)
+    const charAttemptsRef = useRef<Map<string, { attempts: number, correct: number }>>(new Map())
 
     // fetch types
     const { data: testType } = api.type.get.useQuery({ mode, subMode, language: language })
@@ -165,9 +166,10 @@ const Learn: NextPage = () => {
                     onTestComplete={onTestComplete}
                     showStats={true}
                     showConfig={false}
+                    charAttemptsRef={charAttemptsRef}
                 />
             </div>
-            <Keyboard mode={mode} currentKey={currentKey} />
+            <Keyboard mode={mode} currentKey={currentKey}  charAttemptsRef={charAttemptsRef} />
         </div>
     );
 };

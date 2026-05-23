@@ -68,7 +68,6 @@ export const Text = (props: TextProps) => {
         if (props.restarted) {
             currentTextRef.current = props.text
             charStatesRef.current.clear()
-            props.charAttempts.clear()
             renderInitialText(props.text)
             setPosition(0)
             setIncorrect(0)
