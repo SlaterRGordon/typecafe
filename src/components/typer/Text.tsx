@@ -285,10 +285,11 @@ export const Text = (props: TextProps) => {
     }, [position, incorrect, setCharacterCount, setIncorrectCount, onKeyChange])
 
     return (
-        <div id="text" className="relative flex flex-col max-h-24 leading-[2rem] overflow-hidden text-[22px] mb-8 max-w-screen-xl z-30">
+        <div id="text" className="relative z-30 mb-8 flex w-full max-w-[calc(100vw-2rem)] max-h-24 leading-[2rem] flex-col overflow-hidden text-[20px] leading-[2rem] sm:max-h-24 sm:text-[22px] sm:leading-[2rem] md:max-w-screen-xl">
             <input id="input" autoCapitalize="none" autoComplete="off" className="h-0 p-0 m-0 border-none" onKeyDown={handleKeyPress} ref={inputRef} autoFocus />
-            <div className="flex flex-wrap justify-center overflow-y-hidden no-scrollbar scroll-smooth font-mono select-none" id="words" ref={typerRef}>
+            <div className="flex w-full flex-wrap justify-start overflow-y-hidden no-scrollbar scroll-smooth font-mono select-none sm:justify-center" id="words" ref={typerRef}>
                 <div
+                    className="max-w-full"
                     ref={textContainerRef}
                     dangerouslySetInnerHTML={{ __html: '' }}
                 />
