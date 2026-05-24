@@ -21,7 +21,7 @@ const getStorageKey = (difficulty: DifficultyName) => `typecafe.learnProgress.${
 
 const Learn: NextPage = () => {
     const dispatch = useDispatch()
-    const { data: sessionData } = useSession()
+    const { data: sessionData, status: sessionStatus } = useSession()
     const language = "english"
     const mode = TestModes.normal
     const subMode = TestSubModes.words
@@ -37,10 +37,11 @@ const Learn: NextPage = () => {
     const [levelChanged, setLevelChanged] = useState<boolean>(false)
     const [fullscreen, setFullscreen] = useState(false)
     const [localProgress, setLocalProgress] = useState<LearnProgress[]>([])
+    const [isLocalProgressLoaded, setIsLocalProgressLoaded] = useState(false)
     const charAttemptsRef = useRef<Map<string, { attempts: number, correct: number }>>(new Map())
 
     // fetch types
-    const { data: testType } = api.type.get.useQuery({ mode, subMode, language: language })
+    const { data: testType, isLoading: isLoadingTestType } = api.type.get.useQuery({ mode, subMode, language: language })
     const { data: tests = [], refetch: refetchTests,  isLoading: isLoadingTests } = api.test.getByLevels.useQuery({
         typeId: testType?.id ?? "",
     }, { enabled: !!testType?.id && !!sessionData?.user })
@@ -52,9 +53,11 @@ const Learn: NextPage = () => {
     const importLearnProgress = api.learnProgress.batchImport.useMutation()
 
     useEffect(() => {
+        setIsLocalProgressLoaded(false)
         const storedProgress = window.localStorage.getItem(getStorageKey(difficulty))
         if (!storedProgress) {
             setLocalProgress([])
+            setIsLocalProgressLoaded(true)
             return
         }
 
@@ -63,6 +66,7 @@ const Learn: NextPage = () => {
         } catch {
             setLocalProgress([])
         }
+        setIsLocalProgressLoaded(true)
     }, [difficulty])
 
     const difficultyOptions = [
@@ -103,6 +107,12 @@ const Learn: NextPage = () => {
     const levelOptions: Option[] = useMemo(() => getLevelOptions(completedProgress), [completedProgress, getLevelOptions])
     const hasDeviceProgress = localProgress.length > 0
     const shouldShowImportPrompt = !!sessionData?.user && hasDeviceProgress && persistedProgress.length > 0
+    const progressSelectedLevel = useMemo(() => {
+        const firstLocked = levelOptions.findIndex(levelOption => levelOption.isDisabled)
+        const levelIndex = firstLocked === -1 ? levels.length - 1 : firstLocked <= 0 ? 0 : firstLocked - 1
+
+        return levels[levelIndex] as Level
+    }, [levelOptions])
 
     const advanceToNextLevel = useCallback((updatedLevelOptions: Option[]) => {
         const currentLevelIndex = levels.findIndex(option => option.name == level.name)
@@ -214,6 +224,13 @@ const Learn: NextPage = () => {
         })
     }
 
+    const isLearnProgressLoading = sessionStatus === "loading" ||
+        isLoadingTestType ||
+        !isLocalProgressLoaded ||
+        importLearnProgress.isLoading ||
+        (!!sessionData?.user && (isLoadingTests || isLoadingSavedProgress))
+    const isLevelSelectionLoading = !levelChanged && level.name !== progressSelectedLevel.name
+
     useEffect(() => {
         if (!sessionData?.user || isLoadingSavedProgress || !hasDeviceProgress || persistedProgress.length > 0) return
 
@@ -227,19 +244,18 @@ const Learn: NextPage = () => {
     ])
     
     useEffect(() => {
-        if (levelChanged || (sessionData?.user && (isLoadingTests || isLoadingSavedProgress))) return
+        if (levelChanged || isLearnProgressLoading) return
 
-        const firstLocked = levelOptions.findIndex(levelOption => levelOption.isDisabled)
-        const levelIndex = firstLocked === -1 ? levels.length - 1 : firstLocked <= 0 ? 0 : firstLocked - 1
-        setLevel(levels[levelIndex] as Level)
-    }, [isLoadingSavedProgress, isLoadingTests, levelOptions, levelChanged, sessionData?.user])
+        setLevel(progressSelectedLevel)
+    }, [isLearnProgressLoading, progressSelectedLevel, levelChanged])
 
     const requirements = level[difficulty]
+    const isLearnContentLoading = isLearnProgressLoading || isLevelSelectionLoading
 
     return (
         <div className={`flex flex-col w-full h-full justify-center ${fullscreen ? 'absolute top-0 left-0 w-full h-full bg-base-100 z-[500]' : "relative"}`}>
             <div className="absolute top-0 flex flex-col w-full items-center gap-4 px-8 py-12">
-                {!sessionData?.user &&
+                {sessionStatus === "unauthenticated" &&
                     <div className="flex w-full justify-start">
                         <label className="btn btn-primary btn-sm" htmlFor="signInModal">
                             Sign in to save level progress
@@ -261,37 +277,45 @@ const Learn: NextPage = () => {
                 }
                 <div className="flex w-full">
                     <div className="flex w-full flex-wrap gap-2 md:w-8/12 lg:w-6/12">
-                        <Select
-                            instanceId="difficultySelect"
-                            defaultValue={difficultyOptions[0]}
-                            options={difficultyOptions}
-                            value={difficultyOptions.find(option => option.value == difficulty)}
-                            onChange={handleChangeDifficulty}
-                            isSearchable={false}
-                            className="my-react-select-container min-w-[8rem]"
-                            classNamePrefix="my-react-select"
-                        />
-                        <Select
-                            instanceId="levelSelect"
-                            defaultValue={levelOptions[0]}
-                            options={levelOptions}
-                            value={levelOptions.find(option => option.value == level.name)}
-                            onChange={handleChangeLevel}
-                            formatOptionLabel={(option) => {
-                                if (option.isDisabled) {
-                                    return (
-                                        <div className="flex justify-between">
-                                            <div>{option.label}</div>
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="currentColor" d="M6 22q-.825 0-1.413-.588T4 20V10q0-.825.588-1.413T6 8h1V6q0-2.075 1.463-3.538T12 1q2.075 0 3.538 1.463T17 6v2h1q.825 0 1.413.588T20 10v10q0 .825-.588 1.413T18 22H6Zm0-2h12V10H6v10Zm6-3q.825 0 1.413-.588T14 15q0-.825-.588-1.413T12 13q-.825 0-1.413.588T10 15q0 .825.588 1.413T12 17ZM9 8h6V6q0-1.25-.875-2.125T12 3q-1.25 0-2.125.875T9 6v2ZM6 20V10v10Z" /></svg>
-                                        </div>
-                                    )
-                                }
-                                return <div>{option.label}</div>
-                            }}
-                            isSearchable={false}
-                            className="my-react-select-container min-w-[10rem]"
-                            classNamePrefix="my-react-select"
-                        />
+                        {isLearnContentLoading ?
+                            <div className="flex h-10 items-center">
+                                <div className="h-8 w-8 animate-spin rounded-full border border-solid border-t-transparent text-primary"></div>
+                            </div>
+                            :
+                            <>
+                                <Select
+                                    instanceId="difficultySelect"
+                                    defaultValue={difficultyOptions[0]}
+                                    options={difficultyOptions}
+                                    value={difficultyOptions.find(option => option.value == difficulty)}
+                                    onChange={handleChangeDifficulty}
+                                    isSearchable={false}
+                                    className="my-react-select-container min-w-[8rem]"
+                                    classNamePrefix="my-react-select"
+                                />
+                                <Select
+                                    instanceId="levelSelect"
+                                    defaultValue={levelOptions[0]}
+                                    options={levelOptions}
+                                    value={levelOptions.find(option => option.value == level.name)}
+                                    onChange={handleChangeLevel}
+                                    formatOptionLabel={(option) => {
+                                        if (option.isDisabled) {
+                                            return (
+                                                <div className="flex justify-between">
+                                                    <div>{option.label}</div>
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="currentColor" d="M6 22q-.825 0-1.413-.588T4 20V10q0-.825.588-1.413T6 8h1V6q0-2.075 1.463-3.538T12 1q2.075 0 3.538 1.463T17 6v2h1q.825 0 1.413.588T20 10v10q0 .825-.588 1.413T18 22H6Zm0-2h12V10H6v10Zm6-3q.825 0 1.413-.588T14 15q0-.825-.588-1.413T12 13q-.825 0-1.413.588T10 15q0 .825.588 1.413T12 17ZM9 8h6V6q0-1.25-.875-2.125T12 3q-1.25 0-2.125.875T9 6v2ZM6 20V10v10Z" /></svg>
+                                                </div>
+                                            )
+                                        }
+                                        return <div>{option.label}</div>
+                                    }}
+                                    isSearchable={false}
+                                    className="my-react-select-container min-w-[10rem]"
+                                    classNamePrefix="my-react-select"
+                                />
+                            </>
+                        }
                     </div>
                 </div>
                 <div className="flex w-full basis-0 grow justify-start items-center gap-4">
@@ -308,30 +332,39 @@ const Learn: NextPage = () => {
                     </div>
             </div>
             <div className="flex w-full justify-center">
-                <Typer
-                    fullscreen={fullscreen}
-                    setFullscreen={(full) => setFullscreen(full)}
-                    language={language}
-                    modalOpen={false}
-                    mode={mode}
-                    subMode={subMode}
-                    gramSource={gramSource}
-                    gramScope={gramScope}
-                    gramCombination={gramCombination}
-                    gramRepetition={gramRepetition}
-                    gramWpmThreshold={gramWpmThreshold}
-                    gramAccuracyThreshold={gramAccuracyThreshold}
-                    count={level.count}
-                    level={level}
-                    levelRequirements={requirements}
-                    onKeyChange={onKeyChange}
-                    onTestComplete={onTestComplete}
-                    showStats={true}
-                    showConfig={false}
-                    charAttemptsRef={charAttemptsRef}
-                />
+                {isLearnContentLoading ?
+                    <div className="flex min-h-[12rem] items-center">
+                        <div className="h-8 w-8 animate-spin rounded-full border border-solid border-t-transparent text-primary"></div>
+                    </div>
+                    :
+                    <Typer
+                        key={`${difficulty}-${level.name}`}
+                        fullscreen={fullscreen}
+                        setFullscreen={(full) => setFullscreen(full)}
+                        language={language}
+                        modalOpen={false}
+                        mode={mode}
+                        subMode={subMode}
+                        gramSource={gramSource}
+                        gramScope={gramScope}
+                        gramCombination={gramCombination}
+                        gramRepetition={gramRepetition}
+                        gramWpmThreshold={gramWpmThreshold}
+                        gramAccuracyThreshold={gramAccuracyThreshold}
+                        count={level.count}
+                        level={level}
+                        levelRequirements={requirements}
+                        onKeyChange={onKeyChange}
+                        onTestComplete={onTestComplete}
+                        showStats={true}
+                        showConfig={false}
+                        charAttemptsRef={charAttemptsRef}
+                    />
+                }
             </div>
-            <Keyboard mode={mode} currentKey={currentKey} charAttemptsRef={charAttemptsRef} highlightKeys={level.keys.split("")} />
+            {!isLearnContentLoading &&
+                <Keyboard mode={mode} currentKey={currentKey} charAttemptsRef={charAttemptsRef} highlightKeys={level.keys.split("")} />
+            }
         </div>
     );
 };
