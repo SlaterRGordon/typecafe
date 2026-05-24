@@ -24,7 +24,7 @@ export const CustomColorButton = ({ name, preset, id, setColors, refetch }: Prop
         <button style={{
             backgroundColor: preset["--b1"],
             color: preset["--bc"],
-        }} className={`relative btn flex flex-col w-28 sm:w-44 md:w-48 !h-[unset] border rounded-md px-4 py-2 my-1 hover:shadow-lg hover:opacity-70`}
+        }} className="relative btn flex w-full flex-col !h-[unset] border rounded-md px-4 py-2 hover:shadow-lg hover:opacity-70"
             onClick={() => { setColors(preset, name) }}
         >
             <h2 className="uppercase font-bold">{name}</h2>

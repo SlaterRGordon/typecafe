@@ -166,7 +166,7 @@ export const ColorModal = () => {
                             <div>
                                 <h3 className="font-bold text-2xl">Saved Colors</h3>
                                 {sessionData?.user?.id ?
-                                    <div className="flex space-x-1">
+                                    <div className="grid w-full grid-cols-2 gap-2">
                                         {savedColors?.map((colorConfiguration) => {
                                             const colors: Colors = {
                                                 "--b1": colorConfiguration.background,
@@ -179,7 +179,7 @@ export const ColorModal = () => {
 
                                             return <CustomColorButton key={colorConfiguration.id} id={colorConfiguration.id} name={colorConfiguration.name} preset={withReadableContentColors(colors)} setColors={setPreset} refetch={refetchSavedColors} />
                                         })}
-                                        {savedColors?.length == 0 && <h2 className="text-xl">No saved colors yet</h2>}
+                                        {savedColors?.length == 0 && <h2 className="col-span-2 text-xl">No saved colors yet</h2>}
                                     </div>
                                     :
                                     <>
@@ -191,7 +191,7 @@ export const ColorModal = () => {
                         {tab == "presets" &&
                             <div>
                                 <h3 className="font-bold text-2xl">Color Presets</h3>
-                                <div className="flex gap-1 flex-wrap">
+                                <div className="grid w-full grid-cols-2 gap-2">
                                     <PresetButton name="Dracula" preset={presets.dracula} hoverStyle="hover:!bg-dracula" setColors={setPreset} />
                                     <PresetButton name="Pastel" preset={presets.pastel} hoverStyle="hover:!bg-pastel" setColors={setPreset} />
                                     <PresetButton name="Aqua" preset={presets.aqua} hoverStyle="hover:!bg-aqua" setColors={setPreset} />

@@ -14,7 +14,7 @@ export const PresetButton = ({ name, preset, hoverStyle, setColors }: Props) => 
             backgroundColor: preset["--b1"], 
             borderColor: "#878787", 
             color: preset["--bc"],
-        }} className={`btn flex flex-col w-28 sm:w-44 md:w-48 !h-[unset] border rounded-md px-4 py-2 my-1 ${hoverStyle}`} 
+        }} className={`btn flex w-full flex-col !h-[unset] border rounded-md px-4 py-2 ${hoverStyle}`}
             onClick={() => {setColors(preset, "")}}
         >
             <h2 className="uppercase font-bold">{name}</h2>
