@@ -260,7 +260,7 @@ const Learn: NextPage = () => {
                     </div>
                 }
                 <div className="flex w-full">
-                    <div className="flex w-6/12 gap-2">
+                    <div className="flex w-full flex-wrap gap-2 md:w-8/12 lg:w-6/12">
                         <Select
                             instanceId="difficultySelect"
                             defaultValue={difficultyOptions[0]}
@@ -268,7 +268,7 @@ const Learn: NextPage = () => {
                             value={difficultyOptions.find(option => option.value == difficulty)}
                             onChange={handleChangeDifficulty}
                             isSearchable={false}
-                            className="my-react-select-container"
+                            className="my-react-select-container min-w-[8rem]"
                             classNamePrefix="my-react-select"
                         />
                         <Select
@@ -289,7 +289,7 @@ const Learn: NextPage = () => {
                                 return <div>{option.label}</div>
                             }}
                             isSearchable={false}
-                            className="my-react-select-container"
+                            className="my-react-select-container min-w-[10rem]"
                             classNamePrefix="my-react-select"
                         />
                     </div>
