@@ -20,6 +20,7 @@ const MyApp: AppType<{ session: Session | null }> = ({
         <Layout>
           <Head>
             <title>Type Cafe</title>
+            <meta name="viewport" content="width=device-width, initial-scale=1" />
           </Head>
           <Component {...pageProps} />
         </Layout>

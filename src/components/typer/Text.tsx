@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { generateText } from "./utils"
 import { TestModes } from "./types"
 
@@ -132,19 +132,20 @@ export const Text = (props: TextProps) => {
         }
     }, [])
 
-    useEffect(() => {
-        if (restarted) {
-            currentTextRef.current = text
-            charStatesRef.current.clear()
-            renderInitialText(text)
-            setPosition(0)
-            setIncorrect(0)
+    useLayoutEffect(() => {
+        if (!restarted) return
 
-            const restartBtn = document.getElementById("restart") as HTMLButtonElement
-            if (restartBtn) restartBtn.classList.remove("blinking", "text-primary")
-            const input = inputRef.current
-            if (input && !modalOpen) input.focus()
-        }
+        currentTextRef.current = text
+        charStatesRef.current.clear()
+        setLoadingText(text.length === 0)
+        renderInitialText(text)
+        setPosition(0)
+        setIncorrect(0)
+
+        const restartBtn = document.getElementById("restart") as HTMLButtonElement
+        if (restartBtn) restartBtn.classList.remove("blinking", "text-primary")
+        const input = inputRef.current
+        if (input && !modalOpen) input.focus()
     }, [modalOpen, renderInitialText, restarted, text])
 
     // Append new text when needed (relaxed mode)
@@ -291,7 +292,6 @@ export const Text = (props: TextProps) => {
                 <div
                     className="max-w-full"
                     ref={textContainerRef}
-                    dangerouslySetInnerHTML={{ __html: '' }}
                 />
                 {loadingText && <div className="w-8 h-8 rounded-full animate-spin border border-solid text-primary border-t-transparent"></div>}
             </div>

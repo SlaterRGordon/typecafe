@@ -126,7 +126,7 @@ const Learn: NextPage = () => {
     }, [level.name])
 
     const importDeviceProgress = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
-        if (!sessionData?.user || localProgress.length === 0 || importLearnProgress.isLoading) return
+        if (!sessionData?.user || localProgress.length === 0 || importLearnProgress.isPending) return
 
         try {
             await importLearnProgress.mutateAsync({
@@ -217,8 +217,8 @@ const Learn: NextPage = () => {
     const isLearnProgressLoading = sessionStatus === "loading" ||
         isLoadingTestType ||
         !isLocalProgressLoaded ||
-        importLearnProgress.isLoading ||
-        completeLearnProgress.isLoading ||
+        importLearnProgress.isPending ||
+        completeLearnProgress.isPending ||
         (!!sessionData?.user && isLoadingSavedProgress)
     const isLevelSelectionLoading = !levelChanged && level.name !== progressSelectedLevel.name
 
@@ -259,7 +259,7 @@ const Learn: NextPage = () => {
                         <button
                             className="btn btn-primary btn-sm"
                             type="button"
-                            disabled={importLearnProgress.isLoading}
+                            disabled={importLearnProgress.isPending}
                             onClick={() => void importDeviceProgress()}
                         >
                             Import progress
@@ -291,7 +291,7 @@ const Learn: NextPage = () => {
                                     options={levelOptions}
                                     value={levelOptions.find(option => option.value == level.name)}
                                     onChange={handleChangeLevel}
-                                    formatOptionLabel={(option) => {
+                                    formatOptionLabel={(option: Option) => {
                                         if (option.isDisabled) {
                                             return (
                                                 <div className="flex justify-between">

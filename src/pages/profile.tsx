@@ -1,4 +1,3 @@
-import { Typography } from "@mui/material";
 import { type NextPage } from "next";
 import { signOut, useSession } from "next-auth/react";
 import { Stats } from "~/components/profile/stats/Stats";
@@ -204,16 +203,16 @@ const Profile: NextPage = () => {
           <div className="flex basis-0 grow justify-stretch flex-col 2xl:items-center w-full">
             <div className="flex w-full gap-4 flex-col">
               <div className="flex flex-col">
-                <Typography variant="h5" className="my-2"><strong>Stats</strong></Typography>
+                <h2 className="my-2 text-2xl font-bold">Stats</h2>
                 <Stats profile={null} />
               </div>
               <div className="hidden flex-col md:flex">
-                <Typography variant="h5" className="my-2"><strong>Activity</strong></Typography>
+                <h2 className="my-2 text-2xl font-bold">Activity</h2>
                 <Activity profile={null} />
               </div>
             </div>
             <div className="flex basis-0 grow justify-stretch flex-col overflow-x-auto overflow-y-auto min-h-[532px] w-full py-4 gap-2">
-              <Typography variant="h5" className="my-2"><strong>Best Scores</strong></Typography>
+              <h2 className="my-2 text-2xl font-bold">Best Scores</h2>
               <div className="flex gap-2">
                 <Select
                   instanceId="languageSeelect"
