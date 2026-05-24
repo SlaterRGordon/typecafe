@@ -4,7 +4,7 @@ import useLocalStorage from "~/utils/hooks/useLocalStorage";
 import { Popover } from "./Popover";
 import { getDarkerShades, hexToHsl } from "~/utils/convertColor";
 import { ColorButton } from "./ColorButton";
-import { presets } from "./colorPresets";
+import { presets, withReadableContentColors } from "./colorPresets";
 import type { Colors } from "./colorPresets";
 import { PresetButton } from "./PresetButton";
 import { api } from "~/utils/api";
@@ -83,13 +83,25 @@ export const ColorModal = () => {
 
     // convert hex to hsl and set color
     const setColor = (color: string) => {
-        setColors({ ...colors, [currentKey]: color })
+        const nextColors = { ...colors, [currentKey]: color }
+
+        if (currentKey === "--p") {
+            setColors(withReadableContentColors({ ...nextColors, "--pc": "" }))
+            return
+        }
+
+        if (currentKey === "--s") {
+            setColors(withReadableContentColors({ ...nextColors, "--sc": "" }))
+            return
+        }
+
+        setColors(withReadableContentColors(nextColors))
     }
 
     // set colors to a preset
     const setPreset = (preset: Colors, name: string) => {
         setName(name)
-        setColors(preset)
+        setColors(withReadableContentColors(preset))
     }
 
     // states to manage color picker popover
@@ -112,22 +124,26 @@ export const ColorModal = () => {
 
     // update document property on color change
     useEffect(() => {
-        for (const key in colors) {
-            if (colors[key as keyof Colors] != "") {
-                const hsl = hexToHsl(colors[key as keyof Colors])
+        const normalizedColors = withReadableContentColors(colors)
+
+        if (normalizedColors["--pc"] !== colors["--pc"] || normalizedColors["--sc"] !== colors["--sc"]) {
+            setColors(normalizedColors)
+            return
+        }
+
+        for (const key in normalizedColors) {
+            if (normalizedColors[key as keyof Colors] != "") {
+                const hsl = hexToHsl(normalizedColors[key as keyof Colors])
                 document.documentElement.style.setProperty(key, hsl)
                 if (key == "--b1") {
-                    const darkerShades = getDarkerShades(hexToHsl(colors[key as keyof Colors]))
+                    const darkerShades = getDarkerShades(hexToHsl(normalizedColors[key as keyof Colors]))
                     document.documentElement.style.setProperty("--b2", darkerShades[0] as string)
                     document.documentElement.style.setProperty("--b3", darkerShades[1] as string)
                     document.documentElement.style.setProperty("--n", darkerShades[3] as string)
                     document.documentElement.style.setProperty("--nf", darkerShades[3] as string)
                 } else if (key == "--p" || key == "--s") {
-                    const darkerShades = getDarkerShades(hexToHsl(colors[key as keyof Colors]))
+                    const darkerShades = getDarkerShades(hexToHsl(normalizedColors[key as keyof Colors]))
                     document.documentElement.style.setProperty(`${key}f`, darkerShades[3] as string)
-                    const lightness = hsl.split(" ")[2]?.slice(0, -1)
-                    if (parseFloat(lightness as string) < 50) document.documentElement.style.setProperty(`${key}c`, "0 0% 100%")
-                    else document.documentElement.style.setProperty(`${key}c`, "0 0% 0%")
                 }
             }
         }
@@ -156,10 +172,12 @@ export const ColorModal = () => {
                                                 "--b1": colorConfiguration.background,
                                                 "--bc": colorConfiguration.text,
                                                 "--p": colorConfiguration.primary,
-                                                "--s": colorConfiguration.secondary
+                                                "--s": colorConfiguration.secondary,
+                                                "--pc": "",
+                                                "--sc": "",
                                             }
 
-                                            return <CustomColorButton key={colorConfiguration.id} id={colorConfiguration.id} name={colorConfiguration.name} preset={colors} setColors={setPreset} refetch={refetchSavedColors} />
+                                            return <CustomColorButton key={colorConfiguration.id} id={colorConfiguration.id} name={colorConfiguration.name} preset={withReadableContentColors(colors)} setColors={setPreset} refetch={refetchSavedColors} />
                                         })}
                                         {savedColors?.length == 0 && <h2 className="text-xl">No saved colors yet</h2>}
                                     </div>
