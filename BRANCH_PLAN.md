@@ -472,9 +472,9 @@ Text.tsx fixes, Typer restart deps, full smoke test, fix merge conflicts if any.
 | Phase | Status | Owner | Notes |
 |-------|--------|-------|-------|
 | 1 Backend | ✅ | Agent | Schema, router, Typer batchSync wired |
-| 2 Practice | ⬜ | | |
-| 3 Learn | ⬜ | | |
-| 4 Shared typer | ⬜ | | |
+| 2 Practice | ✅ | Agent | Heatmap live updates, practice-only sync, persisted heatmap stats, cleanup |
+| 3 Learn | ✅ | Agent | Threshold gates, unlock logic, target key highlights, query cleanup |
+| 4 Shared typer | ✅ | Agent | Text hygiene and restart deps completed |
 | 5 QA | ⬜ | | |
 
 _Update this table as phases complete._
