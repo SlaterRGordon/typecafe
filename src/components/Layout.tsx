@@ -1,8 +1,9 @@
+import type { ReactNode } from "react";
 import { Alerts } from "./Alerts";
 import { Navigation } from "./navigation/Navigation"
 
 
-export default function Layout({ children }: any) {
+export default function Layout({ children }: { children: ReactNode }) {
 
     return (
         <>

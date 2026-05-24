@@ -16,7 +16,7 @@ Audit scope: full repo with extra attention to the typing surface (`src/componen
 
 ## Must fix
 
-### 1. `PracticeStats` schema — global unique on `character`
+### 1. `PracticeStats` schema — global unique on `character` (DONE)
 
 **Status:** Fixed in Phase 1 — `@@unique([userId, character])`.
 
@@ -37,7 +37,7 @@ model PracticeStats {
 
 ---
 
-### 2. `practiceStats.update` uses wrong `where` fields
+### 2. `practiceStats.update` uses wrong `where` fields (DONE)
 
 **Status:** Fixed in Phase 1 — correct lookup + `batchSync` added.
 
@@ -65,7 +65,7 @@ return ctx.prisma.practiceStats.update({
 
 ---
 
-### 3. `user.createUser` stores plaintext passwords
+### 3. `user.createUser` stores plaintext passwords (DONE)
 
 ```typescript
 createUser: protectedProcedure
@@ -88,7 +88,7 @@ createUser: protectedProcedure
 
 ---
 
-### 4. Public mutations that should be admin-only
+### 4. Public mutations that should be admin-only (DONE)
 
 ```typescript
 create: publicProcedure
@@ -106,7 +106,9 @@ Unauthenticated clients can create `TestType` rows and pollute the DB.
 
 ---
 
-### 5. Unvalidated dynamic `orderBy` (DoS / unexpected queries)
+### 5. Unvalidated dynamic `orderBy` (DoS / unexpected queries) (DONE)
+
+**Status:** Fixed in this pass — `test.getAll` and `test.getByUser` now validate `orderBy` and `order` with Zod enums.
 
 ```typescript
 orderBy: {
@@ -122,7 +124,7 @@ orderBy: {
 
 ---
 
-### 6. `getUserByEmail` can return password hash
+### 6. `getUserByEmail` can return password hash (DONE)
 
 ```typescript
 getUserByEmail: protectedProcedure
@@ -140,7 +142,7 @@ No `select`; full user row (including `password`) goes to any authenticated user
 
 ---
 
-### 7. Division by zero in n-gram level-up logic
+### 7. Division by zero in n-gram level-up logic (DONE)
 
 ```typescript
 if (wpm >= props.gramWpmThreshold && (characterCount + (correct ? 1 : -1) - incorrectCount) / characterCount * 100 >= props.gramAccuracyThreshold) {
@@ -154,7 +156,7 @@ When `characterCount === 0`, this yields `NaN` and level logic becomes unpredict
 
 ---
 
-### 8. Relaxed mode text length desync
+### 8. Relaxed mode text length desync (DONE)
 
 ```typescript
 const newText = generateText(100, props.language)
@@ -170,7 +172,7 @@ DOM gets a leading space; `currentTextRef` does not. Indices for completion and 
 
 ---
 
-### 9. Dead / dangerous import in `Text.tsx`
+### 9. Dead / dangerous import in `Text.tsx` (DONE)
 
 ```typescript
 import { init } from "next/dist/compiled/webpack/webpack"
@@ -186,7 +188,7 @@ Unused internal Next/webpack import — risks build breakage across Next version
 
 ## Should fix
 
-### 10. Practice stats: N parallel mutations, no batching
+### 10. Practice stats: N parallel mutations, no batching (DONE)
 
 **Status:** Fixed in Phase 1 — `practiceStats.batchSync` replaces per-key `update` loop.
 
@@ -194,7 +196,7 @@ Unused internal Next/webpack import — risks build breakage across Next version
 
 ---
 
-### 11. `createTest` with possibly undefined `typeId`
+### 11. `createTest` with possibly undefined `typeId` (DONE)
 
 ```typescript
 createTest.mutate({
@@ -209,7 +211,9 @@ If `api.type.get` has not resolved, `typeId` is `undefined` cast to string → f
 
 ---
 
-### 12. Keyboard accuracy UI won't update on ref-only changes
+### 12. Keyboard accuracy UI won't update on ref-only changes (DONE)
+
+**Status:** Fixed in this pass — typing updates now bump an `attemptVersion` state in the page so the keyboard heatmap re-renders even when the current key value is unchanged.
 
 `Keyboard` reads `charAttemptsRef.current` during render. Ref updates in `Text` do not trigger re-renders; heatmap colors update only when something else re-renders (e.g. `currentKey`).
 
@@ -219,7 +223,9 @@ If `api.type.get` has not resolved, `typeId` is `undefined` cast to string → f
 
 ---
 
-### 13. `useMutationObserver` — no null guard
+### 13. `useMutationObserver` — no null guard (DONE)
+
+**Status:** Fixed in this pass — missing observer targets now bail out before `observe`.
 
 ```typescript
 const targetNode = document.querySelector(domNodeSelector);
@@ -234,7 +240,9 @@ If `document.querySelector` returns null (SSR/hydration), this throws.
 
 ---
 
-### 14. Global `keydown` listeners without full cleanup symmetry
+### 14. Global `keydown` listeners without full cleanup symmetry (DONE)
+
+**Status:** Fixed in this pass — `Text` now registers named click/keydown handlers and removes both in cleanup.
 
 `Text.tsx` adds listeners on `#typer` click and `window` keydown but the effect cleanup only runs on unmount — and the effect deps `[inputRef]` never change, so listeners are never removed on remount patterns.
 
@@ -244,7 +252,9 @@ If `document.querySelector` returns null (SSR/hydration), this throws.
 
 ---
 
-### 15. `useEffect` dependency on entire `props` object
+### 15. `useEffect` dependency on entire `props` object (DONE)
+
+**Status:** Fixed in this pass — `Text` destructures the props it uses and depends on the specific callbacks/values.
 
 ```typescript
 useEffect(() => {
@@ -261,7 +271,9 @@ Runs on every parent render; can amplify updates and WPM recalculation churn in 
 
 ---
 
-### 16. `handleRestart` missing from effect deps
+### 16. `handleRestart` missing from effect deps (DONE)
+
+**Status:** Fixed in this pass — restart logic is wrapped in `useCallback`, and the restart effect depends on `handleRestart`.
 
 ```typescript
 useEffect(() => {
