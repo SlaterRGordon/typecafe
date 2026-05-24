@@ -55,7 +55,8 @@ model User {
     sessions            Session[]
     tests               Test[]
     colorConfigurations ColorConfiguration[]
-    practiceStats PracticeStats[]
+    practiceStats       PracticeStats[]
+    learnProgress       LearnProgress[]
 }
 
 model VerificationToken {
@@ -124,5 +125,21 @@ model PracticeStats {
     user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
     @@unique([userId, character])
+    @@index([userId])
+}
+
+model LearnProgress {
+    id         String   @id @default(cuid())
+    userId     String
+    difficulty String
+    options    String
+    speed      Float
+    accuracy   Float
+    createdAt  DateTime @default(now())
+    updatedAt  DateTime @updatedAt
+
+    user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    @@unique([userId, difficulty, options])
     @@index([userId])
 }

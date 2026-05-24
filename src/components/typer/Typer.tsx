@@ -15,6 +15,13 @@ interface Keys {
     [key: string]: boolean
 }
 
+export interface TestCompletionResult {
+    speed: number,
+    accuracy: number,
+    levelName?: string,
+    persisted: boolean,
+}
+
 interface TyperProps {
     language: string,
     mode: TestModes,
@@ -32,7 +39,7 @@ interface TyperProps {
     levelRequirements?: { wpm: number, accuracy: number },
     onKeyChange: (key: string) => void,
     onAttemptChange?: () => void,
-    onTestComplete?(): void,
+    onTestComplete?(result: TestCompletionResult): void,
     showStats: boolean,
     modalOpen: boolean,
     showConfig: boolean,
@@ -69,6 +76,7 @@ export const Typer = (props: TyperProps) => {
     const [gramWpm, setGramWpm] = useState(0.00)
     const [accuracy, setAccuracy] = useState(0.00)
     const [gramLevel, setGramLevel] = useState<number>(1)
+    const pendingCompletionRef = useRef<TestCompletionResult | null>(null)
 
     // fetch types
     const { data: testType } = api.type.get.useQuery({ mode, subMode, language })
@@ -76,7 +84,11 @@ export const Typer = (props: TyperProps) => {
     // create test
     const createTest = api.test.create.useMutation({
         onSuccess: () => {
-            // console.log("test created")
+            const completion = pendingCompletionRef.current
+            if (completion) {
+                props.onTestComplete?.({ ...completion, persisted: true })
+                pendingCompletionRef.current = null
+            }
         },
         onError: (error) => {
             console.log(error)
@@ -130,6 +142,13 @@ export const Typer = (props: TyperProps) => {
         }
 
         if (!testType?.id) return
+
+        pendingCompletionRef.current = {
+            speed: testWpm,
+            accuracy: testAccuracy,
+            levelName: level?.name,
+            persisted: false,
+        }
 
         createTest.mutate({
             typeId: testType.id,
@@ -224,8 +243,16 @@ export const Typer = (props: TyperProps) => {
                     type: "warning",
                 }))
             } else {
-                handleCreateTest(finalStats.speed, finalStats.accuracy)
-                if (props.onTestComplete) props.onTestComplete()
+                if (sessionData?.user) {
+                    handleCreateTest(finalStats.speed, finalStats.accuracy)
+                } else {
+                    props.onTestComplete?.({
+                        speed: finalStats.speed,
+                        accuracy: finalStats.accuracy,
+                        levelName: level?.name,
+                        persisted: false,
+                    })
+                }
             }
         } else if (mode === TestModes.ngrams) {
             if (finalStats.speed >= props.gramWpmThreshold &&

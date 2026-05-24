@@ -1,5 +1,5 @@
 import { type NextPage } from "next";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Typer } from "~/components/typer/Typer";
 import { TestGramScopes, TestGramSources, TestModes, TestSubModes } from "~/components/typer/types";
 import type { Level } from "~/components/typer/learn/levels";
@@ -10,12 +10,18 @@ import type { SingleValue } from "react-select";
 import { Keyboard } from "~/components/typer/Keyboard";
 import { useDispatch } from "react-redux";
 import { addAlert } from "~/state/alert/alertSlice";
+import { useSession } from "next-auth/react";
+import type { TestCompletionResult } from "~/components/typer/Typer";
 
 type Option = { label: string, value: number | string, isDisabled: boolean }
 type DifficultyName = "easy" | "medium" | "hard"
+type LearnProgress = { options: string, speed: number, accuracy: number }
+
+const getStorageKey = (difficulty: DifficultyName) => `typecafe.learnProgress.${difficulty}`
 
 const Learn: NextPage = () => {
     const dispatch = useDispatch()
+    const { data: sessionData } = useSession()
     const language = "english"
     const mode = TestModes.normal
     const subMode = TestSubModes.words
@@ -30,13 +36,34 @@ const Learn: NextPage = () => {
     const [currentKey, setCurrentKey] = useState<string>("")
     const [levelChanged, setLevelChanged] = useState<boolean>(false)
     const [fullscreen, setFullscreen] = useState(false)
+    const [localProgress, setLocalProgress] = useState<LearnProgress[]>([])
     const charAttemptsRef = useRef<Map<string, { attempts: number, correct: number }>>(new Map())
 
     // fetch types
     const { data: testType } = api.type.get.useQuery({ mode, subMode, language: language })
     const { data: tests = [], refetch: refetchTests,  isLoading: isLoadingTests } = api.test.getByLevels.useQuery({
         typeId: testType?.id ?? "",
-    }, { enabled: !!testType?.id })
+    }, { enabled: !!testType?.id && !!sessionData?.user })
+    const {
+        data: savedProgress = [],
+        refetch: refetchSavedProgress,
+        isLoading: isLoadingSavedProgress,
+    } = api.learnProgress.getByDifficulty.useQuery({ difficulty }, { enabled: !!sessionData?.user })
+    const importLearnProgress = api.learnProgress.batchImport.useMutation()
+
+    useEffect(() => {
+        const storedProgress = window.localStorage.getItem(getStorageKey(difficulty))
+        if (!storedProgress) {
+            setLocalProgress([])
+            return
+        }
+
+        try {
+            setLocalProgress(JSON.parse(storedProgress) as LearnProgress[])
+        } catch {
+            setLocalProgress([])
+        }
+    }, [difficulty])
 
     const difficultyOptions = [
         { value: "easy", label: 'Easy' },
@@ -50,10 +77,10 @@ const Learn: NextPage = () => {
         }
     }
 
-    const levelOptions: Option[] = useMemo(() => levels.map((level: Level, index: number, array: Level[]) => {
+    const getLevelOptions = useCallback((completedTests: LearnProgress[]): Option[] => levels.map((level: Level, index: number, array: Level[]) => {
         if (level.name == "Level 1") return { value: level.name, label: level.name, isDisabled: false } as Option
 
-        const levelTest = tests?.find(test => test.options == array[index - 1]?.name)
+        const levelTest = completedTests?.find(test => test.options == array[index - 1]?.name)
         const previousLevel = array[index - 1]
         const requirements = previousLevel?.[difficulty]
 
@@ -62,7 +89,79 @@ const Learn: NextPage = () => {
         }
 
         return { value: level.name, label: level.name, isDisabled: true } as Option
-    }), [difficulty, tests])
+    }), [difficulty])
+
+    const persistedProgress: LearnProgress[] = useMemo(() => [
+        ...tests.map(test => ({ options: test.options, speed: test.speed, accuracy: test.accuracy })),
+        ...savedProgress.map(progress => ({
+            options: progress.options,
+            speed: progress.speed,
+            accuracy: progress.accuracy,
+        })),
+    ], [savedProgress, tests])
+    const completedProgress: LearnProgress[] = sessionData?.user ? persistedProgress : localProgress
+    const levelOptions: Option[] = useMemo(() => getLevelOptions(completedProgress), [completedProgress, getLevelOptions])
+    const hasDeviceProgress = localProgress.length > 0
+    const shouldShowImportPrompt = !!sessionData?.user && hasDeviceProgress && persistedProgress.length > 0
+
+    const advanceToNextLevel = useCallback((updatedLevelOptions: Option[]) => {
+        const currentLevelIndex = levels.findIndex(option => option.name == level.name)
+        const nextLevel = levels[currentLevelIndex + 1]
+        const nextLevelOption = nextLevel ? updatedLevelOptions.find(option => option.value == nextLevel.name) : undefined
+
+        if (nextLevel && nextLevelOption && !nextLevelOption.isDisabled) {
+            setLevel(nextLevel)
+            setLevelChanged(true)
+            return
+        }
+
+        setLevelChanged(false)
+    }, [level.name])
+
+    const importDeviceProgress = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
+        if (!sessionData?.user || localProgress.length === 0 || importLearnProgress.isLoading) return
+
+        try {
+            await importLearnProgress.mutateAsync({
+                difficulty,
+                progress: localProgress,
+            })
+            window.localStorage.removeItem(getStorageKey(difficulty))
+            setLocalProgress([])
+            const [testsResult, savedResult] = await Promise.all([
+                refetchTests(),
+                refetchSavedProgress(),
+            ])
+            advanceToNextLevel(getLevelOptions([
+                ...(testsResult.data ?? []).map(test => ({
+                    options: test.options,
+                    speed: test.speed,
+                    accuracy: test.accuracy,
+                })),
+                ...(savedResult.data ?? []).map(progress => ({
+                    options: progress.options,
+                    speed: progress.speed,
+                    accuracy: progress.accuracy,
+                })),
+            ]))
+            if (!silent) {
+                dispatch(addAlert({ message: "Device progress imported to your account.", type: "success" }))
+            }
+        } catch (error) {
+            console.log(error)
+            dispatch(addAlert({ message: "Could not import device progress.", type: "error" }))
+        }
+    }, [
+        difficulty,
+        dispatch,
+        advanceToNextLevel,
+        getLevelOptions,
+        importLearnProgress,
+        localProgress,
+        refetchSavedProgress,
+        refetchTests,
+        sessionData?.user,
+    ])
 
     const handleChangeLevel = (value: SingleValue<Option>) => {
         if (value && !value.isDisabled) {
@@ -76,28 +175,90 @@ const Learn: NextPage = () => {
         setCurrentKey(key)
     }
 
-    const onTestComplete = () => {
-        refetchTests().then(() => {
-            setLevelChanged(false)
+    const onTestComplete = (result: TestCompletionResult) => {
+        if (!sessionData?.user) {
+            const levelName = result.levelName ?? level.name
+            const nextProgress = [
+                ...localProgress.filter(progress => progress.options !== levelName),
+                { options: levelName, speed: result.speed, accuracy: result.accuracy },
+            ]
+
+            window.localStorage.setItem(getStorageKey(difficulty), JSON.stringify(nextProgress))
+            setLocalProgress(nextProgress)
+            advanceToNextLevel(getLevelOptions(nextProgress))
+            dispatch(addAlert({
+                message: "Progress saved on this device. Sign in to keep it.",
+                type: "warning",
+            }))
+            return
+        }
+
+        Promise.all([refetchTests(), refetchSavedProgress()]).then(([refetchResult, savedResult]) => {
+            advanceToNextLevel(getLevelOptions(
+                [
+                    ...(refetchResult.data ?? []).map(test => ({
+                        options: test.options,
+                        speed: test.speed,
+                        accuracy: test.accuracy,
+                    })),
+                    ...(savedResult.data ?? []).map(progress => ({
+                        options: progress.options,
+                        speed: progress.speed,
+                        accuracy: progress.accuracy,
+                    })),
+                ],
+            ))
         }).catch((error) => {
             console.log(error)
             dispatch(addAlert({ message: "Could not refresh level progress.", type: "error" }))
         })
     }
+
+    useEffect(() => {
+        if (!sessionData?.user || isLoadingSavedProgress || !hasDeviceProgress || persistedProgress.length > 0) return
+
+        void importDeviceProgress({ silent: true })
+    }, [
+        hasDeviceProgress,
+        importDeviceProgress,
+        isLoadingSavedProgress,
+        persistedProgress.length,
+        sessionData?.user,
+    ])
     
     useEffect(() => {
-        if (levelChanged || isLoadingTests) return
+        if (levelChanged || (sessionData?.user && (isLoadingTests || isLoadingSavedProgress))) return
 
         const firstLocked = levelOptions.findIndex(levelOption => levelOption.isDisabled)
         const levelIndex = firstLocked === -1 ? levels.length - 1 : firstLocked <= 0 ? 0 : firstLocked - 1
         setLevel(levels[levelIndex] as Level)
-    }, [isLoadingTests, levelOptions, levelChanged])
+    }, [isLoadingSavedProgress, isLoadingTests, levelOptions, levelChanged, sessionData?.user])
 
     const requirements = level[difficulty]
 
     return (
         <div className={`flex flex-col w-full h-full justify-center ${fullscreen ? 'absolute top-0 left-0 w-full h-full bg-base-100 z-[500]' : "relative"}`}>
             <div className="absolute top-0 flex flex-col w-full items-center gap-4 px-8 py-12">
+                {!sessionData?.user &&
+                    <div className="flex w-full justify-start">
+                        <label className="btn btn-primary btn-sm" htmlFor="signInModal">
+                            Sign in to save level progress
+                        </label>
+                    </div>
+                }
+                {shouldShowImportPrompt &&
+                    <div className="flex w-full items-center justify-between gap-3 rounded bg-base-300 px-4 py-3 text-base-content">
+                        <span className="text-sm font-semibold">Device progress is available for this difficulty.</span>
+                        <button
+                            className="btn btn-primary btn-sm"
+                            type="button"
+                            disabled={importLearnProgress.isLoading}
+                            onClick={() => void importDeviceProgress()}
+                        >
+                            Import progress
+                        </button>
+                    </div>
+                }
                 <div className="flex w-full">
                     <div className="flex w-6/12 gap-2">
                         <Select
