@@ -1,29 +1,31 @@
 import { type NextPage } from "next";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Typer } from "~/components/typer/Typer";
 import { TestGramScopes, TestGramSources, TestModes, TestSubModes } from "~/components/typer/types";
-import type { Difficulty, Level } from "~/components/typer/learn/levels";
+import type { Level } from "~/components/typer/learn/levels";
 import { levels } from "~/components/typer/learn/levels";
 import { api } from "~/utils/api";
 import Select from 'react-select'
 import type { SingleValue } from "react-select";
 import { Keyboard } from "~/components/typer/Keyboard";
+import { useDispatch } from "react-redux";
+import { addAlert } from "~/state/alert/alertSlice";
 
 type Option = { label: string, value: number | string, isDisabled: boolean }
-const letters = "qwertyuiopasdfghjklzxcvbnm/"
+type DifficultyName = "easy" | "medium" | "hard"
 
 const Learn: NextPage = () => {
-    const [language, setLanguage] = useState<string>("english")
-    const [mode, setMode] = useState<TestModes>(TestModes.normal)
-    const [subMode, setSubMode] = useState<TestSubModes>(TestSubModes.words)
-    const [gramSource, setGramSource] = useState<TestGramSources>(TestGramSources.bigrams)
-    const [gramScope, setGramScope] = useState<TestGramScopes>(TestGramScopes.fifty)
-    const [gramCombination, setGramCombination] = useState<number>(1)
-    const [gramRepetition, setGramRepetition] = useState<number>(0)
-    const [gramWpmThreshold, setGramWpmThreshold] = useState<number>(20)
-    const [gramAccuracyThreshold, setGramAccuracyThreshold] = useState<number>(100)
-    const [count, setCount] = useState(15)
-    const [difficulty, setDifficulty] = useState("easy")
+    const dispatch = useDispatch()
+    const language = "english"
+    const mode = TestModes.normal
+    const subMode = TestSubModes.words
+    const gramSource = TestGramSources.bigrams
+    const gramScope = TestGramScopes.fifty
+    const gramCombination = 1
+    const gramRepetition = 0
+    const gramWpmThreshold = 20
+    const gramAccuracyThreshold = 100
+    const [difficulty, setDifficulty] = useState<DifficultyName>("easy")
     const [level, setLevel] = useState<Level>(levels[0] as Level)
     const [currentKey, setCurrentKey] = useState<string>("")
     const [levelChanged, setLevelChanged] = useState<boolean>(false)
@@ -32,15 +34,9 @@ const Learn: NextPage = () => {
 
     // fetch types
     const { data: testType } = api.type.get.useQuery({ mode, subMode, language: language })
-    const { data: tests, refetch: refetchTests,  isLoading: isLoadingTests } = api.test.getByLevels.useQuery({
-        typeId: testType ? testType.id : "",
-    })
-
-    useEffect(() => {
-        if (tests && !isLoadingTests) {
-
-        }
-    }, [tests, isLoadingTests])
+    const { data: tests = [], refetch: refetchTests,  isLoading: isLoadingTests } = api.test.getByLevels.useQuery({
+        typeId: testType?.id ?? "",
+    }, { enabled: !!testType?.id })
 
     const difficultyOptions = [
         { value: "easy", label: 'Easy' },
@@ -49,23 +45,24 @@ const Learn: NextPage = () => {
     ]
     const handleChangeDifficulty = (value: SingleValue<{ value: string, label: string }>) => {
         if (value) {
-            setDifficulty(value.value)
+            setDifficulty(value.value as DifficultyName)
             setLevelChanged(false)
         }
     }
 
-    const levelOptions: Option[] = levels.map((level: Level, index: number, array: Level[]) => {
+    const levelOptions: Option[] = useMemo(() => levels.map((level: Level, index: number, array: Level[]) => {
         if (level.name == "Level 1") return { value: level.name, label: level.name, isDisabled: false } as Option
 
         const levelTest = tests?.find(test => test.options == array[index - 1]?.name)
-        const speedToBeat = level[difficulty as "easy" | "medium" | "hard"]["wpm"]
+        const previousLevel = array[index - 1]
+        const requirements = previousLevel?.[difficulty]
 
-        if (levelTest && levelTest.speed > speedToBeat) {
+        if (levelTest && requirements && levelTest.speed >= requirements.wpm && levelTest.accuracy >= requirements.accuracy) {
             return { value: level.name, label: level.name, isDisabled: false } as Option
         }
 
         return { value: level.name, label: level.name, isDisabled: true } as Option
-    })
+    }), [difficulty, tests])
 
     const handleChangeLevel = (value: SingleValue<Option>) => {
         if (value && !value.isDisabled) {
@@ -81,19 +78,22 @@ const Learn: NextPage = () => {
 
     const onTestComplete = () => {
         refetchTests().then(() => {
-            // console.log("tests refetched")
             setLevelChanged(false)
         }).catch((error) => {
             console.log(error)
+            dispatch(addAlert({ message: "Could not refresh level progress.", type: "error" }))
         })
     }
     
     useEffect(() => {
-        if (!levelChanged) {
-            const levelIndex = levelOptions.findIndex(levelOption => levelOption.isDisabled == true) - 1
-            setLevel(levels[levelIndex] as Level)
-        }
-    }, [levelOptions, levelChanged])
+        if (levelChanged || isLoadingTests) return
+
+        const firstLocked = levelOptions.findIndex(levelOption => levelOption.isDisabled)
+        const levelIndex = firstLocked === -1 ? levels.length - 1 : firstLocked <= 0 ? 0 : firstLocked - 1
+        setLevel(levels[levelIndex] as Level)
+    }, [isLoadingTests, levelOptions, levelChanged])
+
+    const requirements = level[difficulty]
 
     return (
         <div className={`flex flex-col w-full h-full justify-center ${fullscreen ? 'absolute top-0 left-0 w-full h-full bg-base-100 z-[500]' : "relative"}`}>
@@ -134,8 +134,8 @@ const Learn: NextPage = () => {
                     </div>
                 </div>
                 <div className="flex w-full basis-0 grow justify-start items-center gap-4">
-                    <div className="text-lg"><strong>Required Speed: {level[difficulty as "easy" | "medium" | "hard"]["wpm"]}wpm</strong></div>
-                    <div className="text-lg"><strong>Required Accuracy: {level[difficulty as "easy" | "medium" | "hard"]["accuracy"]}%</strong></div>
+                    <div className="text-lg"><strong>Required Speed: {requirements.wpm}wpm</strong></div>
+                    <div className="text-lg"><strong>Required Accuracy: {requirements.accuracy}%</strong></div>
                 </div>
                 <div className="flex gap-2 basis-0 grow justify-start w-full">
                         <div className="flex justify-start items-center text-lg"><strong>Target Keys:</strong></div>
@@ -162,6 +162,7 @@ const Learn: NextPage = () => {
                     gramAccuracyThreshold={gramAccuracyThreshold}
                     count={level.count}
                     level={level}
+                    levelRequirements={requirements}
                     onKeyChange={onKeyChange}
                     onTestComplete={onTestComplete}
                     showStats={true}
@@ -169,7 +170,7 @@ const Learn: NextPage = () => {
                     charAttemptsRef={charAttemptsRef}
                 />
             </div>
-            <Keyboard mode={mode} currentKey={currentKey}  charAttemptsRef={charAttemptsRef} />
+            <Keyboard mode={mode} currentKey={currentKey} charAttemptsRef={charAttemptsRef} highlightKeys={level.keys.split("")} />
         </div>
     );
 };

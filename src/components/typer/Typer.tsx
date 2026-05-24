@@ -8,6 +8,8 @@ import { useTimer } from "~/hooks/timer/useTimer"
 import { api } from "~/utils/api"
 import type { Level } from "./learn/levels"
 import { useSession } from "next-auth/react"
+import { useDispatch } from "react-redux"
+import { addAlert } from "~/state/alert/alertSlice"
 
 interface Keys {
     [key: string]: boolean
@@ -27,6 +29,7 @@ interface TyperProps {
     gramAccuracyThreshold: number,
     count: number,
     level?: Level,
+    levelRequirements?: { wpm: number, accuracy: number },
     onKeyChange: (key: string) => void,
     onAttemptChange?: () => void,
     onTestComplete?(): void,
@@ -46,6 +49,7 @@ export const Typer = (props: TyperProps) => {
         gramSource, gramScope, gramCombination, gramRepetition,
         count, showStats, showConfig,
         level,
+        levelRequirements,
         modalOpen,
         fullscreen,
         charAttemptsRef,
@@ -54,6 +58,7 @@ export const Typer = (props: TyperProps) => {
     } = props
 
     const { data: sessionData } = useSession();
+    const dispatch = useDispatch();
 
     const [text, setText] = useState("")
     const [started, setStarted] = useState(false)
@@ -89,7 +94,7 @@ export const Typer = (props: TyperProps) => {
         timerType: subMode === TestSubModes.timed ? 'DECREMENTAL' : 'INCREMENTAL',
         endTime: subMode === TestSubModes.timed ? 0 : 999999,
         onTimeOver: () => {
-            handleComplete(false)
+            handleComplete(false, false)
         },
     })
 
@@ -109,9 +114,18 @@ export const Typer = (props: TyperProps) => {
     // ref for restart button
     const restartRef = useRef(null)
 
-    const handleCreateTest = () => {
+    const getStats = useCallback((finalCharacterCount = characterCount, finalIncorrectCount = incorrectCount) => {
+        const actualEndTime = Date.now()
+        const minutes = (actualEndTime - actualStartTime) / 60000
+        const speed = minutes <= 0 ? 0 : (finalCharacterCount / 5) / minutes
+        const correctCount = finalCharacterCount - finalIncorrectCount
+        const finalAccuracy = finalCharacterCount === 0 ? 0 : correctCount / finalCharacterCount * 100
+
+        return { speed, accuracy: finalAccuracy }
+    }, [actualStartTime, characterCount, incorrectCount])
+
+    const handleCreateTest = (testWpm = wpm, testAccuracy = accuracy) => {
         if (!sessionData?.user) {
-            console.log('User not logged in. Test not created.');
             return;
         }
 
@@ -119,9 +133,9 @@ export const Typer = (props: TyperProps) => {
 
         createTest.mutate({
             typeId: testType.id,
-            accuracy: accuracy,
-            speed: wpm,
-            score: wpm * accuracy,
+            accuracy: testAccuracy,
+            speed: testWpm,
+            score: testWpm * testAccuracy,
             count: count,
             options: level ? level.name : ""
         })
@@ -191,21 +205,36 @@ export const Typer = (props: TyperProps) => {
         setStarted(true)
     }
 
-    const handleComplete = (correct: boolean) => {
+    const handleComplete = (correct: boolean, includeFinalCharacter = true) => {
         if (subMode !== TestSubModes.timed) pause()
         setStarted(false)
         setRestarted(false)
 
+        const finalCharacterCount = includeFinalCharacter ? characterCount + 1 : characterCount
+        const finalIncorrectCount = includeFinalCharacter && !correct ? incorrectCount + 1 : incorrectCount
+        const finalStats = getStats(finalCharacterCount, finalIncorrectCount)
+
         if (mode === TestModes.normal) {
-            handleCreateTest()
+            if (
+                levelRequirements &&
+                (finalStats.speed < levelRequirements.wpm || finalStats.accuracy < levelRequirements.accuracy)
+            ) {
+                dispatch(addAlert({
+                    message: `Need ${levelRequirements.wpm} WPM and ${levelRequirements.accuracy}% accuracy to complete this level.`,
+                    type: "warning",
+                }))
+            } else {
+                handleCreateTest(finalStats.speed, finalStats.accuracy)
+                if (props.onTestComplete) props.onTestComplete()
+            }
         } else if (mode === TestModes.ngrams) {
-            if (wpm >= props.gramWpmThreshold &&
-                characterCount > 0 &&
-                (characterCount + (correct ? 1 : -1) - incorrectCount) / characterCount * 100 >= props.gramAccuracyThreshold
+            if (finalStats.speed >= props.gramWpmThreshold &&
+                finalCharacterCount > 0 &&
+                finalStats.accuracy >= props.gramAccuracyThreshold
             ) {
                 if (gramLevel < gramScope - 1) {
-                    if (gramLevel !== 1) setGramWpm(((gramWpm * gramLevel) + wpm) / (gramLevel + 1))
-                    else setGramWpm(wpm)
+                    if (gramLevel !== 1) setGramWpm(((gramWpm * gramLevel) + finalStats.speed) / (gramLevel + 1))
+                    else setGramWpm(finalStats.speed)
 
                     setGramLevel(gramLevel + 1)
                 } else if (gramLevel == gramScope - 1) {
@@ -216,8 +245,6 @@ export const Typer = (props: TyperProps) => {
         }
 
         if (mode !== TestModes.ngrams) handleUpdateStats()
-
-        if (props.onTestComplete) props.onTestComplete()
     }
 
     const handleSetCharacterCount = useCallback((charCount: number) => {
