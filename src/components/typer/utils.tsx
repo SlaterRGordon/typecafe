@@ -10,6 +10,7 @@ import spanish10k from './languages/spanish10k.json'
 import hindi1k from './languages/hindi1k.json'
 
 import { TestGramScopes, TestGramSources } from './types'
+import type { ReactElement } from 'react'
 
 const languages = {
     english: english10k,
@@ -222,9 +223,9 @@ export const generateNGram = (source: TestGramSources, scope: TestGramScopes, co
 
 export const buildText = (text: string, charStates: ("incorrect" | "default" | "correct")[], position: number, index = 0) => {
     const initialIndex = index
-    const words: JSX.Element[] = []
+    const words: ReactElement[] = []
     text.split(" ").forEach(word => {
-        const letters: JSX.Element[] = []
+        const letters: ReactElement[] = []
 
         word.split("").forEach(letter => {
             letters.push(
