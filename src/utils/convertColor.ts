@@ -33,16 +33,15 @@ export const hexToHsl = (hexCode: string): string => {
 }
 
 export const hslToHex = (hslCss: string): string => {
-  const regexp = /hsl\(\s*(\d+(?:\.\d+)*)\s*,\s*(\d+(?:\.\d+)*?%)\s*,\s*(\d+(?:\.\d+)*?%)\)/g;
-  const hsl = regexp.exec(hslCss)?.slice(1);
+  const hsl = hslCss.replace("%", "").split(" ");
 
-  if(!hsl){
+  if (!hsl) {
     return "#000000";
   }
 
   let h = parseInt(hsl[0] as string);
-  let s = parseInt(hsl[1]?.split("%")[0] as string);
-  let l = parseInt(hsl[2]?.split("%")[0] as string);
+  let s = parseInt(hsl[1] as string);
+  let l = parseInt(hsl[2] as string);
 
   h /= 360;
   s /= 100;
@@ -85,3 +84,27 @@ export const getDarkerShades = (hsl: string) => {
 
   return [shade200, shade300, shade400, shade500];
 }
+
+export const interpolateColor = (color1: string, color2: string, percentage: number): string => {
+  const hexToRgb = (hex: string) => {
+    const bigint = parseInt(hex.slice(1), 16);
+    return {
+      r: (bigint >> 16) & 255,
+      g: (bigint >> 8) & 255,
+      b: bigint & 255,
+    };
+  };
+
+  const rgbToHex = (r: number, g: number, b: number) => {
+    return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
+  };
+
+  const color1Rgb = hexToRgb(color1);
+  const color2Rgb = hexToRgb(color2);
+
+  const r = Math.round(color1Rgb.r + (percentage < 0.5 ? 0 : (percentage - 0.5) * 2) * (color2Rgb.r - color1Rgb.r));
+  const g = Math.round(color1Rgb.g + (percentage < 0.5 ? 0 : (percentage - 0.5) * 2) * (color2Rgb.g - color1Rgb.g));
+  const b = Math.round(color1Rgb.b + (percentage < 0.5 ? 0 : (percentage - 0.5) * 2) * (color2Rgb.b - color1Rgb.b));
+
+  return rgbToHex(r, g, b);
+};

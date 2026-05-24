@@ -1,11 +1,13 @@
 import { type NextPage } from "next";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useSession } from "next-auth/react";
 import { Modal } from "~/components/Modal";
 import { SupportCard } from "~/components/support/SupportCard";
 import { Keyboard } from "~/components/typer/Keyboard";
 import { Typer } from "~/components/typer/Typer";
 import { Config } from "~/components/typer/config/Config";
 import { TestGramScopes, TestGramSources, TestModes, TestSubModes } from "~/components/typer/types";
+import { api } from "~/utils/api";
 
 const Home: NextPage = () => {
   const [showSupport, setShowSupport] = useState(true)
@@ -16,6 +18,7 @@ const Home: NextPage = () => {
   const [language, setLanguage] = useState("english" as string)
   const [mode, setMode] = useState<TestModes>(TestModes.normal)
   const [subMode, setSubMode] = useState<TestSubModes>(TestSubModes.timed)
+  const [selectedKeys, setSelectedKeys] = useState<string[]>("asdfghjkl".split(""))
   const [gramSource, setGramSource] = useState<TestGramSources>(TestGramSources.bigrams)
   const [gramScope, setGramScope] = useState<TestGramScopes>(TestGramScopes.fifty)
   const [gramCombination, setGramCombination] = useState<number>(1)
@@ -24,9 +27,33 @@ const Home: NextPage = () => {
   const [gramAccuracyThreshold, setGramAccuracyThreshold] = useState<number>(100)
   const [count, setCount] = useState(15)
   const [currentKey, setCurrentKey] = useState("")
+  const [attemptVersion, setAttemptVersion] = useState(0)
+  const charAttemptsRef = useRef<Map<string, { attempts: number, correct: number }>>(new Map())
+  const persistedAttemptsRef = useRef<Map<string, { attempts: number, correct: number }>>(new Map())
+  const { data: sessionData } = useSession()
+  const { data: persistedStats } = api.practiceStats.get.useQuery(undefined, {
+    enabled: mode === TestModes.practice && !!sessionData?.user,
+  })
+
+  useEffect(() => {
+    if (mode !== TestModes.practice || !persistedStats) return
+
+    persistedAttemptsRef.current.clear()
+    persistedStats.forEach((stat) => {
+      persistedAttemptsRef.current.set(stat.character, {
+        attempts: stat.total,
+        correct: stat.correct,
+      })
+    })
+    setAttemptVersion((version) => version + 1)
+  }, [mode, persistedStats])
 
   const onKeyChange = (key: string) => {
     setCurrentKey(key)
+  }
+
+  const onAttemptChange = () => {
+    setAttemptVersion((version) => version + 1)
   }
 
   return (
@@ -38,6 +65,8 @@ const Home: NextPage = () => {
           language={language}
           mode={mode}
           subMode={subMode}
+          selectedKeys={selectedKeys}
+          setSelectedKeys={setSelectedKeys}
           gramSource={gramSource}
           gramScope={gramScope}
           gramCombination={gramCombination}
@@ -49,14 +78,19 @@ const Home: NextPage = () => {
           showConfig={true}
           modalOpen={modalOpen}
           onKeyChange={onKeyChange}
+          onAttemptChange={onAttemptChange}
+          charAttemptsRef={charAttemptsRef}
         />
-        {showKeyboard && <Keyboard currentKey={currentKey} />}
+        {(showKeyboard || mode === TestModes.practice) && 
+          <Keyboard mode={mode} currentKey={currentKey} selectedKeys={selectedKeys} setSelectedKeys={setSelectedKeys} charAttemptsRef={charAttemptsRef} baseAttemptsRef={persistedAttemptsRef} attemptVersion={attemptVersion} />
+        }
       </div>
       <Modal setModalOpen={(open) => setModalOpen(open)}>
         <Config
           language={language} setLanguage={setLanguage}
           mode={mode} setMode={setMode}
           subMode={subMode} setSubMode={setSubMode}
+          selectedKeys={selectedKeys} setSelectedKeys={setSelectedKeys}
           gramSource={gramSource} setGramSource={setGramSource}
           gramScope={gramScope} setGramScope={setGramScope}
           gramCombination={gramCombination} setGramCombination={setGramCombination}

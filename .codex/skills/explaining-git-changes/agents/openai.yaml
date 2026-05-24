@@ -1,0 +1,6 @@
+interface:
+  display_name: "Explaining Git Changes"
+  short_description: "Summarize diffs, commits, and branches"
+  default_prompt: "Use $explaining-git-changes to explain the purpose and impact of these git changes."
+policy:
+  allow_implicit_invocation: true

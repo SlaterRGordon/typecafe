@@ -7,22 +7,12 @@ const MAX_URLS_PER_SITEMAP = 50000;
 
 async function generateSitemap() {
   const staticRoutes = ['/', '/about', '/contact'];
-  const blogPosts = await prisma.blogPost.findMany();
   const users = await prisma.user.findMany();
 
   const staticPages = staticRoutes.map((route) => {
     return `
       <url>
         <loc>${`https://www.type.cafe${route}`}</loc>
-        <lastmod>${new Date().toISOString()}</lastmod>
-      </url>
-    `;
-  });
-
-  const dynamicBlogPages = blogPosts.map((post) => {
-    return `
-      <url>
-        <loc>${`https://www.type.cafe/blog/${post.id}`}</loc>
         <lastmod>${new Date().toISOString()}</lastmod>
       </url>
     `;
@@ -38,7 +28,7 @@ async function generateSitemap() {
     `;
   });
 
-  const allPages = [...staticPages, ...dynamicBlogPages, ...dynamicUserPages];
+  const allPages = [...staticPages, ...dynamicUserPages];
   const numSitemaps = Math.ceil(allPages.length / MAX_URLS_PER_SITEMAP);
 
   const sitemapIndex = [];

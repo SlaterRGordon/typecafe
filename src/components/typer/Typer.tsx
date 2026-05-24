@@ -1,23 +1,33 @@
 import React, { useCallback, useEffect, useRef, useState } from "react"
-import { TestGramScopes, TestSubModes } from "./types"
-import { TestGramSources, TestModes } from "./types"
-import { generateNGram, generatePseudoText, generateText, getGramLevelText } from "./utils"
+import { TestSubModes, TestModes } from "./types"
+import type { TestGramScopes, TestGramSources } from "./types"
+import { generateBetterPseudoText, generateNGram, generateText, getGramLevelText } from "./utils"
 import { Text } from "./Text"
 import { Stats } from "./Stats"
 import { useTimer } from "~/hooks/timer/useTimer"
 import { api } from "~/utils/api"
 import type { Level } from "./learn/levels"
 import { useSession } from "next-auth/react"
-import { set } from "zod"
+import { useDispatch } from "react-redux"
+import { addAlert } from "~/state/alert/alertSlice"
 
 interface Keys {
     [key: string]: boolean
+}
+
+export interface TestCompletionResult {
+    speed: number,
+    accuracy: number,
+    levelName?: string,
+    persisted: boolean,
 }
 
 interface TyperProps {
     language: string,
     mode: TestModes,
     subMode: TestSubModes,
+    selectedKeys?: string[],
+    setSelectedKeys?: (keys: string[]) => void,
     gramSource: TestGramSources,
     gramScope: TestGramScopes,
     gramCombination: number,
@@ -26,26 +36,36 @@ interface TyperProps {
     gramAccuracyThreshold: number,
     count: number,
     level?: Level,
-    onKeyChange(key: string): void,
-    onTestComplete?(): void,
+    levelRequirements?: { wpm: number, accuracy: number },
+    onKeyChange: (key: string) => void,
+    onAttemptChange?: () => void,
+    onTestComplete?(result: TestCompletionResult): void,
     showStats: boolean,
     modalOpen: boolean,
     showConfig: boolean,
     fullscreen: boolean,
-    setFullscreen(fullscreen: boolean): void
+    setFullscreen(fullscreen: boolean): void,
+    charAttemptsRef: React.MutableRefObject<Map<string, { attempts: number, correct: number }>>
 }
 
 export const Typer = (props: TyperProps) => {
     const {
         language,
         mode, subMode,
+        selectedKeys,
         gramSource, gramScope, gramCombination, gramRepetition,
         count, showStats, showConfig,
+        level,
+        levelRequirements,
         modalOpen,
-        fullscreen
+        fullscreen,
+        charAttemptsRef,
+        onKeyChange,
+        onAttemptChange
     } = props
 
     const { data: sessionData } = useSession();
+    const dispatch = useDispatch();
 
     const [text, setText] = useState("")
     const [started, setStarted] = useState(false)
@@ -56,6 +76,7 @@ export const Typer = (props: TyperProps) => {
     const [gramWpm, setGramWpm] = useState(0.00)
     const [accuracy, setAccuracy] = useState(0.00)
     const [gramLevel, setGramLevel] = useState<number>(1)
+    const pendingCompletionRef = useRef<TestCompletionResult | null>(null)
 
     // fetch types
     const { data: testType } = api.type.get.useQuery({ mode, subMode, language })
@@ -63,19 +84,29 @@ export const Typer = (props: TyperProps) => {
     // create test
     const createTest = api.test.create.useMutation({
         onSuccess: () => {
-            // console.log("test created")
+            const completion = pendingCompletionRef.current
+            if (completion) {
+                props.onTestComplete?.({ ...completion, persisted: true })
+                pendingCompletionRef.current = null
+            }
         },
         onError: (error) => {
             console.log(error)
         }
     })
 
-    const { time, initialTime, start, pause, reset, setInitialTime, actualStartTime } = useTimer({
+    const { mutate: syncPracticeStats } = api.practiceStats.batchSync.useMutation({
+        onError: (error) => {
+            console.error(error)
+        },
+    })
+
+    const { time, start, pause, setInitialTime, actualStartTime } = useTimer({
         _initialTime: subMode === TestSubModes.timed ? count : 0,
         timerType: subMode === TestSubModes.timed ? 'DECREMENTAL' : 'INCREMENTAL',
         endTime: subMode === TestSubModes.timed ? 0 : 999999,
         onTimeOver: () => {
-            handleComplete(false)
+            handleComplete(false, false)
         },
     })
 
@@ -84,10 +115,6 @@ export const Typer = (props: TyperProps) => {
             setInitialTime(count)
         else setInitialTime(0)
     }, [count, setInitialTime, mode, subMode, language])
-
-    useEffect(() => {
-        handleRestart()
-    }, [mode, subMode, language, count, gramSource, gramScope, gramCombination, gramRepetition, gramLevel])
 
     useEffect(() => {
         if (mode === TestModes.ngrams) {
@@ -99,61 +126,142 @@ export const Typer = (props: TyperProps) => {
     // ref for restart button
     const restartRef = useRef(null)
 
-    const handleCreateTest = () => {
+    const getStats = useCallback((finalCharacterCount = characterCount, finalIncorrectCount = incorrectCount) => {
+        const actualEndTime = Date.now()
+        const minutes = (actualEndTime - actualStartTime) / 60000
+        const speed = minutes <= 0 ? 0 : (finalCharacterCount / 5) / minutes
+        const correctCount = finalCharacterCount - finalIncorrectCount
+        const finalAccuracy = finalCharacterCount === 0 ? 0 : correctCount / finalCharacterCount * 100
+
+        return { speed, accuracy: finalAccuracy }
+    }, [actualStartTime, characterCount, incorrectCount])
+
+    const handleCreateTest = (testWpm = wpm, testAccuracy = accuracy) => {
         if (!sessionData?.user) {
-            console.log('User not logged in. Test not created.');
             return;
         }
 
-        createTest.mutate({
-            typeId: testType?.id as string,
-            accuracy: accuracy,
-            speed: wpm,
-            score: wpm * accuracy,
-            count: count,
-            options: props.level ? props.level.name : ""
-        });
-    };
+        if (!testType?.id) return
 
-    const handleRestart = useCallback(() => {
-        if (mode === TestModes.normal) {
-            if (subMode === TestSubModes.timed) {
-                setText(generateText(500, language))
-            } else if (subMode === TestSubModes.words) {
-                if (props.level) setText(generatePseudoText(count, language, props.level.keys.split("")))
-                else setText(generateText(count, language))
-            }
-        } else if (mode === TestModes.ngrams) {
-            setText(generateNGram(gramSource, gramScope, gramCombination, gramRepetition, gramLevel))
-        } else if (mode === TestModes.relaxed) {
-            setText(generateText(50, language))
+        pendingCompletionRef.current = {
+            speed: testWpm,
+            accuracy: testAccuracy,
+            levelName: level?.name,
+            persisted: false,
         }
 
-        setInitialTime(mode === TestModes.normal && subMode === TestSubModes.timed ? count : 0)
-        pause()
-        setStarted(false)
-        setRestarted(true)
-        setCharacterCount(0)
-    }, [mode, subMode, language, count, gramSource, gramScope, gramCombination, gramRepetition, gramLevel])
+        createTest.mutate({
+            typeId: testType.id,
+            accuracy: testAccuracy,
+            speed: testWpm,
+            score: testWpm * testAccuracy,
+            count: count,
+            options: level ? level.name : ""
+        })
+    }
+
+    const handleUpdateStats = useCallback(() => {
+        if (mode !== TestModes.practice) return
+        if (!sessionData?.user) return
+
+        const stats = Array.from(charAttemptsRef.current.entries()).map(
+            ([character, value]) => ({
+                character,
+                total: value.attempts,
+                correct: value.correct,
+            }),
+        )
+
+        if (stats.length === 0) return
+
+        syncPracticeStats({ stats }, {
+            onSuccess: () => {
+                for (const key of stats.map((s) => s.character)) {
+                    charAttemptsRef.current.delete(key)
+                }
+            },
+        })
+    }, [charAttemptsRef, mode, sessionData?.user, syncPracticeStats])
+
+    const cancelRestartRef = useRef(false)
+
+    const handleRestart = useCallback(() => {
+        cancelRestartRef.current = true; 
+        setTimeout(() => {
+            if (cancelRestartRef.current) {
+                cancelRestartRef.current = false; // Reset the cancel flag
+                if (mode !== TestModes.ngrams) handleUpdateStats()
+                if (mode === TestModes.normal) {
+                    if (subMode === TestSubModes.timed) {
+                        setText(generateText(500, language))
+                    } else if (subMode === TestSubModes.words) {
+                        if (level) setText(generateBetterPseudoText(count, level.keys.split("")))
+                        else setText(generateText(count, language))
+                    }
+                } else if (mode === TestModes.practice) {
+                    if (selectedKeys) setText(generateBetterPseudoText(500, selectedKeys))
+                } else if (mode === TestModes.ngrams) {
+                    setText(generateNGram(gramSource, gramScope, gramCombination, gramRepetition, gramLevel))
+                } else if (mode === TestModes.relaxed) {
+                    setText(generateText(50, language))
+                }
+        
+                setInitialTime(mode === TestModes.normal && subMode === TestSubModes.timed ? count : 0)
+                pause()
+                setStarted(false)
+                setRestarted(true)
+                setCharacterCount(0)
+            }
+        }, 0)
+    }, [count, gramCombination, gramLevel, gramRepetition, gramScope, gramSource, handleUpdateStats, language, level, mode, pause, selectedKeys, setInitialTime, subMode])
+
+    useEffect(() => {
+        handleRestart()
+    }, [handleRestart])
 
     const handleStart = () => {
         start()
         setStarted(true)
     }
 
-    const handleComplete = (correct: boolean) => {
+    const handleComplete = (correct: boolean, includeFinalCharacter = true) => {
         if (subMode !== TestSubModes.timed) pause()
         setStarted(false)
         setRestarted(false)
 
-        if (mode === TestModes.normal) {
-            handleCreateTest()
-        } else if (mode === TestModes.ngrams) {
+        const finalCharacterCount = includeFinalCharacter ? characterCount + 1 : characterCount
+        const finalIncorrectCount = includeFinalCharacter && !correct ? incorrectCount + 1 : incorrectCount
+        const finalStats = getStats(finalCharacterCount, finalIncorrectCount)
 
-            if (wpm >= props.gramWpmThreshold && (characterCount + (correct ? 1 : -1) - incorrectCount) / characterCount * 100 >= props.gramAccuracyThreshold) {
+        if (mode === TestModes.normal) {
+            if (
+                levelRequirements &&
+                (finalStats.speed < levelRequirements.wpm || finalStats.accuracy < levelRequirements.accuracy)
+            ) {
+                dispatch(addAlert({
+                    message: `Need ${levelRequirements.wpm} WPM and ${levelRequirements.accuracy}% accuracy to complete this level.`,
+                    type: "warning",
+                }))
+            } else {
+                if (sessionData?.user) {
+                    handleCreateTest(finalStats.speed, finalStats.accuracy)
+                } else {
+                    props.onTestComplete?.({
+                        speed: finalStats.speed,
+                        accuracy: finalStats.accuracy,
+                        levelName: level?.name,
+                        persisted: false,
+                    })
+                }
+            }
+        } else if (mode === TestModes.ngrams) {
+            if (finalStats.speed >= props.gramWpmThreshold &&
+                finalCharacterCount > 0 &&
+                finalStats.accuracy >= props.gramAccuracyThreshold
+            ) {
                 if (gramLevel < gramScope - 1) {
-                    if (gramLevel !== 1) setGramWpm(((gramWpm * gramLevel) + wpm) / (gramLevel + 1))
-                    else setGramWpm(wpm)
+                    if (gramLevel !== 1) setGramWpm(((gramWpm * gramLevel) + finalStats.speed) / (gramLevel + 1))
+                    else setGramWpm(finalStats.speed)
 
                     setGramLevel(gramLevel + 1)
                 } else if (gramLevel == gramScope - 1) {
@@ -163,13 +271,15 @@ export const Typer = (props: TyperProps) => {
             }
         }
 
-        if (props.onTestComplete) props.onTestComplete()
+        if (mode !== TestModes.ngrams) handleUpdateStats()
     }
 
-    const handleSetCharacterCount = (charCount: number) => {
+    const handleSetCharacterCount = useCallback((charCount: number) => {
         setCharacterCount(charCount)
-    }
-    const handleSetIncorrectCount = (charCount: number) => setIncorrectCount(charCount)
+    }, [])
+    const handleSetIncorrectCount = useCallback((charCount: number) => {
+        setIncorrectCount(charCount)
+    }, [])
 
     useEffect(() => {
         if (!started) return
@@ -178,6 +288,7 @@ export const Typer = (props: TyperProps) => {
         // calculate minutes
         const minutes = (actualEndTime - actualStartTime) / 60000
         if (mode !== TestModes.ngrams && minutes < 0.0001) return
+
         // calculate wpm
         if (minutes == 0) setWpm(0)
         else setWpm((characterCount / 5) / minutes)
@@ -186,7 +297,7 @@ export const Typer = (props: TyperProps) => {
         const correct = characterCount - incorrectCount
         if (characterCount == 0) setAccuracy(0)
         else setAccuracy(correct / characterCount * 100)
-    }, [count, characterCount, incorrectCount, time, mode, subMode, gramSource, gramScope, gramCombination, gramRepetition, gramLevel])
+    }, [actualStartTime, count, characterCount, incorrectCount, time, mode, subMode, gramSource, gramScope, gramCombination, gramRepetition, gramLevel, started])
 
     useEffect(() => {
 
@@ -277,11 +388,13 @@ export const Typer = (props: TyperProps) => {
                 mode={mode}
                 started={started} restarted={restarted}
                 modalOpen={props.modalOpen}
+                charAttempts={charAttemptsRef.current}
                 onStart={handleStart}
                 onComplete={handleComplete}
                 setCharacterCount={handleSetCharacterCount}
                 setIncorrectCount={handleSetIncorrectCount}
-                onKeyChange={(key: string) => props.onKeyChange(key)}
+                onKeyChange={onKeyChange}
+                onAttemptChange={onAttemptChange}
             />
             <div className="flex flex-col relative items-center w-full">
                 {subMode === TestSubModes.timed &&

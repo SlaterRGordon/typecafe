@@ -1,7 +1,8 @@
 import { useEffect } from "react"
 import type { SingleValue } from "react-select"
 import Select from 'react-select'
-import { TestModes, TestSubModes, TestGramSources, TestGramScopes } from "../types"
+import { TestModes, TestSubModes, TestGramScopes } from "../types"
+import type { TestGramSources } from "../types"
 import { ConfigOption } from "./ConfigOption"
 
 interface ConfigProps {
@@ -11,6 +12,8 @@ interface ConfigProps {
     setMode: (newMode: TestModes) => void,
     subMode: TestSubModes,
     setSubMode: (newSubMode: TestSubModes) => void,
+    selectedKeys: string[],
+    setSelectedKeys: (newSelectedKeys: string[]) => void,
     count: number,
     setCount: (newCount: number) => void,
     gramSource: TestGramSources,
@@ -128,12 +131,12 @@ export const Config = (props: ConfigProps) => {
             <div className="flex flex-col">
                 <h3 className="font-semibold text-2xl py-1">Modes</h3>
                 <ConfigOption
-                    options={["Normal", "Grams", "Relaxed"]}
+                    options={["Normal", "Practice", "Grams", "Relaxed"]}
                     active={props.mode}
                     onChange={(newMode: string | number) => { handleModeChange(newMode as TestModes) }}
                 />
             </div>
-            {props.mode == TestModes.normal &&
+            {props.mode === TestModes.normal &&
                 <>
                     <div className="flex flex-col">
                         <h3 className="font-semibold text-2xl py-1">Languages</h3>
@@ -181,7 +184,7 @@ export const Config = (props: ConfigProps) => {
                     }
                 </>
             }
-            {props.mode == TestModes.ngrams &&
+            {props.mode === TestModes.ngrams &&
                 <>
                     <div className="flex flex-col">
                         <h3 className="font-semibold text-2xl py-1">Source</h3>
@@ -254,6 +257,11 @@ export const Config = (props: ConfigProps) => {
                     </div>
                 </>
             }
+            {props.mode === TestModes.practice &&
+                <>
+
+                </>
+            }
             <div className="flex flex-col">
                 <h3 className="font-semibold text-2xl py-1">Live Stats</h3>
                 <ConfigOption
@@ -262,14 +270,16 @@ export const Config = (props: ConfigProps) => {
                     onChange={(newShowStats: string | number) => { props.setShowStats(newShowStats == 1 ? true : false) }}
                 />
             </div>
-            <div className="flex flex-col">
-                <h3 className="font-semibold text-2xl py-1">Live Keyboard</h3>
-                <ConfigOption
-                    options={["off", "on"]}
-                    active={props.showKeyboard ? 1 : 0}
-                    onChange={(newShowKeyboard: string | number) => { props.setShowKeyboard(newShowKeyboard == 1 ? true : false) }}
-                />
-            </div>
+            {props.mode !== TestModes.practice &&
+                <div className="flex flex-col">
+                    <h3 className="font-semibold text-2xl py-1">Live Keyboard</h3>
+                    <ConfigOption
+                        options={["off", "on"]}
+                        active={props.showKeyboard ? 1 : 0}
+                        onChange={(newShowKeyboard: string | number) => { props.setShowKeyboard(newShowKeyboard == 1 ? true : false) }}
+                    />
+                </div>
+            }
         </div>
     )
 }

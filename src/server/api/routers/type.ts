@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   createTRPCRouter,
   publicProcedure,
+  protectedProcedure
 } from "~/server/api/trpc";
 
 export const typeRouter = createTRPCRouter({
@@ -36,7 +37,7 @@ export const typeRouter = createTRPCRouter({
         },
       });
     }),
-  create: publicProcedure
+  create: protectedProcedure
     .input(z.object({
       mode: z.number(),
       subMode: z.number(),

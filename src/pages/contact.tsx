@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { NextPage } from 'next';
+import type { NextPage } from 'next';
 
 const Contact: NextPage = () => {
     const [formData, setFormData] = useState({ name: '', email: '', message: '' });

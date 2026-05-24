@@ -14,6 +14,7 @@
 
 # next.js
 /.next/
+/.next-check/
 /out/
 next-env.d.ts
 

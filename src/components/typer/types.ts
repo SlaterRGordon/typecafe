@@ -1,5 +1,6 @@
 export enum TestModes {
     normal,
+    practice,
     ngrams,
     relaxed
 }

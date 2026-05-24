@@ -1,6 +1,5 @@
 import type { Prisma } from "@prisma/client";
 import type { Activity as CalendarActivity } from "react-activity-calendar"
-import type Level from "react-activity-calendar"
 
 export const getActivityData = (activity: (Prisma.PickArray<Prisma.TestGroupByOutputType, "summaryDate"[]> & {
     _count: {
