@@ -11,8 +11,6 @@ import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import { env } from "~/env.mjs";
 import { prisma } from "~/server/db";
 import { compare } from "bcrypt";
-import type { GoogleProfile } from "next-auth/providers/google";
-import { api } from "~/utils/api";
 
 /**
  * Module augmentation for `next-auth` types. Allows us to add custom properties to the `session`

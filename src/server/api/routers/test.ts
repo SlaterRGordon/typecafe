@@ -6,6 +6,17 @@ import {
   protectedProcedure,
 } from "~/server/api/trpc";
 
+const testOrderBySchema = z.enum([
+  "createdAt",
+  "updatedAt",
+  "summaryDate",
+  "score",
+  "speed",
+  "accuracy",
+  "count",
+]);
+const sortOrderSchema = z.enum(["asc", "desc"]);
+
 export const testRouter = createTRPCRouter({
   getAll: publicProcedure
     .input(z.object({
@@ -13,8 +24,8 @@ export const testRouter = createTRPCRouter({
       typeId: z.string(),
       count: z.number(),
       date: z.date().optional(),
-      orderBy: z.string(),
-      order: z.string(),
+      orderBy: testOrderBySchema,
+      order: sortOrderSchema,
       limit: z.number(),
       page: z.number()
     }))
@@ -39,7 +50,7 @@ export const testRouter = createTRPCRouter({
       });
     }),
   getByUser: protectedProcedure
-    .input(z.object({ typeId: z.string(), orderBy: z.string(), order: z.string() }))
+    .input(z.object({ typeId: z.string(), orderBy: testOrderBySchema, order: sortOrderSchema }))
     .query(({ ctx, input }) => {
       return ctx.prisma.test.findMany({
         where: {
@@ -119,7 +130,7 @@ export const testRouter = createTRPCRouter({
       userId: z.string().optional()
     }))
     .query(async ({ ctx, input }) => {
-      const competetiveTypes = await ctx.prisma.testType.findMany({
+      const competitiveTypes = await ctx.prisma.testType.findMany({
         where: {
           competitive: true,
         },
@@ -132,7 +143,7 @@ export const testRouter = createTRPCRouter({
         where: {
           userId: input.userId ? input.userId : ctx.session?.user.id,
           typeId: {
-            in: competetiveTypes.map((type) => type.id),
+            in: competitiveTypes.map((type) => type.id),
           },
         },
         orderBy: {
@@ -172,11 +183,13 @@ export const testRouter = createTRPCRouter({
         orderBy: { score: 'desc' },
       })
 
+      const total = scoresBetter.length + scoresWorse.length;
+
       return {
         better: scoresBetter.length,
         worse: scoresWorse.length,
-        total: scoresBetter.length + scoresWorse.length,
-        percentile: (scoresBetter.length / (scoresBetter.length + scoresWorse.length)) * 100,
+        total,
+        percentile: total === 0 ? 0 : (scoresBetter.length / total) * 100,
       }
     }),
   getByLevels: protectedProcedure

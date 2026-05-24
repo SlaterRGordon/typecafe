@@ -8,6 +8,17 @@ import {
     publicProcedure,
 } from "~/server/api/trpc";
 
+const publicUserSelect = {
+    id: true,
+    name: true,
+    email: true,
+    emailVerified: true,
+    username: true,
+    image: true,
+    bio: true,
+    link: true,
+} as const;
+
 export const userRouter = createTRPCRouter({
     update: protectedProcedure
         .input(z.object({
@@ -46,9 +57,7 @@ export const userRouter = createTRPCRouter({
                 where: {
                     username: input.username,
                 },
-                select: {
-                    password: false,
-                }
+                select: publicUserSelect,
             });
         }),
     getUserByEmail: protectedProcedure
@@ -60,6 +69,7 @@ export const userRouter = createTRPCRouter({
                 where: {
                     email: input.email,
                 },
+                select: publicUserSelect,
             });
         }),
     createUser: protectedProcedure
@@ -68,13 +78,15 @@ export const userRouter = createTRPCRouter({
             username: z.string(),
             password: z.string(),
         }))
-        .mutation(({ ctx, input }) => {
+        .mutation(async ({ ctx, input }) => {
+            const hashedPassword: string = await hash(input.password, 10);
+
             return ctx.prisma.user.create({
                 data: {
                     name: input.username,
                     username: input.username,
                     email: input.email,
-                    password: input.password,
+                    password: hashedPassword,
                 },
             });
         }),
