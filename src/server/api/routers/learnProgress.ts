@@ -28,6 +28,44 @@ export const learnProgressRouter = createTRPCRouter({
       });
     }),
 
+  complete: protectedProcedure
+    .input(z.object({
+      difficulty: difficultySchema,
+      progress: learnProgressInput,
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.session.user.id;
+      const existing = await ctx.prisma.learnProgress.findFirst({
+        where: {
+          userId,
+          difficulty: input.difficulty,
+          options: input.progress.options,
+        },
+      });
+
+      if (!existing) {
+        return ctx.prisma.learnProgress.create({
+          data: {
+            userId,
+            difficulty: input.difficulty,
+            options: input.progress.options,
+            speed: input.progress.speed,
+            accuracy: input.progress.accuracy,
+          },
+        });
+      }
+
+      return ctx.prisma.learnProgress.update({
+        where: {
+          id: existing.id,
+        },
+        data: {
+          speed: Math.max(existing.speed, input.progress.speed),
+          accuracy: Math.max(existing.accuracy, input.progress.accuracy),
+        },
+      });
+    }),
+
   batchImport: protectedProcedure
     .input(z.object({
       difficulty: difficultySchema,

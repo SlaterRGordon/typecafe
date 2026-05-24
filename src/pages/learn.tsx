@@ -41,16 +41,14 @@ const Learn: NextPage = () => {
     const charAttemptsRef = useRef<Map<string, { attempts: number, correct: number }>>(new Map())
 
     // fetch types
-    const { data: testType, isLoading: isLoadingTestType } = api.type.get.useQuery({ mode, subMode, language: language })
-    const { data: tests = [], refetch: refetchTests,  isLoading: isLoadingTests } = api.test.getByLevels.useQuery({
-        typeId: testType?.id ?? "",
-    }, { enabled: !!testType?.id && !!sessionData?.user })
+    const { isLoading: isLoadingTestType } = api.type.get.useQuery({ mode, subMode, language: language })
     const {
         data: savedProgress = [],
         refetch: refetchSavedProgress,
         isLoading: isLoadingSavedProgress,
     } = api.learnProgress.getByDifficulty.useQuery({ difficulty }, { enabled: !!sessionData?.user })
     const importLearnProgress = api.learnProgress.batchImport.useMutation()
+    const completeLearnProgress = api.learnProgress.complete.useMutation()
 
     useEffect(() => {
         setIsLocalProgressLoaded(false)
@@ -96,13 +94,12 @@ const Learn: NextPage = () => {
     }), [difficulty])
 
     const persistedProgress: LearnProgress[] = useMemo(() => [
-        ...tests.map(test => ({ options: test.options, speed: test.speed, accuracy: test.accuracy })),
-        ...savedProgress.map(progress => ({
+        ...savedProgress.map((progress: LearnProgress) => ({
             options: progress.options,
             speed: progress.speed,
             accuracy: progress.accuracy,
         })),
-    ], [savedProgress, tests])
+    ], [savedProgress])
     const completedProgress: LearnProgress[] = sessionData?.user ? persistedProgress : localProgress
     const levelOptions: Option[] = useMemo(() => getLevelOptions(completedProgress), [completedProgress, getLevelOptions])
     const hasDeviceProgress = localProgress.length > 0
@@ -138,17 +135,9 @@ const Learn: NextPage = () => {
             })
             window.localStorage.removeItem(getStorageKey(difficulty))
             setLocalProgress([])
-            const [testsResult, savedResult] = await Promise.all([
-                refetchTests(),
-                refetchSavedProgress(),
-            ])
+            const savedResult = await refetchSavedProgress()
             advanceToNextLevel(getLevelOptions([
-                ...(testsResult.data ?? []).map(test => ({
-                    options: test.options,
-                    speed: test.speed,
-                    accuracy: test.accuracy,
-                })),
-                ...(savedResult.data ?? []).map(progress => ({
+                ...(savedResult.data ?? []).map((progress: LearnProgress) => ({
                     options: progress.options,
                     speed: progress.speed,
                     accuracy: progress.accuracy,
@@ -169,7 +158,6 @@ const Learn: NextPage = () => {
         importLearnProgress,
         localProgress,
         refetchSavedProgress,
-        refetchTests,
         sessionData?.user,
     ])
 
@@ -203,15 +191,17 @@ const Learn: NextPage = () => {
             return
         }
 
-        Promise.all([refetchTests(), refetchSavedProgress()]).then(([refetchResult, savedResult]) => {
+        completeLearnProgress.mutateAsync({
+            difficulty,
+            progress: {
+                options: result.levelName ?? level.name,
+                speed: result.speed,
+                accuracy: result.accuracy,
+            },
+        }).then(() => refetchSavedProgress()).then((savedResult) => {
             advanceToNextLevel(getLevelOptions(
                 [
-                    ...(refetchResult.data ?? []).map(test => ({
-                        options: test.options,
-                        speed: test.speed,
-                        accuracy: test.accuracy,
-                    })),
-                    ...(savedResult.data ?? []).map(progress => ({
+                    ...(savedResult.data ?? []).map((progress: LearnProgress) => ({
                         options: progress.options,
                         speed: progress.speed,
                         accuracy: progress.accuracy,
@@ -228,7 +218,8 @@ const Learn: NextPage = () => {
         isLoadingTestType ||
         !isLocalProgressLoaded ||
         importLearnProgress.isLoading ||
-        (!!sessionData?.user && (isLoadingTests || isLoadingSavedProgress))
+        completeLearnProgress.isLoading ||
+        (!!sessionData?.user && isLoadingSavedProgress)
     const isLevelSelectionLoading = !levelChanged && level.name !== progressSelectedLevel.name
 
     useEffect(() => {
@@ -253,8 +244,8 @@ const Learn: NextPage = () => {
     const isLearnContentLoading = isLearnProgressLoading || isLevelSelectionLoading
 
     return (
-        <div className={`flex flex-col w-full h-full justify-center ${fullscreen ? 'absolute top-0 left-0 w-full h-full bg-base-100 z-[500]' : "relative"}`}>
-            <div className="absolute top-0 flex flex-col w-full items-center gap-4 px-8 py-12">
+        <div className={`flex flex-col w-full h-full justify-start overflow-y-auto overflow-x-hidden px-4 pb-24 pt-4 md:justify-center md:overflow-visible md:px-0 md:pb-0 md:pt-0 ${fullscreen ? 'absolute top-0 left-0 w-full h-full bg-base-100 z-[500]' : "relative"}`}>
+            <div className="relative top-0 flex flex-col w-full items-center gap-3 py-2 md:absolute md:gap-4 md:px-8 md:py-12">
                 {sessionStatus === "unauthenticated" &&
                     <div className="flex w-full justify-start">
                         <label className="btn btn-primary btn-sm" htmlFor="signInModal">
@@ -278,8 +269,9 @@ const Learn: NextPage = () => {
                 <div className="flex w-full">
                     <div className="flex w-full flex-wrap gap-2 md:w-8/12 lg:w-6/12">
                         {isLearnContentLoading ?
-                            <div className="flex h-10 items-center">
+                            <div className="flex h-10 items-center" role="status" aria-live="polite">
                                 <div className="h-8 w-8 animate-spin rounded-full border border-solid border-t-transparent text-primary"></div>
+                                <span className="sr-only">Loading learn controls</span>
                             </div>
                             :
                             <>
@@ -318,23 +310,28 @@ const Learn: NextPage = () => {
                         }
                     </div>
                 </div>
-                <div className="flex w-full basis-0 grow justify-start items-center gap-4">
-                    <div className="text-lg"><strong>Required Speed: {requirements.wpm}wpm</strong></div>
-                    <div className="text-lg"><strong>Required Accuracy: {requirements.accuracy}%</strong></div>
-                </div>
-                <div className="flex gap-2 basis-0 grow justify-start w-full">
-                        <div className="flex justify-start items-center text-lg"><strong>Target Keys:</strong></div>
-                        <div className="flex justify-start items-center">{level.keys.split("").map((key, index) => {
+                {!isLearnContentLoading &&
+                    <>
+                    <div className="flex w-full basis-0 grow flex-wrap justify-start items-center gap-x-4 gap-y-1">
+                        <div className="text-base md:text-lg"><strong>Required Speed: {requirements.wpm}wpm</strong></div>
+                        <div className="text-base md:text-lg"><strong>Required Accuracy: {requirements.accuracy}%</strong></div>
+                    </div>
+                    <div className="hidden gap-2 basis-0 grow justify-start w-full flex-wrap md:flex">
+                        <div className="flex justify-start items-center text-base md:text-lg"><strong>Target Keys:</strong></div>
+                        <div className="flex flex-wrap justify-start items-center gap-1">{level.keys.split("").map((key, index) => {
                             return (
-                                <kbd key={index} className="kbd kbd-lg">{key}</kbd>
+                                <kbd key={index} className="kbd kbd-md sm:kbd-lg">{key}</kbd>
                             )
                         })}</div>
                     </div>
+                    </>
+                }
             </div>
             <div className="flex w-full justify-center">
                 {isLearnContentLoading ?
-                    <div className="flex min-h-[12rem] items-center">
+                    <div className="flex min-h-[12rem] items-center" role="status" aria-live="polite">
                         <div className="h-8 w-8 animate-spin rounded-full border border-solid border-t-transparent text-primary"></div>
+                        <span className="sr-only">Loading learn content</span>
                     </div>
                     :
                     <Typer
