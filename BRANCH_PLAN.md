@@ -102,6 +102,23 @@ Expected commit:
 
 - `chore(runtime): pin supported node and npm versions`
 
+### Runtime Pinning Results
+
+- Added `.nvmrc` with Node `24` as the preferred LTS runtime.
+- Added `package.json` engines:
+  - Node `>=22 <25`
+  - npm `>=11 <12`
+- Documented Node 24 LTS preference and Node 22 LTS fallback in `README.md`.
+- `npm install`: passed and regenerated Prisma Client `4.16.2`.
+- `npm run lint`: passed with no warnings or errors.
+- `npx tsc --noEmit --pretty false`: passed.
+- `npm run build:check`: passed.
+
+Non-failing runtime notes:
+
+- Current shell still runs Node `23.6.1`, which satisfies the temporary engine range but is not the preferred `.nvmrc` runtime.
+- `npm install` reported 28 vulnerabilities: 2 low, 10 moderate, 15 high, and 1 critical. Address these during dependency upgrade phases rather than with an unscoped `npm audit fix --force`.
+
 ## Phase 3: Next And React
 
 Upgrade the framework layer before app-library majors.
