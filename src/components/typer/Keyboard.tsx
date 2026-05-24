@@ -10,7 +10,8 @@ interface KeyboardProps {
     currentKey: string,
     selectedKeys?: string[],
     setSelectedKeys?: (keys: string[]) => void,
-    charAttemptsRef: React.MutableRefObject<Map<string, { attempts: number, correct: number }>>
+    charAttemptsRef: React.MutableRefObject<Map<string, { attempts: number, correct: number }>>,
+    attemptVersion?: number,
 }
 
 const letters = "qwertyuiopasdfghjklzxcvbnm/"

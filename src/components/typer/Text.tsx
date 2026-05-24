@@ -1,7 +1,6 @@
-import { useEffect, useRef, useState } from "react"
-import { buildText, generateText } from "./utils"
+import { useCallback, useEffect, useRef, useState } from "react"
+import { generateText } from "./utils"
 import { TestModes } from "./types"
-import { init } from "next/dist/compiled/webpack/webpack"
 
 interface TextProps {
     text: string,
@@ -16,14 +15,30 @@ interface TextProps {
     onStart: () => void,
     onComplete: (correct: boolean) => void,
     onKeyChange: (key: string) => void,
+    onAttemptChange?: () => void,
 }
 
 export const Text = (props: TextProps) => {
+    const {
+        text,
+        started,
+        restarted,
+        modalOpen,
+        language,
+        mode,
+        charAttempts,
+        setCharacterCount,
+        setIncorrectCount,
+        onStart,
+        onComplete,
+        onKeyChange,
+        onAttemptChange,
+    } = props
     const [position, setPosition] = useState(0)
     const [incorrect, setIncorrect] = useState<number>(0)
     const textContainerRef = useRef<HTMLDivElement>(null)
     const charStatesRef = useRef<Map<number, 'correct' | 'incorrect'>>(new Map())
-    const currentTextRef = useRef(props.text)
+    const currentTextRef = useRef(text)
     const isAppendingRef = useRef(false)
     const [loadingText, setLoadingText] = useState(true)
 
@@ -33,13 +48,57 @@ export const Text = (props: TextProps) => {
     // ref input to focus
     const inputRef = useRef<HTMLInputElement>(null)
 
+    const createCharSpan = useCallback((char: string, index: number) => {
+        const span = document.createElement('span')
+        span.id = `c${index}`
+        span.className = index === 0 ? 'active-char text-primary char' : 'char'
+        span.textContent = char
+
+        if (charStatesRef.current.has(index)) {
+            const state = charStatesRef.current.get(index)
+            span.classList.add(state === 'correct' ? 'text-base-300' : 'text-secondary')
+        }
+
+        return span
+    }, [])
+
+    const renderInitialText = useCallback((value: string) => {
+        if (!textContainerRef.current) return
+
+        textContainerRef.current.innerHTML = ''
+        const fragment = document.createDocumentFragment()
+
+        value.split('').forEach((char, index) => {
+            const span = createCharSpan(char, index)
+            fragment.appendChild(span)
+        })
+
+        textContainerRef.current.appendChild(fragment)
+        setLoadingText(false)
+    }, [createCharSpan])
+
+    const appendNewText = useCallback((newText: string) => {
+        if (!textContainerRef.current) return
+
+        const fragment = document.createDocumentFragment()
+        const startIndex = currentTextRef.current.length
+
+        newText.split('').forEach((char, offset) => {
+            const index = startIndex + offset
+            const span = createCharSpan(char, index)
+            fragment.appendChild(span)
+        })
+
+        textContainerRef.current.appendChild(fragment)
+    }, [createCharSpan])
+
     // event listeners to focus input
     useEffect(() => {
-        document.getElementById("typer")?.addEventListener("click", () => {
+        const handleTyperClick = () => {
             const input = inputRef.current
             if (input) input.focus()
-        })
-        window.addEventListener("keydown", () => {
+        }
+        const handleWindowKeydown = () => {
             const configModal = document.getElementById("configModal") as HTMLInputElement
             const colorModal = document.getElementById("colorModal") as HTMLInputElement
             const signInModal = document.getElementById("signInModal") as HTMLInputElement
@@ -47,7 +106,7 @@ export const Text = (props: TextProps) => {
 
             const input = inputRef.current
 
-            if (colorModal.checked) {
+            if (colorModal?.checked) {
                 const nameInput = document.getElementById("nameInput") as HTMLInputElement
                 if (nameInput) nameInput.focus()
             }
@@ -61,90 +120,55 @@ export const Text = (props: TextProps) => {
             } else {
                 if (input) input.blur()
             }
-        })
-    }, [inputRef])
+        }
+        const typer = document.getElementById("typer")
+
+        typer?.addEventListener("click", handleTyperClick)
+        window.addEventListener("keydown", handleWindowKeydown)
+
+        return () => {
+            typer?.removeEventListener("click", handleTyperClick)
+            window.removeEventListener("keydown", handleWindowKeydown)
+        }
+    }, [])
 
     useEffect(() => {
-        if (props.restarted) {
-            currentTextRef.current = props.text
+        if (restarted) {
+            currentTextRef.current = text
             charStatesRef.current.clear()
-            renderInitialText(props.text)
+            renderInitialText(text)
             setPosition(0)
             setIncorrect(0)
 
             const restartBtn = document.getElementById("restart") as HTMLButtonElement
             if (restartBtn) restartBtn.classList.remove("blinking", "text-primary")
             const input = inputRef.current
-            if (input && !props.modalOpen) input.focus()
+            if (input && !modalOpen) input.focus()
         }
-    }, [props.restarted, props.text])
+    }, [modalOpen, renderInitialText, restarted, text])
 
     // Append new text when needed (relaxed mode)
     useEffect(() => {
-        if (props.mode === TestModes.relaxed && !isAppendingRef.current) {
+        if (mode === TestModes.relaxed && !isAppendingRef.current) {
             const threshold = 300
             if (position >= currentTextRef.current.length - threshold) {
                 isAppendingRef.current = true
-                const newText = generateText(100, props.language)
+                const newText = generateText(100, language)
                 appendNewText(" " + newText)
-                currentTextRef.current += newText
+                currentTextRef.current += " " + newText
                 isAppendingRef.current = false
             }
         }
-    }, [position, props.mode, props.language])
-
-    const renderInitialText = (text: string) => {
-        if (!textContainerRef.current) return
-
-        textContainerRef.current.innerHTML = ''
-        const fragment = document.createDocumentFragment()
-
-        text.split('').forEach((char, index) => {
-            const span = createCharSpan(char, index)
-            fragment.appendChild(span)
-        })
-
-        textContainerRef.current.appendChild(fragment)
-        setLoadingText(false)
-    }
-
-    const appendNewText = (newText: string) => {
-        if (!textContainerRef.current) return
-
-        const fragment = document.createDocumentFragment()
-        const startIndex = currentTextRef.current.length
-
-        newText.split('').forEach((char, offset) => {
-            const index = startIndex + offset
-            const span = createCharSpan(char, index)
-            fragment.appendChild(span)
-        })
-
-        textContainerRef.current.appendChild(fragment)
-    }
-
-    const createCharSpan = (char: string, index: number) => {
-        const span = document.createElement('span')
-        span.id = `c${index}`
-        span.className = index === 0 ? 'active-char text-primary char' : 'char'
-        span.textContent = char
-
-        if (charStatesRef.current.has(index)) {
-            const state = charStatesRef.current.get(index)
-            span.classList.add(state === 'correct' ? 'text-base-300' : 'text-secondary')
-        }
-
-        return span
-    }
+    }, [appendNewText, language, mode, position])
 
     useEffect(() => {
-        if (!props.started && !props.restarted) {
+        if (!started && !restarted) {
             const current = typerRef.current?.querySelector("#c" + position.toString()) as HTMLDivElement
             const restartBtn = document.getElementById("restart") as HTMLButtonElement
             if (restartBtn) restartBtn.classList.add("blinking", "text-primary")
             if (current) current.classList.value = ""
         }
-    }, [props.started, props.restarted, position])
+    }, [started, restarted, position])
 
     useEffect(() => {
         const current = typerRef.current?.querySelector("#c" + position.toString()) as HTMLDivElement
@@ -162,12 +186,12 @@ export const Text = (props: TextProps) => {
     const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
         const current = typerRef.current?.querySelector("#c" + position.toString()) as HTMLDivElement
 
-        if (current && props.restarted) {
+        if (current && restarted) {
             // check for correct key or incorrect
             if ((current.innerText.trim() === '' && e.key === ' ') || current.innerText.trim() === e.key) {
                 nextLetter(true)
                 // start timer
-                if (position === 0 && !props.started) props.onStart()
+                if (position === 0 && !started) onStart()
             } else if (
                 position > 0 &&
                 (e.code == 'Space' ||
@@ -196,10 +220,11 @@ export const Text = (props: TextProps) => {
             charStatesRef.current.set(currentIndex, correct ? 'correct' : 'incorrect')
 
             // Update attempts tracking
-            const attempts = props.charAttempts.get(char) || { attempts: 0, correct: 0 };
+            const attempts = charAttempts.get(char) || { attempts: 0, correct: 0 };
             attempts.attempts += 1;
             if (correct) attempts.correct += 1;
-            props.charAttempts.set(char, attempts);
+            charAttempts.set(char, attempts);
+            onAttemptChange?.();
 
             // Update React state for position and incorrect count
             setPosition(prev => {
@@ -215,7 +240,7 @@ export const Text = (props: TextProps) => {
 
             // Check if test is complete
             if (currentIndex === currentTextRef.current.length - 1) {
-                props.onComplete(correct)
+                onComplete(correct)
             }
 
             // Update active character styling for new position
@@ -254,10 +279,10 @@ export const Text = (props: TextProps) => {
     }
 
     useEffect(() => {
-        props.setCharacterCount(position)
-        props.setIncorrectCount(incorrect)
-        props.onKeyChange(textContainerRef.current?.querySelector(`#c${position}`)?.textContent || '')
-    }, [position, incorrect, props])
+        setCharacterCount(position)
+        setIncorrectCount(incorrect)
+        onKeyChange(textContainerRef.current?.querySelector(`#c${position}`)?.textContent || '')
+    }, [position, incorrect, setCharacterCount, setIncorrectCount, onKeyChange])
 
     return (
         <div id="text" className="relative flex flex-col max-h-24 leading-[2rem] overflow-hidden text-[22px] mb-8 max-w-screen-xl z-30">

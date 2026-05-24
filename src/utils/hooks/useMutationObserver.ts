@@ -3,10 +3,11 @@ import { useCallback, useEffect, useState } from "react";
 const useMutationObserver = (domNodeSelector: string, observerOptions: MutationObserverInit | undefined, cb: MutationCallback) => {
   useEffect(() => {
     const targetNode = document.querySelector(domNodeSelector);
+    if (!targetNode) return;
 
     const observer = new MutationObserver(cb);
 
-    observer.observe(targetNode as Node, observerOptions);
+    observer.observe(targetNode, observerOptions);
 
     return () => {
       observer.disconnect();
