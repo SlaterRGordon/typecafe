@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import { NextPage } from 'next';
+import type { NextPage } from 'next';
 import { SupportCard } from '~/components/support/SupportCard';
 
 const Support: NextPage = () => {

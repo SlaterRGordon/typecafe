@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react"
-import { TestGramScopes, TestSubModes } from "./types"
-import { TestGramSources, TestModes } from "./types"
+import { TestSubModes, TestModes } from "./types"
+import type { TestGramScopes, TestGramSources } from "./types"
 import { generateBetterPseudoText, generateNGram, generateText, getGramLevelText } from "./utils"
 import { Text } from "./Text"
 import { Stats } from "./Stats"
@@ -270,7 +270,7 @@ export const Typer = (props: TyperProps) => {
         const correct = characterCount - incorrectCount
         if (characterCount == 0) setAccuracy(0)
         else setAccuracy(correct / characterCount * 100)
-    }, [count, characterCount, incorrectCount, time, mode, subMode, gramSource, gramScope, gramCombination, gramRepetition, gramLevel])
+    }, [actualStartTime, count, characterCount, incorrectCount, time, mode, subMode, gramSource, gramScope, gramCombination, gramRepetition, gramLevel, started])
 
     useEffect(() => {
 

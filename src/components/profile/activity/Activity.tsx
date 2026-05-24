@@ -1,7 +1,7 @@
 
-import { useEffect, useState, useRef, useCallback } from "react"
+import { useEffect, useState } from "react"
 import ActivityCalendar from "react-activity-calendar"
-import type { Activity as CalendarActivity, ThemeInput, ColorScale } from "react-activity-calendar"
+import type { Activity as CalendarActivity } from "react-activity-calendar"
 import { api } from "~/utils/api"
 import { getActivityData } from "./utils"
 import { useStyle } from "~/utils/hooks/useMutationObserver"

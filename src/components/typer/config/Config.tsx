@@ -1,7 +1,8 @@
 import { useEffect } from "react"
 import type { SingleValue } from "react-select"
 import Select from 'react-select'
-import { TestModes, TestSubModes, TestGramSources, TestGramScopes } from "../types"
+import { TestModes, TestSubModes, TestGramScopes } from "../types"
+import type { TestGramSources } from "../types"
 import { ConfigOption } from "./ConfigOption"
 
 interface ConfigProps {
@@ -47,13 +48,6 @@ export const Config = (props: ConfigProps) => {
     const handleSubModeChange = (newSubMode: number) => {
         props.setCount(newSubMode == TestSubModes.timed ? 15 : 10)
         props.setSubMode(newSubMode)
-    }
-
-    const handleAddSelectedKey = (newSelectedKey: string) => {
-        props.setSelectedKeys([...props.selectedKeys, newSelectedKey])
-    }
-    const handleRemoveSelectedKey = (key: string) => {
-        props.setSelectedKeys(props.selectedKeys.filter(selectedKey => selectedKey !== key))
     }
 
     const handleTestGramSourceChange = (newTestGramSource: number) => {

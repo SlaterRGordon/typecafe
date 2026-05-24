@@ -30,6 +30,18 @@ const config = {
         hostname: 'avatars.githubusercontent.com',
         port: '',
         pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'cdn.buymeacoffee.com',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'storage.ko-fi.com',
+        port: '',
+        pathname: '/**',
       }
     ]
   },

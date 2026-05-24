@@ -1,3 +1,5 @@
+import Image from "next/image";
+
 interface SupportCardProps {
     showDismiss: boolean;
     onDismiss?: () => void;
@@ -28,17 +30,19 @@ export const SupportCard = (props: SupportCardProps) => {
                 </div>
                 <div className='flex gap-4'>
                     <a href="https://www.buymeacoffee.com/typecafe" target="_blank">
-                        <img
+                        <Image
                             src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png"
                             alt="Buy Me A Coffee"
-                            height='36'
+                            width={150}
+                            height={36}
                             style={{ border: "0px", height: "36px", borderRadius: "0.75rem", width: "150px" }}
                         />
 
                     </a>
                     <a href='https://ko-fi.com/G2G519ZC63' target='_blank'>
-                        <img
-                            height='36'
+                        <Image
+                            width={150}
+                            height={36}
                             style={{ border: "0px", height: "36px", width: "150px" }}
                             src='https://storage.ko-fi.com/cdn/kofi6.png?v=6'
                             alt='Support my work'

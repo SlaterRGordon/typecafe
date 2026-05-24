@@ -172,11 +172,11 @@ export const SignInModal = () => {
                         <span className="ml-2">Sign in with Github</span>
                     </button> */}
                     {signInForm ?
-                        <button className="btn btn-block btn-outline" onClick={(e) => setSignInForm(false)}>
+                        <button className="btn btn-block btn-outline" onClick={() => setSignInForm(false)}>
                             <span className="ml-2">New to TypeCafe? Join Now</span>
                         </button>
                         :
-                        <button className="btn btn-block btn-outline" onClick={(e) => setSignInForm(true)}>
+                        <button className="btn btn-block btn-outline" onClick={() => setSignInForm(true)}>
                             <span className="ml-2">Already a member? Sign In</span>
                         </button>
                     }

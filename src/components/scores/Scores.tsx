@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef, use } from "react"
-import { TestModes, TestSubModes } from "~/components/typer/types"
+import { useState, useEffect, useRef } from "react"
+import type { TestModes, TestSubModes } from "~/components/typer/types"
 import { api } from "~/utils/api"
 import type { Test, User } from "@prisma/client"
 import Image from "next/image";
@@ -139,7 +139,7 @@ const Scores = (props: LeaderboardProps) => {
                                         <div className={`flex w-full justify-stretch px-4 py-4 ${index % 2 == 1 ? 'bg-b2' : ''}`} key={index}>
                                             <div className="flex w-[10%] md:[5%] items-center">{index + 1}</div>
                                             <div className="flex basis-0 grow items-center">
-                                                <div className="flex basis-0 grow items-center items-center space-x-3 cursor-pointer" onClick={(e) => navigateProfile(test.user.username)}>
+                                                <div className="flex basis-0 grow items-center items-center space-x-3 cursor-pointer" onClick={() => navigateProfile(test.user.username)}>
                                                     <div className="avatar">
                                                         <div className="mask mask-squircle w-12 h-12">
                                                             {test?.user.image ?

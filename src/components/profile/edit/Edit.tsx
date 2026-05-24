@@ -1,6 +1,5 @@
-import { User } from "@prisma/client"
+import type { User } from "@prisma/client"
 import { useSession } from "next-auth/react";
-import { useRouter } from "next/router"
 import { useEffect, useState } from "react"
 import { api } from "~/utils/api"
 

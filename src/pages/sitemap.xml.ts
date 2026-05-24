@@ -1,6 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import { globby } from "globby";
-import { GetServerSidePropsContext } from "next";
+import type { GetServerSidePropsContext } from "next";
 
 const prisma = new PrismaClient();
 const EXTERNAL_DATA_URL = "https://www.type.cafe";

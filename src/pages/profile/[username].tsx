@@ -1,10 +1,10 @@
 import { Typography } from "@mui/material";
-import { NextPage } from "next";
+import type { NextPage } from "next";
 import Image from "next/image";
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 import Select from 'react-select'
-import { SingleValue } from "react-select";
+import type { SingleValue } from "react-select";
 import { Activity } from "~/components/profile/activity/Activity";
 import { Stats } from "~/components/profile/stats/Stats";
 import Scores from "~/components/scores/Scores";
@@ -25,7 +25,6 @@ const ProfilePage: NextPage = () => {
     const [timeRange, setTimeRange] = useState(3)
     const [subMode, setSubMode] = useState<TestSubModes>(TestSubModes.timed)
     const [count, setCount] = useState(15)
-    const [update, setUpdate] = useState(false)
 
     const languageOptions = [
         { value: "english", label: 'English' },
@@ -202,7 +201,7 @@ const ProfilePage: NextPage = () => {
                                     classNamePrefix="my-react-select"
                                 />
                             </div>
-                            <Scores update={update} userId={data?.id} mode={TestModes.normal} subMode={subMode} count={count} date={date} language={language} />
+                            <Scores userId={data?.id} mode={TestModes.normal} subMode={subMode} count={count} date={date} language={language} />
                         </div>
                     </div>
                 </div>
