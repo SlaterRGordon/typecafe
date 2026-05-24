@@ -1,8 +1,10 @@
 import { signIn } from "next-auth/react";
+import { useRouter } from "next/router";
 import { useState } from "react";
 import { api } from "~/utils/api";
 
 export const SignInModal = () => {
+    const router = useRouter()
     const [email, setEmail] = useState("")
     const [username, setUsername] = useState("")
     const [password, setPassword] = useState("")
@@ -10,16 +12,21 @@ export const SignInModal = () => {
     const [signInForm, setSignInForm] = useState(true)
 
     const [error, setError] = useState("")
+    const callbackUrl = router.asPath || "/"
     const register = api.user.registerUser.useMutation({
         onSuccess: async () => {
             const result = await signIn("login", {
                 email,
                 password,
+                callbackUrl,
                 redirect: false,
             })
             if (result?.error) {
                 setError(result.error)
+                return
             }
+
+            await router.replace(result?.url ?? callbackUrl)
         },
         onError: (error) => {
             setError(error.message)
@@ -76,7 +83,7 @@ export const SignInModal = () => {
     const handleSignIn = (e: React.MouseEvent<HTMLButtonElement, MouseEvent>, provider: string) => {
         e.stopPropagation();
         e.preventDefault();
-        void signIn(provider)
+        void signIn(provider, { callbackUrl })
     }
 
     const handleSumbit = async () => {
@@ -88,11 +95,15 @@ export const SignInModal = () => {
             const result = await signIn("login", {
                 email,
                 password,
+                callbackUrl,
                 redirect: false,
             })
             if (result?.error) {
                 setError("Incorrect email or password")
+                return
             }
+
+            await router.replace(result?.url ?? callbackUrl)
         } else {
             if (emailError || usernameError || passwordError) {
                 return
