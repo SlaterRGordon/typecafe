@@ -166,7 +166,7 @@ export const ColorModal = () => {
                             <div>
                                 <h3 className="font-bold text-2xl">Saved Colors</h3>
                                 {sessionData?.user?.id ?
-                                    <div className="grid w-full grid-cols-2 gap-2">
+                                    <div className="grid w-full grid-cols-2 gap-2 pb-4">
                                         {savedColors?.map((colorConfiguration) => {
                                             const colors: Colors = {
                                                 "--b1": colorConfiguration.background,
@@ -191,7 +191,7 @@ export const ColorModal = () => {
                         {tab == "presets" &&
                             <div>
                                 <h3 className="font-bold text-2xl">Color Presets</h3>
-                                <div className="grid w-full grid-cols-2 gap-2">
+                                <div className="grid w-full grid-cols-2 gap-2 pb-4">
                                     <PresetButton name="Dracula" preset={presets.dracula} hoverStyle="hover:!bg-dracula" setColors={setPreset} />
                                     <PresetButton name="Pastel" preset={presets.pastel} hoverStyle="hover:!bg-pastel" setColors={setPreset} />
                                     <PresetButton name="Aqua" preset={presets.aqua} hoverStyle="hover:!bg-aqua" setColors={setPreset} />

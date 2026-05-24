@@ -2,6 +2,12 @@
 
 This is a [T3 Stack](https://create.t3.gg/) project bootstrapped with `create-t3-app`.
 
+## Runtime
+
+Use Node 24 LTS for local development. Node 22 LTS is the fallback runtime if a deployment target does not support Node 24 yet.
+
+This project uses npm and expects npm 11.
+
 ## What's next? How do I make an app with this?
 
 We try to keep this project as simple as possible, so you can start with just the scaffolding we set up for you, and add additional things later when they become necessary.

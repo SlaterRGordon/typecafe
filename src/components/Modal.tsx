@@ -1,5 +1,7 @@
+import type { ReactNode } from "react";
+
 interface ModalProps {
-    children: JSX.Element,
+    children: ReactNode,
     setModalOpen?: (open: boolean) => void
 }
 

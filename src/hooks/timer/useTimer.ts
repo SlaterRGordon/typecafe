@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useReducer } from "react";
-import type { Reducer } from "react";
 import type { Config, ReturnValue, State } from "./types";
 import { reducer } from "./reducer";
-import type { TimerActionsType } from "./actions";
 
 export const useTimer = ({
     autostart = false,
@@ -15,14 +13,14 @@ export const useTimer = ({
     step = 1,
     timerType = 'INCREMENTAL',
 }: Partial<Config> = {}): ReturnValue => {
-    const [state, dispatch] = useReducer<Reducer<State, TimerActionsType>>(reducer, {
+    const [state, dispatch] = useReducer(reducer, {
         status: initialStatus,
         time: _initialTime,
         timerType,
         initialTime: _initialTime,
         actualStartTime: Date.now(),
         actualEndTime: Date.now(),
-    });
+    } satisfies State);
 
     const { status, time, initialTime, actualStartTime, actualEndTime } = state;
 

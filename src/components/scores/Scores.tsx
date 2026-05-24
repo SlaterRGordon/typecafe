@@ -5,7 +5,7 @@ import type { Test, User } from "@prisma/client"
 import Image from "next/image";
 import { useRouter } from "next/router";
 
-function isBottom(ref: React.RefObject<HTMLDivElement>) {
+function isBottom(ref: React.RefObject<HTMLElement | null>) {
     if (!ref.current) {
         return false;
     }

@@ -1,6 +1,6 @@
 
-import { useEffect, useState } from "react"
-import ActivityCalendar from "react-activity-calendar"
+import { useEffect, useMemo, useState } from "react"
+import { ActivityCalendar } from "react-activity-calendar"
 import type { Activity as CalendarActivity } from "react-activity-calendar"
 import { api } from "~/utils/api"
 import { getActivityData } from "./utils"
@@ -24,8 +24,18 @@ export const Activity = (props: ActivityProps) => {
   date.setDate(date.getDate() - 365)
   const [startDate] = useState(date)
   const [endDate] = useState(new Date())
-  const [data, setData] = useState<CalendarActivity[]>([])
+  const [data, setData] = useState<CalendarActivity[]>(() => getActivityData(undefined))
   const style = useStyle();
+  const activityTheme = useMemo(() => {
+    const primary = style?.trim()
+    const emptyColor = primary ? `hsla(${primary.split(" ").join(",")},0.2)` : "hsl(0, 0%, 22%)"
+    const activeColor = primary ? `hsla(${primary.split(" ").join(",")},1)` : "rebeccapurple"
+
+    return {
+      light: [emptyColor, activeColor],
+      dark: [emptyColor, activeColor],
+    }
+  }, [style])
 
   const { data: testCounts } = api.test.getActivityByDate.useQuery({
     startDate,
@@ -45,13 +55,11 @@ export const Activity = (props: ActivityProps) => {
   return (
     <ActivityCalendar
       data={data}
-      theme={{
-        light: [style ? `hsla(${style.split(" ").join(",")},0.2)` : "hsl(0, 0%, 92%)", style ? `hsla(${style.split(" ").join(",")},1)` : 'rebeccapurple'],
-      }}
-      hideMonthLabels={false}
+      theme={activityTheme}
+      showMonthLabels={true}
       showWeekdayLabels={false}
-      hideColorLegend={false}
-      hideTotalCount={false}
+      showColorLegend={true}
+      showTotalCount={true}
       blockSize={12}
       labels={{
         months: [
