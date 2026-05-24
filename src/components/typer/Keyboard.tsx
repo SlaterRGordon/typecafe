@@ -11,13 +11,15 @@ interface KeyboardProps {
     selectedKeys?: string[],
     setSelectedKeys?: (keys: string[]) => void,
     charAttemptsRef: React.MutableRefObject<Map<string, { attempts: number, correct: number }>>,
+    baseAttemptsRef?: React.MutableRefObject<Map<string, { attempts: number, correct: number }>>,
     attemptVersion?: number,
+    highlightKeys?: string[],
 }
 
 const letters = "qwertyuiopasdfghjklzxcvbnm/"
 
 export const Keyboard = (props: KeyboardProps) => {
-    const { mode, currentKey, selectedKeys, setSelectedKeys, charAttemptsRef } = props
+    const { mode, currentKey, selectedKeys, setSelectedKeys, charAttemptsRef, baseAttemptsRef, highlightKeys } = props
     const dispatch = useDispatch()
     const style = useStyle();
     const secondaryStyle = useSecondaryStyle();
@@ -50,12 +52,19 @@ export const Keyboard = (props: KeyboardProps) => {
         }
     }
 
-    const getSpaceKeyStats = () => {
-        const charAttempts = charAttemptsRef.current.get(" ")?.attempts || 0
-        const charCorrect = charAttemptsRef.current.get(" ")?.correct || 0
+    const getStatsForKey = (key: string) => {
+        const baseStats = baseAttemptsRef?.current.get(key)
+        const sessionStats = charAttemptsRef.current.get(key)
+        const charAttempts = (baseStats?.attempts || 0) + (sessionStats?.attempts || 0)
+        const charCorrect = (baseStats?.correct || 0) + (sessionStats?.correct || 0)
         const charAccuracy = charAttempts > 0 ? Math.round((charCorrect / charAttempts) * 100) : 100
-
         const color = interpolateColor(style ? hslToHex(style) : "#ffffff", secondaryStyle ? hslToHex(secondaryStyle) : "#000000", charAccuracy / 100)
+
+        return { charAccuracy, color }
+    }
+
+    const getSpaceKeyStats = () => {
+        const { charAccuracy, color } = getStatsForKey(" ")
 
         return (
             <kbd
@@ -91,11 +100,7 @@ export const Keyboard = (props: KeyboardProps) => {
                 <>
                     <div className="flex justify-center gap-1 my-1 w-full">
                         {letters.slice(0, 10).split("").map((key: string, index: number) => {
-                            const charAttempts = charAttemptsRef.current.get(key)?.attempts || 0
-                            const charCorrect = charAttemptsRef.current.get(key)?.correct || 0
-                            const charAccuracy = charAttempts > 0 ? Math.round((charCorrect / charAttempts) * 100) : 100
-
-                            const color = interpolateColor(style ? hslToHex(style) : "#ffffff", secondaryStyle ? hslToHex(secondaryStyle) : "#000000", charAccuracy / 100)
+                            const { charAccuracy, color } = getStatsForKey(key)
 
                             return (
                                 <kbd
@@ -113,11 +118,7 @@ export const Keyboard = (props: KeyboardProps) => {
                     </div>
                     <div className="flex justify-center gap-1 my-1 w-full">
                         {letters.slice(10, 19).split("").map((key: string, index: number) => {
-                            const charAttempts = charAttemptsRef.current.get(key)?.attempts || 0
-                            const charCorrect = charAttemptsRef.current.get(key)?.correct || 0
-                            const charAccuracy = charAttempts > 0 ? Math.round((charCorrect / charAttempts) * 100) : 100
-
-                            const color = interpolateColor(style ? hslToHex(style) : "#ffffff", secondaryStyle ? hslToHex(secondaryStyle) : "#000000", charAccuracy / 100)
+                            const { charAccuracy, color } = getStatsForKey(key)
 
                             return (
                                 <kbd
@@ -135,11 +136,7 @@ export const Keyboard = (props: KeyboardProps) => {
                     </div>
                     <div className="flex justify-center gap-1 my-1 w-full">
                         {letters.slice(19, 26).split("").map((key: string, index: number) => {
-                            const charAttempts = charAttemptsRef.current.get(key)?.attempts || 0
-                            const charCorrect = charAttemptsRef.current.get(key)?.correct || 0
-                            const charAccuracy = charAttempts > 0 ? Math.round((charCorrect / charAttempts) * 100) : 100
-
-                            const color = interpolateColor(style ? hslToHex(style) : "#ffffff", secondaryStyle ? hslToHex(secondaryStyle) : "#000000", charAccuracy / 100)
+                            const { charAccuracy, color } = getStatsForKey(key)
 
                             return (
                                 <kbd
@@ -176,7 +173,7 @@ export const Keyboard = (props: KeyboardProps) => {
                             return (
                                 <kbd
                                     key={index}
-                                    className={`relative kbd kbd-lg ${!selectedKeys ? '' : (selectedKeys.includes(key) || mode !== TestModes.practice) ? 'kbd-unlocked' : 'kbd-locked bg-base-100 text-base-content'}`}
+                                    className={`relative kbd kbd-lg ${highlightKeys?.includes(key) ? 'bg-secondary text-secondary-content' : ''} ${!selectedKeys ? '' : (selectedKeys.includes(key) || mode !== TestModes.practice) ? 'kbd-unlocked' : 'kbd-locked bg-base-100 text-base-content'}`}
                                     onClick={() => handleKeyClicked(key)}
                                 >
                                     {selectedKeys && !selectedKeys.includes(key) && mode === TestModes.practice && <div className="absolute top-0 right-0 p-1">
@@ -202,7 +199,7 @@ export const Keyboard = (props: KeyboardProps) => {
                             return (
                                 <kbd
                                     key={index}
-                                    className={`relative kbd kbd-lg ${!selectedKeys ? '' : (selectedKeys.includes(key) || mode !== TestModes.practice) ? 'kbd-unlocked' : 'kbd-locked bg-base-100 text-base-content'}`}
+                                    className={`relative kbd kbd-lg ${highlightKeys?.includes(key) ? 'bg-secondary text-secondary-content' : ''} ${!selectedKeys ? '' : (selectedKeys.includes(key) || mode !== TestModes.practice) ? 'kbd-unlocked' : 'kbd-locked bg-base-100 text-base-content'}`}
                                     onClick={() => handleKeyClicked(key)}
                                 >
                                     {selectedKeys && !selectedKeys.includes(key) && mode === TestModes.practice && <div className="absolute top-0 right-0 p-1">
@@ -228,7 +225,7 @@ export const Keyboard = (props: KeyboardProps) => {
                             return (
                                 <kbd
                                     key={index}
-                                    className={`relative kbd kbd-lg ${!selectedKeys ? '' : (selectedKeys.includes(key) || mode !== TestModes.practice) ? 'kbd-unlocked' : 'kbd-locked bg-base-100 text-base-content'}`}
+                                    className={`relative kbd kbd-lg ${highlightKeys?.includes(key) ? 'bg-secondary text-secondary-content' : ''} ${!selectedKeys ? '' : (selectedKeys.includes(key) || mode !== TestModes.practice) ? 'kbd-unlocked' : 'kbd-locked bg-base-100 text-base-content'}`}
                                     onClick={() => handleKeyClicked(key)}
                                 >
                                     {selectedKeys && !selectedKeys.includes(key) && mode === TestModes.practice && <div className="absolute top-0 right-0 p-1">

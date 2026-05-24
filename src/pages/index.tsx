@@ -1,11 +1,13 @@
 import { type NextPage } from "next";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useSession } from "next-auth/react";
 import { Modal } from "~/components/Modal";
 import { SupportCard } from "~/components/support/SupportCard";
 import { Keyboard } from "~/components/typer/Keyboard";
 import { Typer } from "~/components/typer/Typer";
 import { Config } from "~/components/typer/config/Config";
 import { TestGramScopes, TestGramSources, TestModes, TestSubModes } from "~/components/typer/types";
+import { api } from "~/utils/api";
 
 const Home: NextPage = () => {
   const [showSupport, setShowSupport] = useState(true)
@@ -27,6 +29,24 @@ const Home: NextPage = () => {
   const [currentKey, setCurrentKey] = useState("")
   const [attemptVersion, setAttemptVersion] = useState(0)
   const charAttemptsRef = useRef<Map<string, { attempts: number, correct: number }>>(new Map())
+  const persistedAttemptsRef = useRef<Map<string, { attempts: number, correct: number }>>(new Map())
+  const { data: sessionData } = useSession()
+  const { data: persistedStats } = api.practiceStats.get.useQuery(undefined, {
+    enabled: mode === TestModes.practice && !!sessionData?.user,
+  })
+
+  useEffect(() => {
+    if (mode !== TestModes.practice || !persistedStats) return
+
+    persistedAttemptsRef.current.clear()
+    persistedStats.forEach((stat) => {
+      persistedAttemptsRef.current.set(stat.character, {
+        attempts: stat.total,
+        correct: stat.correct,
+      })
+    })
+    setAttemptVersion((version) => version + 1)
+  }, [mode, persistedStats])
 
   const onKeyChange = (key: string) => {
     setCurrentKey(key)
@@ -62,7 +82,7 @@ const Home: NextPage = () => {
           charAttemptsRef={charAttemptsRef}
         />
         {(showKeyboard || mode === TestModes.practice) && 
-          <Keyboard mode={mode} currentKey={currentKey} selectedKeys={selectedKeys} setSelectedKeys={setSelectedKeys} charAttemptsRef={charAttemptsRef} attemptVersion={attemptVersion} />
+          <Keyboard mode={mode} currentKey={currentKey} selectedKeys={selectedKeys} setSelectedKeys={setSelectedKeys} charAttemptsRef={charAttemptsRef} baseAttemptsRef={persistedAttemptsRef} attemptVersion={attemptVersion} />
         }
       </div>
       <Modal setModalOpen={(open) => setModalOpen(open)}>
