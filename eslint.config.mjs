@@ -14,6 +14,7 @@ export default tseslint.config(
       "eslint.config.mjs",
       "next-env.d.ts",
       "node_modules/**",
+      "src/generated/prisma/**",
       "tailwind.config.ts",
       "src/pages/sitemap.xml.js",
     ],

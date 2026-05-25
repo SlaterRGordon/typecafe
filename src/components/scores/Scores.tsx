@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react"
 import type { TestModes, TestSubModes } from "~/components/typer/types"
 import { api } from "~/utils/api"
-import type { Test, User } from "@prisma/client"
+import type { Test, User } from "~/generated/prisma/client"
 import Image from "next/image";
 import { useRouter } from "next/router";
 

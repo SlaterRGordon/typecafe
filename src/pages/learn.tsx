@@ -244,7 +244,7 @@ const Learn: NextPage = () => {
     const isLearnContentLoading = isLearnProgressLoading || isLevelSelectionLoading
 
     return (
-        <div className={`flex flex-col w-full h-full justify-start overflow-y-auto overflow-x-hidden px-4 pb-24 pt-4 md:justify-center md:overflow-visible md:px-0 md:pb-0 md:pt-0 ${fullscreen ? 'absolute top-0 left-0 w-full h-full bg-base-100 z-[500]' : "relative"}`}>
+        <div className={`flex flex-col w-full h-full justify-start overflow-y-auto overflow-x-hidden px-4 pb-24 pt-4 md:w-10/12 md:justify-center md:overflow-visible md:px-0 md:pb-0 md:pt-0 ${fullscreen ? 'absolute top-0 left-0 w-full h-full bg-base-100 z-[500]' : "relative"}`}>
             <div className="relative top-0 flex flex-col w-full items-center gap-3 py-2 md:absolute md:gap-4 md:px-8 md:py-12">
                 {sessionStatus === "unauthenticated" &&
                     <div className="flex w-full justify-start">
@@ -327,7 +327,7 @@ const Learn: NextPage = () => {
                     </>
                 }
             </div>
-            <div className="flex w-full justify-center">
+            <div className="flex w-full justify-center px-0 md:w-10/12">
                 {isLearnContentLoading ?
                     <div className="flex min-h-[12rem] items-center" role="status" aria-live="polite">
                         <div className="h-8 w-8 animate-spin rounded-full border border-solid border-t-transparent text-primary"></div>
