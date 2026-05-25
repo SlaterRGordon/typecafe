@@ -68,7 +68,7 @@ export const Keyboard = (props: KeyboardProps) => {
 
         return (
             <kbd
-                className="kbd kbd-lg min-w-[17.5rem] relative"
+                className="kbd kbd-md sm:kbd-lg min-w-[17.5rem] relative"
                 style={{ backgroundColor: color }}
             >
                 <div className="absolute top-0 text-xs px-1 text-base-content">
@@ -80,7 +80,7 @@ export const Keyboard = (props: KeyboardProps) => {
     }
 
     return (
-        <div className="flex flex-col w-full items-center justify-center py-3 pt-2 md:py-4">
+        <div className="typecafe-keyboard flex flex-col w-full items-center justify-center py-3 pt-2 md:py-4">
             {mode === TestModes.practice && (
                 showStats ?
                     <div className="flex justify-end w-[30.7rem]">
@@ -105,7 +105,7 @@ export const Keyboard = (props: KeyboardProps) => {
                             return (
                                 <kbd
                                     key={index}
-                                    className={`relative kbd kbd-sm pt-2 sm:kbd-lg`}
+                                    className={`relative kbd kbd-md sm:kbd-lg pt-2`}
                                     style={{ backgroundColor: color }}
                                 >
                                     <div className="absolute top-0 right-0 text-xs px-1 text-base-content">
@@ -123,7 +123,7 @@ export const Keyboard = (props: KeyboardProps) => {
                             return (
                                 <kbd
                                     key={index}
-                                    className={`relative kbd kbd-sm pt-2 sm:kbd-lg`}
+                                    className={`relative kbd kbd-md sm:kbd-lg pt-2`}
                                     style={{ backgroundColor: color }}
                                 >
                                     <div className="absolute top-0 right-0 text-xs px-1 text-base-content">
@@ -141,7 +141,7 @@ export const Keyboard = (props: KeyboardProps) => {
                             return (
                                 <kbd
                                     key={index}
-                                    className={`relative kbd kbd-sm pt-2 sm:kbd-lg`}
+                                    className={`relative kbd kbd-md sm:kbd-lg pt-2`}
                                     style={{ backgroundColor: color }}
                                 >
                                     <div className="absolute top-0 right-0 text-xs px-1 text-base-content">
@@ -163,7 +163,7 @@ export const Keyboard = (props: KeyboardProps) => {
                             if (key == currentKey) return (
                                 <kbd
                                     key={index}
-                                    className="kbd kbd-sm bg-primary text-primary-content cursor-pointer sm:kbd-lg"
+                                    className="kbd kbd-md sm:kbd-lg bg-primary text-primary-content cursor-pointer"
                                     onClick={() => handleKeyClicked(key)}
                                 >
                                     {key}
@@ -173,7 +173,7 @@ export const Keyboard = (props: KeyboardProps) => {
                             return (
                                 <kbd
                                     key={index}
-                                    className={`relative kbd kbd-sm sm:kbd-lg ${highlightKeys?.includes(key) ? 'bg-secondary text-secondary-content' : ''} ${!selectedKeys ? '' : (selectedKeys.includes(key) || mode !== TestModes.practice) ? 'kbd-unlocked' : 'kbd-locked bg-base-100 text-base-content'}`}
+                                    className={`relative kbd kbd-md sm:kbd-lg ${highlightKeys?.includes(key) ? 'bg-secondary text-secondary-content' : ''} ${!selectedKeys ? '' : (selectedKeys.includes(key) || mode !== TestModes.practice) ? 'kbd-unlocked' : 'kbd-locked bg-base-100 text-base-content'}`}
                                     onClick={() => handleKeyClicked(key)}
                                 >
                                     {selectedKeys && !selectedKeys.includes(key) && mode === TestModes.practice && <div className="absolute top-0 right-0 p-1">
@@ -189,7 +189,7 @@ export const Keyboard = (props: KeyboardProps) => {
                             if (key == currentKey) return (
                                 <kbd
                                     key={index}
-                                    className="kbd kbd-sm bg-primary text-primary-content cursor-pointer sm:kbd-lg"
+                                    className="kbd kbd-md sm:kbd-lg bg-primary text-primary-content cursor-pointer"
                                     onClick={() => handleKeyClicked(key)}
                                 >
                                     {key}
@@ -199,7 +199,7 @@ export const Keyboard = (props: KeyboardProps) => {
                             return (
                                 <kbd
                                     key={index}
-                                    className={`relative kbd kbd-sm sm:kbd-lg ${highlightKeys?.includes(key) ? 'bg-secondary text-secondary-content' : ''} ${!selectedKeys ? '' : (selectedKeys.includes(key) || mode !== TestModes.practice) ? 'kbd-unlocked' : 'kbd-locked bg-base-100 text-base-content'}`}
+                                    className={`relative kbd kbd-md sm:kbd-lg ${highlightKeys?.includes(key) ? 'bg-secondary text-secondary-content' : ''} ${!selectedKeys ? '' : (selectedKeys.includes(key) || mode !== TestModes.practice) ? 'kbd-unlocked' : 'kbd-locked bg-base-100 text-base-content'}`}
                                     onClick={() => handleKeyClicked(key)}
                                 >
                                     {selectedKeys && !selectedKeys.includes(key) && mode === TestModes.practice && <div className="absolute top-0 right-0 p-1">
@@ -215,7 +215,7 @@ export const Keyboard = (props: KeyboardProps) => {
                             if (key == currentKey) return (
                                 <kbd
                                     key={index}
-                                    className="kbd kbd-sm bg-primary text-primary-content cursor-pointer sm:kbd-lg"
+                                    className="kbd kbd-md sm:kbd-lg bg-primary text-primary-content cursor-pointer"
                                     onClick={() => handleKeyClicked(key)}
                                 >
                                     {key}
@@ -225,7 +225,7 @@ export const Keyboard = (props: KeyboardProps) => {
                             return (
                                 <kbd
                                     key={index}
-                                    className={`relative kbd kbd-sm sm:kbd-lg ${highlightKeys?.includes(key) ? 'bg-secondary text-secondary-content' : ''} ${!selectedKeys ? '' : (selectedKeys.includes(key) || mode !== TestModes.practice) ? 'kbd-unlocked' : 'kbd-locked bg-base-100 text-base-content'}`}
+                                    className={`relative kbd kbd-md sm:kbd-lg ${highlightKeys?.includes(key) ? 'bg-secondary text-secondary-content' : ''} ${!selectedKeys ? '' : (selectedKeys.includes(key) || mode !== TestModes.practice) ? 'kbd-unlocked' : 'kbd-locked bg-base-100 text-base-content'}`}
                                     onClick={() => handleKeyClicked(key)}
                                 >
                                     {selectedKeys && !selectedKeys.includes(key) && mode === TestModes.practice && <div className="absolute top-0 right-0 p-1">
@@ -238,9 +238,9 @@ export const Keyboard = (props: KeyboardProps) => {
                     </div>
                     <div className="flex justify-center gap-0.5 my-0.5 w-full md:gap-1 md:my-1">
                         {currentKey == " " ?
-                            <kbd className="kbd kbd-sm bg-primary text-primary-content min-w-[14rem] sm:kbd-lg sm:min-w-[17.5rem]">&nbsp;</kbd>
+                            <kbd className="kbd kbd-md sm:kbd-lg bg-primary text-primary-content !min-w-[14rem] sm:!min-w-[17.5rem]">&nbsp;</kbd>
                             :
-                            <kbd className="kbd kbd-sm min-w-[14rem] sm:kbd-lg sm:min-w-[17.5rem]">&nbsp;</kbd>
+                            <kbd className="kbd kbd-md sm:kbd-lg !min-w-[14rem] sm:!min-w-[17.5rem]">&nbsp;</kbd>
                         }
                     </div>
                 </>
