@@ -1,11 +1,13 @@
-import type { Prisma } from "@prisma/client";
 import type { Activity as CalendarActivity } from "react-activity-calendar"
 
-export const getActivityData = (activity: (Prisma.PickArray<Prisma.TestGroupByOutputType, "summaryDate"[]> & {
+type TestActivityCount = {
+    summaryDate: Date;
     _count: {
         _all: number;
     };
-})[] | undefined) => {
+};
+
+export const getActivityData = (activity: TestActivityCount[] | undefined) => {
     const date = new Date()
     date.setDate(date.getDate() - 365)
 

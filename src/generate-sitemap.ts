@@ -1,8 +1,14 @@
 import fs from 'fs';
 import path from 'path';
-import { PrismaClient } from '@prisma/client';
+import { PrismaPg } from "@prisma/adapter-pg";
+import { env } from "./env.mjs";
+import { PrismaClient } from "./generated/prisma/client";
 
-const prisma = new PrismaClient();
+const prisma = new PrismaClient({
+  adapter: new PrismaPg({
+    connectionString: env.DATABASE_URL,
+  }),
+});
 const MAX_URLS_PER_SITEMAP = 50000;
 
 async function generateSitemap() {

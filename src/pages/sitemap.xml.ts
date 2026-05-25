@@ -1,8 +1,7 @@
-import { PrismaClient } from "@prisma/client";
 import { globby } from "globby";
 import type { GetServerSidePropsContext } from "next";
+import { prisma } from "~/server/db";
 
-const prisma = new PrismaClient();
 const EXTERNAL_DATA_URL = "https://www.type.cafe";
 
 interface User {
