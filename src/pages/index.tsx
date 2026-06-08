@@ -2,7 +2,6 @@ import { type NextPage } from "next";
 import { useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { Modal } from "~/components/Modal";
-import { SupportCard } from "~/components/support/SupportCard";
 import { Keyboard } from "~/components/typer/Keyboard";
 import { Typer } from "~/components/typer/Typer";
 import { Config } from "~/components/typer/config/Config";
@@ -10,7 +9,6 @@ import { TestGramScopes, TestGramSources, TestModes, TestSubModes } from "~/comp
 import { api } from "~/utils/api";
 
 const Home: NextPage = () => {
-  const [showSupport, setShowSupport] = useState(true)
   const [fullscreen, setFullscreen] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
   const [showStats, setShowStats] = useState(true)
@@ -102,11 +100,6 @@ const Home: NextPage = () => {
           showKeyboard={showKeyboard} setShowKeyboard={setShowKeyboard}
         />
       </Modal>
-      {showSupport &&
-        <div className="absolute right-0 bottom-0 m-4 invisible md:visible">
-          <SupportCard showDismiss={true} onDismiss={() => setShowSupport(false)} />
-        </div>
-      }
     </>
   );
 };

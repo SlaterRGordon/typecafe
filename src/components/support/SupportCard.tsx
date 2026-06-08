@@ -12,7 +12,7 @@ export const SupportCard = (props: SupportCardProps) => {
         <div className="card w-full max-w-lg shadow-2xl bg-base-300">
             {showDismiss && onDismiss &&
                 <div className="absolute right-0">
-                    <button className="btn btn-circle btn-ghost m-2" onClick={onDismiss}>
+                    <button className="btn btn-circle btn-ghost m-2" onClick={onDismiss} aria-label="Dismiss support prompt">
                         <svg xmlns="http://www.w3.org/2000/svg" className="icon icon-tabler icon-tabler-x" width="24" height="24" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
                             <path stroke="none" d="M0 0h24v24H0z" fill="none" />
                             <line x1="18" y1="6" x2="6" y2="18" />
