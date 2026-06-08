@@ -25,6 +25,7 @@ declare module "next-auth" {
       id: string;
       name: string;
       username: string;
+      image?: string | null;
       // ...other properties
       // role: UserRole;
     } & DefaultSession["user"];
@@ -47,17 +48,18 @@ export const authOptions: NextAuthOptions = {
     session: async ({ session, token }) => {
 
       if (session?.user) {
-        // If the user is logged in, we can fetch their username and pass it to the context
         const user = await prisma.user.findFirst({
-          where: {
-            email: session.user.email,
-          },
+          where: typeof token.id === "string"
+            ? { id: token.id }
+            : { email: session.user.email },
           select: {
             username: true,
+            image: true,
           }
         });
     
         session.user.username = user?.username ? user.username : "";
+        session.user.image = user?.image ?? null;
       }
 
       return {
@@ -66,6 +68,7 @@ export const authOptions: NextAuthOptions = {
           ...session.user,
           name: session.user.name,
           username: session.user.username,
+          image: session.user.image,
           id: token.id,
         },
       }
@@ -110,6 +113,7 @@ export const authOptions: NextAuthOptions = {
           email: user.email,
           username: user.username,
           name: user.name,
+          image: user.image,
         }
       },
     }),

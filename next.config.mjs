@@ -43,6 +43,12 @@ const config = {
         hostname: 'storage.ko-fi.com',
         port: '',
         pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: '**.public.blob.vercel-storage.com',
+        port: '',
+        pathname: '/**',
       }
     ]
   },

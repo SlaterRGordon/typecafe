@@ -19,6 +19,15 @@ const publicUserSelect = {
     link: true,
 } as const;
 
+const avatarImageSchema = z
+    .string()
+    .url()
+    .refine((value) => {
+        const { protocol, hostname } = new URL(value);
+
+        return protocol === "https:" && hostname.endsWith(".public.blob.vercel-storage.com");
+    }, "Profile picture must be a Vercel Blob URL.");
+
 export const userRouter = createTRPCRouter({
     update: protectedProcedure
         .input(z.object({
@@ -26,6 +35,7 @@ export const userRouter = createTRPCRouter({
             name: z.string().optional(),
             bio: z.string().optional(),
             link: z.string().optional(),
+            image: avatarImageSchema.nullable().optional(),
         }))
         .mutation(({ ctx, input }) => {
             return ctx.prisma.user.update({
@@ -37,6 +47,7 @@ export const userRouter = createTRPCRouter({
                     name: input.name,
                     bio: input.bio,
                     link: input.link,
+                    image: input.image,
                 },
             });
         }),

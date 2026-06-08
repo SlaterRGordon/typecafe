@@ -169,8 +169,8 @@ const Profile: NextPage = () => {
               <div className="flex flex-col items-center justify-center">
                 <div className="avatar">
                   <div className="mask mask-circle w-24 h-24">
-                    {sessionData?.user.image ?
-                      <Image width={500} height={500} src={sessionData?.user.image ?? ""} alt={"Profile Picture"} />
+                    {(userData ? userData.image : sessionData?.user.image) ?
+                      <Image width={500} height={500} src={(userData ? userData.image : sessionData?.user.image) ?? ""} alt={"Profile Picture"} />
                       :
                       <div className="avatar placeholder">
                         <div className="bg-neutral text-neutral-content rounded-full w-24">

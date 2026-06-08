@@ -47,3 +47,5 @@ yarn-error.log*
 
 # generated prisma client
 /src/generated/prisma/
+
+.env*
