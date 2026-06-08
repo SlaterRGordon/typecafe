@@ -5,9 +5,19 @@ type ProcedureInput = Record<string, unknown> | undefined;
 interface MockTrpcOptions {
   savedLearnProgress?: unknown[];
   importedLearnProgress?: unknown[];
+  profileImage?: string | null;
 }
 
-const profileUser = {
+const profileUser: {
+  id: string;
+  name: string;
+  email: string;
+  emailVerified: null;
+  username: string;
+  image: string | null;
+  bio: string;
+  link: string;
+} = {
   id: "user-1",
   name: "Test User",
   email: "test@example.com",
@@ -115,6 +125,7 @@ function responseForProcedure(procedure: string, input: ProcedureInput, options:
         username: typeof input?.username === "string" ? input.username : currentProfileUser.username,
         bio: typeof input?.bio === "string" ? input.bio : currentProfileUser.bio,
         link: typeof input?.link === "string" ? input.link : currentProfileUser.link,
+        image: typeof input?.image === "string" || input?.image === null ? input.image : currentProfileUser.image,
       };
       return currentProfileUser;
     case "user.delete":
@@ -129,7 +140,7 @@ function responseForProcedure(procedure: string, input: ProcedureInput, options:
 }
 
 export async function mockTrpc(page: Page, options: MockTrpcOptions = {}) {
-  currentProfileUser = { ...profileUser };
+  currentProfileUser = { ...profileUser, image: options.profileImage ?? profileUser.image };
   const state = { importedLearnProgress: false };
 
   await page.route("**/api/trpc/**", async (route: Route) => {
@@ -151,7 +162,7 @@ export async function mockTrpc(page: Page, options: MockTrpcOptions = {}) {
   });
 }
 
-export async function mockAuthenticatedSession(page: Page) {
+export async function mockAuthenticatedSession(page: Page, image: string | null = profileUser.image) {
   await page.route("**/api/auth/session", async (route) => {
     await route.fulfill({
       status: 200,
@@ -162,7 +173,7 @@ export async function mockAuthenticatedSession(page: Page) {
           name: profileUser.name,
           email: profileUser.email,
           username: profileUser.username,
-          image: profileUser.image,
+          image,
         },
         expires: "2099-01-01T00:00:00.000Z",
       }),
