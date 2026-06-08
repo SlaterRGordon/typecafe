@@ -12,6 +12,9 @@
     "dev": "next dev",
     "postinstall": "prisma generate",
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:report": "playwright show-report",
     "start": "next start",
     "generate-sitemap": "ts-node src/generate-sitemap.ts"
   },
@@ -47,6 +50,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
     "@types/bcrypt": "^5.0.2",
     "@types/eslint": "^8.21.3",
     "@types/node": "^24.12.4",

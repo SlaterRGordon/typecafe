@@ -8,6 +8,30 @@ Use Node 24 LTS for local development. Node 22 LTS is the fallback runtime if a 
 
 This project uses npm and expects npm 11.
 
+## Testing
+
+TypeCafe uses Playwright for end-to-end browser testing across desktop and mobile Chromium.
+
+First-time setup:
+
+```bash
+npx playwright install chromium
+```
+
+Run the suite:
+
+```bash
+npm run test:e2e
+```
+
+Open the interactive test UI:
+
+```bash
+npm run test:e2e:ui
+```
+
+See [docs/testing.md](docs/testing.md) for focused test commands, debugging, reports, screenshots, and test helper conventions.
+
 ## What's next? How do I make an app with this?
 
 We try to keep this project as simple as possible, so you can start with just the scaffolding we set up for you, and add additional things later when they become necessary.

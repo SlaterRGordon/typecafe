@@ -36,10 +36,18 @@ export const Text = (props: TextProps) => {
     } = props
     const [position, setPosition] = useState(0)
     const [incorrect, setIncorrect] = useState<number>(0)
+    const positionRef = useRef(0)
+    const incorrectRef = useRef(0)
     const textContainerRef = useRef<HTMLDivElement>(null)
     const charStatesRef = useRef<Map<number, 'correct' | 'incorrect'>>(new Map())
     const currentTextRef = useRef(text)
     const isAppendingRef = useRef(false)
+    const completedRef = useRef(false)
+    const callbacksRef = useRef({
+        setCharacterCount,
+        setIncorrectCount,
+        onKeyChange,
+    })
     const [loadingText, setLoadingText] = useState(true)
 
     // ref div to scroll text
@@ -47,6 +55,14 @@ export const Text = (props: TextProps) => {
 
     // ref input to focus
     const inputRef = useRef<HTMLInputElement>(null)
+
+    useEffect(() => {
+        callbacksRef.current = {
+            setCharacterCount,
+            setIncorrectCount,
+            onKeyChange,
+        }
+    }, [setCharacterCount, setIncorrectCount, onKeyChange])
 
     const createCharSpan = useCallback((char: string, index: number) => {
         const span = document.createElement('span')
@@ -137,8 +153,11 @@ export const Text = (props: TextProps) => {
 
         currentTextRef.current = text
         charStatesRef.current.clear()
+        completedRef.current = false
         setLoadingText(text.length === 0)
         renderInitialText(text)
+        positionRef.current = 0
+        incorrectRef.current = 0
         setPosition(0)
         setIncorrect(0)
 
@@ -185,28 +204,31 @@ export const Text = (props: TextProps) => {
     }, [position, typerRef])
 
     const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
-        const current = typerRef.current?.querySelector("#c" + position.toString()) as HTMLDivElement
+        if (completedRef.current) return
+
+        const currentPosition = positionRef.current
+        const current = typerRef.current?.querySelector("#c" + currentPosition.toString()) as HTMLDivElement
 
         if (current && restarted) {
             // check for correct key or incorrect
             if ((current.innerText.trim() === '' && e.key === ' ') || current.innerText.trim() === e.key) {
                 nextLetter(true)
                 // start timer
-                if (position === 0 && !started) onStart()
+                if (currentPosition === 0 && !started) onStart()
             } else if (
-                position > 0 &&
+                currentPosition > 0 &&
                 (e.code == 'Space' ||
                     e.key.length == 1 && ((e.key >= 'a' && e.key <= 'z') || (e.key >= 'A' && e.key <= 'Z')))
             ) {
                 nextLetter(false)
-            } else if (position > 0 && e.code === 'Backspace') {
+            } else if (currentPosition > 0 && e.code === 'Backspace') {
                 prevLetter()
             }
         }
     }
 
     const nextLetter = (correct: boolean) => {
-        const currentIndex = position
+        const currentIndex = positionRef.current
         const currentChar = textContainerRef.current?.querySelector(`#c${currentIndex}`)
 
         if (currentChar) {
@@ -228,19 +250,18 @@ export const Text = (props: TextProps) => {
             onAttemptChange?.();
 
             // Update React state for position and incorrect count
-            setPosition(prev => {
-                const newPos = prev + 1
+            const nextPosition = currentIndex + 1
+            positionRef.current = nextPosition
+            setPosition(nextPosition)
 
-                // Track incorrect count in React state
-                if (!correct) {
-                    setIncorrect(prevIncorrect => prevIncorrect + 1)
-                }
-
-                return newPos
-            })
+            if (!correct) {
+                incorrectRef.current += 1
+                setIncorrect(incorrectRef.current)
+            }
 
             // Check if test is complete
             if (currentIndex === currentTextRef.current.length - 1) {
+                completedRef.current = true
                 onComplete(correct)
             }
 
@@ -253,11 +274,12 @@ export const Text = (props: TextProps) => {
     }
 
     const prevLetter = () => {
-        if (position === 0) return
+        const currentPosition = positionRef.current
+        if (currentPosition === 0) return
 
-        const prevIndex = position - 1
+        const prevIndex = currentPosition - 1
         const prevChar = textContainerRef.current?.querySelector(`#c${prevIndex}`)
-        const currentChar = textContainerRef.current?.querySelector(`#c${position}`)
+        const currentChar = textContainerRef.current?.querySelector(`#c${currentPosition}`)
         currentChar?.classList.remove('active-char', 'text-primary')
 
         if (prevChar) {
@@ -269,9 +291,11 @@ export const Text = (props: TextProps) => {
             charStatesRef.current.delete(prevIndex)
 
             // Update React states
-            setPosition(prev => prev - 1)
+            positionRef.current = prevIndex
+            setPosition(prevIndex)
             if (wasIncorrect) {
-                setIncorrect(prev => prev - 1)
+                incorrectRef.current = Math.max(incorrectRef.current - 1, 0)
+                setIncorrect(incorrectRef.current)
             }
 
             // Update active character styling
@@ -280,10 +304,10 @@ export const Text = (props: TextProps) => {
     }
 
     useEffect(() => {
-        setCharacterCount(position)
-        setIncorrectCount(incorrect)
-        onKeyChange(textContainerRef.current?.querySelector(`#c${position}`)?.textContent || '')
-    }, [position, incorrect, setCharacterCount, setIncorrectCount, onKeyChange])
+        callbacksRef.current.setCharacterCount(position)
+        callbacksRef.current.setIncorrectCount(incorrect)
+        callbacksRef.current.onKeyChange(textContainerRef.current?.querySelector(`#c${position}`)?.textContent || '')
+    }, [position, incorrect])
 
     return (
         <div id="text" className="relative z-30 mb-8 flex w-full max-w-[calc(100vw-2rem)] max-h-24 leading-[2rem] flex-col overflow-hidden text-[20px] leading-[2rem] sm:max-h-24 sm:text-[22px] sm:leading-[2rem] md:max-w-screen-xl">
