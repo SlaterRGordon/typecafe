@@ -78,7 +78,7 @@ export const ColorModal = () => {
         })
     }
 
-    const [tab, setTab] = useState<"custom" | "presets" | "saved">("presets")
+    const [tab, setTab] = useState<"Custom" | "Presets" | "Saved">("Presets")
     const [name, setName] = useState("")
     const [nameError, setNameError] = useState(false)
     const [colors, setColors] = useLocalStorage<Colors>("colors", presets.dracula)
@@ -180,12 +180,12 @@ export const ColorModal = () => {
                     <div className="flex flex-col h-full gap-2 relative">
                         <h3 className="font-bold text-4xl px-1">Colors</h3>
                         <ConfigOption
-                            options={["presets", "saved", "custom"]}
-                            values={["presets", "saved", "custom"]}
+                            options={["Presets", "Saved", "Custom"]}
+                            values={["Presets", "Saved", "Custom"]}
                             active={tab}
-                            onChange={(newTab: string | number) => { setTab(newTab as "presets" | "custom" | "saved") }}
+                            onChange={(newTab: string | number) => { setTab(newTab as "Presets" | "Custom" | "Saved") }}
                         />
-                        {tab == "saved" &&
+                        {tab == "Saved" &&
                             <div>
                                 <h3 className="font-bold text-2xl">Saved Colors</h3>
                                 {sessionData?.user?.id ?
@@ -211,7 +211,7 @@ export const ColorModal = () => {
                                 }
                             </div>
                         }
-                        {tab == "presets" &&
+                        {tab == "Presets" &&
                             <div>
                                 <h3 className="font-bold text-2xl">Color Presets</h3>
                                 <div className="grid w-full grid-cols-2 gap-2 pb-4">
@@ -224,7 +224,7 @@ export const ColorModal = () => {
                                 </div>
                             </div>
                         }
-                        {tab == "custom" &&
+                        {tab == "Custom" &&
                             <>
                                 <div>
                                     <h3 className="font-bold text-2xl">Custom Color</h3>
