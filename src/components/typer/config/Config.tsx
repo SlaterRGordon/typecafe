@@ -104,8 +104,6 @@ export const Config = (props: ConfigProps) => {
     const languageOptions = [
         { value: "english", label: 'English' },
         { value: "french", label: 'French' },
-        { value: "hindi", label: 'Hindi' },
-        { value: "chinese", label: 'Chinese' },
         { value: "spanish", label: 'Spanish' },
     ]
     const handleChangeLanguage = (value: SingleValue<Option>) => {

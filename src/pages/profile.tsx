@@ -51,9 +51,7 @@ const Profile: NextPage = () => {
   const languageOptions = [
     { value: "english", label: 'English' },
     { value: "french", label: 'French' },
-    { value: "Hindi", label: 'Hindi' },
-    { value: "Chinese", label: 'Chinese' },
-    { value: "Spanish", label: 'Spanish' },
+    { value: "spanish", label: 'Spanish' },
   ]
   const handleChangeLanguage = (value: SingleValue<Option>) => {
     if (value) {

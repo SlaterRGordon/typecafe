@@ -36,7 +36,7 @@ test.describe("authenticated profile", () => {
 
     await page.getByPlaceholder("Name", { exact: true }).fill("updateduser");
     await page.getByPlaceholder("Bio", { exact: true }).fill("Updated bio from Playwright.");
-    await page.getByPlaceholder("Link", { exact: true }).fill("https://type.cafe/updated");
+    await page.getByPlaceholder("Link", { exact: true }).fill("https://typecafe.vercel.app/updated");
     await page.getByRole("button", { name: "Save" }).click();
 
     await expect(page.locator("#configModal")).not.toBeChecked();

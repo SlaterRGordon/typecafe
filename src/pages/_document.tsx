@@ -14,7 +14,6 @@ export default function Document() {
                 <link rel="icon" type="image/png" sizes="16x16" href="/images/TypeCafe16x16.png"/>
                 <link rel="icon" type="image/png" sizes="32x32" href="/images/TypeCafe32x32.png"/>
                 <link rel="icon" type="image/png" sizes="64x64" href="/images/TypeCafe64x64.png"/>
-                <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9035590557240587" crossOrigin="anonymous"></script>
                 <meta name="google-site-verification" content="k7imjzARc_FR0VJoclkwODcjF6-MSxaWKYO_N4hHg2w" />
                 <Script
                     src="https://www.googletagmanager.com/gtag/js?id=G-16KETVK938"

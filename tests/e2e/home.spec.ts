@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { mockAuthenticatedSession, mockTrpc } from "./helpers/trpc";
 import { chooseReactSelectOption } from "./helpers/select";
 import { typeCurrentCharacter } from "./helpers/typing";
 
@@ -49,6 +50,30 @@ test.describe("home typing test", () => {
 
     await page.locator("#testGramAccuracyThresholdInput").fill("105");
     await expect(page.locator("#testGramAccuracyThresholdInput")).toHaveValue("100");
+  });
+
+  test("does not log a score when switching modes mid-test", async ({ page }) => {
+    let scoreCreates = 0;
+
+    await mockAuthenticatedSession(page);
+    await mockTrpc(page, {
+      onProcedure: (procedure) => {
+        if (procedure === "test.create") scoreCreates += 1;
+      },
+    });
+    await gotoHome(page);
+
+    await typeCurrentCharacter(page);
+    await page.locator("#typer label[for='configModal']").click();
+    await page.getByRole("button", { name: "Words" }).click();
+    await page.waitForTimeout(250);
+
+    expect(scoreCreates).toBe(0);
+
+    await page.getByRole("button", { name: "Timed" }).click();
+    await page.waitForTimeout(250);
+
+    expect(scoreCreates).toBe(0);
   });
 
   test("settings cover language, practice, relaxed, stats, and keyboard options", async ({ page }) => {

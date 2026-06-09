@@ -15,6 +15,8 @@ interface Keys {
     [key: string]: boolean
 }
 
+type CompletionSource = "text" | "timer"
+
 export interface TestCompletionResult {
     speed: number,
     accuracy: number,
@@ -77,6 +79,27 @@ export const Typer = (props: TyperProps) => {
     const [accuracy, setAccuracy] = useState(0.00)
     const [gramLevel, setGramLevel] = useState<number>(1)
     const pendingCompletionRef = useRef<TestCompletionResult | null>(null)
+    const activeAttemptRef = useRef<{
+        mode: TestModes,
+        subMode: TestSubModes,
+        count: number,
+        language: string,
+    } | null>(null)
+    const currentConfigRef = useRef({
+        mode,
+        subMode,
+        count,
+        language,
+    })
+
+    useEffect(() => {
+        currentConfigRef.current = {
+            mode,
+            subMode,
+            count,
+            language,
+        }
+    }, [count, language, mode, subMode])
 
     // fetch types
     const { data: testType } = api.type.get.useQuery({ mode, subMode, language })
@@ -106,7 +129,7 @@ export const Typer = (props: TyperProps) => {
         timerType: subMode === TestSubModes.timed ? 'DECREMENTAL' : 'INCREMENTAL',
         endTime: subMode === TestSubModes.timed ? 0 : 999999,
         onTimeOver: () => {
-            handleComplete(false, false)
+            handleComplete(false, false, "timer")
         },
     })
 
@@ -209,6 +232,7 @@ export const Typer = (props: TyperProps) => {
                 setInitialTime(mode === TestModes.normal && subMode === TestSubModes.timed ? count : 0)
                 pause()
                 setStarted(false)
+                activeAttemptRef.current = null
                 setRestarted(true)
                 setCharacterCount(0)
             }
@@ -220,14 +244,43 @@ export const Typer = (props: TyperProps) => {
     }, [handleRestart])
 
     const handleStart = () => {
+        activeAttemptRef.current = {
+            mode,
+            subMode,
+            count,
+            language,
+        }
         start()
         setStarted(true)
     }
 
-    const handleComplete = (correct: boolean, includeFinalCharacter = true) => {
+    const isCompletionValid = (source: CompletionSource) => {
+        const attempt = activeAttemptRef.current
+        const currentConfig = currentConfigRef.current
+
+        if (!attempt) return false
+        if (
+            attempt.mode !== currentConfig.mode ||
+            attempt.subMode !== currentConfig.subMode ||
+            attempt.count !== currentConfig.count ||
+            attempt.language !== currentConfig.language
+        ) return false
+
+        if (currentConfig.mode !== TestModes.normal) return true
+
+        if (currentConfig.subMode === TestSubModes.timed) return source === "timer"
+        if (currentConfig.subMode === TestSubModes.words) return source === "text"
+
+        return false
+    }
+
+    const handleComplete = (correct: boolean, includeFinalCharacter = true, source: CompletionSource = "text") => {
+        if (!isCompletionValid(source)) return
+
         if (subMode !== TestSubModes.timed) pause()
         setStarted(false)
         setRestarted(false)
+        activeAttemptRef.current = null
 
         const finalCharacterCount = includeFinalCharacter ? characterCount + 1 : characterCount
         const finalIncorrectCount = includeFinalCharacter && !correct ? incorrectCount + 1 : incorrectCount
@@ -304,8 +357,21 @@ export const Typer = (props: TyperProps) => {
         let keys: Keys = {}
         let restarting = false
 
+        const isShortcutModalOpen = () => {
+            const configModal = document.getElementById("configModal") as HTMLInputElement | null
+            const colorModal = document.getElementById("colorModal") as HTMLInputElement | null
+            const signInModal = document.getElementById("signInModal") as HTMLInputElement | null
+            const usernameModal = document.getElementById("usernameModal")
+
+            return modalOpen ||
+                !!configModal?.checked ||
+                !!colorModal?.checked ||
+                !!signInModal?.checked ||
+                !!usernameModal?.classList.contains("modal-open")
+        }
+
         const handleKeyDown = (e: KeyboardEvent) => {
-            if (modalOpen || keys[e.key] || e.repeat) return
+            if (isShortcutModalOpen() || keys[e.key] || e.repeat) return
 
             // add to currently pressed keys
             keys = { ...keys, [e.key]: true };
@@ -326,7 +392,7 @@ export const Typer = (props: TyperProps) => {
         }
 
         const handleKeyUp = (e: KeyboardEvent) => {
-            if (modalOpen) return
+            if (isShortcutModalOpen()) return
 
             // remove from currently pressed keys
             keys = { ...keys, [e.key]: false };

@@ -6,6 +6,8 @@ interface MockTrpcOptions {
   savedLearnProgress?: unknown[];
   importedLearnProgress?: unknown[];
   profileImage?: string | null;
+  emptyScores?: boolean;
+  onProcedure?: (procedure: string, input: ProcedureInput) => void;
 }
 
 const profileUser: {
@@ -25,7 +27,7 @@ const profileUser: {
   username: "testuser",
   image: null,
   bio: "Typing fast, testing faster.",
-  link: "https://type.cafe",
+  link: "https://typecafe.vercel.app",
 };
 
 let currentProfileUser = { ...profileUser };
@@ -97,6 +99,7 @@ function responseForProcedure(procedure: string, input: ProcedureInput, options:
         { id: "type-normal", mode: 0, subMode: input?.subMode ?? 0, language: "english", competitive: true },
       ];
     case "test.getAll":
+      if (options.emptyScores) return [];
       return [makeScore(input)];
     case "test.getTimeTyped":
       return { _sum: { count: 1234 } };
@@ -119,6 +122,12 @@ function responseForProcedure(procedure: string, input: ProcedureInput, options:
       return profileUser;
     case "user.checkUsernameExists":
       return false;
+    case "user.registerUser":
+      return {
+        id: profileUser.id,
+        email: input?.email,
+        username: input?.username,
+      };
     case "user.update":
       currentProfileUser = {
         ...currentProfileUser,
@@ -151,6 +160,7 @@ export async function mockTrpc(page: Page, options: MockTrpcOptions = {}) {
 
     const body = procedures.map((procedure, index) => {
       const input = deserializeInput(rawInput, index);
+      options.onProcedure?.(procedure, input);
       return serializeResult(responseForProcedure(procedure, input, options, state));
     });
 

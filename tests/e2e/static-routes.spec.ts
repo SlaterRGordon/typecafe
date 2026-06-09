@@ -18,12 +18,12 @@ test.describe("secondary static routes", () => {
   test("privacy and terms pages expose contact links without horizontal overflow", async ({ page }) => {
     await page.goto("/privacy-policy");
     await expect(page.getByRole("heading", { name: "Privacy Policy for TypeCafe" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "https://www.type.cafe/contact" })).toHaveAttribute("href", "https://www.type.cafe/contact");
+    await expect(page.getByRole("link", { name: "https://typecafe.vercel.app/contact" })).toHaveAttribute("href", "https://typecafe.vercel.app/contact");
     await expectNoHorizontalOverflow(page);
 
     await page.goto("/terms-and-conditions");
     await expect(page.getByRole("heading", { name: "Terms and Conditions", exact: true })).toBeVisible();
-    await expect(page.getByRole("link", { name: "https://type.cafe/contact" })).toHaveAttribute("href", "https://type.cafe/contact");
+    await expect(page.getByRole("link", { name: "https://typecafe.vercel.app/contact" })).toHaveAttribute("href", "https://typecafe.vercel.app/contact");
     await expectNoHorizontalOverflow(page);
   });
 

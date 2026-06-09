@@ -29,6 +29,7 @@ const Scores = (props: LeaderboardProps) => {
     const limit = 16
     const [page, setPage] = useState(0)
     const [loadingList, setLoadingList] = useState(true)
+    const showEmptyState = !loadingList && allTests?.length === 0
 
     // scrollable div
     const contentRef = useRef<HTMLTableSectionElement>(null);
@@ -168,7 +169,15 @@ const Scores = (props: LeaderboardProps) => {
                                         </div>
                                     )
                                 })}
-                                {loadingList ?
+                                {showEmptyState ?
+                                    <div className="flex w-full justify-center px-4 py-10 text-center bg-b2">
+                                        <div className="flex max-w-md flex-col gap-1">
+                                            <span className="font-semibold">No scores for this leaderboard yet.</span>
+                                            <span className="text-sm opacity-70">Complete a matching test to claim the first spot.</span>
+                                        </div>
+                                    </div>
+                                    :
+                                    loadingList ?
                                     <div className={`flex w-full justify-center px-4 py-4 ${allTests ? allTests.length + 1 : 0 % 2 == 1 ? 'bg-b2' : ''}`}>
                                         <div className="w-8 h-8 rounded-full animate-spin border border-solid text-primary border-t-transparent"></div>
                                     </div>

@@ -36,3 +36,12 @@ test.describe("leaderboard filters", () => {
     await expect(page.getByText("testuser")).toBeVisible();
   });
 });
+
+test("shows an empty leaderboard message when there are no scores", async ({ page }) => {
+  await mockTrpc(page, { emptyScores: true });
+  await page.goto("/leaderboard");
+
+  await expect(page.getByText("No scores for this leaderboard yet.")).toBeVisible();
+  await expect(page.getByText("Complete a matching test to claim the first spot.")).toBeVisible();
+  await expect(page.getByText("testuser")).toBeHidden();
+});

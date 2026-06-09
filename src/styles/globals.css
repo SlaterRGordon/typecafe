@@ -54,9 +54,18 @@ body>div {
 .btn {
     --btn-border: transparent;
     --btn-shadow: none;
+    --fontsize: 1rem;
     border-radius: 0.5rem;
     border-color: transparent;
     box-shadow: none;
+    font-size: 1rem;
+    line-height: 1.5rem;
+}
+
+.btn-sm {
+    --fontsize: 0.9375rem;
+    font-size: 0.9375rem;
+    line-height: 1.25rem;
 }
 
 .btn:hover,
@@ -326,6 +335,62 @@ body>div {
 
 .blog-content a:hover {
     text-decoration: underline;
+}
+
+.document-content {
+    color: var(--color-base-content, hsl(var(--bc)));
+}
+
+.document-content h2 {
+    margin-bottom: 1rem;
+    font-size: 1.35rem;
+    line-height: 1.8rem;
+    font-weight: 700;
+}
+
+.document-content h3 {
+    margin-top: 1.25rem;
+    margin-bottom: 0.5rem;
+    font-size: 1.05rem;
+    line-height: 1.6rem;
+    font-weight: 700;
+}
+
+.document-content p {
+    margin-bottom: 1rem;
+    line-height: 1.8;
+    color: color-mix(in oklab, var(--color-base-content, hsl(var(--bc))) 82%, transparent);
+}
+
+.document-content ul,
+.document-content ol {
+    margin: 0.75rem 0 1rem;
+    padding-left: 1.25rem;
+}
+
+.document-content ul {
+    list-style-type: disc;
+}
+
+.document-content ol {
+    list-style-type: decimal;
+}
+
+.document-content li {
+    margin-bottom: 0.65rem;
+    line-height: 1.75;
+    color: color-mix(in oklab, var(--color-base-content, hsl(var(--bc))) 82%, transparent);
+}
+
+.document-content a {
+    color: var(--color-primary, hsl(var(--p)));
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+}
+
+.document-content strong {
+    color: var(--color-base-content, hsl(var(--bc)));
+    font-weight: 700;
 }
 
 .kbd-unlocked {

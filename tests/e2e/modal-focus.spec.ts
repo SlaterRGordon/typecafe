@@ -69,4 +69,19 @@ test.describe("modal focus behavior", () => {
     await expect(page.locator("#c0")).toHaveClass(/active-char/);
     await expect(page.locator("#c0")).not.toHaveClass(/text-base-300/);
   });
+
+  test("tab restart shortcut still works when modals are closed", async ({ page }) => {
+    await gotoHome(page);
+
+    await typeCurrentCharacter(page);
+    await expect(page.locator("#c0")).toHaveClass(/text-base-300/);
+    await expect(page.locator("#c1")).toHaveClass(/active-char/);
+
+    await page.keyboard.down("Tab");
+    await page.keyboard.press("Enter");
+    await page.keyboard.up("Tab");
+
+    await expect(page.locator("#c0")).toHaveClass(/active-char/);
+    await expect(page.locator("#c0")).not.toHaveClass(/text-base-300/);
+  });
 });
