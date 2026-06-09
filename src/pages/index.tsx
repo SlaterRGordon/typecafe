@@ -2,8 +2,9 @@ import { type NextPage } from "next";
 import { useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { Modal } from "~/components/Modal";
+import { ShareableScoreCard, type ScoreSnapshot } from "~/components/scores/ShareableScoreCard";
 import { Keyboard } from "~/components/typer/Keyboard";
-import { Typer } from "~/components/typer/Typer";
+import { Typer, type TestCompletionResult } from "~/components/typer/Typer";
 import { Config } from "~/components/typer/config/Config";
 import { TestGramScopes, TestGramSources, TestModes, TestSubModes } from "~/components/typer/types";
 import { api } from "~/utils/api";
@@ -26,12 +27,25 @@ const Home: NextPage = () => {
   const [count, setCount] = useState(15)
   const [currentKey, setCurrentKey] = useState("")
   const [attemptVersion, setAttemptVersion] = useState(0)
+  const [restartSignal, setRestartSignal] = useState(0)
+  const [completedScore, setCompletedScore] = useState<(ScoreSnapshot & {
+    speed: number;
+    count: number;
+    mode: TestModes;
+    subMode: TestSubModes;
+    language: string;
+    options?: string;
+    createdAt: Date;
+    testId?: string;
+  }) | null>(null)
+  const [shareUrl, setShareUrl] = useState<string | undefined>(undefined)
   const charAttemptsRef = useRef<Map<string, { attempts: number, correct: number }>>(new Map())
   const persistedAttemptsRef = useRef<Map<string, { attempts: number, correct: number }>>(new Map())
   const { data: sessionData } = useSession()
   const { data: persistedStats } = api.practiceStats.get.useQuery(undefined, {
     enabled: mode === TestModes.practice && !!sessionData?.user,
   })
+  const createShare = api.scoreShare.create.useMutation()
 
   useEffect(() => {
     if (mode !== TestModes.practice || !persistedStats) return
@@ -54,9 +68,77 @@ const Home: NextPage = () => {
     setAttemptVersion((version) => version + 1)
   }
 
+  const onTestComplete = (result: TestCompletionResult) => {
+    setCompletedScore({
+      speed: result.speed,
+      rawWpm: result.rawWpm,
+      netWpm: result.netWpm,
+      accuracy: result.accuracy,
+      durationSeconds: result.durationSeconds,
+      totalKeystrokes: result.totalKeystrokes,
+      correctKeystrokes: result.correctKeystrokes,
+      incorrectKeystrokes: result.incorrectKeystrokes,
+      typedText: result.typedText,
+      wpmSamples: result.wpmSamples,
+      count,
+      mode,
+      subMode,
+      language,
+      options: result.levelName,
+      createdAt: new Date(),
+      testId: result.testId,
+    })
+    setShareUrl(undefined)
+  }
+
+  const clearCompletedScore = () => {
+    setCompletedScore(null)
+    setShareUrl(undefined)
+  }
+
+  const requestRestart = () => {
+    clearCompletedScore()
+    setRestartSignal((signal) => signal + 1)
+  }
+
+  const createAndCopyShareLink = async () => {
+    if (!completedScore?.testId) return undefined
+
+    const {
+      durationSeconds,
+      rawWpm,
+      netWpm,
+      accuracy,
+      totalKeystrokes,
+      correctKeystrokes,
+      incorrectKeystrokes,
+      typedText,
+      wpmSamples,
+    } = completedScore
+    const share = await createShare.mutateAsync({
+      testId: completedScore.testId,
+      snapshot: {
+        durationSeconds,
+        rawWpm,
+        netWpm,
+        accuracy,
+        totalKeystrokes,
+        correctKeystrokes,
+        incorrectKeystrokes,
+        typedText,
+        wpmSamples,
+      },
+    })
+    const origin = window.location.origin
+    const nextShareUrl = `${origin}/score/${share.slug}`
+    setShareUrl(nextShareUrl)
+
+    return nextShareUrl
+  }
+
   return (
     <>
-      <div id="typer" className={`flex flex-col h-full justify-center ${fullscreen ? 'absolute top-0 left-0 w-full h-full bg-base-100 z-[500] sm:px-8' : 'md:w-10/12'}`}>
+      <div id="typer" className={`flex flex-col h-full overflow-auto ${completedScore ? "py-4" : "justify-center"} ${fullscreen ? 'absolute top-0 left-0 w-full h-full bg-base-100 z-[500] sm:px-8' : 'md:w-10/12'}`}>
         <Typer
           fullscreen={fullscreen}
           setFullscreen={(full) => setFullscreen(full)}
@@ -77,9 +159,34 @@ const Home: NextPage = () => {
           modalOpen={modalOpen}
           onKeyChange={onKeyChange}
           onAttemptChange={onAttemptChange}
+          restartSignal={restartSignal}
+          onRestart={clearCompletedScore}
+          onTestComplete={onTestComplete}
           charAttemptsRef={charAttemptsRef}
+          hideInterface={!!completedScore}
         />
-        {(showKeyboard || mode === TestModes.practice) && 
+        {completedScore ?
+          <div className="m-auto flex w-full justify-center">
+            <ShareableScoreCard
+              score={{
+                ...completedScore,
+                score: completedScore.speed * completedScore.accuracy,
+                user: {
+                  username: sessionData?.user?.username ?? sessionData?.user?.name ?? null,
+                  image: sessionData?.user?.image,
+                },
+              }}
+              shareUrl={shareUrl}
+              canCreateShare={!!completedScore.testId}
+              isCreatingShare={createShare.isPending}
+              onCreateShare={createAndCopyShareLink}
+              onTestAgain={requestRestart}
+            />
+          </div>
+          :
+          null
+        }
+        {!completedScore && (showKeyboard || mode === TestModes.practice) && 
           <Keyboard mode={mode} currentKey={currentKey} selectedKeys={selectedKeys} setSelectedKeys={setSelectedKeys} charAttemptsRef={charAttemptsRef} baseAttemptsRef={persistedAttemptsRef} attemptVersion={attemptVersion} />
         }
       </div>

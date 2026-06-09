@@ -15,6 +15,8 @@ interface TextProps {
     onStart: () => void,
     onComplete: (correct: boolean) => void,
     onKeyChange: (key: string) => void,
+    onCharacterAttempt?: (attempt: { expected: string, typed: string, correct: boolean }) => void,
+    onProgress?: (chars: number) => void,
     onAttemptChange?: () => void,
 }
 
@@ -32,6 +34,8 @@ export const Text = (props: TextProps) => {
         onStart,
         onComplete,
         onKeyChange,
+        onCharacterAttempt,
+        onProgress,
         onAttemptChange,
     } = props
     const [position, setPosition] = useState(0)
@@ -193,6 +197,9 @@ export const Text = (props: TextProps) => {
     useEffect(() => {
         const current = typerRef.current?.querySelector("#c" + position.toString()) as HTMLDivElement
         if (current && typerRef.current) {
+            typerRef.current.querySelectorAll(".active-char").forEach((char) => {
+                if (char !== current) char.classList.remove("active-char", "text-primary")
+            })
             current.classList.add("active-char", "text-primary")
 
             // scroll typer if new line
@@ -212,7 +219,7 @@ export const Text = (props: TextProps) => {
         if (current && restarted) {
             // check for correct key or incorrect
             if ((current.innerText.trim() === '' && e.key === ' ') || current.innerText.trim() === e.key) {
-                nextLetter(true)
+                nextLetter(true, e.key)
                 // start timer
                 if (currentPosition === 0 && !started) onStart()
             } else if (
@@ -220,19 +227,20 @@ export const Text = (props: TextProps) => {
                 (e.code == 'Space' ||
                     e.key.length == 1 && ((e.key >= 'a' && e.key <= 'z') || (e.key >= 'A' && e.key <= 'Z')))
             ) {
-                nextLetter(false)
+                nextLetter(false, e.key)
             } else if (currentPosition > 0 && e.code === 'Backspace') {
                 prevLetter()
             }
         }
     }
 
-    const nextLetter = (correct: boolean) => {
+    const nextLetter = (correct: boolean, typed: string) => {
         const currentIndex = positionRef.current
         const currentChar = textContainerRef.current?.querySelector(`#c${currentIndex}`)
 
         if (currentChar) {
             const char = currentChar.textContent || '';
+            onCharacterAttempt?.({ expected: char, typed, correct });
 
             // Update DOM immediately
             currentChar.classList.remove('active-char', 'text-primary')
@@ -253,6 +261,7 @@ export const Text = (props: TextProps) => {
             const nextPosition = currentIndex + 1
             positionRef.current = nextPosition
             setPosition(nextPosition)
+            onProgress?.(nextPosition)
 
             if (!correct) {
                 incorrectRef.current += 1
@@ -293,6 +302,7 @@ export const Text = (props: TextProps) => {
             // Update React states
             positionRef.current = prevIndex
             setPosition(prevIndex)
+            onProgress?.(prevIndex)
             if (wasIncorrect) {
                 incorrectRef.current = Math.max(incorrectRef.current - 1, 0)
                 setIncorrect(incorrectRef.current)
