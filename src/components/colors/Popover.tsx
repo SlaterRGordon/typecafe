@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { HexColorPicker } from "react-colorful";
+import { HexColorPicker, HexColorInput } from "react-colorful";
 
 interface Props {
     color: string,
@@ -31,11 +31,12 @@ export const Popover = ({color, setColor, isOpen, togglePopover, position}: Prop
         `}>
             <div ref={ref} style={{top: `${position.top}px`, left: `${position.left}px`}} className={`flex flex-col items-start absolute w-[140px] space-y-1`}>
                 <HexColorPicker className="!w-[170px] !h-[170px]" color={color} onChange={setColor} />
-                <input 
-                    value={color.slice(1)} 
-                    onChange={(e) => setColor('#' + e.target.value)} 
-                    type="text" placeholder="Type here" 
-                    className="input input-bordered input-sm w-8/12 max-w-xs w-full" 
+                <HexColorInput
+                    color={color}
+                    onChange={setColor}
+                    prefixed
+                    placeholder="#ffffff"
+                    className="input input-bordered input-sm w-full"
                 />
             </div>
         </div>
