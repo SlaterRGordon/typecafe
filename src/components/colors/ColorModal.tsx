@@ -141,21 +141,11 @@ export const ColorModal = () => {
         e.stopPropagation()
         setCurrentKey(key)
 
-        // Anchor the picker beside the swatch, flipping to the other side if it would
-        // overflow, and clamping fully into the viewport (robust on mobile + desktop).
+        // Anchor so the hex input drops exactly onto the swatch's hex label row: the
+        // 170px picker stacks above and the input lands over the <h2>{color}</h2> text,
+        // making the edit/no-edit transition seamless.
         const rect = e.currentTarget.getBoundingClientRect()
-        const POPOVER_WIDTH = 180
-        const POPOVER_HEIGHT = 210
-        const GAP = 8
-
-        let left = rect.right + GAP
-        if (left + POPOVER_WIDTH > window.innerWidth) left = rect.left - POPOVER_WIDTH - GAP
-        left = Math.max(GAP, Math.min(left, window.innerWidth - POPOVER_WIDTH - GAP))
-
-        let top = rect.top + rect.height / 2 - POPOVER_HEIGHT / 2
-        top = Math.max(GAP, Math.min(top, window.innerHeight - POPOVER_HEIGHT - GAP))
-
-        setPosition({ left, top })
+        setPosition({ left: rect.left + 34, top: rect.top - 175 })
         setIsOpen(isOpen => !isOpen)
     }
 
