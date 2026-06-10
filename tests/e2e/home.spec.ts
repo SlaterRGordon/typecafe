@@ -66,12 +66,13 @@ test.describe("home typing test", () => {
     await typeCurrentCharacter(page);
     await page.locator("#typer label[for='configModal']").click();
     await page.getByRole("button", { name: "Words" }).click();
-    await page.waitForTimeout(250);
+    // Wait for the words-length options to confirm the mode switch settled.
+    await expect(page.getByRole("button", { name: "100", exact: true })).toBeVisible();
 
     expect(scoreCreates).toBe(0);
 
     await page.getByRole("button", { name: "Timed" }).click();
-    await page.waitForTimeout(250);
+    await expect(page.getByRole("button", { name: "120s", exact: true })).toBeVisible();
 
     expect(scoreCreates).toBe(0);
   });
@@ -84,10 +85,16 @@ test.describe("home typing test", () => {
     await chooseReactSelectOption(page, "languageSelect", "Spanish");
     await expect(page.getByText("Spanish", { exact: true })).toBeVisible();
 
-    await page.getByRole("button", { name: "off" }).first().click();
+    // Scope each toggle to its own settings row so reordering rows can't break it.
+    const settingRow = (heading: string) => page.locator("div")
+      .filter({ has: page.getByRole("heading", { name: heading, exact: true }) })
+      .filter({ has: page.getByRole("button", { name: "off" }) })
+      .last();
+
+    await settingRow("Live stats").getByRole("button", { name: "off" }).click();
     await expect(page.getByText("0.0wpm")).toBeHidden();
 
-    await page.getByRole("button", { name: "on" }).last().click();
+    await settingRow("Keyboard").getByRole("button", { name: "on" }).click();
     await expect(page.locator(".typecafe-keyboard")).toBeVisible();
 
     await page.getByRole("button", { name: "Practice" }).click();
