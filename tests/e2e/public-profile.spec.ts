@@ -11,7 +11,7 @@ test.describe("public profile", () => {
   test("renders public profile, stats, and best scores from mocked API data", async ({ page }) => {
     await expect(page.getByText("testuser").first()).toBeVisible();
     await expect(page.getByText("Typing fast, testing faster.")).toBeVisible();
-    await expect(page.getByText("https://type.cafe")).toBeVisible();
+    await expect(page.getByText("https://typecafe.vercel.app")).toBeVisible();
 
     await expect(page.getByText("Time Typing")).toBeVisible();
     await expect(page.getByText("Words Typed")).toBeVisible();

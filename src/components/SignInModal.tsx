@@ -13,6 +13,13 @@ export const SignInModal = () => {
 
     const [error, setError] = useState("")
     const callbackUrl = router.asPath || "/"
+    const closeSignInModal = () => {
+        const modal = document.getElementById("signInModal") as HTMLInputElement | null
+        if (modal) {
+            modal.checked = false
+        }
+    }
+
     const register = api.user.registerUser.useMutation({
         onSuccess: async () => {
             const result = await signIn("login", {
@@ -26,6 +33,7 @@ export const SignInModal = () => {
                 return
             }
 
+            closeSignInModal()
             await router.replace(result?.url ?? callbackUrl)
         },
         onError: (error) => {
@@ -86,7 +94,7 @@ export const SignInModal = () => {
         void signIn(provider, { callbackUrl })
     }
 
-    const handleSumbit = async () => {
+    const handleSubmit = async () => {
         if (signInForm) {
             if (emailError || passwordError) {
                 return
@@ -103,6 +111,7 @@ export const SignInModal = () => {
                 return
             }
 
+            closeSignInModal()
             await router.replace(result?.url ?? callbackUrl)
         } else {
             if (emailError || usernameError || passwordError) {
@@ -117,12 +126,17 @@ export const SignInModal = () => {
         }
     }
 
+    const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault()
+        void handleSubmit()
+    }
+
     return (
         <>
             <input type="checkbox" id="signInModal" className="modal-toggle" />
             <label htmlFor="signInModal" className="modal modal-bottom sm:modal-middle cursor-pointer">
                 <label htmlFor="" className="modal-box space-y-4">
-                    <div className="flex flex-col gap-2">
+                    <form className="flex flex-col gap-2" onSubmit={onSubmit}>
                         {error != "" &&
                             <div role="alert" className="alert alert-error justify-normal">
                                 <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
@@ -160,21 +174,27 @@ export const SignInModal = () => {
                                     value={password}
                                     className={`grow input input-bordered  ${passwordError ? "input-error" : ""}`}
                                     onChange={onPasswordChange} />
-                                <button className="btn btn-outline" onClick={() => setShowPassword(!showPassword)}>
+                                <button
+                                    type="button"
+                                    className="btn btn-outline"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    aria-label={showPassword ? "Hide password" : "Show password"}
+                                    title={showPassword ? "Hide password" : "Show password"}
+                                >
                                     {showPassword ?
-                                        <svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 -960 960 960" width="24"><path fill="currentColor" d="m644-428-58-58q9-47-27-88t-93-32l-58-58q17-8 34.5-12t37.5-4q75 0 127.5 52.5T660-500q0 20-4 37.5T644-428Zm128 126-58-56q38-29 67.5-63.5T832-500q-50-101-143.5-160.5T480-720q-29 0-57 4t-55 12l-62-62q41-17 84-25.5t90-8.5q151 0 269 83.5T920-500q-23 59-60.5 109.5T772-302Zm20 246L624-222q-35 11-70.5 16.5T480-200q-151 0-269-83.5T40-500q21-53 53-98.5t73-81.5L56-792l56-56 736 736-56 56ZM222-624q-29 26-53 57t-41 67q50 101 143.5 160.5T480-280q20 0 39-2.5t39-5.5l-36-38q-11 3-21 4.5t-21 1.5q-75 0-127.5-52.5T300-500q0-11 1.5-21t4.5-21l-84-82Zm319 93Zm-151 75Z" /></svg>
+                                        <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" height="24" viewBox="0 -960 960 960" width="24"><path fill="currentColor" d="m644-428-58-58q9-47-27-88t-93-32l-58-58q17-8 34.5-12t37.5-4q75 0 127.5 52.5T660-500q0 20-4 37.5T644-428Zm128 126-58-56q38-29 67.5-63.5T832-500q-50-101-143.5-160.5T480-720q-29 0-57 4t-55 12l-62-62q41-17 84-25.5t90-8.5q151 0 269 83.5T920-500q-23 59-60.5 109.5T772-302Zm20 246L624-222q-35 11-70.5 16.5T480-200q-151 0-269-83.5T40-500q21-53 53-98.5t73-81.5L56-792l56-56 736 736-56 56ZM222-624q-29 26-53 57t-41 67q50 101 143.5 160.5T480-280q20 0 39-2.5t39-5.5l-36-38q-11 3-21 4.5t-21 1.5q-75 0-127.5-52.5T300-500q0-11 1.5-21t4.5-21l-84-82Zm319 93Zm-151 75Z" /></svg>
                                         :
-                                        <svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 -960 960 960" width="24"><path fill="currentColor" d="M480-320q75 0 127.5-52.5T660-500q0-75-52.5-127.5T480-680q-75 0-127.5 52.5T300-500q0 75 52.5 127.5T480-320Zm0-72q-45 0-76.5-31.5T372-500q0-45 31.5-76.5T480-608q45 0 76.5 31.5T588-500q0 45-31.5 76.5T480-392Zm0 192q-146 0-266-81.5T40-500q54-137 174-218.5T480-800q146 0 266 81.5T920-500q-54 137-174 218.5T480-200Zm0-300Zm0 220q113 0 207.5-59.5T832-500q-50-101-144.5-160.5T480-720q-113 0-207.5 59.5T128-500q50 101 144.5 160.5T480-280Z" /></svg>
+                                        <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" height="24" viewBox="0 -960 960 960" width="24"><path fill="currentColor" d="M480-320q75 0 127.5-52.5T660-500q0-75-52.5-127.5T480-680q-75 0-127.5 52.5T300-500q0 75 52.5 127.5T480-320Zm0-72q-45 0-76.5-31.5T372-500q0-45 31.5-76.5T480-608q45 0 76.5 31.5T588-500q0 45-31.5 76.5T480-392Zm0 192q-146 0-266-81.5T40-500q54-137 174-218.5T480-800q146 0 266 81.5T920-500q-54 137-174 218.5T480-200Zm0-300Zm0 220q113 0 207.5-59.5T832-500q-50-101-144.5-160.5T480-720q-113 0-207.5 59.5T128-500q50 101 144.5 160.5T480-280Z" /></svg>
                                     }
                                 </button>
                             </label>
                         </div>
-                        <button className="btn btn-block btn-primary mt-2" onClick={() => handleSumbit()}>
+                        <button type="submit" className="btn btn-block btn-primary mt-2">
                             <span className="ml-2">{signInForm ? "Sign In" : "Sign Up"}</span>
                         </button>
-                    </div>
+                    </form>
                     <div className="divider">OR</div>
-                    <button className="btn btn-block btn-outline" onClick={(e) => handleSignIn(e, "google")}>
+                    <button type="button" className="btn btn-block btn-outline" onClick={(e) => handleSignIn(e, "google")}>
                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="currentColor" d="M21.35 11.1h-9.17v2.73h6.51c-.33 3.81-3.5 5.44-6.5 5.44C8.36 19.27 5 16.25 5 12c0-4.1 3.2-7.27 7.2-7.27c3.09 0 4.9 1.97 4.9 1.97L19 4.72S16.56 2 12.1 2C6.42 2 2.03 6.8 2.03 12c0 5.05 4.13 10 10.22 10c5.35 0 9.25-3.67 9.25-9.09c0-1.15-.15-1.81-.15-1.81Z" /></svg>
                         <span className="ml-2">Sign in with Google</span>
                     </button>
@@ -183,11 +203,11 @@ export const SignInModal = () => {
                         <span className="ml-2">Sign in with Github</span>
                     </button> */}
                     {signInForm ?
-                        <button className="btn btn-block btn-outline" onClick={() => setSignInForm(false)}>
+                        <button type="button" className="btn btn-block btn-outline" onClick={() => setSignInForm(false)}>
                             <span className="ml-2">New to TypeCafe? Join Now</span>
                         </button>
                         :
-                        <button className="btn btn-block btn-outline" onClick={() => setSignInForm(true)}>
+                        <button type="button" className="btn btn-block btn-outline" onClick={() => setSignInForm(true)}>
                             <span className="ml-2">Already a member? Sign In</span>
                         </button>
                     }

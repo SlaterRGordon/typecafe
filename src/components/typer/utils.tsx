@@ -175,6 +175,56 @@ export const generateBetterPseudoText = (count: number, characters: string[]) =>
     return text.toLowerCase().slice(0, -1)
 }
 
+// Weighted so periods/commas dominate, matching natural prose.
+const SENTENCE_ENDERS = ['.', '.', '.', '.', '?', '!']
+const MID_PUNCTUATION = [',', ',', ',', ';', ':']
+
+const capitalise = (word: string) => word.charAt(0).toUpperCase() + word.slice(1)
+const pick = (choices: string[]) => choices[Math.floor(Math.random() * choices.length)] as string
+
+// Layer punctuation and/or capitalisation onto generated (lowercase) text.
+// - punctuation: sprinkles sentence-ending and mid-sentence marks between words.
+// - capitals: with punctuation on, capitalises sentence starts; on its own it
+//   capitalises a sprinkle of words so the user still practises the shift key.
+export const applyTextOptions = (text: string, punctuation: boolean, capitals: boolean) => {
+    if (!text || (!punctuation && !capitals)) return text
+
+    const words = text.split(' ')
+    let startsSentence = true
+
+    const transformed = words.map((word, index) => {
+        if (!word) return word
+        let result = word
+        const isLast = index === words.length - 1
+
+        if (capitals) {
+            if (punctuation) {
+                if (startsSentence) result = capitalise(result)
+            } else if (Math.random() < 0.2) {
+                result = capitalise(result)
+            }
+        }
+        startsSentence = false
+
+        if (punctuation && !isLast) {
+            const roll = Math.random()
+            if (roll < 0.1) {
+                result += pick(SENTENCE_ENDERS)
+                startsSentence = true
+            } else if (roll < 0.22) {
+                result += pick(MID_PUNCTUATION)
+            }
+        }
+
+        return result
+    })
+
+    let output = transformed.join(' ')
+    // Close the passage on a sentence ender when punctuation is on.
+    if (punctuation && !SENTENCE_ENDERS.includes(output.slice(-1))) output += '.'
+    return output
+}
+
 export const generateText = (count: number, language: string) => {
     let text = ''
 

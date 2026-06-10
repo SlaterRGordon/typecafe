@@ -31,13 +31,11 @@ const Profile: NextPage = () => {
 
   const onModalClose = async () => {
     setUpdate(prevUpdate => !prevUpdate)
-    await refetchUserData()
 
     const input = document.getElementById("configModal") as HTMLInputElement
-    if (input) {
-      if (!input.checked) input.checked = true
-      else input.checked = false
-    }
+    if (input) input.checked = false
+
+    await refetchUserData()
   }
 
   const onConfirmModalClose = () => {
@@ -51,9 +49,7 @@ const Profile: NextPage = () => {
   const languageOptions = [
     { value: "english", label: 'English' },
     { value: "french", label: 'French' },
-    { value: "Hindi", label: 'Hindi' },
-    { value: "Chinese", label: 'Chinese' },
-    { value: "Spanish", label: 'Spanish' },
+    { value: "spanish", label: 'Spanish' },
   ]
   const handleChangeLanguage = (value: SingleValue<Option>) => {
     if (value) {
@@ -170,7 +166,7 @@ const Profile: NextPage = () => {
                 <div className="avatar">
                   <div className="mask mask-circle w-24 h-24">
                     {(userData ? userData.image : sessionData?.user.image) ?
-                      <Image width={500} height={500} src={(userData ? userData.image : sessionData?.user.image) ?? ""} alt={"Profile Picture"} />
+                      <Image width={192} height={192} sizes="96px" className="h-full w-full object-cover" src={(userData ? userData.image : sessionData?.user.image) ?? ""} alt={"Profile Picture"} />
                       :
                       <div className="avatar placeholder">
                         <div className="bg-neutral text-neutral-content rounded-full w-24">
@@ -264,7 +260,7 @@ const Profile: NextPage = () => {
           </div>
         </div>
       </div>
-      <Modal>
+      <Modal boxClassName="sm:w-[500px] !max-h-[82vh] sm:!max-h-[calc(100vh-5em)]">
         <Edit userData={userData} onClose={onModalClose} openConfirmModal={onConfirmModalClose} />
       </Modal>
       <ConfirmModal loading={deleting} message="Are you sure you want to delete your account?" callback={(result) => deleteProfile(result)} />

@@ -10,7 +10,7 @@ interface Props {
 export const ColorButton = ({ name, color, colorKey, togglePopover }: Props) => {
 
     return (
-        <div className="flex flex-col w-44">
+        <div className="flex flex-col w-full min-w-0">
             <h3 className="flex items-center text-xl">{name}</h3>
             <div className="flex space-x-2">
                 {color == "" ?

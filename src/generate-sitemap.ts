@@ -18,7 +18,7 @@ async function generateSitemap() {
   const staticPages = staticRoutes.map((route) => {
     return `
       <url>
-        <loc>${`https://www.type.cafe${route}`}</loc>
+        <loc>${`https://typecafe.vercel.app${route}`}</loc>
         <lastmod>${new Date().toISOString()}</lastmod>
       </url>
     `;
@@ -28,7 +28,7 @@ async function generateSitemap() {
     const username = user.username ?? 'unknown';
     return `
       <url>
-        <loc>${`https://www.type.cafe/profile/${username}`}</loc>
+        <loc>${`https://typecafe.vercel.app/profile/${username}`}</loc>
         <lastmod>${new Date().toISOString()}</lastmod>
       </url>
     `;
@@ -49,7 +49,7 @@ async function generateSitemap() {
     await fs.promises.writeFile(sitemapPath, sitemapContent.trim());
     sitemapIndex.push(`
       <sitemap>
-        <loc>${`https://www.type.cafe/sitemap-${i + 1}.xml`}</loc>
+        <loc>${`https://typecafe.vercel.app/sitemap-${i + 1}.xml`}</loc>
         <lastmod>${new Date().toISOString()}</lastmod>
       </sitemap>
     `);

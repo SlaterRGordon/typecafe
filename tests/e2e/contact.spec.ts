@@ -1,6 +1,14 @@
 import { expect, test } from "@playwright/test";
 
 test.describe("contact page", () => {
+  // Suppress the desktop-only global support prompt so it can't overlay the
+  // submit button (it has its own dedicated spec).
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => {
+      window.localStorage.setItem("typecafe.supportDismissedAt", Date.now().toString());
+    });
+  });
+
   test("browser validation blocks empty and invalid submissions", async ({ page }) => {
     let contactCalls = 0;
     await page.route("**/api/contact", async (route) => {

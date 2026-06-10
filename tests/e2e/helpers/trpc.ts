@@ -6,6 +6,9 @@ interface MockTrpcOptions {
   savedLearnProgress?: unknown[];
   importedLearnProgress?: unknown[];
   profileImage?: string | null;
+  emptyScores?: boolean;
+  invalidShare?: boolean;
+  onProcedure?: (procedure: string, input: ProcedureInput) => void;
 }
 
 const profileUser: {
@@ -25,7 +28,7 @@ const profileUser: {
   username: "testuser",
   image: null,
   bio: "Typing fast, testing faster.",
-  link: "https://type.cafe",
+  link: "https://typecafe.vercel.app",
 };
 
 let currentProfileUser = { ...profileUser };
@@ -82,6 +85,25 @@ function makeScore(input: ProcedureInput) {
   };
 }
 
+function makeScoreSnapshot() {
+  return {
+    durationSeconds: 15,
+    rawWpm: 72.35,
+    netWpm: 68.7,
+    accuracy: 96.5,
+    totalKeystrokes: 548,
+    correctKeystrokes: 531,
+    incorrectKeystrokes: 17,
+    typedText: "olympus worse sharing touching authorized commodities modems colon malpractice",
+    wpmSamples: [
+      { elapsedSeconds: 0, wpm: 0 },
+      { elapsedSeconds: 5, wpm: 45 },
+      { elapsedSeconds: 10, wpm: 62 },
+      { elapsedSeconds: 15, wpm: 72.35 },
+    ],
+  };
+}
+
 function responseForProcedure(procedure: string, input: ProcedureInput, options: MockTrpcOptions, state: { importedLearnProgress: boolean }) {
   switch (procedure) {
     case "type.get":
@@ -97,7 +119,10 @@ function responseForProcedure(procedure: string, input: ProcedureInput, options:
         { id: "type-normal", mode: 0, subMode: input?.subMode ?? 0, language: "english", competitive: true },
       ];
     case "test.getAll":
+      if (options.emptyScores) return [];
       return [makeScore(input)];
+    case "test.create":
+      return makeScore({ ...input, userId: profileUser.id });
     case "test.getTimeTyped":
       return { _sum: { count: 1234 } };
     case "test.getBestScore":
@@ -119,6 +144,12 @@ function responseForProcedure(procedure: string, input: ProcedureInput, options:
       return profileUser;
     case "user.checkUsernameExists":
       return false;
+    case "user.registerUser":
+      return {
+        id: profileUser.id,
+        email: input?.email,
+        username: input?.username,
+      };
     case "user.update":
       currentProfileUser = {
         ...currentProfileUser,
@@ -134,6 +165,34 @@ function responseForProcedure(procedure: string, input: ProcedureInput, options:
       return [];
     case "color.create":
       return null;
+    case "scoreShare.create":
+      return { slug: "share-test-score" };
+    case "scoreShare.get":
+      if (options.invalidShare) return null;
+      return {
+        id: "share-1",
+        slug: input?.slug ?? "share-test-score",
+        createdAt: new Date("2026-06-01T12:00:00.000Z"),
+        expiresAt: null,
+        score: {
+          id: "score-15-user-1",
+          speed: 72.35,
+          accuracy: 96.5,
+          score: 6982,
+          count: 15,
+          options: "",
+          createdAt: new Date("2026-06-01T12:00:00.000Z"),
+          mode: 0,
+          subMode: 0,
+          language: "english",
+        },
+        snapshot: makeScoreSnapshot(),
+        user: {
+          id: profileUser.id,
+          username: profileUser.username,
+          image: profileUser.image,
+        },
+      };
     default:
       return null;
   }
@@ -151,6 +210,7 @@ export async function mockTrpc(page: Page, options: MockTrpcOptions = {}) {
 
     const body = procedures.map((procedure, index) => {
       const input = deserializeInput(rawInput, index);
+      options.onProcedure?.(procedure, input);
       return serializeResult(responseForProcedure(procedure, input, options, state));
     });
 

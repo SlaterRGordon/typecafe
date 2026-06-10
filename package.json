@@ -34,6 +34,7 @@
     "daisyui": "^5.5.20",
     "dotenv": "^17.4.2",
     "globby": "^14.0.2",
+    "modern-screenshot": "^4.7.0",
     "next": "^16.2.6",
     "next-auth": "^4.24.14",
     "nodemailer": "^7.0.13",

@@ -5,6 +5,7 @@ import { typeRouter } from "./routers/type";
 import { userRouter } from "./routers/user";
 import { practiceStatsRouter } from "./routers/practiceStats";
 import { learnProgressRouter } from "./routers/learnProgress";
+import { scoreShareRouter } from "./routers/scoreShare";
 
 /**
  * This is the primary router for your server.
@@ -18,6 +19,7 @@ export const appRouter = createTRPCRouter({
   type: typeRouter,
   practiceStats: practiceStatsRouter,
   learnProgress: learnProgressRouter,
+  scoreShare: scoreShareRouter,
 });
 
 // export type definition of API

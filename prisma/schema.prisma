@@ -54,6 +54,7 @@ model User {
     accounts            Account[]
     sessions            Session[]
     tests               Test[]
+    scoreShares         ScoreShare[]
     colorConfigurations ColorConfiguration[]
     practiceStats       PracticeStats[]
     learnProgress       LearnProgress[]
@@ -91,14 +92,36 @@ model Test {
     score     Float
     count     Int      @default(0)
     options   String
+    punctuation Boolean @default(false)
+    capitals    Boolean @default(false)
+    ranked      Boolean @default(true)
     summaryDate DateTime  @db.Date
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
     user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
     type      TestType @relation(fields: [typeId], references: [id], onDelete: Cascade)
+    shares    ScoreShare[]
 
     @@index([userId])
     @@index([typeId])
+}
+
+model ScoreShare {
+    id        String    @id @default(cuid())
+    slug      String    @unique
+    testId    String
+    userId    String
+    snapshot  Json?
+    expiresAt DateTime?
+    deletedAt DateTime?
+    createdAt DateTime  @default(now())
+    updatedAt DateTime  @updatedAt
+    test      Test      @relation(fields: [testId], references: [id], onDelete: Cascade)
+    user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    @@index([testId])
+    @@index([userId])
+    @@index([expiresAt])
 }
 
 model TestType {

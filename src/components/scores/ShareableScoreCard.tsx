@@ -1,0 +1,530 @@
+import Link from "next/link";
+import { type CSSProperties, useId, useMemo, useRef, useState } from "react";
+
+import { TestModes, TestSubModes } from "~/components/typer/types";
+
+export interface ScoreWpmSample {
+  elapsedSeconds: number;
+  wpm: number;
+}
+
+export interface ScoreSnapshot {
+  durationSeconds: number;
+  rawWpm: number;
+  netWpm: number;
+  accuracy: number;
+  totalKeystrokes: number;
+  correctKeystrokes: number;
+  incorrectKeystrokes: number;
+  typedText: string;
+  punctuation?: boolean;
+  capitals?: boolean;
+  ranked?: boolean;
+  wpmSamples: ScoreWpmSample[];
+}
+
+export interface ShareableScore extends ScoreSnapshot {
+  id?: string;
+  speed: number;
+  score?: number;
+  count: number;
+  mode: TestModes;
+  subMode: TestSubModes;
+  language: string;
+  options?: string;
+  createdAt?: Date;
+  user?: {
+    username: string | null;
+    image?: string | null;
+  };
+}
+
+interface ShareableScoreCardProps {
+  score: ShareableScore;
+  shareUrl?: string;
+  readonly?: boolean;
+  isCreatingShare?: boolean;
+  canCreateShare?: boolean;
+  onCreateShare?: () => Promise<string | undefined> | string | undefined;
+  onTestAgain?: () => void;
+}
+
+type ActionState = "idle" | "copied" | "unsupported" | "error";
+
+const modeLabels: Record<TestModes, string> = {
+  [TestModes.normal]: "Normal",
+  [TestModes.practice]: "Practice",
+  [TestModes.ngrams]: "N-grams",
+  [TestModes.relaxed]: "Relaxed",
+};
+
+const subModeLabels: Record<TestSubModes, string> = {
+  [TestSubModes.timed]: "Timed",
+  [TestSubModes.words]: "Words",
+};
+
+function formatNumber(value: number, digits = 1) {
+  return value.toLocaleString(undefined, {
+    maximumFractionDigits: digits,
+    minimumFractionDigits: digits,
+  });
+}
+
+function formatInteger(value: number) {
+  return Math.round(value).toLocaleString();
+}
+
+function formatDate(date?: Date) {
+  if (!date) return "Just now";
+  return date.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+async function writeTextToClipboard(text: string) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.setAttribute("readonly", "true");
+  textarea.style.position = "fixed";
+  textarea.style.opacity = "0";
+  document.body.appendChild(textarea);
+  textarea.select();
+  document.execCommand("copy");
+  textarea.remove();
+}
+
+async function renderScoreCardImage(scoreCard: HTMLElement) {
+  const { domToBlob } = await import("modern-screenshot");
+  const bounds = scoreCard.getBoundingClientRect();
+
+  return domToBlob(scoreCard, {
+    backgroundColor: null,
+    height: bounds.height,
+    scale: window.devicePixelRatio || 1,
+    width: bounds.width,
+  });
+}
+
+async function copyScoreImage(scoreCard: HTMLElement | null) {
+  if (!navigator.clipboard?.write || typeof ClipboardItem === "undefined") {
+    return false;
+  }
+
+  if (!scoreCard) throw new Error("Score card is unavailable.");
+
+  const blob = await renderScoreCardImage(scoreCard);
+  if (!blob) throw new Error("Could not render score image.");
+
+  await navigator.clipboard.write([
+    new ClipboardItem({
+      "image/png": blob,
+    }),
+  ]);
+
+  return true;
+}
+
+function InfoIcon(props: { label: string }) {
+  const tooltipId = useId();
+
+  return (
+    <span className="group relative inline-flex">
+      <button
+        type="button"
+        className="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-base-content/50 text-[10px] text-base-content/80 outline-none transition hover:border-primary hover:text-primary focus-visible:border-primary focus-visible:text-primary focus-visible:ring-2 focus-visible:ring-primary/40"
+        aria-label={props.label}
+        aria-describedby={tooltipId}
+        title={props.label}
+      >
+        ?
+      </button>
+      <span
+        id={tooltipId}
+        role="tooltip"
+        className="pointer-events-none absolute left-1/2 top-6 z-20 w-56 -translate-x-1/2 rounded-md border border-base-content/10 bg-base-100 px-3 py-2 text-xs font-medium text-base-content opacity-0 shadow-lg shadow-base-300/40 transition group-hover:opacity-100 group-focus-within:opacity-100"
+      >
+        {props.label}
+      </span>
+    </span>
+  );
+}
+
+function RestartIcon() {
+  return (
+    <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M20 12a8 8 0 1 1-2.34-5.66" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M20 4v6h-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function ShareIcon() {
+  return (
+    <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M12 16V4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="m7 9 5-5 5 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M20 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function ScreenshotIcon() {
+  return (
+    <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M7 7h.01M17 7h.01M7 17h.01M17 17h.01" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M9 3H5a2 2 0 0 0-2 2v4M15 3h4a2 2 0 0 1 2 2v4M9 21H5a2 2 0 0 1-2-2v-4M15 21h4a2 2 0 0 0 2-2v-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M9 12h6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function MetricCard(props: { label: string; value: string; note: string; info: string }) {
+  return (
+    <div className="rounded-lg border border-base-content/10 bg-base-100/45 p-4 shadow-inner shadow-base-300/40" aria-label={`${props.label}: ${props.value}. ${props.note}`}>
+      <div className="flex items-center gap-2 text-sm font-semibold text-base-content/90">
+        <span>{props.label}</span>
+        <InfoIcon label={props.info} />
+      </div>
+      <div className="mt-4 font-mono text-4xl font-bold leading-none text-primary sm:text-5xl">
+        {props.value}
+      </div>
+      <p className="mt-4 text-sm text-base-content/70">{props.note}</p>
+    </div>
+  );
+}
+
+function buildSmoothPath(points: { x: number; y: number }[]) {
+  if (points.length === 0) return "";
+  const first = points[0]!;
+  if (points.length === 1) return `M ${first.x} ${first.y}`;
+
+  const commands = [`M ${first.x} ${first.y}`];
+
+  for (let index = 0; index < points.length - 1; index += 1) {
+    const current = points[index]!;
+    const next = points[index + 1]!;
+    const previous = points[index - 1] ?? current;
+    const following = points[index + 2] ?? next;
+    const controlOne = {
+      x: current.x + (next.x - previous.x) / 6,
+      y: current.y + (next.y - previous.y) / 6,
+    };
+    const controlTwo = {
+      x: next.x - (following.x - current.x) / 6,
+      y: next.y - (following.y - current.y) / 6,
+    };
+
+    commands.push(`C ${controlOne.x} ${controlOne.y}, ${controlTwo.x} ${controlTwo.y}, ${next.x} ${next.y}`);
+  }
+
+  return commands.join(" ");
+}
+
+function chooseSecondTickInterval(spanSeconds: number) {
+  if (spanSeconds <= 12) return 1;
+  if (spanSeconds <= 24) return 2;
+  if (spanSeconds <= 60) return 5;
+  if (spanSeconds <= 120) return 10;
+  if (spanSeconds <= 240) return 20;
+  if (spanSeconds <= 600) return 60;
+
+  return 120;
+}
+
+function chooseWpmTickInterval(maxWpm: number) {
+  if (maxWpm <= 100) return 25;
+  if (maxWpm <= 200) return 50;
+  if (maxWpm <= 400) return 100;
+
+  return 200;
+}
+
+function WpmChart(props: { samples: ScoreWpmSample[]; durationSeconds: number; rawWpm: number }) {
+  const chartTitleId = useId();
+  const chartDescriptionId = useId();
+  const { maxSecond, samples, points, linePath, areaPath, yTicks, renderedXTicks, maxWpm, xSpan, chartStartSecond, width, height, padding, chartWidth, chartHeight } = useMemo(() => {
+    const chartStartSecond = 0;
+    const recordedSamples = props.samples
+      .filter((sample) => sample.elapsedSeconds >= chartStartSecond)
+      .sort((a, b) => a.elapsedSeconds - b.elapsedSeconds);
+    const maxSecond = Math.round(Math.max(props.durationSeconds, ...recordedSamples.map((sample) => sample.elapsedSeconds), chartStartSecond));
+    const samples = recordedSamples.length > 0
+      ? recordedSamples[0]!.elapsedSeconds === chartStartSecond
+        ? recordedSamples
+        : [{ elapsedSeconds: chartStartSecond, wpm: recordedSamples[0]!.wpm }, ...recordedSamples]
+      : [{ elapsedSeconds: chartStartSecond, wpm: props.rawWpm }, { elapsedSeconds: maxSecond, wpm: props.rawWpm }];
+    const maxRecordedWpm = Math.max(...samples.map((sample) => sample.wpm), props.rawWpm, 100);
+    const yTickInterval = chooseWpmTickInterval(maxRecordedWpm);
+    const maxWpm = Math.ceil(maxRecordedWpm / yTickInterval) * yTickInterval;
+    const width = 640;
+    const height = 240;
+    const padding = { top: 20, right: 24, bottom: 36, left: 48 };
+    const chartWidth = width - padding.left - padding.right;
+    const chartHeight = height - padding.top - padding.bottom;
+    const xSpan = Math.max(maxSecond - chartStartSecond, 1);
+    const points = samples.map((sample) => {
+      const second = Math.min(sample.elapsedSeconds, maxSecond);
+      const x = padding.left + ((second - chartStartSecond) / xSpan) * chartWidth;
+      const y = padding.top + chartHeight - (sample.wpm / maxWpm) * chartHeight;
+      return { x, y };
+    });
+    const linePath = buildSmoothPath(points);
+    const areaPath = points.length > 0
+      ? `M ${points[0]!.x} ${padding.top + chartHeight} L ${points[0]!.x} ${points[0]!.y} ${linePath.replace(/^M [^C]+/, "")} L ${points[points.length - 1]!.x} ${padding.top + chartHeight} Z`
+      : "";
+    const yTicks = Array.from({ length: Math.floor(maxWpm / yTickInterval) + 1 }, (_, index) => index * yTickInterval);
+    const xTickInterval = chooseSecondTickInterval(xSpan);
+    const xTicks = Array.from(
+      { length: Math.floor(xSpan / xTickInterval) + 1 },
+      (_, index) => chartStartSecond + index * xTickInterval,
+    ).filter((tick) => tick <= maxSecond);
+    const renderedXTicks = xTicks.includes(maxSecond) ? xTicks : [...xTicks, maxSecond];
+    return { maxSecond, samples, points, linePath, areaPath, yTicks, renderedXTicks, maxWpm, xSpan, chartStartSecond, width, height, padding, chartWidth, chartHeight };
+  }, [props.samples, props.durationSeconds, props.rawWpm]);
+
+  return (
+    <div className="rounded-lg border border-base-content/10 bg-base-100/45 p-4" aria-labelledby={chartTitleId}>
+      <div className="mb-3 flex items-center gap-2 text-lg font-semibold text-base-content">
+        <span id={chartTitleId}>WPM Over Time</span>
+        <InfoIcon label="Shows your raw WPM trend from the start of the test through completion." />
+      </div>
+      <svg className="h-auto w-full overflow-visible text-primary" viewBox={`0 0 ${width} ${height}`} role="img" aria-labelledby={`${chartTitleId} ${chartDescriptionId}`}>
+        <desc id={chartDescriptionId}>
+          WPM chart with {samples.length} samples over {maxSecond} seconds. Final raw WPM is {formatNumber(props.rawWpm, 1)}.
+        </desc>
+        {yTicks.map((tick) => {
+          const y = padding.top + chartHeight - (tick / maxWpm) * chartHeight;
+          return (
+            <g key={tick}>
+              <line x1={padding.left} x2={padding.left + chartWidth} y1={y} y2={y} stroke="currentColor" opacity="0.14" />
+              <text x={padding.left - 14} y={y + 5} textAnchor="end" className="fill-base-content text-sm" opacity="0.75">{tick}</text>
+            </g>
+          );
+        })}
+        {renderedXTicks.map((tick) => {
+          const x = padding.left + ((tick - chartStartSecond) / xSpan) * chartWidth;
+          return <text key={tick} x={x} y={height - 8} textAnchor="middle" className="fill-base-content text-sm" opacity="0.75">{tick}s</text>;
+        })}
+        {areaPath ? <path d={areaPath} fill="currentColor" opacity="0.13" /> : null}
+        {linePath ? <path className="score-draw-line" d={linePath} fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" /> : null}
+        {points.map((point, index) => (
+          <circle key={`${point.x}-${point.y}-${index}`} cx={point.x} cy={point.y} r="6" fill="currentColor" stroke="var(--color-base-100)" strokeWidth="2" />
+        ))}
+      </svg>
+    </div>
+  );
+}
+
+function DetailRow(props: { label: string; value: string; tone?: "success" | "error" | "accent" }) {
+  const toneClass = props.tone === "success" ? "text-success" : props.tone === "error" ? "text-error" : props.tone === "accent" ? "text-primary" : "text-base-content";
+
+  return (
+    <div className="flex items-center justify-between border-b border-base-content/10 py-3 last:border-b-0">
+      <span className="text-base-content/80">{props.label}</span>
+      <span className={`font-mono ${toneClass}`}>{props.value}</span>
+    </div>
+  );
+}
+
+export function ShareableScoreCard(props: ShareableScoreCardProps) {
+  const { score, shareUrl, readonly = false, isCreatingShare = false, canCreateShare = false, onCreateShare, onTestAgain } = props;
+  const [linkState, setLinkState] = useState<ActionState>("idle");
+  const [imageState, setImageState] = useState<ActionState>("idle");
+  const resetTimerRef = useRef<number | null>(null);
+  const scoreCardRef = useRef<HTMLDivElement | null>(null);
+  const scoreTitleId = useId();
+  const modeText = `${modeLabels[score.mode]} / ${subModeLabels[score.subMode]} / ${score.language}`;
+  const shareButtonLabel = isCreatingShare ? "Creating..." : linkState === "copied" ? "Link copied" : "Share Score";
+  const screenshotButtonLabel = imageState === "copied" ? "Screenshot copied" : "Copy Screenshot";
+
+  const scheduleReset = () => {
+    if (resetTimerRef.current) window.clearTimeout(resetTimerRef.current);
+    resetTimerRef.current = window.setTimeout(() => {
+      setLinkState("idle");
+      setImageState("idle");
+    }, 2500);
+  };
+
+  const handleCopyLink = async () => {
+    try {
+      const nextUrl = shareUrl ?? await onCreateShare?.();
+      if (!nextUrl) {
+        setLinkState("unsupported");
+        scheduleReset();
+        return;
+      }
+
+      await writeTextToClipboard(nextUrl);
+      setLinkState("copied");
+    } catch {
+      setLinkState("error");
+    } finally {
+      scheduleReset();
+    }
+  };
+
+  const handleCopyImage = async () => {
+    try {
+      const copied = await copyScoreImage(scoreCardRef.current);
+      setImageState(copied ? "copied" : "unsupported");
+    } catch {
+      setImageState("error");
+    } finally {
+      scheduleReset();
+    }
+  };
+
+  const metricItems = useMemo(() => [
+    { label: "WPM", value: formatNumber(score.rawWpm, 1), note: "Raw speed", info: "Raw words per minute, calculated from all typed keystrokes before error adjustment." },
+    { label: "Accuracy", value: `${formatNumber(score.accuracy, 2)}%`, note: "Correct keystrokes", info: "The percentage of typed keystrokes that matched the expected text." },
+    { label: "Duration", value: `${formatInteger(score.durationSeconds)}s`, note: "Completed", info: "The completed test duration in seconds." },
+    { label: "Net WPM", value: formatNumber(score.netWpm, 1), note: "Adjusted for errors", info: "Words per minute after incorrect keystrokes are subtracted from the result." },
+  ], [score]);
+
+  return (
+    <section className="w-full max-w-7xl px-4 py-4 sm:px-6">
+      <div
+        ref={scoreCardRef}
+        data-testid="score-screenshot-card"
+        role="region"
+        aria-labelledby={scoreTitleId}
+        className="rounded-xl border border-base-content/15 bg-base-200 p-5 text-base-content shadow-2xl shadow-base-300/40 sm:p-6"
+      >
+        <div className="score-reveal flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-center gap-4">
+            <div>
+              <h1 id={scoreTitleId} className="text-3xl font-bold leading-tight">Test Complete!</h1>
+              <p className="mt-1 text-base-content/80">Great job! You&apos;ve completed the test.</p>
+              <p className="mt-1 text-sm text-base-content/65">{modeText} / {formatDate(score.createdAt)}</p>
+              {(score.punctuation || score.capitals || score.ranked === false) &&
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {score.punctuation &&
+                    <span className="rounded-full border border-primary/40 bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">Punctuation</span>
+                  }
+                  {score.capitals &&
+                    <span className="rounded-full border border-primary/40 bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">Capitals</span>
+                  }
+                  {score.ranked === false &&
+                    <span className="rounded-full border border-warning/40 bg-warning/10 px-2.5 py-0.5 text-xs font-semibold text-warning">Unranked</span>
+                  }
+                </div>
+              }
+            </div>
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            {!readonly && onTestAgain ?
+              <button
+                className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-md border border-base-content/15 bg-base-100/50 px-4 py-2 text-sm font-semibold text-base-content transition hover:bg-base-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                type="button"
+                onClick={onTestAgain}
+                aria-label="Test Again"
+                title="Restart the typing test"
+              >
+                <RestartIcon />
+                <span>Test Again</span>
+              </button>
+              :
+              null
+            }
+            {!readonly || shareUrl ?
+              <button
+                className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50"
+                type="button"
+                disabled={isCreatingShare || (!shareUrl && !canCreateShare)}
+                onClick={handleCopyLink}
+                aria-label={shareButtonLabel}
+                title={isCreatingShare ? "Creating share link" : linkState === "copied" ? "Share link copied" : "Copy share score link"}
+              >
+                <ShareIcon />
+                <span>{shareButtonLabel}</span>
+              </button>
+              :
+              null
+            }
+            <button
+              className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-md bg-secondary px-4 py-2 text-sm font-semibold text-secondary-content transition hover:opacity-85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-secondary"
+              type="button"
+              onClick={handleCopyImage}
+              aria-label={screenshotButtonLabel}
+              title={imageState === "copied" ? "Score screenshot copied" : "Copy score screenshot image"}
+            >
+              <ScreenshotIcon />
+              <span>{screenshotButtonLabel}</span>
+            </button>
+            {shareUrl && readonly ?
+              <Link className="rounded-md border border-base-content/15 bg-base-100/50 px-4 py-2 text-sm font-semibold text-base-content transition hover:bg-base-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary" href="/" aria-label="Try TypeCafe" title="Start a new typing test on TypeCafe">
+                Try TypeCafe
+              </Link>
+              :
+              null
+            }
+          </div>
+        </div>
+
+        <div className="score-reveal mt-7 grid gap-4 md:grid-cols-4" style={{ "--reveal-delay": "80ms" } as CSSProperties}>
+          {metricItems.map((item) => (
+            <MetricCard key={item.label} {...item} />
+          ))}
+        </div>
+
+        <div className="score-reveal mt-5 grid gap-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(320px,1fr)]" style={{ "--reveal-delay": "160ms" } as CSSProperties}>
+          <WpmChart samples={score.wpmSamples} durationSeconds={score.durationSeconds} rawWpm={score.rawWpm} />
+          <div className="rounded-lg border border-base-content/10 bg-base-100/45 p-5">
+            <h2 className="mb-3 text-lg font-semibold text-base-content">Performance Details</h2>
+            <DetailRow label="Total Keystrokes" value={formatInteger(score.totalKeystrokes)} />
+            <DetailRow label="Correct Keystrokes" value={formatInteger(score.correctKeystrokes)} tone="success" />
+            <DetailRow label="Incorrect Keystrokes" value={formatInteger(score.incorrectKeystrokes)} tone="error" />
+            <DetailRow label="Accuracy" value={`${formatNumber(score.accuracy, 2)}%`} tone="accent" />
+            <DetailRow label="Net WPM" value={formatNumber(score.netWpm, 1)} />
+            <DetailRow label="Raw WPM" value={formatNumber(score.rawWpm, 1)} />
+          </div>
+        </div>
+
+        <div className="score-reveal mt-5 rounded-lg border border-base-content/10 bg-base-100/45 p-5" style={{ "--reveal-delay": "240ms" } as CSSProperties}>
+          <div className="mb-4 flex items-center gap-2 text-lg font-semibold text-base-content">
+            <span>Your Typed Text</span>
+            <InfoIcon label="The plain text typed during this completed test. The panel scrolls when the text is long." />
+          </div>
+          <div className="max-h-36 overflow-y-auto whitespace-pre-wrap break-words rounded-md border border-base-content/10 bg-base-200/70 p-4 font-mono text-base leading-8 text-base-content focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:text-lg" tabIndex={0} role="region" aria-label="Typed text from the completed test">
+            {score.typedText || "No typed text recorded."}
+          </div>
+          <div className="mt-5 flex flex-col gap-3 border-t border-base-content/10 pt-4 text-sm text-base-content/80 sm:flex-row sm:items-center sm:gap-8">
+            <span><span className="mr-2 inline-block h-3 w-3 rounded-full bg-success" />{formatInteger(score.correctKeystrokes)} correct</span>
+            <span><span className="mr-2 inline-block h-3 w-3 rounded-full bg-error" />{formatInteger(score.incorrectKeystrokes)} incorrect</span>
+            <span className="text-primary">{formatNumber(score.accuracy, 2)}% accuracy</span>
+          </div>
+        </div>
+      </div>
+
+      <div aria-live="polite" role="status" className="min-h-8 pt-3 text-sm">
+        {!readonly && !shareUrl && !canCreateShare ?
+          <p className="text-base-content/70">Sign in to save this score and create a share link.</p>
+          :
+          null
+        }
+        {linkState === "unsupported" ?
+          <p className="text-warning">Sign in and save the score before sharing a link.</p>
+          :
+          null
+        }
+        {imageState === "unsupported" ?
+          <p className="text-warning">This browser cannot copy images to the clipboard yet.</p>
+          :
+          null
+        }
+        {(linkState === "error" || imageState === "error") ?
+          <p className="text-error">Copy failed. Please try again.</p>
+          :
+          null
+        }
+      </div>
+    </section>
+  );
+}

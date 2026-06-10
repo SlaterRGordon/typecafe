@@ -177,37 +177,37 @@ export const Edit = (props: EditProps) => {
     }
 
     return (
-        <div className="flex flex-col h-full gap-2 relative">
-            <div className="flex justify-between align-center">
-                <h3 className="font-bold text-4xl p-1">Edit Profile</h3>
-                <button onClick={props.openConfirmModal} className="btn btn-sm btn-primary">
+        <div className="flex flex-col gap-5">
+            <div className="flex items-start justify-between gap-3">
+                <h3 className="font-mono font-bold text-4xl tracking-tight">Edit Profile</h3>
+                <button onClick={props.openConfirmModal} className="btn btn-sm btn-error">
                     Delete Profile
                 </button>
             </div>
             {error != "" &&
                 <div role="alert" className="alert alert-error justify-normal">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                     <span>{error}</span>
                 </div>
             }
-            <div className="flex flex-col">
-                <h3 className="font-semibold text-2xl p-1">Profile Picture</h3>
+            <div className="flex flex-col gap-2">
+                <h4 className="text-lg font-bold sm:text-xl">Profile Picture</h4>
                 <div className="flex items-center gap-4">
                     <div className="avatar">
-                        <div className="mask mask-circle w-20 h-20">
+                        <div className="mask mask-circle w-16 h-16">
                             {image ?
                                 <Image className="rounded-full object-cover" width={160} height={160} src={image} alt="Profile picture preview" referrerPolicy="no-referrer" />
                                 :
                                 <div className="avatar placeholder">
-                                    <div className="bg-neutral text-neutral-content rounded-full w-20">
-                                        <span className="text-3xl font-bold">{name.charAt(0).toUpperCase() ?? ""}</span>
+                                    <div className="bg-neutral text-neutral-content rounded-full w-16">
+                                        <span className="text-2xl font-bold">{name.charAt(0).toUpperCase() ?? ""}</span>
                                     </div>
                                 </div>
                             }
                         </div>
                     </div>
-                    <div className="flex flex-wrap gap-2">
-                        <label className={`btn btn-sm btn-secondary ${avatarUploading || saving ? "btn-disabled" : ""}`} htmlFor="avatarInput">
+                    <div className="flex flex-wrap items-center gap-2">
+                        <label className={`btn btn-sm btn-primary ${avatarUploading || saving ? "btn-disabled" : ""}`} htmlFor="avatarInput">
                             {avatarUploading ? <div className="w-5 h-5 rounded-full animate-spin border border-solid text-primary border-t-transparent"></div> : "Upload"}
                         </label>
                         <input
@@ -237,8 +237,8 @@ export const Edit = (props: EditProps) => {
                     />
                 }
             </div>
-            <div className="flex flex-col">
-                <h3 className="font-semibold text-2xl p-1">Username</h3>
+            <div className="flex flex-col gap-2">
+                <h4 className="text-lg font-bold sm:text-xl">Username</h4>
                 <label className={`flex items-center gap-2 ${nameError ? "input-error" : ""}`}>
                     <input
                         id="nameInput"
@@ -250,14 +250,14 @@ export const Edit = (props: EditProps) => {
                         <div className="w-6 h-6 rounded-full animate-spin border border-solid text-primary border-t-transparent"></div>
                         :
                         usernameExists && (name != (session?.data?.user ? session.data.user.username : "")) ?
-                            <svg style={{ color: "red" }} xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 -960 960 960" width="24"><path fill="currentColor" d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z" /></svg>
+                            <svg className="text-error" xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 -960 960 960" width="24"><path fill="currentColor" d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z" /></svg>
                             :
-                            <svg style={{ color: "green" }} xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 -960 960 960" width="24"><path fill="currentColor" d="M382-240 154-468l57-57 171 171 367-367 57 57-424 424Z" /></svg>
+                            <svg className="text-success" xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 -960 960 960" width="24"><path fill="currentColor" d="M382-240 154-468l57-57 171 171 367-367 57 57-424 424Z" /></svg>
                     }
                 </label>
             </div>
-            <div className="flex flex-col">
-                <h3 className="font-semibold text-2xl p-1">Bio</h3>
+            <div className="flex flex-col gap-2">
+                <h4 className="text-lg font-bold sm:text-xl">Bio</h4>
                 <textarea
                     className={`w-full textarea textarea-bordered`}
                     placeholder="Bio"
@@ -265,8 +265,8 @@ export const Edit = (props: EditProps) => {
                     onChange={onBioChange}
                 />
             </div>
-            <div className="flex flex-col">
-                <h3 className="font-semibold text-2xl p-1">Link</h3>
+            <div className="flex flex-col gap-2">
+                <h4 className="text-lg font-bold sm:text-xl">Link</h4>
                 <input
                     id="linkInput"
                     type="text" placeholder="Link"
@@ -275,11 +275,9 @@ export const Edit = (props: EditProps) => {
                     onChange={onLinkChange}
                 />
             </div>
-            <div className="absolute bottom-[-48px] w-full">
-                <button onClick={saveChanges} disabled={avatarUploading || saving} className="btn btn-sm btn-primary btn-block">
-                    {saving ? <div className="w-6 h-6 rounded-full animate-spin border border-solid text-primary border-t-transparent"></div> : avatarUploading ? "Uploading..." : "Save"}
-                </button>
-            </div>
+            <button onClick={saveChanges} disabled={avatarUploading || saving} className="btn btn-primary btn-block mt-1">
+                {saving ? <div className="w-6 h-6 rounded-full animate-spin border border-solid text-primary border-t-transparent"></div> : avatarUploading ? "Uploading..." : "Save Changes"}
+            </button>
         </div>
     )
 }

@@ -1,11 +1,16 @@
 import { expect, test } from "@playwright/test";
 
-const publicRoutes = [
+type PublicRoute =
+  | { path: string; visibleText: string }
+  | { path: string; selector: string }
+  | { path: string; heading: string };
+
+const publicRoutes: PublicRoute[] = [
   { path: "/", visibleText: "TypeCafe" },
   { path: "/learn", selector: "#words .char" },
   { path: "/leaderboard", visibleText: "TypeCafe" },
   { path: "/support", heading: "Support TypeCafe" },
-  { path: "/contact", heading: "Contact Us" },
+  { path: "/contact", heading: "Contact TypeCafe" },
   { path: "/privacy-policy", heading: "Privacy Policy for TypeCafe" },
   { path: "/terms-and-conditions", heading: "Terms and Conditions" },
 ];

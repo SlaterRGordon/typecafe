@@ -2,7 +2,8 @@ import type { ReactNode } from "react";
 
 interface ModalProps {
     children: ReactNode,
-    setModalOpen?: (open: boolean) => void
+    setModalOpen?: (open: boolean) => void,
+    boxClassName?: string,
 }
 
 export const Modal = (props: ModalProps) => {
@@ -22,7 +23,7 @@ export const Modal = (props: ModalProps) => {
         <>
             <input onChange={handleClickOutside} type="checkbox" id="configModal" className="modal-toggle" />
             <label htmlFor="configModal" className="modal modal-bottom !my-0 sm:modal-middle cursor-pointer">
-                <label htmlFor="" className="modal-box sm:w-[500px] !pb-[64px] !max-w-5xl space-y-2 !overflow-y-visible overflow-x-hidden !shadow-sm">
+                <label htmlFor="" className={`modal-box !max-w-5xl space-y-2 overflow-x-hidden sm:!overflow-y-visible !shadow-sm ${props.boxClassName ?? "sm:w-[500px]"}`}>
                     {props.children}
                 </label>
             </label>

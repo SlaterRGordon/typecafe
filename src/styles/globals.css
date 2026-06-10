@@ -54,9 +54,18 @@ body>div {
 .btn {
     --btn-border: transparent;
     --btn-shadow: none;
+    --fontsize: 1rem;
     border-radius: 0.5rem;
     border-color: transparent;
     box-shadow: none;
+    font-size: 1rem;
+    line-height: 1.5rem;
+}
+
+.btn-sm {
+    --fontsize: 0.9375rem;
+    font-size: 0.9375rem;
+    line-height: 1.25rem;
 }
 
 .btn:hover,
@@ -93,9 +102,6 @@ body>div {
 
 .my-react-select__menu-portal {
     z-index: 100 !important;
-    position: fixed !important;
-    top: 144px !important;
-    left: 24px !important;
 }
 
 .my-react-select-container .my-react-select__control {
@@ -328,6 +334,62 @@ body>div {
     text-decoration: underline;
 }
 
+.document-content {
+    color: var(--color-base-content, hsl(var(--bc)));
+}
+
+.document-content h2 {
+    margin-bottom: 1rem;
+    font-size: 1.35rem;
+    line-height: 1.8rem;
+    font-weight: 700;
+}
+
+.document-content h3 {
+    margin-top: 1.25rem;
+    margin-bottom: 0.5rem;
+    font-size: 1.05rem;
+    line-height: 1.6rem;
+    font-weight: 700;
+}
+
+.document-content p {
+    margin-bottom: 1rem;
+    line-height: 1.8;
+    color: color-mix(in oklab, var(--color-base-content, hsl(var(--bc))) 82%, transparent);
+}
+
+.document-content ul,
+.document-content ol {
+    margin: 0.75rem 0 1rem;
+    padding-left: 1.25rem;
+}
+
+.document-content ul {
+    list-style-type: disc;
+}
+
+.document-content ol {
+    list-style-type: decimal;
+}
+
+.document-content li {
+    margin-bottom: 0.65rem;
+    line-height: 1.75;
+    color: color-mix(in oklab, var(--color-base-content, hsl(var(--bc))) 82%, transparent);
+}
+
+.document-content a {
+    color: var(--color-primary, hsl(var(--p)));
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+}
+
+.document-content strong {
+    color: var(--color-base-content, hsl(var(--bc)));
+    font-weight: 700;
+}
+
 .kbd-unlocked {
     cursor: pointer;
 }
@@ -369,5 +431,30 @@ body>div {
         padding-inline: 1rem !important;
         font-size: 1.125rem !important;
         line-height: 1.75rem !important;
+    }
+}
+
+/* Score card entrance: staggered reveal + WPM line draw. Motion-gated so
+   reduced-motion users see everything immediately with no animation. */
+@media (prefers-reduced-motion: no-preference) {
+    @keyframes score-reveal {
+        from { opacity: 0; transform: translateY(12px); }
+        to { opacity: 1; transform: none; }
+    }
+
+    @keyframes score-draw-line {
+        from { stroke-dashoffset: 2000; }
+        to { stroke-dashoffset: 0; }
+    }
+
+    .score-reveal {
+        opacity: 0;
+        animation: score-reveal 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+        animation-delay: var(--reveal-delay, 0ms);
+    }
+
+    .score-draw-line {
+        stroke-dasharray: 2000;
+        animation: score-draw-line 0.85s ease-out 0.15s both;
     }
 }
