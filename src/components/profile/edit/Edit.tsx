@@ -179,7 +179,7 @@ export const Edit = (props: EditProps) => {
     return (
         <div className="flex flex-col gap-5">
             <div className="flex items-start justify-between gap-3">
-                <h3 className="font-bold text-4xl">Edit Profile</h3>
+                <h3 className="font-mono font-bold text-4xl tracking-tight">Edit Profile</h3>
                 <button onClick={props.openConfirmModal} className="btn btn-sm btn-error">
                     Delete Profile
                 </button>

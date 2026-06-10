@@ -189,7 +189,7 @@ export const Config = (props: ConfigProps) => {
 
     return (
         <div className="flex flex-col mb-8">
-            <h3 className="font-bold text-4xl pb-4">Settings</h3>
+            <h3 className="font-mono font-bold text-4xl pb-4 tracking-tight">Settings</h3>
 
             <SettingRow label="Mode" description="Choose your typing mode">
                 <ConfigOption

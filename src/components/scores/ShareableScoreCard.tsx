@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { useId, useMemo, useRef, useState } from "react";
+import { type CSSProperties, useId, useMemo, useRef, useState } from "react";
 
 import { TestModes, TestSubModes } from "~/components/typer/types";
 
@@ -249,41 +249,45 @@ function chooseWpmTickInterval(maxWpm: number) {
 function WpmChart(props: { samples: ScoreWpmSample[]; durationSeconds: number; rawWpm: number }) {
   const chartTitleId = useId();
   const chartDescriptionId = useId();
-  const chartStartSecond = 0;
-  const recordedSamples = props.samples
-    .filter((sample) => sample.elapsedSeconds >= chartStartSecond)
-    .sort((a, b) => a.elapsedSeconds - b.elapsedSeconds);
-  const maxSecond = Math.max(Math.round(props.durationSeconds), ...recordedSamples.map((sample) => sample.elapsedSeconds), chartStartSecond);
-  const samples = recordedSamples.length > 0
-    ? recordedSamples[0]!.elapsedSeconds === chartStartSecond
-      ? recordedSamples
-      : [{ elapsedSeconds: chartStartSecond, wpm: recordedSamples[0]!.wpm }, ...recordedSamples]
-    : [{ elapsedSeconds: chartStartSecond, wpm: props.rawWpm }, { elapsedSeconds: maxSecond, wpm: props.rawWpm }];
-  const maxRecordedWpm = Math.max(...samples.map((sample) => sample.wpm), props.rawWpm, 100);
-  const yTickInterval = chooseWpmTickInterval(maxRecordedWpm);
-  const maxWpm = Math.ceil(maxRecordedWpm / yTickInterval) * yTickInterval;
-  const width = 640;
-  const height = 240;
-  const padding = { top: 20, right: 24, bottom: 36, left: 48 };
-  const chartWidth = width - padding.left - padding.right;
-  const chartHeight = height - padding.top - padding.bottom;
-  const xSpan = Math.max(maxSecond - chartStartSecond, 1);
-  const points = samples.map((sample) => {
-    const x = padding.left + ((sample.elapsedSeconds - chartStartSecond) / xSpan) * chartWidth;
-    const y = padding.top + chartHeight - (sample.wpm / maxWpm) * chartHeight;
-    return { x, y };
-  });
-  const linePath = buildSmoothPath(points);
-  const areaPath = points.length > 0
-    ? `M ${points[0]!.x} ${padding.top + chartHeight} L ${points[0]!.x} ${points[0]!.y} ${linePath.replace(/^M [^C]+/, "")} L ${points[points.length - 1]!.x} ${padding.top + chartHeight} Z`
-    : "";
-  const yTicks = Array.from({ length: Math.floor(maxWpm / yTickInterval) + 1 }, (_, index) => index * yTickInterval);
-  const xTickInterval = chooseSecondTickInterval(xSpan);
-  const xTicks = Array.from(
-    { length: Math.floor(xSpan / xTickInterval) + 1 },
-    (_, index) => chartStartSecond + index * xTickInterval,
-  ).filter((tick) => tick <= maxSecond);
-  const renderedXTicks = xTicks.includes(maxSecond) ? xTicks : [...xTicks, maxSecond];
+  const { maxSecond, samples, points, linePath, areaPath, yTicks, renderedXTicks, maxWpm, xSpan, chartStartSecond, width, height, padding, chartWidth, chartHeight } = useMemo(() => {
+    const chartStartSecond = 0;
+    const recordedSamples = props.samples
+      .filter((sample) => sample.elapsedSeconds >= chartStartSecond)
+      .sort((a, b) => a.elapsedSeconds - b.elapsedSeconds);
+    const maxSecond = Math.round(Math.max(props.durationSeconds, ...recordedSamples.map((sample) => sample.elapsedSeconds), chartStartSecond));
+    const samples = recordedSamples.length > 0
+      ? recordedSamples[0]!.elapsedSeconds === chartStartSecond
+        ? recordedSamples
+        : [{ elapsedSeconds: chartStartSecond, wpm: recordedSamples[0]!.wpm }, ...recordedSamples]
+      : [{ elapsedSeconds: chartStartSecond, wpm: props.rawWpm }, { elapsedSeconds: maxSecond, wpm: props.rawWpm }];
+    const maxRecordedWpm = Math.max(...samples.map((sample) => sample.wpm), props.rawWpm, 100);
+    const yTickInterval = chooseWpmTickInterval(maxRecordedWpm);
+    const maxWpm = Math.ceil(maxRecordedWpm / yTickInterval) * yTickInterval;
+    const width = 640;
+    const height = 240;
+    const padding = { top: 20, right: 24, bottom: 36, left: 48 };
+    const chartWidth = width - padding.left - padding.right;
+    const chartHeight = height - padding.top - padding.bottom;
+    const xSpan = Math.max(maxSecond - chartStartSecond, 1);
+    const points = samples.map((sample) => {
+      const second = Math.min(sample.elapsedSeconds, maxSecond);
+      const x = padding.left + ((second - chartStartSecond) / xSpan) * chartWidth;
+      const y = padding.top + chartHeight - (sample.wpm / maxWpm) * chartHeight;
+      return { x, y };
+    });
+    const linePath = buildSmoothPath(points);
+    const areaPath = points.length > 0
+      ? `M ${points[0]!.x} ${padding.top + chartHeight} L ${points[0]!.x} ${points[0]!.y} ${linePath.replace(/^M [^C]+/, "")} L ${points[points.length - 1]!.x} ${padding.top + chartHeight} Z`
+      : "";
+    const yTicks = Array.from({ length: Math.floor(maxWpm / yTickInterval) + 1 }, (_, index) => index * yTickInterval);
+    const xTickInterval = chooseSecondTickInterval(xSpan);
+    const xTicks = Array.from(
+      { length: Math.floor(xSpan / xTickInterval) + 1 },
+      (_, index) => chartStartSecond + index * xTickInterval,
+    ).filter((tick) => tick <= maxSecond);
+    const renderedXTicks = xTicks.includes(maxSecond) ? xTicks : [...xTicks, maxSecond];
+    return { maxSecond, samples, points, linePath, areaPath, yTicks, renderedXTicks, maxWpm, xSpan, chartStartSecond, width, height, padding, chartWidth, chartHeight };
+  }, [props.samples, props.durationSeconds, props.rawWpm]);
 
   return (
     <div className="rounded-lg border border-base-content/10 bg-base-100/45 p-4" aria-labelledby={chartTitleId}>
@@ -309,7 +313,7 @@ function WpmChart(props: { samples: ScoreWpmSample[]; durationSeconds: number; r
           return <text key={tick} x={x} y={height - 8} textAnchor="middle" className="fill-base-content text-sm" opacity="0.75">{tick}s</text>;
         })}
         {areaPath ? <path d={areaPath} fill="currentColor" opacity="0.13" /> : null}
-        {linePath ? <path d={linePath} fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" /> : null}
+        {linePath ? <path className="score-draw-line" d={linePath} fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" /> : null}
         {points.map((point, index) => (
           <circle key={`${point.x}-${point.y}-${index}`} cx={point.x} cy={point.y} r="6" fill="currentColor" stroke="var(--color-base-100)" strokeWidth="2" />
         ))}
@@ -393,7 +397,7 @@ export function ShareableScoreCard(props: ShareableScoreCardProps) {
         aria-labelledby={scoreTitleId}
         className="rounded-xl border border-base-content/15 bg-base-200 p-5 text-base-content shadow-2xl shadow-base-300/40 sm:p-6"
       >
-        <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+        <div className="score-reveal flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-4">
             <div>
               <h1 id={scoreTitleId} className="text-3xl font-bold leading-tight">Test Complete!</h1>
@@ -464,13 +468,13 @@ export function ShareableScoreCard(props: ShareableScoreCardProps) {
           </div>
         </div>
 
-        <div className="mt-7 grid gap-4 md:grid-cols-4">
+        <div className="score-reveal mt-7 grid gap-4 md:grid-cols-4" style={{ "--reveal-delay": "80ms" } as CSSProperties}>
           {metricItems.map((item) => (
             <MetricCard key={item.label} {...item} />
           ))}
         </div>
 
-        <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(320px,1fr)]">
+        <div className="score-reveal mt-5 grid gap-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(320px,1fr)]" style={{ "--reveal-delay": "160ms" } as CSSProperties}>
           <WpmChart samples={score.wpmSamples} durationSeconds={score.durationSeconds} rawWpm={score.rawWpm} />
           <div className="rounded-lg border border-base-content/10 bg-base-100/45 p-5">
             <h2 className="mb-3 text-lg font-semibold text-base-content">Performance Details</h2>
@@ -483,7 +487,7 @@ export function ShareableScoreCard(props: ShareableScoreCardProps) {
           </div>
         </div>
 
-        <div className="mt-5 rounded-lg border border-base-content/10 bg-base-100/45 p-5">
+        <div className="score-reveal mt-5 rounded-lg border border-base-content/10 bg-base-100/45 p-5" style={{ "--reveal-delay": "240ms" } as CSSProperties}>
           <div className="mb-4 flex items-center gap-2 text-lg font-semibold text-base-content">
             <span>Your Typed Text</span>
             <InfoIcon label="The plain text typed during this completed test. The panel scrolls when the text is long." />
