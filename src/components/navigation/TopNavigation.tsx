@@ -5,7 +5,7 @@ export const TopNavigation = () => {
     return (
         <div className="fixed navbar z-50 bg-base-300">
             <div className="flex-1">
-                <a className="btn btn-ghost normal-case text-2xl font-mono font-bold tracking-tight">TypeCafe</a>
+                <a className="btn btn-ghost normal-case !text-xl font-mono font-bold tracking-tight">TypeCafe</a>
             </div>
             <div className="flex flex-none items-center gap-2 px-4">
                 {/* Color Button */}
