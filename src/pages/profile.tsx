@@ -166,7 +166,7 @@ const Profile: NextPage = () => {
                 <div className="avatar">
                   <div className="mask mask-circle w-24 h-24">
                     {(userData ? userData.image : sessionData?.user.image) ?
-                      <Image width={500} height={500} src={(userData ? userData.image : sessionData?.user.image) ?? ""} alt={"Profile Picture"} />
+                      <Image width={192} height={192} sizes="96px" className="h-full w-full object-cover" src={(userData ? userData.image : sessionData?.user.image) ?? ""} alt={"Profile Picture"} />
                       :
                       <div className="avatar placeholder">
                         <div className="bg-neutral text-neutral-content rounded-full w-24">

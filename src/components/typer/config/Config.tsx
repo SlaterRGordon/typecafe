@@ -173,12 +173,14 @@ export const Config = (props: ConfigProps) => {
     }
 
     useEffect(() => {
-        document.addEventListener("click", (e) => {
+        const handleSelectOptionClick = (e: MouseEvent) => {
             const target = e.target as HTMLDivElement
             if (target.id.startsWith("react-select-languageSelect-option-")) {
                 e.preventDefault()
             }
-        })
+        }
+        document.addEventListener("click", handleSelectOptionClick)
+        return () => document.removeEventListener("click", handleSelectOptionClick)
     }, [])
 
     const getEnumValues = <T extends object>(enumObj: T): (T[keyof T])[] => {

@@ -140,8 +140,22 @@ export const ColorModal = () => {
     const togglePopover = (e: React.MouseEvent<HTMLButtonElement, MouseEvent>, key: keyof Colors) => {
         e.stopPropagation()
         setCurrentKey(key)
-        // set position to that of the button clicked
-        setPosition({ left: e.currentTarget.getBoundingClientRect().left + 34, top: e.currentTarget.getBoundingClientRect().top - 175 })
+
+        // Anchor the picker beside the swatch, flipping to the other side if it would
+        // overflow, and clamping fully into the viewport (robust on mobile + desktop).
+        const rect = e.currentTarget.getBoundingClientRect()
+        const POPOVER_WIDTH = 180
+        const POPOVER_HEIGHT = 210
+        const GAP = 8
+
+        let left = rect.right + GAP
+        if (left + POPOVER_WIDTH > window.innerWidth) left = rect.left - POPOVER_WIDTH - GAP
+        left = Math.max(GAP, Math.min(left, window.innerWidth - POPOVER_WIDTH - GAP))
+
+        let top = rect.top + rect.height / 2 - POPOVER_HEIGHT / 2
+        top = Math.max(GAP, Math.min(top, window.innerHeight - POPOVER_HEIGHT - GAP))
+
+        setPosition({ left, top })
         setIsOpen(isOpen => !isOpen)
     }
 

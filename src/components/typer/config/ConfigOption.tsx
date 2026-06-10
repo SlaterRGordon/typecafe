@@ -2,11 +2,11 @@ import type { ReactNode } from "react"
 
 // One segment inside a SegmentedGroup. Equal width, single line, never wraps —
 // text truncates as a last resort on very narrow screens.
-const segmentBase = "flex-1 basis-0 min-w-0 cursor-pointer truncate rounded-md px-2 py-2.5 text-center whitespace-nowrap text-sm font-medium transition-colors sm:text-base"
+const segmentBase = "flex-1 basis-0 min-w-0 cursor-pointer truncate rounded-md px-2 py-2.5 text-center whitespace-nowrap text-sm font-medium transition-colors sm:text-base focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
 
 export const segmentClass = (isActive: boolean) =>
     `${segmentBase} ${isActive
-        ? "bg-primary text-primary-content hover:bg-primary"
+        ? "bg-primary text-primary-content shadow-sm hover:bg-primary"
         : "text-base-content/60 hover:bg-base-content/5"
     }`
 
@@ -38,6 +38,7 @@ export const ConfigOption = (props: ConfigOptionProps) => {
                         <button
                             key={i}
                             onClick={() => props.onChange(value)}
+                            aria-pressed={isActive}
                             className={segmentClass(isActive)}
                         >
                             {option}
