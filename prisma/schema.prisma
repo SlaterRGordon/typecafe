@@ -94,6 +94,7 @@ model Test {
     options   String
     punctuation Boolean @default(false)
     capitals    Boolean @default(false)
+    ranked      Boolean @default(true)
     summaryDate DateTime  @db.Date
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt

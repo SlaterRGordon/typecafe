@@ -35,6 +35,7 @@ export const testRouter = createTRPCRouter({
           userId: input.userId,
           typeId: input.typeId,
           count: input.count,
+          ranked: true,
           createdAt: {
             gte: input.date,
           },
@@ -75,6 +76,7 @@ export const testRouter = createTRPCRouter({
       options: z.string(),
       punctuation: z.boolean().optional(),
       capitals: z.boolean().optional(),
+      ranked: z.boolean().optional(),
     }))
     .mutation(({ ctx, input }) => {
       return ctx.prisma.test.create({
@@ -88,6 +90,7 @@ export const testRouter = createTRPCRouter({
           options: input.options,
           punctuation: input.punctuation ?? false,
           capitals: input.capitals ?? false,
+          ranked: input.ranked ?? true,
           summaryDate: new Date(),
         },
       });
@@ -146,6 +149,7 @@ export const testRouter = createTRPCRouter({
       return ctx.prisma.test.findFirst({
         where: {
           userId: input.userId ? input.userId : ctx.session?.user.id,
+          ranked: true,
           typeId: {
             in: competitiveTypes.map((type) => type.id),
           },
@@ -163,6 +167,7 @@ export const testRouter = createTRPCRouter({
       const userBest = await ctx.prisma.test.findFirst({
         where: {
           userId: input.userId ? input.userId : ctx.session?.user.id,
+          ranked: true,
         },
         orderBy: {
           score: "desc",
@@ -170,6 +175,7 @@ export const testRouter = createTRPCRouter({
       })
       const scoresBetter = await ctx.prisma.test.findMany({
         where: {
+          ranked: true,
           score: {
             gt: userBest ? userBest.score : 0
           }
@@ -179,6 +185,7 @@ export const testRouter = createTRPCRouter({
       })
       const scoresWorse = await ctx.prisma.test.findMany({
         where: {
+          ranked: true,
           score: {
             lt: userBest ? userBest.score : 999999
           }

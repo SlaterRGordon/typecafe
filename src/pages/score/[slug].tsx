@@ -103,6 +103,7 @@ const SharedScorePage: NextPage = () => {
               options: data.score.options,
               punctuation: snapshot.punctuation ?? data.score.punctuation,
               capitals: snapshot.capitals ?? data.score.capitals,
+              ranked: snapshot.ranked ?? data.score.ranked,
               createdAt: data.score.createdAt,
               user: data.user,
             }}

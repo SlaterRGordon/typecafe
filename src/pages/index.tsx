@@ -27,6 +27,7 @@ const Home: NextPage = () => {
   const [count, setCount] = useState(15)
   const [punctuation, setPunctuation] = useState(false)
   const [capitals, setCapitals] = useState(false)
+  const [customLength, setCustomLength] = useState(false)
   const [currentKey, setCurrentKey] = useState("")
   const [attemptVersion, setAttemptVersion] = useState(0)
   const [restartSignal, setRestartSignal] = useState(0)
@@ -39,6 +40,7 @@ const Home: NextPage = () => {
     options?: string;
     punctuation?: boolean;
     capitals?: boolean;
+    ranked?: boolean;
     createdAt: Date;
     testId?: string;
   }) | null>(null)
@@ -86,6 +88,7 @@ const Home: NextPage = () => {
       wpmSamples: result.wpmSamples,
       punctuation: result.punctuation,
       capitals: result.capitals,
+      ranked: result.ranked,
       count,
       mode,
       subMode,
@@ -122,6 +125,7 @@ const Home: NextPage = () => {
       wpmSamples,
       punctuation,
       capitals,
+      ranked,
     } = completedScore
     const share = await createShare.mutateAsync({
       testId: completedScore.testId,
@@ -136,6 +140,7 @@ const Home: NextPage = () => {
         typedText,
         punctuation,
         capitals,
+        ranked,
         wpmSamples,
       },
     })
@@ -166,6 +171,7 @@ const Home: NextPage = () => {
           count={count}
           punctuation={punctuation}
           capitals={capitals}
+          customLength={customLength}
           showStats={showStats}
           showConfig={true}
           modalOpen={modalOpen}
@@ -215,6 +221,7 @@ const Home: NextPage = () => {
           gramWpmThreshold={gramWpmThreshold} setGramWpmThreshold={setGramWpmThreshold}
           gramAccuracyThreshold={gramAccuracyThreshold} setGramAccuracyThreshold={setGramAccuracyThreshold}
           count={count} setCount={setCount}
+          customLength={customLength} setCustomLength={setCustomLength}
           punctuation={punctuation} setPunctuation={setPunctuation}
           capitals={capitals} setCapitals={setCapitals}
           showStats={showStats} setShowStats={setShowStats}

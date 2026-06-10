@@ -1,10 +1,10 @@
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import type { ReactNode } from "react"
 import type { SingleValue } from "react-select"
 import Select from 'react-select'
 import { TestModes, TestSubModes, TestGramScopes } from "../types"
 import type { TestGramSources } from "../types"
-import { ConfigOption, ConfigToggle, SegmentedGroup } from "./ConfigOption"
+import { ConfigOption, ConfigToggle, SegmentedGroup, segmentClass } from "./ConfigOption"
 
 interface ConfigProps {
     language: string,
@@ -17,6 +17,8 @@ interface ConfigProps {
     setSelectedKeys: (newSelectedKeys: string[]) => void,
     count: number,
     setCount: (newCount: number) => void,
+    customLength: boolean,
+    setCustomLength: (value: boolean) => void,
     gramSource: TestGramSources,
     setGramSource: (newTestGramSource: TestGramSources) => void,
     gramScope: TestGramScopes,
@@ -61,12 +63,53 @@ export const Config = (props: ConfigProps) => {
         if (newMode !== TestModes.normal) {
             props.setSubMode(TestSubModes.words)
             props.setCount(10)
+            props.setCustomLength(false)
         }
     }
 
     const handleSubModeChange = (newSubMode: number) => {
         props.setCount(newSubMode == TestSubModes.timed ? 15 : 10)
+        props.setCustomLength(false)
         props.setSubMode(newSubMode)
+    }
+
+    const lengthPresets = props.subMode == TestSubModes.timed
+        ? [{ value: 15, label: "15s" }, { value: 30, label: "30s" }, { value: 60, label: "60s" }, { value: 120, label: "120s" }]
+        : [{ value: 10, label: "10" }, { value: 25, label: "25" }, { value: 50, label: "50" }, { value: 100, label: "100" }]
+
+    const lengthMax = props.subMode == TestSubModes.timed ? 3600 : 5000
+
+    // Local text state so the input can be cleared and freely retyped; `count`
+    // only ever holds a valid clamped number.
+    const [customLengthText, setCustomLengthText] = useState(String(props.count))
+
+    const handleSelectLength = (value: number) => {
+        props.setCustomLength(false)
+        props.setCount(value)
+    }
+
+    const handleSelectCustomLength = () => {
+        setCustomLengthText(String(props.count))
+        props.setCustomLength(true)
+    }
+
+    const handleCustomLengthChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setCustomLengthText(e.target.value)
+        const parsed = parseInt(e.target.value, 10)
+        if (!Number.isNaN(parsed)) {
+            props.setCount(Math.min(Math.max(parsed, 1), lengthMax))
+        }
+    }
+
+    const handleCustomLengthBlur = () => {
+        const normalized = Math.min(Math.max(props.count, 1), lengthMax)
+        props.setCount(normalized)
+        setCustomLengthText(String(normalized))
+        // If a custom value matches a preset, snap back to that preset button
+        // (and treat the run as ranked again).
+        if (lengthPresets.some((preset) => preset.value === normalized)) {
+            props.setCustomLength(false)
+        }
     }
 
     const handleTestGramSourceChange = (newTestGramSource: number) => {
@@ -180,23 +223,42 @@ export const Config = (props: ConfigProps) => {
                         />
                     </SettingRow>
                     <SettingRow label="Length" description={props.subMode == TestSubModes.timed ? "Set the test length (seconds)" : "Set the test length (words)"}>
-                        {props.subMode == TestSubModes.timed ?
-                            <ConfigOption
-                                variant="pill"
-                                options={["15s", "30s", "60s", "120s"]}
-                                values={[15, 30, 60, 120]}
-                                active={props.count}
-                                onChange={(newCount: string | number) => { props.setCount(newCount as number) }}
-                            />
-                            :
-                            <ConfigOption
-                                variant="pill"
-                                options={["10", "25", "50", "100"]}
-                                values={[10, 25, 50, 100]}
-                                active={props.count}
-                                onChange={(newCount: string | number) => { props.setCount(newCount as number) }}
-                            />
-                        }
+                        <div className="flex w-full flex-col gap-2">
+                            <SegmentedGroup>
+                                {lengthPresets.map((preset) => (
+                                    <button
+                                        key={preset.value}
+                                        onClick={() => handleSelectLength(preset.value)}
+                                        className={segmentClass(!props.customLength && props.count === preset.value)}
+                                    >
+                                        {preset.label}
+                                    </button>
+                                ))}
+                                <button onClick={handleSelectCustomLength} className={segmentClass(props.customLength)}>
+                                    Custom
+                                </button>
+                            </SegmentedGroup>
+                            {props.customLength &&
+                                <div className="flex flex-col gap-1">
+                                    <div className="flex items-center gap-2">
+                                        <input
+                                            id="customLengthInput"
+                                            type="number"
+                                            min={1}
+                                            max={lengthMax}
+                                            className="w-full input input-bordered input-sm"
+                                            value={customLengthText}
+                                            onChange={handleCustomLengthChange}
+                                            onBlur={handleCustomLengthBlur}
+                                        />
+                                        <span className="shrink-0 text-sm text-base-content/55">
+                                            {props.subMode == TestSubModes.timed ? "seconds" : "words"}
+                                        </span>
+                                    </div>
+                                    <p className="text-xs text-warning">Custom lengths aren&apos;t ranked on the leaderboard.</p>
+                                </div>
+                            }
+                        </div>
                     </SettingRow>
                     <SettingDivider />
                 </>

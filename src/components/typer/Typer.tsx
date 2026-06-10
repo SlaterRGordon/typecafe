@@ -89,6 +89,7 @@ export interface TestCompletionResult {
     wpmSamples: WpmSample[],
     punctuation: boolean,
     capitals: boolean,
+    ranked: boolean,
     levelName?: string,
     persisted: boolean,
     testId?: string,
@@ -109,6 +110,7 @@ interface TyperProps {
     count: number,
     punctuation?: boolean,
     capitals?: boolean,
+    customLength?: boolean,
     level?: Level,
     levelRequirements?: { wpm: number, accuracy: number },
     onKeyChange: (key: string) => void,
@@ -133,6 +135,7 @@ export const Typer = (props: TyperProps) => {
         gramSource, gramScope, gramCombination, gramRepetition,
         count, showStats, showConfig,
         punctuation = false, capitals = false,
+        customLength = false,
         level,
         levelRequirements,
         modalOpen,
@@ -270,6 +273,7 @@ export const Typer = (props: TyperProps) => {
             wpmSamples: [],
             punctuation,
             capitals,
+            ranked: !customLength,
             levelName: level?.name,
             persisted: false,
         }
@@ -283,6 +287,7 @@ export const Typer = (props: TyperProps) => {
             options: level ? level.name : "",
             punctuation,
             capitals,
+            ranked: !customLength,
         })
     }
 
@@ -390,6 +395,7 @@ export const Typer = (props: TyperProps) => {
             wpmSamples,
             punctuation,
             capitals,
+            ranked: !customLength,
             levelName: level?.name,
             persisted: false,
         }

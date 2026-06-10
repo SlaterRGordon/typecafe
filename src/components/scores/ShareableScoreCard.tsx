@@ -19,6 +19,7 @@ export interface ScoreSnapshot {
   typedText: string;
   punctuation?: boolean;
   capitals?: boolean;
+  ranked?: boolean;
   wpmSamples: ScoreWpmSample[];
 }
 
@@ -398,13 +399,16 @@ export function ShareableScoreCard(props: ShareableScoreCardProps) {
               <h1 id={scoreTitleId} className="text-3xl font-bold leading-tight">Test Complete!</h1>
               <p className="mt-1 text-base-content/80">Great job! You&apos;ve completed the test.</p>
               <p className="mt-1 text-sm text-base-content/65">{modeText} / {formatDate(score.createdAt)}</p>
-              {(score.punctuation || score.capitals) &&
+              {(score.punctuation || score.capitals || score.ranked === false) &&
                 <div className="mt-2 flex flex-wrap gap-2">
                   {score.punctuation &&
                     <span className="rounded-full border border-primary/40 bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">Punctuation</span>
                   }
                   {score.capitals &&
                     <span className="rounded-full border border-primary/40 bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">Capitals</span>
+                  }
+                  {score.ranked === false &&
+                    <span className="rounded-full border border-warning/40 bg-warning/10 px-2.5 py-0.5 text-xs font-semibold text-warning">Unranked</span>
                   }
                 </div>
               }

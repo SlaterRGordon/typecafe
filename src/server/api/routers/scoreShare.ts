@@ -21,6 +21,7 @@ const scoreSnapshotSchema = z.object({
   typedText: z.string(),
   punctuation: z.boolean().optional(),
   capitals: z.boolean().optional(),
+  ranked: z.boolean().optional(),
   wpmSamples: z.array(z.object({
     elapsedSeconds: z.number().nonnegative(),
     wpm: z.number().nonnegative(),
@@ -161,6 +162,7 @@ export const scoreShareRouter = createTRPCRouter({
           options: share.test.options,
           punctuation: share.test.punctuation,
           capitals: share.test.capitals,
+          ranked: share.test.ranked,
           createdAt: share.test.createdAt,
           mode: share.test.type.mode,
           subMode: share.test.type.subMode,
