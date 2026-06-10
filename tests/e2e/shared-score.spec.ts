@@ -165,17 +165,16 @@ test.describe("shared scores", () => {
     await expect(page.locator("#c0")).toHaveClass(/active-char/);
   });
 
-  test("copies a score screenshot image to the clipboard", async ({ page }) => {
+  test("copies the dedicated 1200x630 share card to the clipboard", async ({ page }) => {
     await installClipboardMock(page);
     await mockTrpc(page);
 
     await page.goto("/score/share-test-score");
 
     await expect(page.getByText("Test Complete!")).toBeVisible();
-    const scoreCard = page.getByTestId("score-screenshot-card");
-    const scoreCardBox = await scoreCard.boundingBox();
+    // The screenshot target is the off-screen, fixed-size social card, not the
+    // full results dashboard.
     const deviceScaleFactor = await page.evaluate(() => window.devicePixelRatio || 1);
-    expect(scoreCardBox).not.toBeNull();
 
     await page.getByRole("button", { name: "Copy Screenshot" }).click({ force: true });
 
@@ -184,11 +183,27 @@ test.describe("shared scores", () => {
     await expect.poll(async () => page.evaluate(() => window.localStorage.getItem("clipboard:item-types"))).toBe("image/png");
     const imageWidth = Number(await page.evaluate(() => window.localStorage.getItem("clipboard:image-width")));
     const imageHeight = Number(await page.evaluate(() => window.localStorage.getItem("clipboard:image-height")));
-    const expectedWidth = Math.round((scoreCardBox?.width ?? 0) * deviceScaleFactor);
-    const expectedHeight = Math.round((scoreCardBox?.height ?? 0) * deviceScaleFactor);
 
-    expect(Math.abs(imageWidth - expectedWidth)).toBeLessThanOrEqual(1);
-    expect(Math.abs(imageHeight - expectedHeight)).toBeLessThanOrEqual(1);
+    expect(Math.abs(imageWidth - Math.round(1200 * deviceScaleFactor))).toBeLessThanOrEqual(1);
+    expect(Math.abs(imageHeight - Math.round(630 * deviceScaleFactor))).toBeLessThanOrEqual(1);
+  });
+
+  test("downloads the share card when clipboard images are unsupported", async ({ page }) => {
+    // Simulate a browser (common on mobile) that cannot write images to the clipboard.
+    await page.addInitScript(() => {
+      Object.defineProperty(window, "ClipboardItem", { configurable: true, value: undefined });
+    });
+    await mockTrpc(page);
+
+    await page.goto("/score/share-test-score");
+    await expect(page.getByText("Test Complete!")).toBeVisible();
+
+    const downloadPromise = page.waitForEvent("download");
+    await page.getByRole("button", { name: "Copy Screenshot" }).click({ force: true });
+
+    const download = await downloadPromise;
+    expect(download.suggestedFilename()).toBe("typecafe-score.png");
+    await expect(page.getByRole("button", { name: "Image downloaded" })).toBeVisible();
   });
 
   test("shows an unavailable state for invalid share links", async ({ page }) => {

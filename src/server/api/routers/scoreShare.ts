@@ -19,6 +19,10 @@ const scoreSnapshotSchema = z.object({
   correctKeystrokes: z.number().int().nonnegative(),
   incorrectKeystrokes: z.number().int().nonnegative(),
   typedText: z.string(),
+  typedSegments: z.array(z.object({
+    ch: z.string(),
+    correct: z.boolean(),
+  })).optional(),
   punctuation: z.boolean().optional(),
   capitals: z.boolean().optional(),
   ranked: z.boolean().optional(),
