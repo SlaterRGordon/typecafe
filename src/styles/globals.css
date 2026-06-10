@@ -102,9 +102,6 @@ body>div {
 
 .my-react-select__menu-portal {
     z-index: 100 !important;
-    position: fixed !important;
-    top: 144px !important;
-    left: 24px !important;
 }
 
 .my-react-select-container .my-react-select__control {

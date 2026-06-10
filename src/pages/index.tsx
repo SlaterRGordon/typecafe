@@ -25,6 +25,8 @@ const Home: NextPage = () => {
   const [gramWpmThreshold, setGramWpmThreshold] = useState<number>(20)
   const [gramAccuracyThreshold, setGramAccuracyThreshold] = useState<number>(100)
   const [count, setCount] = useState(15)
+  const [punctuation, setPunctuation] = useState(false)
+  const [capitals, setCapitals] = useState(false)
   const [currentKey, setCurrentKey] = useState("")
   const [attemptVersion, setAttemptVersion] = useState(0)
   const [restartSignal, setRestartSignal] = useState(0)
@@ -35,6 +37,8 @@ const Home: NextPage = () => {
     subMode: TestSubModes;
     language: string;
     options?: string;
+    punctuation?: boolean;
+    capitals?: boolean;
     createdAt: Date;
     testId?: string;
   }) | null>(null)
@@ -80,6 +84,8 @@ const Home: NextPage = () => {
       incorrectKeystrokes: result.incorrectKeystrokes,
       typedText: result.typedText,
       wpmSamples: result.wpmSamples,
+      punctuation: result.punctuation,
+      capitals: result.capitals,
       count,
       mode,
       subMode,
@@ -114,6 +120,8 @@ const Home: NextPage = () => {
       incorrectKeystrokes,
       typedText,
       wpmSamples,
+      punctuation,
+      capitals,
     } = completedScore
     const share = await createShare.mutateAsync({
       testId: completedScore.testId,
@@ -126,6 +134,8 @@ const Home: NextPage = () => {
         correctKeystrokes,
         incorrectKeystrokes,
         typedText,
+        punctuation,
+        capitals,
         wpmSamples,
       },
     })
@@ -154,6 +164,8 @@ const Home: NextPage = () => {
           gramWpmThreshold={gramWpmThreshold}
           gramAccuracyThreshold={gramAccuracyThreshold}
           count={count}
+          punctuation={punctuation}
+          capitals={capitals}
           showStats={showStats}
           showConfig={true}
           modalOpen={modalOpen}
@@ -190,7 +202,7 @@ const Home: NextPage = () => {
           <Keyboard mode={mode} currentKey={currentKey} selectedKeys={selectedKeys} setSelectedKeys={setSelectedKeys} charAttemptsRef={charAttemptsRef} baseAttemptsRef={persistedAttemptsRef} attemptVersion={attemptVersion} />
         }
       </div>
-      <Modal setModalOpen={(open) => setModalOpen(open)}>
+      <Modal setModalOpen={(open) => setModalOpen(open)} boxClassName="sm:w-[680px] !max-h-[82vh] sm:!max-h-[calc(100vh-5em)]">
         <Config
           language={language} setLanguage={setLanguage}
           mode={mode} setMode={setMode}
@@ -203,6 +215,8 @@ const Home: NextPage = () => {
           gramWpmThreshold={gramWpmThreshold} setGramWpmThreshold={setGramWpmThreshold}
           gramAccuracyThreshold={gramAccuracyThreshold} setGramAccuracyThreshold={setGramAccuracyThreshold}
           count={count} setCount={setCount}
+          punctuation={punctuation} setPunctuation={setPunctuation}
+          capitals={capitals} setCapitals={setCapitals}
           showStats={showStats} setShowStats={setShowStats}
           showKeyboard={showKeyboard} setShowKeyboard={setShowKeyboard}
         />

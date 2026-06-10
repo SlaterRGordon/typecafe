@@ -41,7 +41,7 @@ test.describe("home typing test", () => {
     await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
 
     await page.getByRole("button", { name: "Words" }).click();
-    await expect(page.getByRole("heading", { name: "Words" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Length" })).toBeVisible();
     await page.getByRole("button", { name: "25" }).click();
 
     await page.getByRole("button", { name: "Grams" }).click();
@@ -94,7 +94,7 @@ test.describe("home typing test", () => {
     await expect(page.locator(".typecafe-keyboard")).toBeVisible();
 
     await page.getByRole("button", { name: "Relaxed" }).click();
-    await expect(page.getByRole("heading", { name: "Live Stats" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Live stats" })).toBeVisible();
   });
 
   test("saves a home screenshot artifact for agent inspection", async ({ page }, testInfo) => {

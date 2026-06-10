@@ -1,9 +1,10 @@
 import { useEffect } from "react"
+import type { ReactNode } from "react"
 import type { SingleValue } from "react-select"
 import Select from 'react-select'
 import { TestModes, TestSubModes, TestGramScopes } from "../types"
 import type { TestGramSources } from "../types"
-import { ConfigOption } from "./ConfigOption"
+import { ConfigOption, ConfigToggle, SegmentedGroup } from "./ConfigOption"
 
 interface ConfigProps {
     language: string,
@@ -28,6 +29,10 @@ interface ConfigProps {
     setGramWpmThreshold: (newTestGramWpmThreshold: number) => void,
     gramAccuracyThreshold: number,
     setGramAccuracyThreshold: (newTestGramAccuracyThreshold: number) => void,
+    punctuation: boolean,
+    setPunctuation: (value: boolean) => void,
+    capitals: boolean,
+    setCapitals: (value: boolean) => void,
     showStats: boolean,
     setShowStats: (show: boolean) => void,
     showKeyboard: boolean,
@@ -35,6 +40,20 @@ interface ConfigProps {
 }
 
 type Option = { label: string, value: string }
+
+const SettingRow = ({ label, description, children }: { label: string, description?: string, children: ReactNode }) => (
+    <div className="flex flex-col gap-2 py-4 sm:flex-row sm:items-center sm:gap-4">
+        <div className="w-full shrink-0 sm:w-52">
+            <h3 className="text-lg font-bold leading-tight sm:text-xl">{label}</h3>
+            {description &&
+                <p className="mt-0.5 text-sm text-base-content/45">{description}</p>
+            }
+        </div>
+        <div className="w-full min-w-0 sm:flex-1">{children}</div>
+    </div>
+)
+
+const SettingDivider = () => <div className="h-px w-full bg-base-content/10" />
 
 export const Config = (props: ConfigProps) => {
     const handleModeChange = (newMode: number) => {
@@ -124,20 +143,23 @@ export const Config = (props: ConfigProps) => {
     };
 
     return (
-        <div className="flex flex-col h-full justify-between mb-8 gap-2">
-            <h3 className="font-bold text-4xl py-1">Settings</h3>
-            <div className="flex flex-col">
-                <h3 className="font-semibold text-2xl py-1">Modes</h3>
+        <div className="flex flex-col mb-8">
+            <h3 className="font-bold text-4xl pb-4">Settings</h3>
+
+            <SettingRow label="Mode" description="Choose your typing mode">
                 <ConfigOption
+                    variant="pill"
                     options={["Normal", "Practice", "Grams", "Relaxed"]}
                     active={props.mode}
                     onChange={(newMode: string | number) => { handleModeChange(newMode as TestModes) }}
                 />
-            </div>
+            </SettingRow>
+
+            <SettingDivider />
+
             {props.mode === TestModes.normal &&
                 <>
-                    <div className="flex flex-col">
-                        <h3 className="font-semibold text-2xl py-1">Languages</h3>
+                    <SettingRow label="Language" description="Select your preferred language">
                         <Select
                             instanceId="languageSelect"
                             defaultValue={languageOptions[0]}
@@ -145,138 +167,127 @@ export const Config = (props: ConfigProps) => {
                             value={languageOptions.filter(option => option.value == props.language)[0]}
                             onChange={handleChangeLanguage}
                             isSearchable={false}
-                            className="max-w-xs my-react-select-container"
+                            className="w-full my-react-select-container"
                             classNamePrefix="my-react-select"
-                            menuPosition="fixed"
                         />
-                    </div>
-                    <div className="flex flex-col">
-                        <h3 className="font-semibold text-2xl py-1">Type</h3>
+                    </SettingRow>
+                    <SettingRow label="Type" description="What you want to practice">
                         <ConfigOption
+                            variant="pill"
                             options={["Timed", "Words"]}
                             active={props.subMode}
                             onChange={(newSubMode: string | number) => { handleSubModeChange(newSubMode as TestSubModes) }}
                         />
-                    </div>
-                    {props.subMode == TestSubModes.timed &&
-                        <div className="flex flex-col">
-                            <h3 className="font-semibold text-2xl py-1">Time</h3>
+                    </SettingRow>
+                    <SettingRow label="Length" description={props.subMode == TestSubModes.timed ? "Set the test length (seconds)" : "Set the test length (words)"}>
+                        {props.subMode == TestSubModes.timed ?
                             <ConfigOption
+                                variant="pill"
                                 options={["15s", "30s", "60s", "120s"]}
                                 values={[15, 30, 60, 120]}
                                 active={props.count}
                                 onChange={(newCount: string | number) => { props.setCount(newCount as number) }}
                             />
-                        </div>
-                    }
-                    {props.subMode == TestSubModes.words &&
-                        <div className="flex flex-col">
-                            <h3 className="font-semibold text-2xl py-1">Words</h3>
+                            :
                             <ConfigOption
+                                variant="pill"
                                 options={["10", "25", "50", "100"]}
                                 values={[10, 25, 50, 100]}
                                 active={props.count}
                                 onChange={(newCount: string | number) => { props.setCount(newCount as number) }}
                             />
-                        </div>
-                    }
+                        }
+                    </SettingRow>
+                    <SettingDivider />
                 </>
             }
             {props.mode === TestModes.ngrams &&
                 <>
-                    <div className="flex flex-col">
-                        <h3 className="font-semibold text-2xl py-1">Source</h3>
+                    <SettingRow label="Source" description="Where the grams come from">
                         <ConfigOption
+                            variant="pill"
                             options={["Bigrams", "Trigrams", "Tetragrams", "Words"]}
                             active={props.gramSource}
                             onChange={(newTestGramSource: string | number) => { handleTestGramSourceChange(newTestGramSource as TestGramSources) }}
                         />
-                    </div>
-                    <div className="flex flex-col">
-                        <h3 className="font-semibold text-2xl py-1">Scope</h3>
+                    </SettingRow>
+                    <SettingRow label="Scope" description="How many top grams to draw from">
                         <ConfigOption
+                            variant="pill"
                             options={getEnumValues(TestGramScopes).map(scope => 'Top ' + scope.toString())}
                             values={getEnumValues(TestGramScopes)}
                             active={props.gramScope.toString()}
                             onChange={(newGramScope: string | number) => { handleTestGramScopeChange(Number(newGramScope)) }}
                         />
-                    </div>
-                    <div className="flex gap-2">
-                        <div className="flex flex-col">
-                            <h3 className="font-semibold text-2xl py-1">Combinations</h3>
-                            <div className="flex gap-2">
-                                <input
-                                    id="testGramCombinationInput"
-                                    type="number"
-                                    className={`w-full input input-bordered input-sm`}
-                                    value={props.gramCombination}
-                                    onChange={handleTestGramCombinationChange}
-                                />
-                            </div>
-                        </div>
-                        <div className="flex flex-col">
-                            <h3 className="font-semibold text-2xl py-1">Repetitions</h3>
-                            <div className="flex gap-2">
-                                <input
-                                    id="testGramRepetitionInput"
-                                    type="number"
-                                    className={`w-full input input-bordered input-sm`}
-                                    value={props.gramRepetition}
-                                    onChange={handleTestGramRepetitionChange}
-                                />
-                            </div>
-                        </div>
-                    </div>
-                    <div className="flex gap-2">
-                        <div className="flex flex-col">
-                            <h3 className="font-semibold text-2xl py-1">Wpm Threshold</h3>
-                            <div className="flex gap-2">
-                                <input
-                                    id="testGramWpmThresholdInput"
-                                    type="number"
-                                    className={`w-full input input-bordered input-sm`}
-                                    value={props.gramWpmThreshold}
-                                    onChange={handleTestGramWpmThresholdChange}
-                                />
-                            </div>
-                        </div>
-                        <div className="flex flex-col">
-                            <h3 className="font-semibold text-2xl py-1">Accuracy Threshold</h3>
-                            <div className="flex gap-2">
-                                <input
-                                    id="testGramAccuracyThresholdInput"
-                                    type="number"
-                                    className={`w-full input input-bordered input-sm`}
-                                    value={props.gramAccuracyThreshold}
-                                    onChange={handleTestGramAccuracyThresholdChange}
-                                />
-                            </div>
-                        </div>
-                    </div>
+                    </SettingRow>
+                    <SettingRow label="Combinations" description="Grams shown per level">
+                        <input
+                            id="testGramCombinationInput"
+                            type="number"
+                            className={`w-28 input input-bordered input-sm`}
+                            value={props.gramCombination}
+                            onChange={handleTestGramCombinationChange}
+                        />
+                    </SettingRow>
+                    <SettingRow label="Repetitions" description="Times each level repeats">
+                        <input
+                            id="testGramRepetitionInput"
+                            type="number"
+                            className={`w-28 input input-bordered input-sm`}
+                            value={props.gramRepetition}
+                            onChange={handleTestGramRepetitionChange}
+                        />
+                    </SettingRow>
+                    <SettingRow label="WPM threshold" description="Speed needed to advance">
+                        <input
+                            id="testGramWpmThresholdInput"
+                            type="number"
+                            className={`w-28 input input-bordered input-sm`}
+                            value={props.gramWpmThreshold}
+                            onChange={handleTestGramWpmThresholdChange}
+                        />
+                    </SettingRow>
+                    <SettingRow label="Accuracy threshold" description="Accuracy needed to advance">
+                        <input
+                            id="testGramAccuracyThresholdInput"
+                            type="number"
+                            className={`w-28 input input-bordered input-sm`}
+                            value={props.gramAccuracyThreshold}
+                            onChange={handleTestGramAccuracyThresholdChange}
+                        />
+                    </SettingRow>
+                    <SettingDivider />
                 </>
             }
-            {props.mode === TestModes.practice &&
+            {props.mode !== TestModes.ngrams &&
                 <>
-
+                    <SettingRow label="Text" description="Choose text content">
+                        <SegmentedGroup>
+                            <ConfigToggle label="punctuation" active={props.punctuation} onChange={props.setPunctuation} />
+                            <ConfigToggle label="capitals" active={props.capitals} onChange={props.setCapitals} />
+                        </SegmentedGroup>
+                    </SettingRow>
+                    <SettingDivider />
                 </>
             }
-            <div className="flex flex-col">
-                <h3 className="font-semibold text-2xl py-1">Live Stats</h3>
+
+            <SettingRow label="Live stats" description="Show real-time performance">
                 <ConfigOption
+                    variant="pill"
                     options={["off", "on"]}
                     active={props.showStats ? 1 : 0}
                     onChange={(newShowStats: string | number) => { props.setShowStats(newShowStats == 1 ? true : false) }}
                 />
-            </div>
+            </SettingRow>
             {props.mode !== TestModes.practice &&
-                <div className="flex flex-col">
-                    <h3 className="font-semibold text-2xl py-1">Live Keyboard</h3>
+                <SettingRow label="Keyboard" description="Use on-screen keyboard">
                     <ConfigOption
+                        variant="pill"
                         options={["off", "on"]}
                         active={props.showKeyboard ? 1 : 0}
                         onChange={(newShowKeyboard: string | number) => { props.setShowKeyboard(newShowKeyboard == 1 ? true : false) }}
                     />
-                </div>
+                </SettingRow>
             }
         </div>
     )
