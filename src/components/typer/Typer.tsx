@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react"
 import { TestSubModes, TestModes } from "./types"
 import type { TestGramScopes, TestGramSources } from "./types"
-import { generateBetterPseudoText, generateNGram, generateText, getGramLevelText } from "./utils"
+import { applyTextOptions, generateBetterPseudoText, generateNGram, generateText, getGramLevelText } from "./utils"
 import { Text } from "./Text"
 import { Stats } from "./Stats"
 import { useTimer } from "~/hooks/timer/useTimer"
@@ -87,6 +87,8 @@ export interface TestCompletionResult {
     incorrectKeystrokes: number,
     typedText: string,
     wpmSamples: WpmSample[],
+    punctuation: boolean,
+    capitals: boolean,
     levelName?: string,
     persisted: boolean,
     testId?: string,
@@ -105,6 +107,8 @@ interface TyperProps {
     gramWpmThreshold: number,
     gramAccuracyThreshold: number,
     count: number,
+    punctuation?: boolean,
+    capitals?: boolean,
     level?: Level,
     levelRequirements?: { wpm: number, accuracy: number },
     onKeyChange: (key: string) => void,
@@ -128,6 +132,7 @@ export const Typer = (props: TyperProps) => {
         selectedKeys,
         gramSource, gramScope, gramCombination, gramRepetition,
         count, showStats, showConfig,
+        punctuation = false, capitals = false,
         level,
         levelRequirements,
         modalOpen,
@@ -263,6 +268,8 @@ export const Typer = (props: TyperProps) => {
             incorrectKeystrokes: 0,
             typedText: "",
             wpmSamples: [],
+            punctuation,
+            capitals,
             levelName: level?.name,
             persisted: false,
         }
@@ -273,7 +280,9 @@ export const Typer = (props: TyperProps) => {
             speed: testWpm,
             score: testWpm * testAccuracy,
             count: count,
-            options: level ? level.name : ""
+            options: level ? level.name : "",
+            punctuation,
+            capitals,
         })
     }
 
@@ -310,17 +319,17 @@ export const Typer = (props: TyperProps) => {
                 if (mode !== TestModes.ngrams) handleUpdateStats()
                 if (mode === TestModes.normal) {
                     if (subMode === TestSubModes.timed) {
-                        setText(generateText(500, language))
+                        setText(applyTextOptions(generateText(500, language), punctuation, capitals))
                     } else if (subMode === TestSubModes.words) {
-                        if (level) setText(generateBetterPseudoText(count, level.keys.split("")))
-                        else setText(generateText(count, language))
+                        if (level) setText(applyTextOptions(generateBetterPseudoText(count, level.keys.split("")), punctuation, capitals))
+                        else setText(applyTextOptions(generateText(count, language), punctuation, capitals))
                     }
                 } else if (mode === TestModes.practice) {
-                    if (selectedKeys) setText(generateBetterPseudoText(500, selectedKeys))
+                    if (selectedKeys) setText(applyTextOptions(generateBetterPseudoText(500, selectedKeys), punctuation, capitals))
                 } else if (mode === TestModes.ngrams) {
                     setText(generateNGram(gramSource, gramScope, gramCombination, gramRepetition, gramLevel))
                 } else if (mode === TestModes.relaxed) {
-                    setText(generateText(50, language))
+                    setText(applyTextOptions(generateText(50, language), punctuation, capitals))
                 }
         
                 setInitialTime(mode === TestModes.normal && subMode === TestSubModes.timed ? count : 0)
@@ -335,7 +344,7 @@ export const Typer = (props: TyperProps) => {
                 onRestartRef.current?.()
             }
         }, 0)
-    }, [count, gramCombination, gramLevel, gramRepetition, gramScope, gramSource, handleUpdateStats, language, level, mode, pause, selectedKeys, setInitialTime, subMode])
+    }, [count, gramCombination, gramLevel, gramRepetition, gramScope, gramSource, handleUpdateStats, language, level, mode, pause, punctuation, capitals, selectedKeys, setInitialTime, subMode])
 
     useEffect(() => {
         handleRestart()
@@ -379,6 +388,8 @@ export const Typer = (props: TyperProps) => {
             incorrectKeystrokes: finalIncorrectCount,
             typedText: typedTextRef.current,
             wpmSamples,
+            punctuation,
+            capitals,
             levelName: level?.name,
             persisted: false,
         }
@@ -597,6 +608,8 @@ export const Typer = (props: TyperProps) => {
                 text={text}
                 language={language}
                 mode={mode}
+                punctuation={punctuation}
+                capitals={capitals}
                 started={started} restarted={restarted}
                 modalOpen={props.modalOpen}
                 charAttempts={charAttemptsRef.current}

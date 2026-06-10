@@ -101,6 +101,8 @@ const SharedScorePage: NextPage = () => {
               subMode: data.score.subMode as TestSubModes,
               language: data.score.language,
               options: data.score.options,
+              punctuation: snapshot.punctuation ?? data.score.punctuation,
+              capitals: snapshot.capitals ?? data.score.capitals,
               createdAt: data.score.createdAt,
               user: data.user,
             }}

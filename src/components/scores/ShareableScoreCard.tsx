@@ -17,6 +17,8 @@ export interface ScoreSnapshot {
   correctKeystrokes: number;
   incorrectKeystrokes: number;
   typedText: string;
+  punctuation?: boolean;
+  capitals?: boolean;
   wpmSamples: ScoreWpmSample[];
 }
 
@@ -396,6 +398,16 @@ export function ShareableScoreCard(props: ShareableScoreCardProps) {
               <h1 id={scoreTitleId} className="text-3xl font-bold leading-tight">Test Complete!</h1>
               <p className="mt-1 text-base-content/80">Great job! You&apos;ve completed the test.</p>
               <p className="mt-1 text-sm text-base-content/65">{modeText} / {formatDate(score.createdAt)}</p>
+              {(score.punctuation || score.capitals) &&
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {score.punctuation &&
+                    <span className="rounded-full border border-primary/40 bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">Punctuation</span>
+                  }
+                  {score.capitals &&
+                    <span className="rounded-full border border-primary/40 bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">Capitals</span>
+                  }
+                </div>
+              }
             </div>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row">

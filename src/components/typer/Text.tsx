@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
-import { generateText } from "./utils"
+import { applyTextOptions, generateText } from "./utils"
 import { TestModes } from "./types"
 
 interface TextProps {
@@ -9,6 +9,8 @@ interface TextProps {
     modalOpen: boolean,
     language: string,
     mode: TestModes,
+    punctuation?: boolean,
+    capitals?: boolean,
     charAttempts: Map<string, { attempts: number, correct: number }>
     setCharacterCount: (count: number) => void,
     setIncorrectCount: (count: number) => void,
@@ -28,6 +30,8 @@ export const Text = (props: TextProps) => {
         modalOpen,
         language,
         mode,
+        punctuation = false,
+        capitals = false,
         charAttempts,
         setCharacterCount,
         setIncorrectCount,
@@ -177,13 +181,13 @@ export const Text = (props: TextProps) => {
             const threshold = 300
             if (position >= currentTextRef.current.length - threshold) {
                 isAppendingRef.current = true
-                const newText = generateText(100, language)
+                const newText = applyTextOptions(generateText(100, language), punctuation, capitals)
                 appendNewText(" " + newText)
                 currentTextRef.current += " " + newText
                 isAppendingRef.current = false
             }
         }
-    }, [appendNewText, language, mode, position])
+    }, [appendNewText, language, mode, position, punctuation, capitals])
 
     useEffect(() => {
         if (!started && !restarted) {
@@ -224,9 +228,10 @@ export const Text = (props: TextProps) => {
                 if (currentPosition === 0 && !started) onStart()
             } else if (
                 currentPosition > 0 &&
-                (e.code == 'Space' ||
-                    e.key.length == 1 && ((e.key >= 'a' && e.key <= 'z') || (e.key >= 'A' && e.key <= 'Z')))
+                (e.code == 'Space' || e.key.length == 1)
             ) {
+                // Any single printable key (letter, capital, punctuation, symbol) that
+                // does not match the expected character counts as an incorrect attempt.
                 nextLetter(false, e.key)
             } else if (currentPosition > 0 && e.code === 'Backspace') {
                 prevLetter()

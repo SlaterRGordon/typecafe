@@ -72,7 +72,9 @@ export const testRouter = createTRPCRouter({
       accuracy: z.number(),
       score: z.number(),
       count: z.number(),
-      options: z.string()
+      options: z.string(),
+      punctuation: z.boolean().optional(),
+      capitals: z.boolean().optional(),
     }))
     .mutation(({ ctx, input }) => {
       return ctx.prisma.test.create({
@@ -84,6 +86,8 @@ export const testRouter = createTRPCRouter({
           score: input.score,
           count: input.count,
           options: input.options,
+          punctuation: input.punctuation ?? false,
+          capitals: input.capitals ?? false,
           summaryDate: new Date(),
         },
       });
