@@ -133,6 +133,9 @@ test.describe("shared scores", () => {
   });
 
   test("restarts from the completion dashboard with button and key combos", async ({ page }) => {
+    // Completes three full word tests; allow extra time when many workers saturate
+    // the dev server in parallel local runs (CI runs single-worker).
+    test.slow();
     await mockAuthenticatedSession(page);
     await mockTrpc(page);
 

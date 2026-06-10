@@ -10,7 +10,7 @@ const publicRoutes: PublicRoute[] = [
   { path: "/learn", selector: "#words .char" },
   { path: "/leaderboard", visibleText: "TypeCafe" },
   { path: "/support", heading: "Support TypeCafe" },
-  { path: "/contact", heading: "Contact Us" },
+  { path: "/contact", heading: "Contact TypeCafe" },
   { path: "/privacy-policy", heading: "Privacy Policy for TypeCafe" },
   { path: "/terms-and-conditions", heading: "Terms and Conditions" },
 ];
