@@ -23,7 +23,7 @@ export const Modal = (props: ModalProps) => {
         <>
             <input onChange={handleClickOutside} type="checkbox" id="configModal" className="modal-toggle" />
             <label htmlFor="configModal" className="modal modal-bottom !my-0 sm:modal-middle cursor-pointer">
-                <label htmlFor="" className={`modal-box !pb-[64px] !max-w-5xl space-y-2 overflow-x-hidden sm:!overflow-y-visible !shadow-sm ${props.boxClassName ?? "sm:w-[500px]"}`}>
+                <label htmlFor="" className={`modal-box !max-w-5xl space-y-2 overflow-x-hidden sm:!overflow-y-visible !shadow-sm ${props.boxClassName ?? "sm:w-[500px]"}`}>
                     {props.children}
                 </label>
             </label>
