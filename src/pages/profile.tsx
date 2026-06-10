@@ -260,7 +260,7 @@ const Profile: NextPage = () => {
           </div>
         </div>
       </div>
-      <Modal>
+      <Modal boxClassName="sm:w-[500px] !max-h-[82vh] sm:!max-h-[calc(100vh-5em)]">
         <Edit userData={userData} onClose={onModalClose} openConfirmModal={onConfirmModalClose} />
       </Modal>
       <ConfirmModal loading={deleting} message="Are you sure you want to delete your account?" callback={(result) => deleteProfile(result)} />

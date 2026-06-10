@@ -37,7 +37,7 @@ test.describe("authenticated profile", () => {
     await page.getByPlaceholder("Name", { exact: true }).fill("updateduser");
     await page.getByPlaceholder("Bio", { exact: true }).fill("Updated bio from Playwright.");
     await page.getByPlaceholder("Link", { exact: true }).fill("https://typecafe.vercel.app/updated");
-    await page.getByRole("button", { name: "Save" }).click();
+    await page.getByRole("button", { name: "Save Changes" }).click();
 
     await expect(page.locator("#configModal")).not.toBeChecked();
     await expect(page.getByText("updateduser").first()).toBeVisible();
@@ -63,7 +63,7 @@ test.describe("authenticated profile", () => {
     await expect(page.getByAltText("Profile picture preview")).toBeVisible();
 
     await page.getByRole("button", { name: "Remove" }).click();
-    await page.getByRole("button", { name: "Save" }).click();
+    await page.getByRole("button", { name: "Save Changes" }).click();
 
     await expect(page.locator("#configModal")).not.toBeChecked();
     await expect(page.locator("#main").getByAltText("Profile Picture", { exact: true })).toHaveCount(0);
