@@ -5,11 +5,10 @@ export default function Document() {
     return (
         <Html data-theme="dark">
             <Head>
-                <meta name="description" content="TypeCafe is a user-centered typing test with a clean, asthetic feel. Level up your typing and track your progress." />
+                {/* Site-wide OG/description defaults live in _app.tsx (via next/head)
+                    so individual pages can override them by key. Keep only static,
+                    non-overridable tags here. */}
                 <meta name="keywords" content="typing, test, asthetic, minimalistic, keyboard, speed, leaderboard, track" />
-                <meta property="og:title" content="Title Here" />
-                <meta property="og:description" content="TypeCafe is a user-centered typing test with a clean, asthetic feel. Level up your typing and track your progress." />
-                <meta property="og:image" content="/images/preview-image.png" />
                 <link rel="shortcut icon" href="/images/TypeCafeIcon.ico" />
                 <link rel="icon" type="image/png" sizes="16x16" href="/images/TypeCafe16x16.png"/>
                 <link rel="icon" type="image/png" sizes="32x32" href="/images/TypeCafe32x32.png"/>

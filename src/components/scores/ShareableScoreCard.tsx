@@ -2,10 +2,16 @@ import Link from "next/link";
 import { type CSSProperties, useId, useMemo, useRef, useState } from "react";
 
 import { TestModes, TestSubModes } from "~/components/typer/types";
+import { ShareableScoreImage } from "./ShareableScoreImage";
 
 export interface ScoreWpmSample {
   elapsedSeconds: number;
   wpm: number;
+}
+
+export interface TypedSegment {
+  ch: string;
+  correct: boolean;
 }
 
 export interface ScoreSnapshot {
@@ -17,6 +23,8 @@ export interface ScoreSnapshot {
   correctKeystrokes: number;
   incorrectKeystrokes: number;
   typedText: string;
+  typedSegments?: TypedSegment[];
+  brag?: string | null;
   punctuation?: boolean;
   capitals?: boolean;
   ranked?: boolean;
@@ -49,7 +57,7 @@ interface ShareableScoreCardProps {
   onTestAgain?: () => void;
 }
 
-type ActionState = "idle" | "copied" | "unsupported" | "error";
+type ActionState = "idle" | "copied" | "downloaded" | "unsupported" | "error";
 
 const modeLabels: Record<TestModes, string> = {
   [TestModes.normal]: "Normal",
@@ -102,6 +110,15 @@ async function writeTextToClipboard(text: string) {
 
 async function renderScoreCardImage(scoreCard: HTMLElement) {
   const { domToBlob } = await import("modern-screenshot");
+  // Wait for web fonts (Roboto Mono) so the captured image keeps the TypeCafe
+  // identity instead of falling back to a system monospace.
+  if (typeof document !== "undefined" && document.fonts) {
+    try {
+      await document.fonts.ready;
+    } catch {
+      // ignore — fall through and render with whatever is available
+    }
+  }
   const bounds = scoreCard.getBoundingClientRect();
 
   return domToBlob(scoreCard, {
@@ -112,23 +129,36 @@ async function renderScoreCardImage(scoreCard: HTMLElement) {
   });
 }
 
-async function copyScoreImage(scoreCard: HTMLElement | null) {
-  if (!navigator.clipboard?.write || typeof ClipboardItem === "undefined") {
-    return false;
-  }
+function canCopyImageToClipboard() {
+  return !!navigator.clipboard?.write && typeof ClipboardItem !== "undefined";
+}
 
+function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+// Copy the rendered card to the clipboard when supported; otherwise (common on
+// mobile) fall back to downloading the PNG so the user can still share it.
+async function copyOrDownloadScoreImage(scoreCard: HTMLElement | null): Promise<"copied" | "downloaded"> {
   if (!scoreCard) throw new Error("Score card is unavailable.");
 
   const blob = await renderScoreCardImage(scoreCard);
   if (!blob) throw new Error("Could not render score image.");
 
-  await navigator.clipboard.write([
-    new ClipboardItem({
-      "image/png": blob,
-    }),
-  ]);
+  if (canCopyImageToClipboard()) {
+    await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+    return "copied";
+  }
 
-  return true;
+  downloadBlob(blob, "typecafe-score.png");
+  return "downloaded";
 }
 
 function InfoIcon(props: { label: string }) {
@@ -185,18 +215,51 @@ function ScreenshotIcon() {
   );
 }
 
-function MetricCard(props: { label: string; value: string; note: string; info: string }) {
+function MetricCard(props: { label: string; value: string; note: string; info: string; hero?: boolean }) {
   return (
-    <div className="rounded-lg border border-base-content/10 bg-base-100/45 p-4 shadow-inner shadow-base-300/40" aria-label={`${props.label}: ${props.value}. ${props.note}`}>
-      <div className="flex items-center gap-2 text-sm font-semibold text-base-content/90">
+    <div
+      className={
+        props.hero
+          ? "rounded-lg border border-primary/40 bg-primary/10 p-4 shadow-inner shadow-base-300/40 ring-1 ring-primary/30"
+          : "rounded-lg border border-base-content/10 bg-base-100/45 p-4 shadow-inner shadow-base-300/40"
+      }
+      aria-label={`${props.label}: ${props.value}. ${props.note}`}
+    >
+      <div className={`flex items-center gap-2 text-sm font-semibold ${props.hero ? "text-primary" : "text-base-content/90"}`}>
         <span>{props.label}</span>
         <InfoIcon label={props.info} />
       </div>
-      <div className="mt-4 font-mono text-4xl font-bold leading-none text-primary sm:text-5xl">
+      <div className={`mt-4 font-mono font-bold leading-none text-primary ${props.hero ? "text-5xl sm:text-6xl" : "text-4xl sm:text-5xl"}`}>
         {props.value}
       </div>
       <p className="mt-4 text-sm text-base-content/70">{props.note}</p>
     </div>
+  );
+}
+
+// Renders the typed text with per-character correctness when segments are present.
+// Incorrect characters take the theme error color (with a faint underlay so wrong
+// whitespace stays visible). Falls back to plain text for legacy scores that have
+// no segment data.
+function TypedText(props: { segments?: TypedSegment[]; plainText: string }) {
+  if (!props.plainText && (!props.segments || props.segments.length === 0)) {
+    return <>No typed text recorded.</>;
+  }
+
+  if (!props.segments || props.segments.length === 0) {
+    return <>{props.plainText}</>;
+  }
+
+  return (
+    <>
+      {props.segments.map((segment, index) =>
+        segment.correct ? (
+          <span key={index}>{segment.ch}</span>
+        ) : (
+          <span key={index} className="rounded-sm bg-error/20 text-error">{segment.ch}</span>
+        ),
+      )}
+    </>
   );
 }
 
@@ -339,10 +402,10 @@ export function ShareableScoreCard(props: ShareableScoreCardProps) {
   const [imageState, setImageState] = useState<ActionState>("idle");
   const resetTimerRef = useRef<number | null>(null);
   const scoreCardRef = useRef<HTMLDivElement | null>(null);
-  const scoreTitleId = useId();
+  const shareImageRef = useRef<HTMLDivElement | null>(null);
   const modeText = `${modeLabels[score.mode]} / ${subModeLabels[score.subMode]} / ${score.language}`;
   const shareButtonLabel = isCreatingShare ? "Creating..." : linkState === "copied" ? "Link copied" : "Share Score";
-  const screenshotButtonLabel = imageState === "copied" ? "Screenshot copied" : "Copy Screenshot";
+  const screenshotButtonLabel = imageState === "copied" ? "Screenshot copied" : imageState === "downloaded" ? "Image downloaded" : "Copy Screenshot";
 
   const scheduleReset = () => {
     if (resetTimerRef.current) window.clearTimeout(resetTimerRef.current);
@@ -372,8 +435,8 @@ export function ShareableScoreCard(props: ShareableScoreCardProps) {
 
   const handleCopyImage = async () => {
     try {
-      const copied = await copyScoreImage(scoreCardRef.current);
-      setImageState(copied ? "copied" : "unsupported");
+      const result = await copyOrDownloadScoreImage(shareImageRef.current);
+      setImageState(result);
     } catch {
       setImageState("error");
     } finally {
@@ -382,7 +445,7 @@ export function ShareableScoreCard(props: ShareableScoreCardProps) {
   };
 
   const metricItems = useMemo(() => [
-    { label: "WPM", value: formatNumber(score.rawWpm, 1), note: "Raw speed", info: "Raw words per minute, calculated from all typed keystrokes before error adjustment." },
+    { label: "WPM", value: formatNumber(score.rawWpm, 1), note: "Raw speed", info: "Raw words per minute, calculated from all typed keystrokes before error adjustment.", hero: true },
     { label: "Accuracy", value: `${formatNumber(score.accuracy, 2)}%`, note: "Correct keystrokes", info: "The percentage of typed keystrokes that matched the expected text." },
     { label: "Duration", value: `${formatInteger(score.durationSeconds)}s`, note: "Completed", info: "The completed test duration in seconds." },
     { label: "Net WPM", value: formatNumber(score.netWpm, 1), note: "Adjusted for errors", info: "Words per minute after incorrect keystrokes are subtracted from the result." },
@@ -394,15 +457,16 @@ export function ShareableScoreCard(props: ShareableScoreCardProps) {
         ref={scoreCardRef}
         data-testid="score-screenshot-card"
         role="region"
-        aria-labelledby={scoreTitleId}
+        aria-label="Typing test results"
         className="rounded-xl border border-base-content/15 bg-base-200 p-5 text-base-content shadow-2xl shadow-base-300/40 sm:p-6"
       >
         <div className="score-reveal flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-4">
             <div>
-              <h1 id={scoreTitleId} className="text-3xl font-bold leading-tight">Test Complete!</h1>
-              <p className="mt-1 text-base-content/80">Great job! You&apos;ve completed the test.</p>
-              <p className="mt-1 text-sm text-base-content/65">{modeText} / {formatDate(score.createdAt)}</p>
+              {score.brag &&
+                <p className="mb-2 inline-block rounded-full bg-primary/15 px-3 py-1 text-sm font-bold text-primary">{score.brag}</p>
+              }
+              <p className="text-sm text-base-content/65">{modeText} / {formatDate(score.createdAt)}</p>
               {(score.punctuation || score.capitals || score.ranked === false) &&
                 <div className="mt-2 flex flex-wrap gap-2">
                   {score.punctuation &&
@@ -419,6 +483,18 @@ export function ShareableScoreCard(props: ShareableScoreCardProps) {
             </div>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row">
+            {shareUrl && readonly ?
+              <Link
+                className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-md border border-base-content/15 bg-base-100/50 px-4 py-2 text-sm font-semibold text-base-content transition hover:bg-base-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                href="/"
+                aria-label="Try TypeCafe"
+                title="Start a new typing test on TypeCafe"
+              >
+                Try TypeCafe
+              </Link>
+              :
+              null
+            }
             {!readonly && onTestAgain ?
               <button
                 className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-md border border-base-content/15 bg-base-100/50 px-4 py-2 text-sm font-semibold text-base-content transition hover:bg-base-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
@@ -453,18 +529,11 @@ export function ShareableScoreCard(props: ShareableScoreCardProps) {
               type="button"
               onClick={handleCopyImage}
               aria-label={screenshotButtonLabel}
-              title={imageState === "copied" ? "Score screenshot copied" : "Copy score screenshot image"}
+              title={imageState === "copied" ? "Score screenshot copied" : imageState === "downloaded" ? "Score image downloaded" : "Copy score screenshot image"}
             >
               <ScreenshotIcon />
               <span>{screenshotButtonLabel}</span>
             </button>
-            {shareUrl && readonly ?
-              <Link className="rounded-md border border-base-content/15 bg-base-100/50 px-4 py-2 text-sm font-semibold text-base-content transition hover:bg-base-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary" href="/" aria-label="Try TypeCafe" title="Start a new typing test on TypeCafe">
-                Try TypeCafe
-              </Link>
-              :
-              null
-            }
           </div>
         </div>
 
@@ -490,10 +559,10 @@ export function ShareableScoreCard(props: ShareableScoreCardProps) {
         <div className="score-reveal mt-5 rounded-lg border border-base-content/10 bg-base-100/45 p-5" style={{ "--reveal-delay": "240ms" } as CSSProperties}>
           <div className="mb-4 flex items-center gap-2 text-lg font-semibold text-base-content">
             <span>Your Typed Text</span>
-            <InfoIcon label="The plain text typed during this completed test. The panel scrolls when the text is long." />
+            <InfoIcon label="The text you typed during this test. Incorrect characters are highlighted in the theme error color." />
           </div>
           <div className="max-h-36 overflow-y-auto whitespace-pre-wrap break-words rounded-md border border-base-content/10 bg-base-200/70 p-4 font-mono text-base leading-8 text-base-content focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:text-lg" tabIndex={0} role="region" aria-label="Typed text from the completed test">
-            {score.typedText || "No typed text recorded."}
+            <TypedText segments={score.typedSegments} plainText={score.typedText} />
           </div>
           <div className="mt-5 flex flex-col gap-3 border-t border-base-content/10 pt-4 text-sm text-base-content/80 sm:flex-row sm:items-center sm:gap-8">
             <span><span className="mr-2 inline-block h-3 w-3 rounded-full bg-success" />{formatInteger(score.correctKeystrokes)} correct</span>
@@ -524,6 +593,13 @@ export function ShareableScoreCard(props: ShareableScoreCardProps) {
           :
           null
         }
+      </div>
+
+      {/* Off-screen, fixed-size social card that is the actual screenshot/download
+          target. Positioned off-viewport (not display:none, which would render a
+          blank capture) and hidden from assistive tech and the layout. */}
+      <div aria-hidden="true" style={{ position: "fixed", left: "-99999px", top: 0, pointerEvents: "none" }}>
+        <ShareableScoreImage ref={shareImageRef} score={score} />
       </div>
     </section>
   );

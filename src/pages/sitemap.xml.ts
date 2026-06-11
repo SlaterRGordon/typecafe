@@ -2,7 +2,7 @@ import { globby } from "globby";
 import type { GetServerSidePropsContext } from "next";
 import { prisma } from "~/server/db";
 
-const EXTERNAL_DATA_URL = "https://typecafe.vercel.app";
+const EXTERNAL_DATA_URL = "https://typecafe.app";
 
 interface User {
     username: string;

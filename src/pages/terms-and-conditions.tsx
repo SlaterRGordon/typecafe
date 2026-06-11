@@ -2,7 +2,7 @@ import type { NextPage } from "next";
 import { DocumentPage, DocumentSection } from "~/components/legal/DocumentPage";
 
 const contactEmail = "slater.r.gordon@gmail.com";
-const contactUrl = "https://typecafe.vercel.app/contact";
+const contactUrl = "https://typecafe.app/contact";
 
 const TermsAndConditions: NextPage = () => {
     return (
