@@ -23,7 +23,10 @@ const MyApp: AppType<{ session: Session | null }> = ({
             <meta name="viewport" content="width=device-width, initial-scale=1" />
             {/* Site-wide defaults. Keyed so individual pages can override any of
                 these with a next/head tag using the same key. */}
-            <meta key="description" name="description" content="TypeCafe is a user-centered typing test with a clean, asthetic feel. Level up your typing and track your progress." />
+            <meta key="description" name="description" content="TypeCafe is a user-centered typing test with a clean, aesthetic feel. Level up your typing and track your progress." />
+            <link key="canonical" rel="canonical" href="https://typecafe.app" />
+            <meta key="og:site_name" property="og:site_name" content="TypeCafe" />
+            <meta key="og:url" property="og:url" content="https://typecafe.app" />
             <meta key="og:type" property="og:type" content="website" />
             <meta key="og:title" property="og:title" content="TypeCafe — Test your typing speed" />
             <meta key="og:description" property="og:description" content="A user-centered typing test with a clean, aesthetic feel. Level up your typing and track your progress." />

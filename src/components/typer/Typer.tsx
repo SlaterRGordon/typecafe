@@ -102,6 +102,7 @@ export interface TestCompletionResult {
     levelName?: string,
     persisted: boolean,
     testId?: string,
+    typeId?: string,
     brag?: string | null,
 }
 
@@ -411,6 +412,7 @@ export const Typer = (props: TyperProps) => {
             capitals,
             ranked: !customLength,
             levelName: level?.name,
+            typeId: testType?.id,
             persisted: false,
         }
     }

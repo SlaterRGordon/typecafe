@@ -53,6 +53,7 @@ interface ShareableScoreCardProps {
   readonly?: boolean;
   isCreatingShare?: boolean;
   canCreateShare?: boolean;
+  signInHtmlFor?: string;
   onCreateShare?: () => Promise<string | undefined> | string | undefined;
   onTestAgain?: () => void;
 }
@@ -397,7 +398,8 @@ function DetailRow(props: { label: string; value: string; tone?: "success" | "er
 }
 
 export function ShareableScoreCard(props: ShareableScoreCardProps) {
-  const { score, shareUrl, readonly = false, isCreatingShare = false, canCreateShare = false, onCreateShare, onTestAgain } = props;
+  const { score, shareUrl, readonly = false, isCreatingShare = false, canCreateShare = false, signInHtmlFor, onCreateShare, onTestAgain } = props;
+  const showSignInCta = !readonly && !shareUrl && !canCreateShare && !!signInHtmlFor;
   const [linkState, setLinkState] = useState<ActionState>("idle");
   const [imageState, setImageState] = useState<ActionState>("idle");
   const resetTimerRef = useRef<number | null>(null);
@@ -509,7 +511,16 @@ export function ShareableScoreCard(props: ShareableScoreCardProps) {
               :
               null
             }
-            {!readonly || shareUrl ?
+            {showSignInCta ?
+              <label
+                className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                htmlFor={signInHtmlFor}
+                title="Sign in to save your score and create a share link"
+              >
+                <ShareIcon />
+                <span>Sign in to save &amp; share</span>
+              </label>
+              : (!readonly || shareUrl) ?
               <button
                 className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50"
                 type="button"
@@ -573,11 +584,6 @@ export function ShareableScoreCard(props: ShareableScoreCardProps) {
       </div>
 
       <div aria-live="polite" role="status" className="min-h-8 pt-3 text-sm">
-        {!readonly && !shareUrl && !canCreateShare ?
-          <p className="text-base-content/70">Sign in to save this score and create a share link.</p>
-          :
-          null
-        }
         {linkState === "unsupported" ?
           <p className="text-warning">Sign in and save the score before sharing a link.</p>
           :

@@ -1,4 +1,6 @@
 import { type NextPage } from "next";
+import Head from "next/head";
+import { useRouter } from "next/router";
 import { useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { Modal } from "~/components/Modal";
@@ -47,11 +49,14 @@ const Home: NextPage = () => {
   const [shareUrl, setShareUrl] = useState<string | undefined>(undefined)
   const charAttemptsRef = useRef<Map<string, { attempts: number, correct: number }>>(new Map())
   const persistedAttemptsRef = useRef<Map<string, { attempts: number, correct: number }>>(new Map())
+  const hasSavedPendingRef = useRef(false)
   const { data: sessionData } = useSession()
+  const router = useRouter()
   const { data: persistedStats } = api.practiceStats.get.useQuery(undefined, {
     enabled: mode === TestModes.practice && !!sessionData?.user,
   })
   const createShare = api.scoreShare.create.useMutation()
+  const saveAfterSignIn = api.test.create.useMutation()
 
   useEffect(() => {
     if (mode !== TestModes.practice || !persistedStats) return
@@ -75,7 +80,7 @@ const Home: NextPage = () => {
   }
 
   const onTestComplete = (result: TestCompletionResult) => {
-    setCompletedScore({
+    const score = {
       speed: result.speed,
       rawWpm: result.rawWpm,
       netWpm: result.netWpm,
@@ -98,9 +103,97 @@ const Home: NextPage = () => {
       options: result.levelName,
       createdAt: new Date(),
       testId: result.testId,
-    })
+    }
+    setCompletedScore(score)
     setShareUrl(undefined)
+
+    if (!result.persisted && result.typeId) {
+      try {
+        sessionStorage.setItem("typecafe:pendingScore", JSON.stringify({
+          savedAt: Date.now(),
+          score,
+          createInput: {
+            typeId: result.typeId,
+            speed: result.speed,
+            accuracy: result.accuracy,
+            score: result.speed * result.accuracy,
+            count,
+            options: result.levelName ?? "",
+            punctuation: result.punctuation,
+            capitals: result.capitals,
+            ranked: result.ranked,
+          },
+        }))
+      } catch {
+        // sessionStorage unavailable — not critical
+      }
+    }
   }
+
+  // When the user signs in (either via OAuth page-reload or in-page modal),
+  // restore their unsaved score, persist it to the DB, auto-create a share
+  // link, copy it to the clipboard, and navigate to the score page.
+  useEffect(() => {
+    if (!sessionData?.user) return
+    if (hasSavedPendingRef.current) return
+
+    const raw = sessionStorage.getItem("typecafe:pendingScore")
+    if (!raw) return
+
+    type PendingScore = {
+      savedAt: number
+      score: NonNullable<typeof completedScore>
+      createInput: Parameters<typeof saveAfterSignIn.mutate>[0]
+    }
+    let pending: PendingScore
+    try {
+      pending = JSON.parse(raw) as PendingScore
+    } catch {
+      sessionStorage.removeItem("typecafe:pendingScore")
+      return
+    }
+
+    if (Date.now() - pending.savedAt > 30 * 60 * 1000) {
+      sessionStorage.removeItem("typecafe:pendingScore")
+      return
+    }
+
+    hasSavedPendingRef.current = true
+
+    const restoredScore = {
+      ...pending.score,
+      createdAt: new Date(pending.score.createdAt as unknown as string),
+    }
+
+    if (!completedScore) {
+      setCompletedScore(restoredScore)
+    }
+
+    void saveAfterSignIn.mutateAsync(pending.createInput).then(async (test) => {
+      sessionStorage.removeItem("typecafe:pendingScore")
+      setCompletedScore((prev) => prev ? { ...prev, testId: test.id, brag: test.brag ?? prev.brag } : prev)
+
+      try {
+        const { durationSeconds, rawWpm, netWpm, accuracy, totalKeystrokes, correctKeystrokes,
+          incorrectKeystrokes, typedText, typedSegments, brag, wpmSamples, punctuation, capitals, ranked,
+        } = restoredScore
+        const share = await createShare.mutateAsync({
+          testId: test.id,
+          snapshot: { durationSeconds, rawWpm, netWpm, accuracy, totalKeystrokes, correctKeystrokes,
+            incorrectKeystrokes, typedText, typedSegments, brag, wpmSamples, punctuation, capitals, ranked },
+        })
+        const url = `${window.location.origin}/score/${share.slug}`
+        setShareUrl(url)
+        try { await navigator.clipboard.writeText(url) } catch { /* clipboard blocked */ }
+        void router.push(`/score/${share.slug}`)
+      } catch {
+        // Share creation failed — score is saved, user can share manually
+      }
+    }).catch(() => {
+      hasSavedPendingRef.current = false
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionData?.user?.id])
 
   const clearCompletedScore = () => {
     setCompletedScore(null)
@@ -109,6 +202,8 @@ const Home: NextPage = () => {
 
   const requestRestart = () => {
     clearCompletedScore()
+    sessionStorage.removeItem("typecafe:pendingScore")
+    hasSavedPendingRef.current = false
     setRestartSignal((signal) => signal + 1)
   }
 
@@ -157,8 +252,25 @@ const Home: NextPage = () => {
     return nextShareUrl
   }
 
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "TypeCafe",
+    "url": "https://typecafe.app",
+    "description": "A user-centered typing test with a clean, aesthetic feel. Level up your typing and track your progress.",
+    "applicationCategory": "UtilitiesApplication",
+    "operatingSystem": "Any",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+  };
+
   return (
     <>
+      <Head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
+      </Head>
       <div id="typer" className={`flex flex-col h-full overflow-auto ${completedScore ? "py-4" : "justify-center"} ${fullscreen ? 'absolute top-0 left-0 w-full h-full bg-base-100 z-[500] sm:px-8' : 'md:w-10/12'}`}>
         <Typer
           fullscreen={fullscreen}
@@ -202,6 +314,7 @@ const Home: NextPage = () => {
               }}
               shareUrl={shareUrl}
               canCreateShare={!!completedScore.testId}
+              signInHtmlFor="signInModal"
               isCreatingShare={createShare.isPending}
               onCreateShare={createAndCopyShareLink}
               onTestAgain={requestRestart}
