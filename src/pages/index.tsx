@@ -1,4 +1,5 @@
 import { type NextPage } from "next";
+import Head from "next/head";
 import { useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { Modal } from "~/components/Modal";
@@ -157,8 +158,25 @@ const Home: NextPage = () => {
     return nextShareUrl
   }
 
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "TypeCafe",
+    "url": "https://typecafe.app",
+    "description": "A user-centered typing test with a clean, aesthetic feel. Level up your typing and track your progress.",
+    "applicationCategory": "UtilitiesApplication",
+    "operatingSystem": "Any",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+  };
+
   return (
     <>
+      <Head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
+      </Head>
       <div id="typer" className={`flex flex-col h-full overflow-auto ${completedScore ? "py-4" : "justify-center"} ${fullscreen ? 'absolute top-0 left-0 w-full h-full bg-base-100 z-[500] sm:px-8' : 'md:w-10/12'}`}>
         <Typer
           fullscreen={fullscreen}

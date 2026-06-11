@@ -21,7 +21,7 @@ export const TopNavigation = () => {
                 {/* If the user is not signed in, display auth buttons */}
                 {!sessionData?.user ?
                     <label
-                        className="btn btn-primary btn-sm"
+                        className="btn btn-secondary btn-sm"
                         htmlFor="signInModal"
                         aria-label="Open sign in"
                         title="Open sign in"
