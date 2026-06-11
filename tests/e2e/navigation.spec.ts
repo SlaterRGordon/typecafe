@@ -23,11 +23,11 @@ test.describe("app navigation", () => {
 
     await page.goto("/");
 
-    await page.getByRole("button", { name: "Support" }).click();
+    await page.getByRole("button", { name: "Support", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Support TypeCafe" })).toBeVisible();
 
     await page.getByRole("button", { name: "Contact" }).click();
-    await expect(page.getByRole("heading", { name: "Contact Us" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Contact TypeCafe" })).toBeVisible();
 
     await page.getByRole("button", { name: "Privacy Policy" }).click();
     await expect(page.getByRole("heading", { name: "Privacy Policy for TypeCafe" })).toBeVisible();

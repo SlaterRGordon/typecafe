@@ -30,6 +30,14 @@ export interface WpmSample {
     wpm: number,
 }
 
+// One entry per typed character, in order, with whether it matched the expected
+// character. This is the source of truth for highlighting typed errors on the
+// results dashboard and shareable card.
+export interface TypedSegment {
+    ch: string,
+    correct: boolean,
+}
+
 // One entry per keystroke: the wall-clock time it happened and the net character
 // count at that moment (backspaces lower the count). This raw timeline is the
 // single source of truth for both the live WPM and the over-time chart.
@@ -86,6 +94,7 @@ export interface TestCompletionResult {
     correctKeystrokes: number,
     incorrectKeystrokes: number,
     typedText: string,
+    typedSegments: TypedSegment[],
     wpmSamples: WpmSample[],
     punctuation: boolean,
     capitals: boolean,
@@ -93,6 +102,7 @@ export interface TestCompletionResult {
     levelName?: string,
     persisted: boolean,
     testId?: string,
+    brag?: string | null,
 }
 
 interface TyperProps {
@@ -160,6 +170,7 @@ export const Typer = (props: TyperProps) => {
     const [gramLevel, setGramLevel] = useState<number>(1)
     const pendingCompletionRef = useRef<TestCompletionResult | null>(null)
     const typedTextRef = useRef("")
+    const typedSegmentsRef = useRef<TypedSegment[]>([])
     const keystrokeTimelineRef = useRef<Keystroke[]>([])
     const onRestartRef = useRef(onRestart)
     const activeAttemptRef = useRef<{
@@ -196,7 +207,7 @@ export const Typer = (props: TyperProps) => {
         onSuccess: (test) => {
             const completion = pendingCompletionRef.current
             if (completion) {
-                props.onTestComplete?.({ ...completion, persisted: true, testId: test.id })
+                props.onTestComplete?.({ ...completion, persisted: true, testId: test.id, brag: test.brag })
                 pendingCompletionRef.current = null
             }
         },
@@ -270,6 +281,7 @@ export const Typer = (props: TyperProps) => {
             correctKeystrokes: 0,
             incorrectKeystrokes: 0,
             typedText: "",
+            typedSegments: [],
             wpmSamples: [],
             punctuation,
             capitals,
@@ -342,6 +354,7 @@ export const Typer = (props: TyperProps) => {
                 setStarted(false)
                 activeAttemptRef.current = null
                 typedTextRef.current = ""
+                typedSegmentsRef.current = []
                 keystrokeTimelineRef.current = []
                 setRestarted(true)
                 setCharacterCount(0)
@@ -392,6 +405,7 @@ export const Typer = (props: TyperProps) => {
             correctKeystrokes,
             incorrectKeystrokes: finalIncorrectCount,
             typedText: typedTextRef.current,
+            typedSegments: [...typedSegmentsRef.current],
             wpmSamples,
             punctuation,
             capitals,
@@ -482,6 +496,9 @@ export const Typer = (props: TyperProps) => {
     }, [])
     const handleCharacterAttempt = useCallback((attempt: { typed: string, correct: boolean }) => {
         typedTextRef.current += attempt.typed
+        // Keep the correctness segments in lock-step with typedText so the rendered
+        // text and its per-character highlight stay index-aligned.
+        typedSegmentsRef.current.push({ ch: attempt.typed, correct: attempt.correct })
     }, [])
     // Record every keystroke (and backspace) with a real timestamp. This timeline is
     // the source of truth for the live WPM and the over-time chart.

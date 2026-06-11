@@ -9,6 +9,12 @@ const config = {
   reactStrictMode: false,
   distDir: process.env.NEXT_DIST_DIR ?? ".next",
 
+  // Ensure the Roboto Mono TTFs the OG image route reads at runtime are bundled
+  // into its serverless function (they are read from disk, not imported).
+  outputFileTracingIncludes: {
+    "/api/og/score/[slug]": ["./src/server/og/fonts/**"],
+  },
+
   /**
    * If you have `experimental: { appDir: true }` set, then you must comment the below `i18n` config
    * out.

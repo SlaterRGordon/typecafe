@@ -6,16 +6,23 @@ test.use({ viewport: { width: 375, height: 667 } });
 
 async function expectModalFits(page: Page, box: Locator) {
   await expect(box).toBeVisible();
-  const bounds = await box.boundingBox();
   const viewport = page.viewportSize();
-  expect(bounds).not.toBeNull();
   expect(viewport).not.toBeNull();
-  if (bounds && viewport) {
-    // The modal box never exceeds the viewport height and stays fully on-screen
-    // (1px tolerance for sub-pixel rounding / borders).
+  if (!viewport) return;
+
+  // Poll the bottom edge so the open/slide-in animation settles before asserting
+  // (the box transitions up from below; measuring too early catches it mid-slide).
+  await expect.poll(async () => {
+    const b = await box.boundingBox();
+    return b ? Math.round(b.y + b.height) : Infinity;
+  }, { timeout: 5000 }).toBeLessThanOrEqual(viewport.height + 1);
+
+  const bounds = await box.boundingBox();
+  expect(bounds).not.toBeNull();
+  if (bounds) {
+    // The settled box never exceeds the viewport height and stays fully on-screen.
     expect(bounds.height).toBeLessThanOrEqual(viewport.height + 1);
     expect(bounds.y).toBeGreaterThanOrEqual(-1);
-    expect(bounds.y + bounds.height).toBeLessThanOrEqual(viewport.height + 1);
   }
 }
 
@@ -56,6 +63,8 @@ test.describe("modals fit on a small mobile viewport", () => {
     await page.locator("label[for='configModal']").filter({ hasText: /^Edit Profile$/ }).click();
     await expect(page.getByRole("heading", { name: "Edit Profile" })).toBeVisible();
     await expectModalFits(page, boxFor(page, "Edit Profile"));
+    // Save Changes sits at the end of the scrollable form; confirm it's reachable.
+    await page.getByRole("button", { name: "Save Changes" }).scrollIntoViewIfNeeded();
     await expect(page.getByRole("button", { name: "Save Changes" })).toBeInViewport();
   });
 });

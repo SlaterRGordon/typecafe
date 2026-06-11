@@ -86,6 +86,7 @@ function makeScore(input: ProcedureInput) {
 }
 
 function makeScoreSnapshot() {
+  const typedText = "olympus worse sharing touching authorized commodities modems colon malpractice";
   return {
     durationSeconds: 15,
     rawWpm: 72.35,
@@ -94,7 +95,8 @@ function makeScoreSnapshot() {
     totalKeystrokes: 548,
     correctKeystrokes: 531,
     incorrectKeystrokes: 17,
-    typedText: "olympus worse sharing touching authorized commodities modems colon malpractice",
+    typedText,
+    typedSegments: typedText.split("").map((ch, index) => ({ ch, correct: index % 17 !== 0 })),
     wpmSamples: [
       { elapsedSeconds: 0, wpm: 0 },
       { elapsedSeconds: 5, wpm: 45 },
@@ -122,7 +124,7 @@ function responseForProcedure(procedure: string, input: ProcedureInput, options:
       if (options.emptyScores) return [];
       return [makeScore(input)];
     case "test.create":
-      return makeScore({ ...input, userId: profileUser.id });
+      return { ...makeScore({ ...input, userId: profileUser.id }), brag: "New personal best" };
     case "test.getTimeTyped":
       return { _sum: { count: 1234 } };
     case "test.getBestScore":

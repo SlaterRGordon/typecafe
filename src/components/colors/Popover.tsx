@@ -36,7 +36,7 @@ export const Popover = ({color, setColor, isOpen, togglePopover, position}: Prop
                     onChange={setColor}
                     prefixed
                     placeholder="#ffffff"
-                    className="input input-bordered input-sm w-full"
+                    className="input input-bordered input-sm w-[90%]"
                 />
             </div>
         </div>
