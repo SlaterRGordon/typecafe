@@ -24,6 +24,7 @@ export interface ScoreSnapshot {
   incorrectKeystrokes: number;
   typedText: string;
   typedSegments?: TypedSegment[];
+  brag?: string | null;
   punctuation?: boolean;
   capitals?: boolean;
   ranked?: boolean;
@@ -402,7 +403,6 @@ export function ShareableScoreCard(props: ShareableScoreCardProps) {
   const resetTimerRef = useRef<number | null>(null);
   const scoreCardRef = useRef<HTMLDivElement | null>(null);
   const shareImageRef = useRef<HTMLDivElement | null>(null);
-  const scoreTitleId = useId();
   const modeText = `${modeLabels[score.mode]} / ${subModeLabels[score.subMode]} / ${score.language}`;
   const shareButtonLabel = isCreatingShare ? "Creating..." : linkState === "copied" ? "Link copied" : "Share Score";
   const screenshotButtonLabel = imageState === "copied" ? "Screenshot copied" : imageState === "downloaded" ? "Image downloaded" : "Copy Screenshot";
@@ -457,15 +457,16 @@ export function ShareableScoreCard(props: ShareableScoreCardProps) {
         ref={scoreCardRef}
         data-testid="score-screenshot-card"
         role="region"
-        aria-labelledby={scoreTitleId}
+        aria-label="Typing test results"
         className="rounded-xl border border-base-content/15 bg-base-200 p-5 text-base-content shadow-2xl shadow-base-300/40 sm:p-6"
       >
         <div className="score-reveal flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-4">
             <div>
-              <h1 id={scoreTitleId} className="text-3xl font-bold leading-tight">Test Complete!</h1>
-              <p className="mt-1 text-base-content/80">Great job! You&apos;ve completed the test.</p>
-              <p className="mt-1 text-sm text-base-content/65">{modeText} / {formatDate(score.createdAt)}</p>
+              {score.brag &&
+                <p className="mb-2 inline-block rounded-full bg-primary/15 px-3 py-1 text-sm font-bold text-primary">{score.brag}</p>
+              }
+              <p className="text-sm text-base-content/65">{modeText} / {formatDate(score.createdAt)}</p>
               {(score.punctuation || score.capitals || score.ranked === false) &&
                 <div className="mt-2 flex flex-wrap gap-2">
                   {score.punctuation &&

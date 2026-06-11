@@ -5,6 +5,64 @@ import {
   publicProcedure,
   protectedProcedure,
 } from "~/server/api/trpc";
+import type { PrismaClient } from "~/generated/prisma/client";
+
+// Only surface a percentile brag when it is flattering — never tell a slow typer
+// they are "faster than 8% of typers". Below the threshold we fall back to a
+// personal best or no brag at all.
+const PERCENTILE_BRAG_THRESHOLD = 60;
+
+interface BragArgs {
+  ranked: boolean;
+  userId: string;
+  testId: string;
+  typeId: string;
+  count: number;
+  score: number;
+}
+
+// Picks the most flattering true frame for a completed test. Mirrors the
+// profile-page ranking (distinct users, ranked tests, ordered by composite score)
+// but counts the "faster than" side directly so the percentile is accurate.
+async function buildBrag(prisma: PrismaClient, args: BragArgs): Promise<string | null> {
+  if (!args.ranked) return null;
+
+  // 1. New personal best for this exact test configuration.
+  const prevBest = await prisma.test.findFirst({
+    where: {
+      userId: args.userId,
+      ranked: true,
+      typeId: args.typeId,
+      count: args.count,
+      id: { not: args.testId },
+    },
+    orderBy: { score: "desc" },
+    select: { score: true },
+  });
+  if (prevBest && args.score > prevBest.score) return "New personal best";
+
+  // 2. Flattering global percentile, by distinct typers' best score.
+  const [betterUsers, allUsers] = await Promise.all([
+    prisma.test.findMany({
+      where: { ranked: true, score: { gte: args.score } },
+      distinct: ["userId"],
+      select: { userId: true },
+    }),
+    prisma.test.findMany({
+      where: { ranked: true },
+      distinct: ["userId"],
+      select: { userId: true },
+    }),
+  ]);
+  const total = allUsers.length;
+  if (total === 0) return null;
+  const fasterThanPct = ((total - betterUsers.length) / total) * 100;
+  if (fasterThanPct >= PERCENTILE_BRAG_THRESHOLD) {
+    return `Faster than ${Math.round(fasterThanPct)}% of typers`;
+  }
+
+  return null;
+}
 
 const testOrderBySchema = z.enum([
   "createdAt",
@@ -78,8 +136,9 @@ export const testRouter = createTRPCRouter({
       capitals: z.boolean().optional(),
       ranked: z.boolean().optional(),
     }))
-    .mutation(({ ctx, input }) => {
-      return ctx.prisma.test.create({
+    .mutation(async ({ ctx, input }) => {
+      const ranked = input.ranked ?? true;
+      const test = await ctx.prisma.test.create({
         data: {
           userId: ctx.session?.user.id,
           typeId: input.typeId,
@@ -90,10 +149,26 @@ export const testRouter = createTRPCRouter({
           options: input.options,
           punctuation: input.punctuation ?? false,
           capitals: input.capitals ?? false,
-          ranked: input.ranked ?? true,
+          ranked,
           summaryDate: new Date(),
         },
       });
+
+      // A short "brag" line for the result/share card. Choose the most flattering
+      // *true* frame so even slow typers get something positive to share:
+      //   1. a new personal best for this exact test config, else
+      //   2. a global percentile, but only when it is flattering (>= 60%), else
+      //   3. nothing (the card just shows the clean WPM).
+      const brag = await buildBrag(ctx.prisma, {
+        ranked,
+        userId: ctx.session.user.id,
+        testId: test.id,
+        typeId: input.typeId,
+        count: input.count,
+        score: input.score,
+      });
+
+      return { ...test, brag };
     }),
   getActivityByDate: publicProcedure
     .input(z.object({

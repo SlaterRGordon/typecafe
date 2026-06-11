@@ -46,7 +46,7 @@ async function finishActiveTypingTest(page: Parameters<typeof mockTrpc>[0]) {
 
   for (let index = 0; index < 300; index += 1) {
     const active = await page.evaluate(() => {
-      if (document.body.textContent?.includes("Test Complete!")) return "complete";
+      if (document.querySelector('[data-testid="score-screenshot-card"]')) return "complete";
 
       const words = document.querySelector("#words");
       if (!words) return null;
@@ -66,12 +66,12 @@ async function finishActiveTypingTest(page: Parameters<typeof mockTrpc>[0]) {
     }
 
     await page.waitForFunction((previousId) => {
-      if (document.body.textContent?.includes("Test Complete!")) return true;
+      if (document.querySelector('[data-testid="score-screenshot-card"]')) return true;
       const activeChars = Array.from(document.querySelectorAll("#words .active-char"));
       return activeChars.at(-1)?.id !== previousId;
     }, active.id, { timeout: 2000 });
 
-    if (await page.getByText("Test Complete!").isVisible()) return;
+    if (await page.getByTestId("score-screenshot-card").isVisible()) return;
   }
 
   throw new Error("Typing test did not complete within the expected character limit.");
@@ -90,7 +90,7 @@ async function completeWordTest(page: Parameters<typeof mockTrpc>[0]) {
   });
 
   await finishActiveTypingTest(page);
-  await expect(page.getByText("Test Complete!")).toBeVisible();
+  await expect(page.getByTestId("score-screenshot-card")).toBeVisible();
 }
 
 test.describe("shared scores", () => {
@@ -99,7 +99,7 @@ test.describe("shared scores", () => {
 
     await page.goto("/score/share-test-score");
 
-    await expect(page.getByText("Test Complete!")).toBeVisible();
+    await expect(page.getByTestId("score-screenshot-card")).toBeVisible();
     expect(await page.getByText("72.4").count()).toBeGreaterThan(0);
     expect(await page.getByText("96.50%").count()).toBeGreaterThan(0);
     await expect(page.getByText("WPM Over Time")).toBeVisible();
@@ -123,6 +123,8 @@ test.describe("shared scores", () => {
     await expect(page.getByText("WPM Over Time")).toBeVisible();
     await expect(page.getByText("Performance Details")).toBeVisible();
     await expect(page.getByText("Your Typed Text")).toBeVisible();
+    // The server-computed brag line is surfaced on the results dashboard.
+    await expect(page.getByTestId("score-screenshot-card").getByText("New personal best")).toBeVisible();
     await expect(page.locator("#words")).toBeHidden();
     await page.getByRole("button", { name: "Share Score" }).click({ force: true });
 
@@ -142,7 +144,7 @@ test.describe("shared scores", () => {
     await completeWordTest(page);
     await expect(page.locator("#words")).toBeHidden();
     await page.getByRole("button", { name: "Test Again" }).click({ force: true });
-    await expect(page.getByText("Test Complete!")).toBeHidden();
+    await expect(page.getByTestId("score-screenshot-card")).toBeHidden();
     await expect(page.locator("#words")).toBeVisible();
     await expect(page.locator("#c0")).toHaveClass(/active-char/);
 
@@ -151,7 +153,7 @@ test.describe("shared scores", () => {
     await page.keyboard.down("Tab");
     await page.keyboard.press("Space");
     await page.keyboard.up("Tab");
-    await expect(page.getByText("Test Complete!")).toBeHidden();
+    await expect(page.getByTestId("score-screenshot-card")).toBeHidden();
     await expect(page.locator("#words")).toBeVisible();
     await expect(page.locator("#c0")).toHaveClass(/active-char/);
 
@@ -160,7 +162,7 @@ test.describe("shared scores", () => {
     await page.keyboard.down("Tab");
     await page.keyboard.press("Enter");
     await page.keyboard.up("Tab");
-    await expect(page.getByText("Test Complete!")).toBeHidden();
+    await expect(page.getByTestId("score-screenshot-card")).toBeHidden();
     await expect(page.locator("#words")).toBeVisible();
     await expect(page.locator("#c0")).toHaveClass(/active-char/);
   });
@@ -171,7 +173,7 @@ test.describe("shared scores", () => {
 
     await page.goto("/score/share-test-score");
 
-    await expect(page.getByText("Test Complete!")).toBeVisible();
+    await expect(page.getByTestId("score-screenshot-card")).toBeVisible();
     // The screenshot target is the off-screen, fixed-size social card, not the
     // full results dashboard.
     const deviceScaleFactor = await page.evaluate(() => window.devicePixelRatio || 1);
@@ -196,7 +198,7 @@ test.describe("shared scores", () => {
     await mockTrpc(page);
 
     await page.goto("/score/share-test-score");
-    await expect(page.getByText("Test Complete!")).toBeVisible();
+    await expect(page.getByTestId("score-screenshot-card")).toBeVisible();
 
     const downloadPromise = page.waitForEvent("download");
     await page.getByRole("button", { name: "Copy Screenshot" }).click({ force: true });
@@ -204,6 +206,25 @@ test.describe("shared scores", () => {
     const download = await downloadPromise;
     expect(download.suggestedFilename()).toBe("typecafe-score.png");
     await expect(page.getByRole("button", { name: "Image downloaded" })).toBeVisible();
+  });
+
+  test("exposes an OG image and per-score meta tags for unfurls", async ({ page }) => {
+    await mockTrpc(page);
+
+    // The score page server-renders OG/Twitter meta pointing at the image endpoint.
+    const response = await page.goto("/score/share-test-score");
+    const html = (await response?.text()) ?? "";
+    expect(html).toContain('property="og:image"');
+    expect(html).toContain("/api/og/score/share-test-score");
+    expect(html).toContain('name="twitter:card" content="summary_large_image"');
+
+    // The image endpoint renders a PNG (falls back to a brand card without a DB).
+    const image = await page.request.get("/api/og/score/share-test-score");
+    expect(image.status()).toBe(200);
+    expect(image.headers()["content-type"]).toContain("image/png");
+    const bytes = await image.body();
+    // PNG magic number.
+    expect([...bytes.subarray(0, 4)]).toEqual([137, 80, 78, 71]);
   });
 
   test("shows an unavailable state for invalid share links", async ({ page }) => {

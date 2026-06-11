@@ -93,6 +93,10 @@ export const ShareableScoreImage = forwardRef<HTMLDivElement, { score: Shareable
             {/* Wordmark with the domain stacked beneath it */}
             <span className="font-mono text-4xl font-bold tracking-tight text-base-content">TypeCafe</span>
             <span className="mt-1 font-mono text-xl text-base-content/55">{SHARE_DOMAIN}</span>
+            {/* Optional brag chip (personal best / flattering percentile) */}
+            {score.brag ?
+              <span className="mt-6 -mb-2 self-start rounded-full bg-primary/15 px-4 py-1.5 font-mono text-lg font-bold text-primary">{score.brag}</span>
+              : null}
             {/* Hero */}
             <span className="mt-6 text-2xl font-semibold uppercase tracking-widest text-primary">Words per minute</span>
             <span className="font-mono font-bold leading-none text-primary" style={{ fontSize: "150px", letterSpacing: "-0.04em" }}>

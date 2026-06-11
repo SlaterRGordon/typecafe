@@ -23,6 +23,7 @@ const scoreSnapshotSchema = z.object({
     ch: z.string(),
     correct: z.boolean(),
   })).optional(),
+  brag: z.string().nullish(),
   punctuation: z.boolean().optional(),
   capitals: z.boolean().optional(),
   ranked: z.boolean().optional(),

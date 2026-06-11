@@ -124,7 +124,7 @@ function responseForProcedure(procedure: string, input: ProcedureInput, options:
       if (options.emptyScores) return [];
       return [makeScore(input)];
     case "test.create":
-      return makeScore({ ...input, userId: profileUser.id });
+      return { ...makeScore({ ...input, userId: profileUser.id }), brag: "New personal best" };
     case "test.getTimeTyped":
       return { _sum: { count: 1234 } };
     case "test.getBestScore":

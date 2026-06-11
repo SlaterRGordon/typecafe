@@ -102,6 +102,7 @@ export interface TestCompletionResult {
     levelName?: string,
     persisted: boolean,
     testId?: string,
+    brag?: string | null,
 }
 
 interface TyperProps {
@@ -206,7 +207,7 @@ export const Typer = (props: TyperProps) => {
         onSuccess: (test) => {
             const completion = pendingCompletionRef.current
             if (completion) {
-                props.onTestComplete?.({ ...completion, persisted: true, testId: test.id })
+                props.onTestComplete?.({ ...completion, persisted: true, testId: test.id, brag: test.brag })
                 pendingCompletionRef.current = null
             }
         },
