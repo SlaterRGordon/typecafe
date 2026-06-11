@@ -16,19 +16,21 @@ export default function Document() {
                 <link rel="icon" type="image/png" sizes="32x32" href="/images/TypeCafe32x32.png"/>
                 <link rel="icon" type="image/png" sizes="64x64" href="/images/TypeCafe64x64.png"/>
                 <meta name="google-site-verification" content="k7imjzARc_FR0VJoclkwODcjF6-MSxaWKYO_N4hHg2w" />
-                <Script
-                    src="https://www.googletagmanager.com/gtag/js?id=G-16KETVK938"
-                    strategy="afterInteractive"
-                />
-                <Script id="google-analytics" strategy="afterInteractive">
-                    {`
+                {process.env.NODE_ENV === "production" && <>
+                    <Script
+                        src="https://www.googletagmanager.com/gtag/js?id=G-16KETVK938"
+                        strategy="afterInteractive"
+                    />
+                    <Script id="google-analytics" strategy="afterInteractive">
+                        {`
                     window.dataLayer = window.dataLayer || [];
                     function gtag(){window.dataLayer.push(arguments);}
                     gtag('js', new Date());
 
                     gtag('config', 'G-16KETVK938');
                     `}
-                </Script>
+                    </Script>
+                </>}
             </Head>
             <body className="overflow-hidden">
                 <Main />
