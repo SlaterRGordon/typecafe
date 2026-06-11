@@ -97,7 +97,7 @@ function ScoreCard(props: { data: OgScoreData; brag?: string }) {
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={sparklineDataUri(data.wpmSamples, data.rawWpm)} width={1088} height={150} alt="" />
         <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 20 }}>
-          <div style={{ fontSize: 22, fontWeight: 700, color: BRAND.text }}>{username}</div>
+          <div style={{ fontSize: 22, fontWeight: 700, color: BRAND.text, maxWidth: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{username}</div>
         </div>
       </div>
     </div>

@@ -115,7 +115,7 @@ export const ShareableScoreImage = forwardRef<HTMLDivElement, { score: Shareable
         <div className="flex flex-col gap-5">
           <Sparkline samples={score.wpmSamples} rawWpm={score.rawWpm} />
           <div className="flex justify-end">
-            <span className="font-mono text-2xl font-bold text-base-content">{username}</span>
+            <span className="max-w-sm truncate font-mono text-2xl font-bold text-base-content">{username}</span>
           </div>
         </div>
       </div>
