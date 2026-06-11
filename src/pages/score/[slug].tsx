@@ -113,6 +113,7 @@ const SharedScorePage: NextPage<SharedScorePageProps> = ({ slug, meta }) => {
     <>
       <Head>
         <title>{meta.title}</title>
+        <link key="canonical" rel="canonical" href={meta.pageUrl} />
         <meta key="description" name="description" content={meta.description} />
         <meta key="og:type" property="og:type" content="website" />
         <meta key="og:title" property="og:title" content={meta.title} />

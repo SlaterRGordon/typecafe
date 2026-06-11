@@ -3,12 +3,14 @@ import Script from "next/script";
 
 export default function Document() {
     return (
-        <Html data-theme="dark">
+        <Html lang="en" data-theme="dark">
             <Head>
                 {/* Site-wide OG/description defaults live in _app.tsx (via next/head)
                     so individual pages can override them by key. Keep only static,
                     non-overridable tags here. */}
-                <meta name="keywords" content="typing, test, asthetic, minimalistic, keyboard, speed, leaderboard, track" />
+                <meta name="keywords" content="typing, test, aesthetic, minimalistic, keyboard, speed, leaderboard, track" />
+                <meta name="theme-color" content="#1b1d29" />
+                <link rel="manifest" href="/manifest.json" />
                 <link rel="shortcut icon" href="/images/TypeCafeIcon.ico" />
                 <link rel="icon" type="image/png" sizes="16x16" href="/images/TypeCafe16x16.png"/>
                 <link rel="icon" type="image/png" sizes="32x32" href="/images/TypeCafe32x32.png"/>
