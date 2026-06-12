@@ -39,7 +39,7 @@ const MyApp: AppType<{ session: Session | null }> = ({
           </Head>
           <Component {...pageProps} />
         </Layout>
-        {process.env.VERCEL_ENV === "production" && <>
+        {process.env.NEXT_PUBLIC_VERCEL_ENV === "production" && <>
           <Script
             src="https://www.googletagmanager.com/gtag/js?id=G-16KETVK938"
             strategy="afterInteractive"
