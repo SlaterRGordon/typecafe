@@ -244,7 +244,7 @@ const Learn: NextPage = () => {
     const isLearnContentLoading = isLearnProgressLoading || isLevelSelectionLoading
 
     return (
-        <div className={`flex flex-col w-full h-full overflow-y-auto overflow-x-hidden px-4 pt-4 pb-4 ${fullscreen ? 'absolute top-0 left-0 w-full h-full bg-base-100 z-[500]' : "relative md:w-10/12 md:self-center md:px-0 md:pt-8 md:pb-8"}`}>
+        <div className={`flex flex-col w-full h-full items-center overflow-y-auto overflow-x-hidden px-4 pt-4 pb-4 ${fullscreen ? 'absolute top-0 left-0 w-full h-full bg-base-100 z-[500]' : "relative md:w-10/12 md:self-center md:px-0 md:pt-8 md:pb-8"}`}>
             <div className="flex w-full max-w-screen-xl flex-col items-center gap-3 py-2 md:gap-4">
                 {sessionStatus === "unauthenticated" &&
                     <div className="flex w-full justify-start">
