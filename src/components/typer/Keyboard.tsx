@@ -80,7 +80,7 @@ export const Keyboard = (props: KeyboardProps) => {
     }
 
     return (
-        <div className="typecafe-keyboard flex flex-col w-full items-center justify-center py-3 pt-2 md:py-4">
+        <div className="typecafe-keyboard flex flex-col w-full items-center justify-start py-3 pt-2 md:py-4">
             {mode === TestModes.practice && (
                 showStats ?
                     <div className="flex justify-end w-[30.7rem]">

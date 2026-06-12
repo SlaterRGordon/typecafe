@@ -245,7 +245,8 @@ const Learn: NextPage = () => {
 
     return (
         <div className={`flex flex-col w-full h-full items-center overflow-y-auto overflow-x-hidden px-4 pt-4 pb-4 ${fullscreen ? 'absolute top-0 left-0 w-full h-full bg-base-100 z-[500]' : "relative md:w-10/12 md:self-center md:px-0 md:pt-8 md:pb-8"}`}>
-            <div className="flex w-full max-w-screen-xl flex-col items-center gap-3 py-2 md:gap-4">
+            <div className="flex w-full flex-col items-center justify-center gap-6 py-4 md:min-h-full md:gap-24 md:py-8">
+            <div className="flex w-full max-w-screen-xl flex-col items-center gap-3 md:gap-4">
                 {sessionStatus === "unauthenticated" &&
                     <div className="flex w-full justify-start">
                         <label className="btn btn-primary btn-sm" htmlFor="signInModal">
@@ -327,7 +328,7 @@ const Learn: NextPage = () => {
                     </>
                 }
             </div>
-            <div className="flex flex-1 flex-col w-full max-w-screen-xl items-center justify-center">
+            <div className="flex flex-col w-full max-w-screen-xl items-center">
                 {isLearnContentLoading ?
                     <div className="flex min-h-[12rem] items-center" role="status" aria-live="polite">
                         <div className="h-8 w-8 animate-spin rounded-full border border-solid border-t-transparent text-primary"></div>
@@ -361,6 +362,7 @@ const Learn: NextPage = () => {
                 {!isLearnContentLoading &&
                     <Keyboard mode={mode} currentKey={currentKey} charAttemptsRef={charAttemptsRef} highlightKeys={level.keys.split("")} />
                 }
+            </div>
             </div>
         </div>
     );
