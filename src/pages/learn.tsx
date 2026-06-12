@@ -244,7 +244,7 @@ const Learn: NextPage = () => {
     const isLearnContentLoading = isLearnProgressLoading || isLevelSelectionLoading
 
     return (
-        <div className={`flex flex-col w-full h-full items-center justify-start overflow-y-auto overflow-x-hidden px-4 pb-24 pt-4 md:w-10/12 md:px-0 md:pb-12 md:pt-8 ${fullscreen ? 'absolute top-0 left-0 w-full h-full bg-base-100 z-[500]' : "relative"}`}>
+        <div className={`flex flex-col w-full h-full overflow-y-auto overflow-x-hidden px-4 pt-4 pb-4 ${fullscreen ? 'absolute top-0 left-0 w-full h-full bg-base-100 z-[500]' : "relative md:w-10/12 md:self-center md:px-0 md:pt-8 md:pb-8"}`}>
             <div className="flex w-full max-w-screen-xl flex-col items-center gap-3 py-2 md:gap-4">
                 {sessionStatus === "unauthenticated" &&
                     <div className="flex w-full justify-start">
@@ -327,7 +327,7 @@ const Learn: NextPage = () => {
                     </>
                 }
             </div>
-            <div className="flex w-full max-w-screen-xl justify-center px-0 mt-6 md:mt-10">
+            <div className="flex flex-1 flex-col w-full max-w-screen-xl items-center justify-center">
                 {isLearnContentLoading ?
                     <div className="flex min-h-[12rem] items-center" role="status" aria-live="polite">
                         <div className="h-8 w-8 animate-spin rounded-full border border-solid border-t-transparent text-primary"></div>
@@ -358,10 +358,10 @@ const Learn: NextPage = () => {
                         charAttemptsRef={charAttemptsRef}
                     />
                 }
+                {!isLearnContentLoading &&
+                    <Keyboard mode={mode} currentKey={currentKey} charAttemptsRef={charAttemptsRef} highlightKeys={level.keys.split("")} />
+                }
             </div>
-            {!isLearnContentLoading &&
-                <Keyboard mode={mode} currentKey={currentKey} charAttemptsRef={charAttemptsRef} highlightKeys={level.keys.split("")} />
-            }
         </div>
     );
 };
