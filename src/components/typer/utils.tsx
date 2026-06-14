@@ -1,24 +1,45 @@
 import biGrams from './languages/nGrams/biGrams.json'
 import triGrams from './languages/nGrams/triGrams.json'
 import tetraGrams from './languages/nGrams/tetraGrams.json'
-import pentaGrams from './languages/nGrams/pentaGrams.json'
 
 import english10k from './languages/english10k.json'
-import french10k from './languages/french10k.json'
-import chinese10k from './languages/chinese10k.json'
-import spanish10k from './languages/spanish10k.json'
-import hindi1k from './languages/hindi1k.json'
 
 import { TestGramScopes, TestGramSources } from './types'
-import type { ReactElement } from 'react'
 
-const languages = {
-    english: english10k,
-    french: french10k,
-    chinese: chinese10k,
-    spanish: spanish10k,
-    hindi: hindi1k,
+interface WordList {
+    words: string[],
 }
+
+// English ships in the main bundle because it is the default language for every
+// mode. All other word lists (and the 400 KB pentagrams file) load on demand —
+// they would otherwise dominate the first-paint bundle.
+const languages: Record<string, WordList> = {
+    english: english10k,
+}
+
+const languageLoaders: Record<string, () => Promise<WordList>> = {
+    french: async () => (await import('./languages/french10k.json')).default,
+    spanish: async () => (await import('./languages/spanish10k.json')).default,
+    chinese: async () => (await import('./languages/chinese10k.json')).default,
+    hindi: async () => (await import('./languages/hindi1k.json')).default,
+}
+
+const languagePromises: Record<string, Promise<void>> = {}
+
+export const ensureLanguageLoaded = (language: string): Promise<void> => {
+    if (languages[language]) return Promise.resolve()
+    const loader = languageLoaders[language]
+    if (!loader) return Promise.resolve()
+    languagePromises[language] ??= loader().then((wordList) => {
+        languages[language] = wordList
+    })
+    return languagePromises[language]
+}
+
+// Falls back to English when a language hasn't loaded yet — callers that need a
+// guarantee should await ensureLanguageLoaded first.
+const getWords = (language: string): string[] =>
+    (languages[language] ?? languages.english!).words
 
 interface NGrams {
     biGrams: string[],
@@ -31,40 +52,23 @@ const ngrams: NGrams = {
     biGrams: biGrams.grams,
     triGrams: triGrams.grams,
     tetraGrams: tetraGrams.grams,
-    pentaGrams: pentaGrams.grams,
+    pentaGrams: [],
 }
 
-export const generatePseudoText = (count: number, language: string, characters: string[]) => {
-    let text = ''
-    const frequencies = [0.1944, 0.4166, 0.5888, 0.7000, 0.7833, 0.8592, 0.9142, 0.9558, 0.9835, 1.000]
-    const words = languages[language as keyof typeof languages].words
-    const filteredWords = words.filter((word: string) => {
-        if (!word.includes(characters[characters.length - 1] as string)) return false
+let pentaGramsRequested = false
 
-        for (let i = 0; i < word.length; i++) {
-            if (!characters.includes(word[i] as string)) return false
-        }
-
-        return true
+// Fire-and-forget: the first practice text may be generated without pentagrams
+// (bi/tri/tetragrams still apply), every later one includes them.
+const requestPentaGrams = () => {
+    if (pentaGramsRequested) return
+    pentaGramsRequested = true
+    void import('./languages/nGrams/pentaGrams.json').then((module) => {
+        ngrams.pentaGrams = module.default.grams
     })
-
-    // Generate random text
-    for (let i = 0; i < count; i++) {
-        const randomDecimal = Math.random()
-        for (let j = 0; j < frequencies.length; j++) {
-            if (randomDecimal <= (frequencies[j] as number)) {
-                const randomIndex = Math.floor(Math.random() * filteredWords.length)
-                text = text += (filteredWords[randomIndex] as string) + ' '
-                break;
-            }
-        }
-    }
-
-    // Remove last space
-    return text.toLowerCase().slice(0, -1)
 }
 
 export const generateBetterPseudoText = (count: number, characters: string[]) => {
+    requestPentaGrams()
     let text = ''
 
     let allGrams: string[] = []
@@ -90,7 +94,7 @@ export const generateBetterPseudoText = (count: number, characters: string[]) =>
     const availableVowels = characters.filter((char: string) => vowels.includes(char))
     const availableConsonants = characters.filter((char: string) => consonants.includes(char))
 
-    const englishWords = languages["english"].words
+    const englishWords = getWords("english")
     const filteredWords = englishWords.filter((word: string) => {
         for (let i = 0; i < word.length; i++) {
             if (!characters.includes(word[i] as string)) return false
@@ -136,10 +140,15 @@ export const generateBetterPseudoText = (count: number, characters: string[]) =>
         }
 
         let newWord = ''
-        while(newWord.length !== wordLength) {
+        // `< wordLength` (not `!==`) plus the break below guarantees this loop
+        // always terminates: each pass either grows newWord or breaks out. With
+        // `!==` and a missing gram (e.g. a vowel is needed but no selected key is a
+        // vowel) the word could never reach its target length and the loop — and
+        // the whole UI — would hang. See utils.test.ts "always terminates".
+        while(newWord.length < wordLength) {
             let filteredGramsByLength: string[] = []
             let randomGram = ''
-            
+
             if (wordLength - newWord.length === 1) {
                 // if last character is a consonant, add a vowel
                 if (!newWord.slice(-1).match(/[aeiou]/g)) {
@@ -163,13 +172,11 @@ export const generateBetterPseudoText = (count: number, characters: string[]) =>
                 const randomIndex = Math.floor(Math.random() * filteredGramsByLength.length)
                 randomGram = filteredGramsByLength[randomIndex] as string
             }
-            if (randomGram == undefined) {
-                newWord += ''
-            } else {
-                newWord += randomGram
-            }
+            // Nothing can extend the word — bail out instead of spinning forever.
+            if (!randomGram) break
+            newWord += randomGram
         }
-        text = text += newWord + ' '
+        if (newWord) text = text += newWord + ' '
     }
 
     return text.toLowerCase().slice(0, -1)
@@ -229,7 +236,7 @@ export const generateText = (count: number, language: string) => {
     let text = ''
 
     // Generate random text
-    const words = languages[language as keyof typeof languages].words
+    const words = getWords(language)
     for (let i = 0; i < count; i++) {
         const randomIndex = Math.floor(Math.random() * words.length)
         const randomWord = String(words[randomIndex])
@@ -240,12 +247,14 @@ export const generateText = (count: number, language: string) => {
     return text.toLowerCase().slice(0, -1)
 }
 
+const MAX_NGRAM_COPIES = 20
+
 export const generateNGram = (source: TestGramSources, scope: TestGramScopes, combination: number, repetition: number, level: number) => {
     let ngram = ''
     let words: string[] = []
 
     if (source === TestGramSources.words) {
-        words = languages["english"].words
+        words = getWords("english")
     } else if (source === TestGramSources.bigrams) {
         words = ngrams.biGrams
     } else if (source === TestGramSources.trigrams) {
@@ -263,51 +272,13 @@ export const generateNGram = (source: TestGramSources, scope: TestGramScopes, co
         ngram = ngram += levelGram + ' '
     }
 
-    for (let i = 0; i < repetition; i++) {
-        ngram = ngram += ngram
-    }
+    // `repetition` extra copies on top of the base, clamped so a large input
+    // can't generate an unrenderably long string.
+    const copies = Math.min(repetition + 1, MAX_NGRAM_COPIES)
+    ngram = ngram.repeat(copies)
 
     // Remove last space
     return ngram.toLowerCase().slice(0, -1)
-}
-
-export const buildText = (text: string, charStates: ("incorrect" | "default" | "correct")[], position: number, index = 0) => {
-    const initialIndex = index
-    const words: ReactElement[] = []
-    text.split(" ").forEach(word => {
-        const letters: ReactElement[] = []
-
-        word.split("").forEach(letter => {
-            letters.push(
-                <div key={"c-" + index.toString()} id={"c" + index.toString()}
-                    className={`
-                        ${charStates[index] === 'correct' ? 'text-base-300' : ''}
-                        ${charStates[index] === 'incorrect' ? 'text-secondary underline' : ''}
-                        ${index === position ? 'active-char text-primary' : ''}
-                `}>{letter}</div>
-            );
-            index += 1;
-        })
-
-        // add space to end of word
-        if (index !== (text.length + initialIndex)) {
-            letters.push(
-                <div key={"c-" + index.toString()} id={"c" + index.toString()}
-                    className={`
-                    ${charStates[index] === 'correct' ? 'text-base-300' : ''}
-                    ${charStates[index] === 'incorrect' ? 'text-secondary underline' : ''}
-                    ${index === position ? 'active-char text-primary' : ''}
-                `}
-                >&nbsp;</div>
-            );
-            index += 1;
-        }
-
-        // add word
-        words.push(<div key={index} className="inline-flex">{letters}</div>);
-    })
-
-    return words;
 }
 
 export const getGramLevelText = (level: number, combination: number, scope: TestGramScopes) => {

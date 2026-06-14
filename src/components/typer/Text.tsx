@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
+import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { applyTextOptions, generateText } from "./utils"
-import { TestModes } from "./types"
+import { TestModes, TestSubModes } from "./types"
+import { isAnyModalOpen, isModalOpen, MODAL_IDS } from "~/lib/modals"
 
 interface TextProps {
     text: string,
@@ -9,6 +10,7 @@ interface TextProps {
     modalOpen: boolean,
     language: string,
     mode: TestModes,
+    subMode: TestSubModes,
     punctuation?: boolean,
     capitals?: boolean,
     charAttempts: Map<string, { attempts: number, correct: number }>
@@ -22,7 +24,10 @@ interface TextProps {
     onAttemptChange?: () => void,
 }
 
-export const Text = (props: TextProps) => {
+// Memoized: keystrokes mutate the DOM directly and report progress through
+// stable callbacks, so this only re-renders when the test itself changes
+// (new text, restart, mode/option changes).
+export const Text = memo(function Text(props: TextProps) {
     const {
         text,
         started,
@@ -30,6 +35,7 @@ export const Text = (props: TextProps) => {
         modalOpen,
         language,
         mode,
+        subMode,
         punctuation = false,
         capitals = false,
         charAttempts,
@@ -123,23 +129,14 @@ export const Text = (props: TextProps) => {
             if (input) input.focus()
         }
         const handleWindowKeydown = () => {
-            const configModal = document.getElementById("configModal") as HTMLInputElement
-            const colorModal = document.getElementById("colorModal") as HTMLInputElement
-            const signInModal = document.getElementById("signInModal") as HTMLInputElement
-            const usernameModal = document.getElementById("usernameModal") as HTMLInputElement
-
             const input = inputRef.current
 
-            if (colorModal?.checked) {
+            if (isModalOpen(MODAL_IDS.color)) {
                 const nameInput = document.getElementById("nameInput") as HTMLInputElement
                 if (nameInput) nameInput.focus()
             }
 
-            if (!configModal?.checked &&
-                !colorModal?.checked &&
-                !signInModal?.checked &&
-                !usernameModal?.classList.contains("modal-open")
-            ) {
+            if (!isAnyModalOpen()) {
                 if (input) input.focus()
             } else {
                 if (input) input.blur()
@@ -175,9 +172,13 @@ export const Text = (props: TextProps) => {
         if (input && !modalOpen) input.focus()
     }, [modalOpen, renderInitialText, restarted, text])
 
-    // Append new text when needed (relaxed mode)
+    // Append new text when needed. Relaxed mode scrolls forever; timed tests must
+    // also never run out of text — a fast typist on a long custom duration would
+    // otherwise exhaust the buffer and deadlock until the timer expires.
+    const appendsText = mode === TestModes.relaxed ||
+        (mode === TestModes.normal && subMode === TestSubModes.timed)
     useEffect(() => {
-        if (mode === TestModes.relaxed && !isAppendingRef.current) {
+        if (appendsText && !isAppendingRef.current) {
             const threshold = 300
             if (position >= currentTextRef.current.length - threshold) {
                 isAppendingRef.current = true
@@ -187,7 +188,7 @@ export const Text = (props: TextProps) => {
                 isAppendingRef.current = false
             }
         }
-    }, [appendNewText, language, mode, position, punctuation, capitals])
+    }, [appendNewText, appendsText, language, position, punctuation, capitals])
 
     useEffect(() => {
         if (!started && !restarted) {
@@ -226,13 +227,12 @@ export const Text = (props: TextProps) => {
                 nextLetter(true, e.key)
                 // start timer
                 if (currentPosition === 0 && !started) onStart()
-            } else if (
-                currentPosition > 0 &&
-                (e.code == 'Space' || e.key.length == 1)
-            ) {
+            } else if (e.code == 'Space' || e.key.length == 1) {
                 // Any single printable key (letter, capital, punctuation, symbol) that
-                // does not match the expected character counts as an incorrect attempt.
+                // does not match the expected character counts as an incorrect attempt —
+                // including on the very first character, which also starts the timer.
                 nextLetter(false, e.key)
+                if (currentPosition === 0 && !started) onStart()
             } else if (currentPosition > 0 && e.code === 'Backspace') {
                 prevLetter()
             }
@@ -336,4 +336,4 @@ export const Text = (props: TextProps) => {
             </div>
         </div>
     )
-}
+})

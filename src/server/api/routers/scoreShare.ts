@@ -23,6 +23,11 @@ const scoreSnapshotSchema = z.object({
     ch: z.string(),
     correct: z.boolean(),
   })).optional(),
+  worstKeys: z.array(z.object({
+    key: z.string(),
+    accuracy: z.number().min(0).max(100),
+    attempts: z.number().int().nonnegative(),
+  })).optional(),
   brag: z.string().nullish(),
   punctuation: z.boolean().optional(),
   capitals: z.boolean().optional(),

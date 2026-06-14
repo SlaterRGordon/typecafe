@@ -1,35 +1,63 @@
 import { type NextPage } from "next";
 import Head from "next/head";
 import { useRouter } from "next/router";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { Modal } from "~/components/Modal";
 import { ShareableScoreCard, type ScoreSnapshot } from "~/components/scores/ShareableScoreCard";
 import { Keyboard } from "~/components/typer/Keyboard";
 import { Typer, type TestCompletionResult } from "~/components/typer/Typer";
 import { Config } from "~/components/typer/config/Config";
-import { TestGramScopes, TestGramSources, TestModes, TestSubModes } from "~/components/typer/types";
+import type { TestGramScopes, TestGramSources } from "~/components/typer/types";
+import { TestModes, TestSubModes } from "~/components/typer/types";
+import { useTestSettings } from "~/hooks/useTestSettings";
+import { withPracticeVowel } from "~/lib/diagnosis";
 import { api } from "~/utils/api";
+
+// The diagnosed test we'll offer to re-run after a drill, so its result can show
+// a before→after WPM delta (Phase 1.3). Lives in sessionStorage as
+// `typecafe:reMeasure` (set at the drill handoff, cleared once the delta shows).
+interface ReMeasureState {
+  beforeWpm: number;
+  config: {
+    subMode: TestSubModes;
+    count: number;
+    language: string;
+    customLength: boolean;
+    punctuation: boolean;
+    capitals: boolean;
+    options: string;
+  };
+}
+
+const RE_MEASURE_KEY = "typecafe:reMeasure";
+const RE_MEASURE_TTL_MS = 60 * 60 * 1000;
 
 const Home: NextPage = () => {
   const [fullscreen, setFullscreen] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
-  const [showStats, setShowStats] = useState(true)
-  const [showKeyboard, setShowKeyboard] = useState(false)
-  const [language, setLanguage] = useState("english" as string)
-  const [mode, setMode] = useState<TestModes>(TestModes.normal)
-  const [subMode, setSubMode] = useState<TestSubModes>(TestSubModes.timed)
-  const [selectedKeys, setSelectedKeys] = useState<string[]>("asdfghjkl".split(""))
-  const [gramSource, setGramSource] = useState<TestGramSources>(TestGramSources.bigrams)
-  const [gramScope, setGramScope] = useState<TestGramScopes>(TestGramScopes.fifty)
-  const [gramCombination, setGramCombination] = useState<number>(1)
-  const [gramRepetition, setGramRepetition] = useState<number>(0)
-  const [gramWpmThreshold, setGramWpmThreshold] = useState<number>(20)
-  const [gramAccuracyThreshold, setGramAccuracyThreshold] = useState<number>(100)
-  const [count, setCount] = useState(15)
-  const [punctuation, setPunctuation] = useState(false)
-  const [capitals, setCapitals] = useState(false)
-  const [customLength, setCustomLength] = useState(false)
+  const { settings, updateSetting } = useTestSettings()
+  const {
+    mode, subMode, language, count, customLength, punctuation, capitals,
+    selectedKeys, gramSource, gramScope, gramCombination, gramRepetition,
+    gramWpmThreshold, gramAccuracyThreshold, showStats, showKeyboard,
+  } = settings
+  const setShowStats = (value: boolean) => updateSetting("showStats", value)
+  const setShowKeyboard = (value: boolean) => updateSetting("showKeyboard", value)
+  const setLanguage = (value: string) => updateSetting("language", value)
+  const setMode = (value: TestModes) => updateSetting("mode", value)
+  const setSubMode = (value: TestSubModes) => updateSetting("subMode", value)
+  const setSelectedKeys = (value: string[]) => updateSetting("selectedKeys", value)
+  const setGramSource = (value: TestGramSources) => updateSetting("gramSource", value)
+  const setGramScope = (value: TestGramScopes) => updateSetting("gramScope", value)
+  const setGramCombination = (value: number) => updateSetting("gramCombination", value)
+  const setGramRepetition = (value: number) => updateSetting("gramRepetition", value)
+  const setGramWpmThreshold = (value: number) => updateSetting("gramWpmThreshold", value)
+  const setGramAccuracyThreshold = (value: number) => updateSetting("gramAccuracyThreshold", value)
+  const setCount = (value: number) => updateSetting("count", value)
+  const setPunctuation = (value: boolean) => updateSetting("punctuation", value)
+  const setCapitals = (value: boolean) => updateSetting("capitals", value)
+  const setCustomLength = (value: boolean) => updateSetting("customLength", value)
   const [currentKey, setCurrentKey] = useState("")
   const [attemptVersion, setAttemptVersion] = useState(0)
   const [restartSignal, setRestartSignal] = useState(0)
@@ -45,8 +73,13 @@ const Home: NextPage = () => {
     ranked?: boolean;
     createdAt: Date;
     testId?: string;
+    reMeasure?: { beforeWpm: number };
   }) | null>(null)
   const [shareUrl, setShareUrl] = useState<string | undefined>(undefined)
+  // The pending re-measure offer. The ref is the synchronous source of truth (read
+  // inside completion handling); the state drives the drill-view prompt's render.
+  const reMeasureRef = useRef<ReMeasureState | null>(null)
+  const [reMeasure, setReMeasure] = useState<ReMeasureState | null>(null)
   const charAttemptsRef = useRef<Map<string, { attempts: number, correct: number }>>(new Map())
   const persistedAttemptsRef = useRef<Map<string, { attempts: number, correct: number }>>(new Map())
   const hasSavedPendingRef = useRef(false)
@@ -71,6 +104,38 @@ const Home: NextPage = () => {
     setAttemptVersion((version) => version + 1)
   }, [mode, persistedStats])
 
+  // Keep the ref, the render state, and sessionStorage in lock-step so the offer
+  // survives a reload mid-drill and is read consistently everywhere.
+  const applyReMeasure = useCallback((value: ReMeasureState | null) => {
+    reMeasureRef.current = value
+    setReMeasure(value)
+    try {
+      if (value) sessionStorage.setItem(RE_MEASURE_KEY, JSON.stringify({ savedAt: Date.now(), ...value }))
+      else sessionStorage.removeItem(RE_MEASURE_KEY)
+    } catch {
+      // sessionStorage unavailable — the prompt just won't survive a reload.
+    }
+  }, [])
+
+  // Restore a pending re-measure offer after a reload (e.g. the user refreshed
+  // mid-drill). Expired offers are dropped.
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem(RE_MEASURE_KEY)
+      if (!raw) return
+      const parsed = JSON.parse(raw) as { savedAt?: number, beforeWpm?: number, config?: ReMeasureState["config"] }
+      if (typeof parsed.savedAt !== "number" || typeof parsed.beforeWpm !== "number" || !parsed.config) return
+      if (Date.now() - parsed.savedAt > RE_MEASURE_TTL_MS) {
+        sessionStorage.removeItem(RE_MEASURE_KEY)
+        return
+      }
+      reMeasureRef.current = { beforeWpm: parsed.beforeWpm, config: parsed.config }
+      setReMeasure(reMeasureRef.current)
+    } catch {
+      // Corrupt entry — ignore.
+    }
+  }, [])
+
   const onKeyChange = (key: string) => {
     setCurrentKey(key)
   }
@@ -79,7 +144,24 @@ const Home: NextPage = () => {
     setAttemptVersion((version) => version + 1)
   }
 
+  // True when this completion is the re-run of a diagnosed test (same config),
+  // so its result should headline the before→after delta.
+  const matchedReMeasure = (result: TestCompletionResult): ReMeasureState | null => {
+    const pending = reMeasureRef.current
+    if (!pending || mode !== TestModes.normal) return null
+    const c = pending.config
+    const matches =
+      subMode === c.subMode &&
+      count === c.count &&
+      language === c.language &&
+      customLength === c.customLength &&
+      (result.punctuation ?? false) === c.punctuation &&
+      (result.capitals ?? false) === c.capitals
+    return matches ? pending : null
+  }
+
   const onTestComplete = (result: TestCompletionResult) => {
+    const reMeasured = matchedReMeasure(result)
     const score = {
       speed: result.speed,
       rawWpm: result.rawWpm,
@@ -91,6 +173,8 @@ const Home: NextPage = () => {
       incorrectKeystrokes: result.incorrectKeystrokes,
       typedText: result.typedText,
       typedSegments: result.typedSegments,
+      worstKeys: result.worstKeys,
+      timeline: result.timeline,
       brag: result.brag ?? null,
       wpmSamples: result.wpmSamples,
       punctuation: result.punctuation,
@@ -103,7 +187,11 @@ const Home: NextPage = () => {
       options: result.levelName,
       createdAt: new Date(),
       testId: result.testId,
+      reMeasure: reMeasured ? { beforeWpm: reMeasured.beforeWpm } : undefined,
     }
+    // The delta has now been captured onto the result; retire the offer so it
+    // shows exactly once.
+    if (reMeasured) applyReMeasure(null)
     setCompletedScore(score)
     setShareUrl(undefined)
 
@@ -175,12 +263,12 @@ const Home: NextPage = () => {
 
       try {
         const { durationSeconds, rawWpm, netWpm, accuracy, totalKeystrokes, correctKeystrokes,
-          incorrectKeystrokes, typedText, typedSegments, brag, wpmSamples, punctuation, capitals, ranked,
+          incorrectKeystrokes, typedText, typedSegments, worstKeys, brag, wpmSamples, punctuation, capitals, ranked,
         } = restoredScore
         const share = await createShare.mutateAsync({
           testId: test.id,
           snapshot: { durationSeconds, rawWpm, netWpm, accuracy, totalKeystrokes, correctKeystrokes,
-            incorrectKeystrokes, typedText, typedSegments, brag, wpmSamples, punctuation, capitals, ranked },
+            incorrectKeystrokes, typedText, typedSegments, worstKeys, brag, wpmSamples, punctuation, capitals, ranked },
         })
         const url = `${window.location.origin}/score/${share.slug}`
         setShareUrl(url)
@@ -207,6 +295,80 @@ const Home: NextPage = () => {
     setRestartSignal((signal) => signal + 1)
   }
 
+  // Re-run the diagnosed test on its original config to measure the drill's
+  // effect. The offer is kept (not cleared) so this run's result can headline the
+  // before→after delta; it's retired in onTestComplete once the delta is shown.
+  const handleReMeasure = () => {
+    const pending = reMeasureRef.current
+    if (!pending) return
+    setMode(TestModes.normal)
+    setSubMode(pending.config.subMode)
+    setCount(pending.config.count)
+    setCustomLength(pending.config.customLength)
+    setLanguage(pending.config.language)
+    setPunctuation(pending.config.punctuation)
+    setCapitals(pending.config.capitals)
+    clearCompletedScore()
+    sessionStorage.removeItem("typecafe:pendingScore")
+    hasSavedPendingRef.current = false
+    setRestartSignal((signal) => signal + 1)
+  }
+
+  // Drill handoff: a diagnosis "Drill these keys" link lands here as
+  // /?mode=practice&keys=r,t,b. Switch into Practice with exactly those keys
+  // selected, remember the diagnosed test so the re-measure prompt can show a
+  // before/after delta (Phase 1.3), then clean the URL so a reload doesn't
+  // re-trigger the handoff.
+  useEffect(() => {
+    if (!router.isReady) return
+    if (router.query.mode !== "practice") return
+
+    const rawKeys = typeof router.query.keys === "string"
+      ? router.query.keys
+      : Array.isArray(router.query.keys) ? router.query.keys.join(",") : ""
+    // Practice needs a vowel to form words; a weakness set can be all consonants.
+    const keys = withPracticeVowel(
+      rawKeys
+        .split(",")
+        .map((key) => key.trim().toLowerCase())
+        .filter((key) => /^[a-z]$/.test(key)),
+    )
+
+    if (completedScore && completedScore.mode === TestModes.normal) {
+      applyReMeasure({
+        beforeWpm: completedScore.rawWpm,
+        config: {
+          subMode: completedScore.subMode,
+          count: completedScore.count,
+          language: completedScore.language,
+          customLength: completedScore.ranked === false,
+          punctuation: completedScore.punctuation ?? false,
+          capitals: completedScore.capitals ?? false,
+          options: completedScore.options ?? "",
+        },
+      })
+    }
+
+    // Mirror Config.handleModeChange's mode-switch resets: Timed/Words is a
+    // Normal-only sub-mode, so a non-Normal mode must drop the leftover "timed"
+    // subMode (otherwise the timer fires immediately) and take a practice-sized
+    // length. The diagnosed config is already saved above for the re-measure.
+    updateSetting("mode", TestModes.practice)
+    updateSetting("subMode", TestSubModes.words)
+    updateSetting("count", 10)
+    updateSetting("customLength", false)
+    if (keys.length > 0) updateSetting("selectedKeys", keys)
+
+    // Leave the results view and start the drill on the freshly selected keys.
+    clearCompletedScore()
+    sessionStorage.removeItem("typecafe:pendingScore")
+    hasSavedPendingRef.current = false
+    setRestartSignal((signal) => signal + 1)
+
+    void router.replace("/", undefined, { shallow: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router.isReady, router.query.mode, router.query.keys])
+
   const createAndCopyShareLink = async () => {
     if (!completedScore?.testId) return undefined
 
@@ -220,6 +382,7 @@ const Home: NextPage = () => {
       incorrectKeystrokes,
       typedText,
       typedSegments,
+      worstKeys,
       brag,
       wpmSamples,
       punctuation,
@@ -238,6 +401,7 @@ const Home: NextPage = () => {
         incorrectKeystrokes,
         typedText,
         typedSegments,
+        worstKeys,
         brag,
         punctuation,
         capitals,
@@ -272,6 +436,25 @@ const Home: NextPage = () => {
         />
       </Head>
       <div id="typer" className={`flex flex-col h-full overflow-auto ${completedScore ? "py-4" : "justify-center"} ${fullscreen ? 'absolute top-0 left-0 w-full h-full bg-base-100 z-[500] sm:px-8' : 'md:w-10/12'}`}>
+        {!completedScore && mode === TestModes.practice && reMeasure &&
+          <div
+            data-testid="re-measure-prompt"
+            className="mx-auto mb-4 flex w-full max-w-2xl flex-col items-center gap-3 rounded-lg border border-primary/40 bg-primary/10 px-5 py-4 text-center sm:flex-row sm:justify-between sm:text-left"
+          >
+            <div>
+              <p className="font-semibold text-base-content">Drilling {selectedKeys.join(", ")}</p>
+              <p className="text-sm text-base-content/70">When you&apos;re ready, re-run your test to see the gain.</p>
+            </div>
+            <button
+              type="button"
+              onClick={handleReMeasure}
+              className="inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+              aria-label="Re-run your test to measure the gain"
+            >
+              Re-run your test
+            </button>
+          </div>
+        }
         <Typer
           fullscreen={fullscreen}
           setFullscreen={(full) => setFullscreen(full)}
