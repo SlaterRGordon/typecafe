@@ -8,6 +8,9 @@ interface MockTrpcOptions {
   profileImage?: string | null;
   emptyScores?: boolean;
   invalidShare?: boolean;
+  // Procedures listed here resolve to a tRPC error instead of data, so tests can
+  // exercise client-side failure handling (e.g. a save that fails on the network).
+  errorProcedures?: string[];
   onProcedure?: (procedure: string, input: ProcedureInput) => void;
 }
 
@@ -38,6 +41,20 @@ function serializeResult(data: unknown) {
     result: {
       data: superjson.serialize(data),
     },
+  };
+}
+
+function serializeError(procedure: string) {
+  return {
+    error: superjson.serialize({
+      message: `Simulated failure for ${procedure}`,
+      code: -32603,
+      data: {
+        code: "INTERNAL_SERVER_ERROR",
+        httpStatus: 500,
+        path: procedure,
+      },
+    }),
   };
 }
 
@@ -213,6 +230,7 @@ export async function mockTrpc(page: Page, options: MockTrpcOptions = {}) {
     const body = procedures.map((procedure, index) => {
       const input = deserializeInput(rawInput, index);
       options.onProcedure?.(procedure, input);
+      if (options.errorProcedures?.includes(procedure)) return serializeError(procedure);
       return serializeResult(responseForProcedure(procedure, input, options, state));
     });
 
