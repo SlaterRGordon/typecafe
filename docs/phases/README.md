@@ -8,11 +8,12 @@ Detailed execution docs for the [roadmap](../roadmap.md), in service of the [vis
 |---|---|---|
 | 0 | [phase-0-trust.md](phase-0-trust.md) | The numbers are beyond reproach |
 | 1 | [phase-1-loop.md](phase-1-loop.md) | Test → diagnosis → one-click drill |
-| 2 | [phase-2-progression.md](phase-2-progression.md) | Trends, streaks, deltas — the retention engine |
-| 3 | [phase-3-coach.md](phase-3-coach.md) | Diagnosis becomes prescription |
-| 4 | [phase-4-competition.md](phase-4-competition.md) | Async competition that serves improvement |
-| 5 | [phase-5-reach.md](phase-5-reach.md) | Content, SEO, embeds |
-| 6 | [phase-6-moonshots.md](phase-6-moonshots.md) | The door stays open |
+| 2 | [phase-2-ui-overhaul.md](phase-2-ui-overhaul.md) | Typer toolbar and first-screen UI overhaul |
+| 3 | [phase-3-progression.md](phase-3-progression.md) | Trends, streaks, deltas — the retention engine |
+| 4 | [phase-4-coach.md](phase-4-coach.md) | Diagnosis becomes prescription |
+| 5 | [phase-5-competition.md](phase-5-competition.md) | Async competition that serves improvement |
+| 6 | [phase-6-reach.md](phase-6-reach.md) | Content, SEO, embeds |
+| 7 | [phase-7-moonshots.md](phase-7-moonshots.md) | The door stays open |
 
 ## Locked constraints (decided 2026-06-12)
 
@@ -34,7 +35,7 @@ These are settled. Phase docs assume them; revisit only deliberately.
 
 **The owner must do (agent cannot):** Vercel dashboard config and env secrets, third-party accounts (Google Search Console, OAuth apps, future email provider), community seeding (Reddit/Discord/PH posts — *agents must never astroturf*), judging real-user behavior from GA4, spending money, and recruiting beta users.
 
-**Neither can do yet (honestly):** anything requiring data volume that doesn't exist (percentile claims from our own data, the research dataset, ML-trained text generation) or real-device native measurement. These stay in Phase 6 until their prerequisites exist.
+**Neither can do yet (honestly):** anything requiring data volume that doesn't exist (percentile claims from our own data, the research dataset, ML-trained text generation) or real-device native measurement. These stay in Phase 7 until their prerequisites exist.
 
 ## Standing rules for every phase
 

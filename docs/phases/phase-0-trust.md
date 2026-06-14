@@ -34,14 +34,14 @@ Details that signal whether anyone careful lives here:
 - Clipped avatar fallback (leaderboard, profile, score rows) → proper initials/icon fallback component
 - Pre-test spacebar highlight: keyboard shows space as the active key before the first keystroke — `currentKey` init bug; the highlighted key must be the actual first character
 - "0 tests in 2026" heatmap rendering above a Best Scores table that shows a 2026 score — make both read the same source
-- Smart drill button floating detached above the practice keyboard → anchored toolbar (proper home comes in Phase 1)
+- Smart drill button floating detached above the practice keyboard → anchored toolbar (proper home comes in Phase 2)
 
 ## 0.4 Refactors that gate later phases (M)
 
 Only what later phases need — not a beautification pass:
 
 - Finish the Typer decomposition already started in `src/components/typer/hooks/` so completion flow is testable (Phase 1 hangs diagnosis off completion)
-- One zod-derived `ScoreSnapshot` source of truth in `src/lib/score.ts` (Phase 2 extends the snapshot; three drifting copies would hurt)
+- One zod-derived `ScoreSnapshot` source of truth in `src/lib/score.ts` (Phase 3 extends the snapshot; three drifting copies would hurt)
 
 ## Acceptance
 

@@ -1,4 +1,4 @@
-# Phase 4 — Competition That Serves Improvement
+# Phase 5 — Competition That Serves Improvement
 
 **Goal:** the leaderboard a user checks daily is the one measuring their improvement.
 
@@ -6,7 +6,7 @@ Async only — realtime racing is TypeRacer's moat and a populated-lobby trap (a
 
 ---
 
-## 4.1 Daily challenge (M)
+## 5.1 Daily challenge (M)
 
 - **Deterministic seed, no infra:** challenge text = seeded PRNG over the corpus with seed `hash(YYYY-MM-DD)` — every client generates the same text locally; no storage or job needed
 - One config (30s timed initially); completing it stamps the Test row (`challengeDate`), feeds the streak
@@ -14,14 +14,14 @@ Async only — realtime racing is TypeRacer's moat and a populated-lobby trap (a
 - Yesterday's result + today's prompt surface on home and `/progress`
 - Challenge share card: "Top 12% today" or "+6 over my average" — delta framing available to everyone
 
-## 4.2 Beat-my-run (M) — the viral loop
+## 5.2 Beat-my-run (M) — the viral loop
 
 - Existing `ScoreShare` gains the text seed; share page gets **[Type this yourself]** → recipient (no account needed — local-first) types the *identical text*
 - Side-by-side result: WPM, accuracy, per-key heatmap comparison, divergence point ("you were ahead until `through`")
 - Their result page offers the same button — the loop continues
 - Anti-retry honesty: first attempt is the comparable one; retries shown but labeled ("best of 4")
 
-## 4.3 Improvement leagues (L) — the purest vision feature
+## 5.3 Improvement leagues (L) — the purest vision feature
 
 Weekly cohorts ranked by **delta, not absolute speed** — the only leaderboard where a 50-WPM typist beating a 120-WPM typist is working as intended.
 
@@ -30,13 +30,13 @@ Weekly cohorts ranked by **delta, not absolute speed** — the only leaderboard 
 - **Cold-start honesty:** below ~100 weekly actives, leagues render as "your week vs your baseline" (self-league) — the same math, no fake-feeling empty cohorts; flip cohorts on when population supports it
 - Baseline manipulation (tanking) noted as accepted risk pre-scale; revisit with population
 
-## 4.4 Cohort percentiles (S)
+## 5.4 Cohort percentiles (S)
 
 Replace global percentile bragging with peer context: "fastest 25% of typists who started within ±10 WPM of you" (computed from `DailyUserStat` baselines). Falls back to global percentile until the peer pool ≥ 50. Keeps the existing never-discourage rule — below the 60th percentile we show deltas, not ranks.
 
-## 4.5 Deliberately deferred
+## 5.5 Deliberately deferred
 
-- **Clubs/team spaces** → stays in Phase 6 until there are communities to host
+- **Clubs/team spaces** → stays in Phase 7 until there are communities to host
 - **Realtime racing** → never (see vision)
 - **Anti-cheat beyond basics** → timeline sanity checks (humanly possible inter-key latencies, variance floor) flag impossible runs on ranked boards; serious anti-cheat waits for a population worth cheating against
 

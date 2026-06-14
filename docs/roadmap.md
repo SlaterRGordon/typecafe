@@ -31,17 +31,26 @@ The sentence we're building: *"You lost ~8 WPM to `r`, `t`, and `b` → [Drill t
 - [x] **Post-test diagnosis on the score card** — slowest keys, least accurate keys, costliest bigrams for *this* test, computed from the keystroke timeline we already record. Done: pure `src/lib/diagnosis.ts` (unit-tested) drives a Diagnosis panel on `ShareableScoreCard` with the <30-keystroke honesty guard; finding sentences each end in a button.
 - [x] **One-click drill handoff** — every diagnosis links into Practice with exactly those keys selected (the wiring between `worstKeysFromAttempts` and practice mode already exists; connect it from the results screen). Done: each finding's **[Drill these keys]** links to `/?mode=practice&keys=…`; `index.tsx` applies the params (mode + selectedKeys), records the diagnosed config for the re-measure prompt, and cleans the URL. e2e + screenshot tour (`35-score-card-diagnosis`, `36-drill-handoff-practice`) cover the guest path.
 - [x] **Re-measure prompt** — after a drill session, offer the same test config again and show the delta: "before: 71 WPM → after: 76 WPM". Done: the drill view shows a "Re-run your test" prompt that restores the diagnosed config; the re-run's result card headlines a before→after WPM strip (`ReMeasureStrip`, pure `wpmImprovement` in `stats.ts`). e2e + screenshots (37–38) cover the guest loop.
-- [x] **Surface modes on the main page** — visible inline mode bar (`ModeBar`) above the typer, not a gear-icon modal; length/options stay in the settings modal by design (owner's call 2026-06-13 — keep the screen quiet). The differentiators are discoverable in 10 seconds.
-- [ ] **Grams mode presentation rebuild** — progress bar through levels, the current gram rendered large and centered, per-gram bests, advancement celebration. Our most differentiated mode currently looks broken
-- [ ] **Per-key analytics rendered everywhere it pays** (the heatmap is a primitive, not a Practice-mode feature):
-  - score card: mini heatmap row + "slowest keys this test"
-  - profile: lifetime keyboard heatmap (the screenshot people will post unprompted)
-  - learn: accuracy on the level's *target keys* specifically
-  - grams: auto-suggest grams containing your weakest keys
+- [ ] **Heatmap primitive for diagnosis** — extract the Practice keyboard's per-key accuracy rendering so the score card can show a mini heatmap now and Phase 3 can reuse the full keyboard heatmap later.
 
 **Done when:** a new user finishes one test and is two clicks from drilling their personal weakest keys.
 
-## Phase 2 — Progression (the retention engine)
+## Phase 2 — Typer UI overhaul (the instrument)
+
+The previous Phase 1.4 main-page pass is superseded by the mockup-driven overhaul in `docs/screenshots/vision-screenshots/`.
+
+- [ ] **Split Timed and Words into separate top-level modes** — toolbar modes become Timed / Words / Practice / Grams / Relaxed; no user-facing Normal mode
+- [ ] **Move length out of settings** — preset length controls live in the typer toolbar; clicking Custom slides an input right-to-left over the presets
+- [ ] **Move language out of settings** — language opens from its own toolbar icon beside settings
+- [ ] **Move icon buttons to the toolbar's right side** — settings, restart, fullscreen, and language sit together as compact icon controls
+- [ ] **Replace settings modal with a dropdown menu** — closes on outside click, escape, selection, or clicking settings again; contains only secondary toggles
+- [ ] **Refresh WPM/accuracy and typing text** — stats use the mockup treatment and the typing text becomes much larger and clearly central
+- [ ] **Build the grams settings subpanel** — source/scope/combinations/repetitions/thresholds visible like `vision-grams.png`; ignore the hallucinated custom length input
+- [ ] **Preserve the improvement loop** — diagnosis drill handoff, re-measure prompt, live stats, keyboard, restart, fullscreen, and guest flow still work
+
+**Done when:** the first screen matches the vision screenshots closely enough for owner taste pass, and every frequent typing control is available without the old settings modal.
+
+## Phase 3 — Progression (the retention engine)
 
 - [ ] **/progress dashboard** — the user's true home: WPM trend (per mode/length), accuracy trend, consistency trend, heatmap evolution over time, worst-bigram list shrinking week over week
 - [ ] **Personal records timeline** — every PB as an event: "Mar 3: first 80+ WPM test"
@@ -54,7 +63,7 @@ The sentence we're building: *"You lost ~8 WPM to `r`, `t`, and `b` → [Drill t
 
 **Done when:** a four-week user can produce the chart that proves they got faster — and wants to post it.
 
-## Phase 3 — The coach (diagnosis becomes prescription)
+## Phase 4 — The coach (diagnosis becomes prescription)
 
 - [ ] **Practice plans** — "your 30-day plan": a generated daily sequence (warm-up test → 2 targeted drills → benchmark) built from the user's actual weakness data, adapting as the data changes
 - [ ] **Bigram/trigram diagnosis** — extend per-key tracking to per-gram timing: it's rarely single keys that cap speed, it's transitions (`th`, `ion`, `br`). We already ship the n-gram corpus; instrument inter-key latency per transition and drill the slow ones
@@ -66,7 +75,7 @@ The sentence we're building: *"You lost ~8 WPM to `r`, `t`, and `b` → [Drill t
 
 **Done when:** TypeCafe tells users something true about their typing that they didn't know and couldn't get anywhere else.
 
-## Phase 4 — Competition that serves improvement
+## Phase 5 — Competition that serves improvement
 
 Async only. Realtime racing is TypeRacer's moat and a populated-lobby trap; we refuse to inherit it.
 
@@ -78,7 +87,7 @@ Async only. Realtime racing is TypeRacer's moat and a populated-lobby trap; we r
 
 **Done when:** the leaderboard a user checks daily is the one measuring their improvement.
 
-## Phase 5 — Content & reach
+## Phase 6 — Content & reach
 
 - [ ] **Code mode** — typing drills in real programming-language syntax (symbols, indentation, camelCase). Differentiated, matches the dev aesthetic, and "typing test for programmers" is the low-difficulty SEO keyword already in growth.md. One mode, three wins
 - [ ] **Quote/passage packs** — random top-10k words gets stale; quotes and literature passages keep evidence-collection from feeling like a chore
@@ -88,7 +97,7 @@ Async only. Realtime racing is TypeRacer's moat and a populated-lobby trap; we r
 - [ ] 🌙 **Layout transition coaching** — the QWERTY→Colemak/Dvorak journey is a dedicated, underserved community with no good progress tooling; we already have per-key data, they already post progress charts weekly
 - [ ] 🌙 **Hardware tie-ins** — QMK/VIA-aware integrations: detect the board, benchmark per-board on profiles ("my WPM on the Lily58 vs the Keychron"), sponsor-ready for keyboard YouTube
 
-## Phase 6 — Moonshots (the door stays open)
+## Phase 7 — Moonshots (the door stays open)
 
 - 🌙 **TypeCafe API / open data** — users own their keystroke history; export it, build on it. Researchers and tinkerers become advocates
 - 🌙 **Anonymized research dataset** — at scale, the per-key/per-transition corpus across thousands of typists is genuinely novel; publish findings ("the 10 bigrams that cap intermediate typists") that earn citations and authority
@@ -107,4 +116,4 @@ Async only. Realtime racing is TypeRacer's moat and a populated-lobby trap; we r
 
 ## Sequencing logic
 
-Trust before loop, loop before progression, progression before coach, coach before competition, competition before reach. Each phase makes the next one's promise credible: there's no point marketing a coach (5) whose numbers are wrong (0), and improvement leagues (4) only matter once improvement is visible (2). When priorities conflict, the tiebreaker is always the vision sentence — *does this make someone faster, or prove that they're getting faster?*
+Trust before loop, loop before the typer UI overhaul, UI clarity before progression, progression before coach, coach before competition, competition before reach. Each phase makes the next one's promise credible: there's no point marketing a coach whose numbers are wrong, and improvement leagues only matter once improvement is visible. When priorities conflict, the tiebreaker is always the vision sentence — *does this make someone faster, or prove that they're getting faster?*

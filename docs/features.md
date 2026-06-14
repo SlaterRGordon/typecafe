@@ -40,8 +40,8 @@ If a guest completes a test and then signs in, the score is automatically saved 
 
 Things a serious typing site needs. TypeCafe's implementations are solid but not the main reason to use it.
 
-### Normal mode
-Timed (15 / 30 / 60 / 120s, or custom up to 1 hour) or word count (10 / 25 / 50 / 100, or custom up to 5,000). English, French, Spanish. Punctuation and capitals toggles. Custom lengths are marked unranked.
+### Timed and Words modes
+Timed (15 / 30 / 60 / 120s, or custom up to 1 hour) and Words (10 / 25 / 50 / 100, or custom up to 5,000) are becoming separate top-level modes in the Phase 2 typer toolbar. English, French, Spanish. Punctuation and capitals toggles. Custom lengths are marked unranked.
 
 ### Detailed results
 Raw WPM, net WPM, accuracy, duration, total/correct/incorrect keystrokes. WPM-over-time chart with smooth curve. Per-character error highlighting in the typed text replay — see exactly where mistakes happened.

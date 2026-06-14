@@ -1,4 +1,4 @@
-# Phase 2 — Progression
+# Phase 3 — Progression
 
 **Goal:** a four-week user can produce the chart that proves they got faster — and wants to post it.
 
@@ -6,12 +6,12 @@ Bests plateau in weeks; trends compound forever. This phase builds the user's re
 
 ---
 
-## 2.1 `/progress` — the home for signed-in users (L)
+## 3.1 `/progress` — the home for signed-in users (L)
 
 The page answers one question — *am I getting faster?* — before any other detail.
 
 **Layout, top to bottom:**
-1. **Headline delta:** "+9.4 WPM in 30 days" (largest number on the page; period switcher 7/30/90/all). If flat or negative: honest, with the Phase 3 hook — "Plateaued for 3 weeks — your drills aren't targeting your slow keys."
+1. **Headline delta:** "+9.4 WPM in 30 days" (largest number on the page; period switcher 7/30/90/all). If flat or negative: honest, with the Phase 4 hook — "Plateaued for 3 weeks — your drills aren't targeting your slow keys."
 2. **WPM trend chart** — per-test scatter + rolling average line, filterable by mode/length (reuse the score-card chart component, extended)
 3. **Accuracy + consistency trends** — same x-axis, small multiples
 4. **Lifetime keyboard heatmap** — `<KeyHeatmap full>` over `KeyStat` aggregates, with a date-range comparison toggle ("30 days ago vs now") to show keys warming from red to green
@@ -22,13 +22,13 @@ The page answers one question — *am I getting faster?* — before any other de
 
 **Aggregation:** a `DailyUserStat` rollup table (userId, date, tests, bestWpm, avgWpm, avgAcc) maintained on test-save (derived-on-write, no cron) keeps chart queries O(days) not O(tests).
 
-## 2.2 Streaks (S)
+## 3.2 Streaks (S)
 
 - Practice-day streak computed from `DailyUserStat` on read — no jobs
 - Shown on `/progress`, profile, and the share card ("12-day streak" chip)
 - A streak counts any completed test or drill ≥ 30s of typing — streaks reward *practice*, not test-spam (vision: no decorative gamification; streaks and deltas only)
 
-## 2.3 Delta-first sharing (M)
+## 3.3 Delta-first sharing (M)
 
 The share available to *every* user, not just fast ones:
 
@@ -36,7 +36,7 @@ The share available to *every* user, not just fast ones:
 - Score-card share gains a delta line when history exists: "3 WPM over my 30-day average"
 - OG image for progress shares leads with the delta, not the absolute
 
-## 2.4 Weekly recap — in-app, free-tier honest (M)
+## 3.4 Weekly recap — in-app, free-tier honest (M)
 
 No email provider exists. The recap is a surface, not a send:
 
@@ -44,20 +44,20 @@ No email provider exists. The recap is a surface, not a send:
 - Recap is itself shareable (same progress-card pipeline)
 - **When there's budget:** the same payload becomes an email via Resend/Postmark — the recap generator (`src/lib/recap.ts`) is written render-agnostic from day one
 
-## 2.5 Goals (M)
+## 3.5 Goals (M)
 
 - One active goal: target WPM + date ("100 by September")
 - `/progress` shows trajectory: current rolling average projected linearly vs required pace — honest about shortfall ("at this pace you reach 100 in November; to hit September, X sessions/week")
 - Projection math in `src/lib/trajectory.ts`, unit-tested, assumptions documented on `/how-we-measure`
 - No notifications (no infra) — the goal lives where the user already looks
 
-## 2.6 Consistency everywhere (S)
+## 3.6 Consistency everywhere (S)
 
-`consistencyFromSamples` exists; surface it: score card (with `?` → `/how-we-measure`), `/progress` trend, diagnosis input in Phase 3 ("your speed is fine; your variance is the problem").
+`consistencyFromSamples` exists; surface it: score card (with `?` → `/how-we-measure`), `/progress` trend, diagnosis input in Phase 4 ("your speed is fine; your variance is the problem").
 
 ## Sequencing note
 
-2.1 before everything (it's the destination other features link to). Then 2.3 (sharing compounds earliest), 2.2, 2.4, 2.5/2.6.
+3.1 before everything (it's the destination other features link to). Then 3.3 (sharing compounds earliest), 3.2, 3.4, 3.5/3.6.
 
 ## Acceptance
 

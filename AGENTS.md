@@ -41,6 +41,6 @@ The vision filter for any change: *does it make someone faster, or prove they're
 - `src/lib/stats.ts` — WPM/accuracy/consistency math (pure; the source of truth)
 - `src/hooks/useTestSettings.ts` — persisted test settings (localStorage `typecafe:testSettings`)
 - `src/server/api/routers/` — tRPC routers; Prisma schema in `prisma/schema.prisma` (Postgres)
-- Modes: Normal / Practice / Grams / Relaxed are top-level; Timed/Words is a sub-type of Normal only
-- Mode switching is an always-visible inline `ModeBar` (`src/components/typer/config/ModeBar.tsx`) above the typer; every other setting (length, type, text, language, grams, live stats, keyboard) lives in the `Config` gear modal. In e2e, switch modes via `getByTestId("mode-bar")`, not the modal
-- E2E gotchas: config modal closes via the `#configModal` checkbox `evaluate` trick (overlay intercepts clicks); modals fade in — settle ~600ms before screenshots; pages mostly lack `h1` — wait on content instead
+- Target mode model after Phase 2: Timed / Words / Practice / Grams / Relaxed are top-level; there should be no user-facing Normal mode.
+- Phase 2 UI direction: frequent controls live in the typer toolbar (mode, length/custom length, language, settings icon, restart, fullscreen); settings becomes a dropdown for secondary toggles only. Do not preserve the old gear modal as the front door when working on the overhaul.
+- E2E gotchas: before the Phase 2 toolbar overhaul lands, legacy config modal tests close via the `#configModal` checkbox `evaluate` trick (overlay intercepts clicks); modals fade in — settle ~600ms before screenshots; pages mostly lack `h1` — wait on content instead

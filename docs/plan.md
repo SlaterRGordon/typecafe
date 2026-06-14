@@ -243,29 +243,29 @@ Extract `src/lib/stats.ts` first (refactor 1); this unlocks testability. Add vit
 
 ## Recommended Roadmap
 
-### Phase 1: Foundations (safety + testability)
+### Review Stage 1: Foundations (safety + testability)
 1. **PR 1:** Delete dead code (`buildText`, `generatePseudoText`, unused `use-timer` dep); move generator scripts out of `src/components`
 2. **PR 2:** Extract `src/lib/stats.ts` + unit tests (vitest); lock current behavior
 
-### Phase 2: Bug fixes
+### Review Stage 2: Bug fixes
 3. **PR 3:** Batch small fixes: failed-save fallback (bug 2), n-gram repetition (bug 3), first-char error (bug 4), accuracy display (bug 9)
 4. **PR 4:** Timed-mode text appending (bug 1) + timer drift (bug 5) + e2e test
 5. **PR 5:** Practice-stats sync fix (bug 6)
 
-### Phase 3: Refactoring
+### Review Stage 3: Refactoring
 6. **PR 6:** `useTestSettings` hook + localStorage persistence (refactor 5)
 7. **PR 7–9:** Typer decomposition (refactor 2), one hook per PR, e2e green between each
 8. **PR 10:** Modal context centralization (refactor 4)
 9. **PR 11:** Lazy-load language data (perf 1) + memoize Text (perf 2)
 
-### Phase 4: Features
+### Review Stage 4: Features
 10. Consistency stat → restart hint → progress chart → quote mode → smart drill → streaks
 
 ---
 
 ## First PR Recommendation
 
-**Extract `src/lib/stats.ts` with unit tests (Phase 1, PR 2, folding in PR 1's deletions).**
+**Extract `src/lib/stats.ts` with unit tests (Review Stage 1, PR 2, folding in PR 1's deletions).**
 
 Concretely:
 1. Delete `buildText` and `generatePseudoText` from [utils.tsx](src/components/typer/utils.tsx)

@@ -1,4 +1,4 @@
-# Phase 3 — The Coach
+# Phase 4 — The Coach
 
 **Goal:** TypeCafe tells users something true about their typing that they didn't know and couldn't get anywhere else.
 
@@ -6,7 +6,7 @@ Heuristics first (locked constraint): rule-based diagnosis ships all of this pha
 
 ---
 
-## 3.1 Transition (bigram) analytics (L) — the coach's real edge
+## 4.1 Transition (bigram) analytics (L) — the coach's real edge
 
 Single-key stats are table stakes; *transitions* are what actually cap intermediate typists (`th`, `ion`, `br`). The Phase 1 timeline already contains everything needed.
 
@@ -25,9 +25,9 @@ model TransitionStat {
 ```
 Maintained on test-save from the timeline (derived-on-write); localStorage mirror for guests, same batch-import path.
 
-**Surfaces:** slow-transition findings in the score-card diagnosis ("`br` takes you 2.1× your average — [Drill `br`]" → grams mode pre-loaded with that bigram); worst-transitions on `/progress` (already stubbed in Phase 2); grams mode auto-suggest reordered by *the user's* weak transitions instead of corpus frequency only.
+**Surfaces:** slow-transition findings in the score-card diagnosis ("`br` takes you 2.1× your average — [Drill `br`]" → grams mode pre-loaded with that bigram); worst-transitions on `/progress` (already stubbed in Phase 3); grams mode auto-suggest reordered by *the user's* weak transitions instead of corpus frequency only.
 
-## 3.2 Error taxonomy (M)
+## 4.2 Error taxonomy (M)
 
 Classify every error in the timeline (`src/lib/errorTaxonomy.ts`, pure, unit-tested):
 
@@ -41,7 +41,7 @@ Classify every error in the timeline (`src/lib/errorTaxonomy.ts`, pure, unit-tes
 
 Each class maps to one coaching sentence and one drill button. Diagnosis panel and recap pick the *dominant* class — never a wall of findings.
 
-## 3.3 Speed-vs-accuracy stance (S)
+## 4.3 Speed-vs-accuracy stance (S)
 
 One computed stance from recent history, shown on `/progress` and in recaps:
 
@@ -51,7 +51,7 @@ One computed stance from recent history, shown on `/progress` and in recaps:
 
 Thresholds in one config object, documented on `/how-we-measure`. This is the single most coach-like sentence we can ship cheaply.
 
-## 3.4 Practice plans (L)
+## 4.4 Practice plans (L)
 
 The flagship: **"Your 30-day plan."**
 
@@ -60,7 +60,7 @@ The flagship: **"Your 30-day plan."**
 - Regenerated weekly from fresh data (on-read, no cron); plan view shows done/today/upcoming; completing a day feeds the streak
 - Honest fallback: < 1 week of data → "Calibration week" plan (varied tests to build the profile)
 
-## 3.5 Plateau detection (M) — promoted from moonshot
+## 4.5 Plateau detection (M) — promoted from moonshot
 
 Rolling 21-day WPM slope ≈ 0 within noise (`src/lib/trajectory.ts` extension) →
 
@@ -68,11 +68,11 @@ Rolling 21-day WPM slope ≈ 0 within noise (`src/lib/trajectory.ts` extension) 
 - Regenerates the plan with a changed mix; the recap leads with it
 - The coach noticing *before the user does* is the retention moment that makes TypeCafe feel alive
 
-## 3.6 LLM coach — deferred, designed (paper only)
+## 4.6 LLM coach — deferred, designed (paper only)
 
-When budget exists: a "Why am I stuck?" button sends the *aggregated stats only* (never raw keystrokes) to Claude with a tight system prompt to produce 3 sentences grounded in the user's numbers. Until then, the heuristic sentences from 3.2/3.3/3.5 are the coach's voice. The contract (`CoachContext` JSON) gets defined now so heuristics and LLM stay swappable.
+When budget exists: a "Why am I stuck?" button sends the *aggregated stats only* (never raw keystrokes) to Claude with a tight system prompt to produce 3 sentences grounded in the user's numbers. Until then, the heuristic sentences from 4.2/4.3/4.5 are the coach's voice. The contract (`CoachContext` JSON) gets defined now so heuristics and LLM stay swappable.
 
-**Honest note:** finger-level analytics (inferring finger usage from timing) stays in Phase 6 — it needs research-grade validation we can't do without data volume, and shipping pseudo-science violates Phase 0.
+**Honest note:** finger-level analytics (inferring finger usage from timing) stays in Phase 7 — it needs research-grade validation we can't do without data volume, and shipping pseudo-science violates Phase 0.
 
 ## Acceptance
 
