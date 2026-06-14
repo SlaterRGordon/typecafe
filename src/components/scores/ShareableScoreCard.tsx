@@ -68,7 +68,7 @@ interface ShareableScoreCardProps {
 type ActionState = "idle" | "copied" | "downloaded" | "unsupported" | "error";
 
 const modeLabels: Record<TestModes, string> = {
-  [TestModes.normal]: "Normal",
+  [TestModes.normal]: "Timed",
   [TestModes.practice]: "Practice",
   [TestModes.ngrams]: "N-grams",
   [TestModes.relaxed]: "Relaxed",
@@ -97,6 +97,14 @@ function formatDate(date?: Date) {
     day: "numeric",
     year: "numeric",
   });
+}
+
+function formatModeText(score: Pick<ShareableScore, "mode" | "subMode" | "language">) {
+  if (score.mode === TestModes.normal) {
+    return `${subModeLabels[score.subMode]} / ${score.language}`;
+  }
+
+  return `${modeLabels[score.mode]} / ${subModeLabels[score.subMode]} / ${score.language}`;
 }
 
 async function writeTextToClipboard(text: string) {
@@ -509,7 +517,7 @@ export function ShareableScoreCard(props: ShareableScoreCardProps) {
   const resetTimerRef = useRef<number | null>(null);
   const scoreCardRef = useRef<HTMLDivElement | null>(null);
   const shareImageRef = useRef<HTMLDivElement | null>(null);
-  const modeText = `${modeLabels[score.mode]} / ${subModeLabels[score.subMode]} / ${score.language}`;
+  const modeText = formatModeText(score);
   const shareButtonLabel = isCreatingShare ? "Creating..." : linkState === "copied" ? "Link copied" : "Share Score";
   const screenshotButtonLabel = imageState === "copied" ? "Screenshot copied" : imageState === "downloaded" ? "Image downloaded" : "Copy Screenshot";
 

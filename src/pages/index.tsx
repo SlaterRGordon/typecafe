@@ -60,6 +60,7 @@ const Home: NextPage = () => {
   const setCapitals = (value: boolean) => updateSetting("capitals", value)
   const setCustomLength = (value: boolean) => updateSetting("customLength", value)
   const [currentKey, setCurrentKey] = useState("")
+  const currentKeyRef = useRef("")
   const [attemptVersion, setAttemptVersion] = useState(0)
   const [restartSignal, setRestartSignal] = useState(0)
   const [completedScore, setCompletedScore] = useState<(ScoreSnapshot & {
@@ -138,6 +139,8 @@ const Home: NextPage = () => {
   }, [])
 
   const onKeyChange = (key: string) => {
+    if (currentKeyRef.current === key) return
+    currentKeyRef.current = key
     setCurrentKey(key)
   }
 
@@ -439,7 +442,7 @@ const Home: NextPage = () => {
       <div id="typer" className={`flex flex-col h-full overflow-auto ${completedScore ? "py-4" : "justify-center"} ${fullscreen ? 'absolute top-0 left-0 w-full h-full bg-base-100 z-[500] sm:px-8' : 'md:w-10/12'}`}>
         {!completedScore && !fullscreen &&
           <ModeBar
-            mode={mode} setMode={setMode}
+            mode={mode} subMode={subMode} setMode={setMode}
             setSubMode={setSubMode}
             setCount={setCount}
             setCustomLength={setCustomLength}

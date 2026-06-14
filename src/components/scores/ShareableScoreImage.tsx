@@ -13,7 +13,7 @@ export const SHARE_IMAGE_WIDTH = 1200;
 export const SHARE_IMAGE_HEIGHT = 630;
 
 const modeLabels: Record<TestModes, string> = {
-  [TestModes.normal]: "Normal",
+  [TestModes.normal]: "Timed",
   [TestModes.practice]: "Practice",
   [TestModes.ngrams]: "N-grams",
   [TestModes.relaxed]: "Relaxed",
@@ -34,6 +34,14 @@ function formatNumber(value: number, digits = 1) {
 function formatDate(date?: Date) {
   if (!date) return "Just now";
   return date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
+
+function formatModeText(score: Pick<ShareableScore, "mode" | "subMode" | "language">) {
+  if (score.mode === TestModes.normal) {
+    return `${subModeLabels[score.subMode]} / ${score.language}`;
+  }
+
+  return `${modeLabels[score.mode]} / ${subModeLabels[score.subMode]} / ${score.language}`;
 }
 
 function Sparkline(props: { samples: ShareableScore["wpmSamples"]; rawWpm: number }) {
@@ -76,7 +84,7 @@ function Stat(props: { label: string; value: string }) {
 export const ShareableScoreImage = forwardRef<HTMLDivElement, { score: ShareableScore }>(
   function ShareableScoreImage({ score }, ref) {
     const username = score.user?.username ? `@${score.user.username}` : "Guest";
-    const modeText = `${modeLabels[score.mode]} / ${subModeLabels[score.subMode]} / ${score.language}`;
+    const modeText = formatModeText(score);
 
     return (
       <div

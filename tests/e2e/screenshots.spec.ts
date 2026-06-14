@@ -40,8 +40,19 @@ async function closeConfigModal(page: Page) {
 }
 
 // Mode switches on the inline mode bar (the modal holds everything else).
-function selectMode(page: Page, name: "Normal" | "Practice" | "Grams" | "Relaxed") {
+function selectMode(page: Page, name: "Timed" | "Words" | "Practice" | "Grams" | "Relaxed") {
   return page.getByTestId("mode-bar").getByRole("button", { name }).click();
+}
+
+async function typeWrongZeroes(page: Page, count: number) {
+  await expect(page.locator("#c0")).not.toHaveClass(/text-secondary/);
+  await page.locator("#input").focus();
+  await expect(async () => {
+    await page.keyboard.press("0");
+    await expect(page.locator("#c0")).toHaveClass(/text-secondary/, { timeout: 250 });
+  }).toPass({ timeout: 5_000 });
+
+  for (let i = 1; i < count; i++) await page.keyboard.press("0");
 }
 
 test.describe("screenshot tour", () => {
@@ -61,13 +72,20 @@ test.describe("screenshot tour", () => {
   test("home: mode bar and the settings modal per mode", async ({ page }, testInfo) => {
     await gotoHome(page);
 
-    // Normal: the modal holds type + length.
+    // Timed: the modal still holds length until Phase 2.2 moves it into the toolbar.
     await openConfigModal(page);
     await capture(page, testInfo, "03-settings-timed");
-    await page.getByRole("button", { name: "Words" }).click();
+    await closeConfigModal(page);
+
+    // Words is now top-level in the toolbar; the modal shows the words length.
+    await selectMode(page, "Words");
+    await openConfigModal(page);
     await expect(page.getByRole("heading", { name: "Length" })).toBeVisible();
     await capture(page, testInfo, "04-settings-words");
-    await page.getByRole("button", { name: "Timed" }).click();
+    await closeConfigModal(page);
+
+    await selectMode(page, "Timed");
+    await openConfigModal(page);
     await page.getByRole("button", { name: "Custom" }).click();
     await expect(page.locator("#customLengthInput")).toBeVisible();
     await capture(page, testInfo, "06-settings-timed-custom-length");
@@ -91,10 +109,10 @@ test.describe("screenshot tour", () => {
     await capture(page, testInfo, "08-settings-relaxed-mode");
   });
 
-  test("normal mode: words test view after closing modal", async ({ page }, testInfo) => {
+  test("words mode: test view after closing modal", async ({ page }, testInfo) => {
     await gotoHome(page);
+    await selectMode(page, "Words");
     await openConfigModal(page);
-    await page.getByRole("button", { name: "Words" }).click();
     await page.getByRole("button", { name: "25", exact: true }).click();
     await closeConfigModal(page);
 
@@ -102,7 +120,7 @@ test.describe("screenshot tour", () => {
     await capture(page, testInfo, "23-test-view-words-mode");
   });
 
-  test("normal mode: punctuation and capitals test view", async ({ page }, testInfo) => {
+  test("timed mode: punctuation and capitals test view", async ({ page }, testInfo) => {
     await gotoHome(page);
     await openConfigModal(page);
     await page.getByRole("button", { name: "punctuation" }).click();
@@ -260,9 +278,7 @@ test.describe("screenshot tour", () => {
     await page.locator("#customLengthInput").fill("4");
     await closeConfigModal(page);
 
-    for (let i = 0; i < 50; i++) {
-      await page.keyboard.press("0");
-    }
+    await typeWrongZeroes(page, 50);
 
     await expect(page.getByRole("button", { name: "Test Again" })).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText("Diagnosis", { exact: true })).toBeVisible();
@@ -285,7 +301,7 @@ test.describe("screenshot tour", () => {
     await page.locator("#customLengthInput").fill("4");
     await closeConfigModal(page);
 
-    for (let i = 0; i < 50; i++) await page.keyboard.press("0");
+    await typeWrongZeroes(page, 50);
     await expect(page.getByRole("button", { name: "Test Again" })).toBeVisible({ timeout: 15_000 });
 
     // Hand off into Practice, where the re-measure prompt invites a re-run.
@@ -296,7 +312,7 @@ test.describe("screenshot tour", () => {
     // Re-run the diagnosed test → the result shows the before→after delta.
     await page.getByRole("button", { name: "Re-run your test" }).click();
     await expect(page.locator("#words .char").first()).toBeVisible();
-    for (let i = 0; i < 50; i++) await page.keyboard.press("0");
+    await typeWrongZeroes(page, 50);
     await expect(page.getByTestId("re-measure-delta")).toBeVisible({ timeout: 15_000 });
     await capture(page, testInfo, "38-re-measure-delta");
   });

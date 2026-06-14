@@ -1,6 +1,7 @@
 import { ImageResponse } from "next/og";
 import type { NextApiRequest, NextApiResponse } from "next";
 
+import { TestModes, TestSubModes } from "~/components/typer/types";
 import { loadOgFonts } from "~/server/og/fonts";
 import { getShareScoreForOg, type OgScoreData } from "~/server/og/scoreData";
 
@@ -18,7 +19,7 @@ const BRAND = {
   primary: "#ff79c6",
 };
 
-const modeLabels = ["Normal", "Practice", "N-grams", "Relaxed"];
+const modeLabels = ["Timed", "Practice", "N-grams", "Relaxed"];
 const subModeLabels = ["Timed", "Words"];
 
 function formatNumber(value: number, digits = 1) {
@@ -27,6 +28,14 @@ function formatNumber(value: number, digits = 1) {
 
 function formatDate(date: Date) {
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+function formatModeText(data: Pick<OgScoreData, "mode" | "subMode" | "language">) {
+  if (data.mode === TestModes.normal) {
+    return `${subModeLabels[data.subMode] ?? subModeLabels[TestSubModes.timed]} / ${data.language}`;
+  }
+
+  return `${modeLabels[data.mode] ?? "Timed"} / ${subModeLabels[data.subMode] ?? subModeLabels[TestSubModes.timed]} / ${data.language}`;
 }
 
 function sparklineDataUri(samples: OgScoreData["wpmSamples"], rawWpm: number) {
@@ -56,7 +65,7 @@ function Stat(props: { label: string; value: string }) {
 
 function ScoreCard(props: { data: OgScoreData; brag?: string }) {
   const { data, brag } = props;
-  const modeText = `${modeLabels[data.mode] ?? "Normal"} / ${subModeLabels[data.subMode] ?? "Timed"} / ${data.language}`;
+  const modeText = formatModeText(data);
   const username = data.username ? `@${data.username}` : "Guest";
 
   return (

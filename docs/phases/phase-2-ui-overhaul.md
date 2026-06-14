@@ -105,7 +105,8 @@ Do not mix this work with progression, coach, competition, or reach features.
 
 ## Acceptance
 
-- [ ] Timed and Words are separate top-level modes everywhere a user chooses a mode
+- [x] Timed and Words are separate top-level modes everywhere a user chooses a mode
+  - 2026-06-14: The typer toolbar now exposes `Timed`, `Words`, `Practice`, `Grams`, and `Relaxed`; stored Normal scores and settings still map through the existing `mode + subMode` data model while user-facing labels resolve to Timed/Words.
 - [ ] Length can be changed from the toolbar without opening settings
 - [ ] Custom length slides over the preset buttons and validates without layout shift
 - [ ] Language opens from its own toolbar icon and is absent from settings

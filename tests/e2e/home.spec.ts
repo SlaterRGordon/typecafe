@@ -10,7 +10,7 @@ async function gotoHome(page: Page) {
 }
 
 // Mode switches inline on the main page; everything else lives in the modal.
-function selectMode(page: Page, name: "Normal" | "Practice" | "Grams" | "Relaxed") {
+function selectMode(page: Page, name: "Timed" | "Words" | "Practice" | "Grams" | "Relaxed") {
   return page.getByTestId("mode-bar").getByRole("button", { name }).click();
 }
 
@@ -21,6 +21,17 @@ async function closeConfigModal(page: Page) {
     if (checkbox.checked) checkbox.click();
   });
   await expect(page.locator("#configModal")).not.toBeChecked();
+}
+
+async function typeWrongZeroes(page: Page, count: number) {
+  await expect(page.locator("#c0")).not.toHaveClass(/text-secondary/);
+  await page.locator("#input").focus();
+  await expect(async () => {
+    await page.keyboard.press("0");
+    await expect(page.locator("#c0")).toHaveClass(/text-secondary/, { timeout: 250 });
+  }).toPass({ timeout: 5_000 });
+
+  for (let i = 1; i < count; i++) await page.keyboard.press("0");
 }
 
 test.describe("home typing test", () => {
@@ -47,14 +58,19 @@ test.describe("home typing test", () => {
     await expect(page.locator("#c0")).not.toHaveClass(/text-base-300/);
   });
 
-  test("mode switches inline; submode and grams settings live in the modal", async ({ page }) => {
+  test("mode switches inline; length and grams settings live in the modal", async ({ page }) => {
     await gotoHome(page);
 
-    // Normal/Timed: submode + length switch inside the modal.
+    const modeBar = page.getByTestId("mode-bar");
+    await expect(modeBar.getByRole("button", { name: "Timed" })).toHaveAttribute("aria-pressed", "true");
+    await expect(modeBar.getByRole("button", { name: "Normal" })).toHaveCount(0);
+
+    // Words is now a top-level toolbar mode; length stays in the modal until 2.2.
+    await selectMode(page, "Words");
+    await expect(modeBar.getByRole("button", { name: "Words" })).toHaveAttribute("aria-pressed", "true");
     await page.locator("#typer label[for='configModal']").click();
     await expect(page.locator("#configModal")).toBeChecked();
     await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
-    await page.getByRole("button", { name: "Words" }).click();
     await expect(page.getByRole("heading", { name: "Length" })).toBeVisible();
     await page.getByRole("button", { name: "25" }).click();
     await closeConfigModal(page);
@@ -81,15 +97,13 @@ test.describe("home typing test", () => {
     await gotoHome(page);
 
     await typeCurrentCharacter(page);
-    await page.locator("#typer label[for='configModal']").click();
-    await page.getByRole("button", { name: "Words" }).click();
-    // Wait for the words-length options to confirm the mode switch settled.
-    await expect(page.getByRole("button", { name: "100", exact: true })).toBeVisible();
+    await selectMode(page, "Words");
+    await expect(page.getByTestId("mode-bar").getByRole("button", { name: "Words" })).toHaveAttribute("aria-pressed", "true");
 
     expect(scoreCreates).toBe(0);
 
-    await page.getByRole("button", { name: "Timed" }).click();
-    await expect(page.getByRole("button", { name: "120s", exact: true })).toBeVisible();
+    await selectMode(page, "Timed");
+    await expect(page.getByTestId("mode-bar").getByRole("button", { name: "Timed" })).toHaveAttribute("aria-pressed", "true");
 
     expect(scoreCreates).toBe(0);
   });
@@ -126,8 +140,8 @@ test.describe("home typing test", () => {
   test("test settings persist across a reload", async ({ page }) => {
     await gotoHome(page);
 
+    await selectMode(page, "Words");
     await page.locator("#typer label[for='configModal']").click();
-    await page.getByRole("button", { name: "Words" }).click();
     await page.getByRole("button", { name: "25", exact: true }).click();
     await expect.poll(async () =>
       page.evaluate(() => window.localStorage.getItem("typecafe:testSettings")),
@@ -137,7 +151,7 @@ test.describe("home typing test", () => {
     await expect(page.locator("#words .char").first()).toBeVisible();
 
     await page.locator("#typer label[for='configModal']").click();
-    await expect(page.getByRole("button", { name: "Words" })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByTestId("mode-bar").getByRole("button", { name: "Words" })).toHaveAttribute("aria-pressed", "true");
     await expect(page.getByRole("button", { name: "25", exact: true })).toHaveClass(/bg-primary/);
   });
 
@@ -247,9 +261,7 @@ test.describe("home typing test", () => {
     // 50 deliberately-wrong keystrokes: every expected key is missed, so several
     // keys land under 100% — enough for an honest "least accurate keys" finding
     // regardless of the (machine-uniform) keystroke timing.
-    for (let i = 0; i < 50; i++) {
-      await page.keyboard.press("0");
-    }
+    await typeWrongZeroes(page, 50);
 
     // Timer expiry renders the results card with the diagnosis panel.
     await expect(page.getByRole("button", { name: "Test Again" })).toBeVisible({ timeout: 15_000 });
@@ -326,7 +338,7 @@ test.describe("home typing test", () => {
     });
     await expect(page.locator("#configModal")).not.toBeChecked();
 
-    for (let i = 0; i < 50; i++) await page.keyboard.press("0");
+    await typeWrongZeroes(page, 50);
     await expect(page.getByRole("button", { name: "Test Again" })).toBeVisible({ timeout: 15_000 });
 
     // 2. Drill handoff lands in Practice with the re-measure prompt.
@@ -336,7 +348,7 @@ test.describe("home typing test", () => {
     // 3. Re-run the diagnosed test on its original config.
     await page.getByRole("button", { name: "Re-run your test" }).click();
     await expect(page.locator("#words .char").first()).toBeVisible();
-    for (let i = 0; i < 50; i++) await page.keyboard.press("0");
+    await typeWrongZeroes(page, 50);
 
     // 4. The result headlines the before → after delta, then the offer is retired.
     await expect(page.getByTestId("re-measure-delta")).toBeVisible({ timeout: 15_000 });
