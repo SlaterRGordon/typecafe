@@ -53,6 +53,7 @@ interface TyperProps {
     restartSignal?: number,
     onRestart?: () => void,
     hideInterface?: boolean,
+    showControls?: boolean,
     charAttemptsRef: React.MutableRefObject<Map<string, { attempts: number, correct: number }>>
 }
 
@@ -71,7 +72,8 @@ export const Typer = (props: TyperProps) => {
         charAttemptsRef,
         onKeyChange,
         onAttemptChange,
-        onRestart
+        onRestart,
+        showControls = true,
     } = props
 
     const dispatch = useDispatch();
@@ -79,6 +81,10 @@ export const Typer = (props: TyperProps) => {
     const [text, setText] = useState("")
     const [started, setStarted] = useState(false)
     const [restarted, setRestarted] = useState(true)
+    // Bumped on every restart so the text view always re-renders fresh — even when
+    // the regenerated text is identical (e.g. a grams level produces the same
+    // deterministic gram), where `restarted`/`text` alone wouldn't change.
+    const [restartNonce, setRestartNonce] = useState(0)
     // Per-keystroke counts live in refs so typing never re-renders Typer; the
     // visible numbers (wpm/accuracy/typedCount) refresh on a 250ms interval.
     const characterCountRef = useRef(0)
@@ -181,7 +187,7 @@ export const Typer = (props: TyperProps) => {
     const cancelRestartRef = useRef(false)
     const textRequestRef = useRef(0)
 
-    const handleRestart = useCallback(() => {
+    const handleRestart = useCallback((targetLevel?: number) => {
         cancelRestartRef.current = true;
         setTimeout(() => {
             if (cancelRestartRef.current) {
@@ -198,7 +204,7 @@ export const Typer = (props: TyperProps) => {
                         mode, subMode, count, language, punctuation, capitals,
                         level, selectedKeys,
                         gramSource, gramScope, gramCombination, gramRepetition,
-                    }, gramLevel).then((newText) => {
+                    }, targetLevel ?? gramLevel).then((newText) => {
                         if (textRequestRef.current === requestToken) setText(newText)
                     })
                 }
@@ -213,6 +219,7 @@ export const Typer = (props: TyperProps) => {
                 keystrokeTimelineRef.current = []
                 keyEventsRef.current = []
                 setRestarted(true)
+                setRestartNonce((nonce) => nonce + 1)
                 characterCountRef.current = 0
                 incorrectCountRef.current = 0
                 setTypedCount(0)
@@ -227,10 +234,30 @@ export const Typer = (props: TyperProps) => {
         handleRestart()
     }, [handleRestart])
 
+    // A user-initiated restart (button or tab+enter). In grams this restarts the
+    // whole drill from level 1 — otherwise restart regenerates the same
+    // deterministic gram for the current level and appears to do nothing.
+    const restartTest = useCallback(() => {
+        if (mode === TestModes.ngrams) {
+            resetProgression()
+            handleRestart(1)
+        } else {
+            handleRestart()
+        }
+    }, [mode, resetProgression, handleRestart])
+
+    // Read the latest restartTest without depending on it: it's recreated whenever
+    // gramLevel changes (advancement), and depending on it here would re-fire this
+    // effect on every level-up and reset the drill back to level 1.
+    const restartTestRef = useRef(restartTest)
+    useEffect(() => {
+        restartTestRef.current = restartTest
+    }, [restartTest])
+
     useEffect(() => {
         if (!props.restartSignal) return
-        handleRestart()
-    }, [handleRestart, props.restartSignal])
+        restartTestRef.current()
+    }, [props.restartSignal])
 
     const handleStart = useCallback(() => {
         activeAttemptRef.current = {
@@ -445,7 +472,7 @@ export const Typer = (props: TyperProps) => {
         return () => clearInterval(intervalId)
     }, [actualStartTime, started, mode])
 
-    useRestartShortcut(restartRef, handleRestart, isAnyModalOpen)
+    useRestartShortcut(restartRef, restartTest, isAnyModalOpen)
 
     // Before any keystroke of an attempt there is nothing meaningful to show. In
     // n-grams mode the displayed numbers are the last completed gram's, so only
@@ -458,9 +485,32 @@ export const Typer = (props: TyperProps) => {
         return null
     }
 
+    const textNode = (
+        <Text
+            text={text}
+            language={language}
+            mode={mode}
+            subMode={subMode}
+            punctuation={punctuation}
+            capitals={capitals}
+            started={started} restarted={restarted} restartNonce={restartNonce}
+            modalOpen={props.modalOpen}
+            charAttempts={charAttemptsRef.current}
+            onStart={handleStart}
+            onComplete={handleComplete}
+            setCharacterCount={handleSetCharacterCount}
+            setIncorrectCount={handleSetIncorrectCount}
+            onKeyChange={stableOnKeyChange}
+            onCharacterAttempt={handleCharacterAttempt}
+            onProgress={handleProgress}
+            onAttemptChange={stableOnAttemptChange}
+        />
+    )
+
     return (
         <div className="flex w-full flex-col px-4 py-8 sm:py-0 sm:justify-center items-center space-y-2">
-            <div className="flex relative justify-center items-center w-full gap-2 max-w-screen-xl">
+            {showControls &&
+            <div className="relative w-full max-w-screen-xl flex items-center justify-center gap-2">
                 <div className={`absolute flex items-center h-full left-0 invisible ${text.length > 38 ? "md:visible" : ""}`}>
                     {showStats &&
                         <Stats mode={mode} wpm={wpm} accuracy={accuracy} pending={statsPending} wpmPending={wpmPending}
@@ -475,7 +525,7 @@ export const Typer = (props: TyperProps) => {
                     </label>
                 }
                 {/* restart button */}
-                <button className="btn btn-ghost btn-circle focus:outline-0" ref={restartRef} onClick={handleRestart} tabIndex={0} aria-label="Restart test" title="Restart test">
+                <button className="btn btn-ghost btn-circle focus:outline-0" ref={restartRef} onClick={() => restartTest()} tabIndex={0} aria-label="Restart test" title="Restart test">
                     <svg id="restart" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" className="w-7 h-7" viewBox="0.8 1 22 22"><g fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5"><path d="M12 3a9 9 0 1 1-5.657 2" /><path d="M3 4.5h4v4" /></g></svg>
                 </button>
                 {/* fullscreen button */}
@@ -487,45 +537,48 @@ export const Typer = (props: TyperProps) => {
                     }
                 </button>
             </div>
-            <Text
-                text={text}
-                language={language}
-                mode={mode}
-                subMode={subMode}
-                punctuation={punctuation}
-                capitals={capitals}
-                started={started} restarted={restarted}
-                modalOpen={props.modalOpen}
-                charAttempts={charAttemptsRef.current}
-                onStart={handleStart}
-                onComplete={handleComplete}
-                setCharacterCount={handleSetCharacterCount}
-                setIncorrectCount={handleSetIncorrectCount}
-                onKeyChange={stableOnKeyChange}
-                onCharacterAttempt={handleCharacterAttempt}
-                onProgress={handleProgress}
-                onAttemptChange={stableOnAttemptChange}
-            />
-            <div className="flex flex-col relative items-center w-full">
-                {/* Countdown is Normal/Timed only — see the isTimed note above. */}
-                {isTimed &&
-                    <div className={`py-2`}>
-                        <span className={`flex font-mono text-4xl gap-4`}>
-                            <span className="flex">{time}</span>
-                        </span>
+            }
+            {showControls ?
+                <>
+                    {textNode}
+                    <div className="flex flex-col relative items-center w-full">
+                        {/* Countdown is Normal/Timed only — see the isTimed note above. */}
+                        {isTimed &&
+                            <div className={`py-2`}>
+                                <span className={`flex font-mono text-4xl gap-4`}>
+                                    <span className="flex">{time}</span>
+                                </span>
+                            </div>
+                        }
+                        <div className={`visible ${text.length > 38 ? "md:invisible" : ""}`} >
+                            {showStats &&
+                                <Stats mode={mode} wpm={wpm} accuracy={accuracy} pending={statsPending} wpmPending={wpmPending}
+                                    averageWpm={gramWpm} levelText={getGramLevelText(gramLevel, gramCombination, gramScope)}
+                                />
+                            }
+                        </div>
+                        <p className="mt-2 font-mono text-xs text-base-content/40 select-none">
+                            <kbd className="kbd kbd-xs">tab</kbd> + <kbd className="kbd kbd-xs">enter</kbd> — restart
+                        </p>
                     </div>
-                }
-                <div className={`visible ${text.length > 38 ? "md:invisible" : ""}`} >
-                    {showStats &&
-                        <Stats mode={mode} wpm={wpm} accuracy={accuracy} pending={statsPending} wpmPending={wpmPending}
+                </>
+                :
+                <>
+                    {/* Phase 2.5/2.6: the typing text is the visual center, with WPM/accuracy
+                        (the timed countdown, or the grams level progress) stacked above it
+                        on the left. Stats returns null when there's nothing to show. */}
+                    <div className="mx-auto flex w-full max-w-screen-xl flex-col gap-5">
+                        <Stats layout="stacked" mode={mode} wpm={wpm} accuracy={accuracy} pending={statsPending} wpmPending={wpmPending}
                             averageWpm={gramWpm} levelText={getGramLevelText(gramLevel, gramCombination, gramScope)}
+                            isTimed={isTimed} time={time} showLiveStats={showStats}
                         />
-                    }
-                </div>
-                <p className="mt-2 font-mono text-xs text-base-content/40 select-none">
-                    <kbd className="kbd kbd-xs">tab</kbd> + <kbd className="kbd kbd-xs">enter</kbd> — restart
-                </p>
-            </div>
+                        {textNode}
+                    </div>
+                    <p className="mt-6 font-mono text-xs text-base-content/40 select-none">
+                        <kbd className="kbd kbd-xs">tab</kbd> + <kbd className="kbd kbd-xs">enter</kbd> — restart
+                    </p>
+                </>
+            }
         </div>
     )
 }

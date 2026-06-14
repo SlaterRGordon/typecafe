@@ -7,6 +7,9 @@ interface TextProps {
     text: string,
     started: boolean,
     restarted: boolean,
+    // Increments on every restart; forces the reset effect to re-run even when the
+    // regenerated text is byte-identical (e.g. a grams level's deterministic gram).
+    restartNonce?: number,
     modalOpen: boolean,
     language: string,
     mode: TestModes,
@@ -24,6 +27,16 @@ interface TextProps {
     onAttemptChange?: () => void,
 }
 
+// True for editable form controls. The toolbar and its subpanels live inside
+// #typer, so their inputs would otherwise have focus yanked back to the hidden
+// typing input on click/keystroke/restart — making them un-editable.
+function isEditableElement(el: Element | EventTarget | null): boolean {
+    const node = el as HTMLElement | null
+    if (!node || !node.tagName) return false
+    const tag = node.tagName
+    return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || node.isContentEditable
+}
+
 // Memoized: keystrokes mutate the DOM directly and report progress through
 // stable callbacks, so this only re-renders when the test itself changes
 // (new text, restart, mode/option changes).
@@ -32,6 +45,7 @@ export const Text = memo(function Text(props: TextProps) {
         text,
         started,
         restarted,
+        restartNonce,
         modalOpen,
         language,
         mode,
@@ -124,11 +138,22 @@ export const Text = memo(function Text(props: TextProps) {
 
     // event listeners to focus input
     useEffect(() => {
-        const handleTyperClick = () => {
+        // The toolbar now lives inside #typer, so its own form fields (the
+        // custom-length input, dropdowns) would otherwise have focus yanked back
+        // to the hidden typing input on every click/keystroke — making them
+        // un-editable. Skip the auto-focus whenever the user is interacting with
+        // another editable control.
+        const isEditableTarget = (target: EventTarget | null) =>
+            target !== inputRef.current && isEditableElement(target)
+        const handleTyperClick = (event: MouseEvent) => {
+            if (isEditableTarget(event.target)) return
             const input = inputRef.current
-            if (input) input.focus()
+            // preventScroll: the hidden input sits below the toolbar/subpanels, so a
+            // plain focus would scroll them out of view (and under the fixed navbar).
+            if (input) input.focus({ preventScroll: true })
         }
-        const handleWindowKeydown = () => {
+        const handleWindowKeydown = (event: KeyboardEvent) => {
+            if (isEditableTarget(event.target)) return
             const input = inputRef.current
 
             if (isModalOpen(MODAL_IDS.color)) {
@@ -137,7 +162,7 @@ export const Text = memo(function Text(props: TextProps) {
             }
 
             if (!isAnyModalOpen()) {
-                if (input) input.focus()
+                if (input) input.focus({ preventScroll: true })
             } else {
                 if (input) input.blur()
             }
@@ -169,8 +194,11 @@ export const Text = memo(function Text(props: TextProps) {
         const restartBtn = document.getElementById("restart") as HTMLButtonElement
         if (restartBtn) restartBtn.classList.remove("blinking", "text-primary")
         const input = inputRef.current
-        if (input && !modalOpen) input.focus()
-    }, [modalOpen, renderInitialText, restarted, text])
+        // A config change (e.g. editing a grams-subpanel field) regenerates text
+        // and lands here; don't yank focus away from a control the user is editing.
+        const active = document.activeElement
+        if (input && !modalOpen && (active === input || !isEditableElement(active))) input.focus({ preventScroll: true })
+    }, [modalOpen, renderInitialText, restarted, text, restartNonce])
 
     // Append new text when needed. Relaxed mode scrolls forever; timed tests must
     // also never run out of text — a fast typist on a long custom duration would
@@ -325,7 +353,7 @@ export const Text = memo(function Text(props: TextProps) {
     }, [position, incorrect])
 
     return (
-        <div id="text" className="relative z-30 mb-8 flex w-full max-w-[calc(100vw-2rem)] max-h-24 leading-[2rem] flex-col overflow-hidden text-[20px] leading-[2rem] sm:max-h-24 sm:text-[22px] sm:leading-[2rem] md:max-w-screen-xl">
+        <div id="text" className="relative z-30 mb-8 flex w-full max-w-[calc(100vw-2rem)] max-h-[6.6rem] leading-[2.2rem] flex-col overflow-hidden text-[24px] sm:max-h-[9rem] sm:text-[34px] sm:leading-[3rem] md:max-w-screen-xl">
             <input id="input" autoCapitalize="none" autoComplete="off" className="h-0 p-0 m-0 border-none" onKeyDown={handleKeyPress} ref={inputRef} autoFocus />
             <div className="flex w-full flex-wrap justify-start overflow-y-hidden no-scrollbar scroll-smooth font-mono select-none sm:justify-start" id="words" ref={typerRef}>
                 <div

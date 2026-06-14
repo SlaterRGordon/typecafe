@@ -81,13 +81,7 @@ async function completeWordTest(page: Parameters<typeof mockTrpc>[0]) {
   await page.goto("/");
   await expect(page.locator("#words .char").first()).toBeVisible();
 
-  await page.getByLabel("Open typing settings").click();
-  await page.getByRole("button", { name: "Words" }).click();
-  await page.locator("#configModal").evaluate((input) => {
-    const checkbox = input as HTMLInputElement;
-    checkbox.checked = false;
-    checkbox.dispatchEvent(new Event("change", { bubbles: true }));
-  });
+  await page.getByTestId("mode-bar").getByRole("button", { name: "Words" }).click();
 
   await finishActiveTypingTest(page);
   await expect(page.getByTestId("score-screenshot-card")).toBeVisible();

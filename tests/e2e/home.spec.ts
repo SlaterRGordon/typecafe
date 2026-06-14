@@ -1,6 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
 import { mockAuthenticatedSession, mockTrpc } from "./helpers/trpc";
-import { chooseReactSelectOption } from "./helpers/select";
 import { typeCurrentCharacter, typeVisibleTestText, typeWrongCharacter } from "./helpers/typing";
 
 async function gotoHome(page: Page) {
@@ -14,13 +13,17 @@ function selectMode(page: Page, name: "Timed" | "Words" | "Practice" | "Grams" |
   return page.getByTestId("mode-bar").getByRole("button", { name }).click();
 }
 
-// The config modal overlay intercepts normal clicks, so close it via the checkbox.
-async function closeConfigModal(page: Page) {
-  await page.locator("#configModal").evaluate((input) => {
-    const checkbox = input as HTMLInputElement;
-    if (checkbox.checked) checkbox.click();
-  });
-  await expect(page.locator("#configModal")).not.toBeChecked();
+async function setToolbarCustomLength(page: Page, value: string) {
+  await page.getByTestId("toolbar-context").getByRole("button", { name: "Custom" }).click();
+  const input = page.locator("#customLengthInput");
+  await expect(input).toBeVisible();
+  await input.fill(value);
+  await input.press("Enter");
+}
+
+async function openSettingsMenu(page: Page) {
+  await page.getByTestId("typer-toolbar").getByRole("button", { name: "Open typing settings" }).click();
+  await expect(page.getByTestId("settings-menu")).toBeVisible();
 }
 
 async function typeWrongZeroes(page: Page, count: number) {
@@ -58,31 +61,74 @@ test.describe("home typing test", () => {
     await expect(page.locator("#c0")).not.toHaveClass(/text-base-300/);
   });
 
-  test("mode switches inline; length and grams settings live in the modal", async ({ page }) => {
+  test("toolbar owns mode, length, language, and right-side actions", async ({ page }) => {
     await gotoHome(page);
 
     const modeBar = page.getByTestId("mode-bar");
+    const toolbar = page.getByTestId("typer-toolbar");
     await expect(modeBar.getByRole("button", { name: "Timed" })).toHaveAttribute("aria-pressed", "true");
     await expect(modeBar.getByRole("button", { name: "Normal" })).toHaveCount(0);
+    await expect(toolbar.getByRole("button", { name: "15" })).toHaveAttribute("aria-pressed", "true");
 
-    // Words is now a top-level toolbar mode; length stays in the modal until 2.2.
+    // Words owns its length controls directly beside the mode group.
     await selectMode(page, "Words");
     await expect(modeBar.getByRole("button", { name: "Words" })).toHaveAttribute("aria-pressed", "true");
-    await page.locator("#typer label[for='configModal']").click();
-    await expect(page.locator("#configModal")).toBeChecked();
-    await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Length" })).toBeVisible();
-    await page.getByRole("button", { name: "25" }).click();
-    await closeConfigModal(page);
+    await toolbar.getByRole("button", { name: "25" }).click();
+    await expect(toolbar.getByRole("button", { name: "25" })).toHaveAttribute("aria-pressed", "true");
 
-    // Grams mode switches on the inline bar; its settings appear in the modal.
+    const context = page.getByTestId("toolbar-context");
+    const beforeCustomBox = await context.boundingBox();
+    await context.getByRole("button", { name: "Custom" }).click();
+    const customInput = page.locator("#customLengthInput");
+    await expect(customInput).toBeVisible();
+    const afterCustomBox = await context.boundingBox();
+    expect(beforeCustomBox).not.toBeNull();
+    expect(afterCustomBox).not.toBeNull();
+    expect(afterCustomBox!.width).toBeCloseTo(beforeCustomBox!.width, 0);
+    await customInput.fill("6000");
+    // Enter commits (clamped to the max) and collapses the editor; the Custom
+    // button stays selected because the length is non-preset.
+    await customInput.press("Enter");
+    await expect(customInput).toHaveValue("5000");
+    await expect(page.getByTestId("custom-length-panel")).toHaveAttribute("aria-hidden", "true");
+    await expect(context.getByRole("button", { name: "Custom" })).toHaveAttribute("aria-pressed", "true");
+
+    // Language moved to its own toolbar icon.
+    await toolbar.getByRole("button", { name: "Language: English" }).click();
+    await expect(page.getByTestId("language-menu")).toBeVisible();
+    await toolbar.getByRole("button", { name: "Spanish" }).click();
+    await expect(toolbar.getByRole("button", { name: "Language: Spanish" })).toBeVisible();
+
+    // Settings is now a compact toolbar dropdown for secondary toggles only.
+    await openSettingsMenu(page);
+    const settingsMenu = page.getByTestId("settings-menu");
+    await expect(settingsMenu.getByText("Text")).toBeVisible();
+    await expect(settingsMenu.getByText("Display")).toBeVisible();
+    await expect(settingsMenu.getByText("Language")).toHaveCount(0);
+    await expect(settingsMenu.getByText("Length")).toHaveCount(0);
+    await expect(settingsMenu.getByText("Type")).toHaveCount(0);
+    await toolbar.getByRole("button", { name: "Open typing settings" }).click();
+    await expect(settingsMenu).toBeHidden();
+    await openSettingsMenu(page);
+    await page.keyboard.press("Escape");
+    await expect(settingsMenu).toBeHidden();
+    await openSettingsMenu(page);
+    await page.mouse.click(8, 8);
+    await expect(settingsMenu).toBeHidden();
+
+    await toolbar.getByRole("button", { name: "Restart test" }).click();
+    await expect(page.locator("#c0")).toHaveClass(/active-char/);
+    await toolbar.getByRole("button", { name: "Enter fullscreen" }).click();
+    await expect(toolbar.getByRole("button", { name: "Exit fullscreen" })).toBeVisible();
+    await toolbar.getByRole("button", { name: "Exit fullscreen" }).click();
+    await expect(toolbar.getByRole("button", { name: "Enter fullscreen" })).toBeVisible();
+
+    // Grams mode switches on the inline bar; its settings live in the subpanel
+    // below the toolbar (not in the toolbar context, which collapses).
     await selectMode(page, "Grams");
-    await page.locator("#typer label[for='configModal']").click();
-    await expect(page.getByRole("heading", { name: "Source" })).toBeVisible();
-    await expect(page.locator("#testGramCombinationInput")).toHaveValue("1");
-
-    await page.locator("#testGramAccuracyThresholdInput").fill("105");
-    await expect(page.locator("#testGramAccuracyThresholdInput")).toHaveValue("100");
+    const gramsPanel = page.getByTestId("grams-panel");
+    await expect(gramsPanel).toBeVisible();
+    await expect(gramsPanel.getByRole("button", { name: "Bigrams" })).toHaveAttribute("aria-pressed", "true");
   });
 
   test("does not log a score when switching modes mid-test", async ({ page }) => {
@@ -111,23 +157,20 @@ test.describe("home typing test", () => {
   test("settings cover language, practice, relaxed, stats, and keyboard options", async ({ page }) => {
     await gotoHome(page);
 
-    await page.locator("[aria-label='Open typing settings']").click();
+    await page.getByTestId("typer-toolbar").getByRole("button", { name: "Language: English" }).click();
+    await page.getByTestId("typer-toolbar").getByRole("button", { name: "Spanish" }).click();
+    await expect(page.getByTestId("typer-toolbar").getByRole("button", { name: "Language: Spanish" })).toBeVisible();
 
-    await chooseReactSelectOption(page, "languageSelect", "Spanish");
-    await expect(page.getByText("Spanish", { exact: true })).toBeVisible();
+    await openSettingsMenu(page);
 
-    // Scope each toggle to its own settings row so reordering rows can't break it.
-    const settingRow = (heading: string) => page.locator("div")
-      .filter({ has: page.getByRole("heading", { name: heading, exact: true }) })
-      .filter({ has: page.getByRole("button", { name: "off" }) })
-      .last();
-
-    await settingRow("Live stats").getByRole("button", { name: "off" }).click();
+    const settingsMenu = page.getByTestId("settings-menu");
+    await settingsMenu.getByRole("button", { name: /Live stats/ }).click();
     await expect(page.getByText("0.0wpm")).toBeHidden();
 
-    await settingRow("Keyboard").getByRole("button", { name: "on" }).click();
-    await closeConfigModal(page);
+    await settingsMenu.getByRole("button", { name: /Keyboard/ }).click();
     await expect(page.locator(".typecafe-keyboard")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(settingsMenu).toBeHidden();
 
     // Mode switches on the inline bar, no modal round-trip.
     await selectMode(page, "Practice");
@@ -137,12 +180,75 @@ test.describe("home typing test", () => {
     await expect(page.getByTestId("mode-bar").getByRole("button", { name: "Relaxed" })).toHaveAttribute("aria-pressed", "true");
   });
 
+  // Phase 2 regression: the toolbar moved inside #typer, where Text.tsx's
+  // click/keydown handlers used to yank focus back to the hidden typing input —
+  // making the custom-length field uneditable (only the first digit ever landed).
+  test("custom length input stays focused and editable while typing", async ({ page }) => {
+    await gotoHome(page);
+
+    await page.getByTestId("toolbar-context").getByRole("button", { name: "Custom" }).click();
+    const input = page.locator("#customLengthInput");
+    await expect(input).toBeVisible();
+
+    await input.click();
+    await expect(input).toBeFocused();
+
+    // Real, per-keystroke typing (not fill) — this is what the focus-steal broke:
+    // a stolen focus would drop every digit after the first, leaving "4" not "45".
+    await input.fill("");
+    await input.pressSequentially("45");
+    await expect(input).toHaveValue("45");
+    await expect(input).toBeFocused();
+
+    // Enter commits the value and closes the editor panel.
+    await input.press("Enter");
+    await expect(input).toHaveValue("45");
+    await expect(page.getByTestId("custom-length-panel")).toHaveAttribute("aria-hidden", "true");
+    await expect.poll(async () =>
+      page.evaluate(() => window.localStorage.getItem("typecafe:testSettings")),
+    ).toContain('"count":45');
+  });
+
+  // Phase 2 regression: the dropdown menus and the custom-length slide-over were
+  // semi-transparent (bg-*/95), so the typing text bled through. They must be
+  // fully opaque.
+  test("toolbar menus and the custom-length panel are fully opaque", async ({ page }) => {
+    await gotoHome(page);
+
+    const isOpaque = (color: string) => {
+      const match = color.match(/rgba?\(([^)]+)\)/);
+      if (!match) return true;
+      const parts = match[1]!.split(",").map((part) => part.trim());
+      return parts.length < 4 || parseFloat(parts[3]!) === 1;
+    };
+    const backgroundOf = (testId: string) =>
+      page.getByTestId(testId).evaluate((el) => getComputedStyle(el).backgroundColor);
+
+    await openSettingsMenu(page);
+    expect(isOpaque(await backgroundOf("settings-menu"))).toBe(true);
+    await page.keyboard.press("Escape");
+
+    await page.getByTestId("typer-toolbar").getByRole("button", { name: "Language: English" }).click();
+    await expect(page.getByTestId("language-menu")).toBeVisible();
+    expect(isOpaque(await backgroundOf("language-menu"))).toBe(true);
+    await page.keyboard.press("Escape");
+
+    await page.getByTestId("toolbar-context").getByRole("button", { name: "Custom" }).click();
+    await expect(page.locator("#customLengthInput")).toBeVisible();
+    expect(isOpaque(await backgroundOf("custom-length-panel"))).toBe(true);
+
+    // The unit label and a distinct cancel control are separate elements (the
+    // cancel used to read as glued onto the "sec" label).
+    const panel = page.getByTestId("custom-length-panel");
+    await expect(panel.getByText("sec")).toBeVisible();
+    await expect(panel.getByRole("button", { name: "Cancel custom length" })).toBeVisible();
+  });
+
   test("test settings persist across a reload", async ({ page }) => {
     await gotoHome(page);
 
     await selectMode(page, "Words");
-    await page.locator("#typer label[for='configModal']").click();
-    await page.getByRole("button", { name: "25", exact: true }).click();
+    await page.getByTestId("toolbar-context").getByRole("button", { name: "25", exact: true }).click();
     await expect.poll(async () =>
       page.evaluate(() => window.localStorage.getItem("typecafe:testSettings")),
     ).toContain('"count":25');
@@ -150,23 +256,15 @@ test.describe("home typing test", () => {
     await page.reload();
     await expect(page.locator("#words .char").first()).toBeVisible();
 
-    await page.locator("#typer label[for='configModal']").click();
     await expect(page.getByTestId("mode-bar").getByRole("button", { name: "Words" })).toHaveAttribute("aria-pressed", "true");
-    await expect(page.getByRole("button", { name: "25", exact: true })).toHaveClass(/bg-primary/);
+    await expect(page.getByTestId("toolbar-context").getByRole("button", { name: "25", exact: true })).toHaveAttribute("aria-pressed", "true");
   });
 
   test("timed test completes when the timer expires", async ({ page }) => {
     await gotoHome(page);
 
     // Shorten the test to 3 seconds via a custom timed length.
-    await page.locator("#typer label[for='configModal']").click();
-    await page.getByRole("button", { name: "Custom" }).click();
-    await page.locator("#customLengthInput").fill("3");
-    await page.locator("#configModal").evaluate((input) => {
-      const checkbox = input as HTMLInputElement;
-      if (checkbox.checked) checkbox.click();
-    });
-    await expect(page.locator("#configModal")).not.toBeChecked();
+    await setToolbarCustomLength(page, "3");
 
     // Start the test; the countdown should expire and show the score card even
     // though the text is nowhere near finished.
@@ -210,9 +308,9 @@ test.describe("home typing test", () => {
     await expect(page.locator("#words .char").first()).toBeVisible();
     await typeVisibleTestText(page);
 
-    // The average renders "(—avg)", never "(500.0avg)".
-    await expect(page.getByText("(—avg)").first()).toBeAttached();
-    await expect(page.getByText(/\d+\.\davg/)).toHaveCount(0);
+    // The WPM and its running average render "—", never an inflated number like 500.
+    await expect(page.getByTestId("stat-wpm")).toHaveText("—");
+    await expect(page.getByTestId("stat-avg")).toHaveText("—");
   });
 
   // Regression guard for the swallowed-save bug (phase-0-trust.md 0.1): a signed-in
@@ -224,14 +322,7 @@ test.describe("home typing test", () => {
     await gotoHome(page);
 
     // Shorten to a 3s timed test so the timer expiry triggers the (failing) save.
-    await page.locator("#typer label[for='configModal']").click();
-    await page.getByRole("button", { name: "Custom" }).click();
-    await page.locator("#customLengthInput").fill("3");
-    await page.locator("#configModal").evaluate((input) => {
-      const checkbox = input as HTMLInputElement;
-      if (checkbox.checked) checkbox.click();
-    });
-    await expect(page.locator("#configModal")).not.toBeChecked();
+    await setToolbarCustomLength(page, "3");
 
     await typeCurrentCharacter(page);
 
@@ -249,14 +340,7 @@ test.describe("home typing test", () => {
     await gotoHome(page);
 
     // A short custom timed test, long enough to clear the 30-keystroke floor.
-    await page.locator("#typer label[for='configModal']").click();
-    await page.getByRole("button", { name: "Custom" }).click();
-    await page.locator("#customLengthInput").fill("4");
-    await page.locator("#configModal").evaluate((input) => {
-      const checkbox = input as HTMLInputElement;
-      if (checkbox.checked) checkbox.click();
-    });
-    await expect(page.locator("#configModal")).not.toBeChecked();
+    await setToolbarCustomLength(page, "4");
 
     // 50 deliberately-wrong keystrokes: every expected key is missed, so several
     // keys land under 100% — enough for an honest "least accurate keys" finding
@@ -329,14 +413,7 @@ test.describe("home typing test", () => {
     await gotoHome(page);
 
     // 1. A short custom timed test that clears the diagnosis floor.
-    await page.locator("#typer label[for='configModal']").click();
-    await page.getByRole("button", { name: "Custom" }).click();
-    await page.locator("#customLengthInput").fill("4");
-    await page.locator("#configModal").evaluate((input) => {
-      const checkbox = input as HTMLInputElement;
-      if (checkbox.checked) checkbox.click();
-    });
-    await expect(page.locator("#configModal")).not.toBeChecked();
+    await setToolbarCustomLength(page, "4");
 
     await typeWrongZeroes(page, 50);
     await expect(page.getByRole("button", { name: "Test Again" })).toBeVisible({ timeout: 15_000 });

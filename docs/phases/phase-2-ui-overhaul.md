@@ -107,13 +107,21 @@ Do not mix this work with progression, coach, competition, or reach features.
 
 - [x] Timed and Words are separate top-level modes everywhere a user chooses a mode
   - 2026-06-14: The typer toolbar now exposes `Timed`, `Words`, `Practice`, `Grams`, and `Relaxed`; stored Normal scores and settings still map through the existing `mode + subMode` data model while user-facing labels resolve to Timed/Words.
-- [ ] Length can be changed from the toolbar without opening settings
-- [ ] Custom length slides over the preset buttons and validates without layout shift
-- [ ] Language opens from its own toolbar icon and is absent from settings
-- [ ] Settings is a dropdown, closes on outside click/button click/escape, and contains only secondary toggles
-- [ ] WPM/accuracy and typing text match the direction of the vision screenshots on desktop and mobile
-- [ ] Grams settings render as a subpanel; no custom length input exists in that subpanel
-- [ ] Diagnosis drill handoff, re-measure flow, restart, fullscreen, live stats, and keyboard toggles still work
-- [ ] Screenshot tour includes every new toolbar/dropdown/subpanel state
+- [x] Length can be changed from the toolbar without opening settings
+  - 2026-06-14: Timed and Words show their length presets directly in the toolbar context area, immediately to the right of the mode group.
+- [x] Custom length slides over the preset buttons and validates without layout shift
+  - 2026-06-14: Custom length now slides over the preset group inside the fixed toolbar context area, clamps invalid values, supports Enter/Escape/blur behavior, and returns cleanly to presets.
+- [x] Language opens from its own toolbar icon and is absent from settings
+  - 2026-06-14: The toolbar globe opens the language picker; normal-mode settings now contain secondary toggles only.
+- [x] Settings is a dropdown, closes on outside click/button click/escape, and contains only secondary toggles
+  - 2026-06-14: The gear now opens a shared toolbar menu dropdown with text/display toggles only; mode, length, and language are not present.
+- [x] WPM/accuracy and typing text match the direction of the vision screenshots on desktop and mobile
+  - 2026-06-14: On the main page, WPM/accuracy (plus the timed countdown) render as stacked label-over-value cells with a restrained divider, left-aligned above a much larger typing text that is now the dominant element. Live stats still honor the toggle; the timed countdown stays visible regardless. Grams keeps its legacy stat line until its 2.6 subpanel; the learn page keeps its existing control-bar layout. Covered on desktop + mobile by the screenshot tour (`01`, `02`, `07`, `27`) and the existing home specs.
+- [x] Grams settings render as a subpanel; no custom length input exists in that subpanel
+  - 2026-06-14: Grams settings (source, scope, combinations, repetitions, WPM threshold, accuracy threshold) render in an anchored `GramsPanel` below the toolbar (`vision-grams.png`); the hallucinated custom-length input is omitted. Number fields commit on blur/Enter (no per-keystroke restart) and clamp to valid ranges. The grams presentation now uses the stacked stat treatment — large current gram, plus WPM/AVG/ACC and a LEVEL x/total progress cell that advances cleanly. Practice keeps its key-selection/Smart-drill/analytics in the keyboard subpanel; the toolbar context now collapses for Practice/Relaxed (no "9 keys"/"Endless text" placeholder). Per-level best is left for the Phase 3 progression engine. Covered by `home.spec` (grams subpanel + micro-sample guard) and the screenshot tour (`05`, `25`, `26`).
+- [x] Diagnosis drill handoff, re-measure flow, restart, fullscreen, live stats, and keyboard toggles still work
+  - 2026-06-14: The improvement loop survives the toolbar overhaul — diagnosis "Drill these keys" still lands in Practice with the diagnosed keys selected, the re-measure prompt restores the diagnosed config and headlines the before→after delta, and restart/fullscreen/live-stats/keyboard all work from the new toolbar icon controls. Covered by `home.spec` (settings/keyboard/live-stats, restart, fullscreen, mode switches) and the screenshot tour (`35`–`38`).
+- [x] Screenshot tour includes every new toolbar/dropdown/subpanel state
+  - 2026-06-14: The tour captures the closed toolbar, settings dropdown, language dropdown (`39`), custom-length slide-in, Timed/Words/Practice/Grams subpanel/Relaxed, fullscreen, and mobile variants. Legacy specs that drove the removed `#configModal` modal (`visual-qa`, `mobile-modals`, `modal-focus`) were migrated to the new dropdown selectors.
 
 **Owner's part:** final taste pass against the vision screenshots; choose any tradeoffs if the desktop mockup and mobile ergonomics conflict.

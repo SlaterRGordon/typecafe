@@ -24,24 +24,22 @@ async function gotoHome(page: Page) {
   await expect(page.locator("#words .char").first()).toBeVisible();
 }
 
-async function openConfigModal(page: Page) {
-  await page.locator("[aria-label='Open typing settings']").click({ force: true });
-  await expect(page.locator("#configModal")).toBeChecked();
-}
-
-// Clicking the navbar toggle while the modal is open gets intercepted by the
-// modal overlay, so close it through the checkbox like the other specs do.
-async function closeConfigModal(page: Page) {
-  await page.locator("#configModal").evaluate((input) => {
-    const checkbox = input as HTMLInputElement;
-    if (checkbox.checked) checkbox.click();
-  });
-  await expect(page.locator("#configModal")).not.toBeChecked();
+async function openSettingsMenu(page: Page) {
+  await page.getByTestId("typer-toolbar").getByRole("button", { name: "Open typing settings" }).click();
+  await expect(page.getByTestId("settings-menu")).toBeVisible();
 }
 
 // Mode switches on the inline mode bar (the modal holds everything else).
 function selectMode(page: Page, name: "Timed" | "Words" | "Practice" | "Grams" | "Relaxed") {
   return page.getByTestId("mode-bar").getByRole("button", { name }).click();
+}
+
+async function setToolbarCustomLength(page: Page, value: string) {
+  await page.getByTestId("toolbar-context").getByRole("button", { name: "Custom" }).click();
+  const input = page.locator("#customLengthInput");
+  await expect(input).toBeVisible();
+  await input.fill(value);
+  await input.press("Enter");
 }
 
 async function typeWrongZeroes(page: Page, count: number) {
@@ -69,34 +67,35 @@ test.describe("screenshot tour", () => {
     await capture(page, testInfo, "02-home-mid-test-with-error");
   });
 
-  test("home: mode bar and the settings modal per mode", async ({ page }, testInfo) => {
+  test("home: toolbar menus and mode contexts", async ({ page }, testInfo) => {
     await gotoHome(page);
 
-    // Timed: the modal still holds length until Phase 2.2 moves it into the toolbar.
-    await openConfigModal(page);
+    // Timed: the toolbar owns mode, length, language, and action icons.
+    await expect(page.getByTestId("toolbar-context").getByRole("button", { name: "15" })).toHaveAttribute("aria-pressed", "true");
+    await openSettingsMenu(page);
     await capture(page, testInfo, "03-settings-timed");
-    await closeConfigModal(page);
 
-    // Words is now top-level in the toolbar; the modal shows the words length.
+    await page.keyboard.press("Escape");
+    await page.getByTestId("typer-toolbar").getByRole("button", { name: "Language: English" }).click();
+    await expect(page.getByTestId("language-menu")).toBeVisible();
+    await capture(page, testInfo, "39-language-dropdown");
+    await page.keyboard.press("Escape");
+
+    // Words is top-level and swaps the context controls beside the mode group.
     await selectMode(page, "Words");
-    await openConfigModal(page);
-    await expect(page.getByRole("heading", { name: "Length" })).toBeVisible();
+    await page.getByTestId("toolbar-context").getByRole("button", { name: "25" }).click();
     await capture(page, testInfo, "04-settings-words");
-    await closeConfigModal(page);
 
     await selectMode(page, "Timed");
-    await openConfigModal(page);
-    await page.getByRole("button", { name: "Custom" }).click();
+    await page.getByTestId("toolbar-context").getByRole("button", { name: "Custom" }).click();
     await expect(page.locator("#customLengthInput")).toBeVisible();
     await capture(page, testInfo, "06-settings-timed-custom-length");
-    await closeConfigModal(page);
 
-    // Grams: switched on the inline bar; its settings live in the modal.
+    // Grams: switched on the inline bar; its settings live in the subpanel
+    // anchored below the toolbar.
     await selectMode(page, "Grams");
-    await openConfigModal(page);
-    await expect(page.getByRole("heading", { name: "Source" })).toBeVisible();
+    await expect(page.getByTestId("grams-panel")).toBeVisible();
     await capture(page, testInfo, "05-settings-grams");
-    await closeConfigModal(page);
 
     // Practice (keyboard) and Relaxed switch inline with no modal round-trip.
     await selectMode(page, "Practice");
@@ -104,17 +103,15 @@ test.describe("screenshot tour", () => {
     await capture(page, testInfo, "07-settings-practice-mode");
 
     await selectMode(page, "Relaxed");
-    await openConfigModal(page);
-    await expect(page.getByRole("heading", { name: "Live stats" })).toBeVisible();
+    await openSettingsMenu(page);
+    await expect(page.getByTestId("settings-menu")).toBeVisible();
     await capture(page, testInfo, "08-settings-relaxed-mode");
   });
 
   test("words mode: test view after closing modal", async ({ page }, testInfo) => {
     await gotoHome(page);
     await selectMode(page, "Words");
-    await openConfigModal(page);
-    await page.getByRole("button", { name: "25", exact: true }).click();
-    await closeConfigModal(page);
+    await page.getByTestId("toolbar-context").getByRole("button", { name: "25", exact: true }).click();
 
     await expect(page.locator("#words .char").first()).toBeVisible();
     await capture(page, testInfo, "23-test-view-words-mode");
@@ -122,10 +119,10 @@ test.describe("screenshot tour", () => {
 
   test("timed mode: punctuation and capitals test view", async ({ page }, testInfo) => {
     await gotoHome(page);
-    await openConfigModal(page);
-    await page.getByRole("button", { name: "punctuation" }).click();
-    await page.getByRole("button", { name: "capitals" }).click();
-    await closeConfigModal(page);
+    await openSettingsMenu(page);
+    await page.getByTestId("settings-menu").getByRole("button", { name: /punctuation/ }).click();
+    await page.getByTestId("settings-menu").getByRole("button", { name: /capitals/ }).click();
+    await page.keyboard.press("Escape");
 
     await expect(page.locator("#words .char").first()).toBeVisible();
     await capture(page, testInfo, "24-test-view-punctuation-capitals");
@@ -217,17 +214,10 @@ test.describe("screenshot tour", () => {
 
   test("home: keyboard enabled and live stats disabled", async ({ page }, testInfo) => {
     await gotoHome(page);
-    await openConfigModal(page);
-
-    // Scope each toggle to its own settings row so reordering rows can't break it.
-    const settingRow = (heading: string) => page.locator("div")
-      .filter({ has: page.getByRole("heading", { name: heading, exact: true }) })
-      .filter({ has: page.getByRole("button", { name: "off" }) })
-      .last();
-
-    await settingRow("Keyboard").getByRole("button", { name: "on" }).click();
-    await settingRow("Live stats").getByRole("button", { name: "off" }).click();
-    await closeConfigModal(page);
+    await openSettingsMenu(page);
+    await page.getByTestId("settings-menu").getByRole("button", { name: /Keyboard/ }).click();
+    await page.getByTestId("settings-menu").getByRole("button", { name: /Live stats/ }).click();
+    await page.keyboard.press("Escape");
 
     await expect(page.locator(".typecafe-keyboard")).toBeVisible();
     await expect(page.getByText("0.0wpm")).toBeHidden();
@@ -256,10 +246,7 @@ test.describe("screenshot tour", () => {
     await gotoHome(page);
 
     // Shorten the test to 3 seconds so the completion dashboard appears fast.
-    await openConfigModal(page);
-    await page.getByRole("button", { name: "Custom" }).click();
-    await page.locator("#customLengthInput").fill("3");
-    await closeConfigModal(page);
+    await setToolbarCustomLength(page, "3");
 
     await typeCurrentCharacter(page);
     await expect(page.getByRole("button", { name: "Test Again" })).toBeVisible({ timeout: 15_000 });
@@ -273,10 +260,7 @@ test.describe("screenshot tour", () => {
 
     // A short custom timed test, long enough to clear the 30-keystroke diagnosis
     // floor; 50 wrong keystrokes guarantee an honest "least accurate keys" finding.
-    await openConfigModal(page);
-    await page.getByRole("button", { name: "Custom" }).click();
-    await page.locator("#customLengthInput").fill("4");
-    await closeConfigModal(page);
+    await setToolbarCustomLength(page, "4");
 
     await typeWrongZeroes(page, 50);
 
@@ -296,10 +280,7 @@ test.describe("screenshot tour", () => {
     await mockTrpc(page);
     await gotoHome(page);
 
-    await openConfigModal(page);
-    await page.getByRole("button", { name: "Custom" }).click();
-    await page.locator("#customLengthInput").fill("4");
-    await closeConfigModal(page);
+    await setToolbarCustomLength(page, "4");
 
     await typeWrongZeroes(page, 50);
     await expect(page.getByRole("button", { name: "Test Again" })).toBeVisible({ timeout: 15_000 });

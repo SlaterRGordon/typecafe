@@ -14,20 +14,16 @@ test.describe("visual QA artifacts", () => {
     await expect(page.locator("#words .char").first()).toBeVisible();
     await saveScreenshot(page, testInfo, "home-default");
 
-    await page.locator("[aria-label='Open typing settings']").click({ force: true });
-    await expect(page.locator("#configModal")).toBeChecked();
+    // Settings is now a toolbar dropdown, not a modal.
+    await page.locator("[aria-label='Open typing settings']").click();
+    const settingsMenu = page.getByTestId("settings-menu");
+    await expect(settingsMenu).toBeVisible();
     await saveScreenshot(page, testInfo, "home-settings-modal");
 
-    await page.locator("#configModal").evaluate((input) => {
-      const checkbox = input as HTMLInputElement;
-      if (checkbox.checked) checkbox.click();
-    });
-    await page.locator("[aria-label='Open typing settings']").click({ force: true });
-    await page.getByRole("button", { name: "on" }).last().click();
-    await page.locator("#configModal").evaluate((input) => {
-      const checkbox = input as HTMLInputElement;
-      if (checkbox.checked) checkbox.click();
-    });
+    // Enable the on-screen keyboard from the dropdown, then close it.
+    await settingsMenu.getByRole("button", { name: /Keyboard/ }).click();
+    await page.keyboard.press("Escape");
+    await expect(settingsMenu).toBeHidden();
     await expect(page.locator(".typecafe-keyboard")).toBeVisible();
     await saveScreenshot(page, testInfo, "home-live-keyboard");
 

@@ -3,14 +3,11 @@ import Head from "next/head";
 import { useRouter } from "next/router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
-import { Modal } from "~/components/Modal";
 import { ShareableScoreCard, type ScoreSnapshot } from "~/components/scores/ShareableScoreCard";
 import { Keyboard } from "~/components/typer/Keyboard";
 import { Typer, type TestCompletionResult } from "~/components/typer/Typer";
-import { Config } from "~/components/typer/config/Config";
 import { ModeBar } from "~/components/typer/config/ModeBar";
-import type { TestGramScopes, TestGramSources } from "~/components/typer/types";
-import { TestModes, TestSubModes } from "~/components/typer/types";
+import { TestGramScopes, TestGramSources, TestModes, TestSubModes } from "~/components/typer/types";
 import { useTestSettings } from "~/hooks/useTestSettings";
 import { withPracticeVowel } from "~/lib/diagnosis";
 import { api } from "~/utils/api";
@@ -36,7 +33,6 @@ const RE_MEASURE_TTL_MS = 60 * 60 * 1000;
 
 const Home: NextPage = () => {
   const [fullscreen, setFullscreen] = useState(false)
-  const [modalOpen, setModalOpen] = useState(false)
   const { settings, updateSetting } = useTestSettings()
   const {
     mode, subMode, language, count, customLength, punctuation, capitals,
@@ -49,16 +45,16 @@ const Home: NextPage = () => {
   const setMode = (value: TestModes) => updateSetting("mode", value)
   const setSubMode = (value: TestSubModes) => updateSetting("subMode", value)
   const setSelectedKeys = (value: string[]) => updateSetting("selectedKeys", value)
+  const setCount = (value: number) => updateSetting("count", value)
+  const setPunctuation = (value: boolean) => updateSetting("punctuation", value)
+  const setCapitals = (value: boolean) => updateSetting("capitals", value)
+  const setCustomLength = (value: boolean) => updateSetting("customLength", value)
   const setGramSource = (value: TestGramSources) => updateSetting("gramSource", value)
   const setGramScope = (value: TestGramScopes) => updateSetting("gramScope", value)
   const setGramCombination = (value: number) => updateSetting("gramCombination", value)
   const setGramRepetition = (value: number) => updateSetting("gramRepetition", value)
   const setGramWpmThreshold = (value: number) => updateSetting("gramWpmThreshold", value)
   const setGramAccuracyThreshold = (value: number) => updateSetting("gramAccuracyThreshold", value)
-  const setCount = (value: number) => updateSetting("count", value)
-  const setPunctuation = (value: boolean) => updateSetting("punctuation", value)
-  const setCapitals = (value: boolean) => updateSetting("capitals", value)
-  const setCustomLength = (value: boolean) => updateSetting("customLength", value)
   const [currentKey, setCurrentKey] = useState("")
   const currentKeyRef = useRef("")
   const [attemptVersion, setAttemptVersion] = useState(0)
@@ -439,13 +435,41 @@ const Home: NextPage = () => {
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
       </Head>
-      <div id="typer" className={`flex flex-col h-full overflow-auto ${completedScore ? "py-4" : "justify-center"} ${fullscreen ? 'absolute top-0 left-0 w-full h-full bg-base-100 z-[500] sm:px-8' : 'md:w-10/12'}`}>
-        {!completedScore && !fullscreen &&
+      <div id="typer" className={`flex flex-col h-full overflow-auto ${completedScore ? "py-4" : "[justify-content:safe_center]"} ${fullscreen ? 'absolute top-0 left-0 w-full h-full bg-base-100 z-[500] sm:px-8' : 'md:w-10/12'}`}>
+        {!completedScore &&
           <ModeBar
             mode={mode} subMode={subMode} setMode={setMode}
             setSubMode={setSubMode}
+            count={count}
+            customLength={customLength}
+            language={language}
+            selectedKeys={selectedKeys}
+            gramSource={gramSource}
+            gramScope={gramScope}
+            gramCombination={gramCombination}
+            gramRepetition={gramRepetition}
+            gramWpmThreshold={gramWpmThreshold}
+            gramAccuracyThreshold={gramAccuracyThreshold}
+            punctuation={punctuation}
+            capitals={capitals}
+            showStats={showStats}
+            showKeyboard={showKeyboard}
             setCount={setCount}
             setCustomLength={setCustomLength}
+            setLanguage={setLanguage}
+            setGramSource={setGramSource}
+            setGramScope={setGramScope}
+            setGramCombination={setGramCombination}
+            setGramRepetition={setGramRepetition}
+            setGramWpmThreshold={setGramWpmThreshold}
+            setGramAccuracyThreshold={setGramAccuracyThreshold}
+            setPunctuation={setPunctuation}
+            setCapitals={setCapitals}
+            setShowStats={setShowStats}
+            setShowKeyboard={setShowKeyboard}
+            onRestart={requestRestart}
+            fullscreen={fullscreen}
+            setFullscreen={setFullscreen}
           />
         }
         {!completedScore && mode === TestModes.practice && reMeasure &&
@@ -486,8 +510,9 @@ const Home: NextPage = () => {
           capitals={capitals}
           customLength={customLength}
           showStats={showStats}
-          showConfig={true}
-          modalOpen={modalOpen}
+          showConfig={false}
+          showControls={false}
+          modalOpen={false}
           onKeyChange={onKeyChange}
           onAttemptChange={onAttemptChange}
           restartSignal={restartSignal}
@@ -522,26 +547,6 @@ const Home: NextPage = () => {
           <Keyboard mode={mode} currentKey={currentKey} selectedKeys={selectedKeys} setSelectedKeys={setSelectedKeys} charAttemptsRef={charAttemptsRef} baseAttemptsRef={persistedAttemptsRef} attemptVersion={attemptVersion} />
         }
       </div>
-      <Modal setModalOpen={(open) => setModalOpen(open)} boxClassName="sm:w-[680px] !max-h-[82vh] sm:!max-h-[calc(100vh-5em)]">
-        <Config
-          language={language} setLanguage={setLanguage}
-          mode={mode} setMode={setMode}
-          subMode={subMode} setSubMode={setSubMode}
-          selectedKeys={selectedKeys} setSelectedKeys={setSelectedKeys}
-          gramSource={gramSource} setGramSource={setGramSource}
-          gramScope={gramScope} setGramScope={setGramScope}
-          gramCombination={gramCombination} setGramCombination={setGramCombination}
-          gramRepetition={gramRepetition} setGramRepetition={setGramRepetition}
-          gramWpmThreshold={gramWpmThreshold} setGramWpmThreshold={setGramWpmThreshold}
-          gramAccuracyThreshold={gramAccuracyThreshold} setGramAccuracyThreshold={setGramAccuracyThreshold}
-          count={count} setCount={setCount}
-          customLength={customLength} setCustomLength={setCustomLength}
-          punctuation={punctuation} setPunctuation={setPunctuation}
-          capitals={capitals} setCapitals={setCapitals}
-          showStats={showStats} setShowStats={setShowStats}
-          showKeyboard={showKeyboard} setShowKeyboard={setShowKeyboard}
-        />
-      </Modal>
     </>
   );
 };

@@ -30,13 +30,16 @@ const boxFor = (page: Page, heading: string) =>
   page.locator(".modal-box").filter({ has: page.getByRole("heading", { name: heading, exact: true }) });
 
 test.describe("modals fit on a small mobile viewport", () => {
-  test("settings modal fits the screen", async ({ page }) => {
+  test("settings dropdown fits the screen", async ({ page }) => {
     await page.goto("/");
     await expect(page.locator("#typer")).toBeVisible();
 
+    // Settings moved from a modal to a toolbar dropdown; it must still fit the
+    // smallest viewport without overflowing off-screen.
     await page.locator("[aria-label='Open typing settings']").click();
-    await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
-    await expectModalFits(page, boxFor(page, "Settings"));
+    const settingsMenu = page.getByTestId("settings-menu");
+    await expect(settingsMenu).toBeVisible();
+    await expectModalFits(page, settingsMenu);
   });
 
   test("colors modal fits and the pinned Save action stays in view", async ({ page }) => {
@@ -48,11 +51,13 @@ test.describe("modals fit on a small mobile viewport", () => {
 
     await page.locator("[aria-label='Open color settings']").click();
     await expect(page.getByRole("heading", { name: "Colors" })).toBeVisible();
-    await expectModalFits(page, boxFor(page, "Colors"));
+    const colorsBox = boxFor(page, "Colors");
+    await expectModalFits(page, colorsBox);
 
     // Custom tab: the swatches stack and the pinned Save Color stays on-screen.
-    await page.getByRole("button", { name: "Custom" }).click();
-    await expect(page.getByRole("button", { name: "Save Color" })).toBeInViewport();
+    // Scope to the modal box — the toolbar now has its own "Custom" length button.
+    await colorsBox.getByRole("button", { name: "Custom" }).click();
+    await expect(colorsBox.getByRole("button", { name: "Save Color" })).toBeInViewport();
   });
 
   test("profile edit modal fits the screen", async ({ page }) => {
