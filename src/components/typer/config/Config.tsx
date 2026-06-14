@@ -58,15 +58,6 @@ const SettingRow = ({ label, description, children }: { label: string, descripti
 const SettingDivider = () => <div className="h-px w-full bg-base-content/10" />
 
 export const Config = (props: ConfigProps) => {
-    const handleModeChange = (newMode: number) => {
-        props.setMode(newMode)
-        if (newMode !== TestModes.normal) {
-            props.setSubMode(TestSubModes.words)
-            props.setCount(10)
-            props.setCustomLength(false)
-        }
-    }
-
     const handleSubModeChange = (newSubMode: number) => {
         props.setCount(newSubMode == TestSubModes.timed ? 15 : 10)
         props.setCustomLength(false)
@@ -190,17 +181,6 @@ export const Config = (props: ConfigProps) => {
     return (
         <div className="flex flex-col mb-8">
             <h3 className="font-mono font-bold text-4xl pb-4 tracking-tight">Settings</h3>
-
-            <SettingRow label="Mode" description="Choose your typing mode">
-                <ConfigOption
-                    variant="pill"
-                    options={["Normal", "Practice", "Grams", "Relaxed"]}
-                    active={props.mode}
-                    onChange={(newMode: string | number) => { handleModeChange(newMode as TestModes) }}
-                />
-            </SettingRow>
-
-            <SettingDivider />
 
             {props.mode === TestModes.normal &&
                 <>

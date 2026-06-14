@@ -39,6 +39,11 @@ async function closeConfigModal(page: Page) {
   await expect(page.locator("#configModal")).not.toBeChecked();
 }
 
+// Mode switches on the inline mode bar (the modal holds everything else).
+function selectMode(page: Page, name: "Normal" | "Practice" | "Grams" | "Relaxed") {
+  return page.getByTestId("mode-bar").getByRole("button", { name }).click();
+}
+
 test.describe("screenshot tour", () => {
   test("home: default and mid-test states", async ({ page }, testInfo) => {
     await gotoHome(page);
@@ -53,31 +58,35 @@ test.describe("screenshot tour", () => {
     await capture(page, testInfo, "02-home-mid-test-with-error");
   });
 
-  test("home: settings modal in every mode", async ({ page }, testInfo) => {
+  test("home: mode bar and the settings modal per mode", async ({ page }, testInfo) => {
     await gotoHome(page);
+
+    // Normal: the modal holds type + length.
     await openConfigModal(page);
     await capture(page, testInfo, "03-settings-timed");
-
     await page.getByRole("button", { name: "Words" }).click();
     await expect(page.getByRole("heading", { name: "Length" })).toBeVisible();
     await capture(page, testInfo, "04-settings-words");
-
-    await page.getByRole("button", { name: "Grams" }).click();
-    await expect(page.getByRole("heading", { name: "Source" })).toBeVisible();
-    await capture(page, testInfo, "05-settings-grams");
-
-    // The Timed/Words selector only renders in Normal mode, so leave Grams first.
-    await page.getByRole("button", { name: "Normal" }).click();
     await page.getByRole("button", { name: "Timed" }).click();
     await page.getByRole("button", { name: "Custom" }).click();
     await expect(page.locator("#customLengthInput")).toBeVisible();
     await capture(page, testInfo, "06-settings-timed-custom-length");
+    await closeConfigModal(page);
 
-    await page.getByRole("button", { name: "Practice" }).click();
+    // Grams: switched on the inline bar; its settings live in the modal.
+    await selectMode(page, "Grams");
+    await openConfigModal(page);
+    await expect(page.getByRole("heading", { name: "Source" })).toBeVisible();
+    await capture(page, testInfo, "05-settings-grams");
+    await closeConfigModal(page);
+
+    // Practice (keyboard) and Relaxed switch inline with no modal round-trip.
+    await selectMode(page, "Practice");
     await expect(page.locator(".typecafe-keyboard")).toBeVisible();
     await capture(page, testInfo, "07-settings-practice-mode");
 
-    await page.getByRole("button", { name: "Relaxed" }).click();
+    await selectMode(page, "Relaxed");
+    await openConfigModal(page);
     await expect(page.getByRole("heading", { name: "Live stats" })).toBeVisible();
     await capture(page, testInfo, "08-settings-relaxed-mode");
   });
@@ -106,10 +115,7 @@ test.describe("screenshot tour", () => {
 
   test("grams mode: test view with level progression stats", async ({ page }, testInfo) => {
     await gotoHome(page);
-    await openConfigModal(page);
-    await page.getByRole("button", { name: "Grams" }).click();
-    await expect(page.getByRole("heading", { name: "Source" })).toBeVisible();
-    await closeConfigModal(page);
+    await selectMode(page, "Grams");
 
     await expect(page.locator("#words .char").first()).toBeVisible();
     await capture(page, testInfo, "25-test-view-grams-level");
@@ -120,11 +126,9 @@ test.describe("screenshot tour", () => {
     await capture(page, testInfo, "26-test-view-grams-mid-level");
   });
 
-  test("relaxed mode: test view after closing modal", async ({ page }, testInfo) => {
+  test("relaxed mode: test view", async ({ page }, testInfo) => {
     await gotoHome(page);
-    await openConfigModal(page);
-    await page.getByRole("button", { name: "Relaxed" }).click();
-    await closeConfigModal(page);
+    await selectMode(page, "Relaxed");
 
     await expect(page.locator("#words .char").first()).toBeVisible();
     await capture(page, testInfo, "27-test-view-relaxed-mode");
@@ -140,9 +144,7 @@ test.describe("screenshot tour", () => {
 
   test("practice mode: keyboard key selection, alerts, and analytics view", async ({ page }, testInfo) => {
     await gotoHome(page);
-    await openConfigModal(page);
-    await page.getByRole("button", { name: "Practice" }).click();
-    await closeConfigModal(page);
+    await selectMode(page, "Practice");
 
     await expect(page.locator(".typecafe-keyboard")).toBeVisible();
     await capture(page, testInfo, "09-home-practice-keyboard");

@@ -54,25 +54,19 @@ New pure module `src/lib/diagnosis.ts` (unit-tested, heuristics only):
 
 After any practice/grams session that followed a diagnosis (sessionStorage flag), the completion screen offers: **"Re-run your 30s test to see the delta"** → same config as the diagnosed test; result shows *before → after* WPM side by side. This is the loop's last mile; without it the drill never gets credited.
 
-## 1.4 Main page overhaul (L) — sanctioned redesign
+## 1.4 Main page overhaul (L) — sanctioned redesign ✅ shipped 2026-06-13
 
-The gear-modal-as-front-door dies. The differentiators become visible in 10 seconds.
+The gear-modal-as-front-door dies for the headline differentiator: **mode switching is visible inline above the typer.** Everything else stays in the settings modal — the owner's call, to keep the screen quiet (vision #6). The mode bar alone makes TypeCafe legible as a coach (Practice/Grams) in the 10-second test (vision #5); length/punctuation aren't differentiators (Monkeytype has them too), so they don't need to be on the surface.
 
 ```
-        [ Normal | Practice | Grams | Relaxed ]        ← mode bar, always visible
-        [ 15s 30s 60s 120s | 10 25 50 100 ]            ← context row for active mode
-        [ punctuation ] [ capitals ]  [ EN ▾ ]
-
+        [ Normal | Practice | Grams | Relaxed ]    ← inline mode bar, always visible
                     the typing area
-
-        ⚙ (rare settings: keyboard toggle, live stats, thresholds)
+        ⚙ → modal: language, type, length, text, grams, live stats, keyboard
 ```
 
-- Mode/length/text switches live inline above the typer (Monkeytype-proven pattern; instant switching, no modal round-trip). The modal shrinks to genuinely rare settings.
-- `useTestSettings` already centralizes state — this is a presentation change, not a state rewrite.
-- The giant idle countdown ("15") shrinks to a normal-sized label until the test starts.
-- Practice mode's keyboard, key selection, Smart drill, and analytics toggle get a proper anchored toolbar.
-- **Process:** agent ships 2–3 layout candidates behind the screenshot tour; owner picks; agent finishes. Mobile layouts included in the candidates.
+- `ModeBar` (`src/components/typer/config/ModeBar.tsx`) renders above the typer; the `Config` modal lost its Mode row but keeps everything else. `useTestSettings` is unchanged — presentation only.
+- **Considered and rejected:** a full inline context row (length/text/language). Three candidate layouts were built and screenshotted; the owner found them too noisy and chose mode-only. The idle-countdown shrink and an anchored practice toolbar were part of that package and were dropped with it (the standard idle countdown is now the only on-screen duration cue, so it stays at full size).
+- Practice / Grams / Relaxed stay self-contained below the bar (the practice keyboard with Smart drill + analytics; the grams progression — rebuilt in 1.5).
 
 ## 1.5 Grams mode presentation rebuild (M) — sanctioned redesign
 
@@ -91,7 +85,7 @@ Extract the Practice keyboard's accuracy rendering into a reusable `<KeyHeatmap>
 ## Acceptance
 
 - [x] Finish a 30s test → see ≥ 1 honest finding → click → practice opens with those keys selected → finish drill → re-measure prompt → delta shown — `src/lib/diagnosis.ts` → `DiagnosisPanel`/`ReMeasureStrip` on `ShareableScoreCard`; drill handoff + re-measure offer + before→after delta wired in `index.tsx` (`typecafe:reMeasure`). Guest path covered by `home.spec.ts` ("diagnosis panel offers a one-click drill", "re-measure loop shows a before to after delta") and screenshots 35–38.
-- [ ] All four modes + lengths switchable without opening any modal
+- [x] All four modes switchable without opening any modal (inline `ModeBar`; lengths/options live in the modal by design — owner's call 2026-06-13)
 - [ ] Grams mode is self-explanatory to someone who's never seen it (owner tests on one person)
 - [ ] Guest does all of the above with zero account; signs up; aggregates survive
 - [ ] Screenshot tour updated: new main page (all modes), diagnosis panel, drill handoff, re-measure delta, rebuilt grams (idle/mid/advance)

@@ -8,6 +8,7 @@ import { ShareableScoreCard, type ScoreSnapshot } from "~/components/scores/Shar
 import { Keyboard } from "~/components/typer/Keyboard";
 import { Typer, type TestCompletionResult } from "~/components/typer/Typer";
 import { Config } from "~/components/typer/config/Config";
+import { ModeBar } from "~/components/typer/config/ModeBar";
 import type { TestGramScopes, TestGramSources } from "~/components/typer/types";
 import { TestModes, TestSubModes } from "~/components/typer/types";
 import { useTestSettings } from "~/hooks/useTestSettings";
@@ -436,6 +437,14 @@ const Home: NextPage = () => {
         />
       </Head>
       <div id="typer" className={`flex flex-col h-full overflow-auto ${completedScore ? "py-4" : "justify-center"} ${fullscreen ? 'absolute top-0 left-0 w-full h-full bg-base-100 z-[500] sm:px-8' : 'md:w-10/12'}`}>
+        {!completedScore && !fullscreen &&
+          <ModeBar
+            mode={mode} setMode={setMode}
+            setSubMode={setSubMode}
+            setCount={setCount}
+            setCustomLength={setCustomLength}
+          />
+        }
         {!completedScore && mode === TestModes.practice && reMeasure &&
           <div
             data-testid="re-measure-prompt"
@@ -506,7 +515,7 @@ const Home: NextPage = () => {
           :
           null
         }
-        {!completedScore && (showKeyboard || mode === TestModes.practice) && 
+        {!completedScore && (showKeyboard || mode === TestModes.practice) &&
           <Keyboard mode={mode} currentKey={currentKey} selectedKeys={selectedKeys} setSelectedKeys={setSelectedKeys} charAttemptsRef={charAttemptsRef} baseAttemptsRef={persistedAttemptsRef} attemptVersion={attemptVersion} />
         }
       </div>

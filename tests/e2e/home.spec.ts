@@ -9,6 +9,20 @@ async function gotoHome(page: Page) {
   await expect(page.locator("#words .char").first()).toBeVisible();
 }
 
+// Mode switches inline on the main page; everything else lives in the modal.
+function selectMode(page: Page, name: "Normal" | "Practice" | "Grams" | "Relaxed") {
+  return page.getByTestId("mode-bar").getByRole("button", { name }).click();
+}
+
+// The config modal overlay intercepts normal clicks, so close it via the checkbox.
+async function closeConfigModal(page: Page) {
+  await page.locator("#configModal").evaluate((input) => {
+    const checkbox = input as HTMLInputElement;
+    if (checkbox.checked) checkbox.click();
+  });
+  await expect(page.locator("#configModal")).not.toBeChecked();
+}
+
 test.describe("home typing test", () => {
   test("renders typing text and advances when the active character is typed", async ({ page }) => {
     await gotoHome(page);
@@ -33,18 +47,21 @@ test.describe("home typing test", () => {
     await expect(page.locator("#c0")).not.toHaveClass(/text-base-300/);
   });
 
-  test("settings can switch from timed to words and grams mode", async ({ page }) => {
+  test("mode switches inline; submode and grams settings live in the modal", async ({ page }) => {
     await gotoHome(page);
 
+    // Normal/Timed: submode + length switch inside the modal.
     await page.locator("#typer label[for='configModal']").click();
     await expect(page.locator("#configModal")).toBeChecked();
     await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
-
     await page.getByRole("button", { name: "Words" }).click();
     await expect(page.getByRole("heading", { name: "Length" })).toBeVisible();
     await page.getByRole("button", { name: "25" }).click();
+    await closeConfigModal(page);
 
-    await page.getByRole("button", { name: "Grams" }).click();
+    // Grams mode switches on the inline bar; its settings appear in the modal.
+    await selectMode(page, "Grams");
+    await page.locator("#typer label[for='configModal']").click();
     await expect(page.getByRole("heading", { name: "Source" })).toBeVisible();
     await expect(page.locator("#testGramCombinationInput")).toHaveValue("1");
 
@@ -95,13 +112,15 @@ test.describe("home typing test", () => {
     await expect(page.getByText("0.0wpm")).toBeHidden();
 
     await settingRow("Keyboard").getByRole("button", { name: "on" }).click();
+    await closeConfigModal(page);
     await expect(page.locator(".typecafe-keyboard")).toBeVisible();
 
-    await page.getByRole("button", { name: "Practice" }).click();
+    // Mode switches on the inline bar, no modal round-trip.
+    await selectMode(page, "Practice");
     await expect(page.locator(".typecafe-keyboard")).toBeVisible();
 
-    await page.getByRole("button", { name: "Relaxed" }).click();
-    await expect(page.getByRole("heading", { name: "Live stats" })).toBeVisible();
+    await selectMode(page, "Relaxed");
+    await expect(page.getByTestId("mode-bar").getByRole("button", { name: "Relaxed" })).toHaveAttribute("aria-pressed", "true");
   });
 
   test("test settings persist across a reload", async ({ page }) => {
@@ -172,16 +191,7 @@ test.describe("home typing test", () => {
   test("grams mode shows — instead of an inflated WPM on a micro-sample level", async ({ page }) => {
     await gotoHome(page);
 
-    await page.locator("#typer label[for='configModal']").click();
-    await page.getByRole("button", { name: "Grams" }).click();
-    await expect(page.getByRole("heading", { name: "Source" })).toBeVisible();
-
-    // Close the config modal (the overlay otherwise intercepts the typing input).
-    await page.locator("#configModal").evaluate((input) => {
-      const checkbox = input as HTMLInputElement;
-      if (checkbox.checked) checkbox.click();
-    });
-    await expect(page.locator("#configModal")).not.toBeChecked();
+    await selectMode(page, "Grams");
 
     await expect(page.locator("#words .char").first()).toBeVisible();
     await typeVisibleTestText(page);
@@ -267,13 +277,7 @@ test.describe("home typing test", () => {
   test("practice mode has no countdown and keeps running", async ({ page }) => {
     await gotoHome(page);
 
-    await page.locator("#typer label[for='configModal']").click();
-    await page.getByRole("button", { name: "Practice" }).click();
-    await page.locator("#configModal").evaluate((input) => {
-      const checkbox = input as HTMLInputElement;
-      if (checkbox.checked) checkbox.click();
-    });
-    await expect(page.locator("#configModal")).not.toBeChecked();
+    await selectMode(page, "Practice");
     await expect(page.locator(".typecafe-keyboard")).toBeVisible();
 
     // The large countdown number (text-4xl font-mono) must not be present.
