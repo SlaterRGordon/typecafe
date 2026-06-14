@@ -1,7 +1,8 @@
-import { useCallback, useRef } from "react"
+import { useCallback, useEffect, useRef } from "react"
 import { useSession } from "next-auth/react"
 import { useDispatch } from "react-redux"
 import { addAlert } from "~/state/alert/alertSlice"
+import { addLocalKeyStats, clearLocalKeyStats, readLocalKeyStats } from "~/lib/localSync"
 import { api } from "~/utils/api"
 import { TestModes } from "../types"
 import type { TestCompletionResult } from "../types"
@@ -31,6 +32,7 @@ export function useTestPersistence({ mode, charAttemptsRef, onTestComplete }: Us
     const { data: sessionData } = useSession()
     const dispatch = useDispatch()
     const pendingCompletionRef = useRef<TestCompletionResult | null>(null)
+    const importedLocalStatsRef = useRef(false)
 
     const createTest = api.test.create.useMutation({
         onSuccess: (test) => {
@@ -70,9 +72,33 @@ export function useTestPersistence({ mode, charAttemptsRef, onTestComplete }: Us
         },
     })
 
+    useEffect(() => {
+        if (!sessionData?.user) return
+        if (importedLocalStatsRef.current) return
+
+        const localStats = readLocalKeyStats()
+        if (localStats.length === 0) return
+
+        importedLocalStatsRef.current = true
+        syncPracticeStats({
+            stats: localStats.map((stat) => ({
+                character: stat.key,
+                total: stat.attempts,
+                correct: stat.correct,
+            })),
+        }, {
+            onSuccess: () => {
+                clearLocalKeyStats()
+            },
+            onError: (error) => {
+                console.error(error)
+                importedLocalStatsRef.current = false
+            },
+        })
+    }, [sessionData?.user, syncPracticeStats])
+
     const syncCharAttempts = useCallback(() => {
         if (mode !== TestModes.practice) return
-        if (!sessionData?.user) return
 
         const stats = Array.from(charAttemptsRef.current.entries()).map(
             ([character, value]) => ({
@@ -83,6 +109,26 @@ export function useTestPersistence({ mode, charAttemptsRef, onTestComplete }: Us
         )
 
         if (stats.length === 0) return
+
+        if (!sessionData?.user) {
+            const saved = addLocalKeyStats(stats.map((stat) => ({
+                key: stat.character,
+                attempts: stat.total,
+                correct: stat.correct,
+            })))
+
+            if (saved) {
+                for (const stat of stats) {
+                    const current = charAttemptsRef.current.get(stat.character)
+                    if (!current) continue
+                    const attempts = current.attempts - stat.total
+                    const correct = current.correct - stat.correct
+                    if (attempts <= 0) charAttemptsRef.current.delete(stat.character)
+                    else charAttemptsRef.current.set(stat.character, { attempts, correct: Math.max(correct, 0) })
+                }
+            }
+            return
+        }
 
         syncPracticeStats({ stats }, {
             onSuccess: () => {

@@ -157,6 +157,10 @@ function responseForProcedure(procedure: string, input: ProcedureInput, options:
       return [];
     case "learnProgress.complete":
       return [];
+    case "practiceStats.get":
+      return [];
+    case "practiceStats.batchSync":
+      return { count: Array.isArray(input?.stats) ? input.stats.length : 0 };
     case "user.get":
       return currentProfileUser;
     case "user.getProfileByUsername":

@@ -255,6 +255,8 @@ test.describe("home typing test", () => {
     await expect(page.getByRole("button", { name: "Test Again" })).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText("Diagnosis", { exact: true })).toBeVisible();
     await expect(page.getByText("Too short to diagnose")).toHaveCount(0);
+    // Phase 1.5: the reusable per-key heatmap renders inside the diagnosis panel.
+    await expect(page.getByTestId("diagnosis-heatmap")).toBeVisible();
 
     const drillButton = page.getByRole("link", { name: /Drill these keys/ }).first();
     await expect(drillButton).toBeVisible();
@@ -338,6 +340,37 @@ test.describe("home typing test", () => {
 
     // 4. The result headlines the before → after delta, then the offer is retired.
     await expect(page.getByTestId("re-measure-delta")).toBeVisible({ timeout: 15_000 });
+  });
+
+  test("guest practice aggregates import after sign in", async ({ page }) => {
+    let importedStats: unknown[] = [];
+
+    await mockTrpc(page, {
+      onProcedure: (procedure, input) => {
+        if (procedure === "practiceStats.batchSync" && Array.isArray(input?.stats)) {
+          importedStats = input.stats;
+        }
+      },
+    });
+    await gotoHome(page);
+
+    await selectMode(page, "Practice");
+    await expect(page.locator(".typecafe-keyboard")).toBeVisible();
+    for (let i = 0; i < 6; i++) await typeCurrentCharacter(page, i);
+
+    await page.locator("button", { has: page.locator("#restart") }).click();
+    await expect.poll(async () =>
+      page.evaluate(() => window.localStorage.getItem("typecafe:keyStats")),
+    ).toContain('"attempts"');
+
+    await mockAuthenticatedSession(page);
+    await page.reload();
+    await expect(page.locator("#words .char").first()).toBeVisible();
+
+    await expect.poll(() => importedStats.length).toBeGreaterThan(0);
+    await expect.poll(async () =>
+      page.evaluate(() => window.localStorage.getItem("typecafe:keyStats")),
+    ).toBeNull();
   });
 
   test("saves a home screenshot artifact for agent inspection", async ({ page }, testInfo) => {

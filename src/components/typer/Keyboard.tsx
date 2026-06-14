@@ -2,9 +2,8 @@ import { addAlert } from "~/state/alert/alertSlice";
 import { TestModes } from "./types";
 import { useDispatch } from "react-redux";
 import { useState } from "react";
-import { hslToHex, interpolateColor } from "~/utils/convertColor";
-import { useSecondaryStyle, useStyle } from "~/utils/hooks/useMutationObserver";
 import { worstKeysFromAttempts } from "~/lib/stats";
+import { KeyHeatmap } from "~/components/heatmap/KeyHeatmap";
 
 const VOWELS = "aeiou"
 const ALPHABET = "abcdefghijklmnopqrstuvwxyz"
@@ -25,8 +24,6 @@ const letters = "qwertyuiopasdfghjklzxcvbnm/"
 export const Keyboard = (props: KeyboardProps) => {
     const { mode, currentKey, selectedKeys, setSelectedKeys, charAttemptsRef, baseAttemptsRef, highlightKeys } = props
     const dispatch = useDispatch()
-    const style = useStyle();
-    const secondaryStyle = useSecondaryStyle();
 
     const [showStats, setShowStats] = useState(false)
 
@@ -89,31 +86,19 @@ export const Keyboard = (props: KeyboardProps) => {
         dispatch(addAlert({ message: `Drilling your toughest keys: ${keys.join(", ")}`, type: "success" }))
     }
 
-    const getStatsForKey = (key: string) => {
-        const baseStats = baseAttemptsRef?.current.get(key)
-        const sessionStats = charAttemptsRef.current.get(key)
-        const charAttempts = (baseStats?.attempts || 0) + (sessionStats?.attempts || 0)
-        const charCorrect = (baseStats?.correct || 0) + (sessionStats?.correct || 0)
-        const charAccuracy = charAttempts > 0 ? Math.round((charCorrect / charAttempts) * 100) : 100
-        const color = interpolateColor(style ? hslToHex(style) : "#ffffff", secondaryStyle ? hslToHex(secondaryStyle) : "#000000", charAccuracy / 100)
-
-        return { charAccuracy, color }
-    }
-
-    const getSpaceKeyStats = () => {
-        const { charAccuracy, color } = getStatsForKey(" ")
-
-        return (
-            <kbd
-                className="kbd kbd-md sm:kbd-lg min-w-[17.5rem] relative"
-                style={{ backgroundColor: color }}
-            >
-                <div className="absolute top-0 text-xs px-1 text-base-content">
-                    {charAccuracy}%
-                </div>
-                &nbsp;
-            </kbd>
-        )
+    // Combined lifetime + live-session per-key tally that feeds the analytics
+    // heatmap. The same additive merge as the smart-drill set, kept as a Map for
+    // the data-source-agnostic <KeyHeatmap>.
+    const buildStatsAttempts = () => {
+        const combined = new Map<string, { attempts: number, correct: number }>()
+        for (const key of ALPHABET + " ") {
+            const base = baseAttemptsRef?.current.get(key)
+            const session = charAttemptsRef.current.get(key)
+            const attempts = (base?.attempts ?? 0) + (session?.attempts ?? 0)
+            const correct = (base?.correct ?? 0) + (session?.correct ?? 0)
+            if (attempts > 0) combined.set(key, { attempts, correct })
+        }
+        return combined
     }
 
     return (
@@ -136,65 +121,7 @@ export const Keyboard = (props: KeyboardProps) => {
             )}
 
             {mode === TestModes.practice && showStats ?
-                <>
-                    <div className="flex justify-center gap-0.5 my-0.5 w-full md:gap-1 md:my-1">
-                        {letters.slice(0, 10).split("").map((key: string, index: number) => {
-                            const { charAccuracy, color } = getStatsForKey(key)
-
-                            return (
-                                <kbd
-                                    key={index}
-                                    className={`relative kbd kbd-md sm:kbd-lg pt-2`}
-                                    style={{ backgroundColor: color }}
-                                >
-                                    <div className="absolute top-0 right-0 text-xs px-1 text-base-content">
-                                        {charAccuracy}%
-                                    </div>
-                                    {key}
-                                </kbd>
-                            )
-                        })}
-                    </div>
-                    <div className="flex justify-center gap-0.5 my-0.5 w-full md:gap-1 md:my-1">
-                        {letters.slice(10, 19).split("").map((key: string, index: number) => {
-                            const { charAccuracy, color } = getStatsForKey(key)
-
-                            return (
-                                <kbd
-                                    key={index}
-                                    className={`relative kbd kbd-md sm:kbd-lg pt-2`}
-                                    style={{ backgroundColor: color }}
-                                >
-                                    <div className="absolute top-0 right-0 text-xs px-1 text-base-content">
-                                        {charAccuracy}%
-                                    </div>
-                                    {key}
-                                </kbd>
-                            )
-                        })}
-                    </div>
-                    <div className="flex justify-center gap-0.5 my-0.5 w-full md:gap-1 md:my-1">
-                        {letters.slice(19, 26).split("").map((key: string, index: number) => {
-                            const { charAccuracy, color } = getStatsForKey(key)
-
-                            return (
-                                <kbd
-                                    key={index}
-                                    className={`relative kbd kbd-md sm:kbd-lg pt-2`}
-                                    style={{ backgroundColor: color }}
-                                >
-                                    <div className="absolute top-0 right-0 text-xs px-1 text-base-content">
-                                        {charAccuracy}%
-                                    </div>
-                                    {key}
-                                </kbd>
-                            )
-                        })}
-                    </div>
-                    <div className="flex justify-center gap-0.5 my-0.5 w-full md:gap-1 md:my-1">
-                        {getSpaceKeyStats()}
-                    </div>
-                </>
+                <KeyHeatmap size="full" attempts={buildStatsAttempts()} />
                 :
                 <>
                     <div className="flex justify-center gap-0.5 my-0.5 w-full md:gap-1 md:my-1">

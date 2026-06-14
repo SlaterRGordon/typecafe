@@ -8,6 +8,8 @@ import type { KeyAccuracy, TypedSegment, WpmSample as ScoreWpmSample } from "~/l
 import { decodeTimeline } from "~/lib/keystrokes";
 import type { EncodedKeystroke } from "~/lib/keystrokes";
 import { diagnose, toDrillKeys } from "~/lib/diagnosis";
+import { attemptsFromEvents } from "~/lib/heatmap";
+import { KeyHeatmap } from "~/components/heatmap/KeyHeatmap";
 
 export type { TypedSegment, WpmSample as ScoreWpmSample } from "~/lib/stats";
 
@@ -435,9 +437,12 @@ function ReMeasureStrip(props: { beforeWpm: number; afterWpm: number }) {
 // exactly those keys pre-selected. Owner-only: rendered on the live results card,
 // never on a read-only shared score (which carries no timeline anyway).
 function DiagnosisPanel(props: { score: ShareableScore }) {
-  const diagnosis = useMemo(() => {
+  const { diagnosis, attempts } = useMemo(() => {
     const events = props.score.timeline ? decodeTimeline(props.score.timeline) : [];
-    return diagnose({ events, worstKeys: props.score.worstKeys });
+    return {
+      diagnosis: diagnose({ events, worstKeys: props.score.worstKeys }),
+      attempts: attemptsFromEvents(events),
+    };
   }, [props.score.timeline, props.score.worstKeys]);
 
   // Only normal-mode tests carry a per-key timeline; without one there is nothing
@@ -454,7 +459,9 @@ function DiagnosisPanel(props: { score: ShareableScore }) {
 
       {diagnosis.tooShort ?
         <p className="text-base-content/75">Too short to diagnose — try a 30s+ test.</p>
-        : diagnosis.findings.length === 0 ?
+        :
+        <>
+        {diagnosis.findings.length === 0 ?
         <p className="text-base-content/75">No clear weak spots this test — a clean, even run. Keep the pace up.</p>
         :
         <ul className="flex flex-col gap-3">
@@ -482,6 +489,13 @@ function DiagnosisPanel(props: { score: ShareableScore }) {
             );
           })}
         </ul>
+        }
+
+        <div className="mt-5 border-t border-base-content/10 pt-4">
+          <p className="mb-3 text-sm text-base-content/60">This test's per-key accuracy — drilled keys ringed.</p>
+          <KeyHeatmap size="mini" attempts={attempts} highlightKeys={diagnosis.drillKeys} testId="diagnosis-heatmap" />
+        </div>
+        </>
       }
     </div>
   );
