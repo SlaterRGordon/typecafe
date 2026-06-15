@@ -3,7 +3,7 @@ import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { useSession } from "next-auth/react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { TrendChart } from "~/components/progress/TrendChart";
 import {
     PROGRESS_PERIODS,
@@ -17,6 +17,7 @@ import {
     type ProgressPeriod,
     type ProgressRecord,
 } from "~/lib/progress";
+import { readLocalProgress } from "~/lib/progressHistory";
 import { api } from "~/utils/api";
 
 function periodLabel(period: ProgressPeriod): string {
@@ -149,6 +150,15 @@ const Progress: NextPage = () => {
         [recordsQuery.data],
     );
 
+    // Guest history lives in localStorage (read client-side after mount to avoid
+    // an SSR mismatch). A guest with history gets the real dashboard + a keep-it
+    // banner; a guest with none gets the signup pitch.
+    const [guestRecords, setGuestRecords] = useState<ProgressRecord[]>([]);
+    useEffect(() => {
+        if (sessionData?.user) return;
+        setGuestRecords(readLocalProgress().map((e) => ({ wpm: e.wpm, accuracy: e.accuracy, createdAt: new Date(e.t) })));
+    }, [sessionData?.user]);
+
     return (
         <>
             <Head>
@@ -159,22 +169,33 @@ const Progress: NextPage = () => {
                 {status === "loading" || (sessionData?.user && recordsQuery.isLoading) ? (
                     <div className="mt-16 text-base-content/50">Loading your progress…</div>
                 ) : !sessionData?.user ? (
-                    // Local-first guest history is a later slice; for now signing in
-                    // is how progression is kept. The page itself is the pitch.
-                    <div data-testid="progress-signed-out" className="mt-10 w-full max-w-md space-y-4 text-center">
-                        <h1 className="font-mono text-3xl font-bold tracking-tight">Your progress, kept forever</h1>
-                        <p className="text-base-content/60">
-                            Sign in to track every test — your WPM trend, accuracy, and the chart that proves you&apos;re getting faster.
-                        </p>
-                        <label htmlFor="signInModal" className="inline-flex cursor-pointer items-center rounded-md bg-primary px-5 py-2.5 text-sm font-semibold text-primary-content transition hover:opacity-85">
-                            Sign in to track progress
-                        </label>
-                        <div>
-                            <button onClick={() => void router.push("/")} className="text-sm text-base-content/50 underline-offset-2 hover:underline">
-                                Take a test first
-                            </button>
+                    guestRecords.length > 0 ? (
+                        <div className="w-full max-w-3xl space-y-4">
+                            <div data-testid="guest-keep-banner" className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-primary/40 bg-primary/10 px-4 py-3">
+                                <span className="text-sm text-base-content/80">This progress lives on this device only.</span>
+                                <label htmlFor="signInModal" className="inline-flex cursor-pointer items-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85">
+                                    Sign in to keep it forever
+                                </label>
+                            </div>
+                            <ProgressDashboard records={guestRecords} />
                         </div>
-                    </div>
+                    ) : (
+                        // No local history yet — the page is the signup pitch.
+                        <div data-testid="progress-signed-out" className="mt-10 w-full max-w-md space-y-4 text-center">
+                            <h1 className="font-mono text-3xl font-bold tracking-tight">Your progress, kept forever</h1>
+                            <p className="text-base-content/60">
+                                Sign in to track every test — your WPM trend, accuracy, and the chart that proves you&apos;re getting faster.
+                            </p>
+                            <label htmlFor="signInModal" className="inline-flex cursor-pointer items-center rounded-md bg-primary px-5 py-2.5 text-sm font-semibold text-primary-content transition hover:opacity-85">
+                                Sign in to track progress
+                            </label>
+                            <div>
+                                <button onClick={() => void router.push("/")} className="text-sm text-base-content/50 underline-offset-2 hover:underline">
+                                    Take a test first
+                                </button>
+                            </div>
+                        </div>
+                    )
                 ) : (
                     <ProgressDashboard records={records} />
                 )}

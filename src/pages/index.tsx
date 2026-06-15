@@ -10,6 +10,7 @@ import { ModeBar } from "~/components/typer/config/ModeBar";
 import { TestGramScopes, TestGramSources, TestModes, TestSubModes } from "~/components/typer/types";
 import { useTestSettings } from "~/hooks/useTestSettings";
 import { withPracticeVowel } from "~/lib/diagnosis";
+import { appendLocalProgress } from "~/lib/progressHistory";
 import { api } from "~/utils/api";
 
 // The diagnosed test we'll offer to re-run after a drill, so its result can show
@@ -194,6 +195,12 @@ const Home: NextPage = () => {
     if (reMeasured) applyReMeasure(null)
     setCompletedScore(score)
     setShareUrl(undefined)
+
+    // Mirror guest results locally so /progress is real from the first test
+    // (local-first; signed-in users' trends come from the DB instead).
+    if (!sessionData?.user) {
+      appendLocalProgress({ wpm: result.speed, accuracy: result.accuracy, t: Date.now() })
+    }
 
     if (!result.persisted && result.typeId) {
       try {

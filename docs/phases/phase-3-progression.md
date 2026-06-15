@@ -25,7 +25,8 @@ The page answers one question — *am I getting faster?* — before any other de
 **Progress (built in slices):**
 - 2026-06-14 — *slice 1, math foundation:* `src/lib/progress.ts` (pure, 37 unit tests) — period windows (7/30/90/all), `headlineDelta` (current vs prior window; all-time splits at the time midpoint; honest "insufficient"), `trendSeries` (scatter + length-aligned rolling average), and `dailyRollups`/`dayKey` (timezone-correct O(days) aggregation mirroring `DailyUserStat`).
 - 2026-06-14 — *slice 2, the page (signed-in):* `/progress` with the headline delta (largest number, success/error tone, drill CTA when flat/negative), the WPM trend chart (`TrendChart`), a period switcher, and Avg/Best WPM + accuracy + test-count cells. Reads a new `test.getProgressRecords` tRPC query. Empty + signed-out (signup-pitch) states. Progress nav link (desktop + mobile). e2e (`progress.spec.ts`) + screenshot tour (`40`–`42`).
-- *Next slices:* accuracy/consistency trends + the lifetime heatmap with a date-range compare; worst-transitions and records timeline; the guest localStorage mirror (local-first `/progress` from day one); the `DailyUserStat` rollup persistence + mode/length filters; consistency on the `Test` record (needs a schema field).
+- 2026-06-14 — *slice 3, guest local-first mirror:* `src/lib/progressHistory.ts` (validated localStorage list, 4 unit tests). `index.tsx` appends `{wpm,accuracy,t}` on each guest completion; `/progress` reads it so a guest with history gets the real dashboard + a "sign in to keep it forever" banner, no account. Screenshot `43`, e2e covers the guest path. ponytail: capped flat list, no rollups/dedup (guests don't generate that volume); the nav link stays signed-in-only for now.
+- *Next slices:* accuracy/consistency trends + the lifetime heatmap with a date-range compare; worst-transitions and records timeline; the `DailyUserStat` rollup persistence + mode/length filters; consistency on the `Test` record (needs a schema field); sync-on-signup of the guest mirror into the DB.
 
 ## 3.2 Streaks (S)
 
@@ -70,7 +71,8 @@ No email provider exists. The recap is a surface, not a send:
 
 - [x] A user with 4 weeks of history sees their delta in < 3 seconds on `/progress`
   - 2026-06-14: Signed-in users get the headline delta + WPM trend immediately on `/progress` (the delta is computed client-side from `test.getProgressRecords`). Guest local history and the richer trends below are still pending.
-- [ ] A *guest* with 2 weeks of local history sees the same page, plus the keep-it-forever signup pitch
+- [x] A *guest* with 2 weeks of local history sees the same page, plus the keep-it-forever signup pitch
+  - 2026-06-14: Guest completions mirror to localStorage (`progressHistory.ts`); `/progress` renders the full dashboard from it with a "sign in to keep it forever" banner. Sync-on-signup into the DB is still pending.
 - [ ] Progress share card unfurls correctly on Discord/Twitter (OG verified like the score card was)
 - [ ] Streak math correct across timezones (test: tests at 23:50 and 00:10)
 - [ ] Every trend chart renders sanely with 1 data point, 10, and 1,000

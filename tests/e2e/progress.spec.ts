@@ -55,11 +55,27 @@ test.describe("progress dashboard", () => {
     await expect(page.getByTestId("trend-chart")).toHaveCount(0);
   });
 
-  test("a signed-out visitor sees the sign-in pitch", async ({ page }) => {
+  test("a signed-out visitor with no history sees the sign-in pitch", async ({ page }) => {
     await gotoProgress(page);
 
     await expect(page.getByTestId("progress-signed-out")).toBeVisible();
     await expect(page.getByText("Your progress, kept forever")).toBeVisible();
     await expect(page.getByRole("button", { name: "Take a test first" })).toBeVisible();
+  });
+
+  test("a guest with local history gets the real dashboard plus a keep-it banner", async ({ page }) => {
+    // Seed a rising local history (local-first: no account needed).
+    const now = Date.now();
+    const day = 24 * 60 * 60 * 1000;
+    await page.addInitScript(({ now, day }) => {
+      const entries = Array.from({ length: 12 }, (_, i) => ({ wpm: 55 + i * 1.5, accuracy: 95, t: now - (28 - i * 2.5) * day }));
+      window.localStorage.setItem("typecafe:progressHistory", JSON.stringify(entries));
+    }, { now, day });
+
+    await gotoProgress(page);
+
+    await expect(page.getByTestId("guest-keep-banner")).toBeVisible();
+    await expect(page.getByTestId("trend-chart")).toBeVisible();
+    await expect(page.getByTestId("progress-signed-out")).toHaveCount(0);
   });
 });

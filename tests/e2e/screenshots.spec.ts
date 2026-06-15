@@ -349,6 +349,18 @@ test.describe("screenshot tour", () => {
     await capture(page, testInfo, "42-progress-signed-out");
   });
 
+  test("progress dashboard (guest local history)", async ({ page }, testInfo) => {
+    const now = Date.now();
+    const day = 24 * 60 * 60 * 1000;
+    await page.addInitScript(({ now, day }) => {
+      const entries = Array.from({ length: 12 }, (_, i) => ({ wpm: 55 + i * 1.5, accuracy: 95, t: now - (28 - i * 2.5) * day }));
+      window.localStorage.setItem("typecafe:progressHistory", JSON.stringify(entries));
+    }, { now, day });
+    await page.goto("/progress");
+    await expect(page.getByTestId("guest-keep-banner")).toBeVisible();
+    await capture(page, testInfo, "43-progress-guest-history");
+  });
+
   test("shared score page", async ({ page }, testInfo) => {
     await mockTrpc(page);
     await page.goto("/score/share-test-score");
