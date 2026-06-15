@@ -28,8 +28,10 @@ test.describe("progress dashboard", () => {
     await expect(page.getByText("Avg WPM")).toBeVisible();
     await expect(page.getByText("Best WPM")).toBeVisible();
 
-    // Accuracy trend (second chart) and the records timeline render too.
-    await expect(page.getByTestId("trend-chart")).toHaveCount(2);
+    // WPM + accuracy + consistency trends, and the records timeline.
+    await expect(page.getByTestId("trend-chart")).toHaveCount(3);
+    await expect(page.getByText("Consistency over time", { exact: true })).toBeVisible();
+    await expect(page.getByText("Avg consistency")).toBeVisible();
     await expect(page.getByTestId("records-timeline")).toBeVisible();
     await expect(page.getByTestId("lifetime-heatmap")).toBeVisible();
   });

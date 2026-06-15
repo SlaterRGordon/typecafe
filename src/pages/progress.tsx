@@ -11,6 +11,7 @@ import { readLocalKeyStats } from "~/lib/localSync";
 import {
     PROGRESS_PERIODS,
     averageAccuracy,
+    averageConsistency,
     averageWpm,
     bestWpm,
     currentStreak,
@@ -59,6 +60,15 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
         values: series.points.map((p) => p.accuracy),
         rolling: rollingAverage(series.points.map((p) => p.accuracy), series.window),
     }), [series]);
+    // Consistency only exists on tests recorded since the feature shipped; show the
+    // chart once every point in the window has it (no mixing real values with 0s).
+    const consistency = useMemo(() => {
+        const values = series.points.map((p) => p.consistency);
+        if (values.length === 0 || values.some((v) => typeof v !== "number")) return null;
+        const nums = values as number[];
+        return { values: nums, rolling: rollingAverage(nums, series.window) };
+    }, [series]);
+    const avgConsistency = averageConsistency(inPeriod);
 
     const hasData = series.points.length > 0;
 
@@ -131,12 +141,17 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
                 <>
                     <TrendChart title="WPM over time" points={series.points} values={series.points.map((p) => p.wpm)} rolling={series.rollingWpm} baseline="zero" />
                     <TrendChart title="Accuracy over time" points={series.points} values={accuracy.values} rolling={accuracy.rolling} baseline="fit" valueSuffix="%" />
+                    {consistency && (
+                        <TrendChart title="Consistency over time" points={series.points} values={consistency.values} rolling={consistency.rolling} baseline="fit" valueSuffix="%" />
+                    )}
 
                     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                         <StatCell label="Avg WPM" value={averageWpm(inPeriod).toFixed(1)} />
                         <StatCell label="Best WPM" value={bestWpm(inPeriod).toFixed(1)} />
                         <StatCell label="Avg accuracy" value={`${averageAccuracy(inPeriod).toFixed(1)}%`} />
-                        <StatCell label="Tests" value={String(inPeriod.length)} />
+                        {avgConsistency !== null
+                            ? <StatCell label="Avg consistency" value={`${avgConsistency.toFixed(1)}%`} />
+                            : <StatCell label="Tests" value={String(inPeriod.length)} />}
                     </div>
                 </>
             )}
@@ -179,6 +194,7 @@ const Progress: NextPage = () => {
             (recordsQuery.data ?? []).map((row) => ({
                 wpm: row.wpm,
                 accuracy: row.accuracy,
+                consistency: row.consistency,
                 createdAt: new Date(row.createdAt),
             })),
         [recordsQuery.data],
@@ -200,7 +216,7 @@ const Progress: NextPage = () => {
     const [guestKeyAttempts, setGuestKeyAttempts] = useState<Record<string, KeyAttempt>>({});
     useEffect(() => {
         if (sessionData?.user) return;
-        setGuestRecords(readLocalProgress().map((e) => ({ wpm: e.wpm, accuracy: e.accuracy, createdAt: new Date(e.t) })));
+        setGuestRecords(readLocalProgress().map((e) => ({ wpm: e.wpm, accuracy: e.accuracy, consistency: e.c, createdAt: new Date(e.t) })));
         const attempts: Record<string, KeyAttempt> = {};
         for (const stat of readLocalKeyStats()) attempts[stat.key] = { attempts: stat.attempts, correct: stat.correct };
         setGuestKeyAttempts(attempts);

@@ -135,6 +135,7 @@ function makeProgressRecords() {
     return {
       wpm: 58 + i * 1.1,
       accuracy: 94 + (i % 5),
+      consistency: 74 + (i % 8),
       count: 30,
       createdAt: new Date(now - daysAgo * dayMs),
       mode: 0,

@@ -28,9 +28,9 @@ The page answers one question — *am I getting faster?* — before any other de
 - 2026-06-14 — *slice 3, guest local-first mirror:* `src/lib/progressHistory.ts` (validated localStorage list, 4 unit tests). `index.tsx` appends `{wpm,accuracy,t}` on each guest completion; `/progress` reads it so a guest with history gets the real dashboard + a "sign in to keep it forever" banner, no account. Screenshot `43`, e2e covers the guest path. ponytail: capped flat list, no rollups/dedup (guests don't generate that volume); the nav link stays signed-in-only for now.
 - 2026-06-14 — *slice 4, records timeline + accuracy trend:* `personalRecords` (PB milestones, "first 80+ WPM"/plain-best; 4 unit tests) → a Records list. `TrendChart` generalized to a "zero" (WPM) or "fit" (accuracy, zoomed, capped at 100%) baseline → both a WPM and an Accuracy trend.
 - 2026-06-14 — *slice 5, lifetime keyboard heatmap:* reuses `<KeyHeatmap full>` over `practiceStats.get` (signed-in) / `readLocalKeyStats` (guest). e2e + screenshot `40` show it.
+- 2026-06-14 — *slice 6, consistency persisted + trend (also §3.6):* added `Test.consistency` (nullable), computed client-side via `consistencyFromSamples` and threaded through `test.create` (signed-in) and the guest mirror (`progressHistory` `c`). `/progress` now shows a Consistency trend + Avg-consistency cell, gated to render only once every point in the window carries it (no mixing real values with zeros). Older tests stay null and simply don't plot; the trend fills in as new tests accrue.
 
 **Blocked — needs prerequisites that don't exist yet (do not fake):**
-- *Consistency trend (layout item 3):* the `Test` row carries no `consistency` field, and even after a schema add the value would be empty for all existing history. Lands when consistency is persisted (a §3.6 + schema slice) and data accrues.
 - *Heatmap date-range compare ("30 days ago vs now", item 4):* `PracticeStats` are cumulative, not dated; there's no per-key historical snapshot to diff. Needs dated key-stat capture first.
 - *Worst-transitions bigrams (item 5):* requires lifetime per-transition (inter-key latency) aggregates — Phase 4 instrumentation; nothing stores them today.
 
@@ -70,6 +70,8 @@ No email provider exists. The recap is a surface, not a send:
 ## 3.6 Consistency everywhere (S)
 
 `consistencyFromSamples` exists; surface it: score card (with `?` → `/how-we-measure`), `/progress` trend, diagnosis input in Phase 4 ("your speed is fine; your variance is the problem").
+
+**Progress:** 2026-06-14 — the `/progress` consistency trend + Avg-consistency cell ship with §3.1 slice 6 (consistency now persisted on `Test` and in the guest mirror). Score card already shows consistency; the Phase 4 diagnosis input remains.
 
 ## Sequencing note
 

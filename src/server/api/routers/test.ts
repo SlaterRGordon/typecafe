@@ -129,6 +129,7 @@ export const testRouter = createTRPCRouter({
       typeId: z.string(),
       speed: z.number(),
       accuracy: z.number(),
+      consistency: z.number().optional(),
       score: z.number(),
       count: z.number(),
       options: z.string(),
@@ -144,6 +145,7 @@ export const testRouter = createTRPCRouter({
           typeId: input.typeId,
           speed: input.speed,
           accuracy: input.accuracy,
+          consistency: input.consistency ?? null,
           score: input.score,
           count: input.count,
           options: input.options,
@@ -188,6 +190,7 @@ export const testRouter = createTRPCRouter({
         select: {
           speed: true,
           accuracy: true,
+          consistency: true,
           count: true,
           createdAt: true,
           type: { select: { mode: true, subMode: true, language: true } },
@@ -197,6 +200,7 @@ export const testRouter = createTRPCRouter({
       return rows.map((row) => ({
         wpm: row.speed,
         accuracy: row.accuracy,
+        consistency: row.consistency ?? undefined,
         count: row.count,
         createdAt: row.createdAt,
         mode: row.type.mode,

@@ -11,6 +11,7 @@ import { TestGramScopes, TestGramSources, TestModes, TestSubModes } from "~/comp
 import { useTestSettings } from "~/hooks/useTestSettings";
 import { withPracticeVowel } from "~/lib/diagnosis";
 import { appendLocalProgress } from "~/lib/progressHistory";
+import { consistencyFromSamples } from "~/lib/stats";
 import { api } from "~/utils/api";
 
 // The diagnosed test we'll offer to re-run after a drill, so its result can show
@@ -196,10 +197,12 @@ const Home: NextPage = () => {
     setCompletedScore(score)
     setShareUrl(undefined)
 
+    const consistency = consistencyFromSamples(result.wpmSamples)
+
     // Mirror guest results locally so /progress is real from the first test
     // (local-first; signed-in users' trends come from the DB instead).
     if (!sessionData?.user) {
-      appendLocalProgress({ wpm: result.speed, accuracy: result.accuracy, t: Date.now() })
+      appendLocalProgress({ wpm: result.speed, accuracy: result.accuracy, c: consistency, t: Date.now() })
     }
 
     if (!result.persisted && result.typeId) {
@@ -211,6 +214,7 @@ const Home: NextPage = () => {
             typeId: result.typeId,
             speed: result.speed,
             accuracy: result.accuracy,
+            consistency,
             score: result.speed * result.accuracy,
             count,
             options: result.levelName ?? "",

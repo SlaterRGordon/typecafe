@@ -9,6 +9,7 @@ const CAP = 1000
 export interface LocalProgressEntry {
     wpm: number
     accuracy: number
+    c?: number // consistency 0–100, optional (older entries lack it)
     t: number // epoch ms
 }
 
@@ -20,7 +21,9 @@ function sanitize(raw: unknown): LocalProgressEntry | null {
     if (!raw || typeof raw !== "object") return null
     const v = raw as Record<string, unknown>
     const ok = [v.wpm, v.accuracy, v.t].every((n) => typeof n === "number" && Number.isFinite(n))
-    return ok ? { wpm: v.wpm as number, accuracy: v.accuracy as number, t: v.t as number } : null
+    if (!ok) return null
+    const c = typeof v.c === "number" && Number.isFinite(v.c) ? v.c : undefined
+    return { wpm: v.wpm as number, accuracy: v.accuracy as number, c, t: v.t as number }
 }
 
 export function readLocalProgress(s = storage()): LocalProgressEntry[] {

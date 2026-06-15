@@ -11,6 +11,7 @@ export interface CreateTestInput {
     typeId: string,
     accuracy: number,
     speed: number,
+    consistency?: number,
     score: number,
     count: number,
     options: string,

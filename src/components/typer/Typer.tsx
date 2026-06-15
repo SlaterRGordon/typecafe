@@ -9,7 +9,7 @@ import { api } from "~/utils/api"
 import type { Level } from "./learn/levels"
 import { useDispatch } from "react-redux"
 import { addAlert } from "~/state/alert/alertSlice"
-import { buildWpmSamples, computeStats, isReliableWpmSample, worstKeysFromAttempts } from "~/lib/stats"
+import { buildWpmSamples, computeStats, consistencyFromSamples, isReliableWpmSample, worstKeysFromAttempts } from "~/lib/stats"
 import type { Keystroke, TypedSegment } from "~/lib/stats"
 import { encodeTimeline } from "~/lib/keystrokes"
 import type { KeystrokeEvent } from "~/lib/keystrokes"
@@ -363,6 +363,7 @@ export const Typer = (props: TyperProps) => {
                         typeId: testType.id,
                         accuracy: finalStats.accuracy,
                         speed: finalStats.speed,
+                        consistency: consistencyFromSamples(completion.wpmSamples),
                         score: finalStats.speed * finalStats.accuracy,
                         count: count,
                         options: level ? level.name : "",
