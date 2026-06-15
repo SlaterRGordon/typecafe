@@ -39,13 +39,13 @@ describe("buildRecap", () => {
         expect(recap.weekDeltaWpm).toBeCloseTo(8)
         expect(recap.testsThisWeek).toBe(2)
         expect(recap.streak).toBe(1)
-        expect(recap.focusKey).toBe("b")
+        expect(recap.focus).toMatchObject({ key: "b", accuracy: 70, attempts: 40 })
     })
 
-    it("returns a null delta and no focus key with thin data", () => {
+    it("returns a null delta and no focus with thin data", () => {
         const recap = buildRecap([rec(1, 70)], {}, NOW)
         expect(recap.weekDeltaWpm).toBeNull()
         expect(recap.testsThisWeek).toBe(1)
-        expect(recap.focusKey).toBeNull()
+        expect(recap.focus).toBeNull()
     })
 })

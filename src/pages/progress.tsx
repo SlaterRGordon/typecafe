@@ -134,10 +134,15 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
                         {recap.testsThisWeek} {recap.testsThisWeek === 1 ? "test" : "tests"}
                         {recap.streak > 0 ? ` · ${recap.streak}-day streak` : ""}
                     </p>
-                    {recap.focusKey && (
-                        <Link href={`/?mode=practice&keys=${recap.focusKey}`} className="mt-3 inline-flex items-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85">
-                            Drill your {recap.focusKey.toUpperCase()} this week
-                        </Link>
+                    {recap.focus && (
+                        <>
+                            <p className="mt-3 text-sm text-base-content/80">
+                                Your weakest key is <span className="font-bold text-base-content">{recap.focus.key.toUpperCase()}</span> — you hit it right {recap.focus.accuracy.toFixed(0)}% of the time ({recap.focus.attempts} tries). Drilling it is the fastest win this week.
+                            </p>
+                            <Link href={`/?mode=practice&keys=${recap.focus.key}`} className="mt-2 inline-flex items-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85">
+                                Drill {recap.focus.key.toUpperCase()}
+                            </Link>
+                        </>
                     )}
                 </div>
             )}

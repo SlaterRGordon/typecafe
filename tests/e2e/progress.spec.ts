@@ -71,7 +71,10 @@ test.describe("progress dashboard", () => {
 
     const recap = page.getByTestId("weekly-recap");
     await expect(recap).toBeVisible();
-    await expect(recap.getByRole("link", { name: /Drill your B/ })).toBeVisible();
+    // States the diagnosis (which key + why), then the drill button.
+    await expect(recap).toContainText("Your weakest key is B");
+    await expect(recap).toContainText("67%"); // 40/60 correct
+    await expect(recap.getByRole("link", { name: "Drill B" })).toBeVisible();
 
     await recap.getByRole("button", { name: "Dismiss recap" }).click();
     await expect(recap).toBeHidden();

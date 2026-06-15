@@ -3,7 +3,7 @@
 // a pure payload the /progress banner renders now and a Resend/Postmark email
 // could render later from the same data.
 
-import { worstKeysFromAttempts } from "./stats"
+import { worstKeysFromAttempts, type KeyAccuracy } from "./stats"
 import type { KeyAttempt } from "./heatmap"
 import { currentStreak, filterByPeriod, headlineDelta, type ProgressRecord } from "./progress"
 
@@ -15,8 +15,10 @@ export interface Recap {
     weekDeltaWpm: number | null
     testsThisWeek: number
     streak: number
-    // The weakest key to drill next, or null when there's no per-key data.
-    focusKey: string | null
+    // The weakest key to drill next (key + its accuracy + attempts), or null when
+    // there's no per-key data. Carries the "why" so the recap states the
+    // diagnosis, not just the cure.
+    focus: KeyAccuracy | null
 }
 
 // Whether the recap is due: never seen, or the last one was ≥ 7 days ago.
@@ -37,6 +39,6 @@ export function buildRecap(
         weekDeltaWpm: headlineDelta(records, WEEK_DAYS, now).delta,
         testsThisWeek: filterByPeriod(records, WEEK_DAYS, now).length,
         streak: currentStreak(records, now, utcOffsetMinutes),
-        focusKey: worst[0]?.key ?? null,
+        focus: worst[0] ?? null,
     }
 }
