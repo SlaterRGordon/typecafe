@@ -328,10 +328,17 @@ test.describe("screenshot tour", () => {
 
   test("progress dashboard (authenticated, rich history)", async ({ page }, testInfo) => {
     await mockAuthenticatedSession(page);
-    await mockTrpc(page);
+    await mockTrpc(page, { keyStats: [
+      { character: "a", total: 200, correct: 198 },
+      { character: "e", total: 320, correct: 305 },
+      { character: "r", total: 120, correct: 96 },
+      { character: "t", total: 160, correct: 150 },
+      { character: "b", total: 60, correct: 42 },
+    ] });
     await page.goto("/progress");
     await expect(page.getByTestId("headline-delta")).toBeVisible();
-    await expect(page.getByTestId("trend-chart")).toBeVisible();
+    await expect(page.getByTestId("trend-chart").first()).toBeVisible();
+    await expect(page.getByTestId("lifetime-heatmap")).toBeVisible();
     await capture(page, testInfo, "40-progress-dashboard");
   });
 

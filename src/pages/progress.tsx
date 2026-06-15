@@ -5,6 +5,9 @@ import { useRouter } from "next/router";
 import { useSession } from "next-auth/react";
 import { useEffect, useMemo, useState } from "react";
 import { TrendChart } from "~/components/progress/TrendChart";
+import { KeyHeatmap } from "~/components/heatmap/KeyHeatmap";
+import type { KeyAttempt } from "~/lib/heatmap";
+import { readLocalKeyStats } from "~/lib/localSync";
 import {
     PROGRESS_PERIODS,
     averageAccuracy,
@@ -43,7 +46,7 @@ function StatCell(props: { label: string; value: string }) {
     );
 }
 
-const ProgressDashboard = (props: { records: ProgressRecord[] }) => {
+const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Record<string, KeyAttempt> }) => {
     const [period, setPeriod] = useState<ProgressPeriod>(30);
     const now = useMemo(() => new Date(), []);
 
@@ -138,6 +141,13 @@ const ProgressDashboard = (props: { records: ProgressRecord[] }) => {
                 </>
             )}
 
+            {Object.keys(props.keyAttempts).length > 0 && (
+                <div className="rounded-lg border border-base-content/10 bg-base-100/45 p-4">
+                    <div className="mb-3 text-lg font-semibold text-base-content">Lifetime keyboard</div>
+                    <KeyHeatmap attempts={props.keyAttempts} size="full" testId="lifetime-heatmap" />
+                </div>
+            )}
+
             {records.length > 0 && (
                 <div data-testid="records-timeline" className="rounded-lg border border-base-content/10 bg-base-100/45 p-4">
                     <div className="mb-3 text-lg font-semibold text-base-content">Records</div>
@@ -174,13 +184,26 @@ const Progress: NextPage = () => {
         [recordsQuery.data],
     );
 
-    // Guest history lives in localStorage (read client-side after mount to avoid
-    // an SSR mismatch). A guest with history gets the real dashboard + a keep-it
-    // banner; a guest with none gets the signup pitch.
+    // Lifetime per-key accuracy for the heatmap: DB practice stats when signed
+    // in, the localStorage key-stat mirror for guests.
+    const practiceStatsQuery = api.practiceStats.get.useQuery(undefined, { enabled: !!sessionData?.user });
+    const dbKeyAttempts = useMemo(() => {
+        const out: Record<string, KeyAttempt> = {};
+        for (const stat of practiceStatsQuery.data ?? []) out[stat.character] = { attempts: stat.total, correct: stat.correct };
+        return out;
+    }, [practiceStatsQuery.data]);
+
+    // Guest history + key-stats live in localStorage (read client-side after mount
+    // to avoid an SSR mismatch). A guest with history gets the real dashboard + a
+    // keep-it banner; a guest with none gets the signup pitch.
     const [guestRecords, setGuestRecords] = useState<ProgressRecord[]>([]);
+    const [guestKeyAttempts, setGuestKeyAttempts] = useState<Record<string, KeyAttempt>>({});
     useEffect(() => {
         if (sessionData?.user) return;
         setGuestRecords(readLocalProgress().map((e) => ({ wpm: e.wpm, accuracy: e.accuracy, createdAt: new Date(e.t) })));
+        const attempts: Record<string, KeyAttempt> = {};
+        for (const stat of readLocalKeyStats()) attempts[stat.key] = { attempts: stat.attempts, correct: stat.correct };
+        setGuestKeyAttempts(attempts);
     }, [sessionData?.user]);
 
     return (
@@ -201,7 +224,7 @@ const Progress: NextPage = () => {
                                     Sign in to keep it forever
                                 </label>
                             </div>
-                            <ProgressDashboard records={guestRecords} />
+                            <ProgressDashboard records={guestRecords} keyAttempts={guestKeyAttempts} />
                         </div>
                     ) : (
                         // No local history yet — the page is the signup pitch.
@@ -221,7 +244,7 @@ const Progress: NextPage = () => {
                         </div>
                     )
                 ) : (
-                    <ProgressDashboard records={records} />
+                    <ProgressDashboard records={records} keyAttempts={dbKeyAttempts} />
                 )}
             </div>
         </>

@@ -8,6 +8,8 @@ interface MockTrpcOptions {
   profileImage?: string | null;
   emptyScores?: boolean;
   invalidShare?: boolean;
+  // Per-key practice stats for the /progress lifetime heatmap.
+  keyStats?: { character: string; total: number; correct: number }[];
   // Procedures listed here resolve to a tRPC error instead of data, so tests can
   // exercise client-side failure handling (e.g. a save that fails on the network).
   errorProcedures?: string[];
@@ -180,7 +182,7 @@ function responseForProcedure(procedure: string, input: ProcedureInput, options:
     case "learnProgress.complete":
       return [];
     case "practiceStats.get":
-      return [];
+      return options.keyStats ?? [];
     case "practiceStats.batchSync":
       return { count: Array.isArray(input?.stats) ? input.stats.length : 0 };
     case "user.get":

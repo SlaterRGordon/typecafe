@@ -26,7 +26,15 @@ The page answers one question — *am I getting faster?* — before any other de
 - 2026-06-14 — *slice 1, math foundation:* `src/lib/progress.ts` (pure, 37 unit tests) — period windows (7/30/90/all), `headlineDelta` (current vs prior window; all-time splits at the time midpoint; honest "insufficient"), `trendSeries` (scatter + length-aligned rolling average), and `dailyRollups`/`dayKey` (timezone-correct O(days) aggregation mirroring `DailyUserStat`).
 - 2026-06-14 — *slice 2, the page (signed-in):* `/progress` with the headline delta (largest number, success/error tone, drill CTA when flat/negative), the WPM trend chart (`TrendChart`), a period switcher, and Avg/Best WPM + accuracy + test-count cells. Reads a new `test.getProgressRecords` tRPC query. Empty + signed-out (signup-pitch) states. Progress nav link (desktop + mobile). e2e (`progress.spec.ts`) + screenshot tour (`40`–`42`).
 - 2026-06-14 — *slice 3, guest local-first mirror:* `src/lib/progressHistory.ts` (validated localStorage list, 4 unit tests). `index.tsx` appends `{wpm,accuracy,t}` on each guest completion; `/progress` reads it so a guest with history gets the real dashboard + a "sign in to keep it forever" banner, no account. Screenshot `43`, e2e covers the guest path. ponytail: capped flat list, no rollups/dedup (guests don't generate that volume); the nav link stays signed-in-only for now.
-- *Next slices:* accuracy/consistency trends + the lifetime heatmap with a date-range compare; worst-transitions and records timeline; the `DailyUserStat` rollup persistence + mode/length filters; consistency on the `Test` record (needs a schema field); sync-on-signup of the guest mirror into the DB.
+- 2026-06-14 — *slice 4, records timeline + accuracy trend:* `personalRecords` (PB milestones, "first 80+ WPM"/plain-best; 4 unit tests) → a Records list. `TrendChart` generalized to a "zero" (WPM) or "fit" (accuracy, zoomed, capped at 100%) baseline → both a WPM and an Accuracy trend.
+- 2026-06-14 — *slice 5, lifetime keyboard heatmap:* reuses `<KeyHeatmap full>` over `practiceStats.get` (signed-in) / `readLocalKeyStats` (guest). e2e + screenshot `40` show it.
+
+**Blocked — needs prerequisites that don't exist yet (do not fake):**
+- *Consistency trend (layout item 3):* the `Test` row carries no `consistency` field, and even after a schema add the value would be empty for all existing history. Lands when consistency is persisted (a §3.6 + schema slice) and data accrues.
+- *Heatmap date-range compare ("30 days ago vs now", item 4):* `PracticeStats` are cumulative, not dated; there's no per-key historical snapshot to diff. Needs dated key-stat capture first.
+- *Worst-transitions bigrams (item 5):* requires lifetime per-transition (inter-key latency) aggregates — Phase 4 instrumentation; nothing stores them today.
+
+*Other next slices:* `DailyUserStat` rollup persistence + mode/length filters; sync-on-signup of the guest mirror into the DB.
 
 ## 3.2 Streaks (S)
 
@@ -74,8 +82,11 @@ No email provider exists. The recap is a surface, not a send:
 - [x] A *guest* with 2 weeks of local history sees the same page, plus the keep-it-forever signup pitch
   - 2026-06-14: Guest completions mirror to localStorage (`progressHistory.ts`); `/progress` renders the full dashboard from it with a "sign in to keep it forever" banner. Sync-on-signup into the DB is still pending.
 - [ ] Progress share card unfurls correctly on Discord/Twitter (OG verified like the score card was)
-- [ ] Streak math correct across timezones (test: tests at 23:50 and 00:10)
-- [ ] Every trend chart renders sanely with 1 data point, 10, and 1,000
-- [ ] Screenshot tour: /progress (rich history, sparse history, guest, recap state, goal on/off track)
+- [x] Streak math correct across timezones (test: tests at 23:50 and 00:10)
+  - 2026-06-14: `currentStreak`/`dayKey` unit tests cover the 23:50/00:10 offset case.
+- [x] Every trend chart renders sanely with 1 data point, 10, and 1,000
+  - 2026-06-14: `trendSeries` unit tests assert 1/10/1,000-point behaviour; `TrendChart` centres a single point and shrinks markers at high density.
+- [~] Screenshot tour: /progress (rich history, sparse history, guest, recap state, goal on/off track)
+  - 2026-06-14: rich history (`40`), empty (`41`), signed-out pitch (`42`), guest history (`43`) captured. Recap and goal states wait on §3.4/§3.5.
 
 **Owner's part:** seed real usage (your own daily tests make the first real trend), judge whether the headline delta *feels* motivating, share the first progress card publicly.

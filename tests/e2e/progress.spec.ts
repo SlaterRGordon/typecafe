@@ -8,7 +8,7 @@ async function gotoProgress(page: Page) {
 test.describe("progress dashboard", () => {
   test("a signed-in user with history sees their delta and trend", async ({ page }) => {
     await mockAuthenticatedSession(page);
-    await mockTrpc(page);
+    await mockTrpc(page, { keyStats: [{ character: "r", total: 120, correct: 96 }, { character: "e", total: 300, correct: 290 }] });
     await gotoProgress(page);
 
     // The headline delta is the largest number on the page and answers
@@ -31,6 +31,7 @@ test.describe("progress dashboard", () => {
     // Accuracy trend (second chart) and the records timeline render too.
     await expect(page.getByTestId("trend-chart")).toHaveCount(2);
     await expect(page.getByTestId("records-timeline")).toBeVisible();
+    await expect(page.getByTestId("lifetime-heatmap")).toBeVisible();
   });
 
   test("the period switcher rescopes the dashboard", async ({ page }) => {
