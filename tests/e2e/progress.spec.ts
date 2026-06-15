@@ -63,6 +63,30 @@ test.describe("progress dashboard", () => {
     await expect(page.getByTestId("trend-chart")).toHaveCount(0);
   });
 
+  test("setting a goal projects an honest trajectory", async ({ page }) => {
+    await mockAuthenticatedSession(page);
+    await mockTrpc(page);
+    await page.addInitScript(() => window.localStorage.setItem("typecafe:lastRecapAt", String(Date.now())));
+    await gotoProgress(page);
+
+    const goal = page.getByTestId("goal-card");
+    await expect(goal).toBeVisible();
+    await goal.getByLabel("Target WPM").fill("100");
+    await goal.getByLabel("Target date").fill("2027-12-31");
+    await goal.getByRole("button", { name: "Set goal" }).click();
+
+    // The rising mock history reaches 100 well before a far-future deadline.
+    await expect(page.getByTestId("goal-status")).toContainText("On track");
+
+    // A tight deadline flips it to an honest "behind" with the required pace.
+    await goal.getByRole("button", { name: "Edit" }).click();
+    const soon = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    await goal.getByLabel("Target date").fill(soon);
+    await goal.getByRole("button", { name: "Update goal" }).click();
+    await expect(page.getByTestId("goal-status")).toContainText("Behind");
+    await expect(page.getByTestId("goal-status")).toContainText("WPM/week");
+  });
+
   test("the weekly recap opens after a week and dismisses", async ({ page }) => {
     await mockAuthenticatedSession(page);
     await mockTrpc(page, { keyStats: [{ character: "b", total: 60, correct: 40 }] });

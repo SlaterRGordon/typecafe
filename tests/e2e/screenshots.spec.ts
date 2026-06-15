@@ -349,6 +349,18 @@ test.describe("screenshot tour", () => {
     await capture(page, testInfo, "40-progress-dashboard");
   });
 
+  test("progress dashboard (goal trajectory)", async ({ page }, testInfo) => {
+    await mockAuthenticatedSession(page);
+    await mockTrpc(page);
+    await page.addInitScript(() => {
+      window.localStorage.setItem("typecafe:lastRecapAt", String(Date.now()));
+      window.localStorage.setItem("typecafe:goal", JSON.stringify({ targetWpm: 100, targetDate: "2027-12-31" }));
+    });
+    await page.goto("/progress");
+    await expect(page.getByTestId("goal-status")).toBeVisible();
+    await capture(page, testInfo, "46-progress-goal");
+  });
+
   test("progress dashboard (weekly recap)", async ({ page }, testInfo) => {
     await mockAuthenticatedSession(page);
     await mockTrpc(page, { keyStats: [{ character: "b", total: 60, correct: 40 }, { character: "e", total: 300, correct: 295 }] });

@@ -5,6 +5,7 @@ import { useRouter } from "next/router";
 import { useSession } from "next-auth/react";
 import { useEffect, useMemo, useState } from "react";
 import { TrendChart } from "~/components/progress/TrendChart";
+import { GoalCard } from "~/components/progress/GoalCard";
 import { KeyHeatmap } from "~/components/heatmap/KeyHeatmap";
 import type { KeyAttempt } from "~/lib/heatmap";
 import { readLocalKeyStats } from "~/lib/localSync";
@@ -222,6 +223,8 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
                     </>
                 )}
             </div>
+
+            {hasData && <GoalCard records={props.records} now={now} />}
 
             {hasData && (
                 <>

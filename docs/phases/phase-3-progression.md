@@ -76,6 +76,8 @@ No email provider exists. The recap is a surface, not a send:
 - Projection math in `src/lib/trajectory.ts`, unit-tested, assumptions documented on `/how-we-measure`
 - No notifications (no infra) — the goal lives where the user already looks
 
+**Progress:** 2026-06-15 — `src/lib/trajectory.ts` (pure least-squares fit, 6 unit tests): `projectTrajectory(records, goal, now)` → current WPM, slope/day, projected reach date (null on a flat/falling trend), required pace, on/off-track. `GoalCard` on `/progress` stores one goal in localStorage (`typecafe:goal`, no schema, works for guests) via native number/date inputs; shows the honest status ("On track — you'll hit 100 around Jul 23"; or "Behind — gain ~X WPM/week, you're at Y"). e2e covers set → on-track → behind; screenshot `46`. ponytail: required pace shown as WPM/week (per-session gain isn't derivable, so not "X sessions/week"); assumptions live in the `trajectory.ts` header until `/how-we-measure` exists (unbuilt Phase 0 item).
+
 ## 3.6 Consistency everywhere (S)
 
 `consistencyFromSamples` exists; surface it: score card (with `?` → `/how-we-measure`), `/progress` trend, diagnosis input in Phase 4 ("your speed is fine; your variance is the problem").
@@ -98,7 +100,7 @@ No email provider exists. The recap is a surface, not a send:
   - 2026-06-14: `currentStreak`/`dayKey` unit tests cover the 23:50/00:10 offset case.
 - [x] Every trend chart renders sanely with 1 data point, 10, and 1,000
   - 2026-06-14: `trendSeries` unit tests assert 1/10/1,000-point behaviour; `TrendChart` centres a single point and shrinks markers at high density.
-- [~] Screenshot tour: /progress (rich history, sparse history, guest, recap state, goal on/off track)
-  - 2026-06-14: rich history (`40`), empty (`41`), signed-out pitch (`42`), guest history (`43`) captured. 2026-06-15: recap state (`45`) added. Goal on/off-track waits on §3.5.
+- [x] Screenshot tour: /progress (rich history, sparse history, guest, recap state, goal on/off track)
+  - 2026-06-14: rich history (`40`), empty (`41`), signed-out pitch (`42`), guest history (`43`). 2026-06-15: recap state (`45`), goal trajectory (`46`).
 
 **Owner's part:** seed real usage (your own daily tests make the first real trend), judge whether the headline delta *feels* motivating, share the first progress card publicly.
