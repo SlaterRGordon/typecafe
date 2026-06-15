@@ -170,6 +170,40 @@ export const testRouter = createTRPCRouter({
 
       return { ...test, brag };
     }),
+  // Flat per-test history for the /progress dashboard (Phase 3 §3.1). Returns
+  // every ranked test for the signed-in user, oldest→newest, with just the fields
+  // the pure progression math (src/lib/progress.ts) needs plus the test type for
+  // future mode/length filtering. Capped so a prolific user can't pull an
+  // unbounded payload; the page reasons over rollups, not raw rows, beyond this.
+  getProgressRecords: protectedProcedure
+    .input(z.object({ limit: z.number().min(1).max(5000).optional() }).optional())
+    .query(async ({ ctx, input }) => {
+      const rows = await ctx.prisma.test.findMany({
+        where: {
+          userId: ctx.session.user.id,
+          ranked: true,
+        },
+        orderBy: { createdAt: "asc" },
+        take: input?.limit ?? 2000,
+        select: {
+          speed: true,
+          accuracy: true,
+          count: true,
+          createdAt: true,
+          type: { select: { mode: true, subMode: true, language: true } },
+        },
+      });
+
+      return rows.map((row) => ({
+        wpm: row.speed,
+        accuracy: row.accuracy,
+        count: row.count,
+        createdAt: row.createdAt,
+        mode: row.type.mode,
+        subMode: row.type.subMode,
+        language: row.type.language,
+      }));
+    }),
   getActivityByDate: publicProcedure
     .input(z.object({
       startDate: z.date(),

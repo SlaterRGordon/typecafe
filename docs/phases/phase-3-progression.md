@@ -22,6 +22,11 @@ The page answers one question — *am I getting faster?* — before any other de
 
 **Aggregation:** a `DailyUserStat` rollup table (userId, date, tests, bestWpm, avgWpm, avgAcc) maintained on test-save (derived-on-write, no cron) keeps chart queries O(days) not O(tests).
 
+**Progress (built in slices):**
+- 2026-06-14 — *slice 1, math foundation:* `src/lib/progress.ts` (pure, 37 unit tests) — period windows (7/30/90/all), `headlineDelta` (current vs prior window; all-time splits at the time midpoint; honest "insufficient"), `trendSeries` (scatter + length-aligned rolling average), and `dailyRollups`/`dayKey` (timezone-correct O(days) aggregation mirroring `DailyUserStat`).
+- 2026-06-14 — *slice 2, the page (signed-in):* `/progress` with the headline delta (largest number, success/error tone, drill CTA when flat/negative), the WPM trend chart (`TrendChart`), a period switcher, and Avg/Best WPM + accuracy + test-count cells. Reads a new `test.getProgressRecords` tRPC query. Empty + signed-out (signup-pitch) states. Progress nav link (desktop + mobile). e2e (`progress.spec.ts`) + screenshot tour (`40`–`42`).
+- *Next slices:* accuracy/consistency trends + the lifetime heatmap with a date-range compare; worst-transitions and records timeline; the guest localStorage mirror (local-first `/progress` from day one); the `DailyUserStat` rollup persistence + mode/length filters; consistency on the `Test` record (needs a schema field).
+
 ## 3.2 Streaks (S)
 
 - Practice-day streak computed from `DailyUserStat` on read — no jobs
@@ -61,7 +66,8 @@ No email provider exists. The recap is a surface, not a send:
 
 ## Acceptance
 
-- [ ] A user with 4 weeks of history sees their delta in < 3 seconds on `/progress`
+- [x] A user with 4 weeks of history sees their delta in < 3 seconds on `/progress`
+  - 2026-06-14: Signed-in users get the headline delta + WPM trend immediately on `/progress` (the delta is computed client-side from `test.getProgressRecords`). Guest local history and the richer trends below are still pending.
 - [ ] A *guest* with 2 weeks of local history sees the same page, plus the keep-it-forever signup pitch
 - [ ] Progress share card unfurls correctly on Discord/Twitter (OG verified like the score card was)
 - [ ] Streak math correct across timezones (test: tests at 23:50 and 00:10)

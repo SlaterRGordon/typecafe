@@ -326,6 +326,29 @@ test.describe("screenshot tour", () => {
     await capture(page, testInfo, "17-profile-public");
   });
 
+  test("progress dashboard (authenticated, rich history)", async ({ page }, testInfo) => {
+    await mockAuthenticatedSession(page);
+    await mockTrpc(page);
+    await page.goto("/progress");
+    await expect(page.getByTestId("headline-delta")).toBeVisible();
+    await expect(page.getByTestId("trend-chart")).toBeVisible();
+    await capture(page, testInfo, "40-progress-dashboard");
+  });
+
+  test("progress dashboard (empty history)", async ({ page }, testInfo) => {
+    await mockAuthenticatedSession(page);
+    await mockTrpc(page, { emptyScores: true });
+    await page.goto("/progress");
+    await expect(page.getByText("No tests yet")).toBeVisible();
+    await capture(page, testInfo, "41-progress-empty");
+  });
+
+  test("progress dashboard (signed-out pitch)", async ({ page }, testInfo) => {
+    await page.goto("/progress");
+    await expect(page.getByTestId("progress-signed-out")).toBeVisible();
+    await capture(page, testInfo, "42-progress-signed-out");
+  });
+
   test("shared score page", async ({ page }, testInfo) => {
     await mockTrpc(page);
     await page.goto("/score/share-test-score");

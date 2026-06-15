@@ -123,6 +123,25 @@ function makeScoreSnapshot() {
   };
 }
 
+// A rising WPM history over the last ~60 days, generated relative to now so the
+// /progress headline delta is deterministic (current window beats the prior).
+function makeProgressRecords() {
+  const dayMs = 24 * 60 * 60 * 1000;
+  const now = Date.now();
+  return Array.from({ length: 24 }, (_, i) => {
+    const daysAgo = 58 - i * 2.5;
+    return {
+      wpm: 58 + i * 1.1,
+      accuracy: 94 + (i % 5),
+      count: 30,
+      createdAt: new Date(now - daysAgo * dayMs),
+      mode: 0,
+      subMode: 0,
+      language: "english",
+    };
+  });
+}
+
 function responseForProcedure(procedure: string, input: ProcedureInput, options: MockTrpcOptions, state: { importedLearnProgress: boolean }) {
   switch (procedure) {
     case "type.get":
@@ -148,6 +167,9 @@ function responseForProcedure(procedure: string, input: ProcedureInput, options:
       return makeScore({ count: 120, userId: input?.userId });
     case "test.getPercentile":
       return { better: 0, worse: 5, total: 5, percentile: 0 };
+    case "test.getProgressRecords":
+      if (options.emptyScores) return [];
+      return makeProgressRecords();
     case "test.getActivityByDate":
       return [];
     case "learnProgress.getByDifficulty":

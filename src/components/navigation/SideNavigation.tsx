@@ -37,6 +37,13 @@ export const SideNavigation = () => {
                     <svg className={navIconClass} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M4 11v8h4v-8H4Zm6-6v14h4V5h-4Zm6 8v6h4v-6h-4Zm4 8H4q-.825 0-1.413-.588T2 19v-8q0-.825.588-1.413T4 9h4V5q0-.825.588-1.413T10 3h4q.825 0 1.413.588T16 5v6h4q.825 0 1.413.588T22 13v6q0 .825-.588 1.413T20 21Z" /></svg>
                     <div className={navLabelClass}>Leaderboard</div>
                 </button>
+                {/* Progress, if signed in */}
+                {sessionData?.user &&
+                    <button onClick={() => router.push('/progress')} className={getNavButtonClass('/progress')} aria-label="Progress" title="Progress">
+                        <svg className={navIconClass} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="m3.5 18.5l6-6l4 4L22 6.92L20.59 5.5l-7.09 8l-4-4L2 16.99l1.5 1.51Z" /></svg>
+                        <div className={navLabelClass}>Progress</div>
+                    </button>
+                }
                 {/* Profile, if signed in */}
                 {sessionData?.user &&
                     <button onClick={() => router.push('/profile')} className={getNavButtonClass('/profile')} aria-label="Profile" title="Profile">
