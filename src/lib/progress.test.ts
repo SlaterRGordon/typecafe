@@ -12,6 +12,7 @@ import {
     filterByPeriod,
     headlineDelta,
     periodStart,
+    personalRecords,
     rollingAverage,
     trendSeries,
     type ProgressRecord,
@@ -272,6 +273,35 @@ describe("dailyRollups", () => {
 
     it("returns an empty array for no records", () => {
         expect(dailyRollups([])).toEqual([])
+    })
+})
+
+describe("personalRecords", () => {
+    it("emits one event per new personal best, newest first", () => {
+        // 60 (PB), 58 (no), 72 (PB), 70 (no), 85 (PB)
+        const recs = [rec(40, 60), rec(35, 58), rec(30, 72), rec(20, 70), rec(5, 85)]
+        const events = personalRecords(recs)
+        expect(events.map((e) => e.wpm)).toEqual([85, 72, 60])
+        // Newest first.
+        expect(events[0]!.t).toBeGreaterThan(events[1]!.t)
+    })
+
+    it("frames a PB that crosses a round number as a threshold event", () => {
+        const events = personalRecords([rec(10, 62), rec(5, 81)])
+        expect(events[0]).toMatchObject({ wpm: 81, kind: "threshold", threshold: 80 })
+        // First test (62) crossed 40/50/60 → highest 60.
+        expect(events[1]).toMatchObject({ wpm: 62, kind: "threshold", threshold: 60 })
+    })
+
+    it("labels a PB that crosses no new threshold as a plain best", () => {
+        // 82 then 87: 87 beats 82 but crosses no new round number (80 already done).
+        const events = personalRecords([rec(10, 82), rec(5, 87)])
+        expect(events[0]).toMatchObject({ wpm: 87, kind: "best" })
+        expect(events[0]!.threshold).toBeUndefined()
+    })
+
+    it("returns an empty list for no records", () => {
+        expect(personalRecords([])).toEqual([])
     })
 })
 

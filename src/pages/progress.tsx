@@ -13,6 +13,8 @@ import {
     currentStreak,
     filterByPeriod,
     headlineDelta,
+    personalRecords,
+    rollingAverage,
     trendSeries,
     type ProgressPeriod,
     type ProgressRecord,
@@ -49,6 +51,11 @@ const ProgressDashboard = (props: { records: ProgressRecord[] }) => {
     const delta = useMemo(() => headlineDelta(props.records, period, now), [props.records, period, now]);
     const series = useMemo(() => trendSeries(props.records, period, now), [props.records, period, now]);
     const inPeriod = useMemo(() => filterByPeriod(props.records, period, now), [props.records, period, now]);
+    const records = useMemo(() => personalRecords(props.records), [props.records]);
+    const accuracy = useMemo(() => ({
+        values: series.points.map((p) => p.accuracy),
+        rolling: rollingAverage(series.points.map((p) => p.accuracy), series.window),
+    }), [series]);
 
     const hasData = series.points.length > 0;
 
@@ -119,7 +126,8 @@ const ProgressDashboard = (props: { records: ProgressRecord[] }) => {
 
             {hasData && (
                 <>
-                    <TrendChart title="WPM over time" points={series.points} rollingWpm={series.rollingWpm} />
+                    <TrendChart title="WPM over time" points={series.points} values={series.points.map((p) => p.wpm)} rolling={series.rollingWpm} baseline="zero" />
+                    <TrendChart title="Accuracy over time" points={series.points} values={accuracy.values} rolling={accuracy.rolling} baseline="fit" valueSuffix="%" />
 
                     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                         <StatCell label="Avg WPM" value={averageWpm(inPeriod).toFixed(1)} />
@@ -128,6 +136,22 @@ const ProgressDashboard = (props: { records: ProgressRecord[] }) => {
                         <StatCell label="Tests" value={String(inPeriod.length)} />
                     </div>
                 </>
+            )}
+
+            {records.length > 0 && (
+                <div data-testid="records-timeline" className="rounded-lg border border-base-content/10 bg-base-100/45 p-4">
+                    <div className="mb-3 text-lg font-semibold text-base-content">Records</div>
+                    <ul className="space-y-2">
+                        {records.slice(0, 8).map((event) => (
+                            <li key={event.t} className="flex items-center justify-between border-b border-base-content/10 pb-2 text-sm last:border-b-0 last:pb-0">
+                                <span className="text-base-content/60">{new Date(event.t).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}</span>
+                                <span className="font-medium text-base-content">
+                                    {event.kind === "threshold" ? `First ${event.threshold}+ WPM test` : `${event.wpm.toFixed(1)} WPM personal best`}
+                                </span>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
             )}
         </div>
     );

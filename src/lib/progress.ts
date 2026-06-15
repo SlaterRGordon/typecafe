@@ -295,6 +295,44 @@ export function dailyRollups(records: ProgressRecord[], utcOffsetMinutes = 0): D
         .sort((a, b) => (a.day < b.day ? -1 : a.day > b.day ? 1 : 0))
 }
 
+// ---------------------------------------------------------------------------
+// Records timeline — personal bests as dated events (§3.1.6)
+// ---------------------------------------------------------------------------
+
+// Round WPM milestones worth calling out as "first 80+ WPM" events.
+export const RECORD_THRESHOLDS = [40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150]
+
+export interface RecordEvent {
+    t: number // epoch ms of the test that set the record
+    wpm: number
+    // "threshold" when this PB also crossed a new round number (the braggier
+    // framing); "best" otherwise.
+    kind: "best" | "threshold"
+    threshold?: number
+}
+
+// Personal-best milestones over the history, newest first. Walks oldest→newest
+// emitting one event per test that beats every test before it; if that test also
+// crossed a new round-number threshold, the event is framed as "first N+ WPM".
+export function personalRecords(records: ProgressRecord[], thresholds: number[] = RECORD_THRESHOLDS): RecordEvent[] {
+    const sorted = [...records].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+    const events: RecordEvent[] = []
+    let max = -Infinity
+    for (const record of sorted) {
+        if (record.wpm <= max) continue
+        const crossed = thresholds.filter((th) => th > max && th <= record.wpm)
+        const highest = crossed.length > 0 ? Math.max(...crossed) : undefined
+        events.push({
+            t: record.createdAt.getTime(),
+            wpm: record.wpm,
+            kind: highest !== undefined ? "threshold" : "best",
+            threshold: highest,
+        })
+        max = record.wpm
+    }
+    return events.reverse()
+}
+
 // Consecutive-day practice streak ending today (Phase 3 §3.2), computed on read
 // from the records — no jobs, no stored counter. Today not yet practised doesn't
 // break the streak as long as yesterday was (the day isn't over).

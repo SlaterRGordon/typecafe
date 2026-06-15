@@ -19,7 +19,7 @@ test.describe("progress dashboard", () => {
     await expect(headline.getByText("WPM").first()).toBeVisible();
 
     // The trend chart renders over the same data.
-    await expect(page.getByTestId("trend-chart")).toBeVisible();
+    await expect(page.getByTestId("trend-chart").first()).toBeVisible();
 
     // The practice streak chip shows (the mocked history reaches today).
     await expect(page.getByTestId("streak-chip")).toBeVisible();
@@ -27,6 +27,10 @@ test.describe("progress dashboard", () => {
     // Stat cells summarise the selected period.
     await expect(page.getByText("Avg WPM")).toBeVisible();
     await expect(page.getByText("Best WPM")).toBeVisible();
+
+    // Accuracy trend (second chart) and the records timeline render too.
+    await expect(page.getByTestId("trend-chart")).toHaveCount(2);
+    await expect(page.getByTestId("records-timeline")).toBeVisible();
   });
 
   test("the period switcher rescopes the dashboard", async ({ page }) => {
@@ -39,7 +43,7 @@ test.describe("progress dashboard", () => {
 
     await switcher.getByRole("button", { name: "All" }).click();
     await expect(switcher.getByRole("button", { name: "All" })).toHaveAttribute("aria-pressed", "true");
-    await expect(page.getByTestId("trend-chart")).toBeVisible();
+    await expect(page.getByTestId("trend-chart").first()).toBeVisible();
 
     await switcher.getByRole("button", { name: "7d" }).click();
     await expect(switcher.getByRole("button", { name: "7d" })).toHaveAttribute("aria-pressed", "true");
@@ -75,7 +79,7 @@ test.describe("progress dashboard", () => {
     await gotoProgress(page);
 
     await expect(page.getByTestId("guest-keep-banner")).toBeVisible();
-    await expect(page.getByTestId("trend-chart")).toBeVisible();
+    await expect(page.getByTestId("trend-chart").first()).toBeVisible();
     await expect(page.getByTestId("progress-signed-out")).toHaveCount(0);
   });
 });
