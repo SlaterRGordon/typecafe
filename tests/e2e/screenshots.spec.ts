@@ -375,6 +375,8 @@ test.describe("screenshot tour", () => {
     await page.goto("/score/share-test-score");
     await expect(page.getByTestId("score-screenshot-card")).toBeVisible();
     await expect(page.getByText("WPM Over Time")).toBeVisible();
+    // The persisted delta line rides the shared snapshot (§3.3 slice 2).
+    await expect(page.getByTestId("avg-delta")).toContainText("over your 30-day average");
     await capture(page, testInfo, "18-shared-score");
   });
 

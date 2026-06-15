@@ -111,6 +111,7 @@ function makeScoreSnapshot() {
     rawWpm: 72.35,
     netWpm: 68.7,
     accuracy: 96.5,
+    avgDelta: 4.1,
     totalKeystrokes: 548,
     correctKeystrokes: 531,
     incorrectKeystrokes: 17,

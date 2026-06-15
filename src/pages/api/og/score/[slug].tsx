@@ -93,6 +93,11 @@ function ScoreCard(props: { data: OgScoreData; brag?: string }) {
             : null}
           <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: 3, color: BRAND.primary, marginTop: brag ? 16 : 48 }}>WORDS PER MINUTE</div>
           <div style={{ fontSize: 150, fontWeight: 700, lineHeight: 1, letterSpacing: -6, color: BRAND.primary }}>{formatNumber(data.rawWpm, 1)}</div>
+          {typeof data.avgDelta === "number" ?
+            <div style={{ display: "flex", fontSize: 24, fontWeight: 700, color: data.avgDelta >= 0 ? "#50fa7b" : "#ff5555", marginTop: 12 }}>
+              {`${formatNumber(Math.abs(data.avgDelta), 1)} WPM ${data.avgDelta >= 0 ? "over" : "under"} their 30-day average`}
+            </div>
+            : null}
           <div style={{ fontSize: 20, color: BRAND.textMuted, marginTop: 12 }}>{`${modeText} / ${formatDate(data.createdAt)}`}</div>
         </div>
         <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", paddingBottom: 24 }}>

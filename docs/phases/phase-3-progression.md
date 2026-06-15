@@ -54,7 +54,8 @@ The share available to *every* user, not just fast ones:
 
 **Progress (built in slices):**
 - 2026-06-14 — *slice 1, score-card delta line:* `test.create` computes WPM vs the user's 30-day rolling average (`thirtyDayDelta`, null until ≥3 prior tests) and returns it alongside `brag`; the result card shows "X WPM over/under your 30-day average" (success/error tone). No schema — `avgDelta` rides the existing return + `ScoreSnapshot`. e2e asserts it on the completed-card capture (`13`).
-- *Next slices:* persist `avgDelta` into the share snapshot + OG so the *shared* card and unfurl show it; then the progress card itself ("+18 WPM in 60 days" + trend), which needs the `ScoreShare.kind` + nullable-`testId` schema change and an OG route.
+- 2026-06-14 — *slice 2, delta persisted to share + OG:* `avgDelta` added to the `scoreShare` snapshot zod and written when a share is created; the shared card renders it (rides `...snapshot`) and the OG image shows "X WPM over/under their 30-day average" under the WPM. e2e asserts it on the shared-score capture (`18`).
+- *Next slice:* the standalone progress card itself ("+18 WPM in 60 days" + trend), which needs the `ScoreShare.kind` + nullable-`testId` schema change and a progress OG route.
 
 ## 3.4 Weekly recap — in-app, free-tier honest (M)
 

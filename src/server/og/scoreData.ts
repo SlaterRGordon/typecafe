@@ -12,6 +12,7 @@ export interface OgScoreData {
   createdAt: Date;
   wpmSamples: { elapsedSeconds: number; wpm: number }[];
   brag: string | null;
+  avgDelta: number | null;
 }
 
 interface SnapshotShape {
@@ -20,6 +21,7 @@ interface SnapshotShape {
   durationSeconds?: number;
   wpmSamples?: { elapsedSeconds: number; wpm: number }[];
   brag?: string | null;
+  avgDelta?: number | null;
 }
 
 function readSnapshot(value: unknown): SnapshotShape {
@@ -61,5 +63,6 @@ export async function getShareScoreForOg(slug: string): Promise<OgScoreData | nu
       { elapsedSeconds: share.test.count, wpm: share.test.speed },
     ],
     brag: snapshot.brag ?? null,
+    avgDelta: snapshot.avgDelta ?? null,
   };
 }

@@ -29,6 +29,7 @@ const scoreSnapshotSchema = z.object({
     attempts: z.number().int().nonnegative(),
   })).optional(),
   brag: z.string().nullish(),
+  avgDelta: z.number().nullish(),
   punctuation: z.boolean().optional(),
   capitals: z.boolean().optional(),
   ranked: z.boolean().optional(),

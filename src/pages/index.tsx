@@ -280,7 +280,7 @@ const Home: NextPage = () => {
         const share = await createShare.mutateAsync({
           testId: test.id,
           snapshot: { durationSeconds, rawWpm, netWpm, accuracy, totalKeystrokes, correctKeystrokes,
-            incorrectKeystrokes, typedText, typedSegments, worstKeys, brag, wpmSamples, punctuation, capitals, ranked },
+            incorrectKeystrokes, typedText, typedSegments, worstKeys, brag, avgDelta: test.avgDelta, wpmSamples, punctuation, capitals, ranked },
         })
         const url = `${window.location.origin}/score/${share.slug}`
         setShareUrl(url)
@@ -396,6 +396,7 @@ const Home: NextPage = () => {
       typedSegments,
       worstKeys,
       brag,
+      avgDelta,
       wpmSamples,
       punctuation,
       capitals,
@@ -415,6 +416,7 @@ const Home: NextPage = () => {
         typedSegments,
         worstKeys,
         brag,
+        avgDelta,
         punctuation,
         capitals,
         ranked,
