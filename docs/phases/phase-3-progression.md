@@ -33,6 +33,8 @@ The page answers one question — *am I getting faster?* — before any other de
 - Shown on `/progress`, profile, and the share card ("12-day streak" chip)
 - A streak counts any completed test or drill ≥ 30s of typing — streaks reward *practice*, not test-spam (vision: no decorative gamification; streaks and deltas only)
 
+**Progress:** 2026-06-14 — `currentStreak` (pure, derived-on-read from the records, timezone-correct with a today-grace day; 7 unit tests) drives a "N-day streak" chip in the `/progress` header. ponytail: counts any day with a completed test; the ≥30s anti-spam bar waits on per-test duration not yet stored on `Test`. Profile and share-card placement land with those surfaces (3.3).
+
 ## 3.3 Delta-first sharing (M)
 
 The share available to *every* user, not just fast ones:

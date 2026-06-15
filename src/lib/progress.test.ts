@@ -5,6 +5,7 @@ import {
     averageConsistency,
     averageWpm,
     bestWpm,
+    currentStreak,
     dailyRollups,
     dayKey,
     defaultRollingWindow,
@@ -271,6 +272,41 @@ describe("dailyRollups", () => {
 
     it("returns an empty array for no records", () => {
         expect(dailyRollups([])).toEqual([])
+    })
+})
+
+describe("currentStreak", () => {
+    it("counts consecutive days up to today", () => {
+        expect(currentStreak([rec(0, 60), rec(1, 60), rec(2, 60)], NOW)).toBe(3)
+    })
+
+    it("keeps the streak when today is unpractised but yesterday wasn't", () => {
+        expect(currentStreak([rec(1, 60), rec(2, 60)], NOW)).toBe(2)
+    })
+
+    it("is zero when the last practice is older than yesterday", () => {
+        expect(currentStreak([rec(2, 60), rec(3, 60)], NOW)).toBe(0)
+    })
+
+    it("stops at the first gap", () => {
+        // today, yesterday, then a gap at 2 days ago, then 3 days ago.
+        expect(currentStreak([rec(0, 60), rec(1, 60), rec(3, 60)], NOW)).toBe(2)
+    })
+
+    it("counts a day with multiple tests once", () => {
+        expect(currentStreak([rec(0, 60), rec(0, 70), rec(1, 60)], NOW)).toBe(2)
+    })
+
+    it("is zero with no records", () => {
+        expect(currentStreak([], NOW)).toBe(0)
+    })
+
+    it("respects the timezone offset at the day boundary", () => {
+        // At UTC-5, a test at 04:30Z is 23:30 the previous local day. With NOW at
+        // noon UTC on the 14th (07:00 local), that test is "yesterday" locally → grace keeps it.
+        const offset = -300
+        const lateYesterday: ProgressRecord = { wpm: 60, accuracy: 95, createdAt: new Date("2026-06-14T04:30:00.000Z") }
+        expect(currentStreak([lateYesterday], NOW, offset)).toBe(1)
     })
 })
 

@@ -294,3 +294,27 @@ export function dailyRollups(records: ProgressRecord[], utcOffsetMinutes = 0): D
         }))
         .sort((a, b) => (a.day < b.day ? -1 : a.day > b.day ? 1 : 0))
 }
+
+// Consecutive-day practice streak ending today (Phase 3 §3.2), computed on read
+// from the records — no jobs, no stored counter. Today not yet practised doesn't
+// break the streak as long as yesterday was (the day isn't over).
+// ponytail: counts any day with a completed test; the doc's "≥30s of typing"
+// anti-spam bar needs per-test duration we don't store on Test yet — add that
+// filter here once duration lands. DST-safe because the offset is fixed.
+export function currentStreak(records: ProgressRecord[], now: Date, utcOffsetMinutes = 0): number {
+    const days = new Set(records.map((r) => dayKey(r.createdAt, utcOffsetMinutes)))
+    if (days.size === 0) return 0
+
+    let cursor = now.getTime()
+    if (!days.has(dayKey(new Date(cursor), utcOffsetMinutes))) {
+        cursor -= DAY_MS // grace: start from yesterday if today is unpractised
+        if (!days.has(dayKey(new Date(cursor), utcOffsetMinutes))) return 0
+    }
+
+    let streak = 0
+    while (days.has(dayKey(new Date(cursor), utcOffsetMinutes))) {
+        streak++
+        cursor -= DAY_MS
+    }
+    return streak
+}

@@ -21,6 +21,9 @@ test.describe("progress dashboard", () => {
     // The trend chart renders over the same data.
     await expect(page.getByTestId("trend-chart")).toBeVisible();
 
+    // The practice streak chip shows (the mocked history reaches today).
+    await expect(page.getByTestId("streak-chip")).toBeVisible();
+
     // Stat cells summarise the selected period.
     await expect(page.getByText("Avg WPM")).toBeVisible();
     await expect(page.getByText("Best WPM")).toBeVisible();

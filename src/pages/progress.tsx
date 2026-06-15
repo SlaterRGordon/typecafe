@@ -10,6 +10,7 @@ import {
     averageAccuracy,
     averageWpm,
     bestWpm,
+    currentStreak,
     filterByPeriod,
     headlineDelta,
     trendSeries,
@@ -43,6 +44,7 @@ const ProgressDashboard = (props: { records: ProgressRecord[] }) => {
     const [period, setPeriod] = useState<ProgressPeriod>(30);
     const now = useMemo(() => new Date(), []);
 
+    const streak = useMemo(() => currentStreak(props.records, now, -now.getTimezoneOffset()), [props.records, now]);
     const delta = useMemo(() => headlineDelta(props.records, period, now), [props.records, period, now]);
     const series = useMemo(() => trendSeries(props.records, period, now), [props.records, period, now]);
     const inPeriod = useMemo(() => filterByPeriod(props.records, period, now), [props.records, period, now]);
@@ -52,7 +54,14 @@ const ProgressDashboard = (props: { records: ProgressRecord[] }) => {
     return (
         <div className="w-full max-w-3xl space-y-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
-                <h1 className="font-mono text-3xl font-bold tracking-tight">Progress</h1>
+                <div className="flex items-center gap-3">
+                    <h1 className="font-mono text-3xl font-bold tracking-tight">Progress</h1>
+                    {streak > 0 && (
+                        <span data-testid="streak-chip" className="rounded-full bg-primary/15 px-3 py-1 text-sm font-semibold text-primary">
+                            {streak}-day streak
+                        </span>
+                    )}
+                </div>
                 <div data-testid="period-switcher" className="flex gap-1 rounded-lg border border-base-content/15 bg-base-200/50 p-1">
                     {PROGRESS_PERIODS.map((option) => (
                         <button
