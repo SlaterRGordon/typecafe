@@ -253,6 +253,8 @@ test.describe("screenshot tour", () => {
     await expect(page.getByText("WPM Over Time")).toBeVisible();
     // Delta-first sharing (§3.3): the card shows WPM vs the 30-day average.
     await expect(page.getByTestId("avg-delta")).toContainText("over your 30-day average");
+    // Streak chip on the result card (§3.2).
+    await expect(page.getByTestId("score-streak")).toContainText("day streak");
     await capture(page, testInfo, "13-score-card-after-test");
   });
 
@@ -318,6 +320,7 @@ test.describe("screenshot tour", () => {
     await mockTrpc(page);
     await page.goto("/profile");
     await expect(page.getByText("testuser").first()).toBeVisible();
+    await expect(page.getByTestId("profile-streak")).toContainText("day streak");
     await capture(page, testInfo, "16-profile-own");
   });
 

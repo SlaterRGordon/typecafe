@@ -6,6 +6,7 @@ import {
   protectedProcedure,
 } from "~/server/api/trpc";
 import type { PrismaClient } from "~/generated/prisma/client";
+import { currentStreak } from "~/lib/progress";
 
 // Only surface a percentile brag when it is flattering — never tell a slow typer
 // they are "faster than 8% of typers". Below the threshold we fall back to a
@@ -79,6 +80,18 @@ async function thirtyDayDelta(
   });
   if (agg._count < MIN_TESTS_FOR_AVG_DELTA || agg._avg.speed === null) return null;
   return args.speed - agg._avg.speed;
+}
+
+// The user's current practice-day streak, from their distinct test days.
+async function practiceStreak(prisma: PrismaClient, userId: string): Promise<number> {
+  const days = await prisma.test.findMany({
+    where: { userId },
+    distinct: ["summaryDate"],
+    select: { summaryDate: true },
+    orderBy: { summaryDate: "desc" },
+    take: 400,
+  });
+  return currentStreak(days.map((d) => ({ wpm: 0, accuracy: 0, createdAt: d.summaryDate })), new Date());
 }
 
 const testOrderBySchema = z.enum([
@@ -178,7 +191,7 @@ export const testRouter = createTRPCRouter({
       //   1. a new personal best for this exact test config, else
       //   2. a global percentile, but only when it is flattering (>= 60%), else
       //   3. nothing (the card just shows the clean WPM).
-      const [brag, avgDelta] = await Promise.all([
+      const [brag, avgDelta, streak] = await Promise.all([
         buildBrag(ctx.prisma, {
           ranked,
           userId: ctx.session.user.id,
@@ -192,9 +205,10 @@ export const testRouter = createTRPCRouter({
           testId: test.id,
           speed: input.speed,
         }),
+        practiceStreak(ctx.prisma, ctx.session.user.id),
       ]);
 
-      return { ...test, brag, avgDelta };
+      return { ...test, brag, avgDelta, streak };
     }),
   // Flat per-test history for the /progress dashboard (Phase 3 §3.1). Returns
   // every ranked test for the signed-in user, oldest→newest, with just the fields

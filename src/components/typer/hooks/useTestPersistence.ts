@@ -39,7 +39,7 @@ export function useTestPersistence({ mode, charAttemptsRef, onTestComplete }: Us
         onSuccess: (test) => {
             const completion = pendingCompletionRef.current
             if (completion) {
-                onTestComplete?.({ ...completion, persisted: true, testId: test.id, brag: test.brag, avgDelta: test.avgDelta })
+                onTestComplete?.({ ...completion, persisted: true, testId: test.id, brag: test.brag, avgDelta: test.avgDelta, streak: test.streak })
                 pendingCompletionRef.current = null
             }
         },

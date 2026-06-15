@@ -31,6 +31,8 @@ export interface ScoreSnapshot {
   brag?: string | null;
   // WPM vs the user's 30-day average at save time (vision §7 — deltas everywhere).
   avgDelta?: number | null;
+  // Current practice-day streak (transient — shown on the live result card).
+  streak?: number | null;
   punctuation?: boolean;
   capitals?: boolean;
   ranked?: boolean;
@@ -594,9 +596,14 @@ export function ShareableScoreCard(props: ShareableScoreCardProps) {
         <div className="score-reveal flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-4">
             <div>
-              {score.brag &&
-                <p className="mb-2 inline-block rounded-full bg-primary/15 px-3 py-1 text-sm font-bold text-primary">{score.brag}</p>
-              }
+              <div className="mb-2 flex flex-wrap items-center gap-2">
+                {score.brag &&
+                  <span className="inline-block rounded-full bg-primary/15 px-3 py-1 text-sm font-bold text-primary">{score.brag}</span>
+                }
+                {typeof score.streak === "number" && score.streak > 0 &&
+                  <span data-testid="score-streak" className="inline-block rounded-full bg-primary/15 px-3 py-1 text-sm font-semibold text-primary">{score.streak}-day streak</span>
+                }
+              </div>
               {typeof score.avgDelta === "number" &&
                 <p data-testid="avg-delta" className={`mb-2 text-sm font-semibold ${score.avgDelta >= 0 ? "text-success" : "text-error"}`}>
                   {formatNumber(Math.abs(score.avgDelta), 1)} WPM {score.avgDelta >= 0 ? "over" : "under"} your 30-day average

@@ -27,6 +27,8 @@ export interface TestCompletionResult {
     brag?: string | null,
     // WPM vs the user's 30-day average at save time (null when too little history).
     avgDelta?: number | null,
+    // Current practice-day streak at save time.
+    streak?: number | null,
 }
 
 export enum TestModes {

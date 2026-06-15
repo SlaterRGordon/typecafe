@@ -164,7 +164,7 @@ function responseForProcedure(procedure: string, input: ProcedureInput, options:
       if (options.emptyScores) return [];
       return [makeScore(input)];
     case "test.create":
-      return { ...makeScore({ ...input, userId: profileUser.id }), brag: "New personal best", avgDelta: 3.2 };
+      return { ...makeScore({ ...input, userId: profileUser.id }), brag: "New personal best", avgDelta: 3.2, streak: 5 };
     case "test.getTimeTyped":
       return { _sum: { count: 1234 } };
     case "test.getBestScore":
@@ -175,7 +175,11 @@ function responseForProcedure(procedure: string, input: ProcedureInput, options:
       if (options.emptyScores) return [];
       return makeProgressRecords();
     case "test.getActivityByDate":
-      return [];
+      // Recent consecutive days so the profile streak chip has data.
+      return Array.from({ length: 5 }, (_, i) => ({
+        summaryDate: new Date(Date.now() - i * 24 * 60 * 60 * 1000),
+        _count: { _all: 3 },
+      }));
     case "learnProgress.getByDifficulty":
       return state.importedLearnProgress ? (options.importedLearnProgress ?? options.savedLearnProgress ?? []) : (options.savedLearnProgress ?? []);
     case "learnProgress.batchImport":

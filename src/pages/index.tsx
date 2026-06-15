@@ -73,6 +73,7 @@ const Home: NextPage = () => {
     ranked?: boolean;
     createdAt: Date;
     testId?: string;
+    streak?: number | null;
     reMeasure?: { beforeWpm: number };
   }) | null>(null)
   const [shareUrl, setShareUrl] = useState<string | undefined>(undefined)
@@ -180,6 +181,7 @@ const Home: NextPage = () => {
       brag: result.brag ?? null,
       wpmSamples: result.wpmSamples,
       avgDelta: result.avgDelta,
+      streak: result.streak,
       punctuation: result.punctuation,
       capitals: result.capitals,
       ranked: result.ranked,
@@ -271,7 +273,7 @@ const Home: NextPage = () => {
 
     void saveAfterSignIn.mutateAsync(pending.createInput).then(async (test) => {
       sessionStorage.removeItem("typecafe:pendingScore")
-      setCompletedScore((prev) => prev ? { ...prev, testId: test.id, brag: test.brag ?? prev.brag, avgDelta: test.avgDelta ?? prev.avgDelta } : prev)
+      setCompletedScore((prev) => prev ? { ...prev, testId: test.id, brag: test.brag ?? prev.brag, avgDelta: test.avgDelta ?? prev.avgDelta, streak: test.streak ?? prev.streak } : prev)
 
       try {
         const { durationSeconds, rawWpm, netWpm, accuracy, totalKeystrokes, correctKeystrokes,
