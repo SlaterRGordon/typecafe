@@ -52,6 +52,10 @@ The share available to *every* user, not just fast ones:
 - Score-card share gains a delta line when history exists: "3 WPM over my 30-day average"
 - OG image for progress shares leads with the delta, not the absolute
 
+**Progress (built in slices):**
+- 2026-06-14 — *slice 1, score-card delta line:* `test.create` computes WPM vs the user's 30-day rolling average (`thirtyDayDelta`, null until ≥3 prior tests) and returns it alongside `brag`; the result card shows "X WPM over/under your 30-day average" (success/error tone). No schema — `avgDelta` rides the existing return + `ScoreSnapshot`. e2e asserts it on the completed-card capture (`13`).
+- *Next slices:* persist `avgDelta` into the share snapshot + OG so the *shared* card and unfurl show it; then the progress card itself ("+18 WPM in 60 days" + trend), which needs the `ScoreShare.kind` + nullable-`testId` schema change and an OG route.
+
 ## 3.4 Weekly recap — in-app, free-tier honest (M)
 
 No email provider exists. The recap is a surface, not a send:

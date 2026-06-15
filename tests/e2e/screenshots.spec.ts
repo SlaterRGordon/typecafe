@@ -251,6 +251,8 @@ test.describe("screenshot tour", () => {
     await typeCurrentCharacter(page);
     await expect(page.getByRole("button", { name: "Test Again" })).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText("WPM Over Time")).toBeVisible();
+    // Delta-first sharing (§3.3): the card shows WPM vs the 30-day average.
+    await expect(page.getByTestId("avg-delta")).toContainText("over your 30-day average");
     await capture(page, testInfo, "13-score-card-after-test");
   });
 

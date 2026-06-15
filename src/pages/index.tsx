@@ -179,6 +179,7 @@ const Home: NextPage = () => {
       timeline: result.timeline,
       brag: result.brag ?? null,
       wpmSamples: result.wpmSamples,
+      avgDelta: result.avgDelta,
       punctuation: result.punctuation,
       capitals: result.capitals,
       ranked: result.ranked,
@@ -270,7 +271,7 @@ const Home: NextPage = () => {
 
     void saveAfterSignIn.mutateAsync(pending.createInput).then(async (test) => {
       sessionStorage.removeItem("typecafe:pendingScore")
-      setCompletedScore((prev) => prev ? { ...prev, testId: test.id, brag: test.brag ?? prev.brag } : prev)
+      setCompletedScore((prev) => prev ? { ...prev, testId: test.id, brag: test.brag ?? prev.brag, avgDelta: test.avgDelta ?? prev.avgDelta } : prev)
 
       try {
         const { durationSeconds, rawWpm, netWpm, accuracy, totalKeystrokes, correctKeystrokes,

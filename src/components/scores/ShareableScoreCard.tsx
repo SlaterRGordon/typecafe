@@ -29,6 +29,8 @@ export interface ScoreSnapshot {
   // or shared snapshots (the panel is owner-only and not shown there anyway).
   timeline?: EncodedKeystroke[];
   brag?: string | null;
+  // WPM vs the user's 30-day average at save time (vision §7 — deltas everywhere).
+  avgDelta?: number | null;
   punctuation?: boolean;
   capitals?: boolean;
   ranked?: boolean;
@@ -594,6 +596,11 @@ export function ShareableScoreCard(props: ShareableScoreCardProps) {
             <div>
               {score.brag &&
                 <p className="mb-2 inline-block rounded-full bg-primary/15 px-3 py-1 text-sm font-bold text-primary">{score.brag}</p>
+              }
+              {typeof score.avgDelta === "number" &&
+                <p data-testid="avg-delta" className={`mb-2 text-sm font-semibold ${score.avgDelta >= 0 ? "text-success" : "text-error"}`}>
+                  {formatNumber(Math.abs(score.avgDelta), 1)} WPM {score.avgDelta >= 0 ? "over" : "under"} your 30-day average
+                </p>
               }
               <p className="text-sm text-base-content/65">{modeText} / {formatDate(score.createdAt)}</p>
               {(score.punctuation || score.capitals || score.ranked === false) &&

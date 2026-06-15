@@ -64,6 +64,23 @@ async function buildBrag(prisma: PrismaClient, args: BragArgs): Promise<string |
   return null;
 }
 
+// WPM change vs the user's 30-day rolling average (a delta available to share —
+// vision §7). Null until there's enough history to compare honestly.
+const MIN_TESTS_FOR_AVG_DELTA = 3;
+async function thirtyDayDelta(
+  prisma: PrismaClient,
+  args: { userId: string; testId: string; speed: number },
+): Promise<number | null> {
+  const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const agg = await prisma.test.aggregate({
+    where: { userId: args.userId, ranked: true, id: { not: args.testId }, createdAt: { gte: since } },
+    _avg: { speed: true },
+    _count: true,
+  });
+  if (agg._count < MIN_TESTS_FOR_AVG_DELTA || agg._avg.speed === null) return null;
+  return args.speed - agg._avg.speed;
+}
+
 const testOrderBySchema = z.enum([
   "createdAt",
   "updatedAt",
@@ -161,16 +178,23 @@ export const testRouter = createTRPCRouter({
       //   1. a new personal best for this exact test config, else
       //   2. a global percentile, but only when it is flattering (>= 60%), else
       //   3. nothing (the card just shows the clean WPM).
-      const brag = await buildBrag(ctx.prisma, {
-        ranked,
-        userId: ctx.session.user.id,
-        testId: test.id,
-        typeId: input.typeId,
-        count: input.count,
-        score: input.score,
-      });
+      const [brag, avgDelta] = await Promise.all([
+        buildBrag(ctx.prisma, {
+          ranked,
+          userId: ctx.session.user.id,
+          testId: test.id,
+          typeId: input.typeId,
+          count: input.count,
+          score: input.score,
+        }),
+        thirtyDayDelta(ctx.prisma, {
+          userId: ctx.session.user.id,
+          testId: test.id,
+          speed: input.speed,
+        }),
+      ]);
 
-      return { ...test, brag };
+      return { ...test, brag, avgDelta };
     }),
   // Flat per-test history for the /progress dashboard (Phase 3 §3.1). Returns
   // every ranked test for the signed-in user, oldest→newest, with just the fields
