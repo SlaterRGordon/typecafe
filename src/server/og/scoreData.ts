@@ -1,6 +1,7 @@
 import { prisma } from "~/server/db";
 
 export interface OgScoreData {
+  kind: "score";
   rawWpm: number;
   netWpm: number;
   accuracy: number;
@@ -15,7 +16,18 @@ export interface OgScoreData {
   avgDelta: number | null;
 }
 
-interface SnapshotShape {
+export interface OgProgressData {
+  kind: "progress";
+  deltaWpm: number;
+  periodLabel: string;
+  username: string | null;
+  streak: number | null;
+  points: { t: number; wpm: number }[];
+}
+
+export type OgShareData = OgScoreData | OgProgressData;
+
+interface ScoreSnapshotShape {
   rawWpm?: number;
   netWpm?: number;
   durationSeconds?: number;
@@ -24,15 +36,22 @@ interface SnapshotShape {
   avgDelta?: number | null;
 }
 
-function readSnapshot(value: unknown): SnapshotShape {
-  if (!value || typeof value !== "object") return {};
-  return value as SnapshotShape;
+interface ProgressSnapshotShape {
+  deltaWpm?: number;
+  periodLabel?: string;
+  username?: string | null;
+  streak?: number;
+  points?: { t: number; wpm: number }[];
 }
 
-// Fetches a shared score by slug and normalizes it for OG rendering / meta tags.
-// Returns null when the share is missing, deleted, or expired. Prefers the saved
-// snapshot values, falling back to the test record so legacy shares still work.
-export async function getShareScoreForOg(slug: string): Promise<OgScoreData | null> {
+function asObject(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+}
+
+// Fetches a shared score/progress by slug and normalizes it for OG rendering /
+// meta tags. Returns null when missing, deleted, expired, or malformed. Prefers
+// the saved snapshot, falling back to the test record so legacy shares still work.
+export async function getShareForOg(slug: string): Promise<OgShareData | null> {
   const share = await prisma.scoreShare.findUnique({
     where: { slug },
     include: {
@@ -44,11 +63,28 @@ export async function getShareScoreForOg(slug: string): Promise<OgScoreData | nu
   if (!share || share.deletedAt) return null;
   if (share.expiresAt && share.expiresAt <= new Date()) return null;
 
-  const snapshot = readSnapshot(share.snapshot);
+  const username = share.user?.username ?? null;
+
+  if (share.kind === "progress") {
+    const snapshot = asObject(share.snapshot) as ProgressSnapshotShape;
+    if (typeof snapshot.deltaWpm !== "number" || !Array.isArray(snapshot.points)) return null;
+    return {
+      kind: "progress",
+      deltaWpm: snapshot.deltaWpm,
+      periodLabel: snapshot.periodLabel ?? "recently",
+      username,
+      streak: typeof snapshot.streak === "number" ? snapshot.streak : null,
+      points: snapshot.points,
+    };
+  }
+
+  if (!share.test) return null;
+  const snapshot = asObject(share.snapshot) as ScoreSnapshotShape;
   const rawWpm = snapshot.rawWpm ?? share.test.speed;
   const accuracy = share.test.accuracy;
 
   return {
+    kind: "score",
     rawWpm,
     netWpm: snapshot.netWpm ?? Math.max(share.test.speed * (accuracy / 100), 0),
     accuracy,
@@ -56,7 +92,7 @@ export async function getShareScoreForOg(slug: string): Promise<OgScoreData | nu
     mode: share.test.type.mode,
     subMode: share.test.type.subMode,
     language: share.test.type.language,
-    username: share.user?.username ?? null,
+    username,
     createdAt: share.test.createdAt,
     wpmSamples: snapshot.wpmSamples ?? [
       { elapsedSeconds: 0, wpm: 0 },

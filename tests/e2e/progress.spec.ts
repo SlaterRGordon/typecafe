@@ -62,6 +62,26 @@ test.describe("progress dashboard", () => {
     await expect(page.getByTestId("trend-chart")).toHaveCount(0);
   });
 
+  test("a signed-in user can share a progress card", async ({ page }) => {
+    await mockAuthenticatedSession(page);
+    await mockTrpc(page);
+    await gotoProgress(page);
+
+    const button = page.getByTestId("share-progress");
+    await expect(button).toBeVisible();
+    await button.click();
+    await expect(button).toHaveText("Link copied");
+  });
+
+  test("a shared progress card renders the delta and trend", async ({ page }) => {
+    await mockTrpc(page);
+    await page.goto("/score/progress-test-share");
+
+    await expect(page.getByTestId("progress-share-card")).toBeVisible();
+    await expect(page.getByTestId("progress-share-delta")).toContainText("+12.5");
+    await expect(page.getByTestId("trend-chart").first()).toBeVisible();
+  });
+
   test("a signed-out visitor with no history sees the sign-in pitch", async ({ page }) => {
     await gotoProgress(page);
 

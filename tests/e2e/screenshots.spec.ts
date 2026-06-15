@@ -370,6 +370,13 @@ test.describe("screenshot tour", () => {
     await capture(page, testInfo, "43-progress-guest-history");
   });
 
+  test("shared progress card", async ({ page }, testInfo) => {
+    await mockTrpc(page);
+    await page.goto("/score/progress-test-share");
+    await expect(page.getByTestId("progress-share-card")).toBeVisible();
+    await capture(page, testInfo, "44-shared-progress-card");
+  });
+
   test("shared score page", async ({ page }, testInfo) => {
     await mockTrpc(page);
     await page.goto("/score/share-test-score");

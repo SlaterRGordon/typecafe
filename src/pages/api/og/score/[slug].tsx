@@ -3,7 +3,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 
 import { TestModes, TestSubModes } from "~/components/typer/types";
 import { loadOgFonts } from "~/server/og/fonts";
-import { getShareScoreForOg, type OgScoreData } from "~/server/og/scoreData";
+import { getShareForOg, type OgScoreData, type OgProgressData } from "~/server/og/scoreData";
 
 export const SHARE_IMAGE_WIDTH = 1200;
 export const SHARE_IMAGE_HEIGHT = 630;
@@ -118,6 +118,50 @@ function ScoreCard(props: { data: OgScoreData; brag?: string }) {
   );
 }
 
+// The "+18 WPM in 60 days" unfurl — leads with the delta, not an absolute.
+function ProgressCard(props: { data: OgProgressData }) {
+  const { data } = props;
+  const positive = data.deltaWpm >= 0;
+  const sign = positive ? "+" : "";
+  const username = data.username ? `@${data.username}` : "A TypeCafe typist";
+  const samples = data.points.map((p) => ({ elapsedSeconds: p.t, wpm: p.wpm }));
+  const maxWpm = Math.max(...data.points.map((p) => p.wpm), 1);
+
+  return (
+    <div
+      style={{
+        width: SHARE_IMAGE_WIDTH,
+        height: SHARE_IMAGE_HEIGHT,
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "space-between",
+        padding: 56,
+        backgroundColor: BRAND.bg,
+        color: BRAND.text,
+        fontFamily: "Roboto Mono",
+      }}
+    >
+      <div style={{ display: "flex", flexDirection: "column" }}>
+        <div style={{ fontSize: 40, fontWeight: 700, color: BRAND.text }}>TypeCafe</div>
+        <div style={{ fontSize: 20, color: BRAND.textMuted, marginTop: 4 }}>{SHARE_DOMAIN}</div>
+        <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: 3, color: BRAND.primary, marginTop: 44 }}>WORDS PER MINUTE GAINED</div>
+        <div style={{ display: "flex", alignItems: "baseline" }}>
+          <div style={{ fontSize: 150, fontWeight: 700, lineHeight: 1, letterSpacing: -6, color: positive ? "#50fa7b" : "#ff5555" }}>{`${sign}${formatNumber(data.deltaWpm, 1)}`}</div>
+        </div>
+        <div style={{ fontSize: 30, color: BRAND.text, marginTop: 16 }}>{`in ${data.periodLabel}`}</div>
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column" }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={sparklineDataUri(samples, maxWpm)} width={1088} height={150} alt="" />
+        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 20 }}>
+          <div style={{ fontSize: 22, fontWeight: 700, color: BRAND.text, maxWidth: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{username}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function FallbackCard() {
   return (
     <div
@@ -146,15 +190,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     // A data-fetch failure (e.g. DB unavailable) still yields a valid brand image
     // rather than a broken unfurl.
-    let data: OgScoreData | null = null;
+    let data: Awaited<ReturnType<typeof getShareForOg>> = null;
     try {
-      data = slug ? await getShareScoreForOg(slug) : null;
+      data = slug ? await getShareForOg(slug) : null;
     } catch {
       data = null;
     }
     const fonts = await loadOgFonts();
 
-    const image = new ImageResponse(data ? <ScoreCard data={data} brag={data.brag ?? undefined} /> : <FallbackCard />, {
+    const card = !data
+      ? <FallbackCard />
+      : data.kind === "progress"
+        ? <ProgressCard data={data} />
+        : <ScoreCard data={data} brag={data.brag ?? undefined} />;
+    const image = new ImageResponse(card, {
       width: SHARE_IMAGE_WIDTH,
       height: SHARE_IMAGE_HEIGHT,
       fonts: fonts.map((font) => ({ name: font.name, data: font.data, weight: font.weight, style: font.style })),

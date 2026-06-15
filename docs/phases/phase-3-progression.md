@@ -55,7 +55,7 @@ The share available to *every* user, not just fast ones:
 **Progress (built in slices):**
 - 2026-06-14 — *slice 1, score-card delta line:* `test.create` computes WPM vs the user's 30-day rolling average (`thirtyDayDelta`, null until ≥3 prior tests) and returns it alongside `brag`; the result card shows "X WPM over/under your 30-day average" (success/error tone). No schema — `avgDelta` rides the existing return + `ScoreSnapshot`. e2e asserts it on the completed-card capture (`13`).
 - 2026-06-14 — *slice 2, delta persisted to share + OG:* `avgDelta` added to the `scoreShare` snapshot zod and written when a share is created; the shared card renders it (rides `...snapshot`) and the OG image shows "X WPM over/under their 30-day average" under the WPM. e2e asserts it on the shared-score capture (`18`).
-- *Next slice:* the standalone progress card itself ("+18 WPM in 60 days" + trend), which needs the `ScoreShare.kind` + nullable-`testId` schema change and a progress OG route.
+- 2026-06-15 — *slice 3, the standalone progress card:* schema — `ScoreShare.kind` (default "score") + nullable `testId` (migration `20260615000000_add_progress_shares`). `scoreShare.createProgress` stores a progress snapshot; `get` returns `kind` and a null `score` for progress shares. New `ProgressShareCard` (reuses `TrendChart`) on `/score/[slug]` and a progress branch in the OG route that leads with the delta. A "Share progress" button on `/progress` (signed-in, only when there's a real delta) creates the share and copies the link. e2e covers create + shared render; screenshot `44`. **Owner runs the migration; then verify the unfurl on Discord/Twitter.**
 
 ## 3.4 Weekly recap — in-app, free-tier honest (M)
 
@@ -88,7 +88,8 @@ No email provider exists. The recap is a surface, not a send:
   - 2026-06-14: Signed-in users get the headline delta + WPM trend immediately on `/progress` (the delta is computed client-side from `test.getProgressRecords`). Guest local history and the richer trends below are still pending.
 - [x] A *guest* with 2 weeks of local history sees the same page, plus the keep-it-forever signup pitch
   - 2026-06-14: Guest completions mirror to localStorage (`progressHistory.ts`); `/progress` renders the full dashboard from it with a "sign in to keep it forever" banner. Sync-on-signup into the DB is still pending.
-- [ ] Progress share card unfurls correctly on Discord/Twitter (OG verified like the score card was)
+- [~] Progress share card unfurls correctly on Discord/Twitter (OG verified like the score card was)
+  - 2026-06-15: progress share card + OG route built (`/score/[slug]` kind="progress", `ProgressShareCard`, progress OG leading with the delta); e2e covers create + render. Real-world unfurl verification on Discord/Twitter is the owner's part (needs the migration applied + a public URL).
 - [x] Streak math correct across timezones (test: tests at 23:50 and 00:10)
   - 2026-06-14: `currentStreak`/`dayKey` unit tests cover the 23:50/00:10 offset case.
 - [x] Every trend chart renders sanely with 1 data point, 10, and 1,000

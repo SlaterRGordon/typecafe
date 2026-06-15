@@ -47,9 +47,15 @@ function StatCell(props: { label: string; value: string }) {
     );
 }
 
-const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Record<string, KeyAttempt> }) => {
+function periodShareLabel(period: ProgressPeriod): string {
+    return period === "all" ? "all time" : `${period} days`;
+}
+
+const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Record<string, KeyAttempt>; canShare?: boolean; username?: string | null }) => {
     const [period, setPeriod] = useState<ProgressPeriod>(30);
+    const [shareState, setShareState] = useState<"idle" | "sharing" | "copied">("idle");
     const now = useMemo(() => new Date(), []);
+    const createProgressShare = api.scoreShare.createProgress.useMutation();
 
     const streak = useMemo(() => currentStreak(props.records, now, -now.getTimezoneOffset()), [props.records, now]);
     const delta = useMemo(() => headlineDelta(props.records, period, now), [props.records, period, now]);
@@ -71,6 +77,31 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
     const avgConsistency = averageConsistency(inPeriod);
 
     const hasData = series.points.length > 0;
+    // A progress card only makes sense with a real delta to brag about.
+    const canShare = !!props.canShare && delta.delta !== null && series.points.length > 0;
+
+    const shareProgress = async () => {
+        if (delta.delta === null) return;
+        setShareState("sharing");
+        try {
+            const share = await createProgressShare.mutateAsync({
+                snapshot: {
+                    deltaWpm: delta.delta,
+                    periodLabel: periodShareLabel(period),
+                    points: series.points.slice(-2000).map((p) => ({ t: p.t, wpm: p.wpm })),
+                    streak: streak > 0 ? streak : undefined,
+                    username: props.username ?? undefined,
+                    generatedAt: Date.now(),
+                },
+            });
+            const url = `${window.location.origin}/score/${share.slug}`;
+            try { await navigator.clipboard.writeText(url); } catch { /* clipboard blocked */ }
+            setShareState("copied");
+            setTimeout(() => setShareState("idle"), 2500);
+        } catch {
+            setShareState("idle");
+        }
+    };
 
     return (
         <div className="w-full max-w-3xl space-y-6">
@@ -83,18 +114,31 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
                         </span>
                     )}
                 </div>
-                <div data-testid="period-switcher" className="flex gap-1 rounded-lg border border-base-content/15 bg-base-200/50 p-1">
-                    {PROGRESS_PERIODS.map((option) => (
+                <div className="flex items-center gap-2">
+                    {canShare && (
                         <button
-                            key={option}
                             type="button"
-                            aria-pressed={period === option}
-                            onClick={() => setPeriod(option)}
-                            className={`min-h-9 rounded-md px-3 text-sm font-medium transition-colors ${period === option ? "bg-primary text-primary-content shadow-sm" : "text-base-content/70 hover:bg-base-content/5 hover:text-base-content"}`}
+                            data-testid="share-progress"
+                            onClick={() => void shareProgress()}
+                            disabled={shareState === "sharing"}
+                            className="inline-flex min-h-9 items-center rounded-md bg-primary px-3 text-sm font-semibold text-primary-content transition hover:opacity-85 disabled:opacity-60"
                         >
-                            {periodLabel(option)}
+                            {shareState === "copied" ? "Link copied" : shareState === "sharing" ? "Sharing…" : "Share progress"}
                         </button>
-                    ))}
+                    )}
+                    <div data-testid="period-switcher" className="flex gap-1 rounded-lg border border-base-content/15 bg-base-200/50 p-1">
+                        {PROGRESS_PERIODS.map((option) => (
+                            <button
+                                key={option}
+                                type="button"
+                                aria-pressed={period === option}
+                                onClick={() => setPeriod(option)}
+                                className={`min-h-9 rounded-md px-3 text-sm font-medium transition-colors ${period === option ? "bg-primary text-primary-content shadow-sm" : "text-base-content/70 hover:bg-base-content/5 hover:text-base-content"}`}
+                            >
+                                {periodLabel(option)}
+                            </button>
+                        ))}
+                    </div>
                 </div>
             </div>
 
@@ -260,7 +304,7 @@ const Progress: NextPage = () => {
                         </div>
                     )
                 ) : (
-                    <ProgressDashboard records={records} keyAttempts={dbKeyAttempts} />
+                    <ProgressDashboard records={records} keyAttempts={dbKeyAttempts} canShare username={sessionData.user.username ?? sessionData.user.name} />
                 )}
             </div>
         </>

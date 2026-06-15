@@ -39,6 +39,20 @@ const scoreSnapshotSchema = z.object({
   })),
 });
 
+// A point-in-time /progress snapshot — the "+18 WPM in 60 days" brag any user
+// can share, not tied to a single test.
+const progressSnapshotSchema = z.object({
+  deltaWpm: z.number(),
+  periodLabel: z.string().min(1).max(40),
+  points: z.array(z.object({
+    t: z.number(),
+    wpm: z.number().nonnegative(),
+  })).min(1).max(2000),
+  streak: z.number().int().nonnegative().optional(),
+  username: z.string().nullish(),
+  generatedAt: z.number(),
+});
+
 function createShareSlug() {
   return randomBytes(9).toString("base64url");
 }
@@ -122,6 +136,28 @@ export const scoreShareRouter = createTRPCRouter({
       });
     }),
 
+  createProgress: protectedProcedure
+    .input(z.object({ snapshot: progressSnapshotSchema }))
+    .mutation(async ({ ctx, input }) => {
+      for (let attempt = 0; attempt < 4; attempt += 1) {
+        try {
+          return await ctx.prisma.scoreShare.create({
+            data: {
+              slug: createShareSlug(),
+              kind: "progress",
+              testId: null,
+              userId: ctx.session.user.id,
+              snapshot: input.snapshot,
+            },
+            select: { slug: true },
+          });
+        } catch (error) {
+          if (attempt === 3) throw error;
+        }
+      }
+      throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Could not create a share link." });
+    }),
+
   get: publicProcedure
     .input(z.object({ slug: slugSchema }))
     .query(async ({ ctx, input }) => {
@@ -162,23 +198,27 @@ export const scoreShareRouter = createTRPCRouter({
       return {
         id: share.id,
         slug: share.slug,
+        kind: share.kind,
         createdAt: share.createdAt,
         expiresAt: share.expiresAt,
-        score: {
-          id: share.test.id,
-          speed: share.test.speed,
-          accuracy: share.test.accuracy,
-          score: share.test.score,
-          count: share.test.count,
-          options: share.test.options,
-          punctuation: share.test.punctuation,
-          capitals: share.test.capitals,
-          ranked: share.test.ranked,
-          createdAt: share.test.createdAt,
-          mode: share.test.type.mode,
-          subMode: share.test.type.subMode,
-          language: share.test.type.language,
-        },
+        // null for a progress share (no single test backs it).
+        score: share.test
+          ? {
+              id: share.test.id,
+              speed: share.test.speed,
+              accuracy: share.test.accuracy,
+              score: share.test.score,
+              count: share.test.count,
+              options: share.test.options,
+              punctuation: share.test.punctuation,
+              capitals: share.test.capitals,
+              ranked: share.test.ranked,
+              createdAt: share.test.createdAt,
+              mode: share.test.type.mode,
+              subMode: share.test.type.subMode,
+              language: share.test.type.language,
+            }
+          : null,
         snapshot: share.snapshot,
         user: share.user,
       };

@@ -3,8 +3,9 @@ import Head from "next/head";
 import Link from "next/link";
 
 import { ShareableScoreCard, type ScoreSnapshot } from "~/components/scores/ShareableScoreCard";
+import { ProgressShareCard, isProgressSnapshot } from "~/components/scores/ProgressShareCard";
 import type { TestModes, TestSubModes } from "~/components/typer/types";
-import { getShareScoreForOg, type OgScoreData } from "~/server/og/scoreData";
+import { getShareForOg, type OgShareData } from "~/server/og/scoreData";
 import { api } from "~/utils/api";
 
 interface ShareMeta {
@@ -64,7 +65,15 @@ const SharedScorePage: NextPage<SharedScorePageProps> = ({ slug, meta }) => {
         </section>
       </div>
     );
-  } else {
+  } else if (data.kind === "progress" && isProgressSnapshot(data.snapshot)) {
+    body = (
+      <div className="flex h-full w-full overflow-auto px-4 py-8">
+        <div className="m-auto flex w-full justify-center">
+          <ProgressShareCard snapshot={data.snapshot} shareUrl={shareUrl} />
+        </div>
+      </div>
+    );
+  } else if (data.score) {
     const snapshot: ScoreSnapshot = isScoreSnapshot(data.snapshot) ? data.snapshot : {
       durationSeconds: data.score.count,
       rawWpm: data.score.speed,
@@ -107,6 +116,16 @@ const SharedScorePage: NextPage<SharedScorePageProps> = ({ slug, meta }) => {
         </div>
       </div>
     );
+  } else {
+    body = (
+      <div className="flex h-full w-full items-center justify-center overflow-auto px-4 py-8">
+        <section className="w-full max-w-xl rounded-lg bg-base-200 p-6 text-center">
+          <h1 className="text-2xl font-bold">Score unavailable</h1>
+          <p className="mt-3 opacity-75">This shared score is invalid or no longer available.</p>
+          <Link className="btn btn-primary btn-sm mt-6" href="/">Try TypeCafe</Link>
+        </section>
+      </div>
+    );
   }
 
   return (
@@ -145,26 +164,37 @@ export const getServerSideProps: GetServerSideProps<SharedScorePageProps> = asyn
 
   // Meta enrichment must never break the page — fall back to generic tags if the
   // lookup fails (e.g. DB unavailable). The interactive card still loads client-side.
-  let data: OgScoreData | null = null;
+  let data: OgShareData | null = null;
   try {
-    data = slug ? await getShareScoreForOg(slug) : null;
+    data = slug ? await getShareForOg(slug) : null;
   } catch {
     data = null;
   }
 
-  const meta: ShareMeta = data
-    ? {
-        title: `${data.rawWpm.toFixed(1)} WPM on TypeCafe`,
-        description: `${data.username ? `@${data.username} typed ` : ""}${data.rawWpm.toFixed(1)} WPM at ${data.accuracy.toFixed(1)}% accuracy. Test your typing speed on TypeCafe.`,
-        imageUrl,
-        pageUrl,
-      }
-    : {
-        title: "Typing score | TypeCafe",
-        description: "Test your typing speed on TypeCafe.",
-        imageUrl,
-        pageUrl,
-      };
+  let meta: ShareMeta;
+  if (data?.kind === "progress") {
+    const sign = data.deltaWpm >= 0 ? "+" : "";
+    meta = {
+      title: `${sign}${data.deltaWpm.toFixed(1)} WPM in ${data.periodLabel} on TypeCafe`,
+      description: `${data.username ? `@${data.username} got ` : ""}${sign}${data.deltaWpm.toFixed(1)} WPM in ${data.periodLabel}. Track your typing progress on TypeCafe.`,
+      imageUrl,
+      pageUrl,
+    };
+  } else if (data) {
+    meta = {
+      title: `${data.rawWpm.toFixed(1)} WPM on TypeCafe`,
+      description: `${data.username ? `@${data.username} typed ` : ""}${data.rawWpm.toFixed(1)} WPM at ${data.accuracy.toFixed(1)}% accuracy. Test your typing speed on TypeCafe.`,
+      imageUrl,
+      pageUrl,
+    };
+  } else {
+    meta = {
+      title: "Typing score | TypeCafe",
+      description: "Test your typing speed on TypeCafe.",
+      imageUrl,
+      pageUrl,
+    };
+  }
 
   return { props: { slug, meta } };
 };

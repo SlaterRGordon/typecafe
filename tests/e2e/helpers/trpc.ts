@@ -216,9 +216,31 @@ function responseForProcedure(procedure: string, input: ProcedureInput, options:
       return null;
     case "scoreShare.create":
       return { slug: "share-test-score" };
+    case "scoreShare.createProgress":
+      return { slug: "progress-test-share" };
     case "scoreShare.get":
       if (options.invalidShare) return null;
+      if (typeof input?.slug === "string" && input.slug.startsWith("progress")) {
+        return {
+          id: "share-progress-1",
+          slug: input.slug,
+          kind: "progress",
+          createdAt: new Date("2026-06-15T12:00:00.000Z"),
+          expiresAt: null,
+          score: null,
+          snapshot: {
+            deltaWpm: 12.5,
+            periodLabel: "30 days",
+            points: Array.from({ length: 10 }, (_, i) => ({ t: Date.UTC(2026, 5, 5 + i), wpm: 60 + i * 1.4 })),
+            streak: 4,
+            username: profileUser.username,
+            generatedAt: Date.UTC(2026, 5, 15),
+          },
+          user: { id: profileUser.id, username: profileUser.username, image: profileUser.image },
+        };
+      }
       return {
+        kind: "score",
         id: "share-1",
         slug: input?.slug ?? "share-test-score",
         createdAt: new Date("2026-06-01T12:00:00.000Z"),
