@@ -67,6 +67,8 @@ No email provider exists. The recap is a surface, not a send:
 - Recap is itself shareable (same progress-card pipeline)
 - **When there's budget:** the same payload becomes an email via Resend/Postmark — the recap generator (`src/lib/recap.ts`) is written render-agnostic from day one
 
+**Progress:** 2026-06-15 — `src/lib/recap.ts` (pure, render-agnostic, 5 unit tests): `buildRecap` → `{ weekDeltaWpm, testsThisWeek, streak, focusKey }`, plus `isRecapDue(lastRecapAt, now)`. `/progress` opens with a recap banner on the first visit ≥ 7 days after the last (tracked in `typecafe:lastRecapAt`), dismissable; it shows the week's delta, tests, streak, and a "Drill your &lt;key&gt;" CTA to the worst key (the everywhere-rule). e2e + screenshot `45`. ponytail: the "focus key" is the lifetime-weakest key (no weekly per-key data stored yet, so not framed as "this week"); "keystrokes" shown as tests-this-week (per-test keystroke totals aren't on `Test`). The recap reuses the existing "Share progress" button rather than a bespoke recap share. Email rendering waits on a provider (the generator is ready).
+
 ## 3.5 Goals (M)
 
 - One active goal: target WPM + date ("100 by September")
@@ -97,6 +99,6 @@ No email provider exists. The recap is a surface, not a send:
 - [x] Every trend chart renders sanely with 1 data point, 10, and 1,000
   - 2026-06-14: `trendSeries` unit tests assert 1/10/1,000-point behaviour; `TrendChart` centres a single point and shrinks markers at high density.
 - [~] Screenshot tour: /progress (rich history, sparse history, guest, recap state, goal on/off track)
-  - 2026-06-14: rich history (`40`), empty (`41`), signed-out pitch (`42`), guest history (`43`) captured. Recap and goal states wait on §3.4/§3.5.
+  - 2026-06-14: rich history (`40`), empty (`41`), signed-out pitch (`42`), guest history (`43`) captured. 2026-06-15: recap state (`45`) added. Goal on/off-track waits on §3.5.
 
 **Owner's part:** seed real usage (your own daily tests make the first real trend), judge whether the headline delta *feels* motivating, share the first progress card publicly.

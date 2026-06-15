@@ -340,11 +340,23 @@ test.describe("screenshot tour", () => {
       { character: "t", total: 160, correct: 150 },
       { character: "b", total: 60, correct: 42 },
     ] });
+    // Suppress the weekly recap so this captures the steady-state dashboard.
+    await page.addInitScript(() => window.localStorage.setItem("typecafe:lastRecapAt", String(Date.now())));
     await page.goto("/progress");
     await expect(page.getByTestId("headline-delta")).toBeVisible();
     await expect(page.getByTestId("trend-chart").first()).toBeVisible();
     await expect(page.getByTestId("lifetime-heatmap")).toBeVisible();
     await capture(page, testInfo, "40-progress-dashboard");
+  });
+
+  test("progress dashboard (weekly recap)", async ({ page }, testInfo) => {
+    await mockAuthenticatedSession(page);
+    await mockTrpc(page, { keyStats: [{ character: "b", total: 60, correct: 40 }, { character: "e", total: 300, correct: 295 }] });
+    // Last recap was over a week ago → the recap state opens.
+    await page.addInitScript(() => window.localStorage.setItem("typecafe:lastRecapAt", String(Date.now() - 8 * 24 * 60 * 60 * 1000)));
+    await page.goto("/progress");
+    await expect(page.getByTestId("weekly-recap")).toBeVisible();
+    await capture(page, testInfo, "45-progress-weekly-recap");
   });
 
   test("progress dashboard (empty history)", async ({ page }, testInfo) => {

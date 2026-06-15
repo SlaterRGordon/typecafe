@@ -9,6 +9,7 @@ test.describe("progress dashboard", () => {
   test("a signed-in user with history sees their delta and trend", async ({ page }) => {
     await mockAuthenticatedSession(page);
     await mockTrpc(page, { keyStats: [{ character: "r", total: 120, correct: 96 }, { character: "e", total: 300, correct: 290 }] });
+    await page.addInitScript(() => window.localStorage.setItem("typecafe:lastRecapAt", String(Date.now())));
     await gotoProgress(page);
 
     // The headline delta is the largest number on the page and answers
@@ -60,6 +61,20 @@ test.describe("progress dashboard", () => {
     await expect(page.getByText("No tests yet")).toBeVisible();
     await expect(page.getByRole("link", { name: "Take a test" })).toBeVisible();
     await expect(page.getByTestId("trend-chart")).toHaveCount(0);
+  });
+
+  test("the weekly recap opens after a week and dismisses", async ({ page }) => {
+    await mockAuthenticatedSession(page);
+    await mockTrpc(page, { keyStats: [{ character: "b", total: 60, correct: 40 }] });
+    await page.addInitScript(() => window.localStorage.setItem("typecafe:lastRecapAt", String(Date.now() - 8 * 24 * 60 * 60 * 1000)));
+    await gotoProgress(page);
+
+    const recap = page.getByTestId("weekly-recap");
+    await expect(recap).toBeVisible();
+    await expect(recap.getByRole("link", { name: /Drill your B/ })).toBeVisible();
+
+    await recap.getByRole("button", { name: "Dismiss recap" }).click();
+    await expect(recap).toBeHidden();
   });
 
   test("a signed-in user can share a progress card", async ({ page }) => {

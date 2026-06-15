@@ -24,7 +24,10 @@ import {
     type ProgressRecord,
 } from "~/lib/progress";
 import { readLocalProgress } from "~/lib/progressHistory";
+import { buildRecap, isRecapDue } from "~/lib/recap";
 import { api } from "~/utils/api";
+
+const RECAP_SEEN_KEY = "typecafe:lastRecapAt";
 
 function periodLabel(period: ProgressPeriod): string {
     return period === "all" ? "All" : `${period}d`;
@@ -80,6 +83,19 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
     // A progress card only makes sense with a real delta to brag about.
     const canShare = !!props.canShare && delta.delta !== null && series.points.length > 0;
 
+    // Weekly recap (§3.4): a surface, not a send. Shows on the first visit >= 7
+    // days after the last one (tracked in localStorage), dismissable.
+    const recap = useMemo(() => buildRecap(props.records, props.keyAttempts, now, -now.getTimezoneOffset()), [props.records, props.keyAttempts, now]);
+    const [recapDue, setRecapDue] = useState(false);
+    useEffect(() => {
+        const raw = typeof window === "undefined" ? null : window.localStorage.getItem(RECAP_SEEN_KEY);
+        setRecapDue(isRecapDue(raw ? Number(raw) : null, Date.now()));
+    }, []);
+    const dismissRecap = () => {
+        try { window.localStorage.setItem(RECAP_SEEN_KEY, String(Date.now())); } catch { /* storage blocked */ }
+        setRecapDue(false);
+    };
+
     const shareProgress = async () => {
         if (delta.delta === null) return;
         setShareState("sharing");
@@ -105,6 +121,27 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
 
     return (
         <div className="w-full max-w-3xl space-y-6">
+            {recapDue && hasData && (
+                <div data-testid="weekly-recap" className="relative rounded-xl border border-primary/40 bg-primary/10 p-5">
+                    <button type="button" aria-label="Dismiss recap" onClick={dismissRecap} className="absolute right-3 top-3 text-base-content/50 hover:text-base-content">✕</button>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-primary">Your week</p>
+                    <p className="mt-1 text-lg font-semibold text-base-content">
+                        {recap.weekDeltaWpm !== null
+                            ? `${recap.weekDeltaWpm >= 0 ? "+" : ""}${recap.weekDeltaWpm.toFixed(1)} WPM this week`
+                            : `${recap.testsThisWeek} ${recap.testsThisWeek === 1 ? "test" : "tests"} this week`}
+                    </p>
+                    <p className="mt-1 text-sm text-base-content/60">
+                        {recap.testsThisWeek} {recap.testsThisWeek === 1 ? "test" : "tests"}
+                        {recap.streak > 0 ? ` · ${recap.streak}-day streak` : ""}
+                    </p>
+                    {recap.focusKey && (
+                        <Link href={`/?mode=practice&keys=${recap.focusKey}`} className="mt-3 inline-flex items-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85">
+                            Drill your {recap.focusKey.toUpperCase()} this week
+                        </Link>
+                    )}
+                </div>
+            )}
+
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                     <h1 className="font-mono text-3xl font-bold tracking-tight">Progress</h1>
