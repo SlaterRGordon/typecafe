@@ -9,6 +9,7 @@ import { decodeTimeline } from "~/lib/keystrokes";
 import type { EncodedKeystroke } from "~/lib/keystrokes";
 import { diagnose, toDrillKeys } from "~/lib/diagnosis";
 import { classifyErrors } from "~/lib/errorTaxonomy";
+import { aggregateTransitions, worstTransitions } from "~/lib/transitions";
 import { attemptsFromEvents } from "~/lib/heatmap";
 import { KeyHeatmap } from "~/components/heatmap/KeyHeatmap";
 
@@ -450,12 +451,14 @@ function ReMeasureStrip(props: { beforeWpm: number; afterWpm: number }) {
 // exactly those keys pre-selected. Owner-only: rendered on the live results card,
 // never on a read-only shared score (which carries no timeline anyway).
 function DiagnosisPanel(props: { score: ShareableScore }) {
-  const { diagnosis, attempts, taxonomy } = useMemo(() => {
+  const { diagnosis, attempts, taxonomy, transitions } = useMemo(() => {
     const events = props.score.timeline ? decodeTimeline(props.score.timeline) : [];
     return {
       diagnosis: diagnose({ events, worstKeys: props.score.worstKeys }),
       attempts: attemptsFromEvents(events),
       taxonomy: classifyErrors(events),
+      // This test's slowest transitions, framed against this test's own pace.
+      transitions: worstTransitions(aggregateTransitions(events), 2),
     };
   }, [props.score.timeline, props.score.worstKeys]);
 
@@ -487,35 +490,63 @@ function DiagnosisPanel(props: { score: ShareableScore }) {
             </Link>
           </div>
         }
-        {diagnosis.findings.length === 0 ?
-        <p className="text-base-content/75">No clear weak spots this test — a clean, even run. Keep the pace up.</p>
-        :
-        <ul className="flex flex-col gap-3">
-          {diagnosis.findings.map((finding) => {
-            const drillKeys = toDrillKeys(finding.keys);
-            return (
-              <li
-                key={finding.kind}
-                className="flex flex-col gap-3 border-b border-base-content/10 pb-3 last:border-b-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between"
-              >
-                <span className="text-base-content/90">{finding.summary}</span>
-                {drillKeys.length > 0 ?
-                  <Link
-                    className="inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-                    href={`/?mode=practice&keys=${drillKeys.join(",")}`}
-                    aria-label={`Drill these keys: ${drillKeys.join(", ")}`}
-                    title={`Practice ${drillKeys.join(", ")}`}
-                  >
-                    Drill these keys
-                  </Link>
-                  :
-                  null
-                }
-              </li>
-            );
-          })}
-        </ul>
-        }
+        {(() => {
+          // Transitions get their own richer "N× your average" treatment below,
+          // so drop the generic slow-transitions finding from this list.
+          const keyFindings = diagnosis.findings.filter((f) => f.kind !== "slow-transitions");
+          if (keyFindings.length === 0 && transitions.length === 0) {
+            return <p className="text-base-content/75">No clear weak spots this test — a clean, even run. Keep the pace up.</p>;
+          }
+          return (
+            <>
+              {keyFindings.length > 0 &&
+                <ul className="flex flex-col gap-3">
+                  {keyFindings.map((finding) => {
+                    const drillKeys = toDrillKeys(finding.keys);
+                    return (
+                      <li
+                        key={finding.kind}
+                        className="flex flex-col gap-3 border-b border-base-content/10 pb-3 last:border-b-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between"
+                      >
+                        <span className="text-base-content/90">{finding.summary}</span>
+                        {drillKeys.length > 0 ?
+                          <Link
+                            className="inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                            href={`/?mode=practice&keys=${drillKeys.join(",")}`}
+                            aria-label={`Drill these keys: ${drillKeys.join(", ")}`}
+                            title={`Practice ${drillKeys.join(", ")}`}
+                          >
+                            Drill these keys
+                          </Link>
+                          :
+                          null
+                        }
+                      </li>
+                    );
+                  })}
+                </ul>
+              }
+              {transitions.length > 0 &&
+                <ul data-testid="diagnosis-transitions" className="mt-3 flex flex-col gap-3">
+                  {transitions.map((t) => (
+                    <li key={t.pair} className="flex flex-col gap-3 border-b border-base-content/10 pb-3 last:border-b-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between">
+                      <span className="text-base-content/90">
+                        <span className="font-mono font-bold">{t.from}→{t.to}</span> takes you {t.ratio.toFixed(1)}× your average pace.
+                      </span>
+                      <Link
+                        className="inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                        href={`/?mode=practice&keys=${t.from},${t.to}`}
+                        aria-label={`Drill the ${t.from} to ${t.to} transition`}
+                      >
+                        Drill {t.from}{t.to}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              }
+            </>
+          );
+        })()}
 
         <div className="mt-5 border-t border-base-content/10 pt-4">
           <p className="mb-3 text-sm text-base-content/60">This test's per-key accuracy — drilled keys ringed.</p>
