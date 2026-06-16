@@ -41,6 +41,8 @@ Classify every error in the timeline (`src/lib/errorTaxonomy.ts`, pure, unit-tes
 
 Each class maps to one coaching sentence and one drill button. Diagnosis panel and recap pick the *dominant* class — never a wall of findings.
 
+**Progress:** 2026-06-15 — `src/lib/errorTaxonomy.ts` (pure, 5 unit tests per class). `classifyErrors(events)` returns the single dominant `ErrorFinding` (headline + detail + one action button) or null below the 30-keystroke/3-error floor. Surfaced as a highlighted block atop the score-card `DiagnosisPanel`. Thresholds in `TAXONOMY_CONFIG`. **Scope:** only the three classes derivable from the persisted timeline ship — **post-error spiral** (errors clustering within 3 keystrokes), **fatigue fade** (last-quartile accuracy drop), **doubled-letter** (errors on a repeated expected char). Adjacent-finger and transposition need the *typed* wrong char, which the timeline (`[expectedCode, correct, dt]`) doesn't store — out of scope until keystroke capture records it (a small encoding change; pairs naturally with §4.1's derived-on-write pass). Recap integration deferred (no stored per-class aggregates yet).
+
 ## 4.3 Speed-vs-accuracy stance (S)
 
 One computed stance from recent history, shown on `/progress` and in recaps:
@@ -79,7 +81,8 @@ When budget exists: a "Why am I stuck?" button sends the *aggregated stats only*
 ## Acceptance
 
 - [ ] A 70-WPM user with 2 weeks of data gets: their 3 slowest transitions, their dominant error class, a stance, and a 30-day plan — each with a working drill button
-- [ ] Error taxonomy unit-tested against constructed timelines per class
+- [~] Error taxonomy unit-tested against constructed timelines per class
+  - 2026-06-15: the three timeline-derivable classes (post-error spiral, fatigue fade, doubled-letter) are unit-tested per class and surfaced on the score card. Adjacent-finger + transposition await typed-char capture.
 - [ ] Plateau state reproducible with synthetic flat data; plan visibly changes in response
 - [ ] All thresholds documented on `/how-we-measure`
 - [ ] Screenshot tour: plan view (calibration + targeted), plateau headline, stance display, transition findings

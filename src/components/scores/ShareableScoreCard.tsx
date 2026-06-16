@@ -8,6 +8,7 @@ import type { KeyAccuracy, TypedSegment, WpmSample as ScoreWpmSample } from "~/l
 import { decodeTimeline } from "~/lib/keystrokes";
 import type { EncodedKeystroke } from "~/lib/keystrokes";
 import { diagnose, toDrillKeys } from "~/lib/diagnosis";
+import { classifyErrors } from "~/lib/errorTaxonomy";
 import { attemptsFromEvents } from "~/lib/heatmap";
 import { KeyHeatmap } from "~/components/heatmap/KeyHeatmap";
 
@@ -449,11 +450,12 @@ function ReMeasureStrip(props: { beforeWpm: number; afterWpm: number }) {
 // exactly those keys pre-selected. Owner-only: rendered on the live results card,
 // never on a read-only shared score (which carries no timeline anyway).
 function DiagnosisPanel(props: { score: ShareableScore }) {
-  const { diagnosis, attempts } = useMemo(() => {
+  const { diagnosis, attempts, taxonomy } = useMemo(() => {
     const events = props.score.timeline ? decodeTimeline(props.score.timeline) : [];
     return {
       diagnosis: diagnose({ events, worstKeys: props.score.worstKeys }),
       attempts: attemptsFromEvents(events),
+      taxonomy: classifyErrors(events),
     };
   }, [props.score.timeline, props.score.worstKeys]);
 
@@ -473,6 +475,18 @@ function DiagnosisPanel(props: { score: ShareableScore }) {
         <p className="text-base-content/75">Too short to diagnose — try a 30s+ test.</p>
         :
         <>
+        {taxonomy &&
+          <div data-testid="taxonomy-finding" className="mb-4 rounded-md border border-primary/30 bg-primary/10 p-4">
+            <p className="font-semibold text-base-content">{taxonomy.headline}</p>
+            <p className="mt-1 text-sm text-base-content/70">{taxonomy.detail}</p>
+            <Link
+              href={taxonomy.action.href}
+              className="mt-3 inline-flex shrink-0 cursor-pointer items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            >
+              {taxonomy.action.label}
+            </Link>
+          </div>
+        }
         {diagnosis.findings.length === 0 ?
         <p className="text-base-content/75">No clear weak spots this test — a clean, even run. Keep the pace up.</p>
         :
