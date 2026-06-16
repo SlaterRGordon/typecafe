@@ -51,6 +51,8 @@ One computed stance from recent history, shown on `/progress` and in recaps:
 
 Thresholds in one config object, documented on `/how-we-measure`. This is the single most coach-like sentence we can ship cheaply.
 
+**Progress:** 2026-06-15 — `src/lib/stance.ts` (pure, 6 unit tests): `computeStance(records, now)` → accuracy-limited / confidence-limited / balanced, each with a headline + advice sentence. Thresholds in `STANCE_THRESHOLDS` (accuracy floor 94 / ceiling 98, consistency floor 70, flat-delta 1 WPM, 30-day window, ≥5 tests). accuracy-limited only fires when *not* already improving (no nagging a climber); confidence-limited needs high accuracy **and** low consistency. Shown as a "Coach" card on `/progress`. ponytail: thresholds documented in the file header until `/how-we-measure` exists; recap integration (the doc also lists recaps) is a small follow-up.
+
 ## 4.4 Practice plans (L)
 
 The flagship: **"Your 30-day plan."**

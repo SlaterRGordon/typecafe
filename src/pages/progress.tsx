@@ -26,6 +26,7 @@ import {
 } from "~/lib/progress";
 import { readLocalProgress } from "~/lib/progressHistory";
 import { buildRecap, isRecapDue } from "~/lib/recap";
+import { computeStance } from "~/lib/stance";
 import { api } from "~/utils/api";
 
 const RECAP_SEEN_KEY = "typecafe:lastRecapAt";
@@ -79,6 +80,7 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
         return { values: nums, rolling: rollingAverage(nums, series.window) };
     }, [series]);
     const avgConsistency = averageConsistency(inPeriod);
+    const stance = useMemo(() => computeStance(props.records, now), [props.records, now]);
 
     const hasData = series.points.length > 0;
     // A progress card only makes sense with a real delta to brag about.
@@ -223,6 +225,14 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
                     </>
                 )}
             </div>
+
+            {stance.enoughData && (
+                <div data-testid="stance" className="rounded-xl border border-base-content/10 bg-base-100/45 p-5">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-primary">Coach</p>
+                    <p className="mt-1 text-lg font-semibold text-base-content">{stance.headline}</p>
+                    <p className="mt-1 text-sm text-base-content/60">{stance.advice}</p>
+                </div>
+            )}
 
             {hasData && <GoalCard records={props.records} now={now} />}
 

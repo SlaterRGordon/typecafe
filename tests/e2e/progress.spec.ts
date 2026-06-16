@@ -35,6 +35,8 @@ test.describe("progress dashboard", () => {
     await expect(page.getByText("Avg consistency")).toBeVisible();
     await expect(page.getByTestId("records-timeline")).toBeVisible();
     await expect(page.getByTestId("lifetime-heatmap")).toBeVisible();
+    // Coach stance (§4.3) reads from recent accuracy/consistency/trend.
+    await expect(page.getByTestId("stance")).toBeVisible();
   });
 
   test("the period switcher rescopes the dashboard", async ({ page }) => {
