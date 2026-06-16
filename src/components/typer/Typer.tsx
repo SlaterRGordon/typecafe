@@ -135,7 +135,7 @@ export const Typer = (props: TyperProps) => {
     // fetch types
     const { data: testType } = api.type.get.useQuery({ mode, subMode, language })
 
-    const { sessionData, persistCompletion, syncCharAttempts } = useTestPersistence({
+    const { sessionData, persistCompletion, syncCharAttempts, syncTransitions } = useTestPersistence({
         mode,
         charAttemptsRef,
         onTestComplete: props.onTestComplete,
@@ -389,11 +389,14 @@ export const Typer = (props: TyperProps) => {
         }
 
         if (mode !== TestModes.ngrams) syncCharAttempts()
+        // Transition analytics come from normal-mode tests, where the text is real
+        // language (grams/practice text would skew the bigram picture).
+        if (mode === TestModes.normal) syncTransitions(keyEventsRef.current)
     }, [
         isCompletionValid, isTimed, pause, getStats, buildCompletion, mode, levelRequirements,
         dispatch, sessionData, testType, persistCompletion, count, level, punctuation,
         capitals, customLength, props.gramWpmThreshold, props.gramAccuracyThreshold,
-        recordPassedLevel, syncCharAttempts,
+        recordPassedLevel, syncCharAttempts, syncTransitions,
     ])
 
     // Stable identities for parent-provided callbacks (parents recreate them every

@@ -4,6 +4,7 @@ import { colorRouter } from "./routers/color";
 import { typeRouter } from "./routers/type";
 import { userRouter } from "./routers/user";
 import { practiceStatsRouter } from "./routers/practiceStats";
+import { transitionStatsRouter } from "./routers/transitionStats";
 import { learnProgressRouter } from "./routers/learnProgress";
 import { scoreShareRouter } from "./routers/scoreShare";
 
@@ -18,6 +19,7 @@ export const appRouter = createTRPCRouter({
   color: colorRouter,
   type: typeRouter,
   practiceStats: practiceStatsRouter,
+  transitionStats: transitionStatsRouter,
   learnProgress: learnProgressRouter,
   scoreShare: scoreShareRouter,
 });

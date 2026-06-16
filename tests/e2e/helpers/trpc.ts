@@ -189,6 +189,16 @@ function responseForProcedure(procedure: string, input: ProcedureInput, options:
       return [];
     case "practiceStats.get":
       return options.keyStats ?? [];
+    case "transitionStats.get":
+      if (options.emptyScores) return [];
+      return [
+        { pair: "br", count: 12, totalMs: 4800, errors: 3 }, // 400ms mean, 25% errors
+        { pair: "th", count: 30, totalMs: 3000, errors: 0 }, // 100ms
+        { pair: "he", count: 25, totalMs: 3000, errors: 0 }, // 120ms
+        { pair: "io", count: 10, totalMs: 3000, errors: 1 }, // 300ms
+      ];
+    case "transitionStats.batchSync":
+      return { count: Array.isArray(input?.stats) ? input.stats.length : 0 };
     case "practiceStats.batchSync":
       return { count: Array.isArray(input?.stats) ? input.stats.length : 0 };
     case "user.get":

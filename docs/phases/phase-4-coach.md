@@ -27,6 +27,10 @@ Maintained on test-save from the timeline (derived-on-write); localStorage mirro
 
 **Surfaces:** slow-transition findings in the score-card diagnosis ("`br` takes you 2.1× your average — [Drill `br`]" → grams mode pre-loaded with that bigram); worst-transitions on `/progress` (already stubbed in Phase 3); grams mode auto-suggest reordered by *the user's* weak transitions instead of corpus frequency only.
 
+**Progress (built in slices):**
+- 2026-06-15 — *slice 1, lifetime transitions vertical:* `src/lib/transitions.ts` (pure, 8 unit tests): `aggregateTransitions` (timeline → per letter-pair count/totalMs/errors), `worstTransitions` (ratio vs the user's overall transition pace, slowest first, recurrence floor), `mergeTransitions`. `TransitionStat` schema (Int totalMs per the ponytail note; migration `20260615120000_add_transition_stats`). `transitionStats` router (`get` + `batchSync` upsert-increment). Derived-on-write: `useTestPersistence.syncTransitions` rolls each normal-mode test into aggregates → DB (signed-in) or the `localTransitions` localStorage mirror (guests, 3 unit tests). `/progress` "Slowest transitions" card: "b→r takes you 2.2× your average and misses 25% of the time → [Drill br]" (drills the pair's keys into Practice). e2e + screenshot `40`. **Owner runs the migration.**
+- *Next slices:* the score-card diagnosis "2.1× your average" framing (this-test) + drill **into grams** pre-loaded with the bigram; grams auto-suggest reordered by the user's weak transitions; sync-on-signup batch-import of the guest mirror (the local data persists meanwhile).
+
 ## 4.2 Error taxonomy (M)
 
 Classify every error in the timeline (`src/lib/errorTaxonomy.ts`, pure, unit-tested):

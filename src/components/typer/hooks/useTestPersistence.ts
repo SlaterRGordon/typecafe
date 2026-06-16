@@ -3,6 +3,9 @@ import { useSession } from "next-auth/react"
 import { useDispatch } from "react-redux"
 import { addAlert } from "~/state/alert/alertSlice"
 import { addLocalKeyStats, clearLocalKeyStats, readLocalKeyStats } from "~/lib/localSync"
+import { addLocalTransitions } from "~/lib/localTransitions"
+import { aggregateTransitions } from "~/lib/transitions"
+import type { KeystrokeEvent } from "~/lib/keystrokes"
 import { api } from "~/utils/api"
 import { TestModes } from "../types"
 import type { TestCompletionResult } from "../types"
@@ -72,6 +75,25 @@ export function useTestPersistence({ mode, charAttemptsRef, onTestComplete }: Us
             console.error(error)
         },
     })
+
+    const { mutate: syncTransitionStats } = api.transitionStats.batchSync.useMutation({
+        onError: (error) => {
+            console.error(error)
+        },
+    })
+
+    // Derived-on-write transition analytics (§4.1): roll the completed test's
+    // timeline into per-pair aggregates and add them to the user's lifetime data
+    // (DB when signed in, localStorage mirror for guests). Computed once per test.
+    const syncTransitions = useCallback((events: KeystrokeEvent[]) => {
+        const aggregates = aggregateTransitions(events)
+        if (aggregates.length === 0) return
+        if (!sessionData?.user) {
+            addLocalTransitions(aggregates)
+            return
+        }
+        syncTransitionStats({ stats: aggregates })
+    }, [sessionData?.user, syncTransitionStats])
 
     useEffect(() => {
         if (!sessionData?.user) return
@@ -148,5 +170,5 @@ export function useTestPersistence({ mode, charAttemptsRef, onTestComplete }: Us
         })
     }, [charAttemptsRef, mode, sessionData?.user, syncPracticeStats])
 
-    return { sessionData, persistCompletion, syncCharAttempts }
+    return { sessionData, persistCompletion, syncCharAttempts, syncTransitions }
 }

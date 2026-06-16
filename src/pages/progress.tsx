@@ -9,6 +9,8 @@ import { GoalCard } from "~/components/progress/GoalCard";
 import { KeyHeatmap } from "~/components/heatmap/KeyHeatmap";
 import type { KeyAttempt } from "~/lib/heatmap";
 import { readLocalKeyStats } from "~/lib/localSync";
+import { readLocalTransitions } from "~/lib/localTransitions";
+import { worstTransitions, type TransitionAggregate } from "~/lib/transitions";
 import {
     PROGRESS_PERIODS,
     averageAccuracy,
@@ -56,7 +58,7 @@ function periodShareLabel(period: ProgressPeriod): string {
     return period === "all" ? "all time" : `${period} days`;
 }
 
-const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Record<string, KeyAttempt>; canShare?: boolean; username?: string | null }) => {
+const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Record<string, KeyAttempt>; transitions: TransitionAggregate[]; canShare?: boolean; username?: string | null }) => {
     const [period, setPeriod] = useState<ProgressPeriod>(30);
     const [shareState, setShareState] = useState<"idle" | "sharing" | "copied">("idle");
     const now = useMemo(() => new Date(), []);
@@ -81,6 +83,7 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
     }, [series]);
     const avgConsistency = averageConsistency(inPeriod);
     const stance = useMemo(() => computeStance(props.records, now), [props.records, now]);
+    const slowTransitions = useMemo(() => worstTransitions(props.transitions), [props.transitions]);
 
     const hasData = series.points.length > 0;
     // A progress card only makes sense with a real delta to brag about.
@@ -262,6 +265,28 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
                 </div>
             )}
 
+            {slowTransitions.length > 0 && (
+                <div data-testid="worst-transitions" className="rounded-lg border border-base-content/10 bg-base-100/45 p-4">
+                    <div className="mb-1 text-lg font-semibold text-base-content">Slowest transitions</div>
+                    <p className="mb-3 text-sm text-base-content/60">The key pairs that cost you the most — drill the move, not just the keys.</p>
+                    <ul className="flex flex-col gap-3">
+                        {slowTransitions.map((t) => (
+                            <li key={t.pair} className="flex flex-col gap-2 border-b border-base-content/10 pb-3 last:border-b-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between">
+                                <span className="text-base-content/90">
+                                    <span className="font-mono font-bold text-base-content">{t.from}→{t.to}</span> takes you {t.ratio.toFixed(1)}× your average{t.errorRate >= 0.1 ? ` and misses ${Math.round(t.errorRate * 100)}% of the time` : ""}.
+                                </span>
+                                <Link
+                                    href={`/?mode=practice&keys=${t.from},${t.to}`}
+                                    className="inline-flex shrink-0 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85"
+                                >
+                                    Drill {t.from}{t.to}
+                                </Link>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            )}
+
             {records.length > 0 && (
                 <div data-testid="records-timeline" className="rounded-lg border border-base-content/10 bg-base-100/45 p-4">
                     <div className="mb-3 text-lg font-semibold text-base-content">Records</div>
@@ -308,17 +333,22 @@ const Progress: NextPage = () => {
         return out;
     }, [practiceStatsQuery.data]);
 
+    const transitionsQuery = api.transitionStats.get.useQuery(undefined, { enabled: !!sessionData?.user });
+    const dbTransitions: TransitionAggregate[] = transitionsQuery.data ?? [];
+
     // Guest history + key-stats live in localStorage (read client-side after mount
     // to avoid an SSR mismatch). A guest with history gets the real dashboard + a
     // keep-it banner; a guest with none gets the signup pitch.
     const [guestRecords, setGuestRecords] = useState<ProgressRecord[]>([]);
     const [guestKeyAttempts, setGuestKeyAttempts] = useState<Record<string, KeyAttempt>>({});
+    const [guestTransitions, setGuestTransitions] = useState<TransitionAggregate[]>([]);
     useEffect(() => {
         if (sessionData?.user) return;
         setGuestRecords(readLocalProgress().map((e) => ({ wpm: e.wpm, accuracy: e.accuracy, consistency: e.c, createdAt: new Date(e.t) })));
         const attempts: Record<string, KeyAttempt> = {};
         for (const stat of readLocalKeyStats()) attempts[stat.key] = { attempts: stat.attempts, correct: stat.correct };
         setGuestKeyAttempts(attempts);
+        setGuestTransitions(readLocalTransitions());
     }, [sessionData?.user]);
 
     return (
@@ -339,7 +369,7 @@ const Progress: NextPage = () => {
                                     Sign in to keep it forever
                                 </label>
                             </div>
-                            <ProgressDashboard records={guestRecords} keyAttempts={guestKeyAttempts} />
+                            <ProgressDashboard records={guestRecords} keyAttempts={guestKeyAttempts} transitions={guestTransitions} />
                         </div>
                     ) : (
                         // No local history yet — the page is the signup pitch.
@@ -359,7 +389,7 @@ const Progress: NextPage = () => {
                         </div>
                     )
                 ) : (
-                    <ProgressDashboard records={records} keyAttempts={dbKeyAttempts} canShare username={sessionData.user.username ?? sessionData.user.name} />
+                    <ProgressDashboard records={records} keyAttempts={dbKeyAttempts} transitions={dbTransitions} canShare username={sessionData.user.username ?? sessionData.user.name} />
                 )}
             </div>
         </>

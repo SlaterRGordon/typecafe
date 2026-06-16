@@ -37,6 +37,11 @@ test.describe("progress dashboard", () => {
     await expect(page.getByTestId("lifetime-heatmap")).toBeVisible();
     // Coach stance (§4.3) reads from recent accuracy/consistency/trend.
     await expect(page.getByTestId("stance")).toBeVisible();
+    // Worst transitions (§4.1) — the slowest key pairs, each with a drill button.
+    const transitions = page.getByTestId("worst-transitions");
+    await expect(transitions).toBeVisible();
+    await expect(transitions).toContainText("b→r");
+    await expect(transitions.getByRole("link", { name: "Drill br" })).toBeVisible();
   });
 
   test("the period switcher rescopes the dashboard", async ({ page }) => {

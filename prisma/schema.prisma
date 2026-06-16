@@ -57,6 +57,7 @@ model User {
     scoreShares         ScoreShare[]
     colorConfigurations ColorConfiguration[]
     practiceStats       PracticeStats[]
+    transitionStats     TransitionStat[]
     learnProgress       LearnProgress[]
 }
 
@@ -151,6 +152,24 @@ model PracticeStats {
     user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
     @@unique([userId, character])
+    @@index([userId])
+}
+
+model TransitionStat {
+    id        String   @id @default(cuid())
+    userId    String
+    pair      String   @db.VarChar(2)
+    count     Int
+    // ponytail: Int, not BigInt — ceiling ~2.1e9 ms (~24 days) of cumulative
+    // latency on a single pair; upgrade to BigInt if a heavy user ever nears it.
+    totalMs   Int
+    errors    Int
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    @@unique([userId, pair])
     @@index([userId])
 }
 
