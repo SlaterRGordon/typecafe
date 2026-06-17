@@ -69,6 +69,10 @@ The flagship: **"Your 30-day plan."**
 - Regenerated weekly from fresh data (on-read, no cron); plan view shows done/today/upcoming; completing a day feeds the streak
 - Honest fallback: < 1 week of data → "Calibration week" plan (varied tests to build the profile)
 
+**Progress (built in slices):**
+- 2026-06-16 — *slice 1, the generator:* `src/lib/plan.ts` (pure, 8 unit tests). `generatePlan(input)` → a 30-day targeted plan (each day: warm-up → 2 targeted drills rotating through the user's worst keys/transitions → weekly benchmark in their config) or a 7-day calibration plan when history < 1 week or no weaknesses surfaced. Every step is a deep-link into an existing mode (`/?mode=…`), no new test types. ponytail: drills target worst keys + worst transitions (taxonomy isn't aggregated across tests yet).
+- *Next slices:* the plan view (done/today/upcoming + completion feeding the streak) and extending the home URL handoff to honor `?mode=timed|words|grams&count=…` so the warm-up/benchmark links configure the test (only `?mode=practice&keys=` works today); plateau regenerates the mix (§4.5 tie-in).
+
 ## 4.5 Plateau detection (M) — promoted from moonshot
 
 Rolling 21-day WPM slope ≈ 0 within noise (`src/lib/trajectory.ts` extension) →
