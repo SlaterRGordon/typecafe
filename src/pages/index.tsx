@@ -383,6 +383,34 @@ const Home: NextPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router.isReady, router.query.mode, router.query.keys])
 
+  // Config handoff (Phase 4 plans): a plan/coach link lands here as
+  // /?mode=timed&count=60, /?mode=words&count=25, or /?mode=grams and starts that
+  // configured test, then cleans the URL.
+  useEffect(() => {
+    if (!router.isReady) return
+    const mode = router.query.mode
+    if (mode !== "timed" && mode !== "words" && mode !== "grams") return
+
+    if (mode === "grams") {
+      updateSetting("mode", TestModes.ngrams)
+    } else {
+      updateSetting("mode", TestModes.normal)
+      updateSetting("subMode", mode === "timed" ? TestSubModes.timed : TestSubModes.words)
+      const count = Number(router.query.count)
+      if (Number.isFinite(count) && count > 0) {
+        updateSetting("count", count)
+        updateSetting("customLength", false)
+      }
+    }
+
+    clearCompletedScore()
+    sessionStorage.removeItem("typecafe:pendingScore")
+    hasSavedPendingRef.current = false
+    setRestartSignal((signal) => signal + 1)
+    void router.replace("/", undefined, { shallow: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router.isReady, router.query.mode, router.query.count])
+
   const createAndCopyShareLink = async () => {
     if (!completedScore?.testId) return undefined
 

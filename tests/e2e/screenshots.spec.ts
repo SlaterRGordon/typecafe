@@ -408,6 +408,14 @@ test.describe("screenshot tour", () => {
     await capture(page, testInfo, "43-progress-guest-history");
   });
 
+  test("practice plan (targeted)", async ({ page }, testInfo) => {
+    await mockAuthenticatedSession(page);
+    await mockTrpc(page, { keyStats: [{ character: "r", total: 100, correct: 70 }, { character: "t", total: 80, correct: 62 }] });
+    await page.goto("/plan");
+    await expect(page.getByTestId("plan-today")).toBeVisible();
+    await capture(page, testInfo, "48-practice-plan");
+  });
+
   test("shared progress card", async ({ page }, testInfo) => {
     await mockTrpc(page);
     await page.goto("/score/progress-test-share");

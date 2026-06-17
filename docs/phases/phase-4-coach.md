@@ -71,7 +71,8 @@ The flagship: **"Your 30-day plan."**
 
 **Progress (built in slices):**
 - 2026-06-16 — *slice 1, the generator:* `src/lib/plan.ts` (pure, 8 unit tests). `generatePlan(input)` → a 30-day targeted plan (each day: warm-up → 2 targeted drills rotating through the user's worst keys/transitions → weekly benchmark in their config) or a 7-day calibration plan when history < 1 week or no weaknesses surfaced. Every step is a deep-link into an existing mode (`/?mode=…`), no new test types. ponytail: drills target worst keys + worst transitions (taxonomy isn't aggregated across tests yet).
-- *Next slices:* the plan view (done/today/upcoming + completion feeding the streak) and extending the home URL handoff to honor `?mode=timed|words|grams&count=…` so the warm-up/benchmark links configure the test (only `?mode=practice&keys=` works today); plateau regenerates the mix (§4.5 tie-in).
+- 2026-06-16 — *slice 2, the plan view + handoffs:* `/plan` page (signed-in queries / guest localStorage, same data as `/progress`) renders the generated plan — today's session with per-step **Start** deep-links, a "mark day complete" button (done days in `typecafe:planDone`), and a 30-day grid (done/today/upcoming, ★ = weekly benchmark). The home URL handoff now honors `?mode=timed|words|grams&count=…` so warm-up/benchmark links configure the test (was `?mode=practice&keys=` only). Plan nav link (desktop + mobile). e2e (targeted, calibration, handoff) + screenshot `48`. ponytail: completion is tracked locally but doesn't yet feed the streak (the streak derives from test records, not plan days); benchmark uses a fixed 60s-timed config, not the user's most-used one.
+- *Next slices:* plateau regenerates the mix (§4.5 tie-in); plan-completion feeding the streak; "main config" benchmark; taxonomy-driven drills once it's aggregated.
 
 ## 4.5 Plateau detection (M) — promoted from moonshot
 
@@ -91,7 +92,8 @@ When budget exists: a "Why am I stuck?" button sends the *aggregated stats only*
 
 ## Acceptance
 
-- [ ] A 70-WPM user with 2 weeks of data gets: their 3 slowest transitions, their dominant error class, a stance, and a 30-day plan — each with a working drill button
+- [x] A 70-WPM user with 2 weeks of data gets: their 3 slowest transitions, their dominant error class, a stance, and a 30-day plan — each with a working drill button
+  - 2026-06-16: slowest transitions on `/progress` + the score card (§4.1), dominant error class on the score card (§4.2), stance on `/progress` (§4.3), and a 30-day plan at `/plan` (§4.4) — each ending in a working drill/Start button.
 - [~] Error taxonomy unit-tested against constructed timelines per class
   - 2026-06-15: the three timeline-derivable classes (post-error spiral, fatigue fade, doubled-letter) are unit-tested per class and surfaced on the score card. Adjacent-finger + transposition await typed-char capture.
 - [~] Plateau state reproducible with synthetic flat data; plan visibly changes in response
