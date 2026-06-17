@@ -94,6 +94,18 @@ test.describe("progress dashboard", () => {
     await expect(page.getByTestId("goal-status")).toContainText("WPM/week");
   });
 
+  test("a flat trend shows the plateau coach voice", async ({ page }) => {
+    await mockAuthenticatedSession(page);
+    await mockTrpc(page, { flatProgress: true });
+    await page.addInitScript(() => window.localStorage.setItem("typecafe:lastRecapAt", String(Date.now())));
+    await gotoProgress(page);
+
+    const plateau = page.getByTestId("plateau-headline");
+    await expect(plateau).toBeVisible();
+    await expect(plateau).toContainText("Plateaued for");
+    await expect(plateau.getByRole("link", { name: "Try transition drills" })).toBeVisible();
+  });
+
   test("the weekly recap opens after a week and dismisses", async ({ page }) => {
     await mockAuthenticatedSession(page);
     await mockTrpc(page, { keyStats: [{ character: "b", total: 60, correct: 40 }] });

@@ -77,6 +77,8 @@ Rolling 21-day WPM slope ≈ 0 within noise (`src/lib/trajectory.ts` extension) 
 - Regenerates the plan with a changed mix; the recap leads with it
 - The coach noticing *before the user does* is the retention moment that makes TypeCafe feel alive
 
+**Progress:** 2026-06-16 — `detectPlateau` in `src/lib/trajectory.ts` (pure, 4 unit tests): a ~flat 21-day WPM slope (within a 1.5-WPM band, ≥6 tests) is a plateau; it extends the window back week-by-week to report the duration honestly, stopping when there's no older data (never overstates "N weeks"). The `/progress` headline switches to the coach voice — "Plateaued for N weeks. Your sessions repeat the same comfortable words. Switch to transition drills." → [Try transition drills] (grams). e2e + screenshot `47`. ponytail: plan-regeneration and the recap-lead are deferred (plans don't exist yet — §4.4); the headline is the visible coach moment now.
+
 ## 4.6 LLM coach — deferred, designed (paper only)
 
 When budget exists: a "Why am I stuck?" button sends the *aggregated stats only* (never raw keystrokes) to Claude with a tight system prompt to produce 3 sentences grounded in the user's numbers. Until then, the heuristic sentences from 4.2/4.3/4.5 are the coach's voice. The contract (`CoachContext` JSON) gets defined now so heuristics and LLM stay swappable.
@@ -88,7 +90,8 @@ When budget exists: a "Why am I stuck?" button sends the *aggregated stats only*
 - [ ] A 70-WPM user with 2 weeks of data gets: their 3 slowest transitions, their dominant error class, a stance, and a 30-day plan — each with a working drill button
 - [~] Error taxonomy unit-tested against constructed timelines per class
   - 2026-06-15: the three timeline-derivable classes (post-error spiral, fatigue fade, doubled-letter) are unit-tested per class and surfaced on the score card. Adjacent-finger + transposition await typed-char capture.
-- [ ] Plateau state reproducible with synthetic flat data; plan visibly changes in response
+- [~] Plateau state reproducible with synthetic flat data; plan visibly changes in response
+  - 2026-06-16: plateau detection + the `/progress` coach-voice headline are reproducible from synthetic flat data (e2e `flatProgress`). The "plan visibly changes" half waits on §4.4 plans.
 - [ ] All thresholds documented on `/how-we-measure`
 - [ ] Screenshot tour: plan view (calibration + targeted), plateau headline, stance display, transition findings
 

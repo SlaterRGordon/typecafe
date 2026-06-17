@@ -105,3 +105,66 @@ export function projectTrajectory(records: ProgressRecord[], goal: Goal, now: Da
         onTrack,
     }
 }
+
+// ---------------------------------------------------------------------------
+// Plateau detection (Phase 4 §4.5) — the coach noticing before the user does
+// ---------------------------------------------------------------------------
+
+export const PLATEAU_CONFIG = {
+    // Projected WPM change over a window under this (in magnitude) reads as flat.
+    bandWpm: 1.5,
+    minTests: 6,
+    // How far back we extend (in weeks) to report how long the plateau has lasted.
+    maxWeeks: 12,
+} as const
+
+export interface PlateauResult {
+    enoughData: boolean
+    plateaued: boolean
+    // How many weeks the trend has stayed flat (≥ 3 when plateaued).
+    weeks: number
+    slopePerDay: number
+}
+
+// Fitted WPM slope over the last `windowDays`, plus how many tests fell in it.
+function slopeOverWindow(records: ProgressRecord[], now: Date, windowDays: number): { slope: number; count: number } | null {
+    const nowMs = now.getTime()
+    const start = nowMs - windowDays * DAY_MS
+    const window = records.filter((r) => {
+        const t = r.createdAt.getTime()
+        return t >= start && t <= nowMs
+    })
+    const fit = linearFit(window.map((r) => ({ x: (r.createdAt.getTime() - nowMs) / DAY_MS, y: r.wpm })))
+    return fit ? { slope: fit.slope, count: window.length } : null
+}
+
+function isFlat(slopePerDay: number, windowDays: number): boolean {
+    return Math.abs(slopePerDay * windowDays) < PLATEAU_CONFIG.bandWpm
+}
+
+// A plateau = a ~flat WPM trend over the trailing 3 weeks (within noise). When
+// flat, we extend the window back week by week to report how long it's lasted —
+// "plateaued for N weeks" — so the coach can call it out before the user notices.
+export function detectPlateau(records: ProgressRecord[], now: Date): PlateauResult {
+    const base = slopeOverWindow(records, now, 21)
+    if (!base || base.count < PLATEAU_CONFIG.minTests) {
+        return { enoughData: false, plateaued: false, weeks: 0, slopePerDay: base?.slope ?? 0 }
+    }
+    if (!isFlat(base.slope, 21)) {
+        return { enoughData: true, plateaued: false, weeks: 0, slopePerDay: base.slope }
+    }
+
+    let weeks = 3
+    let prevCount = base.count
+    while (weeks < PLATEAU_CONFIG.maxWeeks) {
+        const windowDays = (weeks + 1) * 7
+        const w = slopeOverWindow(records, now, windowDays)
+        if (!w || w.count < PLATEAU_CONFIG.minTests || !isFlat(w.slope, windowDays)) break
+        // No older tests in the wider window → the plateau isn't actually longer,
+        // we've just run out of history. Don't overstate its duration.
+        if (w.count === prevCount) break
+        prevCount = w.count
+        weeks++
+    }
+    return { enoughData: true, plateaued: true, weeks, slopePerDay: base.slope }
+}

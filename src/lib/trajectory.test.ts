@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { projectTrajectory, type Goal } from "./trajectory"
+import { detectPlateau, projectTrajectory, type Goal } from "./trajectory"
 import type { ProgressRecord } from "./progress"
 
 const NOW = new Date("2026-06-15T12:00:00.000Z")
@@ -66,5 +66,35 @@ describe("projectTrajectory", () => {
         const t = projectTrajectory(rising, goal, NOW)
         expect(t.daysToDeadline).toBeLessThan(0)
         expect(t.requiredSlopePerDay).toBeNull()
+    })
+})
+
+describe("detectPlateau", () => {
+    it("is not plateaued on a clearly rising trend", () => {
+        const p = detectPlateau(rising, NOW)
+        expect(p.enoughData).toBe(true)
+        expect(p.plateaued).toBe(false)
+    })
+
+    it("flags a flat trend over the last 3 weeks", () => {
+        // ~70 WPM every other day for 20 days, with small noise (no real slope).
+        const flat = Array.from({ length: 10 }, (_, i) => rec(20 - i * 2, 70 + (i % 2 === 0 ? 0.4 : -0.4)))
+        const p = detectPlateau(flat, NOW)
+        expect(p.plateaued).toBe(true)
+        expect(p.weeks).toBeGreaterThanOrEqual(3)
+    })
+
+    it("reports a longer plateau when the flat stretch extends back", () => {
+        // 8 weeks of flat ~70 WPM.
+        const flat = Array.from({ length: 28 }, (_, i) => rec(56 - i * 2, 70 + (i % 2 === 0 ? 0.3 : -0.3)))
+        const p = detectPlateau(flat, NOW)
+        expect(p.plateaued).toBe(true)
+        expect(p.weeks).toBeGreaterThan(3)
+    })
+
+    it("is insufficient with too few recent tests", () => {
+        const p = detectPlateau([rec(5, 70), rec(2, 70)], NOW)
+        expect(p.enoughData).toBe(false)
+        expect(p.plateaued).toBe(false)
     })
 })

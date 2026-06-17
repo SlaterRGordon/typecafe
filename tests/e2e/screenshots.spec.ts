@@ -351,6 +351,15 @@ test.describe("screenshot tour", () => {
     await capture(page, testInfo, "40-progress-dashboard");
   });
 
+  test("progress dashboard (plateau coach voice)", async ({ page }, testInfo) => {
+    await mockAuthenticatedSession(page);
+    await mockTrpc(page, { flatProgress: true });
+    await page.addInitScript(() => window.localStorage.setItem("typecafe:lastRecapAt", String(Date.now())));
+    await page.goto("/progress");
+    await expect(page.getByTestId("plateau-headline")).toBeVisible();
+    await capture(page, testInfo, "47-progress-plateau");
+  });
+
   test("progress dashboard (goal trajectory)", async ({ page }, testInfo) => {
     await mockAuthenticatedSession(page);
     await mockTrpc(page);

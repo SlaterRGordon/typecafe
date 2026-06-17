@@ -29,6 +29,7 @@ import {
 import { readLocalProgress } from "~/lib/progressHistory";
 import { buildRecap, isRecapDue } from "~/lib/recap";
 import { computeStance } from "~/lib/stance";
+import { detectPlateau } from "~/lib/trajectory";
 import { api } from "~/utils/api";
 
 const RECAP_SEEN_KEY = "typecafe:lastRecapAt";
@@ -83,6 +84,7 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
     }, [series]);
     const avgConsistency = averageConsistency(inPeriod);
     const stance = useMemo(() => computeStance(props.records, now), [props.records, now]);
+    const plateau = useMemo(() => detectPlateau(props.records, now), [props.records, now]);
     const slowTransitions = useMemo(() => worstTransitions(props.transitions), [props.transitions]);
 
     const hasData = series.points.length > 0;
@@ -193,7 +195,15 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
             {/* Headline delta — the largest number on the page; the one question
                 "am I getting faster?" answered before any other detail. */}
             <div data-testid="headline-delta" className="rounded-xl border border-base-content/10 bg-base-100/45 p-6">
-                {delta.delta !== null ? (
+                {plateau.plateaued ? (
+                    <div data-testid="plateau-headline">
+                        <div className="font-mono text-3xl font-bold text-base-content">Plateaued for {plateau.weeks} weeks</div>
+                        <p className="mt-2 text-base-content/60">Your sessions repeat the same comfortable words. Switch to transition drills to break the ceiling.</p>
+                        <Link href="/?mode=grams" className="mt-3 inline-flex items-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85">
+                            Try transition drills
+                        </Link>
+                    </div>
+                ) : delta.delta !== null ? (
                     <>
                         <div className="flex items-baseline gap-2">
                             <span className={`font-mono text-5xl font-bold ${delta.trend === "up" ? "text-success" : delta.trend === "down" ? "text-error" : "text-base-content"}`}>
