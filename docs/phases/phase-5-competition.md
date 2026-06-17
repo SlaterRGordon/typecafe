@@ -9,6 +9,8 @@ Async only — realtime racing is TypeRacer's moat and a populated-lobby trap (a
 ## 5.1 Daily challenge (M)
 
 - **Deterministic seed, no infra:** challenge text = seeded PRNG over the corpus with seed `hash(YYYY-MM-DD)` — every client generates the same text locally; no storage or job needed
+
+**Progress:** 2026-06-16 — *slice 1, the deterministic generator:* `src/lib/challenge.ts` (pure, 6 unit tests). `challengeText(words, dateKey, count)` = FNV-1a seed → mulberry32 PRNG → byte-identical word picks (acceptance #1); `challengeDateKey(now, offset)` is the timezone-correct local day so the boundary is local midnight (acceptance #4). 120-word default so a 30s timed run never exhausts the seeded text (no nondeterministic append). No surface yet — the challenge mode/prompt, `Test.challengeDate` stamping, and the two leaderboards are the next slices.
 - One config (30s timed initially); completing it stamps the Test row (`challengeDate`), feeds the streak
 - Daily leaderboard = query Tests where `challengeDate = today`; **two boards from day one:** *fastest* and **most improved vs their own 30-day average** — the second is the vision board, and it works even when the fastest board is thin
 - Yesterday's result + today's prompt surface on home and `/progress`
@@ -42,10 +44,12 @@ Replace global percentile bragging with peer context: "fastest 25% of typists wh
 
 ## Acceptance
 
-- [ ] Two clients on the same date generate byte-identical challenge text with zero network calls
+- [x] Two clients on the same date generate byte-identical challenge text with zero network calls
+  - 2026-06-16: `challengeText` is a pure function of the date + corpus (seeded PRNG), unit-tested for byte-identical output and corpus-only words.
 - [ ] Beat-my-run works guest-to-guest end to end (share → type → compare → re-share)
 - [ ] Improvement board ranks a +6 slow typist above a +0 fast typist; self-league renders sanely with 1 user
-- [ ] Timezone correctness on challenge day boundaries (23:50/00:10 test)
+- [x] Timezone correctness on challenge day boundaries (23:50/00:10 test)
+  - 2026-06-16: `challengeDateKey` uses the local day; unit-tested that 23:50 and 00:10 local fall on different challenge days (and yield different text).
 - [ ] Impossible-timeline runs excluded from ranked boards (unit-tested detector)
 - [ ] Screenshot tour: challenge prompt/result/boards (both rankings), beat-my-run compare view, self-league and cohort league states
 
