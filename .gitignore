@@ -11,6 +11,10 @@
 /test-results/
 /blob-report/
 
+# generated screenshot-tour artifacts
+/docs/screenshots/desktop-chromium/*.png
+/docs/screenshots/mobile-chromium/*.png
+
 # database
 /prisma/db.sqlite
 /prisma/db.sqlite-journal
