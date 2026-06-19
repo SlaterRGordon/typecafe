@@ -8,7 +8,7 @@ import { Typer, type TestCompletionResult } from "~/components/typer/Typer";
 import { TestModes, TestSubModes } from "~/components/typer/types";
 import { getWords } from "~/components/typer/utils";
 import { DEFAULT_TEST_SETTINGS } from "~/hooks/useTestSettings";
-import { challengeDateKey, challengeText } from "~/lib/challenge";
+import { challengeDateKey, challengeShareBrag, challengeText } from "~/lib/challenge";
 import { recordLocalChallenge } from "~/lib/challengeHistory";
 import { api } from "~/utils/api";
 
@@ -21,6 +21,8 @@ type CompletedScore = ScoreSnapshot & {
     subMode: TestSubModes;
     language: string;
     createdAt: Date;
+    testId?: string;
+    streak?: number | null;
 };
 
 type ChallengeEntry = {
@@ -89,9 +91,11 @@ const Challenge: NextPage = () => {
     const [restartSignal, setRestartSignal] = useState(0);
     const [statusRefreshSignal, setStatusRefreshSignal] = useState(0);
     const [completed, setCompleted] = useState<CompletedScore | null>(null);
+    const [shareUrl, setShareUrl] = useState<string | undefined>(undefined);
     const [dateKey, setDateKey] = useState<string | null>(null);
     const charAttemptsRef = useRef<Map<string, { attempts: number; correct: number }>>(new Map());
     const utils = api.useUtils();
+    const createShare = api.scoreShare.create.useMutation();
 
     useEffect(() => {
         setDateKey(challengeDateKey(new Date(), -new Date().getTimezoneOffset()));
@@ -125,20 +129,69 @@ const Challenge: NextPage = () => {
             typedSegments: result.typedSegments,
             worstKeys: result.worstKeys,
             timeline: result.timeline,
-            brag: result.brag ?? null,
+            brag: challengeShareBrag(result.avgDelta),
             avgDelta: result.avgDelta,
+            streak: result.streak,
             wpmSamples: result.wpmSamples,
             count: CHALLENGE_SECONDS,
             mode: TestModes.normal,
             subMode: TestSubModes.timed,
             language: "english",
             createdAt: new Date(),
+            testId: result.testId,
         });
+        setShareUrl(undefined);
     };
 
     const playAgain = () => {
         setCompleted(null);
+        setShareUrl(undefined);
         setRestartSignal((signal) => signal + 1);
+    };
+
+    const createAndCopyShareLink = async () => {
+        if (!completed?.testId) return undefined;
+
+        const {
+            durationSeconds,
+            rawWpm,
+            netWpm,
+            accuracy,
+            totalKeystrokes,
+            correctKeystrokes,
+            incorrectKeystrokes,
+            typedText,
+            typedSegments,
+            worstKeys,
+            brag,
+            avgDelta,
+            wpmSamples,
+            ranked,
+        } = completed;
+
+        const share = await createShare.mutateAsync({
+            testId: completed.testId,
+            snapshot: {
+                durationSeconds,
+                rawWpm,
+                netWpm,
+                accuracy,
+                totalKeystrokes,
+                correctKeystrokes,
+                incorrectKeystrokes,
+                typedText,
+                typedSegments,
+                worstKeys,
+                brag,
+                avgDelta,
+                ranked,
+                wpmSamples,
+            },
+        });
+        const nextShareUrl = `${window.location.origin}/score/${share.slug}`;
+        setShareUrl(nextShareUrl);
+
+        return nextShareUrl;
     };
 
     return (
@@ -199,7 +252,11 @@ const Challenge: NextPage = () => {
                                                 image: session?.user?.image,
                                             },
                                         }}
-                                        canCreateShare={false}
+                                        shareUrl={shareUrl}
+                                        canCreateShare={!!completed.testId}
+                                        signInHtmlFor="signInModal"
+                                        isCreatingShare={createShare.isPending}
+                                        onCreateShare={createAndCopyShareLink}
                                         onTestAgain={playAgain}
                                     />
                                 </div>

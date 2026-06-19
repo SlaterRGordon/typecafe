@@ -53,6 +53,13 @@ async function typeWrongZeroes(page: Page, count: number) {
   for (let i = 1; i < count; i++) await page.keyboard.press("0");
 }
 
+async function startTimedChallenge(page: Page) {
+  await page.locator("#text").click();
+  const firstChar = await page.locator("#words .active-char").last().textContent();
+  if (firstChar === " ") await page.keyboard.press("Space");
+  else await page.keyboard.press(firstChar ?? "a");
+}
+
 test.describe("screenshot tour", () => {
   test("home: default and mid-test states", async ({ page }, testInfo) => {
     await gotoHome(page);
@@ -414,6 +421,20 @@ test.describe("screenshot tour", () => {
     await expect(page.getByTestId("challenge-header")).toBeVisible();
     await expect(page.locator("#words .char").first()).toBeVisible();
     await capture(page, testInfo, "49-daily-challenge");
+  });
+
+  test("daily challenge result share card", async ({ page }, testInfo) => {
+    test.slow();
+    await mockAuthenticatedSession(page);
+    await mockTrpc(page);
+    await page.goto("/challenge");
+    await expect(page.locator("#words .char").first()).toBeVisible();
+
+    await startTimedChallenge(page);
+
+    await expect(page.getByTestId("score-screenshot-card")).toBeVisible({ timeout: 40_000 });
+    await expect(page.getByTestId("score-screenshot-card").getByText("+3.2 over my average")).toBeVisible();
+    await capture(page, testInfo, "51-daily-challenge-result-share");
   });
 
   test("home: daily challenge prompt", async ({ page }, testInfo) => {

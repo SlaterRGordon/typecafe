@@ -57,6 +57,21 @@ export function challengeStreakFromDateKeys(dateKeys: string[], todayKey: string
 
 // Byte-identical challenge text for a given day: seeded word picks from the
 // corpus. Same `dateKey` + same `words` → identical string everywhere.
+function formatSignedDelta(value: number): string {
+    return value.toLocaleString(undefined, {
+        maximumFractionDigits: 1,
+        minimumFractionDigits: 1,
+        signDisplay: "exceptZero",
+    })
+}
+
+export function challengeShareBrag(avgDelta: number | null | undefined): string {
+    if (typeof avgDelta !== "number") return "Daily challenge"
+    return avgDelta >= 0
+        ? `${formatSignedDelta(avgDelta)} over my average`
+        : `${Math.abs(avgDelta).toLocaleString(undefined, { maximumFractionDigits: 1, minimumFractionDigits: 1 })} under my average`
+}
+
 export function challengeText(words: string[], dateKey: string, wordCount = CHALLENGE_WORD_COUNT): string {
     if (words.length === 0) return ""
     const rng = mulberry32(hashSeed(dateKey))

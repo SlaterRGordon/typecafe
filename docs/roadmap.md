@@ -79,7 +79,7 @@ The previous Phase 1.4 main-page pass is superseded by the mockup-driven overhau
 
 Async only. Realtime racing is TypeRacer's moat and a populated-lobby trap; we refuse to inherit it.
 
-- [ ] **Daily challenge** — same seed text for everyone, daily leaderboard, streak integration; the recurring visit reason
+- [x] **Daily challenge** — same seed text for everyone, daily leaderboard, streak integration; the recurring visit reason
 - [ ] **Beat-my-run links** — recipient types the *same text*, gets a side-by-side comparison; reuses the polished share-card pipeline; the built-in viral loop
 - [ ] **Leagues by improvement, not speed** 🏆 — weekly cohorts ranked by *delta*, not absolute WPM; a 50-WPM typist who gains 6 beats a 120-WPM typist who gains 0. The only leaderboard where everyone has a real chance, and the purest expression of the vision
 - [ ] **Cohort context** — "fastest 25% of people who started within 10 WPM of you" — percentiles that mean something to *you*

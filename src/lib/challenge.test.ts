@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { CHALLENGE_WORD_COUNT, challengeDateKey, challengeStreakFromDateKeys, challengeText, shiftChallengeDateKey } from "./challenge"
+import { CHALLENGE_WORD_COUNT, challengeDateKey, challengeShareBrag, challengeStreakFromDateKeys, challengeText, shiftChallengeDateKey } from "./challenge"
 
 const WORDS = "the quick brown fox jumps over a lazy dog and then runs far away home".split(" ")
 
@@ -55,5 +55,21 @@ describe("challenge streak helpers", () => {
         expect(challengeStreakFromDateKeys(["2026-06-14", "2026-06-15", "2026-06-16"], "2026-06-16")).toBe(3)
         expect(challengeStreakFromDateKeys(["2026-06-14", "2026-06-16"], "2026-06-16")).toBe(1)
         expect(challengeStreakFromDateKeys(["2026-06-14", "2026-06-15"], "2026-06-16")).toBe(0)
+    })
+})
+
+describe("challengeShareBrag", () => {
+    it("leads with improvement when a baseline delta exists", () => {
+        expect(challengeShareBrag(6)).toBe("+6.0 over my average")
+        expect(challengeShareBrag(0)).toBe("0.0 over my average")
+    })
+
+    it("keeps a slower daily challenge honest", () => {
+        expect(challengeShareBrag(-2.4)).toBe("2.4 under my average")
+    })
+
+    it("falls back to the daily challenge label without a baseline", () => {
+        expect(challengeShareBrag(null)).toBe("Daily challenge")
+        expect(challengeShareBrag(undefined)).toBe("Daily challenge")
     })
 })
