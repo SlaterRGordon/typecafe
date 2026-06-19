@@ -6,6 +6,7 @@ import {
   protectedProcedure,
 } from "~/server/api/trpc";
 import type { PrismaClient } from "~/generated/prisma/client";
+import { challengeStreakFromDateKeys, shiftChallengeDateKey } from "~/lib/challenge";
 import { currentStreak } from "~/lib/progress";
 
 // Only surface a percentile brag when it is flattering — never tell a slow typer
@@ -125,6 +126,66 @@ const testOrderBySchema = z.enum([
 const sortOrderSchema = z.enum(["asc", "desc"]);
 
 export const testRouter = createTRPCRouter({
+  getDailyChallengeStatus: publicProcedure
+    .input(z.object({
+      dateKey: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    }))
+    .query(async ({ ctx, input }) => {
+      const userId = ctx.session?.user?.id;
+      if (!userId) return { today: null, yesterday: null, streak: 0 };
+
+      const todayDate = new Date(`${input.dateKey}T00:00:00.000Z`);
+      const yesterdayKey = shiftChallengeDateKey(input.dateKey, -1);
+      const yesterdayDate = new Date(`${yesterdayKey}T00:00:00.000Z`);
+
+      const [today, yesterday, challengeDays] = await Promise.all([
+        ctx.prisma.test.findFirst({
+          where: { userId, challengeDate: todayDate, ranked: true },
+          orderBy: [{ speed: "desc" }, { accuracy: "desc" }, { createdAt: "asc" }],
+          select: { speed: true, accuracy: true, createdAt: true },
+        }),
+        ctx.prisma.test.findFirst({
+          where: { userId, challengeDate: yesterdayDate, ranked: true },
+          orderBy: [{ speed: "desc" }, { accuracy: "desc" }, { createdAt: "asc" }],
+          select: { speed: true, accuracy: true, createdAt: true },
+        }),
+        ctx.prisma.test.findMany({
+          where: { userId, challengeDate: { not: null }, ranked: true },
+          distinct: ["challengeDate"],
+          select: { challengeDate: true },
+          orderBy: { challengeDate: "desc" },
+          take: 120,
+        }),
+      ]);
+
+      const baseline = today ? await thirtyDayChallengeBaseline(ctx.prisma, {
+        userId,
+        before: todayDate,
+      }) : null;
+
+      return {
+        today: today ? {
+          dateKey: input.dateKey,
+          wpm: today.speed,
+          accuracy: today.accuracy,
+          t: today.createdAt.getTime(),
+          delta: baseline ? today.speed - baseline.average : null,
+        } : null,
+        yesterday: yesterday ? {
+          dateKey: yesterdayKey,
+          wpm: yesterday.speed,
+          accuracy: yesterday.accuracy,
+          t: yesterday.createdAt.getTime(),
+        } : null,
+        streak: challengeStreakFromDateKeys(
+          challengeDays
+            .map((row) => row.challengeDate)
+            .filter((date): date is Date => date !== null)
+            .map((date) => date.toISOString().slice(0, 10)),
+          input.dateKey,
+        ),
+      };
+    }),
   getDailyChallengeBoards: publicProcedure
     .input(z.object({
       dateKey: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),

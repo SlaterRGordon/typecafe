@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { CHALLENGE_WORD_COUNT, challengeDateKey, challengeText } from "./challenge"
+import { CHALLENGE_WORD_COUNT, challengeDateKey, challengeStreakFromDateKeys, challengeText, shiftChallengeDateKey } from "./challenge"
 
 const WORDS = "the quick brown fox jumps over a lazy dog and then runs far away home".split(" ")
 
@@ -41,5 +41,19 @@ describe("challengeDateKey (timezone day boundary)", () => {
         // Different days → different challenge text.
         expect(challengeText(WORDS, challengeDateKey(late, offset)))
             .not.toBe(challengeText(WORDS, challengeDateKey(early, offset)))
+    })
+})
+
+describe("challenge streak helpers", () => {
+    it("shifts date keys by whole UTC calendar days", () => {
+        expect(shiftChallengeDateKey("2026-06-16", -1)).toBe("2026-06-15")
+        expect(shiftChallengeDateKey("2026-01-01", -1)).toBe("2025-12-31")
+        expect(shiftChallengeDateKey("2026-12-31", 1)).toBe("2027-01-01")
+    })
+
+    it("counts only consecutive daily challenge completions ending today", () => {
+        expect(challengeStreakFromDateKeys(["2026-06-14", "2026-06-15", "2026-06-16"], "2026-06-16")).toBe(3)
+        expect(challengeStreakFromDateKeys(["2026-06-14", "2026-06-16"], "2026-06-16")).toBe(1)
+        expect(challengeStreakFromDateKeys(["2026-06-14", "2026-06-15"], "2026-06-16")).toBe(0)
     })
 })

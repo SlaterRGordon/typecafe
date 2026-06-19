@@ -3,11 +3,12 @@ import Head from "next/head";
 import { useRouter } from "next/router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
+import { DailyChallengePrompt } from "~/components/challenge/DailyChallengePrompt";
 import { ShareableScoreCard, type ScoreSnapshot } from "~/components/scores/ShareableScoreCard";
 import { Keyboard } from "~/components/typer/Keyboard";
 import { Typer, type TestCompletionResult } from "~/components/typer/Typer";
 import { ModeBar } from "~/components/typer/config/ModeBar";
-import { TestGramScopes, TestGramSources, TestModes, TestSubModes } from "~/components/typer/types";
+import { TestModes, TestSubModes, type TestGramScopes, type TestGramSources } from "~/components/typer/types";
 import { useTestSettings } from "~/hooks/useTestSettings";
 import { withPracticeVowel } from "~/lib/diagnosis";
 import { appendLocalProgress } from "~/lib/progressHistory";
@@ -480,6 +481,9 @@ const Home: NextPage = () => {
         />
       </Head>
       <div id="typer" className={`flex flex-col h-full overflow-auto ${completedScore ? "py-4" : "[justify-content:safe_center]"} ${fullscreen ? 'absolute top-0 left-0 w-full h-full bg-base-100 z-[500] sm:px-8' : 'md:w-10/12'}`}>
+        {!completedScore && !fullscreen &&
+          <DailyChallengePrompt className="mx-auto mb-4 w-full max-w-screen-xl" />
+        }
         {!completedScore &&
           <ModeBar
             mode={mode} subMode={subMode} setMode={setMode}

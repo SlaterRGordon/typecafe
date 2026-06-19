@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { useSession } from "next-auth/react";
 import { useEffect, useMemo, useState } from "react";
+import { DailyChallengePrompt } from "~/components/challenge/DailyChallengePrompt";
 import { TrendChart } from "~/components/progress/TrendChart";
 import { GoalCard } from "~/components/progress/GoalCard";
 import { KeyHeatmap } from "~/components/heatmap/KeyHeatmap";
@@ -154,6 +155,8 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
                     )}
                 </div>
             )}
+
+            <DailyChallengePrompt />
 
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-3">

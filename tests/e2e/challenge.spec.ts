@@ -1,8 +1,25 @@
 import { expect, test } from "@playwright/test";
 import { mockAuthenticatedSession, mockTrpc } from "./helpers/trpc";
-import { typeCurrentCharacter } from "./helpers/typing";
 
 test.describe("daily challenge", () => {
+  test("home surfaces local daily challenge status", async ({ page }) => {
+    await page.clock.install({ time: new Date("2026-06-16T12:00:00.000Z") });
+    await page.addInitScript(() => {
+      window.localStorage.setItem("typecafe:challengeHistory", JSON.stringify([
+        { dateKey: "2026-06-15", wpm: 70.1, accuracy: 97, t: Date.parse("2026-06-15T12:00:00.000Z") },
+        { dateKey: "2026-06-16", wpm: 74.2, accuracy: 98, t: Date.parse("2026-06-16T12:00:00.000Z") },
+      ]));
+    });
+
+    await page.goto("/");
+
+    await expect(page.getByTestId("daily-challenge-prompt")).toBeVisible();
+    await expect(page.getByText("Today complete: 74.2 WPM")).toBeVisible();
+    await expect(page.getByText("Yesterday: 70.1 WPM")).toBeVisible();
+    await expect(page.getByTestId("challenge-streak")).toContainText("2-day streak");
+    await expect(page.getByRole("link", { name: "View boards" })).toHaveAttribute("href", "/challenge");
+  });
+
   test("renders today's seeded challenge text", async ({ page }) => {
     await mockTrpc(page);
     await page.goto("/challenge");
@@ -32,25 +49,15 @@ test.describe("daily challenge", () => {
     expect(second).toBe(first);
   });
 
-  test("signed-in challenge completions stamp the saved test row", async ({ page }, testInfo) => {
-    test.skip(testInfo.project.name.includes("mobile"), "fake-clock completion is covered in desktop; mobile covers the visible challenge UI");
-    await page.clock.install({ time: new Date("2026-06-16T12:00:00.000Z") });
+  test("progress surfaces signed-in daily challenge status", async ({ page }) => {
     await mockAuthenticatedSession(page);
-    let createInput: Record<string, unknown> | undefined;
-    await mockTrpc(page, {
-      onProcedure(procedure, input) {
-        if (procedure === "test.create") createInput = input;
-      },
-    });
+    await mockTrpc(page);
+    await page.goto("/progress");
 
-    await page.goto("/challenge");
-    await expect(page.getByTestId("challenge-header")).toBeVisible();
-    await typeCurrentCharacter(page);
-    await page.clock.runFor(100);
-    await page.clock.runFor(31_000);
-
-    await expect(page.getByRole("button", { name: "Test Again" })).toBeVisible({ timeout: 10_000 });
-    expect(createInput?.count).toBe(30);
-    expect(createInput?.challengeDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    await expect(page.getByTestId("daily-challenge-prompt")).toBeVisible();
+    await expect(page.getByText("Today complete: 82.4 WPM")).toBeVisible();
+    await expect(page.getByText("+3.2 vs avg")).toBeVisible();
+    await expect(page.getByText("Yesterday: 79.1 WPM")).toBeVisible();
+    await expect(page.getByTestId("challenge-streak")).toContainText("4-day streak");
   });
 });

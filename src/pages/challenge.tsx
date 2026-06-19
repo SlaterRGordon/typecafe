@@ -2,12 +2,14 @@ import { type NextPage } from "next";
 import Head from "next/head";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
+import { DailyChallengePrompt } from "~/components/challenge/DailyChallengePrompt";
 import { ShareableScoreCard, type ScoreSnapshot } from "~/components/scores/ShareableScoreCard";
 import { Typer, type TestCompletionResult } from "~/components/typer/Typer";
 import { TestModes, TestSubModes } from "~/components/typer/types";
 import { getWords } from "~/components/typer/utils";
 import { DEFAULT_TEST_SETTINGS } from "~/hooks/useTestSettings";
 import { challengeDateKey, challengeText } from "~/lib/challenge";
+import { recordLocalChallenge } from "~/lib/challengeHistory";
 import { api } from "~/utils/api";
 
 const CHALLENGE_SECONDS = 30;
@@ -85,9 +87,11 @@ const Challenge: NextPage = () => {
     const { data: session } = useSession();
     const [fullscreen, setFullscreen] = useState(false);
     const [restartSignal, setRestartSignal] = useState(0);
+    const [statusRefreshSignal, setStatusRefreshSignal] = useState(0);
     const [completed, setCompleted] = useState<CompletedScore | null>(null);
     const [dateKey, setDateKey] = useState<string | null>(null);
     const charAttemptsRef = useRef<Map<string, { attempts: number; correct: number }>>(new Map());
+    const utils = api.useUtils();
 
     useEffect(() => {
         setDateKey(challengeDateKey(new Date(), -new Date().getTimezoneOffset()));
@@ -102,6 +106,12 @@ const Challenge: NextPage = () => {
     );
 
     const onComplete = (result: TestCompletionResult) => {
+        if (dateKey) {
+            recordLocalChallenge({ dateKey, wpm: result.speed, accuracy: result.accuracy, t: Date.now() });
+            setStatusRefreshSignal((signal) => signal + 1);
+            void utils.test.getDailyChallengeStatus.invalidate({ dateKey });
+            void utils.test.getDailyChallengeBoards.invalidate({ dateKey, limit: 10 });
+        }
         setCompleted({
             speed: result.speed,
             rawWpm: result.rawWpm,
@@ -177,19 +187,22 @@ const Challenge: NextPage = () => {
                             hideInterface={!!completed}
                         />
                         {completed &&
-                            <div className="m-auto flex w-full justify-center">
-                                <ShareableScoreCard
-                                    score={{
-                                        ...completed,
-                                        score: completed.speed * completed.accuracy,
-                                        user: {
-                                            username: session?.user?.username ?? session?.user?.name ?? null,
-                                            image: session?.user?.image,
-                                        },
-                                    }}
-                                    canCreateShare={false}
-                                    onTestAgain={playAgain}
-                                />
+                            <div className="m-auto flex w-full flex-col items-center gap-4">
+                                <DailyChallengePrompt className="w-full max-w-3xl" refreshSignal={statusRefreshSignal} />
+                                <div className="flex w-full justify-center">
+                                    <ShareableScoreCard
+                                        score={{
+                                            ...completed,
+                                            score: completed.speed * completed.accuracy,
+                                            user: {
+                                                username: session?.user?.username ?? session?.user?.name ?? null,
+                                                image: session?.user?.image,
+                                            },
+                                        }}
+                                        canCreateShare={false}
+                                        onTestAgain={playAgain}
+                                    />
+                                </div>
                             </div>
                         }
                         <div data-testid="daily-challenge-boards" className="mx-auto mt-6 grid w-full max-w-screen-xl gap-4 px-4 pb-8 lg:grid-cols-2">

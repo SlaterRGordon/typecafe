@@ -8,6 +8,7 @@ import { dayKey } from "./progress"
 // Words in a daily-challenge run. Long enough that even a fast typist won't
 // exhaust it within a 30s timed challenge (so no nondeterministic appended text).
 export const CHALLENGE_WORD_COUNT = 120
+const DAY_MS = 24 * 60 * 60 * 1000
 
 // FNV-1a → uint32. Deterministic and well-distributed across date strings.
 function hashSeed(text: string): number {
@@ -35,6 +36,23 @@ function mulberry32(seed: number): () => number {
 // user's local midnight (timezone-correct: 23:50 and 00:10 are different days).
 export function challengeDateKey(now: Date, utcOffsetMinutes = 0): string {
     return dayKey(now, utcOffsetMinutes)
+}
+
+export function shiftChallengeDateKey(dateKey: string, days: number): string {
+    const date = new Date(`${dateKey}T00:00:00.000Z`)
+    if (Number.isNaN(date.getTime())) return dateKey
+    return dayKey(new Date(date.getTime() + days * DAY_MS))
+}
+
+export function challengeStreakFromDateKeys(dateKeys: string[], todayKey: string): number {
+    const days = new Set(dateKeys)
+    let streak = 0
+    let cursor = todayKey
+    while (days.has(cursor)) {
+        streak += 1
+        cursor = shiftChallengeDateKey(cursor, -1)
+    }
+    return streak
 }
 
 // Byte-identical challenge text for a given day: seeded word picks from the
