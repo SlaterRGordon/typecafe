@@ -82,6 +82,25 @@ async function thirtyDayDelta(
   return args.speed - agg._avg.speed;
 }
 
+async function thirtyDayChallengeBaseline(
+  prisma: PrismaClient,
+  args: { userId: string; before: Date },
+): Promise<{ average: number; tests: number } | null> {
+  const since = new Date(args.before.getTime() - 30 * 24 * 60 * 60 * 1000);
+  const agg = await prisma.test.aggregate({
+    where: {
+      userId: args.userId,
+      ranked: true,
+      createdAt: { gte: since, lt: args.before },
+    },
+    _avg: { speed: true },
+    _count: true,
+  });
+
+  if (agg._count < MIN_TESTS_FOR_AVG_DELTA || agg._avg.speed === null) return null;
+  return { average: agg._avg.speed, tests: agg._count };
+}
+
 // The user's current practice-day streak, from their distinct test days.
 async function practiceStreak(prisma: PrismaClient, userId: string): Promise<number> {
   const days = await prisma.test.findMany({
@@ -106,6 +125,80 @@ const testOrderBySchema = z.enum([
 const sortOrderSchema = z.enum(["asc", "desc"]);
 
 export const testRouter = createTRPCRouter({
+  getDailyChallengeBoards: publicProcedure
+    .input(z.object({
+      dateKey: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+      limit: z.number().min(1).max(50).optional(),
+    }))
+    .query(async ({ ctx, input }) => {
+      const challengeDate = new Date(`${input.dateKey}T00:00:00.000Z`);
+      const limit = input.limit ?? 10;
+
+      const rows = await ctx.prisma.test.findMany({
+        where: {
+          challengeDate,
+          ranked: true,
+        },
+        orderBy: [
+          { speed: "desc" },
+          { accuracy: "desc" },
+          { createdAt: "asc" },
+        ],
+        take: Math.max(limit * 5, 25),
+        select: {
+          id: true,
+          userId: true,
+          speed: true,
+          accuracy: true,
+          score: true,
+          createdAt: true,
+          user: { select: { username: true, name: true, image: true } },
+        },
+      });
+
+      const bestByUser = new Map<string, typeof rows[number]>();
+      for (const row of rows) {
+        if (!bestByUser.has(row.userId)) bestByUser.set(row.userId, row);
+      }
+
+      const fastest = Array.from(bestByUser.values()).slice(0, limit).map((row, index) => ({
+        rank: index + 1,
+        userId: row.userId,
+        username: row.user.username ?? row.user.name ?? "Anonymous",
+        image: row.user.image,
+        speed: row.speed,
+        accuracy: row.accuracy,
+      }));
+
+      const improvedCandidates = await Promise.all(
+        Array.from(bestByUser.values()).map(async (row) => {
+          const baseline = await thirtyDayChallengeBaseline(ctx.prisma, {
+            userId: row.userId,
+            before: challengeDate,
+          });
+          if (!baseline) return null;
+          return {
+            rank: 0,
+            userId: row.userId,
+            username: row.user.username ?? row.user.name ?? "Anonymous",
+            image: row.user.image,
+            speed: row.speed,
+            accuracy: row.accuracy,
+            baseline: baseline.average,
+            delta: row.speed - baseline.average,
+            baselineTests: baseline.tests,
+          };
+        }),
+      );
+
+      const improved = improvedCandidates
+        .filter((entry): entry is NonNullable<typeof entry> => entry !== null)
+        .sort((a, b) => b.delta - a.delta || b.speed - a.speed)
+        .slice(0, limit)
+        .map((entry, index) => ({ ...entry, rank: index + 1 }));
+
+      return { fastest, improved };
+    }),
   getAll: publicProcedure
     .input(z.object({
       userId: z.string().optional(),
@@ -166,6 +259,8 @@ export const testRouter = createTRPCRouter({
       punctuation: z.boolean().optional(),
       capitals: z.boolean().optional(),
       ranked: z.boolean().optional(),
+      // YYYY-MM-DD when this is a daily-challenge run.
+      challengeDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       const ranked = input.ranked ?? true;
@@ -176,6 +271,7 @@ export const testRouter = createTRPCRouter({
           speed: input.speed,
           accuracy: input.accuracy,
           consistency: input.consistency ?? null,
+          challengeDate: input.challengeDate ? new Date(`${input.challengeDate}T00:00:00.000Z`) : null,
           score: input.score,
           count: input.count,
           options: input.options,

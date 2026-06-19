@@ -408,6 +408,14 @@ test.describe("screenshot tour", () => {
     await capture(page, testInfo, "43-progress-guest-history");
   });
 
+  test("daily challenge", async ({ page }, testInfo) => {
+    await mockTrpc(page);
+    await page.goto("/challenge");
+    await expect(page.getByTestId("challenge-header")).toBeVisible();
+    await expect(page.locator("#words .char").first()).toBeVisible();
+    await capture(page, testInfo, "49-daily-challenge");
+  });
+
   test("practice plan (targeted)", async ({ page }, testInfo) => {
     await mockAuthenticatedSession(page);
     await mockTrpc(page, { keyStats: [{ character: "r", total: 100, correct: 70 }, { character: "t", total: 80, correct: 62 }] });

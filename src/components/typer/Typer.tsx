@@ -54,6 +54,10 @@ interface TyperProps {
     onRestart?: () => void,
     hideInterface?: boolean,
     showControls?: boolean,
+    // Fixed seeded text (daily challenge): skip generation and never append.
+    fixedText?: string,
+    // Stamps the saved Test row as belonging to this day's challenge (YYYY-MM-DD).
+    challengeDate?: string,
     charAttemptsRef: React.MutableRefObject<Map<string, { attempts: number, correct: number }>>
 }
 
@@ -194,9 +198,13 @@ export const Typer = (props: TyperProps) => {
                 cancelRestartRef.current = false; // Reset the cancel flag
                 if (mode !== TestModes.ngrams) syncCharAttempts()
 
-                // Practice mode without selected keys has nothing to generate from;
-                // keep the existing text rather than blanking it.
-                if (!(mode === TestModes.practice && !selectedKeys)) {
+                // A daily challenge uses fixed seeded text — same for every client,
+                // never regenerated or appended.
+                if (props.fixedText) {
+                    setText(props.fixedText)
+                } else if (!(mode === TestModes.practice && !selectedKeys)) {
+                    // Practice mode without selected keys has nothing to generate
+                    // from; keep the existing text rather than blanking it.
                     // Generation is async (non-English word lists load on demand);
                     // the token discards stale results if another restart raced it.
                     const requestToken = ++textRequestRef.current
@@ -228,7 +236,7 @@ export const Typer = (props: TyperProps) => {
                 onRestartRef.current?.()
             }
         }, 0)
-    }, [count, gramCombination, gramLevel, gramRepetition, gramScope, gramSource, syncCharAttempts, language, level, mode, pause, punctuation, capitals, selectedKeys, setInitialTime, subMode])
+    }, [count, gramCombination, gramLevel, gramRepetition, gramScope, gramSource, syncCharAttempts, language, level, mode, pause, punctuation, capitals, selectedKeys, setInitialTime, subMode, props.fixedText])
 
     useEffect(() => {
         handleRestart()
@@ -370,6 +378,7 @@ export const Typer = (props: TyperProps) => {
                         punctuation,
                         capitals,
                         ranked: !customLength,
+                        challengeDate: props.challengeDate,
                     })
                 } else {
                     onTestCompleteRef.current?.(completion)
@@ -396,7 +405,7 @@ export const Typer = (props: TyperProps) => {
         isCompletionValid, isTimed, pause, getStats, buildCompletion, mode, levelRequirements,
         dispatch, sessionData, testType, persistCompletion, count, level, punctuation,
         capitals, customLength, props.gramWpmThreshold, props.gramAccuracyThreshold,
-        recordPassedLevel, syncCharAttempts, syncTransitions,
+        props.challengeDate, recordPassedLevel, syncCharAttempts, syncTransitions,
     ])
 
     // Stable identities for parent-provided callbacks (parents recreate them every
@@ -497,6 +506,7 @@ export const Typer = (props: TyperProps) => {
             subMode={subMode}
             punctuation={punctuation}
             capitals={capitals}
+            noAppend={!!props.fixedText}
             started={started} restarted={restarted} restartNonce={restartNonce}
             modalOpen={props.modalOpen}
             charAttempts={charAttemptsRef.current}

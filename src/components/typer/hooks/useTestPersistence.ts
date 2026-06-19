@@ -21,6 +21,7 @@ export interface CreateTestInput {
     punctuation: boolean,
     capitals: boolean,
     ranked: boolean,
+    challengeDate?: string,
 }
 
 interface UseTestPersistenceArgs {

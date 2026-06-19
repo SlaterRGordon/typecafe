@@ -167,6 +167,17 @@ function responseForProcedure(procedure: string, input: ProcedureInput, options:
       return [makeScore(input)];
     case "test.create":
       return { ...makeScore({ ...input, userId: profileUser.id }), brag: "New personal best", avgDelta: 3.2, streak: 5 };
+    case "test.getDailyChallengeBoards":
+      return {
+        fastest: [
+          { rank: 1, userId: profileUser.id, username: profileUser.username, image: profileUser.image, speed: 82.4, accuracy: 98.1 },
+          { rank: 2, userId: "user-2", username: "steadykeys", image: null, speed: 76.2, accuracy: 97.3 },
+        ],
+        improved: [
+          { rank: 1, userId: "user-3", username: "slowgain", image: null, speed: 61.5, accuracy: 96.2, baseline: 55.5, delta: 6.0, baselineTests: 5 },
+          { rank: 2, userId: profileUser.id, username: profileUser.username, image: profileUser.image, speed: 82.4, accuracy: 98.1, baseline: 79.2, delta: 3.2, baselineTests: 9 },
+        ],
+      };
     case "test.getTimeTyped":
       return { _sum: { count: 1234 } };
     case "test.getBestScore":

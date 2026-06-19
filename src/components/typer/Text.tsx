@@ -16,6 +16,9 @@ interface TextProps {
     subMode: TestSubModes,
     punctuation?: boolean,
     capitals?: boolean,
+    // Challenge runs use fixed seeded text; never append generated words (which
+    // would break the byte-identical-across-clients guarantee).
+    noAppend?: boolean,
     charAttempts: Map<string, { attempts: number, correct: number }>
     setCharacterCount: (count: number) => void,
     setIncorrectCount: (count: number) => void,
@@ -52,6 +55,7 @@ export const Text = memo(function Text(props: TextProps) {
         subMode,
         punctuation = false,
         capitals = false,
+        noAppend = false,
         charAttempts,
         setCharacterCount,
         setIncorrectCount,
@@ -203,8 +207,8 @@ export const Text = memo(function Text(props: TextProps) {
     // Append new text when needed. Relaxed mode scrolls forever; timed tests must
     // also never run out of text — a fast typist on a long custom duration would
     // otherwise exhaust the buffer and deadlock until the timer expires.
-    const appendsText = mode === TestModes.relaxed ||
-        (mode === TestModes.normal && subMode === TestSubModes.timed)
+    const appendsText = !noAppend && (mode === TestModes.relaxed ||
+        (mode === TestModes.normal && subMode === TestSubModes.timed))
     useEffect(() => {
         if (appendsText && !isAppendingRef.current) {
             const threshold = 300

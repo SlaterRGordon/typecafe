@@ -38,7 +38,7 @@ export const ensureLanguageLoaded = (language: string): Promise<void> => {
 
 // Falls back to English when a language hasn't loaded yet — callers that need a
 // guarantee should await ensureLanguageLoaded first.
-const getWords = (language: string): string[] =>
+export const getWords = (language: string): string[] =>
     (languages[language] ?? languages.english!).words
 
 interface NGrams {

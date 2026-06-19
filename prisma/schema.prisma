@@ -98,6 +98,8 @@ model Test {
     capitals    Boolean @default(false)
     ranked      Boolean @default(true)
     summaryDate DateTime  @db.Date
+    // The daily-challenge day this test belongs to (null = not a challenge run).
+    challengeDate DateTime? @db.Date
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
     user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -106,6 +108,7 @@ model Test {
 
     @@index([userId])
     @@index([typeId])
+    @@index([challengeDate])
 }
 
 model ScoreShare {
