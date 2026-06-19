@@ -298,6 +298,7 @@ export const Typer = (props: TyperProps) => {
             totalKeystrokes: finalCharacterCount,
             correctKeystrokes,
             incorrectKeystrokes: finalIncorrectCount,
+            promptText: text,
             typedText: typedTextRef.current,
             typedSegments: [...typedSegmentsRef.current],
             worstKeys: worstKeysFromAttempts(testCharAttemptsRef.current),
@@ -310,7 +311,7 @@ export const Typer = (props: TyperProps) => {
             typeId: testType?.id,
             persisted: false,
         }
-    }, [subMode, mode, count, punctuation, capitals, customLength, level, testType?.id])
+    }, [subMode, mode, count, punctuation, capitals, customLength, level, testType?.id, text])
 
     const isCompletionValid = useCallback((source: CompletionSource) => {
         const attempt = activeAttemptRef.current

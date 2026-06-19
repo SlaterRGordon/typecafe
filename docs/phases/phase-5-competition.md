@@ -21,6 +21,7 @@ Async only — realtime racing is TypeRacer's moat and a populated-lobby trap (a
 
 ## 5.2 Beat-my-run (M) — the viral loop
 
+**Progress:** 2026-06-19 — *slice 1, guest-to-guest loop:* score snapshots now carry `promptText`, so shared score pages can offer **Type this yourself** and replay the exact source text as a fixed-text run. `/score/[slug]?type=1` runs the challenger through the same prompt with no account required, then shows target-vs-you WPM/accuracy deltas, key heatmaps, first divergence word, and first-attempt/retry honesty. Guest completions can create public anonymous `beat` `ScoreShare` records and copy a new `/score/[slug]` link, so the loop continues from the challenger's result. Unit tests cover beat-run brag/divergence/retry wording; e2e covers share → type → compare → re-share → open re-share; screenshot tour captures `52-beat-my-run-compare`.
 - Existing `ScoreShare` gains the text seed; share page gets **[Type this yourself]** → recipient (no account needed — local-first) types the *identical text*
 - Side-by-side result: WPM, accuracy, per-key heatmap comparison, divergence point ("you were ahead until `through`")
 - Their result page offers the same button — the loop continues
@@ -49,7 +50,8 @@ Replace global percentile bragging with peer context: "fastest 25% of typists wh
 
 - [x] Two clients on the same date generate byte-identical challenge text with zero network calls
   - 2026-06-16: `challengeText` is a pure function of the date + corpus (seeded PRNG), unit-tested for byte-identical output and corpus-only words.
-- [ ] Beat-my-run works guest-to-guest end to end (share → type → compare → re-share)
+- [x] Beat-my-run works guest-to-guest end to end (share -> type -> compare -> re-share)
+  - 2026-06-19: `/score/[slug]` shares with `promptText` offer **Type this yourself**; guests complete the fixed-text run, see target-vs-you deltas plus divergence/retry framing, and can create an anonymous `beat` share link that opens as the next beatable run.
 - [ ] Improvement board ranks a +6 slow typist above a +0 fast typist; self-league renders sanely with 1 user
 - [x] Timezone correctness on challenge day boundaries (23:50/00:10 test)
   - 2026-06-16: `challengeDateKey` uses the local day; unit-tested that 23:50 and 00:10 local fall on different challenge days (and yield different text).

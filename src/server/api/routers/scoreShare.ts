@@ -18,6 +18,7 @@ const scoreSnapshotSchema = z.object({
   totalKeystrokes: z.number().int().nonnegative(),
   correctKeystrokes: z.number().int().nonnegative(),
   incorrectKeystrokes: z.number().int().nonnegative(),
+  promptText: z.string().min(1).max(20000).optional(),
   typedText: z.string(),
   typedSegments: z.array(z.object({
     ch: z.string(),
@@ -37,6 +38,20 @@ const scoreSnapshotSchema = z.object({
     elapsedSeconds: z.number().nonnegative(),
     wpm: z.number().nonnegative(),
   })),
+});
+
+const beatRunSnapshotSchema = scoreSnapshotSchema.extend({
+  promptText: z.string().min(1).max(20000),
+  count: z.number().int().nonnegative(),
+  mode: z.number().int().nonnegative(),
+  subMode: z.number().int().nonnegative(),
+  language: z.string().min(1).max(40),
+  options: z.string().optional(),
+  score: z.number().optional(),
+  username: z.string().nullish(),
+  sourceShareSlug: slugSchema.optional(),
+  attemptNumber: z.number().int().positive().optional(),
+  createdAt: z.number().int().nonnegative(),
 });
 
 // A point-in-time /progress snapshot — the "+18 WPM in 60 days" brag any user
@@ -156,6 +171,28 @@ export const scoreShareRouter = createTRPCRouter({
         }
       }
       throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Could not create a share link." });
+    }),
+
+  createBeatRun: publicProcedure
+    .input(z.object({ snapshot: beatRunSnapshotSchema }))
+    .mutation(async ({ ctx, input }) => {
+      for (let attempt = 0; attempt < 4; attempt += 1) {
+        try {
+          return await ctx.prisma.scoreShare.create({
+            data: {
+              slug: createShareSlug(),
+              kind: "beat",
+              testId: null,
+              userId: ctx.session?.user?.id ?? null,
+              snapshot: input.snapshot,
+            },
+            select: { slug: true },
+          });
+        } catch (error) {
+          if (attempt === 3) throw error;
+        }
+      }
+      throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Could not create a beat-my-run link." });
     }),
 
   get: publicProcedure

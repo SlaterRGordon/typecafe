@@ -14,6 +14,7 @@ export interface TestCompletionResult {
     totalKeystrokes: number,
     correctKeystrokes: number,
     incorrectKeystrokes: number,
+    promptText: string,
     typedText: string,
     typedSegments: TypedSegment[],
     wpmSamples: WpmSample[],

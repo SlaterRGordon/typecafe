@@ -94,6 +94,8 @@ test.describe("shared scores", () => {
     await page.goto("/score/share-test-score");
 
     await expect(page.getByTestId("score-screenshot-card")).toBeVisible();
+    await expect(page.getByTestId("beat-run-cta")).toBeVisible();
+    await expect(page.getByRole("link", { name: "Type this yourself" })).toHaveAttribute("href", "/score/share-test-score?type=1");
     expect(await page.getByText("72.4").count()).toBeGreaterThan(0);
     expect(await page.getByText("96.50%").count()).toBeGreaterThan(0);
     await expect(page.getByText("WPM Over Time")).toBeVisible();
@@ -101,6 +103,47 @@ test.describe("shared scores", () => {
     await expect(page.getByText("Your Typed Text")).toBeVisible();
     await expect(page.getByRole("button", { name: "Share Score" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Try TypeCafe" })).toBeVisible();
+  });
+
+  test("supports guest-to-guest beat-my-run links", async ({ page }) => {
+    const procedures: { procedure: string; input: Record<string, unknown> | undefined }[] = [];
+
+    await installClipboardMock(page);
+    await mockTrpc(page, {
+      onProcedure: (procedure, input) => procedures.push({ procedure, input }),
+    });
+
+    await page.goto("/score/beat-source-score");
+    await expect(page.getByTestId("beat-run-cta")).toBeVisible();
+    await page.getByRole("link", { name: "Type this yourself" }).click();
+
+    await expect(page.getByTestId("beat-run-header")).toBeVisible();
+    await expect(page.locator("#words")).toContainText("steady hands");
+
+    await finishActiveTypingTest(page);
+
+    await expect(page.getByTestId("beat-run-comparison")).toBeVisible();
+    await expect(page.getByTestId("beat-attempt")).toContainText("First attempt");
+    await expect(page.getByTestId("beat-wpm-delta")).toContainText("WPM");
+    await expect(page.getByTestId("beat-divergence")).toContainText(/Clean run|First divergence/);
+    await expect(page.getByTestId("beat-heatmap-comparison")).toBeVisible();
+
+    await page.getByRole("button", { name: "Share Score" }).click({ force: true });
+
+    await expect(page.getByRole("button", { name: "Link copied" })).toBeVisible();
+    await expect.poll(async () => page.evaluate(() => window.localStorage.getItem("clipboard:text"))).toBe("http://127.0.0.1:3000/score/beat-run-share");
+
+    const createBeatRun = procedures.find(({ procedure }) => procedure === "scoreShare.createBeatRun");
+    expect(createBeatRun?.input?.snapshot).toMatchObject({
+      promptText: "steady hands",
+      sourceShareSlug: "beat-source-score",
+      attemptNumber: 1,
+    });
+
+    await page.goto("/score/beat-run-share");
+    await expect(page.getByTestId("score-screenshot-card")).toBeVisible();
+    await expect(page.getByTestId("beat-run-cta")).toBeVisible();
+    await expect(page.getByTestId("score-screenshot-card").getByText("Beat by +23.3 WPM")).toBeVisible();
   });
 
   test("shares a completed saved score and copies the generated link", async ({ page }) => {

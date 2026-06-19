@@ -23,6 +23,9 @@ export interface ScoreSnapshot {
   totalKeystrokes: number;
   correctKeystrokes: number;
   incorrectKeystrokes: number;
+  // The source text shown to the typist. Optional on legacy shares, required for
+  // beat-my-run links so another person can type the identical prompt.
+  promptText?: string;
   typedText: string;
   typedSegments?: TypedSegment[];
   worstKeys?: KeyAccuracy[];
@@ -549,7 +552,7 @@ function DiagnosisPanel(props: { score: ShareableScore }) {
         })()}
 
         <div className="mt-5 border-t border-base-content/10 pt-4">
-          <p className="mb-3 text-sm text-base-content/60">This test's per-key accuracy — drilled keys ringed.</p>
+          <p className="mb-3 text-sm text-base-content/60">This test&apos;s per-key accuracy — drilled keys ringed.</p>
           <KeyHeatmap size="mini" attempts={attempts} highlightKeys={diagnosis.drillKeys} testId="diagnosis-heatmap" />
         </div>
         </>

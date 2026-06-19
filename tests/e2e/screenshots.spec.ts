@@ -60,6 +60,37 @@ async function startTimedChallenge(page: Page) {
   else await page.keyboard.press(firstChar ?? "a");
 }
 
+async function finishVisibleTypingTest(page: Page) {
+  await page.locator("#text").click();
+
+  for (let index = 0; index < 120; index += 1) {
+    const active = await page.evaluate(() => {
+      if (document.querySelector('[data-testid="score-screenshot-card"]')) return "complete";
+      if (document.querySelector('[data-testid="beat-run-comparison"]')) return "complete";
+
+      const words = document.querySelector("#words");
+      if (!words) return null;
+
+      const activeChars = Array.from(words.querySelectorAll(".active-char"));
+      const current = activeChars.at(-1);
+      return current ? { id: current.id, char: current.textContent } : null;
+    });
+    if (active === "complete") return;
+    if (!active || active.char === null) return;
+
+    await page.locator("#text").click();
+    if (active.char === " ") await page.keyboard.press("Space");
+    else await page.keyboard.press(active.char);
+
+    await page.waitForFunction((previousId) => {
+      if (document.querySelector('[data-testid="score-screenshot-card"]')) return true;
+      if (document.querySelector('[data-testid="beat-run-comparison"]')) return true;
+      const activeChars = Array.from(document.querySelectorAll("#words .active-char"));
+      return activeChars.at(-1)?.id !== previousId;
+    }, active.id, { timeout: 2000 });
+  }
+}
+
 test.describe("screenshot tour", () => {
   test("home: default and mid-test states", async ({ page }, testInfo) => {
     await gotoHome(page);
@@ -473,6 +504,17 @@ test.describe("screenshot tour", () => {
     // The persisted delta line rides the shared snapshot (§3.3 slice 2).
     await expect(page.getByTestId("avg-delta")).toContainText("over your 30-day average");
     await capture(page, testInfo, "18-shared-score");
+  });
+
+  test("beat-my-run compare view", async ({ page }, testInfo) => {
+    await mockTrpc(page);
+    await page.goto("/score/beat-source-score?type=1");
+    await expect(page.getByTestId("beat-run-header")).toBeVisible();
+
+    await finishVisibleTypingTest(page);
+
+    await expect(page.getByTestId("beat-run-comparison")).toBeVisible();
+    await capture(page, testInfo, "52-beat-my-run-compare");
   });
 
   test("static pages", async ({ page }, testInfo) => {

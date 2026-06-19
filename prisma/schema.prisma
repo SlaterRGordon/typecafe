@@ -117,14 +117,14 @@ model ScoreShare {
     // "score" (a single test) or "progress" (a trend snapshot, no single test).
     kind      String    @default("score")
     testId    String?
-    userId    String
+    userId    String?
     snapshot  Json?
     expiresAt DateTime?
     deletedAt DateTime?
     createdAt DateTime  @default(now())
     updatedAt DateTime  @updatedAt
     test      Test?     @relation(fields: [testId], references: [id], onDelete: Cascade)
-    user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+    user      User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
     @@index([testId])
     @@index([userId])

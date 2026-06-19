@@ -175,6 +175,7 @@ const Home: NextPage = () => {
       totalKeystrokes: result.totalKeystrokes,
       correctKeystrokes: result.correctKeystrokes,
       incorrectKeystrokes: result.incorrectKeystrokes,
+      promptText: result.promptText,
       typedText: result.typedText,
       typedSegments: result.typedSegments,
       worstKeys: result.worstKeys,
@@ -279,11 +280,12 @@ const Home: NextPage = () => {
       try {
         const { durationSeconds, rawWpm, netWpm, accuracy, totalKeystrokes, correctKeystrokes,
           incorrectKeystrokes, typedText, typedSegments, worstKeys, brag, wpmSamples, punctuation, capitals, ranked,
+          promptText,
         } = restoredScore
         const share = await createShare.mutateAsync({
           testId: test.id,
           snapshot: { durationSeconds, rawWpm, netWpm, accuracy, totalKeystrokes, correctKeystrokes,
-            incorrectKeystrokes, typedText, typedSegments, worstKeys, brag, avgDelta: test.avgDelta, wpmSamples, punctuation, capitals, ranked },
+            incorrectKeystrokes, promptText, typedText, typedSegments, worstKeys, brag, avgDelta: test.avgDelta, wpmSamples, punctuation, capitals, ranked },
         })
         const url = `${window.location.origin}/score/${share.slug}`
         setShareUrl(url)
@@ -424,6 +426,7 @@ const Home: NextPage = () => {
       correctKeystrokes,
       incorrectKeystrokes,
       typedText,
+      promptText,
       typedSegments,
       worstKeys,
       brag,
@@ -443,6 +446,7 @@ const Home: NextPage = () => {
         totalKeystrokes,
         correctKeystrokes,
         incorrectKeystrokes,
+        promptText,
         typedText,
         typedSegments,
         worstKeys,

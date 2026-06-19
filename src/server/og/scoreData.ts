@@ -30,7 +30,13 @@ export type OgShareData = OgScoreData | OgProgressData;
 interface ScoreSnapshotShape {
   rawWpm?: number;
   netWpm?: number;
+  accuracy?: number;
   durationSeconds?: number;
+  count?: number;
+  mode?: number;
+  subMode?: number;
+  language?: string;
+  createdAt?: number;
   wpmSamples?: { elapsedSeconds: number; wpm: number }[];
   brag?: string | null;
   avgDelta?: number | null;
@@ -75,6 +81,34 @@ export async function getShareForOg(slug: string): Promise<OgShareData | null> {
       username,
       streak: typeof snapshot.streak === "number" ? snapshot.streak : null,
       points: snapshot.points,
+    };
+  }
+
+  if (share.kind === "beat") {
+    const snapshot = asObject(share.snapshot) as ScoreSnapshotShape;
+    if (
+      typeof snapshot.rawWpm !== "number" ||
+      typeof snapshot.netWpm !== "number" ||
+      typeof snapshot.accuracy !== "number" ||
+      typeof snapshot.durationSeconds !== "number"
+    ) return null;
+    return {
+      kind: "score",
+      rawWpm: snapshot.rawWpm,
+      netWpm: snapshot.netWpm,
+      accuracy: snapshot.accuracy,
+      durationSeconds: snapshot.durationSeconds,
+      mode: snapshot.mode ?? 0,
+      subMode: snapshot.subMode ?? 0,
+      language: snapshot.language ?? "english",
+      username,
+      createdAt: typeof snapshot.createdAt === "number" ? new Date(snapshot.createdAt) : share.createdAt,
+      wpmSamples: snapshot.wpmSamples ?? [
+        { elapsedSeconds: 0, wpm: 0 },
+        { elapsedSeconds: snapshot.durationSeconds, wpm: snapshot.rawWpm },
+      ],
+      brag: snapshot.brag ?? null,
+      avgDelta: snapshot.avgDelta ?? null,
     };
   }
 

@@ -117,6 +117,7 @@ function makeScoreSnapshot() {
     totalKeystrokes: 548,
     correctKeystrokes: 531,
     incorrectKeystrokes: 17,
+    promptText: typedText,
     typedText,
     typedSegments: typedText.split("").map((ch, index) => ({ ch, correct: index % 17 !== 0 })),
     wpmSamples: [
@@ -249,10 +250,90 @@ function responseForProcedure(procedure: string, input: ProcedureInput, options:
       return null;
     case "scoreShare.create":
       return { slug: "share-test-score" };
+    case "scoreShare.createBeatRun":
+      return { slug: "beat-run-share" };
     case "scoreShare.createProgress":
       return { slug: "progress-test-share" };
     case "scoreShare.get":
       if (options.invalidShare) return null;
+      if (input?.slug === "beat-source-score") {
+        const promptText = "steady hands";
+        return {
+          kind: "score",
+          id: "share-beat-source",
+          slug: input.slug,
+          createdAt: new Date("2026-06-01T12:00:00.000Z"),
+          expiresAt: null,
+          score: {
+            id: "score-beat-source",
+            speed: 50,
+            accuracy: 95,
+            score: 4750,
+            count: 2,
+            options: "",
+            createdAt: new Date("2026-06-01T12:00:00.000Z"),
+            mode: 0,
+            subMode: 1,
+            language: "english",
+            punctuation: false,
+            capitals: false,
+            ranked: true,
+          },
+          snapshot: {
+            durationSeconds: 2,
+            rawWpm: 50,
+            netWpm: 47.5,
+            accuracy: 95,
+            totalKeystrokes: promptText.length,
+            correctKeystrokes: promptText.length - 1,
+            incorrectKeystrokes: 1,
+            promptText,
+            typedText: promptText,
+            typedSegments: promptText.split("").map((ch) => ({ ch, correct: true })),
+            wpmSamples: [
+              { elapsedSeconds: 0, wpm: 0 },
+              { elapsedSeconds: 2, wpm: 50 },
+            ],
+          },
+          user: { id: profileUser.id, username: profileUser.username, image: profileUser.image },
+        };
+      }
+      if (input?.slug === "beat-run-share") {
+        const promptText = "steady hands";
+        return {
+          kind: "beat",
+          id: "share-beat-run",
+          slug: input.slug,
+          createdAt: new Date("2026-06-01T12:05:00.000Z"),
+          expiresAt: null,
+          score: null,
+          snapshot: {
+            durationSeconds: 1.8,
+            rawWpm: 73.3,
+            netWpm: 73.3,
+            accuracy: 100,
+            totalKeystrokes: promptText.length,
+            correctKeystrokes: promptText.length,
+            incorrectKeystrokes: 0,
+            promptText,
+            typedText: promptText,
+            typedSegments: promptText.split("").map((ch) => ({ ch, correct: true })),
+            wpmSamples: [
+              { elapsedSeconds: 0, wpm: 0 },
+              { elapsedSeconds: 1.8, wpm: 73.3 },
+            ],
+            brag: "Beat by +23.3 WPM",
+            count: 2,
+            mode: 0,
+            subMode: 1,
+            language: "english",
+            sourceShareSlug: "beat-source-score",
+            attemptNumber: 1,
+            createdAt: Date.parse("2026-06-01T12:05:00.000Z"),
+          },
+          user: null,
+        };
+      }
       if (typeof input?.slug === "string" && input.slug.startsWith("progress")) {
         return {
           id: "share-progress-1",
