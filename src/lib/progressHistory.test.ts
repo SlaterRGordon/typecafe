@@ -48,6 +48,16 @@ describe("progressHistory", () => {
         expect(all.at(-1)!.wpm).toBe(1004)
     })
 
+    it("caps an oversized (hand-edited) storage on read so sync never exceeds the server limit", () => {
+        const s = fakeStorage()
+        const oversized = Array.from({ length: 1500 }, (_, i) => ({ wpm: i, accuracy: 95, t: i }))
+        s.setItem("typecafe:progressHistory", JSON.stringify(oversized))
+        const all = readLocalProgress(s)
+        expect(all).toHaveLength(1000)
+        expect(all[0]!.wpm).toBe(500)
+        expect(all.at(-1)!.wpm).toBe(1499)
+    })
+
     it("clears imported entries after a successful sync", () => {
         const s = fakeStorage()
         appendLocalProgress({ wpm: 60, accuracy: 95, t: 1 }, s)

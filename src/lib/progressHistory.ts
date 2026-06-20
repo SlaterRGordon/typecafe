@@ -30,7 +30,11 @@ export function readLocalProgress(s = storage()): LocalProgressEntry[] {
     try {
         const parsed = JSON.parse(s.getItem(KEY) ?? "[]") as unknown
         if (!Array.isArray(parsed)) return []
-        return parsed.map(sanitize).filter((e): e is LocalProgressEntry => e !== null)
+        // Cap on read too, not just on write: a hand-edited (user-editable)
+        // localStorage could hold more than CAP, and sync-on-signup rejects a
+        // batch over the server limit — which would silently never clear and retry
+        // forever. Keeping the newest CAP keeps that path bounded.
+        return parsed.map(sanitize).filter((e): e is LocalProgressEntry => e !== null).slice(-CAP)
     } catch {
         return []
     }
