@@ -5,7 +5,7 @@ Critical pass over the shipped Phase 3 surfaces (progress dashboard, score card,
 ## Trust — the numbers (vision principle #4)
 
 - ✅ **DONE — No minimum-length gate before a test is ranked.** Fixed: pure `isRankableSample` (≥3s, ≥10 keystrokes; firmer than the display floor) gates `ranked` in `test.create`, so a stray 1–3 keystroke test still saves but no longer feeds rollups/streaks/trend/percentile/brag. Documented on /how-we-measure. Thresholds tunable by owner. Unit-tested (`isRankableSample`, `timelineDurationMs`).
-- 🔴 **Score card hero is Raw WPM regardless of accuracy.** 0% accuracy / 50 wrong keystrokes still headlines "150.0 — Raw speed" with net 0.0 below (screenshot 35). A skeptic screenshots that. → lead with net, or demote/suppress raw when accuracy collapses.
+- ✅ **DONE — Score card hero was Raw WPM regardless of accuracy.** 0% / 50-wrong headlined "150.0 Raw speed". Fixed: pure `shouldHeroNetWpm` (accuracy < 50%, where net is 0 anyway) makes the card lead with Net WPM and demote raw to a normal cell, so a big raw figure never sits over a near-0 run. Unit-tested; screenshot 35 re-captured.
 - 🟠 **Brag + 30-day delta on degenerate tests** (screenshot 13: percentile + "3.2 over 30-day avg" on a 1-keystroke card). Follows directly from the no-min-length gap above. `buildBrag` guards on `ranked` ([test.ts:60](src/server/api/routers/test.ts#L60)) but "ranked" is too easy to earn.
 
 ## Coordination — surfaces contradict each other

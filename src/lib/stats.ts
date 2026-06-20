@@ -32,6 +32,15 @@ export function isRankableSample(durationSeconds: number, keystrokes: number): b
     return durationSeconds >= RANKABLE_MIN_SECONDS && keystrokes >= RANKABLE_MIN_KEYSTROKES
 }
 
+// Below this accuracy more than half the keystrokes were wrong, so raw WPM is a
+// vanity number (net WPM is 0 here). The score card leads with net instead, so a
+// "150 wpm" headline never sits above a 0% run. (vision: numbers beyond reproach)
+export const SCORE_HERO_NET_ACCURACY_FLOOR = 50
+
+export function shouldHeroNetWpm(accuracy: number): boolean {
+    return accuracy < SCORE_HERO_NET_ACCURACY_FLOOR
+}
+
 export interface WpmSample {
     elapsedSeconds: number,
     wpm: number,

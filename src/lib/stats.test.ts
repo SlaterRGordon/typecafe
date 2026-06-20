@@ -7,6 +7,7 @@ import {
     instantaneousWpm,
     isRankableSample,
     isReliableWpmSample,
+    shouldHeroNetWpm,
     worstKeysFromAttempts,
     wpmImprovement,
     WPM_SAMPLE_TARGET_POINTS,
@@ -307,6 +308,19 @@ describe("isRankableSample", () => {
 
     it("accepts a normal test", () => {
         expect(isRankableSample(15, 120)).toBe(true)
+    })
+})
+
+describe("shouldHeroNetWpm", () => {
+    it("leads with net WPM when accuracy collapses", () => {
+        expect(shouldHeroNetWpm(0)).toBe(true)
+        expect(shouldHeroNetWpm(49.9)).toBe(true)
+    })
+
+    it("keeps raw WPM as the hero for normal runs", () => {
+        expect(shouldHeroNetWpm(50)).toBe(false)
+        expect(shouldHeroNetWpm(96.5)).toBe(false)
+        expect(shouldHeroNetWpm(100)).toBe(false)
     })
 })
 

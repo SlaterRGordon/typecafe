@@ -3,7 +3,7 @@ import { type CSSProperties, useId, useMemo, useRef, useState } from "react";
 
 import { TestModes, TestSubModes } from "~/components/typer/types";
 import { ShareableScoreImage } from "./ShareableScoreImage";
-import { consistencyFromSamples, wpmImprovement } from "~/lib/stats";
+import { consistencyFromSamples, shouldHeroNetWpm, wpmImprovement } from "~/lib/stats";
 import type { KeyAccuracy, TypedSegment, WpmSample as ScoreWpmSample } from "~/lib/stats";
 import { decodeTimeline } from "~/lib/keystrokes";
 import type { EncodedKeystroke } from "~/lib/keystrokes";
@@ -626,12 +626,19 @@ export function ShareableScoreCard(props: ShareableScoreCardProps) {
       .join(", ");
   }, [score.worstKeys]);
 
-  const metricItems = useMemo(() => [
-    { label: "WPM", value: formatNumber(score.rawWpm, 1), note: "Raw speed", info: "Raw words per minute, calculated from all typed keystrokes before error adjustment.", hero: true },
-    { label: "Accuracy", value: `${formatNumber(score.accuracy, 2)}%`, note: "Correct keystrokes", info: "The percentage of typed keystrokes that matched the expected text." },
-    { label: "Duration", value: `${formatInteger(score.durationSeconds)}s`, note: "Completed", info: "The completed test duration in seconds." },
-    { label: "Net WPM", value: formatNumber(score.netWpm, 1), note: "Adjusted for errors", info: "Words per minute after incorrect keystrokes are subtracted from the result." },
-  ], [score]);
+  const metricItems = useMemo(() => {
+    // When accuracy collapses (more than half the keys wrong), raw WPM is a
+    // vanity number, so lead with error-adjusted net WPM instead of heroing a big
+    // raw figure over a near-0 run.
+    const heroNet = shouldHeroNetWpm(score.accuracy);
+    const rawCard = { label: "WPM", value: formatNumber(score.rawWpm, 1), note: "Raw speed", info: "Raw words per minute, calculated from all typed keystrokes before error adjustment.", hero: !heroNet };
+    const netCard = { label: "Net WPM", value: formatNumber(score.netWpm, 1), note: "Adjusted for errors", info: "Words per minute after incorrect keystrokes are subtracted from the result.", hero: heroNet };
+    const accuracyCard = { label: "Accuracy", value: `${formatNumber(score.accuracy, 2)}%`, note: "Correct keystrokes", info: "The percentage of typed keystrokes that matched the expected text." };
+    const durationCard = { label: "Duration", value: `${formatInteger(score.durationSeconds)}s`, note: "Completed", info: "The completed test duration in seconds." };
+    return heroNet
+      ? [netCard, accuracyCard, durationCard, rawCard]
+      : [rawCard, accuracyCard, durationCard, netCard];
+  }, [score]);
 
   return (
     <section className="w-full max-w-7xl px-4 py-4 sm:px-6">
