@@ -130,6 +130,7 @@ const Challenge: NextPage = () => {
             typedSegments: result.typedSegments,
             worstKeys: result.worstKeys,
             timeline: result.timeline,
+            ranked: result.ranked,
             brag: challengeShareBrag(result.avgDelta),
             avgDelta: result.avgDelta,
             streak: result.streak,

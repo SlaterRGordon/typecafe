@@ -14,6 +14,7 @@ import type { Keystroke, TypedSegment } from "~/lib/stats"
 import { encodeTimeline } from "~/lib/keystrokes"
 import type { KeystrokeEvent } from "~/lib/keystrokes"
 import { isAnyModalOpen } from "~/lib/modals"
+import { isRankableTimeline } from "~/lib/antiCheat"
 import { generateTestText } from "./hooks/useTestText"
 import { useGramProgression } from "./hooks/useGramProgression"
 import { useRestartShortcut } from "./hooks/useRestartShortcut"
@@ -288,6 +289,8 @@ export const Typer = (props: TyperProps) => {
             ? count
             : finalStats.durationSeconds
         const wpmSamples = buildWpmSamples(keystrokeTimelineRef.current)
+        const timeline = encodeTimeline(keyEventsRef.current)
+        const ranked = !customLength && isRankableTimeline(timeline)
 
         return {
             speed: finalStats.rawWpm,
@@ -302,11 +305,11 @@ export const Typer = (props: TyperProps) => {
             typedText: typedTextRef.current,
             typedSegments: [...typedSegmentsRef.current],
             worstKeys: worstKeysFromAttempts(testCharAttemptsRef.current),
-            timeline: encodeTimeline(keyEventsRef.current),
+            timeline,
             wpmSamples,
             punctuation,
             capitals,
-            ranked: !customLength,
+            ranked,
             levelName: level?.name,
             typeId: testType?.id,
             persisted: false,
@@ -378,7 +381,8 @@ export const Typer = (props: TyperProps) => {
                         options: level ? level.name : "",
                         punctuation,
                         capitals,
-                        ranked: !customLength,
+                        ranked: completion.ranked,
+                        timeline: completion.timeline,
                         challengeDate: props.challengeDate,
                     })
                 } else {
@@ -405,7 +409,7 @@ export const Typer = (props: TyperProps) => {
     }, [
         isCompletionValid, isTimed, pause, getStats, buildCompletion, mode, levelRequirements,
         dispatch, sessionData, testType, persistCompletion, count, level, punctuation,
-        capitals, customLength, props.gramWpmThreshold, props.gramAccuracyThreshold,
+        capitals, props.gramWpmThreshold, props.gramAccuracyThreshold,
         props.challengeDate, recordPassedLevel, syncCharAttempts, syncTransitions,
     ])
 

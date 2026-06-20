@@ -6,13 +6,20 @@ import {
   protectedProcedure,
 } from "~/server/api/trpc";
 import type { PrismaClient } from "~/generated/prisma/client";
+import { detectImpossibleTimeline } from "~/lib/antiCheat";
 import { challengeStreakFromDateKeys, shiftChallengeDateKey } from "~/lib/challenge";
+import type { EncodedKeystroke } from "~/lib/keystrokes";
 import { currentStreak } from "~/lib/progress";
 
 // Only surface a percentile brag when it is flattering — never tell a slow typer
 // they are "faster than 8% of typers". Below the threshold we fall back to a
 // personal best or no brag at all.
 const PERCENTILE_BRAG_THRESHOLD = 60;
+const encodedKeystrokeSchema = z.tuple([
+  z.number().int().nonnegative(),
+  z.union([z.literal(0), z.literal(1)]),
+  z.number().nonnegative(),
+]);
 
 interface BragArgs {
   ranked: boolean;
@@ -320,11 +327,13 @@ export const testRouter = createTRPCRouter({
       punctuation: z.boolean().optional(),
       capitals: z.boolean().optional(),
       ranked: z.boolean().optional(),
+      timeline: z.array(encodedKeystrokeSchema),
       // YYYY-MM-DD when this is a daily-challenge run.
       challengeDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
     }))
     .mutation(async ({ ctx, input }) => {
-      const ranked = input.ranked ?? true;
+      const timeline = input.timeline as EncodedKeystroke[];
+      const ranked = (input.ranked ?? true) && !detectImpossibleTimeline(timeline).impossible;
       const test = await ctx.prisma.test.create({
         data: {
           userId: ctx.session?.user.id,

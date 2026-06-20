@@ -99,6 +99,7 @@ function makeScore(input: ProcedureInput) {
     score: 7000,
     count,
     options: "",
+    ranked: typeof input?.ranked === "boolean" ? input.ranked : true,
     user: {
       ...profileUser,
       id: userId,

@@ -5,7 +5,7 @@ import { addAlert } from "~/state/alert/alertSlice"
 import { addLocalKeyStats, clearLocalKeyStats, readLocalKeyStats } from "~/lib/localSync"
 import { addLocalTransitions } from "~/lib/localTransitions"
 import { aggregateTransitions } from "~/lib/transitions"
-import type { KeystrokeEvent } from "~/lib/keystrokes"
+import type { EncodedKeystroke, KeystrokeEvent } from "~/lib/keystrokes"
 import { api } from "~/utils/api"
 import { TestModes } from "../types"
 import type { TestCompletionResult } from "../types"
@@ -21,6 +21,7 @@ export interface CreateTestInput {
     punctuation: boolean,
     capitals: boolean,
     ranked: boolean,
+    timeline: EncodedKeystroke[],
     challengeDate?: string,
 }
 
@@ -43,7 +44,7 @@ export function useTestPersistence({ mode, charAttemptsRef, onTestComplete }: Us
         onSuccess: (test) => {
             const completion = pendingCompletionRef.current
             if (completion) {
-                onTestComplete?.({ ...completion, persisted: true, testId: test.id, brag: test.brag, avgDelta: test.avgDelta, streak: test.streak })
+                onTestComplete?.({ ...completion, persisted: true, testId: test.id, ranked: test.ranked, brag: test.brag, avgDelta: test.avgDelta, streak: test.streak })
                 pendingCompletionRef.current = null
             }
         },

@@ -47,6 +47,8 @@ Replace global percentile bragging with peer context: "fastest 25% of typists wh
 - **Realtime racing** → never (see vision)
 - **Anti-cheat beyond basics** → timeline sanity checks (humanly possible inter-key latencies, variance floor) flag impossible runs on ranked boards; serious anti-cheat waits for a population worth cheating against
 
+**Progress:** 2026-06-19 - *basic ranked-run sanity:* impossible-timeline detection now lives in pure `src/lib/antiCheat.ts` with unit coverage for zero-gap floods, sustained machine bursts, machine-average latency, and replay-like variance floors. `Typer` marks locally impossible or custom-length runs unranked before save, and `test.create` repeats the detector server-side so ranked boards only read plausible timelines.
+
 ## Acceptance
 
 - [x] Two clients on the same date generate byte-identical challenge text with zero network calls
@@ -57,7 +59,8 @@ Replace global percentile bragging with peer context: "fastest 25% of typists wh
   - 2026-06-19: `rankImprovementLeague` sorts by delta before absolute WPM, and `/progress` renders a 1-user self-league from this ISO week vs the prior 30-day baseline.
 - [x] Timezone correctness on challenge day boundaries (23:50/00:10 test)
   - 2026-06-16: `challengeDateKey` uses the local day; unit-tested that 23:50 and 00:10 local fall on different challenge days (and yield different text).
-- [ ] Impossible-timeline runs excluded from ranked boards (unit-tested detector)
+- [x] Impossible-timeline runs excluded from ranked boards (unit-tested detector)
+  - 2026-06-19: `detectImpossibleTimeline` is unit-tested and `test.create` forces impossible timelines to `ranked: false`; ranked boards already filter to `ranked: true`.
 - [ ] Screenshot tour: challenge prompt/result/boards (both rankings), beat-my-run compare view, self-league and cohort league states
 
 **Owner's part:** seed the loop — post your own daily-challenge and beat-my-run links (agents must never astroturf); pick the moment the population justifies flipping self-league → cohorts.

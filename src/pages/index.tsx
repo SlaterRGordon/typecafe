@@ -226,6 +226,7 @@ const Home: NextPage = () => {
             punctuation: result.punctuation,
             capitals: result.capitals,
             ranked: result.ranked,
+            timeline: result.timeline,
           },
         }))
       } catch {
