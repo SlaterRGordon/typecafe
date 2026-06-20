@@ -546,6 +546,10 @@ test.describe("screenshot tour", () => {
     await expect(page.getByRole("heading", { name: "Support TypeCafe" })).toBeVisible();
     await capture(page, testInfo, "20-support");
 
+    await page.goto("/how-we-measure");
+    await expect(page.getByRole("heading", { name: "How TypeCafe Measures Typing" })).toBeVisible();
+    await capture(page, testInfo, "55-how-we-measure");
+
     await page.goto("/privacy-policy");
     await expect(page.getByRole("heading", { name: "Privacy Policy for TypeCafe" })).toBeVisible();
     await capture(page, testInfo, "21-privacy-policy");

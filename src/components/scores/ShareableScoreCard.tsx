@@ -186,20 +186,21 @@ async function copyOrDownloadScoreImage(scoreCard: HTMLElement | null): Promise<
   return "downloaded";
 }
 
-function InfoIcon(props: { label: string }) {
+function InfoIcon(props: { label: string; href?: string }) {
   const tooltipId = useId();
+  const href = props.href ?? "/how-we-measure";
 
   return (
     <span className="group relative inline-flex">
-      <button
-        type="button"
+      <Link
+        href={href}
         className="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-base-content/50 text-[10px] text-base-content/80 outline-none transition hover:border-primary hover:text-primary focus-visible:border-primary focus-visible:text-primary focus-visible:ring-2 focus-visible:ring-primary/40"
-        aria-label={props.label}
+        aria-label={`${props.label} Learn how TypeCafe measures this.`}
         aria-describedby={tooltipId}
-        title={props.label}
+        title={`${props.label} Learn how TypeCafe measures this.`}
       >
         ?
-      </button>
+      </Link>
       <span
         id={tooltipId}
         role="tooltip"

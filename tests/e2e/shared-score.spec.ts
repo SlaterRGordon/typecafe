@@ -101,6 +101,7 @@ test.describe("shared scores", () => {
     await expect(page.getByText("WPM Over Time")).toBeVisible();
     await expect(page.getByText("Performance Details")).toBeVisible();
     await expect(page.getByText("Your Typed Text")).toBeVisible();
+    await expect(page.getByRole("link", { name: /Raw words per minute/ }).first()).toHaveAttribute("href", "/how-we-measure");
     await expect(page.getByRole("button", { name: "Share Score" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Try TypeCafe" })).toBeVisible();
   });

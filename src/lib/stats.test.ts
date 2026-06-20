@@ -91,6 +91,18 @@ describe("buildWpmSamples", () => {
             expect(sample.wpm).toBeGreaterThanOrEqual(0)
         }
     })
+
+    it("shows pauses as zero-speed windows instead of smoothing them away", () => {
+        const timeline: Keystroke[] = [
+            { t: 0, chars: 1 },
+            { t: 100, chars: 2 },
+            { t: 200, chars: 3 },
+            { t: 3_000, chars: 4 },
+        ]
+
+        expect(instantaneousWpm(timeline, 0, 2)).toBe(0)
+        expect(buildWpmSamples(timeline).some((sample) => sample.wpm === 0)).toBe(true)
+    })
 })
 
 describe("computeStats", () => {
@@ -162,6 +174,25 @@ describe("computeStats", () => {
             timedDurationSeconds: 0,
             fallbackStartTime: 0,
         })
+        expect(stats.netWpm).toBe(0)
+    })
+
+    it("defines all-wrong input as 0% accuracy and 0 net WPM", () => {
+        const timeline: Keystroke[] = [
+            { t: 0, chars: 1 },
+            { t: 30_000, chars: 50 },
+        ]
+        const stats = computeStats({
+            timeline,
+            characterCount: 50,
+            incorrectCount: 50,
+            isTimed: false,
+            timedDurationSeconds: 0,
+            fallbackStartTime: 0,
+        })
+
+        expect(stats.rawWpm).toBeCloseTo(20)
+        expect(stats.accuracy).toBe(0)
         expect(stats.netWpm).toBe(0)
     })
 

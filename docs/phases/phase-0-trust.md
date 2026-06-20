@@ -26,6 +26,8 @@ All are already characterized; each fix lands with a unit test in `src/lib/stats
 - **Define accuracy semantics once, in writing**: keystroke accuracy (correct keystrokes / total keystrokes, backspace excluded) is *the* accuracy. Documented in code and on the public page. If we ever also show char-level "real accuracy", it gets a distinct name.
 - **Publish `/how-we-measure`** — plain-language page: raw vs net WPM formulas, the 5-chars-per-word convention, accuracy definition, consistency definition (coefficient of variation on WPM samples), what "unranked" means. Trust artifact + ranks for "how is wpm calculated". Linked from every score card's existing `?` tooltips.
 
+**Progress:** 2026-06-20 - `src/lib/stats.test.ts` now covers every exported stats helper plus the named edge cases (empty/single timelines, backspaces, mid-test pauses, all-wrong input, bursty consistency, tiny WPM samples). `/how-we-measure` is live with raw WPM, net WPM, accuracy, consistency, progress deltas, unranked rules, and coach/diagnosis thresholds; score-card help icons link to it; screenshot tour captures `55-how-we-measure`.
+
 ## 0.3 Visible-credibility polish (S–M)
 
 Details that signal whether anyone careful lives here:
@@ -46,9 +48,13 @@ Only what later phases need — not a beautification pass:
 ## Acceptance
 
 - [ ] Side-by-side manual test vs Monkeytype: WPM within ±1, accuracy within ±0.5 for identical input
-- [ ] `vitest` suite covers every exported function in `src/lib/stats.ts`
-- [ ] `/how-we-measure` live, linked from score-card tooltips
-- [ ] Screenshot tour passes; new states: how-we-measure page, corrected live stats mid-test
-- [ ] No timer drift > 100ms over a 60s test
+- [x] `vitest` suite covers every exported function in `src/lib/stats.ts`
+  - 2026-06-20: `stats.test.ts` covers `computeStats`, `buildWpmSamples`, `charsAtElapsed`, `instantaneousWpm`, `consistencyFromSamples`, `worstKeysFromAttempts`, `isReliableWpmSample`, and `wpmImprovement`, including Phase 0's named edge cases.
+- [x] `/how-we-measure` live, linked from score-card tooltips
+  - 2026-06-20: public page added at `/how-we-measure`; score-card `?` links point there and e2e asserts the WPM help link.
+- [x] Screenshot tour passes; new states: how-we-measure page, corrected live stats mid-test
+  - 2026-06-20: screenshot tour captures `55-how-we-measure`; corrected mid-test live stats remain covered by `02-home-mid-test-with-error`.
+- [x] No timer drift > 100ms over a 60s test
+  - 2026-06-14: `src/hooks/timer/tick.test.ts` proves the 60s countdown reaches zero within 100ms despite per-tick jitter.
 
 **Owner's part:** the side-by-side comparison sessions (real hands on real keyboards), final read of `/how-we-measure` copy.

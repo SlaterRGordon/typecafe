@@ -98,7 +98,8 @@ When budget exists: a "Why am I stuck?" button sends the *aggregated stats only*
   - 2026-06-15: the three timeline-derivable classes (post-error spiral, fatigue fade, doubled-letter) are unit-tested per class and surfaced on the score card. Adjacent-finger + transposition await typed-char capture.
 - [~] Plateau state reproducible with synthetic flat data; plan visibly changes in response
   - 2026-06-16: plateau detection + the `/progress` coach-voice headline are reproducible from synthetic flat data (e2e `flatProgress`). The "plan visibly changes" half waits on §4.4 plans.
-- [ ] All thresholds documented on `/how-we-measure`
+- [x] All thresholds documented on `/how-we-measure`
+  - 2026-06-20: `/how-we-measure` documents stance, plateau, transition, and error-taxonomy thresholds from the exported configs.
 - [x] Screenshot tour: plan view (calibration + targeted), plateau headline, stance display, transition findings
   - 2026-06-20: rich `/progress` screenshot (`40`) asserts stance + slow-transition findings, plateau headline remains `47`, targeted plan remains `48`, and calibration plan is captured as `54-practice-plan-calibration`.
 
