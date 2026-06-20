@@ -465,6 +465,11 @@ test.describe("screenshot tour", () => {
     await page.goto("/challenge");
     await expect(page.getByTestId("challenge-header")).toBeVisible();
     await expect(page.locator("#words .char").first()).toBeVisible();
+    const boards = page.getByTestId("daily-challenge-boards");
+    await expect(boards).toBeVisible();
+    await expect(boards).toContainText("Fastest Today");
+    await expect(boards).toContainText("Most Improved");
+    await expect(boards).toContainText("+6.0");
     await capture(page, testInfo, "49-daily-challenge");
   });
 

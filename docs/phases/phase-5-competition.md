@@ -63,6 +63,9 @@ Replace global percentile bragging with peer context: "fastest 25% of typists wh
   - 2026-06-16: `challengeDateKey` uses the local day; unit-tested that 23:50 and 00:10 local fall on different challenge days (and yield different text).
 - [x] Impossible-timeline runs excluded from ranked boards (unit-tested detector)
   - 2026-06-19: `detectImpossibleTimeline` is unit-tested and `test.create` forces impossible timelines to `ranked: false`; ranked boards already filter to `ranked: true`.
-- [ ] Screenshot tour: challenge prompt/result/boards (both rankings), beat-my-run compare view, self-league and cohort league states
+- [x] Screenshot tour: challenge prompt/result/boards (both rankings), beat-my-run compare view, and self-league
+  - 2026-06-20: screenshot tour captures daily challenge prompt + both boards (`49`), home daily prompt (`50`), challenge result share card (`51`), beat-my-run compare (`52`), and self-league (`53`). The daily challenge screenshot asserts both Fastest Today and Most Improved boards.
+- [~] Cohort league screenshot state
+  - Explicitly deferred: true cohorts need enough weekly active users and the cohort assignment/data model. Until then, the captured self-league is the honest cold-start state; do not fake cohort screenshots.
 
 **Owner's part:** seed the loop — post your own daily-challenge and beat-my-run links (agents must never astroturf); pick the moment the population justifies flipping self-league → cohorts.
