@@ -385,6 +385,8 @@ test.describe("screenshot tour", () => {
     await page.goto("/progress");
     await expect(page.getByTestId("headline-delta")).toBeVisible();
     await expect(page.getByTestId("self-league-card")).toBeVisible();
+    await expect(page.getByTestId("stance")).toBeVisible();
+    await expect(page.getByTestId("worst-transitions")).toContainText("b→r");
     await expect(page.getByTestId("trend-chart").first()).toBeVisible();
     await expect(page.getByTestId("lifetime-heatmap")).toBeVisible();
     await capture(page, testInfo, "40-progress-dashboard");
@@ -498,6 +500,13 @@ test.describe("screenshot tour", () => {
     await page.goto("/plan");
     await expect(page.getByTestId("plan-today")).toBeVisible();
     await capture(page, testInfo, "48-practice-plan");
+  });
+
+  test("practice plan (calibration)", async ({ page }, testInfo) => {
+    await page.goto("/plan");
+    await expect(page.getByText(/Calibration week/)).toBeVisible();
+    await expect(page.getByTestId("plan-today")).toBeVisible();
+    await capture(page, testInfo, "54-practice-plan-calibration");
   });
 
   test("shared progress card", async ({ page }, testInfo) => {

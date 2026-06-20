@@ -99,6 +99,7 @@ When budget exists: a "Why am I stuck?" button sends the *aggregated stats only*
 - [~] Plateau state reproducible with synthetic flat data; plan visibly changes in response
   - 2026-06-16: plateau detection + the `/progress` coach-voice headline are reproducible from synthetic flat data (e2e `flatProgress`). The "plan visibly changes" half waits on §4.4 plans.
 - [ ] All thresholds documented on `/how-we-measure`
-- [ ] Screenshot tour: plan view (calibration + targeted), plateau headline, stance display, transition findings
+- [x] Screenshot tour: plan view (calibration + targeted), plateau headline, stance display, transition findings
+  - 2026-06-20: rich `/progress` screenshot (`40`) asserts stance + slow-transition findings, plateau headline remains `47`, targeted plan remains `48`, and calibration plan is captured as `54-practice-plan-calibration`.
 
 **Owner's part:** be the first coached user and judge every sentence — coaching copy that feels canned kills the feature; calibrate thresholds against your own felt experience.
