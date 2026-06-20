@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { appendLocalProgress, readLocalProgress, type LocalProgressEntry } from "./progressHistory"
+import { appendLocalProgress, clearLocalProgress, readLocalProgress } from "./progressHistory"
 
 // Minimal in-memory Storage stand-in (no jsdom needed).
 function fakeStorage(): Storage {
@@ -46,5 +46,12 @@ describe("progressHistory", () => {
         expect(all).toHaveLength(1000)
         expect(all[0]!.wpm).toBe(5)
         expect(all.at(-1)!.wpm).toBe(1004)
+    })
+
+    it("clears imported entries after a successful sync", () => {
+        const s = fakeStorage()
+        appendLocalProgress({ wpm: 60, accuracy: 95, t: 1 }, s)
+        clearLocalProgress(s)
+        expect(readLocalProgress(s)).toEqual([])
     })
 })

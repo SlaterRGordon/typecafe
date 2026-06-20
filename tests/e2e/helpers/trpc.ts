@@ -146,6 +146,7 @@ function makeProgressRecords(flat = false, mixed = false) {
       consistency: 74 + (i % 8),
       count: wordsRecord ? 25 : 30,
       createdAt: new Date(now - daysAgo * dayMs),
+      day: new Date(now - daysAgo * dayMs).toISOString().slice(0, 10),
       mode: 0,
       subMode: wordsRecord ? 1 : 0,
       language: "english",
@@ -153,7 +154,38 @@ function makeProgressRecords(flat = false, mixed = false) {
   });
 }
 
-function responseForProcedure(procedure: string, input: ProcedureInput, options: MockTrpcOptions, state: { importedLearnProgress: boolean }) {
+function progressRollupsFromEntries(input: ProcedureInput) {
+  const entries = Array.isArray(input?.entries) ? input.entries : [];
+  const byDay = new Map<string, { day: string; tests: number; bestWpm: number; totalWpm: number; totalAccuracy: number; totalConsistency: number; consistencySamples: number }>();
+
+  for (const raw of entries) {
+    if (!raw || typeof raw !== "object") continue;
+    const entry = raw as Record<string, unknown>;
+    if (typeof entry.wpm !== "number" || typeof entry.accuracy !== "number" || typeof entry.t !== "number") continue;
+    const day = new Date(entry.t).toISOString().slice(0, 10);
+    const current = byDay.get(day) ?? { day, tests: 0, bestWpm: 0, totalWpm: 0, totalAccuracy: 0, totalConsistency: 0, consistencySamples: 0 };
+    current.tests += 1;
+    current.bestWpm = Math.max(current.bestWpm, entry.wpm);
+    current.totalWpm += entry.wpm;
+    current.totalAccuracy += entry.accuracy;
+    if (typeof entry.c === "number") {
+      current.totalConsistency += entry.c;
+      current.consistencySamples += 1;
+    }
+    byDay.set(day, current);
+  }
+
+  return Array.from(byDay.values()).map((day) => ({
+    day: day.day,
+    tests: day.tests,
+    bestWpm: day.bestWpm,
+    avgWpm: day.totalWpm / day.tests,
+    avgAccuracy: day.totalAccuracy / day.tests,
+    avgConsistency: day.consistencySamples > 0 ? day.totalConsistency / day.consistencySamples : null,
+  }));
+}
+
+function responseForProcedure(procedure: string, input: ProcedureInput, options: MockTrpcOptions, state: { importedLearnProgress: boolean; syncedProgressRollups: unknown[] }) {
   switch (procedure) {
     case "type.get":
       return {
@@ -172,6 +204,11 @@ function responseForProcedure(procedure: string, input: ProcedureInput, options:
       return [makeScore(input)];
     case "test.create":
       return { ...makeScore({ ...input, userId: profileUser.id }), brag: "Faster than 72% of similar starters", avgDelta: 3.2, streak: 5 };
+    case "test.syncProgressHistory":
+      state.syncedProgressRollups = progressRollupsFromEntries(input);
+      return { count: Array.isArray(input?.entries) ? input.entries.length : 0, days: state.syncedProgressRollups.length, rollups: state.syncedProgressRollups };
+    case "test.getDailyProgressRollups":
+      return state.syncedProgressRollups;
     case "test.getDailyChallengeStatus":
       return {
         today: { dateKey: input?.dateKey ?? "2026-06-16", wpm: 82.4, accuracy: 98.1, t: Date.now(), delta: 3.2 },
@@ -389,7 +426,7 @@ function responseForProcedure(procedure: string, input: ProcedureInput, options:
 
 export async function mockTrpc(page: Page, options: MockTrpcOptions = {}) {
   currentProfileUser = { ...profileUser, image: options.profileImage ?? profileUser.image };
-  const state = { importedLearnProgress: false };
+  const state = { importedLearnProgress: false, syncedProgressRollups: [] as unknown[] };
 
   await page.route("**/api/trpc/**", async (route: Route) => {
     const url = new URL(route.request().url());

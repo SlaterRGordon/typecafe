@@ -21,6 +21,7 @@ export interface ProgressRecord {
     accuracy: number
     consistency?: number
     createdAt: Date
+    day?: string
     count?: number
     mode?: number
     subMode?: number
@@ -385,6 +386,7 @@ export interface DailyRollup {
     bestWpm: number
     avgWpm: number
     avgAccuracy: number
+    avgConsistency?: number | null
 }
 
 // The local calendar day a timestamp falls in, as YYYY-MM-DD. `utcOffsetMinutes`
@@ -421,6 +423,25 @@ export function dailyRollups(records: ProgressRecord[], utcOffsetMinutes = 0): D
             avgAccuracy: averageAccuracy(dayRecords),
         }))
         .sort((a, b) => (a.day < b.day ? -1 : a.day > b.day ? 1 : 0))
+}
+
+// Signed-in /progress prefers raw Test rows for scatter/mode filters, then uses
+// DailyUserStat rows only for days that have no raw tests in the payload. This
+// lets imported guest history survive signup without double-counting days that
+// already have real Test rows.
+export function mergeDailyRollups(records: ProgressRecord[], rollups: DailyRollup[]): ProgressRecord[] {
+    const rawDays = new Set(records.map((record) => record.day ?? dayKey(record.createdAt)))
+    const rollupRecords = rollups
+        .filter((rollup) => !rawDays.has(rollup.day))
+        .map((rollup) => ({
+            wpm: rollup.avgWpm,
+            accuracy: rollup.avgAccuracy,
+            consistency: rollup.avgConsistency ?? undefined,
+            createdAt: new Date(`${rollup.day}T12:00:00.000Z`),
+        }))
+
+    return [...records, ...rollupRecords]
+        .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
 }
 
 // ---------------------------------------------------------------------------

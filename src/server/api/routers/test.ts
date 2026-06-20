@@ -14,7 +14,7 @@ import {
   peerPercentileForScore,
   starterPeersFromTests,
 } from "~/lib/peerPercentile";
-import { currentStreak } from "~/lib/progress";
+import { currentStreak, dayKey } from "~/lib/progress";
 
 // Only surface a percentile brag when it is flattering — never tell a slow typer
 // they are "faster than 8% of typers". Below the threshold we fall back to a
@@ -26,6 +26,23 @@ const encodedKeystrokeSchema = z.tuple([
   z.union([z.literal(0), z.literal(1)]),
   z.number().nonnegative(),
 ]);
+const utcOffsetMinutesSchema = z.number().int().min(-14 * 60).max(14 * 60).optional();
+const progressHistoryEntrySchema = z.object({
+  wpm: z.number().min(0),
+  accuracy: z.number().min(0).max(100),
+  c: z.number().min(0).max(100).optional(),
+  t: z.number().finite(),
+});
+
+interface DailyStatAggregate {
+  date: Date;
+  tests: number;
+  bestWpm: number;
+  totalWpm: number;
+  totalAccuracy: number;
+  totalConsistency: number;
+  consistencySamples: number;
+}
 
 interface BragArgs {
   ranked: boolean;
@@ -117,6 +134,117 @@ async function thirtyDayDelta(
   });
   if (agg._count < MIN_TESTS_FOR_AVG_DELTA || agg._avg.speed === null) return null;
   return args.speed - agg._avg.speed;
+}
+
+function dateFromDayKey(key: string): Date {
+  return new Date(`${key}T00:00:00.000Z`);
+}
+
+async function upsertDailyUserStat(
+  prisma: Pick<PrismaClient, "dailyUserStat">,
+  userId: string,
+  aggregate: DailyStatAggregate,
+) {
+  const existing = await prisma.dailyUserStat.findUnique({
+    where: {
+      userId_date: {
+        userId,
+        date: aggregate.date,
+      },
+    },
+  });
+
+  const avgWpm = aggregate.totalWpm / aggregate.tests;
+  const avgAccuracy = aggregate.totalAccuracy / aggregate.tests;
+  const avgConsistency = aggregate.consistencySamples > 0
+    ? aggregate.totalConsistency / aggregate.consistencySamples
+    : null;
+
+  if (!existing) {
+    return prisma.dailyUserStat.create({
+      data: {
+        userId,
+        date: aggregate.date,
+        tests: aggregate.tests,
+        bestWpm: aggregate.bestWpm,
+        avgWpm,
+        avgAccuracy,
+        avgConsistency,
+        consistencySamples: aggregate.consistencySamples,
+      },
+    });
+  }
+
+  const tests = existing.tests + aggregate.tests;
+  const consistencySamples = existing.consistencySamples + aggregate.consistencySamples;
+  const consistencyTotal = (existing.avgConsistency ?? 0) * existing.consistencySamples + aggregate.totalConsistency;
+
+  return prisma.dailyUserStat.update({
+    where: { id: existing.id },
+    data: {
+      tests,
+      bestWpm: Math.max(existing.bestWpm, aggregate.bestWpm),
+      avgWpm: ((existing.avgWpm * existing.tests) + aggregate.totalWpm) / tests,
+      avgAccuracy: ((existing.avgAccuracy * existing.tests) + aggregate.totalAccuracy) / tests,
+      avgConsistency: consistencySamples > 0 ? consistencyTotal / consistencySamples : null,
+      consistencySamples,
+    },
+  });
+}
+
+function aggregateProgressHistory(
+  entries: z.infer<typeof progressHistoryEntrySchema>[],
+  utcOffsetMinutes = 0,
+): DailyStatAggregate[] {
+  const byDay = new Map<string, DailyStatAggregate>();
+
+  for (const entry of entries) {
+    const key = dayKey(new Date(entry.t), utcOffsetMinutes);
+    const current = byDay.get(key);
+    const consistency = typeof entry.c === "number" && Number.isFinite(entry.c) ? entry.c : null;
+
+    if (!current) {
+      byDay.set(key, {
+        date: dateFromDayKey(key),
+        tests: 1,
+        bestWpm: entry.wpm,
+        totalWpm: entry.wpm,
+        totalAccuracy: entry.accuracy,
+        totalConsistency: consistency ?? 0,
+        consistencySamples: consistency === null ? 0 : 1,
+      });
+      continue;
+    }
+
+    current.tests += 1;
+    current.bestWpm = Math.max(current.bestWpm, entry.wpm);
+    current.totalWpm += entry.wpm;
+    current.totalAccuracy += entry.accuracy;
+    if (consistency !== null) {
+      current.totalConsistency += consistency;
+      current.consistencySamples += 1;
+    }
+  }
+
+  return Array.from(byDay.values());
+}
+
+function dailyUserStatRollup(row: {
+  date: Date;
+  tests: number;
+  bestWpm: number;
+  avgWpm: number;
+  avgAccuracy: number;
+  avgConsistency: number | null;
+}) {
+  return {
+    day: row.date.toISOString().slice(0, 10),
+    tests: row.tests,
+    bestWpm: row.bestWpm,
+    avgWpm: row.avgWpm,
+    avgAccuracy: row.avgAccuracy,
+    avgConsistency: row.avgConsistency,
+  };
 }
 
 async function thirtyDayChallengeBaseline(
@@ -357,28 +485,46 @@ export const testRouter = createTRPCRouter({
       capitals: z.boolean().optional(),
       ranked: z.boolean().optional(),
       timeline: z.array(encodedKeystrokeSchema),
+      utcOffsetMinutes: utcOffsetMinutesSchema,
       // YYYY-MM-DD when this is a daily-challenge run.
       challengeDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       const timeline = input.timeline as EncodedKeystroke[];
       const ranked = (input.ranked ?? true) && !detectImpossibleTimeline(timeline).impossible;
-      const test = await ctx.prisma.test.create({
-        data: {
-          userId: ctx.session?.user.id,
-          typeId: input.typeId,
-          speed: input.speed,
-          accuracy: input.accuracy,
-          consistency: input.consistency ?? null,
-          challengeDate: input.challengeDate ? new Date(`${input.challengeDate}T00:00:00.000Z`) : null,
-          score: input.score,
-          count: input.count,
-          options: input.options,
-          punctuation: input.punctuation ?? false,
-          capitals: input.capitals ?? false,
-          ranked,
-          summaryDate: new Date(),
-        },
+      const summaryDate = dateFromDayKey(dayKey(new Date(), input.utcOffsetMinutes ?? 0));
+      const test = await ctx.prisma.$transaction(async (tx) => {
+        const created = await tx.test.create({
+          data: {
+            userId: ctx.session.user.id,
+            typeId: input.typeId,
+            speed: input.speed,
+            accuracy: input.accuracy,
+            consistency: input.consistency ?? null,
+            challengeDate: input.challengeDate ? new Date(`${input.challengeDate}T00:00:00.000Z`) : null,
+            score: input.score,
+            count: input.count,
+            options: input.options,
+            punctuation: input.punctuation ?? false,
+            capitals: input.capitals ?? false,
+            ranked,
+            summaryDate,
+          },
+        });
+
+        if (ranked) {
+          await upsertDailyUserStat(tx, ctx.session.user.id, {
+            date: summaryDate,
+            tests: 1,
+            bestWpm: input.speed,
+            totalWpm: input.speed,
+            totalAccuracy: input.accuracy,
+            totalConsistency: typeof input.consistency === "number" ? input.consistency : 0,
+            consistencySamples: typeof input.consistency === "number" ? 1 : 0,
+          });
+        }
+
+        return created;
       });
 
       // A short "brag" line for the result/share card. Choose the most flattering
@@ -406,6 +552,53 @@ export const testRouter = createTRPCRouter({
 
       return { ...test, brag, avgDelta, streak };
     }),
+  syncProgressHistory: protectedProcedure
+    .input(z.object({
+      entries: z.array(progressHistoryEntrySchema).max(1000),
+      utcOffsetMinutes: utcOffsetMinutesSchema,
+    }))
+    .mutation(async ({ ctx, input }) => {
+      if (input.entries.length === 0) return { count: 0, days: 0 };
+
+      const aggregates = aggregateProgressHistory(input.entries, input.utcOffsetMinutes ?? 0);
+      await ctx.prisma.$transaction(async (tx) => {
+        for (const aggregate of aggregates) {
+          await upsertDailyUserStat(tx, ctx.session.user.id, aggregate);
+        }
+      });
+
+      const rows = await ctx.prisma.dailyUserStat.findMany({
+        where: { userId: ctx.session.user.id },
+        orderBy: { date: "asc" },
+        select: {
+          date: true,
+          tests: true,
+          bestWpm: true,
+          avgWpm: true,
+          avgAccuracy: true,
+          avgConsistency: true,
+        },
+      });
+
+      return { count: input.entries.length, days: aggregates.length, rollups: rows.map(dailyUserStatRollup) };
+    }),
+  getDailyProgressRollups: protectedProcedure
+    .query(async ({ ctx }) => {
+      const rows = await ctx.prisma.dailyUserStat.findMany({
+        where: { userId: ctx.session.user.id },
+        orderBy: { date: "asc" },
+        select: {
+          date: true,
+          tests: true,
+          bestWpm: true,
+          avgWpm: true,
+          avgAccuracy: true,
+          avgConsistency: true,
+        },
+      });
+
+      return rows.map(dailyUserStatRollup);
+    }),
   // Flat per-test history for the /progress dashboard (Phase 3 §3.1). Returns
   // every ranked test for the signed-in user, oldest→newest, with just the fields
   // the pure progression math (src/lib/progress.ts) needs plus the test type for
@@ -426,6 +619,7 @@ export const testRouter = createTRPCRouter({
           accuracy: true,
           consistency: true,
           count: true,
+          summaryDate: true,
           createdAt: true,
           type: { select: { mode: true, subMode: true, language: true } },
         },
@@ -436,6 +630,7 @@ export const testRouter = createTRPCRouter({
         accuracy: row.accuracy,
         consistency: row.consistency ?? undefined,
         count: row.count,
+        day: row.summaryDate.toISOString().slice(0, 10),
         createdAt: row.createdAt,
         mode: row.type.mode,
         subMode: row.type.subMode,

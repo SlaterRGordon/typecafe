@@ -383,6 +383,7 @@ export const Typer = (props: TyperProps) => {
                         capitals,
                         ranked: completion.ranked,
                         timeline: completion.timeline,
+                        utcOffsetMinutes: -new Date().getTimezoneOffset(),
                         challengeDate: props.challengeDate,
                     })
                 } else {

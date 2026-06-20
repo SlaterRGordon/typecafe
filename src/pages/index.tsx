@@ -227,6 +227,7 @@ const Home: NextPage = () => {
             capitals: result.capitals,
             ranked: result.ranked,
             timeline: result.timeline,
+            utcOffsetMinutes: -new Date().getTimezoneOffset(),
           },
         }))
       } catch {

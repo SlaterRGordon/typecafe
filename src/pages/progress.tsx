@@ -22,6 +22,7 @@ import {
     filterByPeriod,
     filterProgressRecords,
     headlineDelta,
+    mergeDailyRollups,
     personalRecords,
     rollingAverage,
     selfLeagueSummary,
@@ -504,8 +505,11 @@ const Progress: NextPage = () => {
     const recordsQuery = api.test.getProgressRecords.useQuery(undefined, {
         enabled: !!sessionData?.user,
     });
+    const rollupsQuery = api.test.getDailyProgressRollups.useQuery(undefined, {
+        enabled: !!sessionData?.user,
+    });
 
-    const records: ProgressRecord[] = useMemo(
+    const rawRecords: ProgressRecord[] = useMemo(
         () =>
             (recordsQuery.data ?? []).map((row) => ({
                 wpm: row.wpm,
@@ -515,9 +519,14 @@ const Progress: NextPage = () => {
                 mode: row.mode,
                 subMode: row.subMode,
                 language: row.language,
+                day: row.day,
                 createdAt: new Date(row.createdAt),
             })),
         [recordsQuery.data],
+    );
+    const records = useMemo(
+        () => mergeDailyRollups(rawRecords, rollupsQuery.data ?? []),
+        [rawRecords, rollupsQuery.data],
     );
 
     // Lifetime per-key accuracy for the heatmap: DB practice stats when signed
@@ -554,7 +563,7 @@ const Progress: NextPage = () => {
                 <meta name="description" content="Your typing progress over time: WPM trend, accuracy, and the delta that proves you're getting faster." />
             </Head>
             <div className="flex h-full w-full justify-center overflow-auto px-4 py-8">
-                {status === "loading" || (sessionData?.user && recordsQuery.isLoading) ? (
+                {status === "loading" || (sessionData?.user && (recordsQuery.isLoading || rollupsQuery.isLoading)) ? (
                     <div className="mt-16 text-base-content/50">Loading your progress…</div>
                 ) : !sessionData?.user ? (
                     guestRecords.length > 0 ? (

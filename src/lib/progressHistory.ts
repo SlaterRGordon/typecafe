@@ -1,15 +1,14 @@
-// Guest score-history mirror in localStorage — local-first /progress from the
+// Guest score-history mirror in localStorage: local-first /progress from the
 // first test, no account (locked constraint). Signed-in trends read the DB;
 // this serves guests. Entries are validated on read because localStorage is
-// user-editable. ponytail: capped flat list, no merge/dedup — guests don't
-// generate enough tests to need rollups; sync-on-signup reuses the same shape.
+// user-editable. Sync-on-signup imports the same shape into DailyUserStat.
 const KEY = "typecafe:progressHistory"
 const CAP = 1000
 
 export interface LocalProgressEntry {
     wpm: number
     accuracy: number
-    c?: number // consistency 0–100, optional (older entries lack it)
+    c?: number // consistency 0-100, optional (older entries lack it)
     t: number // epoch ms
 }
 
@@ -43,6 +42,11 @@ export function appendLocalProgress(entry: LocalProgressEntry, s = storage()): v
     try {
         s.setItem(KEY, JSON.stringify(next))
     } catch {
-        // storage full or unavailable — the guest trend just won't grow
+        // Storage full or unavailable: the guest trend just will not grow.
     }
+}
+
+export function clearLocalProgress(s = storage()): void {
+    if (!s) return
+    s.removeItem(KEY)
 }

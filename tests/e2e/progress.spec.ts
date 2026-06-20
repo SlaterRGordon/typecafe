@@ -197,4 +197,31 @@ test.describe("progress dashboard", () => {
     await expect(page.getByTestId("trend-chart").first()).toBeVisible();
     await expect(page.getByTestId("progress-signed-out")).toHaveCount(0);
   });
+
+  test("guest progress history imports after sign in and renders from daily rollups", async ({ page }) => {
+    const calls: { procedure: string; input: unknown }[] = [];
+    await mockAuthenticatedSession(page);
+    await mockTrpc(page, {
+      emptyScores: true,
+      onProcedure: (procedure, input) => {
+        if (procedure === "test.syncProgressHistory") calls.push({ procedure, input });
+      },
+    });
+
+    await page.addInitScript(() => {
+      window.localStorage.setItem("typecafe:lastRecapAt", String(Date.now()));
+      window.localStorage.setItem("typecafe:progressHistory", JSON.stringify([
+        { wpm: 62, accuracy: 94, c: 72, t: Date.parse("2026-06-10T12:00:00.000Z") },
+        { wpm: 68, accuracy: 96, c: 78, t: Date.parse("2026-06-12T12:00:00.000Z") },
+      ]));
+    });
+
+    await gotoProgress(page);
+
+    await expect.poll(async () => page.evaluate(() => window.localStorage.getItem("typecafe:progressHistory"))).toBeNull();
+    expect(calls).toHaveLength(1);
+    expect(calls[0]!.input).toMatchObject({ entries: expect.arrayContaining([expect.objectContaining({ wpm: 62 })]) });
+    await expect(page.getByTestId("trend-chart").first()).toBeVisible();
+    await expect(page.getByText("No tests yet")).toHaveCount(0);
+  });
 });

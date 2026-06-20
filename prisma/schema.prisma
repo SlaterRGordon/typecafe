@@ -56,6 +56,7 @@ model User {
     tests               Test[]
     scoreShares         ScoreShare[]
     colorConfigurations ColorConfiguration[]
+    dailyUserStats      DailyUserStat[]
     practiceStats       PracticeStats[]
     transitionStats     TransitionStat[]
     learnProgress       LearnProgress[]
@@ -156,6 +157,26 @@ model PracticeStats {
 
     @@unique([userId, character])
     @@index([userId])
+}
+
+model DailyUserStat {
+    id                 String   @id @default(cuid())
+    userId             String
+    date               DateTime @db.Date
+    tests              Int
+    bestWpm            Float
+    avgWpm             Float
+    avgAccuracy        Float
+    avgConsistency     Float?
+    consistencySamples Int      @default(0)
+    createdAt          DateTime @default(now())
+    updatedAt          DateTime @updatedAt
+
+    user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    @@unique([userId, date])
+    @@index([userId])
+    @@index([date])
 }
 
 model TransitionStat {

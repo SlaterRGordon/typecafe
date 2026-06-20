@@ -18,9 +18,9 @@ The page answers one question — *am I getting faster?* — before any other de
 5. **Worst-transitions list** — top 5 slow bigrams, each ending in **[Drill]** (the everywhere-rule)
 6. **Records timeline** — PBs as dated events: "Mar 3 — first 80+ WPM test"
 
-**Data:** trends read the `Test` table (signed-in) or the localStorage mirror (guests — local-first means guests get a real `/progress` from day one, capped at their stored history; the page itself is the signup pitch: "sign in to keep this forever").
+**Data:** trends read raw `Test` rows plus `DailyUserStat` rollup-only days (signed-in) or the localStorage mirror (guests - local-first means guests get a real `/progress` from day one, capped at their stored history; the page itself is the signup pitch: "sign in to keep this forever").
 
-**Aggregation:** a `DailyUserStat` rollup table (userId, date, tests, bestWpm, avgWpm, avgAcc) maintained on test-save (derived-on-write, no cron) keeps chart queries O(days) not O(tests).
+**Aggregation:** a `DailyUserStat` rollup table (userId, date, tests, bestWpm, avgWpm, avgAccuracy, avgConsistency) maintained on test-save (derived-on-write, no cron) keeps chart queries O(days) not O(tests).
 
 **Progress (built in slices):**
 - 2026-06-14 — *slice 1, math foundation:* `src/lib/progress.ts` (pure, 37 unit tests) — period windows (7/30/90/all), `headlineDelta` (current vs prior window; all-time splits at the time midpoint; honest "insufficient"), `trendSeries` (scatter + length-aligned rolling average), and `dailyRollups`/`dayKey` (timezone-correct O(days) aggregation mirroring `DailyUserStat`).
@@ -30,12 +30,13 @@ The page answers one question — *am I getting faster?* — before any other de
 - 2026-06-14 — *slice 5, lifetime keyboard heatmap:* reuses `<KeyHeatmap full>` over `practiceStats.get` (signed-in) / `readLocalKeyStats` (guest). e2e + screenshot `40` show it.
 - 2026-06-14 — *slice 6, consistency persisted + trend (also §3.6):* added `Test.consistency` (nullable), computed client-side via `consistencyFromSamples` and threaded through `test.create` (signed-in) and the guest mirror (`progressHistory` `c`). `/progress` now shows a Consistency trend + Avg-consistency cell, gated to render only once every point in the window carries it (no mixing real values with zeros). Older tests stay null and simply don't plot; the trend fills in as new tests accrue.
 - 2026-06-20 — *slice 7, mode/length filters:* `/progress` now filters the whole dashboard by top-level mode (Timed, Words, Practice, Grams, Relaxed) and by available ranked-test length, using the existing `mode/subMode/count` fields from `test.getProgressRecords`. Empty filtered states are honest and resettable. Pure `filterProgressRecords` coverage pins the Timed/Words split and count filtering; e2e covers Words + 25-word filtering and empty Practice reset; screenshot `40` now asserts the filter controls.
+- 2026-06-20 - *slice 8, durable rollups + guest sync:* `DailyUserStat` schema + migration (`20260620120000_add_daily_user_stats`) persists derived-on-write daily aggregates when ranked tests save. The app-level `ProgressHistorySync` imports the guest `typecafe:progressHistory` mirror after sign-in, clears it only after server success, and `/progress` merges rollup-only days with raw `Test` rows so synced guest history remains visible without fabricating per-test mode/length metadata. Pure merge/history coverage + e2e prove import, clearing, and rollup-rendering.
 
 **Blocked — needs prerequisites that don't exist yet (do not fake):**
 - *Heatmap date-range compare ("30 days ago vs now", item 4):* `PracticeStats` are cumulative, not dated; there's no per-key historical snapshot to diff. Needs dated key-stat capture first.
 - *Worst-transitions bigrams (item 5):* requires lifetime per-transition (inter-key latency) aggregates — Phase 4 instrumentation; nothing stores them today.
 
-*Other next slices:* `DailyUserStat` rollup persistence; sync-on-signup of the guest mirror into the DB.
+*Other next slices:* dated key-stat snapshots for heatmap comparison; shared-card streak persistence if shared score cards should show streaks after reload.
 
 ## 3.2 Streaks (S)
 
@@ -92,9 +93,9 @@ No email provider exists. The recap is a surface, not a send:
 ## Acceptance
 
 - [x] A user with 4 weeks of history sees their delta in < 3 seconds on `/progress`
-  - 2026-06-14: Signed-in users get the headline delta + WPM trend immediately on `/progress` (the delta is computed client-side from `test.getProgressRecords`). Guest local history and the richer trends below are still pending.
+  - 2026-06-14: Signed-in users get the headline delta + WPM trend immediately on `/progress` (the delta is computed client-side from `test.getProgressRecords`). 2026-06-20: signed-in progress also reads `DailyUserStat` rollup-only days for imported guest history.
 - [x] A *guest* with 2 weeks of local history sees the same page, plus the keep-it-forever signup pitch
-  - 2026-06-14: Guest completions mirror to localStorage (`progressHistory.ts`); `/progress` renders the full dashboard from it with a "sign in to keep it forever" banner. Sync-on-signup into the DB is still pending.
+  - 2026-06-14: Guest completions mirror to localStorage (`progressHistory.ts`); `/progress` renders the full dashboard from it with a "sign in to keep it forever" banner. 2026-06-20: after sign-in, the local mirror batch-imports into `DailyUserStat`, clears on success, and signed-in `/progress` renders imported rollup-only days.
 - [~] Progress share card unfurls correctly on Discord/Twitter (OG verified like the score card was)
   - 2026-06-15: progress share card + OG route built (`/score/[slug]` kind="progress", `ProgressShareCard`, progress OG leading with the delta); e2e covers create + render. Real-world unfurl verification on Discord/Twitter is the owner's part (needs the migration applied + a public URL).
 - [x] Streak math correct across timezones (test: tests at 23:50 and 00:10)

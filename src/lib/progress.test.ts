@@ -13,6 +13,7 @@ import {
     filterProgressRecords,
     headlineDelta,
     isoWeekStart,
+    mergeDailyRollups,
     periodStart,
     personalRecords,
     rankImprovementLeague,
@@ -378,6 +379,25 @@ describe("dailyRollups", () => {
 
     it("returns an empty array for no records", () => {
         expect(dailyRollups([])).toEqual([])
+    })
+})
+
+describe("mergeDailyRollups", () => {
+    it("adds rollup-only days without duplicating days that already have raw tests", () => {
+        const raw = [
+            // Created on the next UTC day, but saved into the user's 2026-06-14
+            // local summary day. The merge must use the persisted day.
+            { wpm: 70, accuracy: 95, count: 30, mode: 0, subMode: 0, day: "2026-06-14", createdAt: new Date("2026-06-15T04:50:00.000Z") },
+        ]
+        const merged = mergeDailyRollups(raw, [
+            { day: "2026-06-13", tests: 2, bestWpm: 69, avgWpm: 65, avgAccuracy: 94, avgConsistency: 80 },
+            { day: "2026-06-14", tests: 1, bestWpm: 70, avgWpm: 70, avgAccuracy: 95 },
+        ])
+
+        expect(merged).toHaveLength(2)
+        expect(merged.map((record) => record.day ?? dayKey(record.createdAt))).toEqual(["2026-06-13", "2026-06-14"])
+        expect(merged[0]).toMatchObject({ wpm: 65, accuracy: 94, consistency: 80 })
+        expect(merged[1]).toMatchObject({ wpm: 70, count: 30, mode: 0, subMode: 0 })
     })
 })
 
