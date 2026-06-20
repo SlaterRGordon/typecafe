@@ -20,6 +20,16 @@ export interface KeystrokeEvent {
 // persist on Test.timeline.
 export type EncodedKeystroke = [number, 0 | 1, number]
 
+// Total elapsed typing time of an encoded timeline (sum of inter-key gaps, in
+// ms). The first keystroke contributes 0, so this is the span from the first to
+// the last committed key — the duration figure used to judge whether a sample is
+// substantial enough to rank.
+export function timelineDurationMs(encoded: EncodedKeystroke[]): number {
+    let total = 0
+    for (const [, , dtMs] of encoded) total += Math.max(0, dtMs)
+    return total
+}
+
 export function encodeTimeline(events: KeystrokeEvent[]): EncodedKeystroke[] {
     const encoded: EncodedKeystroke[] = []
     let prevT: number | null = null

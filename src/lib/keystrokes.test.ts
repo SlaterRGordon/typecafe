@@ -5,6 +5,7 @@ import {
     encodeTimeline,
     keyLatencies,
     overallMeanLatency,
+    timelineDurationMs,
     type KeystrokeEvent,
 } from "./keystrokes"
 
@@ -16,6 +17,21 @@ function events(pairs: [string, number][], startAt = 1_000_000): KeystrokeEvent[
         return { key, correct: true, t }
     })
 }
+
+describe("timelineDurationMs", () => {
+    it("sums inter-key gaps (first keystroke contributes 0)", () => {
+        expect(timelineDurationMs(encodeTimeline(events([["a", 0], ["b", 120], ["c", 80]])))).toBe(200)
+    })
+
+    it("is 0 for an empty or single-keystroke timeline", () => {
+        expect(timelineDurationMs([])).toBe(0)
+        expect(timelineDurationMs(encodeTimeline(events([["a", 0]])))).toBe(0)
+    })
+
+    it("ignores negative gaps", () => {
+        expect(timelineDurationMs([[97, 1, 50], [98, 1, -30], [99, 1, 20]])).toBe(70)
+    })
+})
 
 describe("encodeTimeline / decodeTimeline", () => {
     it("encodes the first keystroke with a zero delta", () => {

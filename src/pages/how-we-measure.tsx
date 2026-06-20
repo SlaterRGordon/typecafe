@@ -3,6 +3,8 @@ import Head from "next/head";
 
 import { DocumentPage, DocumentSection } from "~/components/legal/DocumentPage";
 import {
+  RANKABLE_MIN_KEYSTROKES,
+  RANKABLE_MIN_SECONDS,
   WPM_MIN_RELIABLE_KEYSTROKES,
   WPM_MIN_RELIABLE_SECONDS,
   WPM_MIN_WINDOW_SECONDS,
@@ -88,6 +90,7 @@ const HowWeMeasure: NextPage = () => {
           <p>Ranked runs feed leaderboards, personal bests, challenge boards, improvement leagues, and percentile brags. Unranked runs still show a result, but they do not compete.</p>
           <ul>
             <li>Custom-length tests are unranked.</li>
+            <li>Tiny runs are unranked: a ranked test needs at least {RANKABLE_MIN_SECONDS}s of typing and at least {RANKABLE_MIN_KEYSTROKES} keystrokes, so a stray tap never inflates a streak or trend.</li>
             <li>Impossible keystroke timelines are unranked by basic sanity checks.</li>
             <li>Ranked boards query only rows marked ranked.</li>
           </ul>

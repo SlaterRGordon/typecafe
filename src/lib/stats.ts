@@ -19,6 +19,19 @@ export function isReliableWpmSample(durationSeconds: number, keystrokes: number)
     return durationSeconds >= WPM_MIN_RELIABLE_SECONDS && keystrokes >= WPM_MIN_RELIABLE_KEYSTROKES
 }
 
+// Ranking floor — separate from, and firmer than, the display floor above.
+// A *ranked* test feeds lifetime aggregates (daily rollups, streaks, the WPM
+// trend, percentile pools, the brag line), so a stray 1–3 keystroke or abandoned
+// test must not count: it would inflate streaks and pollute the trend the whole
+// product is built to prove. A genuine attempt clears this easily; the numbers
+// are tunable and documented on /how-we-measure.
+export const RANKABLE_MIN_SECONDS = 3
+export const RANKABLE_MIN_KEYSTROKES = 10
+
+export function isRankableSample(durationSeconds: number, keystrokes: number): boolean {
+    return durationSeconds >= RANKABLE_MIN_SECONDS && keystrokes >= RANKABLE_MIN_KEYSTROKES
+}
+
 export interface WpmSample {
     elapsedSeconds: number,
     wpm: number,

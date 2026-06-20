@@ -5,6 +5,7 @@ import {
     computeStats,
     consistencyFromSamples,
     instantaneousWpm,
+    isRankableSample,
     isReliableWpmSample,
     worstKeysFromAttempts,
     wpmImprovement,
@@ -277,6 +278,35 @@ describe("isReliableWpmSample", () => {
 
     it("accepts a comfortably large sample", () => {
         expect(isReliableWpmSample(30, 250)).toBe(true)
+    })
+})
+
+describe("isRankableSample", () => {
+    it("rejects a stray 1–3 keystroke tap", () => {
+        // The "1-keystroke test still got a percentile brag" case.
+        expect(isRankableSample(0.5, 1)).toBe(false)
+        expect(isRankableSample(10, 3)).toBe(false) // plenty of time, far too few keys
+    })
+
+    it("rejects a sample that clears only one bar", () => {
+        expect(isRankableSample(2.9, 50)).toBe(false) // enough keys, too short
+        expect(isRankableSample(30, 9)).toBe(false) // long enough, too few keys
+    })
+
+    it("requires both at least 3s and at least 10 keystrokes", () => {
+        expect(isRankableSample(3, 9)).toBe(false)
+        expect(isRankableSample(2.99, 10)).toBe(false)
+        expect(isRankableSample(3, 10)).toBe(true)
+    })
+
+    it("is a firmer bar than the WPM-display floor", () => {
+        // A sample can be display-reliable yet not substantial enough to rank.
+        expect(isReliableWpmSample(1, 5)).toBe(true)
+        expect(isRankableSample(1, 5)).toBe(false)
+    })
+
+    it("accepts a normal test", () => {
+        expect(isRankableSample(15, 120)).toBe(true)
     })
 })
 

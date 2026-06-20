@@ -8,7 +8,8 @@ import {
 import type { PrismaClient } from "~/generated/prisma/client";
 import { detectImpossibleTimeline } from "~/lib/antiCheat";
 import { challengeStreakFromDateKeys, shiftChallengeDateKey } from "~/lib/challenge";
-import type { EncodedKeystroke } from "~/lib/keystrokes";
+import { timelineDurationMs, type EncodedKeystroke } from "~/lib/keystrokes";
+import { isRankableSample } from "~/lib/stats";
 import {
   peerPercentileBrag,
   peerPercentileForScore,
@@ -491,7 +492,12 @@ export const testRouter = createTRPCRouter({
     }))
     .mutation(async ({ ctx, input }) => {
       const timeline = input.timeline as EncodedKeystroke[];
-      const ranked = (input.ranked ?? true) && !detectImpossibleTimeline(timeline).impossible;
+      // A test only ranks if it's a substantial, human sample: enough keystrokes
+      // and time to be a real attempt (not a stray 1–3 key tap), and not a
+      // machine-like timeline. Unranked tests still save — they just don't feed
+      // rollups, streaks, trends, or percentiles.
+      const substantialSample = isRankableSample(timelineDurationMs(timeline) / 1000, timeline.length);
+      const ranked = (input.ranked ?? true) && substantialSample && !detectImpossibleTimeline(timeline).impossible;
       const summaryDate = dateFromDayKey(dayKey(new Date(), input.utcOffsetMinutes ?? 0));
       const test = await ctx.prisma.$transaction(async (tx) => {
         const created = await tx.test.create({
