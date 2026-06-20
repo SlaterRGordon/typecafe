@@ -41,6 +41,8 @@ Weekly cohorts ranked by **delta, not absolute speed** — the only leaderboard 
 
 Replace global percentile bragging with peer context: "fastest 25% of typists who started within ±10 WPM of you" (computed from `DailyUserStat` baselines). Falls back to global percentile until the peer pool ≥ 50. Keeps the existing never-discourage rule — below the 60th percentile we show deltas, not ranks.
 
+**Progress:** 2026-06-19 - *score brag peer context:* saved-score brags now try similar-starter context before global percentile: each user's starter baseline is derived from their first 3 ranked tests, peers are users within +/-10 WPM, and rank language only appears once the peer pool has at least 50 users and the result beats at least 60% of them. Until then, the existing global-percentile fallback remains. Pure helper + unit tests live in `src/lib/peerPercentile.ts`.
+
 ## 5.5 Deliberately deferred
 
 - **Clubs/team spaces** → stays in Phase 7 until there are communities to host

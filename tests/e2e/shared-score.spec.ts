@@ -161,7 +161,7 @@ test.describe("shared scores", () => {
     await expect(page.getByText("Performance Details")).toBeVisible();
     await expect(page.getByText("Your Typed Text")).toBeVisible();
     // The server-computed brag line is surfaced on the results dashboard.
-    await expect(page.getByTestId("score-screenshot-card").getByText("New personal best")).toBeVisible();
+    await expect(page.getByTestId("score-screenshot-card").getByText("Faster than 72% of similar starters")).toBeVisible();
     await expect(page.locator("#words")).toBeHidden();
     await page.getByRole("button", { name: "Share Score" }).click({ force: true });
 

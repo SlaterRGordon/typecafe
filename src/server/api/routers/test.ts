@@ -9,12 +9,18 @@ import type { PrismaClient } from "~/generated/prisma/client";
 import { detectImpossibleTimeline } from "~/lib/antiCheat";
 import { challengeStreakFromDateKeys, shiftChallengeDateKey } from "~/lib/challenge";
 import type { EncodedKeystroke } from "~/lib/keystrokes";
+import {
+  peerPercentileBrag,
+  peerPercentileForScore,
+  starterPeersFromTests,
+} from "~/lib/peerPercentile";
 import { currentStreak } from "~/lib/progress";
 
 // Only surface a percentile brag when it is flattering — never tell a slow typer
 // they are "faster than 8% of typers". Below the threshold we fall back to a
 // personal best or no brag at all.
 const PERCENTILE_BRAG_THRESHOLD = 60;
+const MAX_PEER_PERCENTILE_TESTS = 20000;
 const encodedKeystrokeSchema = z.tuple([
   z.number().int().nonnegative(),
   z.union([z.literal(0), z.literal(1)]),
@@ -30,9 +36,9 @@ interface BragArgs {
   score: number;
 }
 
-// Picks the most flattering true frame for a completed test. Mirrors the
-// profile-page ranking (distinct users, ranked tests, ordered by composite score)
-// but counts the "faster than" side directly so the percentile is accurate.
+// Picks the most flattering true frame for a completed test. Percentile brags
+// compare distinct users' ranked scores and count the "faster than" side
+// directly so the displayed percentage is accurate.
 async function buildBrag(prisma: PrismaClient, args: BragArgs): Promise<string | null> {
   if (!args.ranked) return null;
 
@@ -50,7 +56,30 @@ async function buildBrag(prisma: PrismaClient, args: BragArgs): Promise<string |
   });
   if (prevBest && args.score > prevBest.score) return "New personal best";
 
-  // 2. Flattering global percentile, by distinct typers' best score.
+  // 2. Flattering peer percentile: users whose first ranked tests started
+  // within the same WPM band. Until that pool is meaningful, fall through to
+  // the legacy global percentile below.
+  const rankedRows = await prisma.test.findMany({
+    where: { ranked: true },
+    orderBy: { createdAt: "asc" },
+    take: MAX_PEER_PERCENTILE_TESTS,
+    select: {
+      userId: true,
+      speed: true,
+      score: true,
+      createdAt: true,
+    },
+  });
+  const peerPercentile = peerPercentileForScore({
+    currentUserId: args.userId,
+    currentScore: args.score,
+    peers: starterPeersFromTests(rankedRows),
+  });
+  if (peerPercentile) {
+    return peerPercentileBrag(peerPercentile, PERCENTILE_BRAG_THRESHOLD);
+  }
+
+  // 3. Flattering global percentile, by distinct typers' best score.
   const [betterUsers, allUsers] = await Promise.all([
     prisma.test.findMany({
       where: { ranked: true, score: { gte: args.score } },
@@ -355,8 +384,9 @@ export const testRouter = createTRPCRouter({
       // A short "brag" line for the result/share card. Choose the most flattering
       // *true* frame so even slow typers get something positive to share:
       //   1. a new personal best for this exact test config, else
-      //   2. a global percentile, but only when it is flattering (>= 60%), else
-      //   3. nothing (the card just shows the clean WPM).
+      //   2. a similar-starter percentile once that peer pool exists, else
+      //   3. a global percentile while the peer pool is still cold, else
+      //   4. nothing (the card just shows the clean WPM).
       const [brag, avgDelta, streak] = await Promise.all([
         buildBrag(ctx.prisma, {
           ranked,

@@ -168,7 +168,7 @@ function responseForProcedure(procedure: string, input: ProcedureInput, options:
       if (options.emptyScores) return [];
       return [makeScore(input)];
     case "test.create":
-      return { ...makeScore({ ...input, userId: profileUser.id }), brag: "New personal best", avgDelta: 3.2, streak: 5 };
+      return { ...makeScore({ ...input, userId: profileUser.id }), brag: "Faster than 72% of similar starters", avgDelta: 3.2, streak: 5 };
     case "test.getDailyChallengeStatus":
       return {
         today: { dateKey: input?.dateKey ?? "2026-06-16", wpm: 82.4, accuracy: 98.1, t: Date.now(), delta: 3.2 },
