@@ -222,6 +222,9 @@ test.describe("progress dashboard", () => {
     expect(calls).toHaveLength(1);
     expect(calls[0]!.input).toMatchObject({ entries: expect.arrayContaining([expect.objectContaining({ wpm: 62 })]) });
     await expect(page.getByTestId("trend-chart").first()).toBeVisible();
+    // Imported history is rollup-only (no mode/length), so the filter controls
+    // that would silently hide it are not offered.
+    await expect(page.getByTestId("progress-filters")).toHaveCount(0);
     await expect(page.getByText("No tests yet")).toHaveCount(0);
   });
 });

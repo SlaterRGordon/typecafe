@@ -24,6 +24,7 @@ import {
     headlineDelta,
     mergeDailyRollups,
     personalRecords,
+    progressMode,
     rollingAverage,
     selfLeagueSummary,
     trendSeries,
@@ -187,6 +188,12 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
         [props.records, modeFilter, lengthFilter],
     );
     const activeFilter = modeFilter !== "all" || lengthFilter !== "all";
+    // Imported guest history lands as rollup-only days with no mode/length, so it
+    // can't be split by those dimensions. Only offer the filters when at least one
+    // record carries the metadata, and flag when uncategorized history exists so an
+    // emptied filter can explain itself honestly instead of claiming "no tests".
+    const hasFilterableMetadata = useMemo(() => props.records.some((r) => progressMode(r) !== null), [props.records]);
+    const hasImportedHistory = useMemo(() => props.records.some((r) => progressMode(r) === null), [props.records]);
 
     const streak = useMemo(() => currentStreak(filteredRecords, now, -now.getTimezoneOffset()), [filteredRecords, now]);
     const delta = useMemo(() => headlineDelta(filteredRecords, period, now), [filteredRecords, period, now]);
@@ -322,6 +329,7 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
 
             {/* Headline delta — the largest number on the page; the one question
                 "am I getting faster?" answered before any other detail. */}
+            {hasFilterableMetadata && (
             <div data-testid="progress-filters" className="grid gap-3 rounded-xl border border-base-content/10 bg-base-100/45 p-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
                 <div>
                     <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-base-content/45">Mode</p>
@@ -364,6 +372,7 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
                     </div>
                 </div>
             </div>
+            )}
 
             <div data-testid="headline-delta" className="rounded-xl border border-base-content/10 bg-base-100/45 p-6">
                 {plateau.plateaued ? (
@@ -402,7 +411,9 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
                             {hasData
                                 ? `Keep testing over ${periodPhrase(period)} — once there's a window to compare against, your delta shows here.`
                                 : activeFilter && props.records.length > 0
-                                    ? "This filter has no ranked tests yet. Clear the filters or take a matching test."
+                                    ? hasImportedHistory
+                                        ? "Imported history isn't split by mode or length — switch back to All to see it, or take a matching test to start a trend here."
+                                        : "This filter has no ranked tests yet. Clear the filters or take a matching test."
                                     : "Complete a few tests and your trend appears here."}
                         </p>
                         {activeFilter && props.records.length > 0 ? (
