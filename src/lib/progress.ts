@@ -97,6 +97,107 @@ export interface HeadlineDelta {
     trend: HeadlineTrend
 }
 
+export type SelfLeagueStatus = "qualified" | "no_current_week" | "insufficient_baseline"
+
+export interface SelfLeagueSummary {
+    status: SelfLeagueStatus
+    weekStart: Date
+    weekEnd: Date
+    currentAvg: number
+    baselineAvg: number | null
+    delta: number | null
+    currentCount: number
+    baselineCount: number
+    minBaselineTests: number
+}
+
+export interface ImprovementLeagueEntry {
+    userId: string
+    username: string
+    currentAvg: number
+    baselineAvg: number
+    delta: number
+    currentCount: number
+    baselineCount: number
+}
+
+export interface RankedImprovementLeagueEntry extends ImprovementLeagueEntry {
+    rank: number
+}
+
+export function isoWeekStart(now: Date, utcOffsetMinutes = 0): Date {
+    const shifted = new Date(now.getTime() + utcOffsetMinutes * 60 * 1000)
+    const localMidnightUtc = Date.UTC(
+        shifted.getUTCFullYear(),
+        shifted.getUTCMonth(),
+        shifted.getUTCDate(),
+    ) - utcOffsetMinutes * 60 * 1000
+    const localDay = shifted.getUTCDay()
+    const isoDay = localDay === 0 ? 7 : localDay
+    return new Date(localMidnightUtc - (isoDay - 1) * DAY_MS)
+}
+
+export function selfLeagueSummary(
+    records: ProgressRecord[],
+    now: Date,
+    utcOffsetMinutes = 0,
+    minBaselineTests = 3,
+): SelfLeagueSummary {
+    const weekStart = isoWeekStart(now, utcOffsetMinutes)
+    const weekEnd = new Date(weekStart.getTime() + 7 * DAY_MS)
+    const baselineStart = new Date(weekStart.getTime() - 30 * DAY_MS)
+    const nowMs = now.getTime()
+    const weekStartMs = weekStart.getTime()
+    const weekEndMs = weekEnd.getTime()
+    const baselineStartMs = baselineStart.getTime()
+
+    const current = records.filter((record) => {
+        const t = record.createdAt.getTime()
+        return t >= weekStartMs && t < weekEndMs && t <= nowMs
+    })
+    const baseline = records.filter((record) => {
+        const t = record.createdAt.getTime()
+        return t >= baselineStartMs && t < weekStartMs
+    })
+
+    const currentAvg = averageWpm(current)
+    const baselineAvg = baseline.length > 0 ? averageWpm(baseline) : null
+    const base = {
+        weekStart,
+        weekEnd,
+        currentAvg,
+        baselineAvg,
+        currentCount: current.length,
+        baselineCount: baseline.length,
+        minBaselineTests,
+    }
+
+    if (current.length === 0) {
+        return { ...base, status: "no_current_week", delta: null }
+    }
+    if (baseline.length < minBaselineTests || baselineAvg === null) {
+        return { ...base, status: "insufficient_baseline", delta: null }
+    }
+
+    return {
+        ...base,
+        status: "qualified",
+        delta: currentAvg - baselineAvg,
+    }
+}
+
+export function rankImprovementLeague(entries: ImprovementLeagueEntry[]): RankedImprovementLeagueEntry[] {
+    return [...entries]
+        .sort((a, b) => {
+            const delta = b.delta - a.delta
+            if (Math.abs(delta) > 0.0001) return delta
+            const current = b.currentAvg - a.currentAvg
+            if (Math.abs(current) > 0.0001) return current
+            return a.username.localeCompare(b.username)
+        })
+        .map((entry, index) => ({ ...entry, rank: index + 1 }))
+}
+
 // Splits the records into a "current" and a "prior" window and reports the
 // change in average WPM between them — deltas over absolutes (vision §7).
 //

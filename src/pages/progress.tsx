@@ -23,6 +23,7 @@ import {
     headlineDelta,
     personalRecords,
     rollingAverage,
+    selfLeagueSummary,
     trendSeries,
     type ProgressPeriod,
     type ProgressRecord,
@@ -53,6 +54,89 @@ function StatCell(props: { label: string; value: string }) {
             <span className="text-xs font-semibold uppercase tracking-wide text-base-content/45">{props.label}</span>
             <span className="mt-1 font-mono text-2xl text-base-content">{props.value}</span>
         </div>
+    );
+}
+
+function SelfLeagueCard(props: { summary: ReturnType<typeof selfLeagueSummary> }) {
+    const { summary } = props;
+    const weekLabel = summary.weekStart.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+
+    if (summary.status === "no_current_week") {
+        return (
+            <section data-testid="self-league-card" className="rounded-xl border border-base-content/10 bg-base-100/45 p-5">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-primary">Improvement league</p>
+                        <h2 className="mt-1 font-mono text-2xl font-bold text-base-content">Your week starts at zero</h2>
+                        <p className="mt-1 text-sm text-base-content/60">No fake cohort yet. Take one ranked test this week and your self-league delta appears here.</p>
+                    </div>
+                    <Link href="/" className="inline-flex shrink-0 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85">
+                        Take this week&apos;s test
+                    </Link>
+                </div>
+            </section>
+        );
+    }
+
+    if (summary.status === "insufficient_baseline") {
+        const needed = Math.max(summary.minBaselineTests - summary.baselineCount, 0);
+        return (
+            <section data-testid="self-league-card" className="rounded-xl border border-base-content/10 bg-base-100/45 p-5">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-primary">Improvement league</p>
+                        <h2 className="mt-1 font-mono text-2xl font-bold text-base-content">Building your baseline</h2>
+                        <p className="mt-1 text-sm text-base-content/60">
+                            {needed} more prior {needed === 1 ? "test" : "tests"} needed before this week can rank against your own average.
+                        </p>
+                    </div>
+                    <Link href="/" className="inline-flex shrink-0 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85">
+                        Add a ranked test
+                    </Link>
+                </div>
+            </section>
+        );
+    }
+
+    const delta = summary.delta ?? 0;
+
+    return (
+        <section data-testid="self-league-card" className="rounded-xl border border-primary/25 bg-primary/10 p-5">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-primary">Improvement league</p>
+                    <h2 className="mt-1 font-mono text-2xl font-bold text-base-content">Self league</h2>
+                </div>
+                <span className="rounded-full border border-primary/30 bg-base-100/45 px-3 py-1 text-xs font-semibold text-primary">1-user league</span>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-3">
+                <div>
+                    <p className="text-xs font-semibold uppercase text-base-content/50">This week</p>
+                    <p className="mt-1 font-mono text-2xl font-bold text-base-content">{summary.currentAvg.toFixed(1)} WPM</p>
+                    <p className="text-xs text-base-content/55">{summary.currentCount} {summary.currentCount === 1 ? "test" : "tests"} since {weekLabel}</p>
+                </div>
+                <div>
+                    <p className="text-xs font-semibold uppercase text-base-content/50">Baseline</p>
+                    <p className="mt-1 font-mono text-2xl font-bold text-base-content">{summary.baselineAvg?.toFixed(1)} WPM</p>
+                    <p className="text-xs text-base-content/55">prior 30 days / {summary.baselineCount} tests</p>
+                </div>
+                <div>
+                    <p className="text-xs font-semibold uppercase text-base-content/50">League score</p>
+                    <p data-testid="self-league-delta" className={`mt-1 font-mono text-2xl font-bold ${delta >= 0 ? "text-success" : "text-error"}`}>
+                        {formatSigned(delta)} WPM
+                    </p>
+                    <p className="text-xs text-base-content/55">ranked by improvement, not speed</p>
+                </div>
+            </div>
+            <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm text-base-content/70">
+                    {delta >= 0 ? "You are beating your own baseline this week." : "This week is below baseline; drill the weak spots before the window closes."}
+                </p>
+                <Link href={delta >= 0 ? "/" : "/?mode=practice"} className="inline-flex shrink-0 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85">
+                    {delta >= 0 ? "Add another score" : "Drill weak keys"}
+                </Link>
+            </div>
+        </section>
     );
 }
 
@@ -87,6 +171,7 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
     const stance = useMemo(() => computeStance(props.records, now), [props.records, now]);
     const plateau = useMemo(() => detectPlateau(props.records, now), [props.records, now]);
     const slowTransitions = useMemo(() => worstTransitions(props.transitions), [props.transitions]);
+    const selfLeague = useMemo(() => selfLeagueSummary(props.records, now, -now.getTimezoneOffset()), [props.records, now]);
 
     const hasData = series.points.length > 0;
     // A progress card only makes sense with a real delta to brag about.
@@ -157,6 +242,8 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
             )}
 
             <DailyChallengePrompt />
+
+            <SelfLeagueCard summary={selfLeague} />
 
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-3">

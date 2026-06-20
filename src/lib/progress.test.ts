@@ -11,9 +11,12 @@ import {
     defaultRollingWindow,
     filterByPeriod,
     headlineDelta,
+    isoWeekStart,
     periodStart,
     personalRecords,
+    rankImprovementLeague,
     rollingAverage,
+    selfLeagueSummary,
     trendSeries,
     type ProgressRecord,
 } from "./progress"
@@ -150,6 +153,76 @@ describe("headlineDelta", () => {
         expect(result.currentAvg).not.toBeNull()
         expect(result.priorCount).toBe(2)
         expect(result.currentCount).toBe(2)
+    })
+})
+
+describe("selfLeagueSummary", () => {
+    it("compares this ISO week against the prior 30-day baseline", () => {
+        const now = new Date("2026-06-17T12:00:00.000Z") // Wednesday
+        const records = [
+            { wpm: 58, accuracy: 95, createdAt: new Date("2026-05-20T12:00:00.000Z") },
+            { wpm: 60, accuracy: 95, createdAt: new Date("2026-05-30T12:00:00.000Z") },
+            { wpm: 62, accuracy: 95, createdAt: new Date("2026-06-10T12:00:00.000Z") },
+            { wpm: 68, accuracy: 95, createdAt: new Date("2026-06-15T12:00:00.000Z") },
+            { wpm: 72, accuracy: 95, createdAt: new Date("2026-06-17T10:00:00.000Z") },
+        ]
+
+        const summary = selfLeagueSummary(records, now)
+
+        expect(summary.status).toBe("qualified")
+        expect(summary.weekStart.toISOString()).toBe("2026-06-15T00:00:00.000Z")
+        expect(summary.currentAvg).toBeCloseTo(70)
+        expect(summary.baselineAvg).toBeCloseTo(60)
+        expect(summary.delta).toBeCloseTo(10)
+        expect(summary.currentCount).toBe(2)
+        expect(summary.baselineCount).toBe(3)
+    })
+
+    it("uses the user's local ISO week boundary", () => {
+        const now = new Date("2026-06-15T06:00:00.000Z") // Sunday 23:00 at UTC-7
+
+        expect(isoWeekStart(now, -420).toISOString()).toBe("2026-06-08T07:00:00.000Z")
+    })
+
+    it("requires three prior baseline tests before scoring the self league", () => {
+        const now = new Date("2026-06-17T12:00:00.000Z")
+        const records = [
+            { wpm: 60, accuracy: 95, createdAt: new Date("2026-06-10T12:00:00.000Z") },
+            { wpm: 70, accuracy: 95, createdAt: new Date("2026-06-16T12:00:00.000Z") },
+        ]
+
+        const summary = selfLeagueSummary(records, now)
+
+        expect(summary.status).toBe("insufficient_baseline")
+        expect(summary.delta).toBeNull()
+        expect(summary.baselineCount).toBe(1)
+    })
+
+    it("asks for a current-week test when only baseline data exists", () => {
+        const now = new Date("2026-06-17T12:00:00.000Z")
+        const records = [
+            { wpm: 58, accuracy: 95, createdAt: new Date("2026-05-20T12:00:00.000Z") },
+            { wpm: 60, accuracy: 95, createdAt: new Date("2026-05-30T12:00:00.000Z") },
+            { wpm: 62, accuracy: 95, createdAt: new Date("2026-06-10T12:00:00.000Z") },
+        ]
+
+        const summary = selfLeagueSummary(records, now)
+
+        expect(summary.status).toBe("no_current_week")
+        expect(summary.delta).toBeNull()
+        expect(summary.baselineCount).toBe(3)
+    })
+})
+
+describe("rankImprovementLeague", () => {
+    it("ranks a +6 slower typist above a +0 faster typist", () => {
+        const ranked = rankImprovementLeague([
+            { userId: "fast", username: "fast", currentAvg: 120, baselineAvg: 120, delta: 0, currentCount: 4, baselineCount: 10 },
+            { userId: "slow", username: "slow", currentAvg: 56, baselineAvg: 50, delta: 6, currentCount: 4, baselineCount: 10 },
+        ])
+
+        expect(ranked.map((entry) => entry.userId)).toEqual(["slow", "fast"])
+        expect(ranked[0]).toMatchObject({ rank: 1, delta: 6 })
     })
 })
 

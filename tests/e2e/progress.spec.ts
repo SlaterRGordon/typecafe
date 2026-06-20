@@ -25,6 +25,13 @@ test.describe("progress dashboard", () => {
     // The practice streak chip shows (the mocked history reaches today).
     await expect(page.getByTestId("streak-chip")).toBeVisible();
 
+    // Phase 5.3 self-league: one-user improvement competition until cohorts are real.
+    const selfLeague = page.getByTestId("self-league-card");
+    await expect(selfLeague).toBeVisible();
+    await expect(selfLeague).toContainText("Self league");
+    await expect(selfLeague).toContainText("1-user league");
+    await expect(page.getByTestId("self-league-delta")).toContainText(/\+\d/);
+
     // Stat cells summarise the selected period.
     await expect(page.getByText("Avg WPM")).toBeVisible();
     await expect(page.getByText("Best WPM")).toBeVisible();

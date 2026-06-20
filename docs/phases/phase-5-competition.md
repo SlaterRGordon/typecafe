@@ -31,6 +31,7 @@ Async only — realtime racing is TypeRacer's moat and a populated-lobby trap (a
 
 Weekly cohorts ranked by **delta, not absolute speed** — the only leaderboard where a 50-WPM typist beating a 120-WPM typist is working as intended.
 
+**Progress:** 2026-06-19 - *slice 1, self-league:* `/progress` now shows a computed-on-read Improvement league card before cohorts exist: this ISO week's average WPM vs the prior 30-day baseline, minimum 3 prior ranked tests, rendered honestly as a 1-user league until population supports cohorts. Pure helpers in `src/lib/progress.ts` cover ISO week boundaries, baseline qualification, no-current-week state, and delta-first league sorting; unit tests pin that a +6 slower typist ranks above a +0 faster typist. Desktop/mobile e2e cover the self-league card on `/progress`; screenshot tour captures `53-self-league`.
 - **Computed windows, no resets:** league week = ISO week derived at query time; score = `(this week's rolling avg) − (prior 30-day baseline)`, minimum 3 sessions to qualify (anti-noise, anti-sandbagging)
 - Cohorts of ≤ 50 by signup order into named groups (no skill-matching needed at first — delta ranking *is* the equalizer)
 - **Cold-start honesty:** below ~100 weekly actives, leagues render as "your week vs your baseline" (self-league) — the same math, no fake-feeling empty cohorts; flip cohorts on when population supports it
@@ -52,7 +53,8 @@ Replace global percentile bragging with peer context: "fastest 25% of typists wh
   - 2026-06-16: `challengeText` is a pure function of the date + corpus (seeded PRNG), unit-tested for byte-identical output and corpus-only words.
 - [x] Beat-my-run works guest-to-guest end to end (share -> type -> compare -> re-share)
   - 2026-06-19: `/score/[slug]` shares with `promptText` offer **Type this yourself**; guests complete the fixed-text run, see target-vs-you deltas plus divergence/retry framing, and can create an anonymous `beat` share link that opens as the next beatable run.
-- [ ] Improvement board ranks a +6 slow typist above a +0 fast typist; self-league renders sanely with 1 user
+- [x] Improvement board ranks a +6 slow typist above a +0 fast typist; self-league renders sanely with 1 user
+  - 2026-06-19: `rankImprovementLeague` sorts by delta before absolute WPM, and `/progress` renders a 1-user self-league from this ISO week vs the prior 30-day baseline.
 - [x] Timezone correctness on challenge day boundaries (23:50/00:10 test)
   - 2026-06-16: `challengeDateKey` uses the local day; unit-tested that 23:50 and 00:10 local fall on different challenge days (and yield different text).
 - [ ] Impossible-timeline runs excluded from ranked boards (unit-tested detector)
