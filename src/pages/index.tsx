@@ -355,7 +355,7 @@ const Home: NextPage = () => {
 
     if (completedScore && completedScore.mode === TestModes.normal) {
       applyReMeasure({
-        beforeWpm: completedScore.rawWpm,
+        beforeWpm: completedScore.netWpm,
         config: {
           subMode: completedScore.subMode,
           count: completedScore.count,

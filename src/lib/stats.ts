@@ -32,13 +32,13 @@ export function isRankableSample(durationSeconds: number, keystrokes: number): b
     return durationSeconds >= RANKABLE_MIN_SECONDS && keystrokes >= RANKABLE_MIN_KEYSTROKES
 }
 
-// Below this accuracy more than half the keystrokes were wrong, so raw WPM is a
-// vanity number (net WPM is 0 here). The score card leads with net instead, so a
-// "150 wpm" headline never sits above a 0% run. (vision: numbers beyond reproach)
-export const SCORE_HERO_NET_ACCURACY_FLOOR = 50
-
-export function shouldHeroNetWpm(accuracy: number): boolean {
-    return accuracy < SCORE_HERO_NET_ACCURACY_FLOOR
+// Net WPM derived from a stored raw WPM + accuracy %, without the raw keystroke
+// counts. Algebraically identical to computeStats' netWpm: with raw = total/5/min
+// and accuracy a = correct/total, net = ((correct−incorrect)/5)/min = raw·(2a−1),
+// clamped at 0 (a fully-wrong run has 0 net). Lets every surface show net as the
+// canonical "WPM" from data we already persist — no migration.
+export function netFromRaw(rawWpm: number, accuracyPct: number): number {
+    return Math.max(0, rawWpm * (2 * accuracyPct / 100 - 1))
 }
 
 export interface WpmSample {

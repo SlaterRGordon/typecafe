@@ -9,7 +9,7 @@ import type { PrismaClient } from "~/generated/prisma/client";
 import { detectImpossibleTimeline } from "~/lib/antiCheat";
 import { challengeStreakFromDateKeys, shiftChallengeDateKey } from "~/lib/challenge";
 import { timelineDurationMs, type EncodedKeystroke } from "~/lib/keystrokes";
-import { isRankableSample } from "~/lib/stats";
+import { isRankableSample, netFromRaw } from "~/lib/stats";
 import {
   peerPercentileBrag,
   peerPercentileForScore,
@@ -52,6 +52,8 @@ interface BragArgs {
   typeId: string;
   count: number;
   score: number;
+  // Net WPM of this run — the canonical "WPM", used for the personal-best frame.
+  netWpm: number;
 }
 
 // Picks the most flattering true frame for a completed test. Percentile brags
@@ -60,8 +62,10 @@ interface BragArgs {
 async function buildBrag(prisma: PrismaClient, args: BragArgs): Promise<string | null> {
   if (!args.ranked) return null;
 
-  // 1. New personal best for this exact test configuration.
-  const prevBest = await prisma.test.findFirst({
+  // 1. New personal best for this exact test configuration, by net WPM (the
+  // canonical headline metric). Net isn't stored, so compute it over the user's
+  // prior runs at this config (a small per-user set).
+  const priorAtConfig = await prisma.test.findMany({
     where: {
       userId: args.userId,
       ranked: true,
@@ -69,10 +73,10 @@ async function buildBrag(prisma: PrismaClient, args: BragArgs): Promise<string |
       count: args.count,
       id: { not: args.testId },
     },
-    orderBy: { score: "desc" },
-    select: { score: true },
+    select: { speed: true, accuracy: true },
   });
-  if (prevBest && args.score > prevBest.score) return "New personal best";
+  const prevBestNet = priorAtConfig.reduce((best, row) => Math.max(best, netFromRaw(row.speed, row.accuracy)), -Infinity);
+  if (priorAtConfig.length > 0 && args.netWpm > prevBestNet) return "New personal best";
 
   // 2. Flattering peer percentile: users whose first ranked tests started
   // within the same WPM band. Until that pool is meaningful, fall through to
@@ -125,16 +129,18 @@ async function buildBrag(prisma: PrismaClient, args: BragArgs): Promise<string |
 const MIN_TESTS_FOR_AVG_DELTA = 3;
 async function thirtyDayDelta(
   prisma: PrismaClient,
-  args: { userId: string; testId: string; speed: number },
+  args: { userId: string; testId: string; speed: number; accuracy: number },
 ): Promise<number | null> {
   const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-  const agg = await prisma.test.aggregate({
+  // Net (the canonical WPM) isn't stored, so average it from raw speed + accuracy
+  // over the window rather than aggregating raw speed in SQL.
+  const prior = await prisma.test.findMany({
     where: { userId: args.userId, ranked: true, id: { not: args.testId }, createdAt: { gte: since } },
-    _avg: { speed: true },
-    _count: true,
+    select: { speed: true, accuracy: true },
   });
-  if (agg._count < MIN_TESTS_FOR_AVG_DELTA || agg._avg.speed === null) return null;
-  return args.speed - agg._avg.speed;
+  if (prior.length < MIN_TESTS_FOR_AVG_DELTA) return null;
+  const avgNet = prior.reduce((sum, row) => sum + netFromRaw(row.speed, row.accuracy), 0) / prior.length;
+  return netFromRaw(args.speed, args.accuracy) - avgNet;
 }
 
 function dateFromDayKey(key: string): Date {
@@ -539,6 +545,7 @@ export const testRouter = createTRPCRouter({
       //   2. a similar-starter percentile once that peer pool exists, else
       //   3. a global percentile while the peer pool is still cold, else
       //   4. nothing (the card just shows the clean WPM).
+      const netWpm = netFromRaw(input.speed, input.accuracy);
       const [brag, avgDelta, streak] = await Promise.all([
         buildBrag(ctx.prisma, {
           ranked,
@@ -547,11 +554,13 @@ export const testRouter = createTRPCRouter({
           typeId: input.typeId,
           count: input.count,
           score: input.score,
+          netWpm,
         }),
         thirtyDayDelta(ctx.prisma, {
           userId: ctx.session.user.id,
           testId: test.id,
           speed: input.speed,
+          accuracy: input.accuracy,
         }),
         practiceStreak(ctx.prisma, ctx.session.user.id),
       ]);

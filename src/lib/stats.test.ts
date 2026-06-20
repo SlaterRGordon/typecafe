@@ -7,7 +7,7 @@ import {
     instantaneousWpm,
     isRankableSample,
     isReliableWpmSample,
-    shouldHeroNetWpm,
+    netFromRaw,
     worstKeysFromAttempts,
     wpmImprovement,
     WPM_SAMPLE_TARGET_POINTS,
@@ -311,16 +311,22 @@ describe("isRankableSample", () => {
     })
 })
 
-describe("shouldHeroNetWpm", () => {
-    it("leads with net WPM when accuracy collapses", () => {
-        expect(shouldHeroNetWpm(0)).toBe(true)
-        expect(shouldHeroNetWpm(49.9)).toBe(true)
+describe("netFromRaw", () => {
+    it("is 0 at 50% accuracy and negative-clamped below it", () => {
+        expect(netFromRaw(100, 50)).toBe(0)
+        expect(netFromRaw(150, 0)).toBe(0)
+        expect(netFromRaw(80, 25)).toBe(0)
     })
 
-    it("keeps raw WPM as the hero for normal runs", () => {
-        expect(shouldHeroNetWpm(50)).toBe(false)
-        expect(shouldHeroNetWpm(96.5)).toBe(false)
-        expect(shouldHeroNetWpm(100)).toBe(false)
+    it("equals raw at 100% accuracy", () => {
+        expect(netFromRaw(120, 100)).toBeCloseTo(120, 6)
+    })
+
+    it("matches computeStats' netWpm on the same run", () => {
+        // 90 chars over 12s, 9 wrong → derive net from the resulting raw+accuracy.
+        const timeline: Keystroke[] = [{ t: 0, chars: 1 }, { t: 12000, chars: 90 }]
+        const stats = computeStats({ timeline, characterCount: 90, incorrectCount: 9, isTimed: false, timedDurationSeconds: 0, fallbackStartTime: 0 })
+        expect(netFromRaw(stats.rawWpm, stats.accuracy)).toBeCloseTo(stats.netWpm, 6)
     })
 })
 

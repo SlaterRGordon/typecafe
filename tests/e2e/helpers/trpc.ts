@@ -142,7 +142,9 @@ function makeProgressRecords(flat = false, mixed = false) {
     const wordsRecord = mixed && i % 2 === 1;
     return {
       wpm: flat ? 70 + (i % 2 === 0 ? 0.4 : -0.4) : 58 + i * 1.1,
-      accuracy: 94 + (i % 5),
+      // Hold accuracy constant for the flat fixture so the derived net WPM stays
+      // flat too (varying accuracy would inject a trend the plateau test rejects).
+      accuracy: flat ? 96 : 94 + (i % 5),
       consistency: 74 + (i % 8),
       count: wordsRecord ? 25 : 30,
       createdAt: new Date(now - daysAgo * dayMs),

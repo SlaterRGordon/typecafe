@@ -92,7 +92,7 @@ function ScoreCard(props: { data: OgScoreData; brag?: string }) {
             </div>
             : null}
           <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: 3, color: BRAND.primary, marginTop: brag ? 16 : 48 }}>WORDS PER MINUTE</div>
-          <div style={{ fontSize: 150, fontWeight: 700, lineHeight: 1, letterSpacing: -6, color: BRAND.primary }}>{formatNumber(data.rawWpm, 1)}</div>
+          <div style={{ fontSize: 150, fontWeight: 700, lineHeight: 1, letterSpacing: -6, color: BRAND.primary }}>{formatNumber(data.netWpm, 1)}</div>
           {typeof data.avgDelta === "number" ?
             <div style={{ display: "flex", fontSize: 24, fontWeight: 700, color: data.avgDelta >= 0 ? "#50fa7b" : "#ff5555", marginTop: 12 }}>
               {`${formatNumber(Math.abs(data.avgDelta), 1)} WPM ${data.avgDelta >= 0 ? "over" : "under"} their 30-day average`}
@@ -102,7 +102,7 @@ function ScoreCard(props: { data: OgScoreData; brag?: string }) {
         </div>
         <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", paddingBottom: 24 }}>
           <Stat label="ACCURACY" value={`${formatNumber(data.accuracy, 1)}%`} />
-          <Stat label="NET WPM" value={formatNumber(data.netWpm, 1)} />
+          <Stat label="RAW WPM" value={formatNumber(data.rawWpm, 1)} />
           <Stat label="DURATION" value={`${Math.round(data.durationSeconds)}s`} />
         </div>
       </div>

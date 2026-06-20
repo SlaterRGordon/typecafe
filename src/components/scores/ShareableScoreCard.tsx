@@ -3,7 +3,7 @@ import { type CSSProperties, useId, useMemo, useRef, useState } from "react";
 
 import { TestModes, TestSubModes } from "~/components/typer/types";
 import { ShareableScoreImage } from "./ShareableScoreImage";
-import { consistencyFromSamples, shouldHeroNetWpm, wpmImprovement } from "~/lib/stats";
+import { consistencyFromSamples, wpmImprovement } from "~/lib/stats";
 import type { KeyAccuracy, TypedSegment, WpmSample as ScoreWpmSample } from "~/lib/stats";
 import { decodeTimeline } from "~/lib/keystrokes";
 import type { EncodedKeystroke } from "~/lib/keystrokes";
@@ -626,19 +626,14 @@ export function ShareableScoreCard(props: ShareableScoreCardProps) {
       .join(", ");
   }, [score.worstKeys]);
 
-  const metricItems = useMemo(() => {
-    // When accuracy collapses (more than half the keys wrong), raw WPM is a
-    // vanity number, so lead with error-adjusted net WPM instead of heroing a big
-    // raw figure over a near-0 run.
-    const heroNet = shouldHeroNetWpm(score.accuracy);
-    const rawCard = { label: "WPM", value: formatNumber(score.rawWpm, 1), note: "Raw speed", info: "Raw words per minute, calculated from all typed keystrokes before error adjustment.", hero: !heroNet };
-    const netCard = { label: "Net WPM", value: formatNumber(score.netWpm, 1), note: "Adjusted for errors", info: "Words per minute after incorrect keystrokes are subtracted from the result.", hero: heroNet };
-    const accuracyCard = { label: "Accuracy", value: `${formatNumber(score.accuracy, 2)}%`, note: "Correct keystrokes", info: "The percentage of typed keystrokes that matched the expected text." };
-    const durationCard = { label: "Duration", value: `${formatInteger(score.durationSeconds)}s`, note: "Completed", info: "The completed test duration in seconds." };
-    return heroNet
-      ? [netCard, accuracyCard, durationCard, rawCard]
-      : [rawCard, accuracyCard, durationCard, netCard];
-  }, [score]);
+  const metricItems = useMemo(() => [
+    // Net WPM is the canonical headline "WPM": speed after errors. Raw stays
+    // visible as a secondary stat (and in Performance Details) but never headlines.
+    { label: "WPM", value: formatNumber(score.netWpm, 1), note: "After errors", info: "Net words per minute: your speed after incorrect keystrokes are subtracted. This is your headline WPM.", hero: true },
+    { label: "Accuracy", value: `${formatNumber(score.accuracy, 2)}%`, note: "Correct keystrokes", info: "The percentage of typed keystrokes that matched the expected text." },
+    { label: "Duration", value: `${formatInteger(score.durationSeconds)}s`, note: "Completed", info: "The completed test duration in seconds." },
+    { label: "Raw WPM", value: formatNumber(score.rawWpm, 1), note: "Before errors", info: "Raw words per minute from all typed keystrokes, before error adjustment." },
+  ], [score]);
 
   return (
     <section className="w-full max-w-7xl px-4 py-4 sm:px-6">
@@ -745,7 +740,7 @@ export function ShareableScoreCard(props: ShareableScoreCardProps) {
           </div>
         </div>
 
-        {score.reMeasure && <ReMeasureStrip beforeWpm={score.reMeasure.beforeWpm} afterWpm={score.rawWpm} />}
+        {score.reMeasure && <ReMeasureStrip beforeWpm={score.reMeasure.beforeWpm} afterWpm={score.netWpm} />}
 
         <div className="score-reveal mt-7 grid gap-4 md:grid-cols-4" style={{ "--reveal-delay": "80ms" } as CSSProperties}>
           {metricItems.map((item) => (

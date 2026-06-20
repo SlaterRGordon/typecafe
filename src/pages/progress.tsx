@@ -33,6 +33,7 @@ import {
     type ProgressRecord,
 } from "~/lib/progress";
 import { readLocalProgress } from "~/lib/progressHistory";
+import { netFromRaw } from "~/lib/stats";
 import { buildRecap, isRecapDue } from "~/lib/recap";
 import { computeStance } from "~/lib/stance";
 import { detectPlateau } from "~/lib/trajectory";
@@ -529,7 +530,9 @@ const Progress: NextPage = () => {
     const rawRecords: ProgressRecord[] = useMemo(
         () =>
             (recordsQuery.data ?? []).map((row) => ({
-                wpm: row.wpm,
+                // Trends/deltas read net (the canonical WPM), derived from the
+                // stored raw speed + accuracy. Raw isn't surfaced on /progress.
+                wpm: netFromRaw(row.wpm, row.accuracy),
                 accuracy: row.accuracy,
                 consistency: row.consistency,
                 count: row.count,
@@ -566,7 +569,7 @@ const Progress: NextPage = () => {
     const [guestTransitions, setGuestTransitions] = useState<TransitionAggregate[]>([]);
     useEffect(() => {
         if (sessionData?.user) return;
-        setGuestRecords(readLocalProgress().map((e) => ({ wpm: e.wpm, accuracy: e.accuracy, consistency: e.c, createdAt: new Date(e.t) })));
+        setGuestRecords(readLocalProgress().map((e) => ({ wpm: netFromRaw(e.wpm, e.accuracy), accuracy: e.accuracy, consistency: e.c, createdAt: new Date(e.t) })));
         const attempts: Record<string, KeyAttempt> = {};
         for (const stat of readLocalKeyStats()) attempts[stat.key] = { attempts: stat.attempts, correct: stat.correct };
         setGuestKeyAttempts(attempts);

@@ -48,9 +48,9 @@ const HowWeMeasure: NextPage = () => {
         </DocumentSection>
 
         <DocumentSection title="Net WPM">
-          <p>Net WPM is the error-adjusted speed shown beside raw WPM:</p>
+          <p>Net WPM is the canonical &quot;WPM&quot; across TypeCafe — the headline number on score cards, the figure leaderboards and personal bests rank by, and what your progress trends and deltas measure. Raw WPM is shown beside it for reference, never as the headline.</p>
           <p><code>((correct keystrokes - incorrect keystrokes) / 5) / elapsed minutes</code></p>
-          <p>The value is clamped at 0. A fully wrong run can still have raw speed, but it has 0 net WPM.</p>
+          <p>The value is clamped at 0. A fully wrong run can still have raw speed, but it has 0 net WPM. Where only raw WPM and accuracy are stored (older rows, daily rollups), net is derived exactly as <code>raw × (2 × accuracy − 1)</code>.</p>
         </DocumentSection>
 
         <DocumentSection title="Consistency">
