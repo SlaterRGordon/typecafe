@@ -10,6 +10,7 @@ import {
     dayKey,
     defaultRollingWindow,
     filterByPeriod,
+    filterProgressRecords,
     headlineDelta,
     isoWeekStart,
     periodStart,
@@ -37,6 +38,37 @@ describe("periodStart", () => {
     it("subtracts the period's days from now", () => {
         expect(periodStart(30, NOW)!.getTime()).toBe(NOW.getTime() - 30 * DAY_MS)
         expect(periodStart(7, NOW)!.getTime()).toBe(NOW.getTime() - 7 * DAY_MS)
+    })
+})
+
+describe("filterProgressRecords", () => {
+    const records: ProgressRecord[] = [
+        { ...rec(1, 70), mode: 0, subMode: 0, count: 30 },
+        { ...rec(2, 76), mode: 0, subMode: 1, count: 25 },
+        { ...rec(3, 65), mode: 1, subMode: 0, count: 60 },
+        { ...rec(4, 55), mode: 2, subMode: 0, count: 0 },
+        { ...rec(5, 45), mode: 3, subMode: 0, count: 0 },
+        rec(6, 80),
+    ]
+
+    it("keeps every record for all filters", () => {
+        expect(filterProgressRecords(records, { mode: "all", count: "all" })).toHaveLength(records.length)
+    })
+
+    it("maps normal timed and words submodes to separate top-level filters", () => {
+        expect(filterProgressRecords(records, { mode: "timed", count: "all" }).map((r) => r.wpm)).toEqual([70])
+        expect(filterProgressRecords(records, { mode: "words", count: "all" }).map((r) => r.wpm)).toEqual([76])
+    })
+
+    it("filters practice, grams, and relaxed modes", () => {
+        expect(filterProgressRecords(records, { mode: "practice", count: "all" }).map((r) => r.wpm)).toEqual([65])
+        expect(filterProgressRecords(records, { mode: "grams", count: "all" }).map((r) => r.wpm)).toEqual([55])
+        expect(filterProgressRecords(records, { mode: "relaxed", count: "all" }).map((r) => r.wpm)).toEqual([45])
+    })
+
+    it("filters by count after mode", () => {
+        expect(filterProgressRecords(records, { mode: "all", count: 25 }).map((r) => r.wpm)).toEqual([76])
+        expect(filterProgressRecords(records, { mode: "timed", count: 25 })).toEqual([])
     })
 })
 

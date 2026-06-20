@@ -67,6 +67,30 @@ test.describe("progress dashboard", () => {
     await expect(switcher.getByRole("button", { name: "7d" })).toHaveAttribute("aria-pressed", "true");
   });
 
+  test("mode and length filters rescope the dashboard", async ({ page }) => {
+    await mockAuthenticatedSession(page);
+    await mockTrpc(page, { mixedProgress: true });
+    await page.addInitScript(() => window.localStorage.setItem("typecafe:lastRecapAt", String(Date.now())));
+    await gotoProgress(page);
+
+    const filters = page.getByTestId("progress-filters");
+    await expect(filters).toBeVisible();
+
+    const modeFilter = page.getByTestId("progress-mode-filter");
+    await modeFilter.getByRole("button", { name: "Words" }).click();
+    await expect(modeFilter.getByRole("button", { name: "Words" })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByTestId("progress-length-filter").getByRole("button", { name: "25 words" })).toBeVisible();
+    await expect(page.getByTestId("trend-chart").first()).toBeVisible();
+
+    await page.getByTestId("progress-length-filter").getByRole("button", { name: "25 words" }).click();
+    await expect(page.getByTestId("progress-length-filter").getByRole("button", { name: "25 words" })).toHaveAttribute("aria-pressed", "true");
+
+    await modeFilter.getByRole("button", { name: "Practice" }).click();
+    await expect(page.getByText("No matching tests")).toBeVisible();
+    await page.getByRole("button", { name: "Clear filters" }).click();
+    await expect(modeFilter.getByRole("button", { name: "All" })).toHaveAttribute("aria-pressed", "true");
+  });
+
   test("a signed-in user with no history sees the take-a-test empty state", async ({ page }) => {
     await mockAuthenticatedSession(page);
     await mockTrpc(page, { emptyScores: true });

@@ -21,6 +21,33 @@ export interface ProgressRecord {
     accuracy: number
     consistency?: number
     createdAt: Date
+    count?: number
+    mode?: number
+    subMode?: number
+    language?: string
+}
+
+export type ProgressModeFilter = "all" | "timed" | "words" | "practice" | "grams" | "relaxed"
+
+export interface ProgressFilters {
+    mode: ProgressModeFilter
+    count: number | "all"
+}
+
+export function progressMode(record: Pick<ProgressRecord, "mode" | "subMode">): ProgressModeFilter | null {
+    if (record.mode === 0) return record.subMode === 1 ? "words" : "timed"
+    if (record.mode === 1) return "practice"
+    if (record.mode === 2) return "grams"
+    if (record.mode === 3) return "relaxed"
+    return null
+}
+
+export function filterProgressRecords(records: ProgressRecord[], filters: ProgressFilters): ProgressRecord[] {
+    return records.filter((record) => {
+        if (filters.mode !== "all" && progressMode(record) !== filters.mode) return false
+        if (filters.count !== "all" && record.count !== filters.count) return false
+        return true
+    })
 }
 
 // ---------------------------------------------------------------------------

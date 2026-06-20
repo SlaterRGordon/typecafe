@@ -385,6 +385,7 @@ test.describe("screenshot tour", () => {
     await page.goto("/progress");
     await expect(page.getByTestId("headline-delta")).toBeVisible();
     await expect(page.getByTestId("self-league-card")).toBeVisible();
+    await expect(page.getByTestId("progress-filters")).toBeVisible();
     await expect(page.getByTestId("stance")).toBeVisible();
     await expect(page.getByTestId("worst-transitions")).toContainText("b→r");
     await expect(page.getByTestId("trend-chart").first()).toBeVisible();

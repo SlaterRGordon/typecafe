@@ -20,12 +20,14 @@ import {
     bestWpm,
     currentStreak,
     filterByPeriod,
+    filterProgressRecords,
     headlineDelta,
     personalRecords,
     rollingAverage,
     selfLeagueSummary,
     trendSeries,
     type ProgressPeriod,
+    type ProgressModeFilter,
     type ProgressRecord,
 } from "~/lib/progress";
 import { readLocalProgress } from "~/lib/progressHistory";
@@ -46,6 +48,21 @@ function periodPhrase(period: ProgressPeriod): string {
 
 function formatSigned(value: number, digits = 1): string {
     return `${value >= 0 ? "+" : ""}${value.toFixed(digits)}`;
+}
+
+const MODE_FILTERS: { key: ProgressModeFilter; label: string }[] = [
+    { key: "all", label: "All" },
+    { key: "timed", label: "Timed" },
+    { key: "words", label: "Words" },
+    { key: "practice", label: "Practice" },
+    { key: "grams", label: "Grams" },
+    { key: "relaxed", label: "Relaxed" },
+];
+
+function lengthLabel(count: number, mode: ProgressModeFilter): string {
+    if (mode === "timed") return `${count}s`;
+    if (mode === "words") return `${count} words`;
+    return String(count);
 }
 
 function StatCell(props: { label: string; value: string }) {
@@ -146,15 +163,35 @@ function periodShareLabel(period: ProgressPeriod): string {
 
 const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Record<string, KeyAttempt>; transitions: TransitionAggregate[]; canShare?: boolean; username?: string | null }) => {
     const [period, setPeriod] = useState<ProgressPeriod>(30);
+    const [modeFilter, setModeFilter] = useState<ProgressModeFilter>("all");
+    const [lengthFilter, setLengthFilter] = useState<number | "all">("all");
     const [shareState, setShareState] = useState<"idle" | "sharing" | "copied">("idle");
     const now = useMemo(() => new Date(), []);
     const createProgressShare = api.scoreShare.createProgress.useMutation();
 
-    const streak = useMemo(() => currentStreak(props.records, now, -now.getTimezoneOffset()), [props.records, now]);
-    const delta = useMemo(() => headlineDelta(props.records, period, now), [props.records, period, now]);
-    const series = useMemo(() => trendSeries(props.records, period, now), [props.records, period, now]);
-    const inPeriod = useMemo(() => filterByPeriod(props.records, period, now), [props.records, period, now]);
-    const records = useMemo(() => personalRecords(props.records), [props.records]);
+    const modeFilteredRecords = useMemo(
+        () => filterProgressRecords(props.records, { mode: modeFilter, count: "all" }),
+        [props.records, modeFilter],
+    );
+    const lengthOptions = useMemo(
+        () => Array.from(new Set(modeFilteredRecords.map((record) => record.count).filter((count): count is number => typeof count === "number" && count > 0)))
+            .sort((a, b) => a - b),
+        [modeFilteredRecords],
+    );
+    useEffect(() => {
+        if (lengthFilter !== "all" && !lengthOptions.includes(lengthFilter)) setLengthFilter("all");
+    }, [lengthFilter, lengthOptions]);
+    const filteredRecords = useMemo(
+        () => filterProgressRecords(props.records, { mode: modeFilter, count: lengthFilter }),
+        [props.records, modeFilter, lengthFilter],
+    );
+    const activeFilter = modeFilter !== "all" || lengthFilter !== "all";
+
+    const streak = useMemo(() => currentStreak(filteredRecords, now, -now.getTimezoneOffset()), [filteredRecords, now]);
+    const delta = useMemo(() => headlineDelta(filteredRecords, period, now), [filteredRecords, period, now]);
+    const series = useMemo(() => trendSeries(filteredRecords, period, now), [filteredRecords, period, now]);
+    const inPeriod = useMemo(() => filterByPeriod(filteredRecords, period, now), [filteredRecords, period, now]);
+    const records = useMemo(() => personalRecords(filteredRecords), [filteredRecords]);
     const accuracy = useMemo(() => ({
         values: series.points.map((p) => p.accuracy),
         rolling: rollingAverage(series.points.map((p) => p.accuracy), series.window),
@@ -168,10 +205,10 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
         return { values: nums, rolling: rollingAverage(nums, series.window) };
     }, [series]);
     const avgConsistency = averageConsistency(inPeriod);
-    const stance = useMemo(() => computeStance(props.records, now), [props.records, now]);
-    const plateau = useMemo(() => detectPlateau(props.records, now), [props.records, now]);
+    const stance = useMemo(() => computeStance(filteredRecords, now), [filteredRecords, now]);
+    const plateau = useMemo(() => detectPlateau(filteredRecords, now), [filteredRecords, now]);
     const slowTransitions = useMemo(() => worstTransitions(props.transitions), [props.transitions]);
-    const selfLeague = useMemo(() => selfLeagueSummary(props.records, now, -now.getTimezoneOffset()), [props.records, now]);
+    const selfLeague = useMemo(() => selfLeagueSummary(filteredRecords, now, -now.getTimezoneOffset()), [filteredRecords, now]);
 
     const hasData = series.points.length > 0;
     // A progress card only makes sense with a real delta to brag about.
@@ -179,7 +216,7 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
 
     // Weekly recap (§3.4): a surface, not a send. Shows on the first visit >= 7
     // days after the last one (tracked in localStorage), dismissable.
-    const recap = useMemo(() => buildRecap(props.records, props.keyAttempts, now, -now.getTimezoneOffset()), [props.records, props.keyAttempts, now]);
+    const recap = useMemo(() => buildRecap(filteredRecords, props.keyAttempts, now, -now.getTimezoneOffset()), [filteredRecords, props.keyAttempts, now]);
     const [recapDue, setRecapDue] = useState(false);
     useEffect(() => {
         const raw = typeof window === "undefined" ? null : window.localStorage.getItem(RECAP_SEEN_KEY);
@@ -284,6 +321,49 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
 
             {/* Headline delta — the largest number on the page; the one question
                 "am I getting faster?" answered before any other detail. */}
+            <div data-testid="progress-filters" className="grid gap-3 rounded-xl border border-base-content/10 bg-base-100/45 p-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+                <div>
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-base-content/45">Mode</p>
+                    <div data-testid="progress-mode-filter" className="flex flex-wrap gap-1">
+                        {MODE_FILTERS.map((option) => (
+                            <button
+                                key={option.key}
+                                type="button"
+                                aria-pressed={modeFilter === option.key}
+                                onClick={() => setModeFilter(option.key)}
+                                className={`min-h-9 rounded-md px-3 text-sm font-medium transition-colors ${modeFilter === option.key ? "bg-primary text-primary-content shadow-sm" : "text-base-content/70 hover:bg-base-content/5 hover:text-base-content"}`}
+                            >
+                                {option.label}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+                <div>
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-base-content/45">Length</p>
+                    <div data-testid="progress-length-filter" className="flex flex-wrap gap-1">
+                        <button
+                            type="button"
+                            aria-pressed={lengthFilter === "all"}
+                            onClick={() => setLengthFilter("all")}
+                            className={`min-h-9 rounded-md px-3 text-sm font-medium transition-colors ${lengthFilter === "all" ? "bg-primary text-primary-content shadow-sm" : "text-base-content/70 hover:bg-base-content/5 hover:text-base-content"}`}
+                        >
+                            All lengths
+                        </button>
+                        {lengthOptions.map((count) => (
+                            <button
+                                key={count}
+                                type="button"
+                                aria-pressed={lengthFilter === count}
+                                onClick={() => setLengthFilter(count)}
+                                className={`min-h-9 rounded-md px-3 text-sm font-medium transition-colors ${lengthFilter === count ? "bg-primary text-primary-content shadow-sm" : "text-base-content/70 hover:bg-base-content/5 hover:text-base-content"}`}
+                            >
+                                {lengthLabel(count, modeFilter)}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            </div>
+
             <div data-testid="headline-delta" className="rounded-xl border border-base-content/10 bg-base-100/45 p-6">
                 {plateau.plateaued ? (
                     <div data-testid="plateau-headline">
@@ -315,16 +395,28 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
                 ) : (
                     <>
                         <div className="font-mono text-3xl font-bold text-base-content">
-                            {hasData ? `${averageWpm(inPeriod).toFixed(1)} WPM` : "No tests yet"}
+                            {hasData ? `${averageWpm(inPeriod).toFixed(1)} WPM` : activeFilter && props.records.length > 0 ? "No matching tests" : "No tests yet"}
                         </div>
                         <p className="mt-2 text-base-content/60">
                             {hasData
                                 ? `Keep testing over ${periodPhrase(period)} — once there's a window to compare against, your delta shows here.`
-                                : "Complete a few tests and your trend appears here."}
+                                : activeFilter && props.records.length > 0
+                                    ? "This filter has no ranked tests yet. Clear the filters or take a matching test."
+                                    : "Complete a few tests and your trend appears here."}
                         </p>
-                        <Link href="/" className="mt-3 inline-flex items-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85">
-                            Take a test
-                        </Link>
+                        {activeFilter && props.records.length > 0 ? (
+                            <button
+                                type="button"
+                                onClick={() => { setModeFilter("all"); setLengthFilter("all"); }}
+                                className="mt-3 inline-flex items-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85"
+                            >
+                                Clear filters
+                            </button>
+                        ) : (
+                            <Link href="/" className="mt-3 inline-flex items-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85">
+                                Take a test
+                            </Link>
+                        )}
                     </>
                 )}
             </div>
@@ -337,7 +429,7 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
                 </div>
             )}
 
-            {hasData && <GoalCard records={props.records} now={now} />}
+            {hasData && <GoalCard records={filteredRecords} now={now} />}
 
             {hasData && (
                 <>
@@ -419,6 +511,10 @@ const Progress: NextPage = () => {
                 wpm: row.wpm,
                 accuracy: row.accuracy,
                 consistency: row.consistency,
+                count: row.count,
+                mode: row.mode,
+                subMode: row.subMode,
+                language: row.language,
                 createdAt: new Date(row.createdAt),
             })),
         [recordsQuery.data],

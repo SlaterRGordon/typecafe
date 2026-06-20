@@ -12,6 +12,8 @@ interface MockTrpcOptions {
   keyStats?: { character: string; total: number; correct: number }[];
   // Make the progress history flat (a plateau) instead of rising.
   flatProgress?: boolean;
+  // Mix timed and words records so /progress filter tests can prove scoping.
+  mixedProgress?: boolean;
   // Procedures listed here resolve to a tRPC error instead of data, so tests can
   // exercise client-side failure handling (e.g. a save that fails on the network).
   errorProcedures?: string[];
@@ -132,19 +134,20 @@ function makeScoreSnapshot() {
 
 // A rising WPM history over the last ~60 days, generated relative to now so the
 // /progress headline delta is deterministic (current window beats the prior).
-function makeProgressRecords(flat = false) {
+function makeProgressRecords(flat = false, mixed = false) {
   const dayMs = 24 * 60 * 60 * 1000;
   const now = Date.now();
   return Array.from({ length: 24 }, (_, i) => {
     const daysAgo = 58 - i * 2.5;
+    const wordsRecord = mixed && i % 2 === 1;
     return {
       wpm: flat ? 70 + (i % 2 === 0 ? 0.4 : -0.4) : 58 + i * 1.1,
       accuracy: 94 + (i % 5),
       consistency: 74 + (i % 8),
-      count: 30,
+      count: wordsRecord ? 25 : 30,
       createdAt: new Date(now - daysAgo * dayMs),
       mode: 0,
-      subMode: 0,
+      subMode: wordsRecord ? 1 : 0,
       language: "english",
     };
   });
@@ -194,7 +197,7 @@ function responseForProcedure(procedure: string, input: ProcedureInput, options:
       return { better: 0, worse: 5, total: 5, percentile: 0 };
     case "test.getProgressRecords":
       if (options.emptyScores) return [];
-      return makeProgressRecords(options.flatProgress);
+      return makeProgressRecords(options.flatProgress, options.mixedProgress);
     case "test.getActivityByDate":
       // Recent consecutive days so the profile streak chip has data.
       return Array.from({ length: 5 }, (_, i) => ({

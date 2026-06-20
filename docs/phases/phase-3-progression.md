@@ -29,12 +29,13 @@ The page answers one question — *am I getting faster?* — before any other de
 - 2026-06-14 — *slice 4, records timeline + accuracy trend:* `personalRecords` (PB milestones, "first 80+ WPM"/plain-best; 4 unit tests) → a Records list. `TrendChart` generalized to a "zero" (WPM) or "fit" (accuracy, zoomed, capped at 100%) baseline → both a WPM and an Accuracy trend.
 - 2026-06-14 — *slice 5, lifetime keyboard heatmap:* reuses `<KeyHeatmap full>` over `practiceStats.get` (signed-in) / `readLocalKeyStats` (guest). e2e + screenshot `40` show it.
 - 2026-06-14 — *slice 6, consistency persisted + trend (also §3.6):* added `Test.consistency` (nullable), computed client-side via `consistencyFromSamples` and threaded through `test.create` (signed-in) and the guest mirror (`progressHistory` `c`). `/progress` now shows a Consistency trend + Avg-consistency cell, gated to render only once every point in the window carries it (no mixing real values with zeros). Older tests stay null and simply don't plot; the trend fills in as new tests accrue.
+- 2026-06-20 — *slice 7, mode/length filters:* `/progress` now filters the whole dashboard by top-level mode (Timed, Words, Practice, Grams, Relaxed) and by available ranked-test length, using the existing `mode/subMode/count` fields from `test.getProgressRecords`. Empty filtered states are honest and resettable. Pure `filterProgressRecords` coverage pins the Timed/Words split and count filtering; e2e covers Words + 25-word filtering and empty Practice reset; screenshot `40` now asserts the filter controls.
 
 **Blocked — needs prerequisites that don't exist yet (do not fake):**
 - *Heatmap date-range compare ("30 days ago vs now", item 4):* `PracticeStats` are cumulative, not dated; there's no per-key historical snapshot to diff. Needs dated key-stat capture first.
 - *Worst-transitions bigrams (item 5):* requires lifetime per-transition (inter-key latency) aggregates — Phase 4 instrumentation; nothing stores them today.
 
-*Other next slices:* `DailyUserStat` rollup persistence + mode/length filters; sync-on-signup of the guest mirror into the DB.
+*Other next slices:* `DailyUserStat` rollup persistence; sync-on-signup of the guest mirror into the DB.
 
 ## 3.2 Streaks (S)
 
