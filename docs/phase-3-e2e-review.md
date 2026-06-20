@@ -10,7 +10,7 @@ Critical pass over the shipped Phase 3 surfaces (progress dashboard, score card,
 
 ## Coordination — surfaces contradict each other
 
-- 🔴 **Three advisory systems give opposite advice on one screen** (screenshot 47): headline "Plateaued for 9 weeks → transition drills", Coach "Speed and accuracy are moving together — nothing to change", Self League "below baseline → drill weak keys". `detectPlateau`, `computeStance`, and `selfLeagueSummary` are computed independently; stance's `balanced` fallback ([stance.ts:68](src/lib/stance.ts#L68)) ignores a flat/plateaued delta. → one coordinated coach voice, or stance must defer to plateau.
+- ✅ **DONE — Three advisory systems gave opposite advice on one screen** (screenshot 47): headline "Plateaued → transition drills" beside Coach "nothing to change". Fixed: the stance Coach card now renders only when it adds a real lever (accuracy/confidence-limited) or genuine "keep going" reinforcement (trend up), and never beside the plateau headline. The no-lever-while-flat "nothing to change" card (the contradiction) is suppressed; plateau + league now agree ("act"). e2e pins that the stance card is absent on plateau.
 - 🟠 **Streak shown 3 ways, 3 values, same viewport** (challenge 4-day, progress 1-day, score card 5-day). Three separate computations: challenge streak, `currentStreak(records)`, server `practiceStreak`. No shared definition or label. Reads as a bug. → single source/definition, or label each ("4-day challenge streak").
 
 ## /progress layout — the page no longer answers "am I getting faster?" first

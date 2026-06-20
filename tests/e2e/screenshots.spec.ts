@@ -409,6 +409,9 @@ test.describe("screenshot tour", () => {
     await page.addInitScript(() => window.localStorage.setItem("typecafe:lastRecapAt", String(Date.now())));
     await page.goto("/progress");
     await expect(page.getByTestId("plateau-headline")).toBeVisible();
+    // The plateau headline is the single coach voice here — the stance card must
+    // not also render "nothing to change" beside it (the old contradiction).
+    await expect(page.getByTestId("stance")).toHaveCount(0);
     await capture(page, testInfo, "47-progress-plateau");
   });
 

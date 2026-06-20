@@ -422,7 +422,13 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
                 )}
             </div>
 
-            {stance.enoughData && (
+            {/* One coach voice: when plateaued, the headline above already carries the
+                message + CTA, so the stance card stays out of its way. Otherwise the
+                card only speaks when it adds something the headline doesn't — a real
+                accuracy/confidence lever, or genuine "keep going" reinforcement when
+                the trend is up. The no-lever-while-flat case (which used to say
+                "nothing to change" next to a plateau) is suppressed. */}
+            {stance.enoughData && !plateau.plateaued && (stance.stance !== "balanced" || delta.trend === "up") && (
                 <div data-testid="stance" className="rounded-xl border border-base-content/10 bg-base-100/45 p-5">
                     <p className="text-xs font-semibold uppercase tracking-wide text-primary">Coach</p>
                     <p className="mt-1 text-lg font-semibold text-base-content">{stance.headline}</p>
