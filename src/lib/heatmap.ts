@@ -30,6 +30,13 @@ export interface HeatmapCell {
     hasData: boolean,
 }
 
+function isAttemptMap(
+    source: ReadonlyMap<string, KeyAttempt> | Record<string, KeyAttempt>,
+): source is ReadonlyMap<string, KeyAttempt> {
+    const candidate = source as Partial<ReadonlyMap<string, KeyAttempt>>
+    return typeof candidate.get === "function"
+}
+
 // Turn a per-key tally into a renderable cell. Missing/zero-attempt keys are
 // reported as 100% with hasData=false so callers can dim them if they choose.
 export function heatmapCell(key: string, source?: KeyAttempt): HeatmapCell {
@@ -69,6 +76,6 @@ export function lookupAttempt(
     source: ReadonlyMap<string, KeyAttempt> | Record<string, KeyAttempt>,
     key: string,
 ): KeyAttempt | undefined {
-    if (source instanceof Map) return source.get(key)
-    return (source as Record<string, KeyAttempt>)[key]
+    if (isAttemptMap(source)) return source.get(key)
+    return source[key]
 }

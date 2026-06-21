@@ -59,7 +59,9 @@ Problem: `Scores.tsx` renders `test.getAll` (every row, score-desc, `date` = `gt
 
 ---
 
-## Slice 4 — Rebuild keyboard heatmap as a real keyboard (S) `fix(heatmap): realistic key layout, no label overlap`
+## Slice 4 — Rebuild keyboard heatmap as a real keyboard ✅ DONE (S) `fix(heatmap): realistic key layout, no label overlap`
+
+> Shipped 2026-06-21. `<KeyHeatmap>` now renders staggered QWERTY rows with unit-based key widths and a proportional spacebar. Full heatmaps move percentages into small bottom-corner badges so labels no longer overlap glyphs; mini heatmaps keep percentage text in tooltips only. Existing consumers stay unchanged (practice analytics, score-card diagnosis, progress lifetime, beat-run compare). Tightened `lookupAttempt` typing while touching the primitive.
 
 `src/components/heatmap/KeyHeatmap.tsx` today: 3 equal centred rows + fixed `min-w-[17.5rem]` spacebar; `%` absolutely positioned over the glyph.
 
