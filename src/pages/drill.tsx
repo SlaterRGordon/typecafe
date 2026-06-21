@@ -18,7 +18,9 @@ interface DrillConfig {
     seconds?: number,
 }
 
-const DEFAULT_DRILL_WORDS = 60
+// A drill is a quick, clearly-ending rep — short enough that finishing it and
+// moving on (e.g. to the next plan step) never feels like an endless test.
+const DEFAULT_DRILL_WORDS = 20
 
 const parseLength = (value: string | string[] | undefined): number => {
     const raw = Array.isArray(value) ? value[0] : value
