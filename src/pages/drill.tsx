@@ -8,12 +8,14 @@ import { TestGramScopes, TestGramSources, TestModes, TestSubModes } from "~/comp
 import { getWords } from "~/components/typer/utils"
 import { compileDrillText } from "~/lib/drill"
 
-type DrillKind = "keys" | "transitions"
+type DrillKind = "keys" | "transitions" | "timed"
 
 interface DrillConfig {
     kind: DrillKind,
     labels: string[],
     text: string,
+    // Duration for a timed drill (warm-up); absent for word drills.
+    seconds?: number,
 }
 
 const DEFAULT_DRILL_WORDS = 60
@@ -23,6 +25,13 @@ const parseLength = (value: string | string[] | undefined): number => {
     const parsed = Number(raw)
     if (!Number.isFinite(parsed)) return DEFAULT_DRILL_WORDS
     return Math.min(Math.max(Math.floor(parsed), 1), 120)
+}
+
+const parseSeconds = (value: string | string[] | undefined): number => {
+    const raw = Array.isArray(value) ? value[0] : value
+    const parsed = Number(raw)
+    if (!Number.isFinite(parsed)) return 0
+    return Math.min(Math.max(Math.floor(parsed), 0), 600)
 }
 
 const parseKeys = (value: string | string[] | undefined): string[] => {
@@ -58,6 +67,7 @@ const Drill: NextPage = () => {
         const length = parseLength(router.query.length)
         const keys = parseKeys(router.query.keys)
         const transitions = parseTransitions(router.query.transitions)
+        const seconds = parseSeconds(router.query.seconds)
         const wordList = getWords("english")
 
         if (transitions.length > 0) {
@@ -76,8 +86,13 @@ const Drill: NextPage = () => {
             }
         }
 
+        // A timed warm-up: a generic timed test, no target keys.
+        if (seconds > 0) {
+            return { kind: "timed", labels: [`${seconds}s`], text: "", seconds }
+        }
+
         return null
-    }, [router.isReady, router.query.keys, router.query.length, router.query.transitions])
+    }, [router.isReady, router.query.keys, router.query.length, router.query.transitions, router.query.seconds])
 
     const restartDrill = () => {
         setCompleted(null)
@@ -109,7 +124,7 @@ const Drill: NextPage = () => {
                                 <div className="flex flex-col gap-3">
                                     <div>
                                         <p className="text-xs font-semibold uppercase tracking-wide text-primary">
-                                            {config.kind === "transitions" ? "Transition drill" : "Key drill"}
+                                            {config.kind === "transitions" ? "Transition drill" : config.kind === "timed" ? "Timed warm-up" : "Key drill"}
                                         </p>
                                         <h1 className="mt-1 font-mono text-2xl font-bold text-base-content">
                                             {config.labels.join(", ")}
@@ -130,16 +145,16 @@ const Drill: NextPage = () => {
                                     <Typer
                                         language="english"
                                         mode={TestModes.normal}
-                                        subMode={TestSubModes.words}
+                                        subMode={config.kind === "timed" ? TestSubModes.timed : TestSubModes.words}
                                         gramSource={TestGramSources.bigrams}
                                         gramScope={TestGramScopes.fifty}
                                         gramCombination={2}
                                         gramRepetition={1}
                                         gramWpmThreshold={0}
                                         gramAccuracyThreshold={0}
-                                        count={wordCount}
+                                        count={config.kind === "timed" ? config.seconds! : wordCount}
                                         customLength
-                                        fixedText={config.text}
+                                        fixedText={config.kind === "timed" ? undefined : config.text}
                                         showStats
                                         showConfig={false}
                                         showControls={false}
@@ -166,14 +181,14 @@ const Drill: NextPage = () => {
                                             <p className="mt-1 font-mono text-3xl font-bold text-base-content">{completed.accuracy.toFixed(1)}%</p>
                                         </div>
                                         <div>
-                                            <p className="text-xs font-semibold uppercase text-base-content/50">Words</p>
-                                            <p className="mt-1 font-mono text-3xl font-bold text-base-content">{wordCount}</p>
+                                            <p className="text-xs font-semibold uppercase text-base-content/50">{config.kind === "timed" ? "Time" : "Words"}</p>
+                                            <p className="mt-1 font-mono text-3xl font-bold text-base-content">{config.kind === "timed" ? `${config.seconds}s` : wordCount}</p>
                                         </div>
                                     </div>
                                     <div className="mt-5 flex flex-col gap-2 sm:flex-row">
                                         {returnToPlan ? (
                                             <a href="/plan?step=done" data-testid="drill-continue-plan" className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85">
-                                                Continue plan →
+                                                Next step →
                                             </a>
                                         ) : (
                                             // A full-page navigation (not next/link): home must mount with
@@ -184,7 +199,7 @@ const Drill: NextPage = () => {
                                             </a>
                                         )}
                                         <button type="button" onClick={restartDrill} className="inline-flex items-center justify-center rounded-md border border-base-content/15 px-4 py-2 text-sm font-semibold text-base-content transition hover:bg-base-content/5">
-                                            Drill again
+                                            {returnToPlan ? "Restart" : "Drill again"}
                                         </button>
                                     </div>
                                 </section>

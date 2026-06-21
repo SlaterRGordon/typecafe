@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test"
 import { mockTrpc } from "./helpers/trpc"
-import { typeVisibleTestText } from "./helpers/typing"
+import { typeCurrentCharacter, typeVisibleTestText } from "./helpers/typing"
 
 test.describe("drill page", () => {
   test("key drill renders real target-key words and completes", async ({ page }) => {
@@ -36,6 +36,29 @@ test.describe("drill page", () => {
     // Re-measure deep-links home carrying the token so the diagnosed test re-runs.
     await expect(page.getByRole("link", { name: "Re-measure" }))
       .toHaveAttribute("href", `/?rm=${encodeURIComponent(payload)}`)
+  })
+
+  test("runs a timed warm-up drill from a duration", async ({ page }) => {
+    await mockTrpc(page)
+    await page.goto("/drill?seconds=15&return=plan")
+
+    await expect(page.getByText("Timed warm-up")).toBeVisible()
+    await expect(page.getByTestId("drill-typer")).toBeVisible()
+    // Generic timed text (no fixed word list), ready to type.
+    await expect(page.locator("#words .char").first()).toBeVisible()
+  })
+
+  test("a timed warm-up completes and offers Next step / Restart", async ({ page }) => {
+    await mockTrpc(page)
+    await page.goto("/drill?seconds=3&return=plan")
+    await expect(page.getByTestId("drill-typer")).toBeVisible()
+
+    // A few keystrokes start the countdown; the timer then ends the test.
+    for (let i = 0; i < 5; i++) await typeCurrentCharacter(page, i)
+
+    await expect(page.getByTestId("drill-result")).toBeVisible({ timeout: 8000 })
+    await expect(page.getByTestId("drill-continue-plan")).toHaveText("Next step →")
+    await expect(page.getByRole("button", { name: "Restart" })).toBeVisible()
   })
 
   test("transition drill biases text toward the requested pair", async ({ page }) => {

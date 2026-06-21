@@ -57,7 +57,9 @@ function configHref(subMode: "timed" | "words", count: number): string {
 }
 
 function warmupStep(): DrillStep {
-    return { kind: "warmup", label: "Warm-up — 15s timed", href: configHref("timed", 15) }
+    // A 15s timed warm-up runs on /drill (same surface as the drills) so the whole
+    // session flows through one place with seamless step-to-step advancing.
+    return { kind: "warmup", label: "Warm-up — 15s timed", href: "/drill?seconds=15" }
 }
 
 function benchmarkStep(benchmark: { subMode: "timed" | "words"; count: number }): DrillStep {

@@ -52,8 +52,9 @@ describe("generatePlan — targeted", () => {
         expect(day1.steps[0]!.kind).toBe("warmup")
         const drills = day1.steps.filter((s) => s.kind === "keys" || s.kind === "transition")
         expect(drills.length).toBe(2)
-        // Warm-up/benchmark hit the home page; targeted drills hit /drill.
-        expect(day1.steps[0]!.href.startsWith("/?mode=")).toBe(true)
+        // Warm-up + the targeted drills all run on /drill (benchmark stays on
+        // home so its score is saved to progress).
+        expect(day1.steps[0]!.href).toBe("/drill?seconds=15")
         expect(drills.every((s) => s.href.startsWith("/drill?"))).toBe(true)
     })
 

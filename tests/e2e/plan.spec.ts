@@ -11,11 +11,12 @@ test.describe("practice plan", () => {
     await expect(page.getByRole("heading", { name: "Your plan" })).toBeVisible();
     await expect(page.getByText(/30-day plan/)).toBeVisible();
 
-    // Day 1 starts with the warm-up, framed by the coach, advanced manually.
+    // Day 1 starts with a 15s timed warm-up that runs on /drill.
     const step = page.getByTestId("plan-active-step");
     await expect(step).toContainText("Warm up");
     await expect(page.getByText("Day 1 of 30")).toBeVisible();
-    await page.getByTestId("plan-advance").click(); // "I'm warm → next"
+    await expect(page.getByTestId("plan-start-step")).toHaveAttribute("href", /^\/drill\?seconds=15.*return=plan/);
+    await page.getByTestId("plan-advance").click(); // Skip → next
 
     // Now the targeted key drill, deep-linking into /drill with a plan return.
     await expect(step).toContainText("Drill your weak keys");

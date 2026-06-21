@@ -133,26 +133,15 @@ const GuidedPlan = (props: { plan: Plan }) => {
                         <p className="mt-1 text-base-content/70">{step.label}</p>
 
                         <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:items-center">
-                            {step.kind === "warmup" ? (
-                                <>
-                                    <button type="button" onClick={advance} data-testid="plan-advance" className="inline-flex items-center justify-center rounded-md bg-primary px-5 py-2.5 text-sm font-semibold text-primary-content transition hover:opacity-85">
-                                        I&apos;m warm → next
-                                    </button>
-                                    <a href={withReturn(step.href)} className="inline-flex items-center justify-center rounded-md border border-base-content/15 px-4 py-2.5 text-sm font-semibold text-base-content/80 transition hover:bg-base-content/5">
-                                        Quick 15s warm-up
-                                    </a>
-                                </>
-                            ) : (
-                                <>
-                                    {/* Full-page nav so the test surface mounts cleanly with ?return=plan. */}
-                                    <a href={withReturn(step.href)} data-testid="plan-start-step" className="inline-flex items-center justify-center rounded-md bg-primary px-5 py-2.5 text-sm font-semibold text-primary-content transition hover:opacity-85">
-                                        Start →
-                                    </a>
-                                    <button type="button" onClick={advance} data-testid="plan-advance" className="inline-flex items-center justify-center rounded-md px-3 py-2 text-sm font-medium text-base-content/55 transition hover:text-base-content">
-                                        Skip →
-                                    </button>
-                                </>
-                            )}
+                            {/* Every step launches on /drill (or home for grams) and advances
+                                on completion; Skip is the manual fallback so nobody's stuck.
+                                Full-page nav so the test surface mounts cleanly with ?return=plan. */}
+                            <a href={withReturn(step.href)} data-testid="plan-start-step" className="inline-flex items-center justify-center rounded-md bg-primary px-5 py-2.5 text-sm font-semibold text-primary-content transition hover:opacity-85">
+                                {step.kind === "warmup" ? "Start warm-up →" : "Start →"}
+                            </a>
+                            <button type="button" onClick={advance} data-testid="plan-advance" className="inline-flex items-center justify-center rounded-md px-3 py-2 text-sm font-medium text-base-content/55 transition hover:text-base-content">
+                                Skip →
+                            </button>
                         </div>
                     </div>
                 </>
