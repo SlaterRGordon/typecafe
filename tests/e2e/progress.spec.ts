@@ -41,6 +41,7 @@ test.describe("progress dashboard", () => {
     await expect(page.getByText("Consistency over time", { exact: true })).toBeVisible();
     await expect(page.getByText("Avg consistency")).toBeVisible();
     await expect(page.getByTestId("records-timeline")).toBeVisible();
+    await expect(page.getByTestId("lifetime-keyboard-card")).toContainText("Lifetime keyboard");
     await expect(page.getByTestId("lifetime-heatmap")).toBeVisible();
     // Coach stance (§4.3) reads from recent accuracy/consistency/trend.
     await expect(page.getByTestId("stance")).toBeVisible();

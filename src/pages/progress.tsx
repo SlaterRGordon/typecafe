@@ -470,9 +470,11 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
             )}
 
             {Object.keys(props.keyAttempts).length > 0 && (
-                <div className="rounded-lg border border-base-content/10 bg-base-100/45 p-4">
+                <div data-testid="lifetime-keyboard-card" className="rounded-lg border border-base-content/10 bg-base-100/45 p-4 text-center">
                     <div className="mb-3 text-lg font-semibold text-base-content">Lifetime keyboard</div>
-                    <KeyHeatmap attempts={props.keyAttempts} size="full" testId="lifetime-heatmap" />
+                    <div className="flex w-full justify-center overflow-x-auto pb-1">
+                        <KeyHeatmap attempts={props.keyAttempts} size="full" showPercent={false} className="min-w-fit" testId="lifetime-heatmap" />
+                    </div>
                 </div>
             )}
 

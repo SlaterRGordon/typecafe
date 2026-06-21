@@ -391,6 +391,8 @@ test.describe("screenshot tour", () => {
     await expect(page.getByTestId("trend-chart").first()).toBeVisible();
     await expect(page.getByTestId("lifetime-heatmap")).toBeVisible();
     await capture(page, testInfo, "40-progress-dashboard");
+    await page.getByTestId("lifetime-keyboard-card").scrollIntoViewIfNeeded();
+    await capture(page, testInfo, "40-progress-lifetime-keyboard");
   });
 
   test("progress dashboard (self league)", async ({ page }, testInfo) => {
