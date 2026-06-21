@@ -29,7 +29,7 @@ type ChallengeEntry = {
     rank: number;
     username: string;
     image?: string | null;
-    speed: number;
+    wpm: number;
     accuracy: number;
     delta?: number;
     baseline?: number;
@@ -68,13 +68,13 @@ function ChallengeBoard(props: { title: string; empty: string; entries: Challeng
                                         {entry.delta >= 0 ? "+" : ""}{formatNumber(entry.delta, 1)}
                                     </span>
                                     :
-                                    formatNumber(entry.speed, 1)
+                                    formatNumber(entry.wpm, 1)
                                 }
                                 <span className="ml-1 text-xs text-base-content/50">WPM</span>
                             </span>
                             {props.improved && typeof entry.baseline === "number" &&
                                 <span className="col-span-3 pl-11 text-xs text-base-content/55">
-                                    Today {formatNumber(entry.speed, 1)} vs {formatNumber(entry.baseline, 1)} avg
+                                    Today {formatNumber(entry.wpm, 1)} vs {formatNumber(entry.baseline, 1)} avg
                                 </span>
                             }
                         </li>
@@ -111,7 +111,9 @@ const Challenge: NextPage = () => {
 
     const onComplete = (result: TestCompletionResult) => {
         if (dateKey) {
-            recordLocalChallenge({ dateKey, wpm: result.speed, accuracy: result.accuracy, t: Date.now() });
+            // Store net (the canonical WPM) so the guest challenge status/board
+            // matches the signed-in path.
+            recordLocalChallenge({ dateKey, wpm: result.netWpm, accuracy: result.accuracy, t: Date.now() });
             setStatusRefreshSignal((signal) => signal + 1);
             void utils.test.getDailyChallengeStatus.invalidate({ dateKey });
             void utils.test.getDailyChallengeBoards.invalidate({ dateKey, limit: 10 });

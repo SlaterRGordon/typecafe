@@ -204,6 +204,23 @@ function responseForProcedure(procedure: string, input: ProcedureInput, options:
     case "test.getAll":
       if (options.emptyScores) return [];
       return [makeScore(input)];
+    case "test.getLeaderboard": {
+      if (options.emptyScores) return [];
+      const count = typeof input?.count === "number" ? input.count : 15;
+      const rawWpm = count >= 100 ? 101.25 : count >= 25 ? 88.5 : 72.35;
+      const accuracy = count >= 100 ? 98.25 : 96.5;
+      const wpm = Math.max(0, rawWpm * (2 * accuracy / 100 - 1));
+      return [{
+        rank: 1,
+        userId: profileUser.id,
+        username: profileUser.username,
+        image: profileUser.image,
+        wpm,
+        rawWpm,
+        accuracy,
+        createdAt: new Date("2026-06-01T12:00:00.000Z"),
+      }];
+    }
     case "test.create":
       return { ...makeScore({ ...input, userId: profileUser.id }), brag: "Faster than 72% of similar starters", avgDelta: 3.2, streak: 5 };
     case "test.syncProgressHistory":
@@ -220,12 +237,12 @@ function responseForProcedure(procedure: string, input: ProcedureInput, options:
     case "test.getDailyChallengeBoards":
       return {
         fastest: [
-          { rank: 1, userId: profileUser.id, username: profileUser.username, image: profileUser.image, speed: 82.4, accuracy: 98.1 },
-          { rank: 2, userId: "user-2", username: "steadykeys", image: null, speed: 76.2, accuracy: 97.3 },
+          { rank: 1, userId: profileUser.id, username: profileUser.username, image: profileUser.image, wpm: 82.4, accuracy: 98.1 },
+          { rank: 2, userId: "user-2", username: "steadykeys", image: null, wpm: 76.2, accuracy: 97.3 },
         ],
         improved: [
-          { rank: 1, userId: "user-3", username: "slowgain", image: null, speed: 61.5, accuracy: 96.2, baseline: 55.5, delta: 6.0, baselineTests: 5 },
-          { rank: 2, userId: profileUser.id, username: profileUser.username, image: profileUser.image, speed: 82.4, accuracy: 98.1, baseline: 79.2, delta: 3.2, baselineTests: 9 },
+          { rank: 1, userId: "user-3", username: "slowgain", image: null, wpm: 61.5, accuracy: 96.2, baseline: 55.5, delta: 6.0, baselineTests: 5 },
+          { rank: 2, userId: profileUser.id, username: profileUser.username, image: profileUser.image, wpm: 82.4, accuracy: 98.1, baseline: 79.2, delta: 3.2, baselineTests: 9 },
         ],
       };
     case "test.getTimeTyped":

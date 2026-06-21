@@ -4,6 +4,7 @@ import { api } from "~/utils/api"
 import type { Test, User } from "~/generated/prisma/client"
 import Image from "next/image";
 import { useRouter } from "next/router";
+import { netFromRaw } from "~/lib/stats";
 
 function isBottom(ref: React.RefObject<HTMLElement | null>) {
     if (!ref.current) {
@@ -130,6 +131,7 @@ const Scores = (props: LeaderboardProps) => {
                                     <div className="flex w-[10%] md:[5%]"></div>
                                     <div className="flex basis-0 grow">User</div>
                                     <div className="flex basis-0 grow rounded-tr-lg sm:rounded-tr-none">WPM</div>
+                                    <div className="flex basis-0 grow hidden sm:flex">Raw</div>
                                     <div className="flex basis-0 grow hidden rounded-tr-lg md:rounded-tr-none sm:table-cell">Accuracy</div>
                                     <div className="flex basis-0 grow hidden md:table-cell">Date</div>
                                 </div>
@@ -159,7 +161,10 @@ const Scores = (props: LeaderboardProps) => {
                                                     </div>
                                                 </div>
                                             </div>
-                                            <div className={`flex basis-0 grow items-center ${index + 1 == allTests.length ? "rounded-br-lg sm:rounded-br-none" : ""}`}>
+                                            <div className={`flex basis-0 grow items-center font-mono ${index + 1 == allTests.length ? "rounded-br-lg sm:rounded-br-none" : ""}`}>
+                                                {netFromRaw(test.speed, test.accuracy).toFixed(2)}
+                                            </div>
+                                            <div className="flex basis-0 grow items-center hidden sm:flex font-mono text-base-content/60">
                                                 {test.speed.toFixed(2)}
                                             </div>
                                             <div className={`flex basis-0 grow items-center hidden sm:flex ${index + 1 == allTests.length ? "rounded-br-lg md:rounded-br-none" : ""}`}>

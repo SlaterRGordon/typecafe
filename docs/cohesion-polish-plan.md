@@ -31,7 +31,10 @@ Turns the scattered (but good) features into one cohesive product. Decisions loc
 
 ---
 
-## Slice 2 — Leaderboard + challenge boards: best-per-user-per-window by net (M) `feat(leaderboard): rank one best score per user per window`
+## Slice 2 — Leaderboard + challenge boards: best-per-user-per-window by net ✅ DONE (M) `feat(leaderboard): rank one best score per user per window`
+
+> Shipped 2026-06-20. `test.getLeaderboard` returns one row per user (best net in the window), powering a new `LeaderboardList` (net "WPM" + dimmed raw column). Daily-challenge status/boards/baseline + guest record all net (board entry field `speed`→`wpm`). `Scores` (profile lists) shows net + raw. Verified: 251 unit, tsc, leaderboard/profile/challenge e2e (14), build, screenshots re-captured. Note: `getLeaderboard`/board dedupe in memory (low volume) — materialised best-per-window is the budget-era upgrade.
+
 
 Problem: `Scores.tsx` renders `test.getAll` (every row, score-desc, `date` = `gte`) → one user floods the board. Also carries the deferred Slice-1 net display: leaderboard list, profile scores list, and daily-challenge status/boards (`getDailyChallengeStatus`/`getDailyChallengeBoards` + `DailyChallengePrompt`) all show/rank **net** (derive `netFromRaw(speed, accuracy)`; the challenge baseline/improved-delta become net too).
 

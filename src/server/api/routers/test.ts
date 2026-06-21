@@ -259,18 +259,20 @@ async function thirtyDayChallengeBaseline(
   args: { userId: string; before: Date },
 ): Promise<{ average: number; tests: number } | null> {
   const since = new Date(args.before.getTime() - 30 * 24 * 60 * 60 * 1000);
-  const agg = await prisma.test.aggregate({
+  // Baseline is the net-WPM average (the canonical metric). Net isn't stored, so
+  // average it from raw speed + accuracy rather than aggregating raw in SQL.
+  const prior = await prisma.test.findMany({
     where: {
       userId: args.userId,
       ranked: true,
       createdAt: { gte: since, lt: args.before },
     },
-    _avg: { speed: true },
-    _count: true,
+    select: { speed: true, accuracy: true },
   });
 
-  if (agg._count < MIN_TESTS_FOR_AVG_DELTA || agg._avg.speed === null) return null;
-  return { average: agg._avg.speed, tests: agg._count };
+  if (prior.length < MIN_TESTS_FOR_AVG_DELTA) return null;
+  const average = prior.reduce((sum, row) => sum + netFromRaw(row.speed, row.accuracy), 0) / prior.length;
+  return { average, tests: prior.length };
 }
 
 // The user's current practice-day streak, from their distinct test days.
@@ -334,17 +336,18 @@ export const testRouter = createTRPCRouter({
         before: todayDate,
       }) : null;
 
+      const todayNet = today ? netFromRaw(today.speed, today.accuracy) : null;
       return {
         today: today ? {
           dateKey: input.dateKey,
-          wpm: today.speed,
+          wpm: todayNet!,
           accuracy: today.accuracy,
           t: today.createdAt.getTime(),
-          delta: baseline ? today.speed - baseline.average : null,
+          delta: baseline ? todayNet! - baseline.average : null,
         } : null,
         yesterday: yesterday ? {
           dateKey: yesterdayKey,
-          wpm: yesterday.speed,
+          wpm: netFromRaw(yesterday.speed, yesterday.accuracy),
           accuracy: yesterday.accuracy,
           t: yesterday.createdAt.getTime(),
         } : null,
@@ -388,19 +391,26 @@ export const testRouter = createTRPCRouter({
         },
       });
 
+      // Boards rank by net WPM (the canonical metric), keeping each user's best
+      // net run. Net isn't stored, so derive it from raw speed + accuracy.
+      const netOf = (row: { speed: number; accuracy: number }) => netFromRaw(row.speed, row.accuracy);
       const bestByUser = new Map<string, typeof rows[number]>();
       for (const row of rows) {
-        if (!bestByUser.has(row.userId)) bestByUser.set(row.userId, row);
+        const current = bestByUser.get(row.userId);
+        if (!current || netOf(row) > netOf(current)) bestByUser.set(row.userId, row);
       }
 
-      const fastest = Array.from(bestByUser.values()).slice(0, limit).map((row, index) => ({
-        rank: index + 1,
-        userId: row.userId,
-        username: row.user.username ?? row.user.name ?? "Anonymous",
-        image: row.user.image,
-        speed: row.speed,
-        accuracy: row.accuracy,
-      }));
+      const fastest = Array.from(bestByUser.values())
+        .sort((a, b) => netOf(b) - netOf(a))
+        .slice(0, limit)
+        .map((row, index) => ({
+          rank: index + 1,
+          userId: row.userId,
+          username: row.user.username ?? row.user.name ?? "Anonymous",
+          image: row.user.image,
+          wpm: netOf(row),
+          accuracy: row.accuracy,
+        }));
 
       const improvedCandidates = await Promise.all(
         Array.from(bestByUser.values()).map(async (row) => {
@@ -409,15 +419,16 @@ export const testRouter = createTRPCRouter({
             before: challengeDate,
           });
           if (!baseline) return null;
+          const wpm = netOf(row);
           return {
             rank: 0,
             userId: row.userId,
             username: row.user.username ?? row.user.name ?? "Anonymous",
             image: row.user.image,
-            speed: row.speed,
+            wpm,
             accuracy: row.accuracy,
             baseline: baseline.average,
-            delta: row.speed - baseline.average,
+            delta: wpm - baseline.average,
             baselineTests: baseline.tests,
           };
         }),
@@ -425,11 +436,61 @@ export const testRouter = createTRPCRouter({
 
       const improved = improvedCandidates
         .filter((entry): entry is NonNullable<typeof entry> => entry !== null)
-        .sort((a, b) => b.delta - a.delta || b.speed - a.speed)
+        .sort((a, b) => b.delta - a.delta || b.wpm - a.wpm)
         .slice(0, limit)
         .map((entry, index) => ({ ...entry, rank: index + 1 }));
 
       return { fastest, improved };
+    }),
+  // Leaderboard: one row per user — their single best run (by net WPM, the
+  // canonical metric) within the window — so one fast typer can't flood the
+  // board with every attempt. Net isn't stored, so dedupe/sort in memory.
+  // (Volume is low pre-launch; a materialised best-per-window is the budget-era
+  // upgrade.)
+  getLeaderboard: publicProcedure
+    .input(z.object({
+      typeId: z.string(),
+      count: z.number(),
+      date: z.date().optional(),
+      limit: z.number(),
+      page: z.number(),
+    }))
+    .query(async ({ ctx, input }) => {
+      const rows = await ctx.prisma.test.findMany({
+        where: {
+          typeId: input.typeId,
+          count: input.count,
+          ranked: true,
+          createdAt: { gte: input.date },
+        },
+        select: {
+          userId: true,
+          speed: true,
+          accuracy: true,
+          createdAt: true,
+          user: { select: { username: true, name: true, image: true } },
+        },
+      });
+
+      const netOf = (row: { speed: number; accuracy: number }) => netFromRaw(row.speed, row.accuracy);
+      const best = new Map<string, typeof rows[number]>();
+      for (const row of rows) {
+        const current = best.get(row.userId);
+        if (!current || netOf(row) > netOf(current)) best.set(row.userId, row);
+      }
+
+      const sorted = Array.from(best.values()).sort((a, b) => netOf(b) - netOf(a));
+      const start = input.page * input.limit;
+      return sorted.slice(start, start + input.limit).map((row, index) => ({
+        rank: start + index + 1,
+        userId: row.userId,
+        username: row.user.username ?? row.user.name ?? "Anonymous",
+        image: row.user.image,
+        wpm: netOf(row),
+        rawWpm: row.speed,
+        accuracy: row.accuracy,
+        createdAt: row.createdAt,
+      }));
     }),
   getAll: publicProcedure
     .input(z.object({
