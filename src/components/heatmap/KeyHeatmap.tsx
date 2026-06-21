@@ -105,11 +105,11 @@ export function KeyHeatmap(props: KeyHeatmapProps) {
                 style={{ backgroundColor: color }}
                 title={`${label}: ${cell.hasData ? `${cell.accuracy}%` : "no data"}`}
             >
-                <span className={`leading-none ${showPercent ? "absolute left-1 top-1 text-[0.75rem] sm:left-1.5 sm:top-1.5 sm:text-sm" : ""}`}>
+                <span className={`leading-none ${showPercent ? "absolute left-1 top-1 text-sm sm:left-1.5 sm:top-1.5 sm:text-base" : ""}`}>
                     {showPercent ? keyLabel : isSpace ? "\u00a0" : key}
                 </span>
                 {showPercent &&
-                    <span className="pointer-events-none absolute bottom-0.5 right-1 text-[0.55rem] font-bold leading-none text-white/95 drop-shadow-sm sm:bottom-1 sm:right-1.5 sm:text-[0.65rem]">
+                    <span className="pointer-events-none absolute bottom-0.5 right-1 text-[0.6rem] font-bold leading-none text-white/95 drop-shadow-sm sm:bottom-1 sm:right-1.5 sm:text-xs">
                         {cell.accuracy}%
                     </span>
                 }
