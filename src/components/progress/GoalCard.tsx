@@ -23,12 +23,15 @@ function readGoal(): StoredGoal | null {
 }
 
 function formatDate(date: Date): string {
-    return date.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })
+    return date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
 }
 
-// Goal trajectory (§3.5): set a target WPM + date; the card projects the current
-// trend against the pace needed to hit it — honest about shortfall. The goal
-// lives in localStorage (no schema, works for guests too).
+const clampPct = (value: number) => Math.max(0, Math.min(100, value))
+
+// Goal trajectory (§3.5), folded into the hero: a target WPM + date becomes a
+// progress bar (where you are vs the goal, plus where you're projected to land by
+// the deadline) and an honest on-track / behind / ahead read. Renders borderless
+// so it sits under the hero delta. Goal lives in localStorage (works for guests).
 export function GoalCard(props: { records: ProgressRecord[]; now: Date }) {
     const [goal, setGoal] = useState<StoredGoal | null>(null)
     const [editing, setEditing] = useState(false)
@@ -66,14 +69,12 @@ export function GoalCard(props: { records: ProgressRecord[]; now: Date }) {
         setEditing(false)
     }
 
-    // Demoted to a one-liner when there's no goal yet — the dashboard is a story,
-    // not a form. Tapping it expands the editor.
+    // No goal yet: a one-liner that expands the editor.
     if (!editing && !goal) {
         return (
-            <div data-testid="goal-card" className="rounded-xl border border-base-content/10 bg-base-100/45 px-5 py-3">
-                <button type="button" onClick={() => setEditing(true)} className="flex w-full items-center justify-between">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-base-content/45">Goal</span>
-                    <span className="text-sm font-semibold text-primary">Set a goal →</span>
+            <div data-testid="goal-card" className="mt-4">
+                <button type="button" onClick={() => setEditing(true)} className="text-sm font-semibold text-primary hover:opacity-85">
+                    Set a goal →
                 </button>
             </div>
         )
@@ -81,7 +82,7 @@ export function GoalCard(props: { records: ProgressRecord[]; now: Date }) {
 
     if (editing) {
         return (
-            <div data-testid="goal-card" className="rounded-xl border border-base-content/10 bg-base-100/45 p-5">
+            <div data-testid="goal-card" className="mt-4 border-t border-base-content/10 pt-4">
                 <p className="text-xs font-semibold uppercase tracking-wide text-base-content/45">Goal</p>
                 <div className="mt-2 flex flex-wrap items-end gap-3">
                     <label className="flex flex-col text-sm text-base-content/70">
@@ -113,33 +114,53 @@ export function GoalCard(props: { records: ProgressRecord[]; now: Date }) {
         )
     }
 
-    // Reached only when a goal exists and we're not editing: the compact status.
     if (!goal) return null
 
+    // Where the fitted trend lands by the deadline — the "projected" marker.
+    const projectedWpm = trajectory && trajectory.enoughData
+        ? trajectory.currentWpm + trajectory.slopePerDay * trajectory.daysToDeadline
+        : null
+    const currentPct = trajectory ? clampPct((trajectory.currentWpm / goal.targetWpm) * 100) : 0
+    const projectedPct = projectedWpm !== null ? clampPct((projectedWpm / goal.targetWpm) * 100) : null
+
     return (
-        <div data-testid="goal-card" className="rounded-xl border border-base-content/10 bg-base-100/45 p-5">
-            <div className="flex items-center justify-between">
-                <p className="text-xs font-semibold uppercase tracking-wide text-base-content/45">Goal</p>
-                <button type="button" onClick={() => setEditing(true)} className="text-sm text-base-content/55 hover:text-base-content">Edit</button>
+        <div data-testid="goal-card" className="mt-4 border-t border-base-content/10 pt-4">
+            <div className="flex items-center justify-between gap-3">
+                <p className="text-sm text-base-content/70">Goal: <span className="font-semibold text-base-content">{goal.targetWpm} WPM</span> by {formatDate(new Date(goal.targetDate))}</p>
+                <button type="button" onClick={() => setEditing(true)} className="text-xs text-base-content/55 hover:text-base-content">Edit</button>
             </div>
-            <p className="mt-1 text-lg font-semibold text-base-content">{goal.targetWpm} WPM by {formatDate(new Date(goal.targetDate))}</p>
+
+            {/* Progress toward the goal, with a marker for where the current pace
+                projects you to land by the deadline. */}
+            <div className="relative mt-3 h-2.5 rounded-full bg-base-content/10">
+                <div className="absolute inset-y-0 left-0 rounded-full bg-primary" style={{ width: `${currentPct}%` }} />
+                {projectedPct !== null && (
+                    <div
+                        className="absolute top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-full bg-base-content/45"
+                        style={{ left: `calc(${projectedPct}% - 1px)` }}
+                        title={`Projected ${projectedWpm!.toFixed(0)} WPM by the deadline`}
+                    />
+                )}
+            </div>
+            <div className="mt-1 flex justify-between text-xs text-base-content/50">
+                <span>{(trajectory?.currentWpm ?? 0).toFixed(0)} now</span>
+                <span>{goal.targetWpm} goal</span>
+            </div>
 
             {!trajectory || !trajectory.enoughData ? (
-                <p className="mt-2 text-sm text-base-content/60">Keep testing — once there&apos;s a trend to read, we&apos;ll project whether you&apos;re on pace.</p>
+                <p data-testid="goal-status" className="mt-2 text-sm text-base-content/60">Keep testing — once there&apos;s a trend, we&apos;ll project whether you&apos;re on pace.</p>
             ) : trajectory.gapWpm <= 0 ? (
                 <p data-testid="goal-status" className="mt-2 text-sm font-medium text-success">Already there — you&apos;re averaging {trajectory.currentWpm.toFixed(1)} WPM. Time for a higher target.</p>
             ) : trajectory.onTrack ? (
                 <p data-testid="goal-status" className="mt-2 text-sm font-medium text-success">
-                    On track — at your current pace ({(trajectory.slopePerDay * 7).toFixed(1)} WPM/week) you&apos;ll hit {goal.targetWpm} around {trajectory.reachesTargetOn ? formatDate(trajectory.reachesTargetOn) : "soon"}.
+                    On track — at +{(trajectory.slopePerDay * 7).toFixed(1)} WPM/week you&apos;ll hit {goal.targetWpm} around {trajectory.reachesTargetOn ? formatDate(trajectory.reachesTargetOn) : "soon"}.
                 </p>
             ) : (
                 <p data-testid="goal-status" className="mt-2 text-sm font-medium text-error">
-                    {trajectory.reachesTargetOn
-                        ? `Behind — at this pace you reach ${goal.targetWpm} around ${formatDate(trajectory.reachesTargetOn)}.`
-                        : `Behind — your trend is flat, so you won't reach ${goal.targetWpm} at this pace.`}
+                    Behind — {projectedWpm !== null ? `you're projected to reach ~${projectedWpm.toFixed(0)} WPM by ${formatDate(new Date(goal.targetDate))}. ` : ""}
                     {trajectory.requiredSlopePerDay !== null
-                        ? ` To hit ${formatDate(new Date(goal.targetDate))}, gain ~${(trajectory.requiredSlopePerDay * 7).toFixed(1)} WPM/week (you're at ${(trajectory.slopePerDay * 7).toFixed(1)}).`
-                        : " That date has passed — pick a new one."}
+                        ? `Need +${(trajectory.requiredSlopePerDay * 7).toFixed(1)} WPM/week (you're at +${(trajectory.slopePerDay * 7).toFixed(1)}).`
+                        : "That date has passed — pick a new one."}
                 </p>
             )}
         </div>

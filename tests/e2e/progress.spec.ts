@@ -33,10 +33,8 @@ test.describe("progress dashboard", () => {
     await trendTabs.getByRole("button", { name: "WPM" }).click();
     await expect(page.getByText("WPM over time", { exact: true })).toBeVisible();
 
-    // Stat cells summarise the selected period.
-    await expect(page.getByText("Avg WPM")).toBeVisible();
-    await expect(page.getByText("Best WPM")).toBeVisible();
-    await expect(page.getByText("Avg consistency")).toBeVisible();
+    // Best WPM is a header chip now (the rest of the stat cells are gone).
+    await expect(page.getByTestId("best-wpm-chip")).toContainText("Best");
 
     // Story-first §6.3: the yearly activity heatmap, fed by the records.
     await expect(page.getByTestId("activity-heatmap")).toBeVisible();
@@ -155,23 +153,6 @@ test.describe("progress dashboard", () => {
     await expect(plateau).toBeVisible();
     await expect(plateau).toContainText("Plateaued for");
     await expect(plateau.getByRole("link", { name: "Try transition drills" })).toBeVisible();
-  });
-
-  test("the weekly recap opens after a week and dismisses", async ({ page }) => {
-    await mockAuthenticatedSession(page);
-    await mockTrpc(page, { keyStats: [{ character: "b", total: 60, correct: 40 }] });
-    await page.addInitScript(() => window.localStorage.setItem("typecafe:lastRecapAt", String(Date.now() - 8 * 24 * 60 * 60 * 1000)));
-    await gotoProgress(page);
-
-    const recap = page.getByTestId("weekly-recap");
-    await expect(recap).toBeVisible();
-    // States the diagnosis (which key + why), then the drill button.
-    await expect(recap).toContainText("Your weakest key is B");
-    await expect(recap).toContainText("67%"); // 40/60 correct
-    await expect(recap.getByRole("link", { name: "Drill B" })).toBeVisible();
-
-    await recap.getByRole("button", { name: "Dismiss recap" }).click();
-    await expect(recap).toBeHidden();
   });
 
   test("a signed-in user can share a progress card", async ({ page }) => {

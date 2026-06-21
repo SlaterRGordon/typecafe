@@ -14,8 +14,6 @@ import { readLocalTransitions } from "~/lib/localTransitions";
 import { worstTransitions, type TransitionAggregate } from "~/lib/transitions";
 import {
     PROGRESS_PERIODS,
-    averageAccuracy,
-    averageConsistency,
     averageWpm,
     bestWpm,
     currentStreak,
@@ -33,12 +31,8 @@ import {
 } from "~/lib/progress";
 import { readLocalProgress } from "~/lib/progressHistory";
 import { netFromRaw, worstKeysFromAttempts } from "~/lib/stats";
-import { buildRecap, isRecapDue } from "~/lib/recap";
-import { computeStance } from "~/lib/stance";
 import { detectPlateau } from "~/lib/trajectory";
 import { api } from "~/utils/api";
-
-const RECAP_SEEN_KEY = "typecafe:lastRecapAt";
 
 function periodLabel(period: ProgressPeriod): string {
     return period === "all" ? "All" : `${period}d`;
@@ -66,15 +60,6 @@ function lengthLabel(count: number, mode: ProgressModeFilter): string {
     if (mode === "timed") return `${count}s`;
     if (mode === "words") return `${count} words`;
     return String(count);
-}
-
-function StatCell(props: { label: string; value: string }) {
-    return (
-        <div className="flex flex-col rounded-lg border border-base-content/10 bg-base-100/45 px-4 py-3">
-            <span className="text-xs font-semibold uppercase tracking-wide text-base-content/45">{props.label}</span>
-            <span className="mt-1 font-mono text-2xl text-base-content">{props.value}</span>
-        </div>
-    );
 }
 
 function periodShareLabel(period: ProgressPeriod): string {
@@ -131,8 +116,6 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
         const nums = values as number[];
         return { values: nums, rolling: rollingAverage(nums, series.window) };
     }, [series]);
-    const avgConsistency = averageConsistency(inPeriod);
-    const stance = useMemo(() => computeStance(filteredRecords, now), [filteredRecords, now]);
     const plateau = useMemo(() => detectPlateau(filteredRecords, now), [filteredRecords, now]);
     const slowTransitions = useMemo(() => worstTransitions(props.transitions), [props.transitions]);
     // Top weak keys for the one-click "drill your weakest keys" CTA (slice 5).
@@ -166,19 +149,6 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
     // A progress card only makes sense with a real delta to brag about.
     const canShare = !!props.canShare && delta.delta !== null && series.points.length > 0;
 
-    // Weekly recap (§3.4): a surface, not a send. Shows on the first visit >= 7
-    // days after the last one (tracked in localStorage), dismissable.
-    const recap = useMemo(() => buildRecap(filteredRecords, props.keyAttempts, now, -now.getTimezoneOffset()), [filteredRecords, props.keyAttempts, now]);
-    const [recapDue, setRecapDue] = useState(false);
-    useEffect(() => {
-        const raw = typeof window === "undefined" ? null : window.localStorage.getItem(RECAP_SEEN_KEY);
-        setRecapDue(isRecapDue(raw ? Number(raw) : null, Date.now()));
-    }, []);
-    const dismissRecap = () => {
-        try { window.localStorage.setItem(RECAP_SEEN_KEY, String(Date.now())); } catch { /* storage blocked */ }
-        setRecapDue(false);
-    };
-
     const shareProgress = async () => {
         if (delta.delta === null) return;
         setShareState("sharing");
@@ -204,38 +174,17 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
 
     return (
         <div className="w-full max-w-6xl space-y-4">
-            {recapDue && hasData && (
-                <div data-testid="weekly-recap" className="relative rounded-xl border border-primary/40 bg-primary/10 p-5">
-                    <button type="button" aria-label="Dismiss recap" onClick={dismissRecap} className="absolute right-3 top-3 text-base-content/50 hover:text-base-content">✕</button>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-primary">Your week</p>
-                    <p className="mt-1 text-lg font-semibold text-base-content">
-                        {recap.weekDeltaWpm !== null
-                            ? `${recap.weekDeltaWpm >= 0 ? "+" : ""}${recap.weekDeltaWpm.toFixed(1)} WPM this week`
-                            : `${recap.testsThisWeek} ${recap.testsThisWeek === 1 ? "test" : "tests"} this week`}
-                    </p>
-                    <p className="mt-1 text-sm text-base-content/60">
-                        {recap.testsThisWeek} {recap.testsThisWeek === 1 ? "test" : "tests"}
-                        {recap.streak > 0 ? ` · ${recap.streak}-day streak` : ""}
-                    </p>
-                    {recap.focus && (
-                        <>
-                            <p className="mt-3 text-sm text-base-content/80">
-                                Your weakest key is <span className="font-bold text-base-content">{recap.focus.key.toUpperCase()}</span> — you hit it right {recap.focus.accuracy.toFixed(0)}% of the time ({recap.focus.attempts} tries). Drilling it is the fastest win this week.
-                            </p>
-                            <Link href={`/drill?keys=${recap.focus.key}`} className="mt-2 inline-flex items-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85">
-                                Drill {recap.focus.key.toUpperCase()}
-                            </Link>
-                        </>
-                    )}
-                </div>
-            )}
-
             <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-2">
                     <h1 className="font-mono text-3xl font-bold tracking-tight">Progress</h1>
                     {streak > 0 && (
                         <span data-testid="streak-chip" className="rounded-full bg-primary/15 px-3 py-1 text-sm font-semibold text-primary">
                             {streak}-day streak
+                        </span>
+                    )}
+                    {hasData && (
+                        <span data-testid="best-wpm-chip" className="rounded-full bg-base-content/10 px-3 py-1 text-sm font-semibold text-base-content/80">
+                            Best {bestWpm(inPeriod).toFixed(1)} WPM
                         </span>
                     )}
                 </div>
@@ -370,6 +319,8 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
                                 )}
                             </>
                         )}
+
+                        {hasData && <GoalCard records={filteredRecords} now={now} />}
                     </div>
 
                     {hasData && (
@@ -447,28 +398,6 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
                 )}
             </div>
 
-            {/* Coach voice, only when it adds a lever the hero doesn't. */}
-            {stance.enoughData && !plateau.plateaued && (stance.stance !== "balanced" || delta.trend === "up") && (
-                <div data-testid="stance" className="rounded-xl border border-base-content/10 bg-base-100/45 px-5 py-3">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-primary">Coach · </span>
-                    <span className="text-sm font-semibold text-base-content">{stance.headline}</span>
-                    <span className="text-sm text-base-content/60"> — {stance.advice}</span>
-                </div>
-            )}
-
-            {hasData && (
-                <>
-                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                        <StatCell label="Avg WPM" value={averageWpm(inPeriod).toFixed(1)} />
-                        <StatCell label="Best WPM" value={bestWpm(inPeriod).toFixed(1)} />
-                        <StatCell label="Avg accuracy" value={`${averageAccuracy(inPeriod).toFixed(1)}%`} />
-                        {avgConsistency !== null
-                            ? <StatCell label="Avg consistency" value={`${avgConsistency.toFixed(1)}%`} />
-                            : <StatCell label="Tests" value={String(inPeriod.length)} />}
-                    </div>
-                </>
-            )}
-
             {props.records.length > 0 && (
                 <div data-testid="activity-card" className="rounded-lg border border-base-content/10 bg-base-100/45 p-3 sm:p-5">
                     <div className="mb-3 text-lg font-semibold text-base-content">Activity</div>
@@ -505,8 +434,6 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
                     </div>
                 )}
             </div>
-
-            {hasData && <GoalCard records={filteredRecords} now={now} />}
         </div>
     );
 };
