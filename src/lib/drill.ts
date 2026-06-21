@@ -128,6 +128,39 @@ const genericWords = (wordList: string[]): string[] => {
     return words
 }
 
+// Build the word pool for a multi-key drill so every target key is represented.
+// Ranking purely by density lets dense common-key words (e.g. words full of s/u/h/b)
+// crowd out a rarer key like 'v', so it never appears. Round-robin the best words
+// for each key first, then fill the rest by overall density.
+export function buildKeyDrillPool(ranked: DrillWordCandidate[], keys: string[], poolSize: number): string[] {
+    const targets = uniqueChars(keys)
+    if (targets.length === 0) return ranked.slice(0, poolSize).map((candidate) => candidate.word)
+
+    const seen = new Set<string>()
+    const pool: string[] = []
+    const perKey = Math.max(3, Math.ceil(poolSize / targets.length))
+
+    for (const key of targets) {
+        let added = 0
+        for (const candidate of ranked) {
+            if (added >= perKey) break
+            if (seen.has(candidate.word) || !candidate.word.includes(key)) continue
+            seen.add(candidate.word)
+            pool.push(candidate.word)
+            added += 1
+        }
+    }
+
+    for (const candidate of ranked) {
+        if (pool.length >= poolSize) break
+        if (seen.has(candidate.word)) continue
+        seen.add(candidate.word)
+        pool.push(candidate.word)
+    }
+
+    return pool
+}
+
 function buildText(pool: string[], length: number, rng: () => number): string {
     const words: string[] = []
     let previous: string | undefined
@@ -160,8 +193,9 @@ export function compileDrillText(input: CompileDrillTextInput): string {
 
     if (keys.length > 0) {
         const ranked = rankDrillWords(input.wordList, keys)
-        const top = ranked.slice(0, Math.max(TOP_POOL_MIN, length * 2)).map((candidate) => candidate.word)
-        const pool = top.length > 0 ? top : fallbackKeyTokens(keys)
+        const pool = ranked.length > 0
+            ? buildKeyDrillPool(ranked, keys, Math.max(TOP_POOL_MIN, length * 2))
+            : fallbackKeyTokens(keys)
         return buildText(pool, length, rng)
     }
 

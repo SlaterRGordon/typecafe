@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest"
-import { compileDrillText, rankDrillWords } from "./drill"
+import { buildKeyDrillPool, compileDrillText, rankDrillWords } from "./drill"
 
 const steadyRng = () => 0
 const cyclingRng = () => {
@@ -30,6 +30,22 @@ describe("compileDrillText", () => {
         expect(words.every((word) => word.includes("x"))).toBe(true)
         expect(new Set(words).size).toBeGreaterThan(1)
         expect(words).not.toContain("xxxx")
+    })
+
+    test("represents every target key even when one is rare (regression: b,h,v,s,u dropped v)", () => {
+        // Many dense common-key words would dominate a pure density ranking and
+        // crowd out the only words carrying the rarer key 'v'.
+        const wordList = ["hubs", "squash", "hush", "bus", "sub", "shush", "sushi", "bush", "have", "save", "above"]
+        const keys = ["b", "h", "v", "s", "u"]
+        const ranked = rankDrillWords(wordList, keys)
+        const pool = buildKeyDrillPool(ranked, keys, 12)
+
+        for (const key of keys) {
+            expect(pool.some((word) => word.includes(key))).toBe(true)
+        }
+        // The compiled drill draws from that balanced pool, so 'v' actually shows up.
+        const text = compileDrillText({ keys, wordList, length: 24, rng: cyclingRng() })
+        expect(text.split(" ").some((word) => word.includes("v"))).toBe(true)
     })
 
     test("avoids immediate repeats when the candidate pool has alternatives", () => {
