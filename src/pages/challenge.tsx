@@ -2,6 +2,7 @@ import { type NextPage } from "next";
 import Head from "next/head";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
+import { Avatar } from "~/components/Avatar";
 import { DailyChallengePrompt } from "~/components/challenge/DailyChallengePrompt";
 import { ShareableScoreCard, type ScoreSnapshot } from "~/components/scores/ShareableScoreCard";
 import { Typer, type TestCompletionResult } from "~/components/typer/Typer";
@@ -61,7 +62,10 @@ function ChallengeBoard(props: { title: string; empty: string; entries: Challeng
                             className="grid grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-3 rounded-md border border-base-content/10 bg-base-200/60 px-3 py-2"
                         >
                             <span className="font-mono text-sm font-bold text-base-content/50">#{entry.rank}</span>
-                            <span className="min-w-0 truncate text-sm font-semibold text-base-content">{entry.username}</span>
+                            <span className="flex min-w-0 items-center gap-2">
+                                <Avatar size={24} image={entry.image} name={entry.username} />
+                                <span className="truncate text-sm font-semibold text-base-content">{entry.username}</span>
+                            </span>
                             <span className="text-right font-mono text-sm text-base-content">
                                 {props.improved && typeof entry.delta === "number" ?
                                     <span className={entry.delta >= 0 ? "text-success" : "text-error"}>

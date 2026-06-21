@@ -1,26 +1,37 @@
-import { useSession } from "next-auth/react";
 import Image from "next/image";
+import { avatarColor, avatarInitial } from "~/lib/avatar";
 
 interface AvatarProps {
-    size: number | string;
+    // Profile image URL; when absent, a deterministic coloured initial is shown.
+    image?: string | null;
+    // Display name used for the fallback colour + initial (username, name, …).
+    name?: string | null;
+    // Rendered square size in px.
+    size: number;
+    className?: string;
 }
 
-export const Avatar = (props: AvatarProps) => {
-    const { data: sessionData } = useSession();
+// The one avatar used everywhere: a circular picture, or a deterministic
+// coloured initial when there's no picture (never a blank circle). Presentational
+// — callers pass the user's image/name (e.g. from the session or a row).
+export const Avatar = ({ image, name, size, className }: AvatarProps) => {
+    const dimensions = { width: size, height: size };
+
+    if (image) {
+        return (
+            <div className={`relative shrink-0 overflow-hidden rounded-full ${className ?? ""}`} style={dimensions}>
+                <Image src={image} alt="Profile picture" fill sizes={`${size}px`} className="object-cover" referrerPolicy="no-referrer" />
+            </div>
+        );
+    }
 
     return (
-        <div className="avatar placeholder">
-            <div style={{ width: props.size, minWidth: '1.5rem' }} className="mask mask-circle">
-                {sessionData?.user.image ?
-                    <Image className="rounded-full" width={500} height={500} src={sessionData?.user.image ?? ""} alt="Profile Picture" referrerPolicy="no-referrer" />
-                    :
-                    <div className="avatar placeholder">
-                        <div className="bg-neutral text-white rounded-full w-24">
-                            <span className="text-md">{sessionData?.user.username?.charAt(0).toUpperCase() ?? ""}</span>
-                        </div>
-                    </div>
-                }
-            </div>
+        <div
+            className={`flex shrink-0 items-center justify-center rounded-full font-bold leading-none text-white ${className ?? ""}`}
+            style={{ ...dimensions, backgroundColor: avatarColor(name ?? ""), fontSize: Math.round(size * 0.42) }}
+            aria-label={name ?? "User"}
+        >
+            {avatarInitial(name)}
         </div>
-    )
-}
+    );
+};

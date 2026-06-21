@@ -1,5 +1,5 @@
-import Image from "next/image";
 import { useRouter } from "next/router";
+import { Avatar } from "~/components/Avatar";
 import { TestModes, type TestSubModes } from "~/components/typer/types";
 import { api } from "~/utils/api";
 
@@ -50,19 +50,7 @@ const LeaderboardList = (props: LeaderboardListProps) => {
                                     <div className="flex w-[10%] md:[5%] items-center">{row.rank}</div>
                                     <div className="flex basis-0 grow items-center">
                                         <div className="flex basis-0 grow items-center space-x-3 cursor-pointer" onClick={() => void navigateProfile(row.username)}>
-                                            <div className="avatar">
-                                                <div className="mask mask-squircle w-12 h-12">
-                                                    {row.image ?
-                                                        <Image className="rounded-full" width={500} height={500} src={row.image} alt="Profile Picture" referrerPolicy="no-referrer" />
-                                                        :
-                                                        <div className="avatar placeholder">
-                                                            <div className="bg-neutral text-white rounded-full w-12">
-                                                                <span className="text-xl font-bold">{row.username.charAt(0).toUpperCase()}</span>
-                                                            </div>
-                                                        </div>
-                                                    }
-                                                </div>
-                                            </div>
+                                            <Avatar size={48} image={row.image} name={row.username} />
                                             <div className="font-bold">{row.username}</div>
                                         </div>
                                     </div>

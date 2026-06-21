@@ -47,7 +47,7 @@ export const BottomNavigation = () => {
                 {/* Profile, if signed in */}
                 {sessionData?.user &&
                     <button onClick={() => router.push('/profile')} className={getNavButtonClass('/profile')} aria-label="Profile" title="Profile">
-                        <Avatar size={25} />
+                        <Avatar size={25} image={sessionData.user.image} name={sessionData.user.username ?? sessionData.user.name} />
                     </button>
                 }
             </div>

@@ -46,7 +46,10 @@ Problem: `Scores.tsx` renders `test.getAll` (every row, score-desc, `date` = `gt
 
 ---
 
-## Slice 3 — Shared Avatar with per-user colour (S) `feat(ui): unify avatar with deterministic fallback colour`
+## Slice 3 — Shared Avatar with per-user colour ✅ DONE (S) `feat(ui): unify avatar with deterministic fallback colour`
+
+> Shipped 2026-06-20. Pure `src/lib/avatar.ts` (`avatarColor` hash→hue, `avatarInitial`, 6 tests). New presentational `<Avatar image name size>` (circular picture or deterministic coloured initial, never blank). Replaced every inline fallback: nav (both), profile own/public headers, edit preview, `Scores`, `LeaderboardList`, + added avatars to the daily-challenge boards. OG route shows no avatar, so unchanged. Verified: 257 unit, tsc, build, profile/leaderboard/challenge/navigation e2e, screenshots re-captured.
+
 
 - Generalise `src/components/Avatar.tsx`: props `{ image?, name?, size }`. Fallback = uppercase first char of `name` (username→name→email), else "?". Background = deterministic colour from a hash of `name` → hue (fixed S/L for contrast on the dark theme), white text. Export a pure `avatarColor(seed: string)` in `src/lib/` + test (stable, distinct hues).
 - Replace inline fallbacks: `Scores.tsx`, `src/pages/profile.tsx`, `src/pages/profile/[username].tsx`, daily-challenge boards (`src/pages/challenge.tsx` / board component), score-card author, and the OG route (replicate colour+initial in the `ImageResponse`).

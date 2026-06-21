@@ -8,7 +8,7 @@ import Select from 'react-select'
 import type { SingleValue } from 'react-select'
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
-import Image from "next/image";
+import { Avatar } from "~/components/Avatar";
 import { Modal } from "~/components/Modal";
 import { Edit } from "~/components/profile/edit/Edit";
 import { api } from "~/utils/api";
@@ -176,20 +176,12 @@ const Profile: NextPage = () => {
         <div className="flex w-11/12 space-x-4 mt-8 mx-4">
           <div className="flex flex-col gap-2">
             <div className="flex gap-4">
-              <div className="flex flex-col items-center justify-center">
-                <div className="avatar">
-                  <div className="mask mask-circle w-24 h-24">
-                    {(userData ? userData.image : sessionData?.user.image) ?
-                      <Image width={192} height={192} sizes="96px" className="h-full w-full object-cover" src={(userData ? userData.image : sessionData?.user.image) ?? ""} alt={"Profile Picture"} />
-                      :
-                      <div className="avatar placeholder">
-                        <div className="bg-neutral text-neutral-content rounded-full w-24">
-                          <span className="text-4xl font-bold">{sessionData?.user.username?.charAt(0).toUpperCase() ?? ""}</span>
-                        </div>
-                      </div>
-                    }
-                  </div>
-                </div>
+              <div data-testid="profile-avatar" className="flex flex-col items-center justify-center">
+                <Avatar
+                  size={96}
+                  image={userData ? userData.image : sessionData?.user.image}
+                  name={userData?.username ?? sessionData?.user.username ?? sessionData?.user.name}
+                />
               </div>
               <div className="flex flex-col justify-center gap-1">
                 {isLoading ?

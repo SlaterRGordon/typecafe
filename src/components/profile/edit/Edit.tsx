@@ -1,7 +1,7 @@
 import type { User } from "~/generated/prisma/client"
 import { upload } from "@vercel/blob/client";
-import Image from "next/image";
 import { useSession } from "next-auth/react";
+import { Avatar } from "~/components/Avatar";
 import { useEffect, useState } from "react"
 import type { Area } from "react-easy-crop";
 import { api } from "~/utils/api"
@@ -193,19 +193,7 @@ export const Edit = (props: EditProps) => {
             <div className="flex flex-col gap-2">
                 <h4 className="text-lg font-bold sm:text-xl">Profile Picture</h4>
                 <div className="flex items-center gap-4">
-                    <div className="avatar">
-                        <div className="mask mask-circle w-16 h-16">
-                            {image ?
-                                <Image className="rounded-full object-cover" width={160} height={160} src={image} alt="Profile picture preview" referrerPolicy="no-referrer" />
-                                :
-                                <div className="avatar placeholder">
-                                    <div className="bg-neutral text-neutral-content rounded-full w-16">
-                                        <span className="text-2xl font-bold">{name.charAt(0).toUpperCase() ?? ""}</span>
-                                    </div>
-                                </div>
-                            }
-                        </div>
-                    </div>
+                    <Avatar size={64} image={image} name={name} />
                     <div className="flex flex-wrap items-center gap-2">
                         <label className={`btn btn-sm btn-primary ${avatarUploading || saving ? "btn-disabled" : ""}`} htmlFor="avatarInput">
                             {avatarUploading ? <div className="w-5 h-5 rounded-full animate-spin border border-solid text-primary border-t-transparent"></div> : "Upload"}

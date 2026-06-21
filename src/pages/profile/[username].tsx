@@ -1,6 +1,6 @@
 import type { NextPage } from "next";
-import Image from "next/image";
 import { useRouter } from "next/router";
+import { Avatar } from "~/components/Avatar";
 import { useEffect, useState } from "react";
 import Select from 'react-select'
 import type { SingleValue } from "react-select";
@@ -107,19 +107,7 @@ const ProfilePage: NextPage = () => {
                     <div className="flex flex-col gap-2">
                         <div className="flex gap-4">
                             <div className="flex flex-col items-center justify-center">
-                                <div className="avatar">
-                                    <div className="mask mask-circle w-24 h-24">
-                                        {data?.image ?
-                                            <Image width={500} height={500} src={data?.image ?? ""} alt={"Profile Picture"} />
-                                            :
-                                            <div className="avatar placeholder">
-                                                <div className="bg-neutral text-neutral-content rounded-full w-24">
-                                                    <span className="text-4xl font-bold">{data?.username?.charAt(0).toUpperCase() ?? ""}</span>
-                                                </div>
-                                            </div>
-                                        }
-                                    </div>
-                                </div>
+                                <Avatar size={96} image={data?.image} name={data?.username} />
                             </div>
                             <div className="flex flex-col justify-center gap-1">
                                 {isLoading ?
