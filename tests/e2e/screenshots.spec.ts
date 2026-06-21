@@ -490,14 +490,14 @@ test.describe("screenshot tour", () => {
     await mockAuthenticatedSession(page);
     await mockTrpc(page, { keyStats: [{ character: "r", total: 100, correct: 70 }, { character: "t", total: 80, correct: 62 }] });
     await page.goto("/plan");
-    await expect(page.getByTestId("plan-today")).toBeVisible();
+    await expect(page.getByTestId("plan-active-step")).toBeVisible();
     await capture(page, testInfo, "48-practice-plan");
   });
 
   test("practice plan (calibration)", async ({ page }, testInfo) => {
     await page.goto("/plan");
     await expect(page.getByText(/Calibration week/)).toBeVisible();
-    await expect(page.getByTestId("plan-today")).toBeVisible();
+    await expect(page.getByTestId("plan-active-step")).toBeVisible();
     await capture(page, testInfo, "54-practice-plan-calibration");
   });
 

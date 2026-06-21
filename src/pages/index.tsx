@@ -82,6 +82,9 @@ const Home: NextPage = () => {
   // inside completion handling); the state drives the drill-view prompt's render.
   const reMeasureRef = useRef<ReMeasureState | null>(null)
   const [reMeasure, setReMeasure] = useState<ReMeasureState | null>(null)
+  // True when this test was launched from a plan step (?return=plan); the result
+  // then offers "Continue plan →" to advance the guided player (Phase 4 §4.4).
+  const [returnToPlan, setReturnToPlan] = useState(false)
   const charAttemptsRef = useRef<Map<string, { attempts: number, correct: number }>>(new Map())
   const persistedAttemptsRef = useRef<Map<string, { attempts: number, correct: number }>>(new Map())
   const hasSavedPendingRef = useRef(false)
@@ -311,6 +314,7 @@ const Home: NextPage = () => {
     clearCompletedScore()
     sessionStorage.removeItem("typecafe:pendingScore")
     hasSavedPendingRef.current = false
+    setReturnToPlan(false)
     setRestartSignal((signal) => signal + 1)
   }
 
@@ -442,6 +446,7 @@ const Home: NextPage = () => {
     clearCompletedScore()
     sessionStorage.removeItem("typecafe:pendingScore")
     hasSavedPendingRef.current = false
+    setReturnToPlan(router.query.return === "plan")
     setRestartSignal((signal) => signal + 1)
     void router.replace("/", undefined, { shallow: true })
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -607,23 +612,35 @@ const Home: NextPage = () => {
           hideInterface={!!completedScore}
         />
         {completedScore ?
-          <div className="m-auto flex w-full justify-center">
-            <ShareableScoreCard
-              score={{
-                ...completedScore,
-                score: completedScore.speed * completedScore.accuracy,
-                user: {
-                  username: sessionData?.user?.username ?? sessionData?.user?.name ?? null,
-                  image: sessionData?.user?.image,
-                },
-              }}
-              shareUrl={shareUrl}
-              canCreateShare={!!completedScore.testId}
-              signInHtmlFor="signInModal"
-              isCreatingShare={createShare.isPending}
-              onCreateShare={createAndCopyShareLink}
-              onTestAgain={requestRestart}
-            />
+          <div className="m-auto flex w-full flex-col items-center gap-3">
+            {returnToPlan &&
+              <a
+                href="/plan?step=done"
+                data-testid="continue-plan"
+                className="flex w-full max-w-2xl items-center justify-between gap-3 rounded-lg border border-primary/40 bg-primary/10 px-5 py-3 text-sm font-semibold text-base-content transition hover:bg-primary/15"
+              >
+                <span>Step done — back to your plan.</span>
+                <span className="text-primary">Continue plan →</span>
+              </a>
+            }
+            <div className="flex w-full justify-center">
+              <ShareableScoreCard
+                score={{
+                  ...completedScore,
+                  score: completedScore.speed * completedScore.accuracy,
+                  user: {
+                    username: sessionData?.user?.username ?? sessionData?.user?.name ?? null,
+                    image: sessionData?.user?.image,
+                  },
+                }}
+                shareUrl={shareUrl}
+                canCreateShare={!!completedScore.testId}
+                signInHtmlFor="signInModal"
+                isCreatingShare={createShare.isPending}
+                onCreateShare={createAndCopyShareLink}
+                onTestAgain={requestRestart}
+              />
+            </div>
           </div>
           :
           null

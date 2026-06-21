@@ -114,7 +114,9 @@ Keep guest local-first + sync.
 
 ---
 
-## Slice 7 — Guided-player Plan (L) `feat(plan): coach-directed guided session player`
+## Slice 7 — Guided-player Plan ✅ DONE (L) `feat(plan): coach-directed guided session player`
+
+> Shipped 2026-06-21. `/plan` is now a coach-directed guided player. Pure `src/lib/planSession.ts` (`initialSession`/`completeStep`/`nextDay`/`reconcile`/`parseSession` + 7 tests) tracks the player's position (day, stepIndex, status) in localStorage, reconciled against the regenerated plan. The UI shows **one active step at a time** with coach framing (Warm up / Drill your weak keys / Benchmark…), a day+step progress bar, and a slim 30-day overview. Warm-up advances manually ("I'm warm → next"); drill/benchmark steps deep-link out with `?return=plan` and **auto-advance on completion**: `/drill` and the home result show a "Continue plan →" CTA that returns as `/plan?step=done`, which dispatches `completeStep`. A "Skip →" gives a manual fallback so the player never gets stuck. Day-done → "Start day N+1 →"; last day → plan complete. Verified: 271 unit (planSession), tsc, build; plan/drill/home e2e (start→warm→advance→drill→continue→next + benchmark Continue-plan) green on desktop + mobile; screenshots 48/54 re-captured.
 
 `plan.tsx` today: 30-day grid + manual "Mark day complete" (localStorage). Make it a coach.
 

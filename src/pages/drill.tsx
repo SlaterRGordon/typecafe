@@ -91,6 +91,9 @@ const Drill: NextPage = () => {
     // before→after delta; without it, fall back to a generic timed re-measure.
     const rmToken = typeof router.query.rm === "string" ? router.query.rm : null
     const reMeasureHref = rmToken ? `/?rm=${encodeURIComponent(rmToken)}` : "/?mode=timed&count=30"
+    // A drill launched from a plan step returns to the guided player, which
+    // advances to the next step (Phase 4 §4.4).
+    const returnToPlan = router.query.return === "plan"
 
     return (
         <>
@@ -168,12 +171,18 @@ const Drill: NextPage = () => {
                                         </div>
                                     </div>
                                     <div className="mt-5 flex flex-col gap-2 sm:flex-row">
-                                        {/* A full-page navigation (not next/link): home must mount with
-                                            ?rm already in the URL so it applies the diagnosed config before
-                                            the typer's first text generation, avoiding a restart race. */}
-                                        <a href={reMeasureHref} className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85">
-                                            Re-measure
-                                        </a>
+                                        {returnToPlan ? (
+                                            <a href="/plan?step=done" data-testid="drill-continue-plan" className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85">
+                                                Continue plan →
+                                            </a>
+                                        ) : (
+                                            // A full-page navigation (not next/link): home must mount with
+                                            // ?rm already in the URL so it applies the diagnosed config before
+                                            // the typer's first text generation, avoiding a restart race.
+                                            <a href={reMeasureHref} className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85">
+                                                Re-measure
+                                            </a>
+                                        )}
                                         <button type="button" onClick={restartDrill} className="inline-flex items-center justify-center rounded-md border border-base-content/15 px-4 py-2 text-sm font-semibold text-base-content transition hover:bg-base-content/5">
                                             Drill again
                                         </button>
