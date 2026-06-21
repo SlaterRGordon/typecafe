@@ -185,7 +185,7 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
     };
 
     return (
-        <div className="w-full max-w-3xl space-y-6">
+        <div className="w-full max-w-6xl space-y-4">
             {recapDue && hasData && (
                 <div data-testid="weekly-recap" className="relative rounded-xl border border-primary/40 bg-primary/10 p-5">
                     <button type="button" aria-label="Dismiss recap" onClick={dismissRecap} className="absolute right-3 top-3 text-base-content/50 hover:text-base-content">✕</button>
@@ -249,8 +249,7 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
                 </div>
             </div>
 
-            {/* Headline delta — the largest number on the page; the one question
-                "am I getting faster?" answered before any other detail. */}
+            {/* Filters (only when the records carry mode/length metadata). */}
             {hasFilterableMetadata && (
             <div data-testid="progress-filters" className="grid gap-3 rounded-xl border border-base-content/10 bg-base-100/45 p-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
                 <div>
@@ -296,93 +295,129 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
             </div>
             )}
 
-            <div data-testid="headline-delta" className="rounded-xl border border-base-content/10 bg-base-100/45 p-6">
-                {plateau.plateaued ? (
-                    <div data-testid="plateau-headline">
-                        <div className="font-mono text-3xl font-bold text-base-content">Plateaued for {plateau.weeks} weeks</div>
-                        <p className="mt-2 text-base-content/60">Your sessions repeat the same comfortable words. Switch to transition drills to break the ceiling.</p>
-                        <Link href="/?mode=grams" className="mt-3 inline-flex items-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85">
-                            Try transition drills
-                        </Link>
-                    </div>
-                ) : delta.delta !== null ? (
-                    <>
-                        <div className="flex items-baseline gap-2">
-                            <span className={`font-mono text-5xl font-bold ${delta.trend === "up" ? "text-success" : delta.trend === "down" ? "text-error" : "text-base-content"}`}>
-                                {formatSigned(delta.delta)}
-                            </span>
-                            <span className="text-2xl font-semibold text-base-content/70">WPM</span>
-                        </div>
-                        <p className="mt-2 text-base-content/60">
-                            {delta.trend === "up" && `Faster over ${periodPhrase(period)} — keep going.`}
-                            {delta.trend === "down" && `Down over ${periodPhrase(period)}. Your drills aren't targeting your slow keys yet.`}
-                            {delta.trend === "flat" && `Flat over ${periodPhrase(period)}. A plateau means it's time to drill your slow keys.`}
-                        </p>
-                        {delta.trend !== "up" && (
-                            <Link href="/?mode=practice" className="mt-3 inline-flex items-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85">
-                                Drill your slow keys
-                            </Link>
-                        )}
-                    </>
-                ) : (
-                    <>
-                        <div className="font-mono text-3xl font-bold text-base-content">
-                            {hasData ? `${averageWpm(inPeriod).toFixed(1)} WPM` : activeFilter && props.records.length > 0 ? "No matching tests" : "No tests yet"}
-                        </div>
-                        <p className="mt-2 text-base-content/60">
-                            {hasData
-                                ? `Keep testing over ${periodPhrase(period)} — once there's a window to compare against, your delta shows here.`
-                                : activeFilter && props.records.length > 0
-                                    ? hasImportedHistory
-                                        ? "Imported history isn't split by mode or length — switch back to All to see it, or take a matching test to start a trend here."
-                                        : "This filter has no ranked tests yet. Clear the filters or take a matching test."
-                                    : "Complete a few tests and your trend appears here."}
-                        </p>
-                        {activeFilter && props.records.length > 0 ? (
-                            <button
-                                type="button"
-                                onClick={() => { setModeFilter("all"); setLengthFilter("all"); }}
-                                className="mt-3 inline-flex items-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85"
-                            >
-                                Clear filters
-                            </button>
+            {/* Above the fold: "am I getting faster?" (the delta + the WPM proof)
+                sits beside the single highest-leverage action (drill your weak
+                spots). The three things that matter, no scrolling. */}
+            <div className="grid gap-4 lg:grid-cols-3">
+                <div className="space-y-4 lg:col-span-2">
+                    <div data-testid="headline-delta" className="rounded-xl border border-base-content/10 bg-base-100/45 p-6">
+                        {plateau.plateaued ? (
+                            <div data-testid="plateau-headline">
+                                <div className="font-mono text-3xl font-bold text-base-content">Plateaued for {plateau.weeks} weeks</div>
+                                <p className="mt-2 text-base-content/60">Your sessions repeat the same comfortable words. Switch to transition drills to break the ceiling.</p>
+                                <Link href="/?mode=grams" className="mt-3 inline-flex items-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85">
+                                    Try transition drills
+                                </Link>
+                            </div>
+                        ) : delta.delta !== null ? (
+                            <>
+                                <div className="flex items-baseline gap-2">
+                                    <span className={`font-mono text-6xl font-bold ${delta.trend === "up" ? "text-success" : delta.trend === "down" ? "text-error" : "text-base-content"}`}>
+                                        {formatSigned(delta.delta)}
+                                    </span>
+                                    <span className="text-2xl font-semibold text-base-content/70">WPM</span>
+                                </div>
+                                <p className="mt-2 text-base-content/60">
+                                    {delta.trend === "up" && `Faster over ${periodPhrase(period)} — keep going.`}
+                                    {delta.trend === "down" && `Down over ${periodPhrase(period)}. Drill your weak spots to turn it around.`}
+                                    {delta.trend === "flat" && `Flat over ${periodPhrase(period)}. Drill your weak spots to break the plateau.`}
+                                </p>
+                            </>
                         ) : (
-                            <Link href="/" className="mt-3 inline-flex items-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85">
-                                Take a test
-                            </Link>
+                            <>
+                                <div className="font-mono text-3xl font-bold text-base-content">
+                                    {hasData ? `${averageWpm(inPeriod).toFixed(1)} WPM` : activeFilter && props.records.length > 0 ? "No matching tests" : "No tests yet"}
+                                </div>
+                                <p className="mt-2 text-base-content/60">
+                                    {hasData
+                                        ? `Keep testing over ${periodPhrase(period)} — once there's a window to compare against, your delta shows here.`
+                                        : activeFilter && props.records.length > 0
+                                            ? hasImportedHistory
+                                                ? "Imported history isn't split by mode or length — switch back to All to see it, or take a matching test to start a trend here."
+                                                : "This filter has no ranked tests yet. Clear the filters or take a matching test."
+                                            : "Complete a few tests and your trend appears here."}
+                                </p>
+                                {activeFilter && props.records.length > 0 ? (
+                                    <button
+                                        type="button"
+                                        onClick={() => { setModeFilter("all"); setLengthFilter("all"); }}
+                                        className="mt-3 inline-flex items-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85"
+                                    >
+                                        Clear filters
+                                    </button>
+                                ) : (
+                                    <Link href="/" className="mt-3 inline-flex items-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85">
+                                        Take a test
+                                    </Link>
+                                )}
+                            </>
                         )}
-                    </>
+                    </div>
+
+                    {hasData && (
+                        <TrendChart title="WPM over time" points={series.points} values={series.points.map((p) => p.wpm)} rolling={series.rollingWpm} baseline="zero" />
+                    )}
+                </div>
+
+                {/* Weak spots → drill: the fix, one click from the proof. */}
+                {(topWeakKeys.length > 0 || slowTransitions.length > 0) && (
+                    <div data-testid="weak-spots" className="flex flex-col gap-4 rounded-xl border border-primary/25 bg-primary/5 p-5 lg:col-span-1 lg:self-start">
+                        <div className="text-lg font-semibold text-base-content">Weak spots → drill</div>
+
+                        {topWeakKeys.length > 0 && (
+                            <div>
+                                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-base-content/45">Weakest keys</p>
+                                <div className="mb-3 flex flex-wrap gap-1.5">
+                                    {topWeakKeys.map((k) => (
+                                        <span key={k.key} className="rounded-md border border-base-content/15 bg-base-200/60 px-2 py-1 font-mono text-sm font-bold text-base-content">
+                                            {k.key} <span className="text-xs font-normal text-base-content/50">{k.accuracy.toFixed(0)}%</span>
+                                        </span>
+                                    ))}
+                                </div>
+                                <Link
+                                    href={`/drill?keys=${topWeakKeys.map((k) => k.key).join(",")}`}
+                                    className="inline-flex w-full items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85"
+                                >
+                                    Drill weakest keys: {topWeakKeys.map((k) => k.key).join(", ")}
+                                </Link>
+                            </div>
+                        )}
+
+                        {slowTransitions.length > 0 && (
+                            <div data-testid="worst-transitions">
+                                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-base-content/45">Slowest transitions</p>
+                                <ul className="flex flex-col gap-2">
+                                    {slowTransitions.map((t) => (
+                                        <li key={t.pair} className="flex items-center justify-between gap-2 rounded-md border border-base-content/10 bg-base-200/40 px-3 py-2">
+                                            <span className="text-sm text-base-content/90">
+                                                <span className="font-mono font-bold text-base-content">{t.from}→{t.to}</span> · {t.ratio.toFixed(1)}× avg
+                                            </span>
+                                            <Link
+                                                href={`/drill?transitions=${t.from}${t.to}`}
+                                                className="inline-flex shrink-0 items-center justify-center rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-content transition hover:opacity-85"
+                                            >
+                                                Drill {t.from}{t.to}
+                                            </Link>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
+                    </div>
                 )}
             </div>
 
-            {/* One coach voice: when plateaued, the headline above already carries the
-                message + CTA, so the stance card stays out of its way. Otherwise the
-                card only speaks when it adds something the headline doesn't — a real
-                accuracy/confidence lever, or genuine "keep going" reinforcement when
-                the trend is up. The no-lever-while-flat case (which used to say
-                "nothing to change" next to a plateau) is suppressed. */}
+            {/* Coach voice, only when it adds a lever the hero doesn't. */}
             {stance.enoughData && !plateau.plateaued && (stance.stance !== "balanced" || delta.trend === "up") && (
-                <div data-testid="stance" className="rounded-xl border border-base-content/10 bg-base-100/45 p-5">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-primary">Coach</p>
-                    <p className="mt-1 text-lg font-semibold text-base-content">{stance.headline}</p>
-                    <p className="mt-1 text-sm text-base-content/60">{stance.advice}</p>
+                <div data-testid="stance" className="rounded-xl border border-base-content/10 bg-base-100/45 px-5 py-3">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-primary">Coach · </span>
+                    <span className="text-sm font-semibold text-base-content">{stance.headline}</span>
+                    <span className="text-sm text-base-content/60"> — {stance.advice}</span>
                 </div>
             )}
 
-            {hasData && <GoalCard records={filteredRecords} now={now} />}
-
             {hasData && (
                 <>
-                    {/* Compact trends as small multiples — three at a glance, not a
-                        full-width scroll each. */}
-                    <div data-testid="trend-multiples" className="grid gap-3 lg:grid-cols-3">
-                        <TrendChart title="WPM" points={series.points} values={series.points.map((p) => p.wpm)} rolling={series.rollingWpm} baseline="zero" />
-                        <TrendChart title="Accuracy" points={series.points} values={accuracy.values} rolling={accuracy.rolling} baseline="fit" valueSuffix="%" />
-                        {consistency && (
-                            <TrendChart title="Consistency" points={series.points} values={consistency.values} rolling={consistency.rolling} baseline="fit" valueSuffix="%" />
-                        )}
-                    </div>
-
                     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                         <StatCell label="Avg WPM" value={averageWpm(inPeriod).toFixed(1)} />
                         <StatCell label="Best WPM" value={bestWpm(inPeriod).toFixed(1)} />
@@ -390,6 +425,14 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
                         {avgConsistency !== null
                             ? <StatCell label="Avg consistency" value={`${avgConsistency.toFixed(1)}%`} />
                             : <StatCell label="Tests" value={String(inPeriod.length)} />}
+                    </div>
+
+                    {/* Secondary trends — smaller, side by side, below the WPM proof. */}
+                    <div className="grid gap-3 lg:grid-cols-2">
+                        <TrendChart title="Accuracy" points={series.points} values={accuracy.values} rolling={accuracy.rolling} baseline="fit" valueSuffix="%" />
+                        {consistency && (
+                            <TrendChart title="Consistency" points={series.points} values={consistency.values} rolling={consistency.rolling} baseline="fit" valueSuffix="%" />
+                        )}
                     </div>
                 </>
             )}
@@ -401,71 +444,37 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
                 </div>
             )}
 
-            {(Object.keys(props.keyAttempts).length > 0 || slowTransitions.length > 0) && (
-                <div data-testid="weak-spots" className="space-y-3">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                        <div className="text-lg font-semibold text-base-content">Weak spots → drill</div>
-                        {topWeakKeys.length > 0 && (
-                            <Link
-                                href={`/drill?keys=${topWeakKeys.map((k) => k.key).join(",")}`}
-                                className="inline-flex shrink-0 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85"
-                            >
-                                Drill weakest keys: {topWeakKeys.map((k) => k.key).join(", ")}
-                            </Link>
-                        )}
+            <div className="grid gap-4 lg:grid-cols-2">
+                {Object.keys(props.keyAttempts).length > 0 && (
+                    <div data-testid="lifetime-keyboard-card" className="rounded-lg border border-base-content/10 bg-base-100/45 p-3 sm:p-5">
+                        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="text-base font-semibold text-base-content">Lifetime keyboard</div>
+                            <KeyHeatmapLegend />
+                        </div>
+                        <div className="flex w-full justify-center overflow-x-auto pb-1">
+                            <KeyHeatmap attempts={props.keyAttempts} size="full" className="min-w-fit" testId="lifetime-heatmap" />
+                        </div>
                     </div>
+                )}
 
-                    {Object.keys(props.keyAttempts).length > 0 && (
-                        <div data-testid="lifetime-keyboard-card" className="rounded-lg border border-base-content/10 bg-base-100/45 p-3 sm:p-5">
-                            <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                                <div className="text-center text-base font-semibold text-base-content sm:text-left">Lifetime keyboard</div>
-                                <KeyHeatmapLegend />
-                            </div>
-                            <div className="flex w-full justify-center overflow-x-auto pb-1">
-                                <KeyHeatmap attempts={props.keyAttempts} size="full" className="min-w-fit" testId="lifetime-heatmap" />
-                            </div>
-                        </div>
-                    )}
+                {records.length > 0 && (
+                    <div data-testid="records-timeline" className="rounded-lg border border-base-content/10 bg-base-100/45 p-4">
+                        <div className="mb-3 text-lg font-semibold text-base-content">Records</div>
+                        <ul className="space-y-2">
+                            {records.slice(0, 6).map((event) => (
+                                <li key={event.t} className="flex items-center justify-between border-b border-base-content/10 pb-2 text-sm last:border-b-0 last:pb-0">
+                                    <span className="text-base-content/60">{new Date(event.t).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}</span>
+                                    <span className="font-medium text-base-content">
+                                        {event.kind === "threshold" ? `First ${event.threshold}+ WPM test` : `${event.wpm.toFixed(1)} WPM personal best`}
+                                    </span>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
+            </div>
 
-                    {slowTransitions.length > 0 && (
-                        <div data-testid="worst-transitions" className="rounded-lg border border-base-content/10 bg-base-100/45 p-4">
-                            <div className="mb-1 text-base font-semibold text-base-content">Slowest transitions</div>
-                            <p className="mb-3 text-sm text-base-content/60">The key pairs that cost you the most — drill the move, not just the keys.</p>
-                            <ul className="flex flex-col gap-3">
-                                {slowTransitions.map((t) => (
-                                    <li key={t.pair} className="flex flex-col gap-2 border-b border-base-content/10 pb-3 last:border-b-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between">
-                                        <span className="text-base-content/90">
-                                            <span className="font-mono font-bold text-base-content">{t.from}→{t.to}</span> takes you {t.ratio.toFixed(1)}× your average{t.errorRate >= 0.1 ? ` and misses ${Math.round(t.errorRate * 100)}% of the time` : ""}.
-                                        </span>
-                                        <Link
-                                            href={`/drill?transitions=${t.from}${t.to}`}
-                                            className="inline-flex shrink-0 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85"
-                                        >
-                                            Drill {t.from}{t.to}
-                                        </Link>
-                                    </li>
-                                ))}
-                            </ul>
-                        </div>
-                    )}
-                </div>
-            )}
-
-            {records.length > 0 && (
-                <div data-testid="records-timeline" className="rounded-lg border border-base-content/10 bg-base-100/45 p-4">
-                    <div className="mb-3 text-lg font-semibold text-base-content">Records</div>
-                    <ul className="space-y-2">
-                        {records.slice(0, 8).map((event) => (
-                            <li key={event.t} className="flex items-center justify-between border-b border-base-content/10 pb-2 text-sm last:border-b-0 last:pb-0">
-                                <span className="text-base-content/60">{new Date(event.t).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}</span>
-                                <span className="font-medium text-base-content">
-                                    {event.kind === "threshold" ? `First ${event.threshold}+ WPM test` : `${event.wpm.toFixed(1)} WPM personal best`}
-                                </span>
-                            </li>
-                        ))}
-                    </ul>
-                </div>
-            )}
+            {hasData && <GoalCard records={filteredRecords} now={now} />}
         </div>
     );
 };
@@ -540,7 +549,7 @@ const Progress: NextPage = () => {
                     <div className="mt-16 text-base-content/50">Loading your progress…</div>
                 ) : !sessionData?.user ? (
                     guestRecords.length > 0 ? (
-                        <div className="w-full max-w-3xl space-y-4">
+                        <div className="w-full max-w-6xl space-y-4">
                             <div data-testid="guest-keep-banner" className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-primary/40 bg-primary/10 px-4 py-3">
                                 <span className="text-sm text-base-content/80">This progress lives on this device only.</span>
                                 <label htmlFor="signInModal" className="inline-flex cursor-pointer items-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85">

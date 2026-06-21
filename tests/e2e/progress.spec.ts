@@ -22,8 +22,8 @@ test.describe("progress dashboard", () => {
     // The practice streak chip shows (the mocked history reaches today).
     await expect(page.getByTestId("streak-chip")).toBeVisible();
 
-    // Compact trends: WPM + accuracy + consistency as small multiples.
-    await expect(page.getByTestId("trend-multiples")).toBeVisible();
+    // The big WPM chart leads; accuracy + consistency follow as smaller trends.
+    await expect(page.getByText("WPM over time", { exact: true })).toBeVisible();
     await expect(page.getByTestId("trend-chart")).toHaveCount(3);
     await expect(page.getByText("Consistency", { exact: true })).toBeVisible();
 
