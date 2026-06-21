@@ -290,19 +290,28 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
                                     {delta.trend === "flat" && `Flat over ${periodPhrase(period)}. Drill your weak spots to break the plateau.`}
                                 </p>
                             </>
+                        ) : hasData ? (
+                            // Enough to chart, but no comparison window yet: just the
+                            // current average + a one-line hint (no paragraph/button —
+                            // the chart and goal below already carry the story).
+                            <>
+                                <div className="flex items-baseline gap-2">
+                                    <span className="font-mono text-5xl font-bold text-base-content">{averageWpm(inPeriod).toFixed(1)}</span>
+                                    <span className="text-2xl font-semibold text-base-content/70">WPM</span>
+                                </div>
+                                <p className="mt-1 text-sm text-base-content/45">Average over {periodPhrase(period)} — keep testing for a delta.</p>
+                            </>
                         ) : (
                             <>
                                 <div className="font-mono text-3xl font-bold text-base-content">
-                                    {hasData ? `${averageWpm(inPeriod).toFixed(1)} WPM` : activeFilter && props.records.length > 0 ? "No matching tests" : "No tests yet"}
+                                    {activeFilter && props.records.length > 0 ? "No matching tests" : "No tests yet"}
                                 </div>
                                 <p className="mt-2 text-base-content/60">
-                                    {hasData
-                                        ? `Keep testing over ${periodPhrase(period)} — once there's a window to compare against, your delta shows here.`
-                                        : activeFilter && props.records.length > 0
-                                            ? hasImportedHistory
-                                                ? "Imported history isn't split by mode or length — switch back to All to see it, or take a matching test to start a trend here."
-                                                : "This filter has no ranked tests yet. Clear the filters or take a matching test."
-                                            : "Complete a few tests and your trend appears here."}
+                                    {activeFilter && props.records.length > 0
+                                        ? hasImportedHistory
+                                            ? "Imported history isn't split by mode or length — switch back to All to see it, or take a matching test to start a trend here."
+                                            : "This filter has no ranked tests yet. Clear the filters or take a matching test."
+                                        : "Complete a few tests and your trend appears here."}
                                 </p>
                                 {activeFilter && props.records.length > 0 ? (
                                     <button
