@@ -76,7 +76,9 @@ Problem: `Scores.tsx` renders `test.getAll` (every row, score-desc, `date` = `gt
 
 Replaces the "deed deed"/"xxxx" behaviour (`generateBetterPseudoText` filters to words made **entirely** of the keys, [utils.tsx](src/components/typer/utils.tsx)).
 
-**5a — pure `src/lib/drill.ts` + tests:** `compileDrillText({ keys?, transitions?, wordList, length })`:
+> 5a shipped 2026-06-21. Added pure `compileDrillText` in `src/lib/drill.ts` plus `rankDrillWords` for density-ranked key drills. Covered density ordering, varied single-key real words, no immediate repeats, transition-word bias, scarce-transition gram fallback, and no-match termination in `src/lib/drill.test.ts`. `/drill`, CTA rewires, and Practice text-source replacement remain in 5b/5c.
+
+**5a — pure `src/lib/drill.ts` + tests:** ✅ DONE `compileDrillText({ keys?, transitions?, wordList, length })`:
 - words mode (keys): pick **real** words ranked by *target-key density* (count of target chars / length), not restricted to them; shuffle top-N for variety; no immediate repeats; guarantee every word contains ≥1 target key. Single key (e.g. `x`) → varied real words containing `x` (xenon, box, fix…), never "xxxx".
 - transition mode: bias toward words containing the `from→to` adjacency; fall back to grams of that bigram when scarce.
 - Tests: density ordering, variety (no 3× repeat), single-key realness, transition presence, termination.
