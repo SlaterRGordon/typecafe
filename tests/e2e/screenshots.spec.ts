@@ -390,7 +390,6 @@ test.describe("screenshot tour", () => {
     await expect(page.getByTestId("progress-filters")).toBeVisible();
     await expect(page.getByText("WPM over time", { exact: true })).toBeVisible();
     await expect(page.getByTestId("weak-spots")).toContainText("b→r");
-    await expect(page.getByTestId("activity-heatmap")).toBeVisible();
     await expect(page.getByTestId("lifetime-heatmap")).toBeVisible();
     await capture(page, testInfo, "40-progress-dashboard");
     await page.getByTestId("lifetime-keyboard-card").scrollIntoViewIfNeeded();

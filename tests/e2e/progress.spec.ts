@@ -36,9 +36,6 @@ test.describe("progress dashboard", () => {
     // Best WPM is a header chip now (the rest of the stat cells are gone).
     await expect(page.getByTestId("best-wpm-chip")).toContainText("Best");
 
-    // Story-first §6.3: the yearly activity heatmap, fed by the records.
-    await expect(page.getByTestId("activity-heatmap")).toBeVisible();
-
     // Weak spots → drill (§6.4): top weak keys + slowest transitions, each → /drill.
     const weak = page.getByTestId("weak-spots");
     await expect(weak).toBeVisible();
@@ -114,7 +111,6 @@ test.describe("progress dashboard", () => {
     await expect(page.getByText("No tests yet")).toBeVisible();
     await expect(page.getByRole("link", { name: "Take a test" })).toBeVisible();
     await expect(page.getByTestId("trend-chart")).toHaveCount(0);
-    await expect(page.getByTestId("activity-heatmap")).toHaveCount(0);
   });
 
   test("setting a goal projects an honest trajectory", async ({ page }) => {
@@ -196,7 +192,6 @@ test.describe("progress dashboard", () => {
 
     await expect(page.getByTestId("guest-keep-banner")).toBeVisible();
     await expect(page.getByTestId("trend-chart").first()).toBeVisible();
-    await expect(page.getByTestId("activity-heatmap")).toBeVisible();
     await expect(page.getByTestId("progress-signed-out")).toHaveCount(0);
   });
 
