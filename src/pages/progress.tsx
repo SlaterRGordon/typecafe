@@ -60,6 +60,8 @@ const MODE_FILTERS: { key: ProgressModeFilter; label: string }[] = [
     { key: "words", label: "Words" },
 ];
 
+type TrendMetric = "wpm" | "accuracy" | "consistency";
+
 function lengthLabel(count: number, mode: ProgressModeFilter): string {
     if (mode === "timed") return `${count}s`;
     if (mode === "words") return `${count} words`;
@@ -81,6 +83,7 @@ function periodShareLabel(period: ProgressPeriod): string {
 
 const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Record<string, KeyAttempt>; transitions: TransitionAggregate[]; canShare?: boolean; username?: string | null }) => {
     const [period, setPeriod] = useState<ProgressPeriod>(30);
+    const [trendMetric, setTrendMetric] = useState<TrendMetric>("wpm");
     const [modeFilter, setModeFilter] = useState<ProgressModeFilter>("all");
     const [lengthFilter, setLengthFilter] = useState<number | "all">("all");
     const [shareState, setShareState] = useState<"idle" | "sharing" | "copied">("idle");
@@ -143,6 +146,21 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
         () => props.records.map((record) => record.createdAt.getTime()),
         [props.records],
     );
+
+    // One toggled trend chart instead of three stacked ones (saves height): WPM by
+    // default, accuracy/consistency a tab away. Falls back to WPM if a filter
+    // removes consistency while it's the active tab.
+    const trendTabs: { key: TrendMetric; label: string }[] = [
+        { key: "wpm", label: "WPM" },
+        { key: "accuracy", label: "Accuracy" },
+        ...(consistency ? [{ key: "consistency" as const, label: "Consistency" }] : []),
+    ];
+    const activeMetric: TrendMetric = trendMetric === "consistency" && !consistency ? "wpm" : trendMetric;
+    const trendConfig = {
+        wpm: { title: "WPM over time", values: series.points.map((p) => p.wpm), rolling: series.rollingWpm, baseline: "zero" as const, suffix: "" },
+        accuracy: { title: "Accuracy over time", values: accuracy.values, rolling: accuracy.rolling, baseline: "fit" as const, suffix: "%" },
+        consistency: { title: "Consistency over time", values: consistency?.values ?? [], rolling: consistency?.rolling ?? [], baseline: "fit" as const, suffix: "%" },
+    }[activeMetric];
 
     const hasData = series.points.length > 0;
     // A progress card only makes sense with a real delta to brag about.
@@ -355,7 +373,29 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
                     </div>
 
                     {hasData && (
-                        <TrendChart title="WPM over time" points={series.points} values={series.points.map((p) => p.wpm)} rolling={series.rollingWpm} baseline="zero" />
+                        <TrendChart
+                            title={trendConfig.title}
+                            points={series.points}
+                            values={trendConfig.values}
+                            rolling={trendConfig.rolling}
+                            baseline={trendConfig.baseline}
+                            valueSuffix={trendConfig.suffix}
+                            action={
+                                <div data-testid="trend-tabs" className="flex gap-1 rounded-lg border border-base-content/15 bg-base-200/50 p-1">
+                                    {trendTabs.map((tab) => (
+                                        <button
+                                            key={tab.key}
+                                            type="button"
+                                            aria-pressed={activeMetric === tab.key}
+                                            onClick={() => setTrendMetric(tab.key)}
+                                            className={`min-h-8 rounded-md px-2.5 text-xs font-medium transition-colors ${activeMetric === tab.key ? "bg-primary text-primary-content shadow-sm" : "text-base-content/70 hover:bg-base-content/5 hover:text-base-content"}`}
+                                        >
+                                            {tab.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            }
+                        />
                     )}
                 </div>
 
@@ -425,14 +465,6 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
                         {avgConsistency !== null
                             ? <StatCell label="Avg consistency" value={`${avgConsistency.toFixed(1)}%`} />
                             : <StatCell label="Tests" value={String(inPeriod.length)} />}
-                    </div>
-
-                    {/* Secondary trends — smaller, side by side, below the WPM proof. */}
-                    <div className="grid gap-3 lg:grid-cols-2">
-                        <TrendChart title="Accuracy" points={series.points} values={accuracy.values} rolling={accuracy.rolling} baseline="fit" valueSuffix="%" />
-                        {consistency && (
-                            <TrendChart title="Consistency" points={series.points} values={consistency.values} rolling={consistency.rolling} baseline="fit" valueSuffix="%" />
-                        )}
                     </div>
                 </>
             )}

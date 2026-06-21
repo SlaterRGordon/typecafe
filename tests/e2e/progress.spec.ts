@@ -22,10 +22,16 @@ test.describe("progress dashboard", () => {
     // The practice streak chip shows (the mocked history reaches today).
     await expect(page.getByTestId("streak-chip")).toBeVisible();
 
-    // The big WPM chart leads; accuracy + consistency follow as smaller trends.
+    // One big trend chart, WPM by default, with metric tabs to toggle it.
     await expect(page.getByText("WPM over time", { exact: true })).toBeVisible();
-    await expect(page.getByTestId("trend-chart")).toHaveCount(3);
-    await expect(page.getByText("Consistency", { exact: true })).toBeVisible();
+    await expect(page.getByTestId("trend-chart")).toHaveCount(1);
+    const trendTabs = page.getByTestId("trend-tabs");
+    await trendTabs.getByRole("button", { name: "Accuracy" }).click();
+    await expect(page.getByText("Accuracy over time", { exact: true })).toBeVisible();
+    await trendTabs.getByRole("button", { name: "Consistency" }).click();
+    await expect(page.getByText("Consistency over time", { exact: true })).toBeVisible();
+    await trendTabs.getByRole("button", { name: "WPM" }).click();
+    await expect(page.getByText("WPM over time", { exact: true })).toBeVisible();
 
     // Stat cells summarise the selected period.
     await expect(page.getByText("Avg WPM")).toBeVisible();

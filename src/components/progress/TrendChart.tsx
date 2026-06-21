@@ -1,4 +1,4 @@
-import { useId, useMemo } from "react"
+import { useId, useMemo, type ReactNode } from "react"
 import type { TrendPoint } from "~/lib/progress"
 
 interface TrendChartProps {
@@ -12,6 +12,8 @@ interface TrendChartProps {
     // (accuracy, which clusters near the top and would look flat from 0).
     baseline?: "zero" | "fit"
     valueSuffix?: string
+    // Optional controls rendered at the top-right of the header (e.g. metric tabs).
+    action?: ReactNode
 }
 
 // Pick a "nice" y-axis tick interval so the gridlines land on round values.
@@ -82,7 +84,10 @@ export function TrendChart(props: TrendChartProps) {
 
     return (
         <div className="rounded-lg border border-base-content/10 bg-base-100/45 p-4">
-            <div className="mb-3 text-lg font-semibold text-base-content" id={titleId}>{props.title}</div>
+            <div className="mb-3 flex items-center justify-between gap-3">
+                <div className="text-lg font-semibold text-base-content" id={titleId}>{props.title}</div>
+                {props.action}
+            </div>
             <svg
                 className="h-auto w-full overflow-visible text-primary"
                 viewBox={`0 0 ${layout.width} ${layout.height}`}
