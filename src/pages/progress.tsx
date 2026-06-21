@@ -352,45 +352,67 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
                     )}
                 </div>
 
-                {/* Weak spots → drill: the fix, one click from the proof. */}
-                {(topWeakKeys.length > 0 || slowTransitions.length > 0) && (
-                    <div data-testid="weak-spots" className="flex flex-col gap-4 rounded-xl border border-primary/25 bg-primary/5 p-5 lg:col-span-1 lg:self-start">
-                        <div className="text-lg font-semibold text-base-content">Weak spots → drill</div>
+                {/* Sidebar beside the hero + chart: the fix (weak spots → drill)
+                    and milestone records, stacked so the column fills instead of
+                    leaving a gap when weak-spots is short. */}
+                {(topWeakKeys.length > 0 || slowTransitions.length > 0 || records.length > 0) && (
+                    <div className="space-y-4 lg:col-span-1">
+                        {(topWeakKeys.length > 0 || slowTransitions.length > 0) && (
+                            <div data-testid="weak-spots" className="flex flex-col gap-4 rounded-xl border border-primary/25 bg-primary/5 p-5">
+                                <div className="text-lg font-semibold text-base-content">Weak spots → drill</div>
 
-                        {topWeakKeys.length > 0 && (
-                            <div>
-                                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-base-content/45">Weakest keys</p>
-                                <div className="mb-3 flex flex-wrap gap-1.5">
-                                    {topWeakKeys.map((k) => (
-                                        <span key={k.key} className="rounded-md border border-base-content/15 bg-base-200/60 px-2 py-1 font-mono text-sm font-bold text-base-content">
-                                            {k.key} <span className="text-xs font-normal text-base-content/50">{k.accuracy.toFixed(0)}%</span>
-                                        </span>
-                                    ))}
-                                </div>
-                                <Link
-                                    href={`/drill?keys=${topWeakKeys.map((k) => k.key).join(",")}`}
-                                    className="inline-flex w-full items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85"
-                                >
-                                    Drill weakest keys: {topWeakKeys.map((k) => k.key).join(", ")}
-                                </Link>
+                                {topWeakKeys.length > 0 && (
+                                    <div>
+                                        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-base-content/45">Weakest keys</p>
+                                        <div className="mb-3 flex flex-wrap gap-1.5">
+                                            {topWeakKeys.map((k) => (
+                                                <span key={k.key} className="rounded-md border border-base-content/15 bg-base-200/60 px-2 py-1 font-mono text-sm font-bold text-base-content">
+                                                    {k.key} <span className="text-xs font-normal text-base-content/50">{k.accuracy.toFixed(0)}%</span>
+                                                </span>
+                                            ))}
+                                        </div>
+                                        <Link
+                                            href={`/drill?keys=${topWeakKeys.map((k) => k.key).join(",")}`}
+                                            className="inline-flex w-full items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85"
+                                        >
+                                            Drill weakest keys: {topWeakKeys.map((k) => k.key).join(", ")}
+                                        </Link>
+                                    </div>
+                                )}
+
+                                {slowTransitions.length > 0 && (
+                                    <div data-testid="worst-transitions">
+                                        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-base-content/45">Slowest transitions</p>
+                                        <ul className="flex flex-col gap-2">
+                                            {slowTransitions.map((t) => (
+                                                <li key={t.pair} className="flex items-center justify-between gap-2 rounded-md border border-base-content/10 bg-base-200/40 px-3 py-2">
+                                                    <span className="text-sm text-base-content/90">
+                                                        <span className="font-mono font-bold text-base-content">{t.from}→{t.to}</span> · {t.ratio.toFixed(1)}× avg
+                                                    </span>
+                                                    <Link
+                                                        href={`/drill?transitions=${t.from}${t.to}`}
+                                                        className="inline-flex shrink-0 items-center justify-center rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-content transition hover:opacity-85"
+                                                    >
+                                                        Drill {t.from}{t.to}
+                                                    </Link>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
                             </div>
                         )}
 
-                        {slowTransitions.length > 0 && (
-                            <div data-testid="worst-transitions">
-                                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-base-content/45">Slowest transitions</p>
-                                <ul className="flex flex-col gap-2">
-                                    {slowTransitions.map((t) => (
-                                        <li key={t.pair} className="flex items-center justify-between gap-2 rounded-md border border-base-content/10 bg-base-200/40 px-3 py-2">
-                                            <span className="text-sm text-base-content/90">
-                                                <span className="font-mono font-bold text-base-content">{t.from}→{t.to}</span> · {t.ratio.toFixed(1)}× avg
+                        {records.length > 0 && (
+                            <div data-testid="records-timeline" className="rounded-lg border border-base-content/10 bg-base-100/45 p-4">
+                                <div className="mb-3 text-lg font-semibold text-base-content">Records</div>
+                                <ul className="space-y-2">
+                                    {records.slice(0, 6).map((event) => (
+                                        <li key={event.t} className="flex items-center justify-between gap-3 border-b border-base-content/10 pb-2 text-sm last:border-b-0 last:pb-0">
+                                            <span className="shrink-0 text-base-content/60">{new Date(event.t).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}</span>
+                                            <span className="text-right font-medium text-base-content">
+                                                {event.kind === "threshold" ? `First ${event.threshold}+ WPM test` : `${event.wpm.toFixed(1)} WPM PB`}
                                             </span>
-                                            <Link
-                                                href={`/drill?transitions=${t.from}${t.to}`}
-                                                className="inline-flex shrink-0 items-center justify-center rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-content transition hover:opacity-85"
-                                            >
-                                                Drill {t.from}{t.to}
-                                            </Link>
                                         </li>
                                     ))}
                                 </ul>
@@ -400,35 +422,17 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
                 )}
             </div>
 
-            <div className="grid gap-4 lg:grid-cols-2">
-                {Object.keys(props.keyAttempts).length > 0 && (
-                    <div data-testid="lifetime-keyboard-card" className="rounded-lg border border-base-content/10 bg-base-100/45 p-3 sm:p-5">
-                        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                            <div className="text-base font-semibold text-base-content">Lifetime keyboard</div>
-                            <KeyHeatmapLegend />
-                        </div>
-                        <div className="flex w-full justify-center overflow-x-auto pb-1">
-                            <KeyHeatmap attempts={props.keyAttempts} size="full" className="min-w-fit" testId="lifetime-heatmap" />
-                        </div>
+            {Object.keys(props.keyAttempts).length > 0 && (
+                <div data-testid="lifetime-keyboard-card" className="rounded-lg border border-base-content/10 bg-base-100/45 p-3 sm:p-5">
+                    <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="text-base font-semibold text-base-content">Lifetime keyboard</div>
+                        <KeyHeatmapLegend />
                     </div>
-                )}
-
-                {records.length > 0 && (
-                    <div data-testid="records-timeline" className="rounded-lg border border-base-content/10 bg-base-100/45 p-4">
-                        <div className="mb-3 text-lg font-semibold text-base-content">Records</div>
-                        <ul className="space-y-2">
-                            {records.slice(0, 6).map((event) => (
-                                <li key={event.t} className="flex items-center justify-between border-b border-base-content/10 pb-2 text-sm last:border-b-0 last:pb-0">
-                                    <span className="text-base-content/60">{new Date(event.t).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}</span>
-                                    <span className="font-medium text-base-content">
-                                        {event.kind === "threshold" ? `First ${event.threshold}+ WPM test` : `${event.wpm.toFixed(1)} WPM personal best`}
-                                    </span>
-                                </li>
-                            ))}
-                        </ul>
+                    <div className="flex w-full justify-center overflow-x-auto pb-1">
+                        <KeyHeatmap attempts={props.keyAttempts} size="full" className="min-w-fit" testId="lifetime-heatmap" />
                     </div>
-                )}
-            </div>
+                </div>
+            )}
         </div>
     );
 };
