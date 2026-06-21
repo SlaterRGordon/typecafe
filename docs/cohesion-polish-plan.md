@@ -61,12 +61,12 @@ Problem: `Scores.tsx` renders `test.getAll` (every row, score-desc, `date` = `gt
 
 ## Slice 4 — Rebuild keyboard heatmap as a real keyboard ✅ DONE (S) `fix(heatmap): realistic key layout, no label overlap`
 
-> Shipped 2026-06-21. `<KeyHeatmap>` now mirrors the regular typing keyboard: centered QWERTY rows, matching key sizing, and the same centered spacebar width. Full heatmaps move percentages into small bottom-corner badges so labels no longer overlap glyphs; mini heatmaps keep percentage text in tooltips only. Existing consumers stay unchanged (practice analytics, score-card diagnosis, progress lifetime, beat-run compare). Tightened `lookupAttempt` typing while touching the primitive.
+> Shipped 2026-06-21. `<KeyHeatmap>` now mirrors the regular typing keyboard for practice analytics, and has a richer progress panel presentation with larger keys, visible letter/percentage corner labels, and an accuracy legend. Full practice heatmaps move percentages into small bottom-corner badges so labels no longer overlap glyphs; mini heatmaps keep percentage text in tooltips only. Tightened `lookupAttempt` typing while touching the primitive.
 
 `src/components/heatmap/KeyHeatmap.tsx` today: 3 equal centred rows + fixed `min-w-[17.5rem]` spacebar; `%` absolutely positioned over the glyph.
 
-- Centered rows matching the regular typing keyboard, matching key sizing, and a centered spacebar. `%` no longer overlaps the letter: letter centred + colour fill; show `%` as a small bottom-corner badge in `full`, tooltip-only in `mini`. Keep `accuracyColor`/`heatmapCell`/`lookupAttempt`, `highlightKeys`, testIds.
-- Consumers unchanged (practice analytics, score-card mini, progress lifetime).
+- Centered rows matching the regular typing keyboard, matching key sizing, and a centered spacebar. `%` no longer overlaps the letter: letter centred + colour fill; show `%` as a small bottom-corner badge in `full`, tooltip-only in `mini`; progress uses the `panel` presentation with visible percentages and a legend. Keep `accuracyColor`/`heatmapCell`/`lookupAttempt`, `highlightKeys`, testIds.
+- Consumers: practice analytics uses keyboard presentation, score-card mini stays compact, progress lifetime uses the panel presentation, beat-run compare stays mini.
 
 **Verify:** re-capture practice analytics (32), diagnosis (35), progress (40).
 

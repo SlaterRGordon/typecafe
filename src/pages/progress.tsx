@@ -7,7 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import { DailyChallengePrompt } from "~/components/challenge/DailyChallengePrompt";
 import { TrendChart } from "~/components/progress/TrendChart";
 import { GoalCard } from "~/components/progress/GoalCard";
-import { KeyHeatmap } from "~/components/heatmap/KeyHeatmap";
+import { KeyHeatmap, KeyHeatmapLegend } from "~/components/heatmap/KeyHeatmap";
 import type { KeyAttempt } from "~/lib/heatmap";
 import { readLocalKeyStats } from "~/lib/localSync";
 import { readLocalTransitions } from "~/lib/localTransitions";
@@ -470,10 +470,13 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
             )}
 
             {Object.keys(props.keyAttempts).length > 0 && (
-                <div data-testid="lifetime-keyboard-card" className="rounded-lg border border-base-content/10 bg-base-100/45 p-4 text-center">
-                    <div className="mb-3 text-lg font-semibold text-base-content">Lifetime keyboard</div>
+                <div data-testid="lifetime-keyboard-card" className="rounded-lg border border-base-content/10 bg-base-100/45 p-3 sm:p-5">
+                    <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="text-center text-xl font-bold text-base-content sm:text-left sm:text-2xl">Lifetime keyboard</div>
+                        <KeyHeatmapLegend />
+                    </div>
                     <div className="flex w-full justify-center overflow-x-auto pb-1">
-                        <KeyHeatmap attempts={props.keyAttempts} size="full" showPercent={false} className="min-w-fit" testId="lifetime-heatmap" />
+                        <KeyHeatmap attempts={props.keyAttempts} size="full" presentation="panel" className="min-w-fit" testId="lifetime-heatmap" />
                     </div>
                 </div>
             )}

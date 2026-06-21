@@ -42,7 +42,10 @@ test.describe("progress dashboard", () => {
     await expect(page.getByText("Avg consistency")).toBeVisible();
     await expect(page.getByTestId("records-timeline")).toBeVisible();
     await expect(page.getByTestId("lifetime-keyboard-card")).toContainText("Lifetime keyboard");
+    await expect(page.getByTestId("lifetime-keyboard-card")).toContainText("Lower accuracy");
+    await expect(page.getByTestId("lifetime-keyboard-card")).toContainText("Higher accuracy");
     await expect(page.getByTestId("lifetime-heatmap")).toBeVisible();
+    await expect(page.getByTestId("lifetime-heatmap")).toContainText("80%");
     // Coach stance (§4.3) reads from recent accuracy/consistency/trend.
     await expect(page.getByTestId("stance")).toBeVisible();
     // Worst transitions (§4.1) — the slowest key pairs, each with a drill button.
