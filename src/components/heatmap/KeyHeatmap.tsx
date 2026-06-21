@@ -109,7 +109,7 @@ export function KeyHeatmap(props: KeyHeatmapProps) {
                     {showPercent ? keyLabel : isSpace ? "\u00a0" : key}
                 </span>
                 {showPercent &&
-                    <span className="pointer-events-none absolute bottom-0.5 right-1 text-[0.6rem] font-bold leading-none text-white/95 drop-shadow-sm sm:bottom-1 sm:right-1.5 sm:text-xs">
+                    <span className="pointer-events-none absolute bottom-0.5 right-1 text-[0.6rem] leading-none text-white/95 drop-shadow-sm sm:bottom-1 sm:right-1.5 sm:text-xs">
                         {cell.accuracy}%
                     </span>
                 }
