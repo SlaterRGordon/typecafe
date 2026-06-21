@@ -1,7 +1,7 @@
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 import { mockAuthenticatedSession, mockTrpc } from "./helpers/trpc";
 import { chooseReactSelectOption } from "./helpers/select";
-import { typeCurrentCharacter } from "./helpers/typing";
+import { typeCurrentCharacter, typeVisibleTestText } from "./helpers/typing";
 import { join } from "node:path";
 
 // Captures every page and menu state into docs/screenshots/<project>/ so the
@@ -314,30 +314,33 @@ test.describe("screenshot tour", () => {
     await expect(page.getByTestId("taxonomy-finding")).toBeVisible();
     await capture(page, testInfo, "35-score-card-diagnosis");
 
-    // The one-click drill hands off into Practice with the diagnosed keys selected.
+    // The one-click drill hands off to the unified /drill surface on the keys.
     await page.getByRole("link", { name: /Drill these keys/ }).first().click();
-    await expect(page.locator(".typecafe-keyboard")).toBeVisible();
-    await capture(page, testInfo, "36-drill-handoff-practice");
+    await expect(page.getByTestId("drill-typer")).toBeVisible();
+    await capture(page, testInfo, "36-drill-handoff");
   });
 
-  test("home: re-measure prompt and before/after delta", async ({ page }, testInfo) => {
+  test("re-measure: drill result CTA and home before/after delta", async ({ page }, testInfo) => {
     await mockTrpc(page);
-    await gotoHome(page);
 
-    await setToolbarCustomLength(page, "4");
+    // The token a diagnosis forwards: the diagnosed test's before-WPM + config.
+    const rm = JSON.stringify({
+      beforeWpm: 40,
+      config: { subMode: 1, count: 4, language: "english", customLength: true, punctuation: false, capitals: false, options: "" },
+    });
 
-    await typeWrongZeroes(page, 50);
-    await expect(page.getByRole("button", { name: "Test Again" })).toBeVisible({ timeout: 15_000 });
-
-    // Hand off into Practice, where the re-measure prompt invites a re-run.
-    await page.getByRole("link", { name: /Drill these keys/ }).first().click();
-    await expect(page.getByTestId("re-measure-prompt")).toBeVisible();
+    // /drill's result card offers the Re-measure CTA (href carries the token back
+    // home — asserted in drill.spec); capture the prompt here.
+    await page.goto(`/drill?keys=x&length=4&rm=${encodeURIComponent(rm)}`);
+    await expect(page.getByTestId("drill-typer")).toBeVisible();
+    await typeVisibleTestText(page);
+    await expect(page.getByTestId("drill-result")).toBeVisible();
     await capture(page, testInfo, "37-re-measure-prompt");
 
-    // Re-run the diagnosed test → the result shows the before→after delta.
-    await page.getByRole("button", { name: "Re-run your test" }).click();
+    // Landing home with the token re-runs the diagnosed test → before→after delta.
+    await page.goto(`/?rm=${encodeURIComponent(rm)}`);
     await expect(page.locator("#words .char").first()).toBeVisible();
-    await typeWrongZeroes(page, 50);
+    await typeVisibleTestText(page);
     await expect(page.getByTestId("re-measure-delta")).toBeVisible({ timeout: 15_000 });
     await capture(page, testInfo, "38-re-measure-delta");
   });

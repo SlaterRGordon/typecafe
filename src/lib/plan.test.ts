@@ -52,8 +52,9 @@ describe("generatePlan — targeted", () => {
         expect(day1.steps[0]!.kind).toBe("warmup")
         const drills = day1.steps.filter((s) => s.kind === "keys" || s.kind === "transition")
         expect(drills.length).toBe(2)
-        // Each drill deep-links into a real mode with a drill button.
-        expect(day1.steps.every((s) => s.href.startsWith("/?mode="))).toBe(true)
+        // Warm-up/benchmark hit the home page; targeted drills hit /drill.
+        expect(day1.steps[0]!.href.startsWith("/?mode=")).toBe(true)
+        expect(drills.every((s) => s.href.startsWith("/drill?"))).toBe(true)
     })
 
     it("benchmarks weekly in the user's config", () => {
@@ -71,8 +72,8 @@ describe("generatePlan — targeted", () => {
         expect(keyHref(0)).toContain("keys=r,t,b")
         expect(keyHref(1)).toContain("keys=c,v")
         // 2 transitions alternate.
-        expect(transHref(0)).toContain("keys=b,r")
-        expect(transHref(1)).toContain("keys=i,o")
+        expect(transHref(0)).toContain("transitions=br")
+        expect(transHref(1)).toContain("transitions=io")
     })
 
     it("still fills two drills when only one weakness source exists", () => {

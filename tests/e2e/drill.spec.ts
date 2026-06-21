@@ -21,6 +21,23 @@ test.describe("drill page", () => {
     await expect(page.getByTestId("drill-typer")).toBeVisible()
   })
 
+  test("forwards a diagnosis re-measure token into the Re-measure CTA", async ({ page }) => {
+    await mockTrpc(page)
+    // A diagnosis hands off the just-completed test's config as an opaque rm token.
+    const payload = JSON.stringify({
+      beforeWpm: 40,
+      config: { subMode: 1, count: 4, language: "english", customLength: true, punctuation: false, capitals: false, options: "" },
+    })
+    await page.goto(`/drill?keys=x&length=4&rm=${encodeURIComponent(payload)}`)
+    await expect(page.getByTestId("drill-typer")).toBeVisible()
+
+    await typeVisibleTestText(page)
+
+    // Re-measure deep-links home carrying the token so the diagnosed test re-runs.
+    await expect(page.getByRole("link", { name: "Re-measure" }))
+      .toHaveAttribute("href", `/?rm=${encodeURIComponent(payload)}`)
+  })
+
   test("transition drill biases text toward the requested pair", async ({ page }) => {
     await mockTrpc(page)
     await page.goto("/drill?transitions=br&length=4")

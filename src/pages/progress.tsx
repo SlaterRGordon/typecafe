@@ -279,7 +279,7 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
                             <p className="mt-3 text-sm text-base-content/80">
                                 Your weakest key is <span className="font-bold text-base-content">{recap.focus.key.toUpperCase()}</span> — you hit it right {recap.focus.accuracy.toFixed(0)}% of the time ({recap.focus.attempts} tries). Drilling it is the fastest win this week.
                             </p>
-                            <Link href={`/?mode=practice&keys=${recap.focus.key}`} className="mt-2 inline-flex items-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85">
+                            <Link href={`/drill?keys=${recap.focus.key}`} className="mt-2 inline-flex items-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85">
                                 Drill {recap.focus.key.toUpperCase()}
                             </Link>
                         </>
@@ -492,7 +492,7 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
                                     <span className="font-mono font-bold text-base-content">{t.from}→{t.to}</span> takes you {t.ratio.toFixed(1)}× your average{t.errorRate >= 0.1 ? ` and misses ${Math.round(t.errorRate * 100)}% of the time` : ""}.
                                 </span>
                                 <Link
-                                    href={`/?mode=practice&keys=${t.from},${t.to}`}
+                                    href={`/drill?transitions=${t.from}${t.to}`}
                                     className="inline-flex shrink-0 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85"
                                 >
                                     Drill {t.from}{t.to}

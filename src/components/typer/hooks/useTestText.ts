@@ -1,7 +1,8 @@
 import { TestModes, TestSubModes } from "../types"
 import type { TestGramScopes, TestGramSources } from "../types"
 import type { Level } from "../learn/levels"
-import { applyTextOptions, ensureLanguageLoaded, generateBetterPseudoText, generateNGram, generateText } from "../utils"
+import { applyTextOptions, ensureLanguageLoaded, generateBetterPseudoText, generateNGram, generateText, getWords } from "../utils"
+import { compileDrillText } from "~/lib/drill"
 
 export interface TestTextConfig {
     mode: TestModes,
@@ -40,7 +41,7 @@ export async function generateTestText(config: TestTextConfig, gramLevel: number
 
     if (mode === TestModes.practice) {
         if (!selectedKeys) return ""
-        return applyTextOptions(generateBetterPseudoText(500, selectedKeys), punctuation, capitals)
+        return applyTextOptions(compileDrillText({ keys: selectedKeys, wordList: getWords(language), length: 500 }), punctuation, capitals)
     }
 
     if (mode === TestModes.ngrams) {

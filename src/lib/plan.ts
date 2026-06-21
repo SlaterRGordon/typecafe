@@ -20,7 +20,8 @@ export type DrillKind = "warmup" | "keys" | "transition" | "benchmark" | "calibr
 export interface DrillStep {
     kind: DrillKind
     label: string
-    // Deep-link into an existing mode (the home page applies these params).
+    // Deep-link into an existing surface: warm-up/benchmark/calibration steps hit
+    // the home page (/?mode=…); targeted key/transition drills hit /drill.
     href: string
 }
 
@@ -65,11 +66,11 @@ function benchmarkStep(benchmark: { subMode: "timed" | "words"; count: number })
 }
 
 function keysStep(keys: string[]): DrillStep {
-    return { kind: "keys", label: `Drill your weakest keys: ${keys.join(", ")}`, href: `/?mode=practice&keys=${keys.join(",")}` }
+    return { kind: "keys", label: `Drill your weakest keys: ${keys.join(", ")}`, href: `/drill?keys=${keys.join(",")}` }
 }
 
 function transitionStep(t: SlowTransition): DrillStep {
-    return { kind: "transition", label: `Drill the ${t.from}→${t.to} transition`, href: `/?mode=practice&keys=${t.from},${t.to}` }
+    return { kind: "transition", label: `Drill the ${t.from}→${t.to} transition`, href: `/drill?transitions=${t.from}${t.to}` }
 }
 
 // A 7-day calibration plan: varied tests across modes/lengths to build a profile

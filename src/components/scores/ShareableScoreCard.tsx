@@ -451,9 +451,9 @@ function ReMeasureStrip(props: { beforeWpm: number; afterWpm: number }) {
 }
 
 // Turns the just-completed test's keystroke timeline into up to three honest,
-// actionable findings, each ending in a one-click drill into Practice mode with
-// exactly those keys pre-selected. Owner-only: rendered on the live results card,
-// never on a read-only shared score (which carries no timeline anyway).
+// actionable findings, each ending in a one-click drill on /drill built from
+// exactly those keys. Owner-only: rendered on the live results card, never on a
+// read-only shared score (which carries no timeline anyway).
 function DiagnosisPanel(props: { score: ShareableScore }) {
   const { diagnosis, attempts, taxonomy, transitions } = useMemo(() => {
     const events = props.score.timeline ? decodeTimeline(props.score.timeline) : [];
@@ -470,11 +470,29 @@ function DiagnosisPanel(props: { score: ShareableScore }) {
   // to diagnose, so the panel stays hidden rather than showing an empty shell.
   if (!props.score.timeline || props.score.timeline.length === 0) return null;
 
+  // Carry this exact test's config to /drill so its "Re-measure" CTA can round-trip
+  // back home and headline a before→after delta (Phase 1.3, the loop's payoff).
+  const s = props.score;
+  const reMeasureParam = encodeURIComponent(JSON.stringify({
+    beforeWpm: s.netWpm,
+    config: {
+      subMode: s.subMode,
+      count: s.count,
+      language: s.language,
+      customLength: s.ranked === false,
+      punctuation: s.punctuation ?? false,
+      capitals: s.capitals ?? false,
+      options: s.options ?? "",
+    },
+  }));
+  const withReMeasure = (href: string) =>
+    href.startsWith("/drill") ? `${href}&rm=${reMeasureParam}` : href;
+
   return (
     <div data-testid="diagnosis-panel" className="score-reveal mt-5 rounded-lg border border-base-content/10 bg-base-100/45 p-5" style={{ "--reveal-delay": "200ms" } as CSSProperties}>
       <div className="mb-1 flex items-center gap-2 text-lg font-semibold text-base-content">
         <span>Diagnosis</span>
-        <InfoIcon label="The keys and transitions that cost you the most this test, computed from your keystroke timeline. Each finding drills into Practice with those keys selected." />
+        <InfoIcon label="The keys and transitions that cost you the most this test, computed from your keystroke timeline. Each finding opens a targeted drill built from those keys." />
       </div>
       <p className="mb-4 text-sm text-base-content/60">What slowed you down this test — and the one-click fix.</p>
 
@@ -487,7 +505,7 @@ function DiagnosisPanel(props: { score: ShareableScore }) {
             <p className="font-semibold text-base-content">{taxonomy.headline}</p>
             <p className="mt-1 text-sm text-base-content/70">{taxonomy.detail}</p>
             <Link
-              href={taxonomy.action.href}
+              href={withReMeasure(taxonomy.action.href)}
               className="mt-3 inline-flex shrink-0 cursor-pointer items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
             >
               {taxonomy.action.label}
@@ -516,9 +534,9 @@ function DiagnosisPanel(props: { score: ShareableScore }) {
                         {drillKeys.length > 0 ?
                           <Link
                             className="inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-                            href={`/?mode=practice&keys=${drillKeys.join(",")}`}
+                            href={withReMeasure(`/drill?keys=${drillKeys.join(",")}`)}
                             aria-label={`Drill these keys: ${drillKeys.join(", ")}`}
-                            title={`Practice ${drillKeys.join(", ")}`}
+                            title={`Drill ${drillKeys.join(", ")}`}
                           >
                             Drill these keys
                           </Link>
@@ -539,7 +557,7 @@ function DiagnosisPanel(props: { score: ShareableScore }) {
                       </span>
                       <Link
                         className="inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-                        href={`/?mode=practice&keys=${t.from},${t.to}`}
+                        href={withReMeasure(`/drill?transitions=${t.from}${t.to}`)}
                         aria-label={`Drill the ${t.from} to ${t.to} transition`}
                       >
                         Drill {t.from}{t.to}

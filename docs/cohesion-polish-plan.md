@@ -72,7 +72,7 @@ Problem: `Scores.tsx` renders `test.getAll` (every row, score-desc, `date` = `gt
 
 ---
 
-## Slice 5 — Unified Drill surface (L) `feat(drill): weakness-fitting drill generator + surface`
+## Slice 5 — Unified Drill surface ✅ DONE (L) `feat(drill): weakness-fitting drill generator + surface`
 
 Replaces the "deed deed"/"xxxx" behaviour (`generateBetterPseudoText` filters to words made **entirely** of the keys, [utils.tsx](src/components/typer/utils.tsx)).
 
@@ -87,7 +87,9 @@ Replaces the "deed deed"/"xxxx" behaviour (`generateBetterPseudoText` filters to
 
 > 5b shipped 2026-06-21. Added `/drill` with `?keys=` and `?transitions=` targets, compiling fixed drill text through `compileDrillText` and running it through the shared `Typer` as an unranked fixed-text words test. Completion shows net WPM, accuracy, a Re-measure CTA, and Drill again. Added e2e coverage for key + transition drills, a route smoke test, and screenshot `56-drill-surface`.
 
-**5c — rewire CTAs to `/drill`:** diagnosis "Drill these keys", progress weakness rows, plan steps, weekly-recap "Drill X". Practice mode (manual keyboard selection) stays, but its text source switches to `compileDrillText` (replace the `generateBetterPseudoText(500, selectedKeys)` call in `useTestText.ts`).
+**5c — rewire CTAs to `/drill`:** ✅ DONE diagnosis "Drill these keys", progress weakness rows, plan steps, weekly-recap "Drill X". Practice mode (manual keyboard selection) stays, but its text source switches to `compileDrillText` (replace the `generateBetterPseudoText(500, selectedKeys)` call in `useTestText.ts`).
+
+> 5c shipped 2026-06-21. Every targeted-key/transition drill CTA now lands on `/drill`: diagnosis findings + error-taxonomy "doubled-letter" (`ShareableScoreCard`/`errorTaxonomy.ts`), progress slowest-transitions + weekly-recap, and plan key/transition steps (`plan.ts`; transitions use `?transitions=`). Generic "drill" CTAs without specific keys (self-league, headline-delta, plateau→grams) keep their existing targets. Practice text now comes from `compileDrillText`. **Re-measure loop preserved (owner-chosen full unification):** the diagnosis CTA forwards the just-completed test's config as an opaque `rm` token to `/drill`; `/drill`'s "Re-measure" CTA round-trips it home as `/?rm=…` (a full-page nav, not next/link, to dodge a typer restart race), where a new handoff rebuilds the before→after offer and re-runs the exact diagnosed test. Verified: 263 unit, tsc, build, e2e (drill key+transition+rm-forward, home diagnosis→/drill + real round-trip delta, progress, screenshots 35/36/37/38/56 re-captured).
 
 **Verify:** unit (5a); e2e for `/drill` (keys + transitions paths, real words rendered); re-point drill-handoff screenshot (36) and add a `/drill` shot.
 

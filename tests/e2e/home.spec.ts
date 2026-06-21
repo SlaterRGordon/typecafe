@@ -332,10 +332,11 @@ test.describe("home typing test", () => {
     await expect(page.getByRole("button", { name: "Test Again" })).toBeVisible();
   });
 
-  // Phase 1.2/1.3: a finished test must surface at least one honest finding and a
-  // one-click drill into Practice with those keys pre-selected — the first two
-  // clicks of the improvement loop, available to a guest with no account.
-  test("diagnosis panel offers a one-click drill into practice (guest)", async ({ page }) => {
+  // Phase 1.2/1.3 + Slice 5c: a finished test must surface at least one honest
+  // finding and a one-click drill that lands on the unified /drill surface built
+  // from those keys — the first two clicks of the improvement loop, available to a
+  // guest with no account.
+  test("diagnosis panel offers a one-click drill on /drill (guest)", async ({ page }) => {
     await mockTrpc(page);
     await gotoHome(page);
 
@@ -358,13 +359,12 @@ test.describe("home typing test", () => {
     await expect(drillButton).toBeVisible();
     await drillButton.click();
 
-    // Handoff lands in Practice mode (its keyboard always renders) with the
-    // results card dismissed — the drill is ready on the diagnosed keys.
-    await expect(page.locator(".typecafe-keyboard")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Test Again" })).toBeHidden();
-    await expect.poll(async () =>
-      page.evaluate(() => window.localStorage.getItem("typecafe:testSettings")),
-    ).toContain('"mode":1');
+    // Handoff lands on /drill, ready on the diagnosed keys, and carries the
+    // diagnosed test's config (rm token) so Re-measure can round-trip a delta.
+    await expect(page).toHaveURL(/\/drill\?/);
+    await expect(page).toHaveURL(/[?&]rm=/);
+    await expect(page.getByTestId("drill-typer")).toBeVisible();
+    await expect(page.getByText("Key drill")).toBeVisible();
   });
 
   // Regression guard: Practice (and any non-Normal mode) carries a leftover
@@ -406,28 +406,31 @@ test.describe("home typing test", () => {
     await expect(page.getByText("100.00%").first()).toBeAttached({ timeout: 4000 });
   });
 
-  // Phase 1.3: the loop's last mile — after drilling, re-run the diagnosed test
-  // and see a before→after delta. Proven end-to-end for a guest, no account.
-  test("re-measure loop shows a before to after delta (guest)", async ({ page }) => {
+  // Phase 1.3 + Slice 5c: the loop's last mile — /drill's "Re-measure" CTA returns
+  // home as /?rm=<token>, which rebuilds the offer, re-runs the diagnosed test on
+  // its original config, and headlines a before→after delta. Proven for a guest.
+  test("re-measure round-trip: drill then Re-measure shows a before/after delta (guest)", async ({ page }) => {
     await mockTrpc(page);
-    await gotoHome(page);
 
-    // 1. A short custom timed test that clears the diagnosis floor.
-    await setToolbarCustomLength(page, "4");
+    // The token a diagnosis forwards: the diagnosed test's before-WPM + exact config
+    // (a short ranked 4-word words test, customLength false → a fixed 4 words).
+    const rm = encodeURIComponent(JSON.stringify({
+      beforeWpm: 40,
+      config: { subMode: 1, count: 4, language: "english", customLength: false, punctuation: false, capitals: false, options: "" },
+    }));
 
-    await typeWrongZeroes(page, 50);
-    await expect(page.getByRole("button", { name: "Test Again" })).toBeVisible({ timeout: 15_000 });
+    // Drill the diagnosed keys, then follow /drill's Re-measure CTA (a client-side
+    // nav to /?rm=) — the real product path back into the diagnosed test.
+    await page.goto(`/drill?keys=x&length=4&rm=${rm}`);
+    await expect(page.getByTestId("drill-typer")).toBeVisible();
+    await typeVisibleTestText(page);
+    await page.getByRole("link", { name: "Re-measure" }).click();
 
-    // 2. Drill handoff lands in Practice with the re-measure prompt.
-    await page.getByRole("link", { name: /Drill these keys/ }).first().click();
-    await expect(page.getByTestId("re-measure-prompt")).toBeVisible();
-
-    // 3. Re-run the diagnosed test on its original config.
-    await page.getByRole("button", { name: "Re-run your test" }).click();
+    // Home rebuilds the offer, switches into the diagnosed config and starts it.
     await expect(page.locator("#words .char").first()).toBeVisible();
-    await typeWrongZeroes(page, 50);
+    await typeVisibleTestText(page);
 
-    // 4. The result headlines the before → after delta, then the offer is retired.
+    // The result headlines the before → after delta, then the offer is retired.
     await expect(page.getByTestId("re-measure-delta")).toBeVisible({ timeout: 15_000 });
   });
 

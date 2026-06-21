@@ -86,6 +86,12 @@ const Drill: NextPage = () => {
 
     const wordCount = config?.text.split(" ").filter(Boolean).length ?? DEFAULT_DRILL_WORDS
 
+    // A diagnosis hands off the just-completed test's config as an opaque `rm`
+    // token. Forward it home so Re-measure re-runs that exact test and headlines a
+    // before→after delta; without it, fall back to a generic timed re-measure.
+    const rmToken = typeof router.query.rm === "string" ? router.query.rm : null
+    const reMeasureHref = rmToken ? `/?rm=${encodeURIComponent(rmToken)}` : "/?mode=timed&count=30"
+
     return (
         <>
             <Head>
@@ -162,9 +168,12 @@ const Drill: NextPage = () => {
                                         </div>
                                     </div>
                                     <div className="mt-5 flex flex-col gap-2 sm:flex-row">
-                                        <Link href="/?mode=timed&count=30" className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85">
+                                        {/* A full-page navigation (not next/link): home must mount with
+                                            ?rm already in the URL so it applies the diagnosed config before
+                                            the typer's first text generation, avoiding a restart race. */}
+                                        <a href={reMeasureHref} className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85">
                                             Re-measure
-                                        </Link>
+                                        </a>
                                         <button type="button" onClick={restartDrill} className="inline-flex items-center justify-center rounded-md border border-base-content/15 px-4 py-2 text-sm font-semibold text-base-content transition hover:bg-base-content/5">
                                             Drill again
                                         </button>

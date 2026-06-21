@@ -388,6 +388,37 @@ const Home: NextPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router.isReady, router.query.mode, router.query.keys])
 
+  // Re-measure handoff: /drill's "Re-measure" CTA returns here as /?rm=<token>,
+  // carrying the diagnosed test's config. Rebuild the before→after offer, switch
+  // into that exact config and start it; onTestComplete then headlines the delta
+  // (Phase 1.3 — the loop's payoff, now reached via the unified /drill surface).
+  useEffect(() => {
+    if (!router.isReady) return
+    const raw = typeof router.query.rm === "string" ? router.query.rm : null
+    if (!raw) return
+
+    let parsed: Partial<ReMeasureState> | null = null
+    try { parsed = JSON.parse(raw) as Partial<ReMeasureState> } catch { parsed = null }
+    const config = parsed?.config
+    if (parsed && typeof parsed.beforeWpm === "number" && config) {
+      applyReMeasure({ beforeWpm: parsed.beforeWpm, config })
+      setMode(TestModes.normal)
+      setSubMode(config.subMode)
+      setCount(config.count)
+      setCustomLength(config.customLength)
+      setLanguage(config.language)
+      setPunctuation(config.punctuation)
+      setCapitals(config.capitals)
+      clearCompletedScore()
+      sessionStorage.removeItem("typecafe:pendingScore")
+      hasSavedPendingRef.current = false
+      setRestartSignal((signal) => signal + 1)
+    }
+
+    void router.replace("/", undefined, { shallow: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router.isReady, router.query.rm])
+
   // Config handoff (Phase 4 plans): a plan/coach link lands here as
   // /?mode=timed&count=60, /?mode=words&count=25, or /?mode=grams and starts that
   // configured test, then cleans the URL.

@@ -108,7 +108,7 @@ export function classifyErrors(events: KeystrokeEvent[]): ErrorFinding | null {
                 class: "doubled-letter",
                 headline: "Double letters trip you up",
                 detail: `Repeated letters (${keys.join(", ")}) cost you several misses — drill the doubles directly.`,
-                action: { label: `Drill ${keys.join(", ")}`, href: `/?mode=practice&keys=${keys.join(",")}` },
+                action: { label: `Drill ${keys.join(", ")}`, href: `/drill?keys=${keys.join(",")}` },
             },
         })
     }
