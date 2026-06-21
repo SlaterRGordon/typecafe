@@ -83,7 +83,9 @@ Replaces the "deed deed"/"xxxx" behaviour (`generateBetterPseudoText` filters to
 - transition mode: bias toward words containing the `from→to` adjacency; fall back to grams of that bigram when scarce.
 - Tests: density ordering, variety (no 3× repeat), single-key realness, transition presence, termination.
 
-**5b — `/drill` surface (reuses Typer):** route `src/pages/drill.tsx` reading `?keys=` / `?transitions=`. Shows what's being drilled, the compiled text, live net WPM/acc, and on completion a **re-measure CTA** + "Drill again". Feed Typer `fixedText` from `compileDrillText`. Auto-picks words vs grams by input type.
+**5b — `/drill` surface (reuses Typer):** ✅ DONE route `src/pages/drill.tsx` reading `?keys=` / `?transitions=`. Shows what's being drilled, the compiled text, live net WPM/acc, and on completion a **re-measure CTA** + "Drill again". Feed Typer `fixedText` from `compileDrillText`. Auto-picks words vs grams by input type.
+
+> 5b shipped 2026-06-21. Added `/drill` with `?keys=` and `?transitions=` targets, compiling fixed drill text through `compileDrillText` and running it through the shared `Typer` as an unranked fixed-text words test. Completion shows net WPM, accuracy, a Re-measure CTA, and Drill again. Added e2e coverage for key + transition drills, a route smoke test, and screenshot `56-drill-surface`.
 
 **5c — rewire CTAs to `/drill`:** diagnosis "Drill these keys", progress weakness rows, plan steps, weekly-recap "Drill X". Practice mode (manual keyboard selection) stays, but its text source switches to `compileDrillText` (replace the `generateBetterPseudoText(500, selectedKeys)` call in `useTestText.ts`).
 

@@ -520,6 +520,14 @@ test.describe("screenshot tour", () => {
     await capture(page, testInfo, "54-practice-plan-calibration");
   });
 
+  test("drill surface", async ({ page }, testInfo) => {
+    await mockTrpc(page);
+    await page.goto("/drill?keys=x&length=8");
+    await expect(page.getByTestId("drill-typer")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "x" })).toBeVisible();
+    await capture(page, testInfo, "56-drill-surface");
+  });
+
   test("shared progress card", async ({ page }, testInfo) => {
     await mockTrpc(page);
     await page.goto("/score/progress-test-share");
