@@ -70,10 +70,11 @@ test.describe("daily challenge", () => {
     expect(second).toBe(first);
   });
 
-  test("progress surfaces signed-in daily challenge status", async ({ page }) => {
+  test("home surfaces signed-in daily challenge status", async ({ page }) => {
     await mockAuthenticatedSession(page);
     await mockTrpc(page);
-    await page.goto("/progress");
+    // Slice 6 moved the challenge prompt off /progress; it lives on home now.
+    await page.goto("/");
 
     await expect(page.getByTestId("daily-challenge-prompt")).toBeVisible();
     await expect(page.getByText("Today complete: 82.4 WPM")).toBeVisible();

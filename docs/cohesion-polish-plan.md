@@ -95,7 +95,9 @@ Replaces the "deed deed"/"xxxx" behaviour (`generateBetterPseudoText` filters to
 
 ---
 
-## Slice 6 — Story-first /progress (L) `refactor(progress): focused story-first dashboard`
+## Slice 6 — Story-first /progress ✅ DONE (L) `refactor(progress): focused story-first dashboard`
+
+> Shipped 2026-06-21. `/progress` is now a single story: weekly-recap banner → hero delta + period switcher + streak chip → compact trends as small multiples (`trend-multiples` grid, titles shortened to WPM/Accuracy/Consistency) → stat cells → **yearly activity heatmap** (new shared `<ActivityHeatmap>` fed by record timestamps via pure `buildActivityCalendar` in `src/lib/activity.ts` + tests — no extra query, works for guests) → **Weak spots → drill** (`weak-spots`: top-weak-keys CTA via `worstKeysFromAttempts` + lifetime keyboard + slowest transitions, each → `/drill`) → records. Removed the 1-user self-league card + `selfLeagueSummary` usage and the on-page `DailyChallengePrompt` (challenge prompt now asserted on home; `selfLeagueSummary` kept as a tested lib helper). `GoalCard` demoted to a one-line "Set a goal" that expands. `MODE_FILTERS` cut to All/Timed/Words; length filter + "hide filters when no metadata" kept; guest local-first + sync untouched. Verified: 266 unit (new activity tests), tsc, build; progress/challenge e2e rewritten and green on desktop + mobile; screenshots 40–47 re-captured, obsolete 53-self-league removed.
 
 Target order (drop the long scroll):
 1. **Hero delta** + period switcher + streak chip (net).

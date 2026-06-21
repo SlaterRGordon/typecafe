@@ -387,25 +387,14 @@ test.describe("screenshot tour", () => {
     await page.addInitScript(() => window.localStorage.setItem("typecafe:lastRecapAt", String(Date.now())));
     await page.goto("/progress");
     await expect(page.getByTestId("headline-delta")).toBeVisible();
-    await expect(page.getByTestId("self-league-card")).toBeVisible();
     await expect(page.getByTestId("progress-filters")).toBeVisible();
-    await expect(page.getByTestId("stance")).toBeVisible();
-    await expect(page.getByTestId("worst-transitions")).toContainText("b→r");
-    await expect(page.getByTestId("trend-chart").first()).toBeVisible();
+    await expect(page.getByTestId("trend-multiples")).toBeVisible();
+    await expect(page.getByTestId("activity-heatmap")).toBeVisible();
+    await expect(page.getByTestId("weak-spots")).toContainText("b→r");
     await expect(page.getByTestId("lifetime-heatmap")).toBeVisible();
     await capture(page, testInfo, "40-progress-dashboard");
-    await page.getByTestId("lifetime-keyboard-card").scrollIntoViewIfNeeded();
+    await page.getByTestId("weak-spots").scrollIntoViewIfNeeded();
     await capture(page, testInfo, "40-progress-lifetime-keyboard");
-  });
-
-  test("progress dashboard (self league)", async ({ page }, testInfo) => {
-    await mockAuthenticatedSession(page);
-    await mockTrpc(page);
-    await page.addInitScript(() => window.localStorage.setItem("typecafe:lastRecapAt", String(Date.now())));
-    await page.goto("/progress");
-    await expect(page.getByTestId("self-league-card")).toBeVisible();
-    await expect(page.getByTestId("self-league-delta")).toContainText(/\+\d/);
-    await capture(page, testInfo, "53-self-league");
   });
 
   test("progress dashboard (plateau coach voice)", async ({ page }, testInfo) => {

@@ -4,9 +4,9 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { useSession } from "next-auth/react";
 import { useEffect, useMemo, useState } from "react";
-import { DailyChallengePrompt } from "~/components/challenge/DailyChallengePrompt";
 import { TrendChart } from "~/components/progress/TrendChart";
 import { GoalCard } from "~/components/progress/GoalCard";
+import { ActivityHeatmap } from "~/components/progress/ActivityHeatmap";
 import { KeyHeatmap, KeyHeatmapLegend } from "~/components/heatmap/KeyHeatmap";
 import type { KeyAttempt } from "~/lib/heatmap";
 import { readLocalKeyStats } from "~/lib/localSync";
@@ -26,14 +26,13 @@ import {
     personalRecords,
     progressMode,
     rollingAverage,
-    selfLeagueSummary,
     trendSeries,
     type ProgressPeriod,
     type ProgressModeFilter,
     type ProgressRecord,
 } from "~/lib/progress";
 import { readLocalProgress } from "~/lib/progressHistory";
-import { netFromRaw } from "~/lib/stats";
+import { netFromRaw, worstKeysFromAttempts } from "~/lib/stats";
 import { buildRecap, isRecapDue } from "~/lib/recap";
 import { computeStance } from "~/lib/stance";
 import { detectPlateau } from "~/lib/trajectory";
@@ -53,13 +52,12 @@ function formatSigned(value: number, digits = 1): string {
     return `${value >= 0 ? "+" : ""}${value.toFixed(digits)}`;
 }
 
+// Only Timed and Words ever persist Test rows (grams/practice/relaxed don't), so
+// those are the only filters worth offering alongside All.
 const MODE_FILTERS: { key: ProgressModeFilter; label: string }[] = [
     { key: "all", label: "All" },
     { key: "timed", label: "Timed" },
     { key: "words", label: "Words" },
-    { key: "practice", label: "Practice" },
-    { key: "grams", label: "Grams" },
-    { key: "relaxed", label: "Relaxed" },
 ];
 
 function lengthLabel(count: number, mode: ProgressModeFilter): string {
@@ -74,89 +72,6 @@ function StatCell(props: { label: string; value: string }) {
             <span className="text-xs font-semibold uppercase tracking-wide text-base-content/45">{props.label}</span>
             <span className="mt-1 font-mono text-2xl text-base-content">{props.value}</span>
         </div>
-    );
-}
-
-function SelfLeagueCard(props: { summary: ReturnType<typeof selfLeagueSummary> }) {
-    const { summary } = props;
-    const weekLabel = summary.weekStart.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-
-    if (summary.status === "no_current_week") {
-        return (
-            <section data-testid="self-league-card" className="rounded-xl border border-base-content/10 bg-base-100/45 p-5">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                        <p className="text-xs font-semibold uppercase tracking-wide text-primary">Improvement league</p>
-                        <h2 className="mt-1 font-mono text-2xl font-bold text-base-content">Your week starts at zero</h2>
-                        <p className="mt-1 text-sm text-base-content/60">No fake cohort yet. Take one ranked test this week and your self-league delta appears here.</p>
-                    </div>
-                    <Link href="/" className="inline-flex shrink-0 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85">
-                        Take this week&apos;s test
-                    </Link>
-                </div>
-            </section>
-        );
-    }
-
-    if (summary.status === "insufficient_baseline") {
-        const needed = Math.max(summary.minBaselineTests - summary.baselineCount, 0);
-        return (
-            <section data-testid="self-league-card" className="rounded-xl border border-base-content/10 bg-base-100/45 p-5">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                        <p className="text-xs font-semibold uppercase tracking-wide text-primary">Improvement league</p>
-                        <h2 className="mt-1 font-mono text-2xl font-bold text-base-content">Building your baseline</h2>
-                        <p className="mt-1 text-sm text-base-content/60">
-                            {needed} more prior {needed === 1 ? "test" : "tests"} needed before this week can rank against your own average.
-                        </p>
-                    </div>
-                    <Link href="/" className="inline-flex shrink-0 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85">
-                        Add a ranked test
-                    </Link>
-                </div>
-            </section>
-        );
-    }
-
-    const delta = summary.delta ?? 0;
-
-    return (
-        <section data-testid="self-league-card" className="rounded-xl border border-primary/25 bg-primary/10 p-5">
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-primary">Improvement league</p>
-                    <h2 className="mt-1 font-mono text-2xl font-bold text-base-content">Self league</h2>
-                </div>
-                <span className="rounded-full border border-primary/30 bg-base-100/45 px-3 py-1 text-xs font-semibold text-primary">1-user league</span>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-3">
-                <div>
-                    <p className="text-xs font-semibold uppercase text-base-content/50">This week</p>
-                    <p className="mt-1 font-mono text-2xl font-bold text-base-content">{summary.currentAvg.toFixed(1)} WPM</p>
-                    <p className="text-xs text-base-content/55">{summary.currentCount} {summary.currentCount === 1 ? "test" : "tests"} since {weekLabel}</p>
-                </div>
-                <div>
-                    <p className="text-xs font-semibold uppercase text-base-content/50">Baseline</p>
-                    <p className="mt-1 font-mono text-2xl font-bold text-base-content">{summary.baselineAvg?.toFixed(1)} WPM</p>
-                    <p className="text-xs text-base-content/55">prior 30 days / {summary.baselineCount} tests</p>
-                </div>
-                <div>
-                    <p className="text-xs font-semibold uppercase text-base-content/50">League score</p>
-                    <p data-testid="self-league-delta" className={`mt-1 font-mono text-2xl font-bold ${delta >= 0 ? "text-success" : "text-error"}`}>
-                        {formatSigned(delta)} WPM
-                    </p>
-                    <p className="text-xs text-base-content/55">ranked by improvement, not speed</p>
-                </div>
-            </div>
-            <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-sm text-base-content/70">
-                    {delta >= 0 ? "You are beating your own baseline this week." : "This week is below baseline; drill the weak spots before the window closes."}
-                </p>
-                <Link href={delta >= 0 ? "/" : "/?mode=practice"} className="inline-flex shrink-0 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85">
-                    {delta >= 0 ? "Add another score" : "Drill weak keys"}
-                </Link>
-            </div>
-        </section>
     );
 }
 
@@ -217,7 +132,17 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
     const stance = useMemo(() => computeStance(filteredRecords, now), [filteredRecords, now]);
     const plateau = useMemo(() => detectPlateau(filteredRecords, now), [filteredRecords, now]);
     const slowTransitions = useMemo(() => worstTransitions(props.transitions), [props.transitions]);
-    const selfLeague = useMemo(() => selfLeagueSummary(filteredRecords, now, -now.getTimezoneOffset()), [filteredRecords, now]);
+    // Top weak keys for the one-click "drill your weakest keys" CTA (slice 5).
+    const topWeakKeys = useMemo(
+        () => worstKeysFromAttempts(new Map(Object.entries(props.keyAttempts)), 6),
+        [props.keyAttempts],
+    );
+    // The activity calendar spans the full year of all tests, independent of the
+    // period/mode filters above it.
+    const activityTimestamps = useMemo(
+        () => props.records.map((record) => record.createdAt.getTime()),
+        [props.records],
+    );
 
     const hasData = series.points.length > 0;
     // A progress card only makes sense with a real delta to brag about.
@@ -286,10 +211,6 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
                     )}
                 </div>
             )}
-
-            <DailyChallengePrompt />
-
-            <SelfLeagueCard summary={selfLeague} />
 
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
@@ -452,11 +373,15 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
 
             {hasData && (
                 <>
-                    <TrendChart title="WPM over time" points={series.points} values={series.points.map((p) => p.wpm)} rolling={series.rollingWpm} baseline="zero" />
-                    <TrendChart title="Accuracy over time" points={series.points} values={accuracy.values} rolling={accuracy.rolling} baseline="fit" valueSuffix="%" />
-                    {consistency && (
-                        <TrendChart title="Consistency over time" points={series.points} values={consistency.values} rolling={consistency.rolling} baseline="fit" valueSuffix="%" />
-                    )}
+                    {/* Compact trends as small multiples — three at a glance, not a
+                        full-width scroll each. */}
+                    <div data-testid="trend-multiples" className="grid gap-3 lg:grid-cols-3">
+                        <TrendChart title="WPM" points={series.points} values={series.points.map((p) => p.wpm)} rolling={series.rollingWpm} baseline="zero" />
+                        <TrendChart title="Accuracy" points={series.points} values={accuracy.values} rolling={accuracy.rolling} baseline="fit" valueSuffix="%" />
+                        {consistency && (
+                            <TrendChart title="Consistency" points={series.points} values={consistency.values} rolling={consistency.rolling} baseline="fit" valueSuffix="%" />
+                        )}
+                    </div>
 
                     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                         <StatCell label="Avg WPM" value={averageWpm(inPeriod).toFixed(1)} />
@@ -469,37 +394,60 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
                 </>
             )}
 
-            {Object.keys(props.keyAttempts).length > 0 && (
-                <div data-testid="lifetime-keyboard-card" className="rounded-lg border border-base-content/10 bg-base-100/45 p-3 sm:p-5">
-                    <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        <div className="text-center text-xl font-bold text-base-content sm:text-left sm:text-2xl">Lifetime keyboard</div>
-                        <KeyHeatmapLegend />
-                    </div>
-                    <div className="flex w-full justify-center overflow-x-auto pb-1">
-                        <KeyHeatmap attempts={props.keyAttempts} size="full" className="min-w-fit" testId="lifetime-heatmap" />
-                    </div>
+            {props.records.length > 0 && (
+                <div data-testid="activity-card" className="rounded-lg border border-base-content/10 bg-base-100/45 p-3 sm:p-5">
+                    <div className="mb-3 text-lg font-semibold text-base-content">Activity</div>
+                    <ActivityHeatmap timestamps={activityTimestamps} />
                 </div>
             )}
 
-            {slowTransitions.length > 0 && (
-                <div data-testid="worst-transitions" className="rounded-lg border border-base-content/10 bg-base-100/45 p-4">
-                    <div className="mb-1 text-lg font-semibold text-base-content">Slowest transitions</div>
-                    <p className="mb-3 text-sm text-base-content/60">The key pairs that cost you the most — drill the move, not just the keys.</p>
-                    <ul className="flex flex-col gap-3">
-                        {slowTransitions.map((t) => (
-                            <li key={t.pair} className="flex flex-col gap-2 border-b border-base-content/10 pb-3 last:border-b-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between">
-                                <span className="text-base-content/90">
-                                    <span className="font-mono font-bold text-base-content">{t.from}→{t.to}</span> takes you {t.ratio.toFixed(1)}× your average{t.errorRate >= 0.1 ? ` and misses ${Math.round(t.errorRate * 100)}% of the time` : ""}.
-                                </span>
-                                <Link
-                                    href={`/drill?transitions=${t.from}${t.to}`}
-                                    className="inline-flex shrink-0 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85"
-                                >
-                                    Drill {t.from}{t.to}
-                                </Link>
-                            </li>
-                        ))}
-                    </ul>
+            {(Object.keys(props.keyAttempts).length > 0 || slowTransitions.length > 0) && (
+                <div data-testid="weak-spots" className="space-y-3">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div className="text-lg font-semibold text-base-content">Weak spots → drill</div>
+                        {topWeakKeys.length > 0 && (
+                            <Link
+                                href={`/drill?keys=${topWeakKeys.map((k) => k.key).join(",")}`}
+                                className="inline-flex shrink-0 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85"
+                            >
+                                Drill weakest keys: {topWeakKeys.map((k) => k.key).join(", ")}
+                            </Link>
+                        )}
+                    </div>
+
+                    {Object.keys(props.keyAttempts).length > 0 && (
+                        <div data-testid="lifetime-keyboard-card" className="rounded-lg border border-base-content/10 bg-base-100/45 p-3 sm:p-5">
+                            <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                <div className="text-center text-base font-semibold text-base-content sm:text-left">Lifetime keyboard</div>
+                                <KeyHeatmapLegend />
+                            </div>
+                            <div className="flex w-full justify-center overflow-x-auto pb-1">
+                                <KeyHeatmap attempts={props.keyAttempts} size="full" className="min-w-fit" testId="lifetime-heatmap" />
+                            </div>
+                        </div>
+                    )}
+
+                    {slowTransitions.length > 0 && (
+                        <div data-testid="worst-transitions" className="rounded-lg border border-base-content/10 bg-base-100/45 p-4">
+                            <div className="mb-1 text-base font-semibold text-base-content">Slowest transitions</div>
+                            <p className="mb-3 text-sm text-base-content/60">The key pairs that cost you the most — drill the move, not just the keys.</p>
+                            <ul className="flex flex-col gap-3">
+                                {slowTransitions.map((t) => (
+                                    <li key={t.pair} className="flex flex-col gap-2 border-b border-base-content/10 pb-3 last:border-b-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between">
+                                        <span className="text-base-content/90">
+                                            <span className="font-mono font-bold text-base-content">{t.from}→{t.to}</span> takes you {t.ratio.toFixed(1)}× your average{t.errorRate >= 0.1 ? ` and misses ${Math.round(t.errorRate * 100)}% of the time` : ""}.
+                                        </span>
+                                        <Link
+                                            href={`/drill?transitions=${t.from}${t.to}`}
+                                            className="inline-flex shrink-0 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85"
+                                        >
+                                            Drill {t.from}{t.to}
+                                        </Link>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
                 </div>
             )}
 

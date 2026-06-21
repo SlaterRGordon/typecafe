@@ -66,7 +66,20 @@ export function GoalCard(props: { records: ProgressRecord[]; now: Date }) {
         setEditing(false)
     }
 
-    if (!goal || editing) {
+    // Demoted to a one-liner when there's no goal yet — the dashboard is a story,
+    // not a form. Tapping it expands the editor.
+    if (!editing && !goal) {
+        return (
+            <div data-testid="goal-card" className="rounded-xl border border-base-content/10 bg-base-100/45 px-5 py-3">
+                <button type="button" onClick={() => setEditing(true)} className="flex w-full items-center justify-between">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-base-content/45">Goal</span>
+                    <span className="text-sm font-semibold text-primary">Set a goal →</span>
+                </button>
+            </div>
+        )
+    }
+
+    if (editing) {
         return (
             <div data-testid="goal-card" className="rounded-xl border border-base-content/10 bg-base-100/45 p-5">
                 <p className="text-xs font-semibold uppercase tracking-wide text-base-content/45">Goal</p>
@@ -99,6 +112,9 @@ export function GoalCard(props: { records: ProgressRecord[]; now: Date }) {
             </div>
         )
     }
+
+    // Reached only when a goal exists and we're not editing: the compact status.
+    if (!goal) return null
 
     return (
         <div data-testid="goal-card" className="rounded-xl border border-base-content/10 bg-base-100/45 p-5">
