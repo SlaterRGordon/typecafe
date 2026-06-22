@@ -265,9 +265,6 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
                             <div data-testid="plateau-headline">
                                 <div className="font-mono text-3xl font-bold text-base-content">Plateaued for {plateau.weeks} weeks</div>
                                 <p className="mt-2 text-base-content/60">Your sessions repeat the same comfortable words. Switch to transition drills to break the ceiling.</p>
-                                <Link href="/?mode=grams" className="mt-3 inline-flex items-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85">
-                                    Try transition drills
-                                </Link>
                             </div>
                         ) : delta.delta !== null ? (
                             <>

@@ -148,7 +148,8 @@ test.describe("progress dashboard", () => {
     const plateau = page.getByTestId("plateau-headline");
     await expect(plateau).toBeVisible();
     await expect(plateau).toContainText("Plateaued for");
-    await expect(plateau.getByRole("link", { name: "Try transition drills" })).toBeVisible();
+    await expect(plateau).toContainText("Switch to transition drills to break the ceiling.");
+    await expect(plateau.getByRole("link", { name: "Try transition drills" })).toHaveCount(0);
   });
 
   test("a signed-in user can share a progress card", async ({ page }) => {

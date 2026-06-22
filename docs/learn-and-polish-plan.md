@@ -63,7 +63,9 @@ Navigating to `/?mode=grams` (e.g. from progress) briefly renders a words test b
 
 ---
 
-## Slice 5 — Progress plateau trim (XS) `refactor(progress): drop the plateau card's button`
+## Slice 5 — Progress plateau trim ✅ DONE (XS) `refactor(progress): drop the plateau card's button`
+
+> Shipped 2026-06-21. The `/progress` plateau headline is now message-only: it keeps the "Plateaued for N weeks" coach copy and removes the duplicated "Try transition drills" CTA. Drill actions stay owned by the weak-spots panel, trimming height and reducing competing actions. e2e now asserts the plateau copy remains and the old link is absent; screenshot 47 was re-captured.
 
 The plateau headline card's **"Try transition drills"** button is dead weight — remove it (message-only) to cut height. The weak-spots panel already owns the drill CTAs.
 
