@@ -12,7 +12,6 @@ import {
 } from "~/lib/stats";
 import { STANCE_THRESHOLDS } from "~/lib/stance";
 import { PLATEAU_CONFIG } from "~/lib/trajectory";
-import { TAXONOMY_CONFIG } from "~/lib/errorTaxonomy";
 import { TRANSITION_MIN_COUNT, TRANSITION_SLOW_RATIO } from "~/lib/transitions";
 
 const HowWeMeasure: NextPage = () => {
@@ -79,10 +78,6 @@ const HowWeMeasure: NextPage = () => {
           <p>Diagnosis only speaks when there is enough evidence. Short tests and one-off slips should not become fake coaching.</p>
           <ul>
             <li><strong>Slow transitions:</strong> a letter pair must appear at least {TRANSITION_MIN_COUNT} times and be at least {TRANSITION_SLOW_RATIO}x slower than your overall transition pace.</li>
-            <li><strong>Error taxonomy floor:</strong> at least {TAXONOMY_CONFIG.minKeystrokes} keystrokes and at least {TAXONOMY_CONFIG.minErrors} errors.</li>
-            <li><strong>Post-error spiral:</strong> at least {Math.round(TAXONOMY_CONFIG.spiralRatio * 100)}% of errors land within {TAXONOMY_CONFIG.spiralWindow} keystrokes of a previous error.</li>
-            <li><strong>Fatigue fade:</strong> last-quartile accuracy drops by at least {Math.round(TAXONOMY_CONFIG.fatigueDrop * 100)} points versus the first quartile, with at least {TAXONOMY_CONFIG.minQuartile} keystrokes per quartile.</li>
-            <li><strong>Doubled-letter pattern:</strong> at least {TAXONOMY_CONFIG.minDoubled} doubled-letter misses and at least {Math.round(TAXONOMY_CONFIG.doubledShare * 100)}% of errors on doubled letters.</li>
           </ul>
         </DocumentSection>
 

@@ -8,7 +8,6 @@ import type { KeyAccuracy, TypedSegment, WpmSample as ScoreWpmSample } from "~/l
 import { decodeTimeline } from "~/lib/keystrokes";
 import type { EncodedKeystroke } from "~/lib/keystrokes";
 import { diagnose, toDrillKeys } from "~/lib/diagnosis";
-import { classifyErrors } from "~/lib/errorTaxonomy";
 import { aggregateTransitions, worstTransitions } from "~/lib/transitions";
 import { attemptsFromEvents } from "~/lib/heatmap";
 import { KeyHeatmap } from "~/components/heatmap/KeyHeatmap";
@@ -455,12 +454,11 @@ function ReMeasureStrip(props: { beforeWpm: number; afterWpm: number }) {
 // exactly those keys. Owner-only: rendered on the live results card, never on a
 // read-only shared score (which carries no timeline anyway).
 function DiagnosisPanel(props: { score: ShareableScore }) {
-  const { diagnosis, attempts, taxonomy, transitions } = useMemo(() => {
+  const { diagnosis, attempts, transitions } = useMemo(() => {
     const events = props.score.timeline ? decodeTimeline(props.score.timeline) : [];
     return {
       diagnosis: diagnose({ events, worstKeys: props.score.worstKeys }),
       attempts: attemptsFromEvents(events),
-      taxonomy: classifyErrors(events),
       // This test's slowest transitions, framed against this test's own pace.
       transitions: worstTransitions(aggregateTransitions(events), 2),
     };
@@ -503,18 +501,6 @@ function DiagnosisPanel(props: { score: ShareableScore }) {
           {/* Findings + drill CTAs on the left, the per-key heatmap alongside on
               the right (stacks on mobile) — keeps the panel short. */}
           <div className="flex flex-col gap-4">
-            {taxonomy &&
-              <div data-testid="taxonomy-finding" className="rounded-md border border-primary/30 bg-primary/10 p-4">
-                <p className="font-semibold text-base-content">{taxonomy.headline}</p>
-                <p className="mt-1 text-sm text-base-content/70">{taxonomy.detail}</p>
-                <Link
-                  href={withReMeasure(taxonomy.action.href)}
-                  className="mt-3 inline-flex shrink-0 cursor-pointer items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-                >
-                  {taxonomy.action.label}
-                </Link>
-              </div>
-            }
             {(() => {
               // Transitions get their own richer "N× your average" treatment below,
               // so drop the generic slow-transitions finding from this list.

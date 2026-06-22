@@ -310,8 +310,6 @@ test.describe("screenshot tour", () => {
     await expect(page.getByText("Diagnosis", { exact: true })).toBeVisible();
     // The mini per-key heatmap renders alongside the findings (Phase 1.5).
     await expect(page.getByTestId("diagnosis-heatmap")).toBeVisible();
-    // 50 errors in a row → the error-taxonomy finding names the pattern (§4.2).
-    await expect(page.getByTestId("taxonomy-finding")).toBeVisible();
     await capture(page, testInfo, "35-score-card-diagnosis");
 
     // The one-click drill hands off to the unified /drill surface on the keys.
