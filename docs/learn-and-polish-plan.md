@@ -40,7 +40,10 @@ A grab-bag of UX fixes plus a gamified learn page. Decisions locked with owner 2
 
 ---
 
-## Slice 3 — Banner width parity (S) `fix(ui): banners match the width of the content below`
+## Slice 3 — Banner width parity ✅ DONE (S) `fix(ui): banners match the width of the content below`
+
+> Shipped 2026-06-21. Score-card banners were narrower than the `max-w-7xl` card: the home result's continue-plan banner (`max-w-2xl`) and the challenge result's daily-challenge prompt (`max-w-3xl`) now sit in a `max-w-7xl px-4 sm:px-6` wrapper so their edges line up with the card. Audited the rest: score/[slug] beat-run CTA already `max-w-7xl`, progress guest-keep banner already aligns at `max-w-6xl` with the dashboard — no change needed.
+
 
 Banners should stretch to exactly the width of the card/content directly beneath them.
 - Audit + fix: score-card-page top banner(s) (the reported case), home `re-measure-prompt` + `continue-plan` banners, progress `guest-keep-banner`, any other page-level banner. Wrap banner + content in one width-constrained column (shared `max-w-*`) so both align.

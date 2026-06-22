@@ -760,9 +760,6 @@ export function ShareableScoreCard(props: ShareableScoreCardProps) {
           <WpmChart samples={score.wpmSamples} durationSeconds={score.durationSeconds} rawWpm={score.rawWpm} />
           <div className="rounded-lg border border-base-content/10 bg-base-100/45 p-5">
             <h2 className="mb-3 text-lg font-semibold text-base-content">Performance Details</h2>
-            <DetailRow label="Total Keystrokes" value={formatInteger(score.totalKeystrokes)} />
-            <DetailRow label="Correct Keystrokes" value={formatInteger(score.correctKeystrokes)} tone="success" />
-            <DetailRow label="Incorrect Keystrokes" value={formatInteger(score.incorrectKeystrokes)} tone="error" />
             <DetailRow label="Accuracy" value={`${formatNumber(score.accuracy, 2)}%`} tone="accent" />
             <DetailRow label="Net WPM" value={formatNumber(score.netWpm, 1)} />
             <DetailRow label="Raw WPM" value={formatNumber(score.rawWpm, 1)} />

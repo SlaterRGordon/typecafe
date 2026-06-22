@@ -614,14 +614,17 @@ const Home: NextPage = () => {
         {completedScore ?
           <div className="m-auto flex w-full flex-col items-center gap-3">
             {returnToPlan &&
-              <a
-                href="/plan?step=done"
-                data-testid="continue-plan"
-                className="flex w-full max-w-2xl items-center justify-between gap-3 rounded-lg border border-primary/40 bg-primary/10 px-5 py-3 text-sm font-semibold text-base-content transition hover:bg-primary/15"
-              >
-                <span>Step done — back to your plan.</span>
-                <span className="text-primary">Continue plan →</span>
-              </a>
+              // Match the score card's width container so the banner edges line up.
+              <div className="w-full max-w-7xl px-4 sm:px-6">
+                <a
+                  href="/plan?step=done"
+                  data-testid="continue-plan"
+                  className="flex w-full items-center justify-between gap-3 rounded-lg border border-primary/40 bg-primary/10 px-5 py-3 text-sm font-semibold text-base-content transition hover:bg-primary/15"
+                >
+                  <span>Step done — back to your plan.</span>
+                  <span className="text-primary">Continue plan →</span>
+                </a>
+              </div>
             }
             <div className="flex w-full justify-center">
               <ShareableScoreCard

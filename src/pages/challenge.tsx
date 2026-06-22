@@ -251,7 +251,10 @@ const Challenge: NextPage = () => {
                         />
                         {completed &&
                             <div className="m-auto flex w-full flex-col items-center gap-4">
-                                <DailyChallengePrompt className="w-full max-w-3xl" refreshSignal={statusRefreshSignal} />
+                                {/* Match the score card's width container so the banner aligns. */}
+                                <div className="w-full max-w-7xl px-4 sm:px-6">
+                                    <DailyChallengePrompt className="w-full" refreshSignal={statusRefreshSignal} />
+                                </div>
                                 <div className="flex w-full justify-center">
                                     <ShareableScoreCard
                                         score={{
