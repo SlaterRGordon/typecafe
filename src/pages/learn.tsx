@@ -51,6 +51,23 @@ function mergeLearnProgress(progress: LearnProgress[], entry: LearnProgress): Le
     ]
 }
 
+function ResultMetric(props: { label: string, value: string, target: string, passed: boolean, testId: string }) {
+    const toneClass = props.passed ? "text-success" : "text-error"
+
+    return (
+        <div
+            data-testid={props.testId}
+            className={`rounded-lg border p-3 ${props.passed ? "border-success/40 bg-success/10" : "border-error/40 bg-error/10"}`}
+        >
+            <p className="text-xs font-semibold uppercase tracking-wide text-base-content/50">{props.label}</p>
+            <p className={`mt-1 font-mono text-3xl font-bold ${toneClass}`}>{props.value}</p>
+            <p className={`mt-1 text-xs font-semibold ${toneClass}`}>
+                {props.passed ? "Passed" : "Need"} {props.target}
+            </p>
+        </div>
+    )
+}
+
 const Learn: NextPage = () => {
     const dispatch = useDispatch()
     const { data: sessionData, status: sessionStatus } = useSession()
@@ -484,14 +501,20 @@ const Learn: NextPage = () => {
                                 ))}
                             </div>
                             <div className="mt-4 grid w-full grid-cols-2 gap-3">
-                                <div className="rounded-lg border border-base-content/10 bg-base-200/50 p-3">
-                                    <p className="text-xs font-semibold uppercase tracking-wide text-base-content/50">Net WPM</p>
-                                    <p className="mt-1 font-mono text-3xl font-bold">{formatNumber(completion.netWpm, 1)}</p>
-                                </div>
-                                <div className="rounded-lg border border-base-content/10 bg-base-200/50 p-3">
-                                    <p className="text-xs font-semibold uppercase tracking-wide text-base-content/50">Accuracy</p>
-                                    <p className="mt-1 font-mono text-3xl font-bold">{formatNumber(completion.accuracy, 1)}%</p>
-                                </div>
+                                <ResultMetric
+                                    label="Net WPM"
+                                    value={formatNumber(completion.netWpm, 1)}
+                                    target={`${formatNumber(completion.requirement.wpm, 0)} net WPM`}
+                                    passed={completion.netWpm >= completion.requirement.wpm}
+                                    testId="learn-net-result"
+                                />
+                                <ResultMetric
+                                    label="Accuracy"
+                                    value={`${formatNumber(completion.accuracy, 1)}%`}
+                                    target={`${formatNumber(completion.requirement.accuracy, 0)}% accuracy`}
+                                    passed={completion.accuracy >= completion.requirement.accuracy}
+                                    testId="learn-accuracy-result"
+                                />
                             </div>
                             <p className="mt-4 text-sm text-base-content/65">
                                 {completion.stars > 0

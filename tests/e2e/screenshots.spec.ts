@@ -363,6 +363,16 @@ test.describe("screenshot tour", () => {
     await capture(page, testInfo, "57-learn-level-complete");
   });
 
+  test("learn level failed popover", async ({ page }, testInfo) => {
+    await page.goto("/learn");
+    await expect(page.locator("#words .char").first()).toBeVisible({ timeout: 20_000 });
+    await typeCurrentCharacter(page);
+    const remaining = await page.locator("#words .char").count();
+    for (let index = 1; index < remaining; index += 1) await page.keyboard.press("q");
+    await expect(page.getByTestId("learn-complete-popover")).toBeVisible();
+    await capture(page, testInfo, "58-learn-level-failed");
+  });
+
   test("leaderboard page", async ({ page }, testInfo) => {
     await mockTrpc(page);
     await page.goto("/leaderboard");
