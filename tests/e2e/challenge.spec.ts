@@ -38,7 +38,7 @@ test.describe("daily challenge", () => {
     await expect(page.getByText("Today complete: 74.2 WPM")).toBeVisible();
     await expect(page.getByText("Yesterday: 70.1 WPM")).toBeVisible();
     await expect(page.getByTestId("challenge-streak")).toContainText("2-day streak");
-    await expect(page.getByRole("link", { name: "View boards" })).toHaveAttribute("href", "/challenge");
+    await expect(page.getByRole("link", { name: "Try again" })).toHaveAttribute("href", "/challenge");
   });
 
   test("renders today's seeded challenge text", async ({ page }) => {

@@ -98,7 +98,7 @@ export function DailyChallengePrompt(props: { className?: string; compact?: bool
                     href="/challenge"
                     className="inline-flex shrink-0 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                 >
-                    {completed ? "View boards" : "Start challenge"}
+                    {completed ? "Try again" : "Start challenge"}
                 </Link>
             </div>
         </section>

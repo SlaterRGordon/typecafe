@@ -49,7 +49,7 @@ function ChallengeBoard(props: { title: string; empty: string; entries: Challeng
             <div className="mb-3 flex items-baseline justify-between gap-3">
                 <h2 className="font-mono text-base font-bold text-base-content">{props.title}</h2>
                 {props.improved &&
-                    <span className="text-xs font-semibold text-primary">delta board</span>
+                    <span className="text-xs font-semibold text-primary">by improvement</span>
                 }
             </div>
             {props.entries.length === 0 ?
@@ -208,7 +208,7 @@ const Challenge: NextPage = () => {
         <>
             <Head>
                 <title>Daily Challenge - TypeCafe</title>
-                <meta name="description" content="Today's daily typing challenge - everyone types the same text. Beat your average and climb the daily board." />
+                <meta name="description" content="Today's daily typing challenge - everyone types the same text. Beat your average and climb the daily rankings." />
             </Head>
             <div id="typer" className={`flex h-full flex-col overflow-auto ${completed ? "py-4" : "[justify-content:safe_center]"} md:w-10/12`}>
                 {!dateKey ?
@@ -282,7 +282,7 @@ const Challenge: NextPage = () => {
                                 title="Most Improved"
                                 improved
                                 entries={boards.data?.improved ?? []}
-                                empty={boards.isLoading ? "Loading improvement deltas..." : "Need 3 prior tests to rank improvement honestly."}
+                                empty={boards.isLoading ? "Loading improvement scores..." : "Need 3 prior tests to rank improvement honestly."}
                             />
                         </div>
                     </>

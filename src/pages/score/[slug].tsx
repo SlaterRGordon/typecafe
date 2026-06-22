@@ -300,7 +300,7 @@ function BeatRunChallenge(props: { slug: string; target: BeatTarget }) {
                 <p className="text-sm text-base-content/65">{completed.accuracy.toFixed(1)}% accuracy</p>
               </div>
               <div className="rounded-md border border-base-content/10 bg-base-100/45 p-4">
-                <p className="text-xs font-semibold uppercase text-base-content/55">Delta</p>
+                <p className="text-xs font-semibold uppercase text-base-content/55">Improvement</p>
                 <p data-testid="beat-wpm-delta" className={`mt-1 font-mono text-2xl font-bold ${deltaWpm >= 0 ? "text-success" : "text-error"}`}>
                   {deltaWpm >= 0 ? "+" : ""}{deltaWpm.toFixed(1)} WPM
                 </p>

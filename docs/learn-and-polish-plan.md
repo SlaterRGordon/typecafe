@@ -14,7 +14,10 @@ A grab-bag of UX fixes plus a gamified learn page. Decisions locked with owner 2
 
 ---
 
-## Slice 1 — Toolbar polish (S) `fix(toolbar): scope language icon, stop nav overlap`
+## Slice 1 — Toolbar polish ✅ DONE (S) `fix(toolbar): scope language icon, stop nav overlap`
+
+> Shipped 2026-06-21. Language globe shows only when `mode` is normal/relaxed (Timed/Words/Relaxed); hidden on Grams/Practice. Side nav raised to `z-[45]` (above the toolbar's z-40, below z-50 top/bottom nav) so it stops being painted over. e2e asserts the per-mode icon visibility.
+
 
 - Show the language picker only when the mode uses a word list: Timed / Words / Relaxed. Hide on Grams + Practice (`src/components/typer/config/ModeBar.tsx` / `Config.tsx`).
 - Fix the typer toolbar rendering over the expanded side-nav — raise the nav's stacking context (or lower the toolbar) so the expanded nav sits above it. Verify at the breakpoint where the nav expands.
@@ -23,7 +26,10 @@ A grab-bag of UX fixes plus a gamified learn page. Decisions locked with owner 2
 
 ---
 
-## Slice 2 — Copy & numbers (S) `refactor(ui): friendlier copy, tidy numbers, dual restart key`
+## Slice 2 — Copy & numbers ✅ DONE (S) `refactor(ui): friendlier copy, tidy numbers, dual restart key`
+
+> Shipped 2026-06-21. "delta"→"Improvement" (score page stat, `/how-we-measure`, progress meta). Dropped "board" on `/challenge` ("delta board" badge → "by improvement", "daily board"→"daily rankings", "improvement deltas" empty → "improvement scores"); completed CTA "View boards" → "Try again" (replayable). Shared `formatStat` (`src/lib/format.ts` + test, ≤2 decimals trimmed) used for profile Time-Typing / Words / Top-Speed (was unrounded / `.toFixed(2)`). Tab-restart already accepted space (`useRestartShortcut`); hint now reads `tab + enter / space — restart`.
+
 
 - **"delta" → "Improvement"**: score page stat label (`src/pages/score/[slug].tsx:303`), `/how-we-measure` section + intro, progress meta description. Keep internal identifiers (`headlineDelta`, `avgDelta`, …) — copy only.
 - **Profile stats ≤2 decimals**: a shared `formatStat` (round to 2, trim trailing zeros → `84`, `84.5`, `84.52`) applied to the profile stat cards (`src/pages/profile.tsx`, `profile/[username].tsx`). Pure helper + test.

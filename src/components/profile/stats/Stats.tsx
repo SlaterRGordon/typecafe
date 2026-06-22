@@ -1,5 +1,6 @@
 import { api } from "~/utils/api"
 import { formatPercentile, formatValue } from "./utils"
+import { formatStat } from "~/lib/format"
 
 interface StatsProps {
     profile: {
@@ -67,7 +68,7 @@ export const Stats = (props: StatsProps) => {
                                     <div className="w-8 h-8 rounded-full animate-spin border border-solid text-primary border-t-transparent"></div>
                                 </div>
                                 :
-                                <div className="stat-value text-primary text-[1.5rem] sm:text-[2.25rem]">{bestScore ? bestScore.speed.toFixed(2) : 0.00} wpm</div>
+                                <div className="stat-value text-primary text-[1.5rem] sm:text-[2.25rem]">{bestScore ? formatStat(bestScore.speed) : 0} wpm</div>
                             }
                         </div>
                     </div>

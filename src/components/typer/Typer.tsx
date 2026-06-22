@@ -578,7 +578,7 @@ export const Typer = (props: TyperProps) => {
                             }
                         </div>
                         <p className="mt-2 font-mono text-xs text-base-content/40 select-none">
-                            <kbd className="kbd kbd-xs">tab</kbd> + <kbd className="kbd kbd-xs">enter</kbd> — restart
+                            <kbd className="kbd kbd-xs">tab</kbd> + <kbd className="kbd kbd-xs">enter</kbd> / <kbd className="kbd kbd-xs">space</kbd> — restart
                         </p>
                     </div>
                 </>
@@ -595,7 +595,7 @@ export const Typer = (props: TyperProps) => {
                         {textNode}
                     </div>
                     <p className="mt-6 font-mono text-xs text-base-content/40 select-none">
-                        <kbd className="kbd kbd-xs">tab</kbd> + <kbd className="kbd kbd-xs">enter</kbd> — restart
+                        <kbd className="kbd kbd-xs">tab</kbd> + <kbd className="kbd kbd-xs">enter</kbd> / <kbd className="kbd kbd-xs">space</kbd> — restart
                     </p>
                 </>
             }

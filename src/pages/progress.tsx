@@ -503,7 +503,7 @@ const Progress: NextPage = () => {
         <>
             <Head>
                 <title>Progress — TypeCafe</title>
-                <meta name="description" content="Your typing progress over time: WPM trend, accuracy, and the delta that proves you're getting faster." />
+                <meta name="description" content="Your typing progress over time: WPM trend, accuracy, and the improvement that proves you're getting faster." />
             </Head>
             <div className="flex h-full w-full justify-center overflow-auto px-4 py-8">
                 {status === "loading" || (sessionData?.user && (recordsQuery.isLoading || rollupsQuery.isLoading)) ? (
