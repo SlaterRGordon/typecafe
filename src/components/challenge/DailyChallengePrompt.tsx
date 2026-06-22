@@ -18,7 +18,15 @@ function statusFromLocal(dateKey: string): ChallengeStatus {
     return localChallengeStatus(dateKey, readLocalChallengeHistory())
 }
 
-export function DailyChallengePrompt(props: { className?: string; compact?: boolean; refreshSignal?: number; completedCtaLabel?: string }) {
+type DailyChallengePromptProps = {
+    className?: string;
+    compact?: boolean;
+    refreshSignal?: number;
+    completedCtaLabel?: string;
+    onCompletedCta?: () => void;
+};
+
+export function DailyChallengePrompt(props: DailyChallengePromptProps) {
     const { data: session } = useSession()
     const [dateKey, setDateKey] = useState<string | null>(null)
     const [localStatus, setLocalStatus] = useState<ChallengeStatus | null>(null)
@@ -49,6 +57,8 @@ export function DailyChallengePrompt(props: { className?: string; compact?: bool
     const streak = status?.streak ?? 0
     const completed = !!today
     const delta = typeof today?.delta === "number" ? today.delta : null
+    const ctaClassName = "inline-flex shrink-0 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+    const ctaLabel = completed ? (props.completedCtaLabel ?? "Try again") : "Start challenge"
 
     return (
         <section
@@ -94,12 +104,22 @@ export function DailyChallengePrompt(props: { className?: string; compact?: bool
                         </>
                     }
                 </div>
-                <Link
-                    href="/challenge"
-                    className="inline-flex shrink-0 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-                >
-                    {completed ? (props.completedCtaLabel ?? "Try again") : "Start challenge"}
-                </Link>
+                {completed && props.onCompletedCta ?
+                    <button
+                        type="button"
+                        className={ctaClassName}
+                        onClick={props.onCompletedCta}
+                    >
+                        {ctaLabel}
+                    </button>
+                    :
+                    <Link
+                        href="/challenge"
+                        className={ctaClassName}
+                    >
+                        {ctaLabel}
+                    </Link>
+                }
             </div>
         </section>
     )

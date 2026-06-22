@@ -116,5 +116,11 @@ test.describe("daily challenge", () => {
       brag: "+3.2 over my average",
       avgDelta: 3.2,
     });
+
+    await page.getByTestId("daily-challenge-prompt").getByRole("button", { name: "Try again" }).click();
+
+    await expect(page.getByTestId("score-screenshot-card")).toBeHidden();
+    await expect(page.getByTestId("challenge-header")).toBeVisible();
+    await expect(page.locator("#words .char").first()).toBeVisible();
   });
 });
