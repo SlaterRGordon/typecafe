@@ -84,7 +84,26 @@ test.describe("learn page", () => {
     await expect(popover.getByTestId("learn-accuracy-result")).toContainText("Need 90% accuracy");
     await expect(popover.getByTestId("learn-accuracy-result")).toHaveClass(/border-error/);
     await expect(popover.getByRole("button", { name: "Try again" })).toBeVisible();
+    await expect(popover.getByRole("button", { name: "Pick a level" })).toHaveCount(0);
+    await expect(popover.getByRole("button", { name: "Next level" })).toHaveCount(0);
     await expect.poll(async () => page.evaluate(() => window.localStorage.getItem("typecafe.learnProgress.easy"))).toBeNull();
+  });
+
+  test("signed-in completion unlocks the next level", async ({ page }) => {
+    await mockAuthenticatedSession(page);
+    await mockTrpc(page);
+    await gotoLearn(page);
+
+    await typeVisibleTestText(page);
+
+    const popover = page.getByTestId("learn-complete-popover");
+    await expect(popover).toBeVisible();
+    await expect(popover.getByRole("button", { name: "Try again" })).toBeVisible();
+    await expect(popover.getByRole("button", { name: "Next level" })).toBeVisible();
+    await expect(popover.getByRole("button", { name: "Pick a level" })).toHaveCount(0);
+
+    await popover.getByRole("button", { name: "Next level" }).click();
+    await expect(page.getByText("Level 2").first()).toBeVisible();
   });
 
   test("difficulty changes update requirements", async ({ page }) => {

@@ -89,6 +89,7 @@ const Learn: NextPage = () => {
     const [isLocalProgressLoaded, setIsLocalProgressLoaded] = useState(false)
     const [restartSignal, setRestartSignal] = useState(0)
     const [completion, setCompletion] = useState<LearnCompletion | null>(null)
+    const [optimisticProgress, setOptimisticProgress] = useState<LearnProgress[]>([])
     const charAttemptsRef = useRef<Map<string, { attempts: number, correct: number }>>(new Map())
 
     // fetch types
@@ -102,6 +103,8 @@ const Learn: NextPage = () => {
     const completeLearnProgress = api.learnProgress.complete.useMutation()
 
     useEffect(() => {
+        setCompletion(null)
+        setOptimisticProgress([])
         setIsLocalProgressLoaded(false)
         const storedProgress = window.localStorage.getItem(getStorageKey(difficulty))
         if (!storedProgress) {
@@ -152,7 +155,11 @@ const Learn: NextPage = () => {
             stars: progress.stars ?? 0,
         })),
     ], [savedProgress])
-    const completedProgress: LearnProgress[] = sessionData?.user ? persistedProgress : localProgress
+    const accountProgress: LearnProgress[] = useMemo(
+        () => optimisticProgress.reduce((progress, entry) => mergeLearnProgress(progress, entry), persistedProgress),
+        [optimisticProgress, persistedProgress],
+    )
+    const completedProgress: LearnProgress[] = sessionData?.user ? accountProgress : localProgress
     const levelOptions: Option[] = useMemo(() => getLevelOptions(completedProgress), [completedProgress, getLevelOptions])
     const hasDeviceProgress = localProgress.length > 0
     const shouldShowImportPrompt = !!sessionData?.user && hasDeviceProgress && persistedProgress.length > 0
@@ -285,11 +292,12 @@ const Learn: NextPage = () => {
             return
         }
 
+        const optimisticNextProgress = mergeLearnProgress(completedProgress, progressEntry)
         completeLearnProgress.mutateAsync({
             difficulty,
             progress: progressEntry,
         }).then(() => refetchSavedProgress()).then((savedResult) => {
-            const nextProgress = [
+            const savedProgress = [
                 ...(savedResult.data ?? []).map((progress: LearnProgress) => ({
                     options: progress.options,
                     speed: progress.speed,
@@ -297,6 +305,11 @@ const Learn: NextPage = () => {
                     stars: progress.stars ?? 0,
                 })),
             ]
+            const nextProgress = mergeLearnProgress(
+                savedProgress.length > 0 ? savedProgress : optimisticNextProgress,
+                progressEntry,
+            )
+            setOptimisticProgress((progress) => mergeLearnProgress(progress, progressEntry))
             showCompletion(result, { saved: true, nextProgress })
         }).catch((error) => {
             console.log(error)
@@ -326,10 +339,10 @@ const Learn: NextPage = () => {
     ])
     
     useEffect(() => {
-        if (levelChanged || isLearnProgressLoading) return
+        if (completion || levelChanged || isLearnProgressLoading) return
 
         setLevel(progressSelectedLevel)
-    }, [isLearnProgressLoading, progressSelectedLevel, levelChanged])
+    }, [completion, isLearnProgressLoading, progressSelectedLevel, levelChanged])
 
     const requirements = level[difficulty]
     const isLearnContentLoading = isLearnProgressLoading || isLevelSelectionLoading
@@ -338,10 +351,6 @@ const Learn: NextPage = () => {
     const retryLevel = () => {
         setCompletion(null)
         setRestartSignal(signal => signal + 1)
-    }
-
-    const pickLevel = () => {
-        setCompletion(null)
     }
 
     const goToNextLevel = () => {
@@ -536,21 +545,14 @@ const Learn: NextPage = () => {
                                 >
                                     Try again
                                 </button>
-                                {completion.stars > 0 && completion.nextLevelName ?
+                                {completion.stars > 0 &&
                                     <button
                                         type="button"
+                                        disabled={!completion.nextLevelName}
                                         className="inline-flex flex-1 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85"
                                         onClick={goToNextLevel}
                                     >
                                         Next level
-                                    </button>
-                                    :
-                                    <button
-                                        type="button"
-                                        className="inline-flex flex-1 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85"
-                                        onClick={pickLevel}
-                                    >
-                                        Pick a level
                                     </button>
                                 }
                             </div>
