@@ -499,82 +499,86 @@ function DiagnosisPanel(props: { score: ShareableScore }) {
       {diagnosis.tooShort ?
         <p className="text-base-content/75">Too short to diagnose — try a 30s+ test.</p>
         :
-        <>
-        {taxonomy &&
-          <div data-testid="taxonomy-finding" className="mb-4 rounded-md border border-primary/30 bg-primary/10 p-4">
-            <p className="font-semibold text-base-content">{taxonomy.headline}</p>
-            <p className="mt-1 text-sm text-base-content/70">{taxonomy.detail}</p>
-            <Link
-              href={withReMeasure(taxonomy.action.href)}
-              className="mt-3 inline-flex shrink-0 cursor-pointer items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-            >
-              {taxonomy.action.label}
-            </Link>
-          </div>
-        }
-        {(() => {
-          // Transitions get their own richer "N× your average" treatment below,
-          // so drop the generic slow-transitions finding from this list.
-          const keyFindings = diagnosis.findings.filter((f) => f.kind !== "slow-transitions");
-          if (keyFindings.length === 0 && transitions.length === 0) {
-            return <p className="text-base-content/75">No clear weak spots this test — a clean, even run. Keep the pace up.</p>;
-          }
-          return (
-            <>
-              {keyFindings.length > 0 &&
-                <ul className="flex flex-col gap-3">
-                  {keyFindings.map((finding) => {
-                    const drillKeys = toDrillKeys(finding.keys);
-                    return (
-                      <li
-                        key={finding.kind}
-                        className="flex flex-col gap-3 border-b border-base-content/10 pb-3 last:border-b-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between"
-                      >
-                        <span className="text-base-content/90">{finding.summary}</span>
-                        {drillKeys.length > 0 ?
+        <div className="grid gap-5 lg:grid-cols-2 lg:items-start">
+          {/* Findings + drill CTAs on the left, the per-key heatmap alongside on
+              the right (stacks on mobile) — keeps the panel short. */}
+          <div className="flex flex-col gap-4">
+            {taxonomy &&
+              <div data-testid="taxonomy-finding" className="rounded-md border border-primary/30 bg-primary/10 p-4">
+                <p className="font-semibold text-base-content">{taxonomy.headline}</p>
+                <p className="mt-1 text-sm text-base-content/70">{taxonomy.detail}</p>
+                <Link
+                  href={withReMeasure(taxonomy.action.href)}
+                  className="mt-3 inline-flex shrink-0 cursor-pointer items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                >
+                  {taxonomy.action.label}
+                </Link>
+              </div>
+            }
+            {(() => {
+              // Transitions get their own richer "N× your average" treatment below,
+              // so drop the generic slow-transitions finding from this list.
+              const keyFindings = diagnosis.findings.filter((f) => f.kind !== "slow-transitions");
+              if (keyFindings.length === 0 && transitions.length === 0) {
+                return <p className="text-base-content/75">No clear weak spots this test — a clean, even run. Keep the pace up.</p>;
+              }
+              return (
+                <>
+                  {keyFindings.length > 0 &&
+                    <ul className="flex flex-col gap-3">
+                      {keyFindings.map((finding) => {
+                        const drillKeys = toDrillKeys(finding.keys);
+                        return (
+                          <li
+                            key={finding.kind}
+                            className="flex flex-col gap-3 border-b border-base-content/10 pb-3 last:border-b-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between"
+                          >
+                            <span className="text-base-content/90">{finding.summary}</span>
+                            {drillKeys.length > 0 ?
+                              <Link
+                                className="inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                                href={withReMeasure(`/drill?keys=${drillKeys.join(",")}`)}
+                                aria-label={`Drill these keys: ${drillKeys.join(", ")}`}
+                                title={`Drill ${drillKeys.join(", ")}`}
+                              >
+                                Drill these keys
+                              </Link>
+                              :
+                              null
+                            }
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  }
+                  {transitions.length > 0 &&
+                    <ul data-testid="diagnosis-transitions" className="flex flex-col gap-3">
+                      {transitions.map((t) => (
+                        <li key={t.pair} className="flex flex-col gap-3 border-b border-base-content/10 pb-3 last:border-b-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between">
+                          <span className="text-base-content/90">
+                            <span className="font-mono font-bold">{t.from}→{t.to}</span> takes you {t.ratio.toFixed(1)}× your average pace.
+                          </span>
                           <Link
                             className="inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-                            href={withReMeasure(`/drill?keys=${drillKeys.join(",")}`)}
-                            aria-label={`Drill these keys: ${drillKeys.join(", ")}`}
-                            title={`Drill ${drillKeys.join(", ")}`}
+                            href={withReMeasure(`/drill?transitions=${t.from}${t.to}`)}
+                            aria-label={`Drill the ${t.from} to ${t.to} transition`}
                           >
-                            Drill these keys
+                            Drill {t.from}{t.to}
                           </Link>
-                          :
-                          null
-                        }
-                      </li>
-                    );
-                  })}
-                </ul>
-              }
-              {transitions.length > 0 &&
-                <ul data-testid="diagnosis-transitions" className="mt-3 flex flex-col gap-3">
-                  {transitions.map((t) => (
-                    <li key={t.pair} className="flex flex-col gap-3 border-b border-base-content/10 pb-3 last:border-b-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between">
-                      <span className="text-base-content/90">
-                        <span className="font-mono font-bold">{t.from}→{t.to}</span> takes you {t.ratio.toFixed(1)}× your average pace.
-                      </span>
-                      <Link
-                        className="inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-                        href={withReMeasure(`/drill?transitions=${t.from}${t.to}`)}
-                        aria-label={`Drill the ${t.from} to ${t.to} transition`}
-                      >
-                        Drill {t.from}{t.to}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              }
-            </>
-          );
-        })()}
+                        </li>
+                      ))}
+                    </ul>
+                  }
+                </>
+              );
+            })()}
+          </div>
 
-        <div className="mt-5 border-t border-base-content/10 pt-4">
-          <p className="mb-3 text-sm text-base-content/60">This test&apos;s per-key accuracy — drilled keys ringed.</p>
-          <KeyHeatmap size="mini" attempts={attempts} highlightKeys={diagnosis.drillKeys} testId="diagnosis-heatmap" />
+          <div className="border-t border-base-content/10 pt-4 lg:border-t-0 lg:border-l lg:pl-5 lg:pt-0">
+            <p className="mb-3 text-sm text-base-content/60">This test&apos;s per-key accuracy — drilled keys ringed.</p>
+            <KeyHeatmap size="mini" attempts={attempts} highlightKeys={diagnosis.drillKeys} testId="diagnosis-heatmap" />
+          </div>
         </div>
-        </>
       }
     </div>
   );

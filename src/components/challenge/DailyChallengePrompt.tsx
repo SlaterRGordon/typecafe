@@ -18,7 +18,7 @@ function statusFromLocal(dateKey: string): ChallengeStatus {
     return localChallengeStatus(dateKey, readLocalChallengeHistory())
 }
 
-export function DailyChallengePrompt(props: { className?: string; compact?: boolean; refreshSignal?: number }) {
+export function DailyChallengePrompt(props: { className?: string; compact?: boolean; refreshSignal?: number; completedCtaLabel?: string }) {
     const { data: session } = useSession()
     const [dateKey, setDateKey] = useState<string | null>(null)
     const [localStatus, setLocalStatus] = useState<ChallengeStatus | null>(null)
@@ -98,7 +98,7 @@ export function DailyChallengePrompt(props: { className?: string; compact?: bool
                     href="/challenge"
                     className="inline-flex shrink-0 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                 >
-                    {completed ? "Try again" : "Start challenge"}
+                    {completed ? (props.completedCtaLabel ?? "Try again") : "Start challenge"}
                 </Link>
             </div>
         </section>
