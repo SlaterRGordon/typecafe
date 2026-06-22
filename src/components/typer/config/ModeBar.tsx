@@ -152,6 +152,9 @@ export function ModeBar(props: ModeBarProps) {
     const lengthPresets = props.subMode === TestSubModes.timed ? TIMED_LENGTHS : WORD_LENGTHS
     const lengthMax = props.subMode === TestSubModes.timed ? 3600 : 5000
     const languageLabel = LANGUAGE_OPTIONS.find((option) => option.value === props.language)?.label ?? props.language
+    // Language only applies to word-list modes (Timed/Words/Relaxed); Grams and
+    // Practice generate from n-grams / selected keys, so the picker is hidden.
+    const showLanguage = props.mode === TestModes.normal || props.mode === TestModes.relaxed
 
     useEffect(() => {
         if (!props.customLength) setCustomText(String(props.count))
@@ -332,6 +335,7 @@ export function ModeBar(props: ModeBarProps) {
 
             {/* Right group: icon controls, aligned to the typer's right edge. */}
             <div className={`${toolbarGroupClass} justify-end`}>
+                {showLanguage &&
                 <ToolbarMenu
                     open={openMenu === "language"}
                     onClose={() => setOpenMenu(null)}
@@ -371,6 +375,7 @@ export function ModeBar(props: ModeBarProps) {
                         ))}
                     </div>
                 </ToolbarMenu>
+                }
 
                 <ToolbarMenu
                     open={openMenu === "settings"}

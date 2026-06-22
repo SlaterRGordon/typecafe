@@ -131,6 +131,25 @@ test.describe("home typing test", () => {
     await expect(gramsPanel.getByRole("button", { name: "Bigrams" })).toHaveAttribute("aria-pressed", "true");
   });
 
+  test("language icon shows only on word-list modes", async ({ page }) => {
+    await gotoHome(page);
+    const toolbar = page.getByTestId("typer-toolbar");
+    const langButton = toolbar.getByRole("button", { name: /^Language:/ });
+
+    // Timed (default), Words, Relaxed use a word list → icon shown.
+    await expect(langButton).toBeVisible();
+    await selectMode(page, "Words");
+    await expect(langButton).toBeVisible();
+    await selectMode(page, "Relaxed");
+    await expect(langButton).toBeVisible();
+
+    // Grams + Practice generate from n-grams / selected keys → icon hidden.
+    await selectMode(page, "Grams");
+    await expect(langButton).toHaveCount(0);
+    await selectMode(page, "Practice");
+    await expect(langButton).toHaveCount(0);
+  });
+
   test("does not log a score when switching modes mid-test", async ({ page }) => {
     let scoreCreates = 0;
 
