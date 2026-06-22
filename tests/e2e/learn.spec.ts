@@ -14,8 +14,8 @@ test.describe("learn page", () => {
 
     await expect(page.getByText("Sign in to save level progress")).toBeVisible();
     await expect(page.getByText("Required Speed: 40 net WPM")).toBeVisible();
-    await expect(page.getByText("Required Accuracy: 90%")).toBeVisible();
-    await expect(page.getByText("1 star: 40 net WPM / 90%")).toBeVisible();
+    await expect(page.getByText("Required Accuracy: 90%")).toHaveCount(0);
+    await expect(page.getByText("1 star: 40 net WPM")).toBeVisible();
     if (!testInfo.project.name.includes("mobile")) {
       await expect(page.getByText("Target Keys:")).toBeVisible();
     }
@@ -26,7 +26,7 @@ test.describe("learn page", () => {
     await page.addInitScript(() => {
       window.localStorage.setItem(
         "typecafe.learnProgress.easy",
-        JSON.stringify([{ options: "Level 1", speed: 120, accuracy: 100 }]),
+        JSON.stringify([{ options: "Level 1", speed: 120, accuracy: 10 }]),
       );
     });
 
@@ -46,8 +46,10 @@ test.describe("learn page", () => {
     await expect(popover).toContainText("Best result saved.");
     await expect(popover.getByTestId("learn-net-result")).toContainText("Passed 40 net WPM");
     await expect(popover.getByTestId("learn-net-result")).toHaveClass(/border-success/);
-    await expect(popover.getByTestId("learn-accuracy-result")).toContainText("Passed 90% accuracy");
-    await expect(popover.getByTestId("learn-accuracy-result")).toHaveClass(/border-success/);
+    await expect(popover.getByTestId("learn-accuracy-result")).toContainText("Accuracy");
+    await expect(popover.getByTestId("learn-accuracy-result")).toContainText("Included in net WPM");
+    await expect(popover.getByTestId("learn-accuracy-result")).not.toHaveClass(/border-success/);
+    await expect(popover.getByTestId("learn-accuracy-result")).not.toHaveClass(/border-error/);
     await expect(popover.getByRole("button", { name: "Next level" })).toBeVisible();
 
     const progress = await page.evaluate(() => window.localStorage.getItem("typecafe.learnProgress.easy"));
@@ -78,11 +80,13 @@ test.describe("learn page", () => {
     const popover = page.getByTestId("learn-complete-popover");
     await expect(popover).toBeVisible();
     await expect(popover).toContainText("Level 1 not cleared yet");
-    await expect(popover).toContainText("Need 40 net WPM and 90% accuracy.");
+    await expect(popover).toContainText("Need 40 net WPM.");
     await expect(popover.getByTestId("learn-net-result")).toContainText("Need 40 net WPM");
     await expect(popover.getByTestId("learn-net-result")).toHaveClass(/border-error/);
-    await expect(popover.getByTestId("learn-accuracy-result")).toContainText("Need 90% accuracy");
-    await expect(popover.getByTestId("learn-accuracy-result")).toHaveClass(/border-error/);
+    await expect(popover.getByTestId("learn-accuracy-result")).toContainText("Accuracy");
+    await expect(popover.getByTestId("learn-accuracy-result")).toContainText("Included in net WPM");
+    await expect(popover.getByTestId("learn-accuracy-result")).not.toHaveClass(/border-success/);
+    await expect(popover.getByTestId("learn-accuracy-result")).not.toHaveClass(/border-error/);
     await expect(popover.getByRole("button", { name: "Try again" })).toBeVisible();
     await expect(popover.getByRole("button", { name: "Pick a level" })).toHaveCount(0);
     await expect(popover.getByRole("button", { name: "Next level" })).toHaveCount(0);
@@ -112,7 +116,7 @@ test.describe("learn page", () => {
     await chooseReactSelectOption(page, "difficultySelect", "Medium");
 
     await expect(page.getByText("Required Speed: 80 net WPM")).toBeVisible();
-    await expect(page.getByText("Required Accuracy: 90%")).toBeVisible();
+    await expect(page.getByText("Required Accuracy: 90%")).toHaveCount(0);
   });
 
   test("signed-in users can import device progress when account progress exists", async ({ page }) => {

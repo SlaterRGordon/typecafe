@@ -68,6 +68,19 @@ function ResultMetric(props: { label: string, value: string, target: string, pas
     )
 }
 
+function NeutralMetric(props: { label: string, value: string, note: string, testId: string }) {
+    return (
+        <div
+            data-testid={props.testId}
+            className="rounded-lg border border-base-content/10 bg-base-200/35 p-3"
+        >
+            <p className="text-xs font-semibold uppercase tracking-wide text-base-content/50">{props.label}</p>
+            <p className="mt-1 font-mono text-3xl font-bold text-base-content">{props.value}</p>
+            <p className="mt-1 text-xs font-semibold text-base-content/55">{props.note}</p>
+        </div>
+    )
+}
+
 const Learn: NextPage = () => {
     const dispatch = useDispatch()
     const { data: sessionData, status: sessionStatus } = useSession()
@@ -140,7 +153,7 @@ const Learn: NextPage = () => {
         const previousLevel = array[index - 1]
         const requirements = previousLevel?.[difficulty]
 
-        if (levelTest && requirements && levelTest.speed >= requirements.wpm && levelTest.accuracy >= requirements.accuracy) {
+        if (levelTest && requirements && levelTest.speed >= requirements.wpm) {
             return { value: level.name, label: level.name, isDisabled: false } as Option
         }
 
@@ -251,7 +264,7 @@ const Learn: NextPage = () => {
         const completedLevel = levels.find(level => level.name == levelName) ?? level
         const requirement = completedLevel[difficulty]
         const netWpm = result.netWpm
-        const stars = starsFor({ netWpm, accuracy: result.accuracy }, requirement)
+        const stars = starsFor({ netWpm }, requirement)
 
         setCompletion({
             levelName,
@@ -269,7 +282,7 @@ const Learn: NextPage = () => {
         const completedLevel = levels.find(level => level.name == levelName) ?? level
         const requirement = completedLevel[difficulty]
         const netWpm = result.netWpm
-        const stars = starsFor({ netWpm, accuracy: result.accuracy }, requirement)
+        const stars = starsFor({ netWpm }, requirement)
 
         if (stars === 0) {
             showCompletion(result)
@@ -434,12 +447,11 @@ const Learn: NextPage = () => {
                     <>
                     <div className="flex w-full basis-0 grow flex-wrap justify-start items-center gap-x-4 gap-y-1">
                         <div className="text-base md:text-lg"><strong>Required Speed: {requirements.wpm} net WPM</strong></div>
-                        <div className="text-base md:text-lg"><strong>Required Accuracy: {requirements.accuracy}%</strong></div>
                     </div>
                     <div className="flex w-full flex-wrap items-center gap-2 text-xs font-semibold text-base-content/60">
-                        <span className="rounded-full border border-base-content/15 px-2.5 py-1">1 star: {formatNumber(criteria.oneStarNetWpm, 0)} net WPM / {formatNumber(criteria.oneStarAccuracy, 0)}%</span>
-                        <span className="rounded-full border border-base-content/15 px-2.5 py-1">2 stars: {formatNumber(criteria.twoStarNetWpm, 0)} net WPM / {formatNumber(criteria.twoStarAccuracy, 0)}%</span>
-                        <span className="rounded-full border border-base-content/15 px-2.5 py-1">3 stars: {formatNumber(criteria.threeStarNetWpm, 0)} net WPM / {formatNumber(criteria.threeStarAccuracy, 0)}%</span>
+                        <span className="rounded-full border border-base-content/15 px-2.5 py-1">1 star: {formatNumber(criteria.oneStarNetWpm, 0)} net WPM</span>
+                        <span className="rounded-full border border-base-content/15 px-2.5 py-1">2 stars: {formatNumber(criteria.twoStarNetWpm, 0)} net WPM</span>
+                        <span className="rounded-full border border-base-content/15 px-2.5 py-1">3 stars: {formatNumber(criteria.threeStarNetWpm, 0)} net WPM</span>
                     </div>
                     <div className="hidden gap-2 basis-0 grow justify-start w-full flex-wrap md:flex">
                         <div className="flex justify-start items-center text-base md:text-lg"><strong>Target Keys:</strong></div>
@@ -517,11 +529,10 @@ const Learn: NextPage = () => {
                                     passed={completion.netWpm >= completion.requirement.wpm}
                                     testId="learn-net-result"
                                 />
-                                <ResultMetric
+                                <NeutralMetric
                                     label="Accuracy"
                                     value={`${formatNumber(completion.accuracy, 1)}%`}
-                                    target={`${formatNumber(completion.requirement.accuracy, 0)}% accuracy`}
-                                    passed={completion.accuracy >= completion.requirement.accuracy}
+                                    note="Included in net WPM"
                                     testId="learn-accuracy-result"
                                 />
                             </div>
@@ -530,12 +541,12 @@ const Learn: NextPage = () => {
                                     ? completion.saved
                                         ? "Best result saved."
                                         : "Clear earned, but saving failed."
-                                    : `Need ${formatNumber(completion.requirement.wpm, 0)} net WPM and ${formatNumber(completion.requirement.accuracy, 0)}% accuracy.`}
+                                    : `Need ${formatNumber(completion.requirement.wpm, 0)} net WPM.`}
                             </p>
                             <div className="mt-4 grid w-full gap-2 rounded-lg border border-base-content/10 bg-base-200/35 p-3 text-left text-xs font-semibold text-base-content/60">
-                                <p>1 star: {formatNumber(completion.requirement.wpm, 0)} net WPM + {formatNumber(completion.requirement.accuracy, 0)}% accuracy</p>
-                                <p>2 stars: {formatNumber(completion.requirement.wpm * 1.15, 0)} net WPM + {formatNumber(completion.requirement.accuracy, 0)}% accuracy</p>
-                                <p>3 stars: {formatNumber(completion.requirement.wpm * 1.3, 0)} net WPM + {formatNumber(Math.max(completion.requirement.accuracy, 97), 0)}% accuracy</p>
+                                <p>1 star: {formatNumber(completion.requirement.wpm, 0)} net WPM</p>
+                                <p>2 stars: {formatNumber(completion.requirement.wpm * 1.15, 0)} net WPM</p>
+                                <p>3 stars: {formatNumber(completion.requirement.wpm * 1.3, 0)} net WPM</p>
                             </div>
                             <div className="mt-5 flex w-full flex-col gap-2 sm:flex-row">
                                 <button

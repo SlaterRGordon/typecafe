@@ -359,7 +359,7 @@ export const Typer = (props: TyperProps) => {
         if (mode === TestModes.normal) {
             if (
                 levelRequirements &&
-                (finalStats.netWpm < levelRequirements.wpm || finalStats.accuracy < levelRequirements.accuracy)
+                finalStats.netWpm < levelRequirements.wpm
             ) {
                 onTestCompleteRef.current?.(completion)
             } else {
