@@ -1,0 +1,98 @@
+# Learn-Game & UX-Polish Plan
+
+A grab-bag of UX fixes plus a gamified learn page. Decisions locked with owner 2026-06-21. Each slice = one reviewable commit on `development`, suite green, screenshot tour updated. Scoring/gameplay math = pure fns in `src/lib/` + vitest. Conventional Commits. Tick this doc's checkbox in the completing commit.
+
+**Locked decisions**
+- Net WPM is canonical everywhere, including learn (requirements + measurement use net, not raw).
+- Replace the user-facing word **"delta"** with **"Improvement"** (score-page stat, challenge "delta board", `/how-we-measure`, meta copy).
+- Language picker icon shows on **Timed / Words / Relaxed** only (hidden on Grams + Practice).
+- Learn gamification = a **polished "Level complete" popover** (1–3 stars + Try again / Next level), *not* a full level-map. Feel: a mobile arcade game.
+- Learn level variety = **themed challenge levels** (timed speed-round, accuracy no-miss, grams combo, boss) woven into the key-progression, using timed/words/grams.
+- Tab-restart works on **both** `tab+enter` and `tab+space`.
+
+**Sequencing:** independent polish first (1 Toolbar → 2 Copy&numbers → 3 Banners → 4 Grams-entry → 5 Progress-trim → 6 OG-badge), then the learn feature (7 Learn-net + popover → 8 Themed levels). Learn net WPM must land before the popover (stars read net); themed levels build on the popover.
+
+---
+
+## Slice 1 — Toolbar polish (S) `fix(toolbar): scope language icon, stop nav overlap`
+
+- Show the language picker only when the mode uses a word list: Timed / Words / Relaxed. Hide on Grams + Practice (`src/components/typer/config/ModeBar.tsx` / `Config.tsx`).
+- Fix the typer toolbar rendering over the expanded side-nav — raise the nav's stacking context (or lower the toolbar) so the expanded nav sits above it. Verify at the breakpoint where the nav expands.
+
+**Verify:** e2e — language icon present on Timed/Words/Relaxed, absent on Grams/Practice; nav-expanded screenshot shows no overlap. Re-capture toolbar/home shots.
+
+---
+
+## Slice 2 — Copy & numbers (S) `refactor(ui): friendlier copy, tidy numbers, dual restart key`
+
+- **"delta" → "Improvement"**: score page stat label (`src/pages/score/[slug].tsx:303`), `/how-we-measure` section + intro, progress meta description. Keep internal identifiers (`headlineDelta`, `avgDelta`, …) — copy only.
+- **Profile stats ≤2 decimals**: a shared `formatStat` (round to 2, trim trailing zeros → `84`, `84.5`, `84.52`) applied to the profile stat cards (`src/pages/profile.tsx`, `profile/[username].tsx`). Pure helper + test.
+- **Drop "board"** on `/challenge`: the ranking lists become **"Fastest"** and **"Most improved"** (was "fastest board" / "delta board"); update the "improvement deltas" empty-state copy to match. Completed-state CTA "View boards" → **"Try again"** (it returns to the replayable `/challenge`).
+- **Restart hint**: `tab + enter` also accepts `tab + space`; hint text reads `tab + enter/space — restart` (`src/components/typer/Typer.tsx`, restart key handler).
+
+**Verify:** unit (formatStat); e2e for "Improvement" labels + Try now; re-capture score/challenge/profile shots.
+
+---
+
+## Slice 3 — Banner width parity (S) `fix(ui): banners match the width of the content below`
+
+Banners should stretch to exactly the width of the card/content directly beneath them.
+- Audit + fix: score-card-page top banner(s) (the reported case), home `re-measure-prompt` + `continue-plan` banners, progress `guest-keep-banner`, any other page-level banner. Wrap banner + content in one width-constrained column (shared `max-w-*`) so both align.
+
+**Verify:** screenshots across score page, home result, progress (guest), plan/drill — banner edges align with content. Re-capture touched shots.
+
+---
+
+## Slice 4 — Grams entry, no words flash (S) `fix(grams): land on grams without a words flash`
+
+Navigating to `/?mode=grams` (e.g. from progress) briefly renders a words test before switching. Make the grams config apply before the first text generation (mirror the re-measure/`?rm=` restart-race fix: don't bump restart with stale settings) so grams renders from the first frame.
+
+**Verify:** e2e — goto `/?mode=grams` shows grams (no intermediate words test); existing grams tests green.
+
+---
+
+## Slice 5 — Progress plateau trim (XS) `refactor(progress): drop the plateau card's button`
+
+The plateau headline card's **"Try transition drills"** button is dead weight — remove it (message-only) to cut height. The weak-spots panel already owns the drill CTAs.
+
+**Verify:** rewrite the plateau e2e expectation (button gone, plateau copy stays); re-capture progress-plateau shot (47).
+
+---
+
+## Slice 6 — OG daily-challenge badge (S) `feat(og): mark daily-challenge runs in the share image`
+
+A shared score that was a daily challenge should say so in its OG image. Add a "Daily Challenge" badge to `src/pages/api/og/score/[slug].tsx` when the score/share is a daily-challenge run. *(Data dep: the share snapshot must carry a daily-challenge flag — wire it through `scoreShare` if absent.)*
+
+**Verify:** e2e/unit on the OG route input; manual OG render check.
+
+---
+
+## Slice 7 — Learn: net WPM + level-complete popover (L) `feat(learn): net WPM and a juicy level-complete popover`
+
+Make the learn page feel like a phone game.
+- **Net WPM**: level requirements + the saved/compared score use net (`netFromRaw(result.speed, result.accuracy)`), not raw `speed`. "Required Speed" reads net. (`src/pages/learn.tsx`, `learn/levels.ts`, learnProgress payloads.)
+- **Stars (pure `src/lib/learnStars.ts` + tests)**: `starsFor({ netWpm, accuracy }, requirement)` → 0–3. 0 = below requirement (fail). 1 = meets req. 2 = ≥ ~+15% net WPM & ≥ req acc. 3 = ≥ ~+30% net WPM & ≥ ~97% acc. *(thresholds tunable.)*
+- **Popover**: on completion, a celebratory modal — "Level N clear!", animated 1–3 stars, net WPM · accuracy, and buttons: **Try again** (replay) + **Next level →** (when earned) or **Pick a level** / retry when failed (0★). Arcade styling/animation. Persist the best star count per level (extend learnProgress, local + DB).
+- **Star-criteria legend**: show users what earns 1/2/3★ (a small legend in the popover and/or beside the level requirements), so the bar is never a mystery.
+
+**Verify:** unit (starsFor); e2e — complete a level → popover with stars + Next; failing run → retry popover; re-capture learn shots (14 + add popover).
+
+---
+
+## Slice 8 — Learn: themed challenge levels (L) `feat(learn): themed timed / accuracy / grams / boss levels`
+
+Vary the climb with themed levels (pure pass-criteria in `src/lib/` + tests). Extend `Level` with a `kind` (`keys` | `speed` | `noMiss` | `grams` | `boss`) and per-kind pass logic:
+- **Speed round** (timed): reach a target net WPM within a short timed test.
+- **No-miss** (accuracy): finish a short words level at ≥ ~98% (stars reward 100%).
+- **Grams combo** (grams): a bigram drill on the level's keys via the grams pipeline.
+- **Boss (paced)**: a "pacer" cursor moves at the target net WPM and you race to stay ahead of it; combines earlier keys at raised thresholds, 3★ is hard. *(The pacer cursor is the meatier build — may split into its own follow-up if the Typer needs new plumbing.)*
+Wire the Typer to the level's `subMode`/`kind`; stars/popover (slice 7) read the kind's criteria. More themed kinds can be added later.
+
+**Verify:** unit (per-kind pass + stars); e2e — a timed and a grams themed level render and complete; re-capture learn shots.
+
+---
+
+## Cross-cutting
+- After each slice: `npx vitest run`, `npx tsc --noEmit`, affected `npx playwright test`, re-capture touched screenshots, `npm run build:check`.
+- Stars/level-pass/format math = pure `src/lib/` fns with tests (never in components).
+- Don't relitigate locked constraints (free-tier, local-first, net-canonical). Learn progress stays local-first + sync; no cron/LLM.
