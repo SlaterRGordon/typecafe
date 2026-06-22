@@ -14,6 +14,7 @@ export interface OgScoreData {
   wpmSamples: { elapsedSeconds: number; wpm: number }[];
   brag: string | null;
   avgDelta: number | null;
+  dailyChallenge: boolean;
 }
 
 export interface OgProgressData {
@@ -40,6 +41,7 @@ interface ScoreSnapshotShape {
   wpmSamples?: { elapsedSeconds: number; wpm: number }[];
   brag?: string | null;
   avgDelta?: number | null;
+  dailyChallenge?: boolean;
 }
 
 interface ProgressSnapshotShape {
@@ -109,6 +111,7 @@ export async function getShareForOg(slug: string): Promise<OgShareData | null> {
       ],
       brag: snapshot.brag ?? null,
       avgDelta: snapshot.avgDelta ?? null,
+      dailyChallenge: snapshot.dailyChallenge === true,
     };
   }
 
@@ -134,5 +137,6 @@ export async function getShareForOg(slug: string): Promise<OgShareData | null> {
     ],
     brag: snapshot.brag ?? null,
     avgDelta: snapshot.avgDelta ?? null,
+    dailyChallenge: snapshot.dailyChallenge === true || !!share.test.challengeDate,
   };
 }

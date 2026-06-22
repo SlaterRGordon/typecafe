@@ -101,6 +101,11 @@ function ScoreCard(props: { data: OgScoreData; brag?: string }) {
           <div style={{ fontSize: 20, color: BRAND.textMuted, marginTop: 12 }}>{`${modeText} / ${formatDate(data.createdAt)}`}</div>
         </div>
         <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", paddingBottom: 24 }}>
+          {data.dailyChallenge ?
+            <div style={{ display: "flex", justifyContent: "flex-end" }}>
+              <div style={{ fontSize: 20, fontWeight: 700, color: BRAND.primary, backgroundColor: "rgba(255,121,198,0.14)", border: "1px solid rgba(255,121,198,0.45)", borderRadius: 9999, padding: "8px 18px" }}>Daily Challenge</div>
+            </div>
+            : null}
           <Stat label="ACCURACY" value={`${formatNumber(data.accuracy, 1)}%`} />
           <Stat label="RAW WPM" value={formatNumber(data.rawWpm, 1)} />
           <Stat label="DURATION" value={`${Math.round(data.durationSeconds)}s`} />

@@ -35,6 +35,7 @@ export interface ScoreSnapshot {
   brag?: string | null;
   // WPM vs the user's 30-day average at save time (vision §7 — deltas everywhere).
   avgDelta?: number | null;
+  dailyChallenge?: boolean;
   // Current practice-day streak (transient — shown on the live result card).
   streak?: number | null;
   punctuation?: boolean;

@@ -115,6 +115,7 @@ test.describe("daily challenge", () => {
     expect(shareCall?.input?.snapshot).toMatchObject({
       brag: "+3.2 over my average",
       avgDelta: 3.2,
+      dailyChallenge: true,
     });
 
     await page.getByTestId("daily-challenge-prompt").getByRole("button", { name: "Try again" }).click();

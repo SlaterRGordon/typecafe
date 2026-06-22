@@ -73,7 +73,9 @@ The plateau headline card's **"Try transition drills"** button is dead weight �
 
 ---
 
-## Slice 6 — OG daily-challenge badge (S) `feat(og): mark daily-challenge runs in the share image`
+## Slice 6 — OG daily-challenge badge ✅ DONE (S) `feat(og): mark daily-challenge runs in the share image`
+
+> Shipped 2026-06-21. Daily-challenge score shares now persist `dailyChallenge: true` in the share snapshot; legacy shares derive the same OG badge condition from `Test.challengeDate`. The OG score image renders a top-right "Daily Challenge" badge when that flag is present. Unit coverage exercises fresh snapshots, legacy challenge-backed shares, and ordinary unbadged shares; e2e asserts the challenge share payload carries the flag and the OG endpoint still renders a PNG.
 
 A shared score that was a daily challenge should say so in its OG image. Add a "Daily Challenge" badge to `src/pages/api/og/score/[slug].tsx` when the score/share is a daily-challenge run. *(Data dep: the share snapshot must carry a daily-challenge flag — wire it through `scoreShare` if absent.)*
 

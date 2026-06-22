@@ -194,6 +194,7 @@ const Challenge: NextPage = () => {
                 worstKeys,
                 brag,
                 avgDelta,
+                dailyChallenge: true,
                 ranked,
                 wpmSamples,
             },

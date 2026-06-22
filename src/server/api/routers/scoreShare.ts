@@ -31,6 +31,7 @@ const scoreSnapshotSchema = z.object({
   })).optional(),
   brag: z.string().nullish(),
   avgDelta: z.number().nullish(),
+  dailyChallenge: z.boolean().optional(),
   punctuation: z.boolean().optional(),
   capitals: z.boolean().optional(),
   ranked: z.boolean().optional(),
