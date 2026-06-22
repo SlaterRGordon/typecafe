@@ -150,6 +150,17 @@ test.describe("home typing test", () => {
     await expect(langButton).toHaveCount(0);
   });
 
+  test("landing on /?mode=grams starts in grams, not a words flash", async ({ page }) => {
+    await mockTrpc(page);
+    await page.goto("/?mode=grams");
+
+    // The grams subpanel + Grams mode are the steady state; the typer never
+    // settles into a words test on the way in.
+    await expect(page.getByTestId("grams-panel")).toBeVisible();
+    await expect(page.getByTestId("mode-bar").getByRole("button", { name: "Grams" })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.locator("#words .char").first()).toBeVisible();
+  });
+
   test("does not log a score when switching modes mid-test", async ({ page }) => {
     let scoreCreates = 0;
 

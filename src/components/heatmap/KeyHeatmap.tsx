@@ -45,7 +45,7 @@ const KEY_CLASS_BY_SIZE: Record<KeyHeatmapSize, string> = {
 
 const SPACE_CLASS_BY_SIZE: Record<KeyHeatmapSize, string> = {
     full: "!min-w-[14rem] sm:!min-w-[17.5rem]",
-    mini: "!min-w-[8rem] sm:!min-w-[10rem]",
+    mini: "!min-w-[8rem] sm:!min-w-[8rem]",
 }
 
 function useHeatmapColors() {
@@ -119,7 +119,7 @@ export function KeyHeatmap(props: KeyHeatmapProps) {
 
     return (
         <div
-            className={`typecafe-key-heatmap flex flex-col items-center ${props.className ?? ""}`}
+            className={`typecafe-key-heatmap flex flex-col items-center gap-[0.25rem] ${props.className ?? ""}`}
             data-testid={props.testId}
         >
             {HEATMAP_LAYOUT.map((row) => (

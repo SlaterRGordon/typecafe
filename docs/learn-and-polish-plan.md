@@ -52,7 +52,10 @@ Banners should stretch to exactly the width of the card/content directly beneath
 
 ---
 
-## Slice 4 — Grams entry, no words flash (S) `fix(grams): land on grams without a words flash`
+## Slice 4 — Grams entry, no words flash ✅ DONE (S) `fix(grams): land on grams without a words flash`
+
+> Shipped 2026-06-21. Landing on `/?mode=grams` (e.g. from progress) mounted the typer in the persisted words/timed mode and flashed a words test before the grams config applied. A `useLayoutEffect` (pre-paint) detects `?mode=grams` from `window.location.search` and holds the typer behind a brief loader; the existing config-handoff effect clears it once grams is applied — so words never render. Only grams is gated (timed/words/practice/rm flows unchanged).
+
 
 Navigating to `/?mode=grams` (e.g. from progress) briefly renders a words test before switching. Make the grams config apply before the first text generation (mirror the re-measure/`?rm=` restart-race fix: don't bump restart with stale settings) so grams renders from the first frame.
 

@@ -1,7 +1,7 @@
 import { type NextPage } from "next";
 import Head from "next/head";
 import { useRouter } from "next/router";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { DailyChallengePrompt } from "~/components/challenge/DailyChallengePrompt";
 import { ShareableScoreCard, type ScoreSnapshot } from "~/components/scores/ShareableScoreCard";
@@ -14,6 +14,11 @@ import { withPracticeVowel } from "~/lib/diagnosis";
 import { appendLocalProgress } from "~/lib/progressHistory";
 import { consistencyFromSamples } from "~/lib/stats";
 import { api } from "~/utils/api";
+
+// Runs synchronously before paint on the client so we can suppress the typer's
+// first (stale-mode) render before it ever shows; falls back to useEffect on the
+// server to avoid the SSR warning.
+const useBrowserLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
 // The diagnosed test we'll offer to re-run after a drill, so its result can show
 // a before→after WPM delta (Phase 1.3). Lives in sessionStorage as
@@ -85,6 +90,13 @@ const Home: NextPage = () => {
   // True when this test was launched from a plan step (?return=plan); the result
   // then offers "Continue plan →" to advance the guided player (Phase 4 §4.4).
   const [returnToPlan, setReturnToPlan] = useState(false)
+  // A /?mode=grams landing (e.g. from progress) would otherwise mount the typer in
+  // the persisted words/timed mode and flash a words test before the grams config
+  // applies. Hold the typer behind a loader until the handoff lands.
+  const [gramsHandoffPending, setGramsHandoffPending] = useState(false)
+  useBrowserLayoutEffect(() => {
+    if (new URLSearchParams(window.location.search).get("mode") === "grams") setGramsHandoffPending(true)
+  }, [])
   const charAttemptsRef = useRef<Map<string, { attempts: number, correct: number }>>(new Map())
   const persistedAttemptsRef = useRef<Map<string, { attempts: number, correct: number }>>(new Map())
   const hasSavedPendingRef = useRef(false)
@@ -447,6 +459,7 @@ const Home: NextPage = () => {
     sessionStorage.removeItem("typecafe:pendingScore")
     hasSavedPendingRef.current = false
     setReturnToPlan(router.query.return === "plan")
+    setGramsHandoffPending(false)
     setRestartSignal((signal) => signal + 1)
     void router.replace("/", undefined, { shallow: true })
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -581,6 +594,12 @@ const Home: NextPage = () => {
             </button>
           </div>
         }
+        {gramsHandoffPending ? (
+          <div className="flex min-h-[16rem] w-full items-center justify-center" role="status" aria-live="polite">
+            <div className="h-8 w-8 animate-spin rounded-full border border-solid border-t-transparent text-primary"></div>
+            <span className="sr-only">Loading…</span>
+          </div>
+        ) : (
         <Typer
           fullscreen={fullscreen}
           setFullscreen={(full) => setFullscreen(full)}
@@ -611,6 +630,7 @@ const Home: NextPage = () => {
           charAttemptsRef={charAttemptsRef}
           hideInterface={!!completedScore}
         />
+        )}
         {completedScore ?
           <div className="m-auto flex w-full flex-col items-center gap-3">
             {returnToPlan &&
