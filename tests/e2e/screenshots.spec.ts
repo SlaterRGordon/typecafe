@@ -355,6 +355,14 @@ test.describe("screenshot tour", () => {
     await capture(page, testInfo, "14-learn-default");
   });
 
+  test("learn level complete popover", async ({ page }, testInfo) => {
+    await page.goto("/learn");
+    await expect(page.locator("#words .char").first()).toBeVisible({ timeout: 20_000 });
+    await typeVisibleTestText(page);
+    await expect(page.getByTestId("learn-complete-popover")).toBeVisible();
+    await capture(page, testInfo, "57-learn-level-complete");
+  });
+
   test("leaderboard page", async ({ page }, testInfo) => {
     await mockTrpc(page);
     await page.goto("/leaderboard");

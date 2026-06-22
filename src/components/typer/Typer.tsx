@@ -7,8 +7,6 @@ import { Stats } from "./Stats"
 import { useTimer } from "~/hooks/timer/useTimer"
 import { api } from "~/utils/api"
 import type { Level } from "./learn/levels"
-import { useDispatch } from "react-redux"
-import { addAlert } from "~/state/alert/alertSlice"
 import { buildWpmSamples, computeStats, consistencyFromSamples, isReliableWpmSample, worstKeysFromAttempts } from "~/lib/stats"
 import type { Keystroke, TypedSegment } from "~/lib/stats"
 import { encodeTimeline } from "~/lib/keystrokes"
@@ -80,8 +78,6 @@ export const Typer = (props: TyperProps) => {
         onRestart,
         showControls = true,
     } = props
-
-    const dispatch = useDispatch();
 
     const [text, setText] = useState("")
     const [started, setStarted] = useState(false)
@@ -363,12 +359,9 @@ export const Typer = (props: TyperProps) => {
         if (mode === TestModes.normal) {
             if (
                 levelRequirements &&
-                (finalStats.speed < levelRequirements.wpm || finalStats.accuracy < levelRequirements.accuracy)
+                (finalStats.netWpm < levelRequirements.wpm || finalStats.accuracy < levelRequirements.accuracy)
             ) {
-                dispatch(addAlert({
-                    message: `Need ${levelRequirements.wpm} WPM and ${levelRequirements.accuracy}% accuracy to complete this level.`,
-                    type: "warning",
-                }))
+                onTestCompleteRef.current?.(completion)
             } else {
                 if (sessionData?.user && testType?.id) {
                     persistCompletion(completion, {
@@ -409,7 +402,7 @@ export const Typer = (props: TyperProps) => {
         if (mode === TestModes.normal) syncTransitions(keyEventsRef.current)
     }, [
         isCompletionValid, isTimed, pause, getStats, buildCompletion, mode, levelRequirements,
-        dispatch, sessionData, testType, persistCompletion, count, level, punctuation,
+        sessionData, testType, persistCompletion, count, level, punctuation,
         capitals, props.gramWpmThreshold, props.gramAccuracyThreshold,
         props.challengeDate, recordPassedLevel, syncCharAttempts, syncTransitions,
     ])

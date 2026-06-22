@@ -11,6 +11,7 @@ const learnProgressInput = z.object({
   options: z.string(),
   speed: z.number().min(0),
   accuracy: z.number().min(0).max(100),
+  stars: z.number().int().min(0).max(3).optional(),
 });
 
 export const learnProgressRouter = createTRPCRouter({
@@ -51,6 +52,7 @@ export const learnProgressRouter = createTRPCRouter({
             options: input.progress.options,
             speed: input.progress.speed,
             accuracy: input.progress.accuracy,
+            stars: input.progress.stars ?? 0,
           },
         });
       }
@@ -62,6 +64,7 @@ export const learnProgressRouter = createTRPCRouter({
         data: {
           speed: Math.max(existing.speed, input.progress.speed),
           accuracy: Math.max(existing.accuracy, input.progress.accuracy),
+          stars: Math.max(existing.stars, input.progress.stars ?? 0),
         },
       });
     }),
@@ -86,6 +89,7 @@ export const learnProgressRouter = createTRPCRouter({
           options: progress.options,
           speed: Math.max(current?.speed ?? 0, progress.speed),
           accuracy: Math.max(current?.accuracy ?? 0, progress.accuracy),
+          stars: Math.max(current?.stars ?? 0, progress.stars ?? 0),
         });
       });
 
@@ -114,6 +118,7 @@ export const learnProgressRouter = createTRPCRouter({
               options: item.options,
               speed: item.speed,
               accuracy: item.accuracy,
+              stars: item.stars ?? 0,
             },
           });
         }
@@ -125,6 +130,7 @@ export const learnProgressRouter = createTRPCRouter({
           data: {
             speed: Math.max(existing.speed, item.speed),
             accuracy: Math.max(existing.accuracy, item.accuracy),
+            stars: Math.max(existing.stars, item.stars ?? 0),
           },
         });
       }));

@@ -12,12 +12,44 @@ import { useDispatch } from "react-redux";
 import { addAlert } from "~/state/alert/alertSlice";
 import { useSession } from "next-auth/react";
 import type { TestCompletionResult } from "~/components/typer/Typer";
+import { learnStarCriteria, starsFor, type LearnRequirement } from "~/lib/learnStars";
 
 type Option = { label: string, value: number | string, isDisabled: boolean }
 type DifficultyName = "easy" | "medium" | "hard"
-type LearnProgress = { options: string, speed: number, accuracy: number }
+type LearnProgress = { options: string, speed: number, accuracy: number, stars?: number }
+type LearnCompletion = {
+    levelName: string,
+    netWpm: number,
+    accuracy: number,
+    stars: 0 | 1 | 2 | 3,
+    requirement: LearnRequirement,
+    nextLevelName: string | null,
+    saved: boolean,
+}
 
 const getStorageKey = (difficulty: DifficultyName) => `typecafe.learnProgress.${difficulty}`
+
+function formatNumber(value: number, digits = 1) {
+    return value.toLocaleString(undefined, {
+        maximumFractionDigits: digits,
+        minimumFractionDigits: digits,
+    })
+}
+
+function mergeLearnProgress(progress: LearnProgress[], entry: LearnProgress): LearnProgress[] {
+    const current = progress.find((item) => item.options === entry.options)
+    const rest = progress.filter((item) => item.options !== entry.options)
+
+    return [
+        ...rest,
+        {
+            options: entry.options,
+            speed: Math.max(current?.speed ?? 0, entry.speed),
+            accuracy: Math.max(current?.accuracy ?? 0, entry.accuracy),
+            stars: Math.max(current?.stars ?? 0, entry.stars ?? 0),
+        },
+    ]
+}
 
 const Learn: NextPage = () => {
     const dispatch = useDispatch()
@@ -38,6 +70,8 @@ const Learn: NextPage = () => {
     const [fullscreen, setFullscreen] = useState(false)
     const [localProgress, setLocalProgress] = useState<LearnProgress[]>([])
     const [isLocalProgressLoaded, setIsLocalProgressLoaded] = useState(false)
+    const [restartSignal, setRestartSignal] = useState(0)
+    const [completion, setCompletion] = useState<LearnCompletion | null>(null)
     const charAttemptsRef = useRef<Map<string, { attempts: number, correct: number }>>(new Map())
 
     // fetch types
@@ -98,6 +132,7 @@ const Learn: NextPage = () => {
             options: progress.options,
             speed: progress.speed,
             accuracy: progress.accuracy,
+            stars: progress.stars ?? 0,
         })),
     ], [savedProgress])
     const completedProgress: LearnProgress[] = sessionData?.user ? persistedProgress : localProgress
@@ -141,6 +176,7 @@ const Learn: NextPage = () => {
                     options: progress.options,
                     speed: progress.speed,
                     accuracy: progress.accuracy,
+                    stars: progress.stars ?? 0,
                 })),
             ]))
             if (!silent) {
@@ -165,6 +201,7 @@ const Learn: NextPage = () => {
         if (value && !value.isDisabled) {
             const level = levels.find(level => level.name == value.value)
             if (level) setLevel(level)
+            setCompletion(null)
             setLevelChanged(true)
         }
     }
@@ -173,43 +210,80 @@ const Learn: NextPage = () => {
         setCurrentKey(key)
     }
 
+    const nextLevelNameFromProgress = useCallback((progress: LearnProgress[], levelName: string) => {
+        const currentLevelIndex = levels.findIndex(option => option.name == levelName)
+        const nextLevel = levels[currentLevelIndex + 1]
+        if (!nextLevel) return null
+
+        const nextLevelOption = getLevelOptions(progress).find(option => option.value == nextLevel.name)
+        return nextLevelOption && !nextLevelOption.isDisabled ? nextLevel.name : null
+    }, [getLevelOptions])
+
+    const showCompletion = useCallback((
+        result: TestCompletionResult,
+        options: { saved: boolean, nextProgress?: LearnProgress[] } = { saved: false },
+    ) => {
+        const levelName = result.levelName ?? level.name
+        const completedLevel = levels.find(level => level.name == levelName) ?? level
+        const requirement = completedLevel[difficulty]
+        const netWpm = result.netWpm
+        const stars = starsFor({ netWpm, accuracy: result.accuracy }, requirement)
+
+        setCompletion({
+            levelName,
+            netWpm,
+            accuracy: result.accuracy,
+            stars,
+            requirement,
+            nextLevelName: stars > 0 && options.nextProgress ? nextLevelNameFromProgress(options.nextProgress, levelName) : null,
+            saved: options.saved,
+        })
+    }, [difficulty, level, nextLevelNameFromProgress])
+
     const onTestComplete = (result: TestCompletionResult) => {
+        const levelName = result.levelName ?? level.name
+        const completedLevel = levels.find(level => level.name == levelName) ?? level
+        const requirement = completedLevel[difficulty]
+        const netWpm = result.netWpm
+        const stars = starsFor({ netWpm, accuracy: result.accuracy }, requirement)
+
+        if (stars === 0) {
+            showCompletion(result)
+            return
+        }
+
+        const progressEntry: LearnProgress = {
+            options: levelName,
+            speed: netWpm,
+            accuracy: result.accuracy,
+            stars,
+        }
+
         if (!sessionData?.user) {
-            const levelName = result.levelName ?? level.name
-            const nextProgress = [
-                ...localProgress.filter(progress => progress.options !== levelName),
-                { options: levelName, speed: result.speed, accuracy: result.accuracy },
-            ]
+            const nextProgress = mergeLearnProgress(localProgress, progressEntry)
 
             window.localStorage.setItem(getStorageKey(difficulty), JSON.stringify(nextProgress))
             setLocalProgress(nextProgress)
-            advanceToNextLevel(getLevelOptions(nextProgress))
-            dispatch(addAlert({
-                message: "Progress saved on this device. Sign in to keep it.",
-                type: "warning",
-            }))
+            showCompletion(result, { saved: true, nextProgress })
             return
         }
 
         completeLearnProgress.mutateAsync({
             difficulty,
-            progress: {
-                options: result.levelName ?? level.name,
-                speed: result.speed,
-                accuracy: result.accuracy,
-            },
+            progress: progressEntry,
         }).then(() => refetchSavedProgress()).then((savedResult) => {
-            advanceToNextLevel(getLevelOptions(
-                [
-                    ...(savedResult.data ?? []).map((progress: LearnProgress) => ({
-                        options: progress.options,
-                        speed: progress.speed,
-                        accuracy: progress.accuracy,
-                    })),
-                ],
-            ))
+            const nextProgress = [
+                ...(savedResult.data ?? []).map((progress: LearnProgress) => ({
+                    options: progress.options,
+                    speed: progress.speed,
+                    accuracy: progress.accuracy,
+                    stars: progress.stars ?? 0,
+                })),
+            ]
+            showCompletion(result, { saved: true, nextProgress })
         }).catch((error) => {
             console.log(error)
+            showCompletion(result, { saved: false })
             dispatch(addAlert({ message: "Could not refresh level progress.", type: "error" }))
         })
     }
@@ -242,6 +316,25 @@ const Learn: NextPage = () => {
 
     const requirements = level[difficulty]
     const isLearnContentLoading = isLearnProgressLoading || isLevelSelectionLoading
+    const criteria = learnStarCriteria(requirements)
+
+    const retryLevel = () => {
+        setCompletion(null)
+        setRestartSignal(signal => signal + 1)
+    }
+
+    const pickLevel = () => {
+        setCompletion(null)
+    }
+
+    const goToNextLevel = () => {
+        if (!completion?.nextLevelName) return
+        const nextLevel = levels.find(level => level.name == completion.nextLevelName)
+        if (!nextLevel) return
+        setLevel(nextLevel)
+        setLevelChanged(true)
+        setCompletion(null)
+    }
 
     return (
         <div className={`flex flex-col w-full h-full items-center overflow-y-auto overflow-x-hidden px-4 pt-4 pb-4 ${fullscreen ? 'absolute top-0 left-0 w-full h-full bg-base-100 z-[500]' : "relative md:w-10/12 md:self-center md:px-0 md:pt-8 md:pb-8"}`}>
@@ -314,8 +407,13 @@ const Learn: NextPage = () => {
                 {!isLearnContentLoading &&
                     <>
                     <div className="flex w-full basis-0 grow flex-wrap justify-start items-center gap-x-4 gap-y-1">
-                        <div className="text-base md:text-lg"><strong>Required Speed: {requirements.wpm}wpm</strong></div>
+                        <div className="text-base md:text-lg"><strong>Required Speed: {requirements.wpm} net WPM</strong></div>
                         <div className="text-base md:text-lg"><strong>Required Accuracy: {requirements.accuracy}%</strong></div>
+                    </div>
+                    <div className="flex w-full flex-wrap items-center gap-2 text-xs font-semibold text-base-content/60">
+                        <span className="rounded-full border border-base-content/15 px-2.5 py-1">1 star: {formatNumber(criteria.oneStarNetWpm, 0)} net WPM / {formatNumber(criteria.oneStarAccuracy, 0)}%</span>
+                        <span className="rounded-full border border-base-content/15 px-2.5 py-1">2 stars: {formatNumber(criteria.twoStarNetWpm, 0)} net WPM / {formatNumber(criteria.twoStarAccuracy, 0)}%</span>
+                        <span className="rounded-full border border-base-content/15 px-2.5 py-1">3 stars: {formatNumber(criteria.threeStarNetWpm, 0)} net WPM / {formatNumber(criteria.threeStarAccuracy, 0)}%</span>
                     </div>
                     <div className="hidden gap-2 basis-0 grow justify-start w-full flex-wrap md:flex">
                         <div className="flex justify-start items-center text-base md:text-lg"><strong>Target Keys:</strong></div>
@@ -354,6 +452,7 @@ const Learn: NextPage = () => {
                         levelRequirements={requirements}
                         onKeyChange={onKeyChange}
                         onTestComplete={onTestComplete}
+                        restartSignal={restartSignal}
                         showStats={true}
                         showConfig={false}
                         charAttemptsRef={charAttemptsRef}
@@ -363,6 +462,79 @@ const Learn: NextPage = () => {
                     <Keyboard mode={mode} currentKey={currentKey} charAttemptsRef={charAttemptsRef} highlightKeys={level.keys.split("")} />
                 }
             </div>
+            {completion &&
+                <div className="fixed inset-0 z-[600] flex items-center justify-center bg-base-300/70 px-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="learn-complete-title">
+                    <div data-testid="learn-complete-popover" className="w-full max-w-md rounded-xl border border-primary/40 bg-base-100 p-6 text-base-content shadow-2xl shadow-primary/20">
+                        <div className="flex flex-col items-center text-center">
+                            <p className="font-mono text-sm font-bold uppercase tracking-widest text-primary">
+                                {completion.stars > 0 ? "Level complete" : "Try again"}
+                            </p>
+                            <h2 id="learn-complete-title" className="mt-2 font-mono text-3xl font-bold">
+                                {completion.stars > 0 ? `${completion.levelName} clear!` : `${completion.levelName} not cleared yet`}
+                            </h2>
+                            <div className="mt-4 flex gap-2" aria-label={`${completion.stars} stars`}>
+                                {[1, 2, 3].map((star) => (
+                                    <span
+                                        key={star}
+                                        className={`font-mono text-5xl leading-none ${completion.stars >= star ? "text-primary" : "text-base-content/20"}`}
+                                        aria-hidden="true"
+                                    >
+                                        ★
+                                    </span>
+                                ))}
+                            </div>
+                            <div className="mt-4 grid w-full grid-cols-2 gap-3">
+                                <div className="rounded-lg border border-base-content/10 bg-base-200/50 p-3">
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-base-content/50">Net WPM</p>
+                                    <p className="mt-1 font-mono text-3xl font-bold">{formatNumber(completion.netWpm, 1)}</p>
+                                </div>
+                                <div className="rounded-lg border border-base-content/10 bg-base-200/50 p-3">
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-base-content/50">Accuracy</p>
+                                    <p className="mt-1 font-mono text-3xl font-bold">{formatNumber(completion.accuracy, 1)}%</p>
+                                </div>
+                            </div>
+                            <p className="mt-4 text-sm text-base-content/65">
+                                {completion.stars > 0
+                                    ? completion.saved
+                                        ? "Best result saved."
+                                        : "Clear earned, but saving failed."
+                                    : `Need ${formatNumber(completion.requirement.wpm, 0)} net WPM and ${formatNumber(completion.requirement.accuracy, 0)}% accuracy.`}
+                            </p>
+                            <div className="mt-4 grid w-full gap-2 rounded-lg border border-base-content/10 bg-base-200/35 p-3 text-left text-xs font-semibold text-base-content/60">
+                                <p>1 star: {formatNumber(completion.requirement.wpm, 0)} net WPM + {formatNumber(completion.requirement.accuracy, 0)}% accuracy</p>
+                                <p>2 stars: {formatNumber(completion.requirement.wpm * 1.15, 0)} net WPM + {formatNumber(completion.requirement.accuracy, 0)}% accuracy</p>
+                                <p>3 stars: {formatNumber(completion.requirement.wpm * 1.3, 0)} net WPM + {formatNumber(Math.max(completion.requirement.accuracy, 97), 0)}% accuracy</p>
+                            </div>
+                            <div className="mt-5 flex w-full flex-col gap-2 sm:flex-row">
+                                <button
+                                    type="button"
+                                    className="inline-flex flex-1 items-center justify-center rounded-md border border-base-content/15 bg-base-200 px-4 py-2 text-sm font-semibold transition hover:bg-base-300"
+                                    onClick={retryLevel}
+                                >
+                                    Try again
+                                </button>
+                                {completion.stars > 0 && completion.nextLevelName ?
+                                    <button
+                                        type="button"
+                                        className="inline-flex flex-1 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85"
+                                        onClick={goToNextLevel}
+                                    >
+                                        Next level
+                                    </button>
+                                    :
+                                    <button
+                                        type="button"
+                                        className="inline-flex flex-1 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85"
+                                        onClick={pickLevel}
+                                    >
+                                        Pick a level
+                                    </button>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
             </div>
         </div>
     );

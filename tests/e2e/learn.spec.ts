@@ -13,8 +13,9 @@ test.describe("learn page", () => {
     await gotoLearn(page);
 
     await expect(page.getByText("Sign in to save level progress")).toBeVisible();
-    await expect(page.getByText("Required Speed: 40wpm")).toBeVisible();
+    await expect(page.getByText("Required Speed: 40 net WPM")).toBeVisible();
     await expect(page.getByText("Required Accuracy: 90%")).toBeVisible();
+    await expect(page.getByText("1 star: 40 net WPM / 90%")).toBeVisible();
     if (!testInfo.project.name.includes("mobile")) {
       await expect(page.getByText("Target Keys:")).toBeVisible();
     }
@@ -39,19 +40,29 @@ test.describe("learn page", () => {
 
     await typeVisibleTestText(page);
 
-    await expect(page.getByText("Progress saved on this device. Sign in to keep it.")).toBeVisible();
+    const popover = page.getByTestId("learn-complete-popover");
+    await expect(popover).toBeVisible();
+    await expect(popover).toContainText("Level 1 clear!");
+    await expect(popover).toContainText("Best result saved.");
+    await expect(popover.getByRole("button", { name: "Next level" })).toBeVisible();
 
     const progress = await page.evaluate(() => window.localStorage.getItem("typecafe.learnProgress.easy"));
     expect(progress).not.toBeNull();
-    expect(JSON.parse(progress as string)).toEqual([
+    const parsed = JSON.parse(progress as string) as { options: string; speed: number; accuracy: number; stars: number }[];
+    expect(parsed).toEqual([
       expect.objectContaining({
         options: "Level 1",
         accuracy: 100,
+        stars: 3,
       }),
     ]);
+    expect(parsed[0]?.speed).toBeGreaterThanOrEqual(40);
+
+    await popover.getByRole("button", { name: "Next level" }).click();
+    await expect(page.getByText("Level 2").first()).toBeVisible();
   });
 
-  test("failed completion warns and does not save progress", async ({ page }) => {
+  test("failed completion opens retry popover and does not save progress", async ({ page }) => {
     await gotoLearn(page);
 
     await typeCurrentCharacter(page);
@@ -60,7 +71,11 @@ test.describe("learn page", () => {
       await page.keyboard.press("q");
     }
 
-    await expect(page.getByText("Need 40 WPM and 90% accuracy to complete this level.")).toBeVisible();
+    const popover = page.getByTestId("learn-complete-popover");
+    await expect(popover).toBeVisible();
+    await expect(popover).toContainText("Level 1 not cleared yet");
+    await expect(popover).toContainText("Need 40 net WPM and 90% accuracy.");
+    await expect(popover.getByRole("button", { name: "Try again" })).toBeVisible();
     await expect.poll(async () => page.evaluate(() => window.localStorage.getItem("typecafe.learnProgress.easy"))).toBeNull();
   });
 
@@ -69,7 +84,7 @@ test.describe("learn page", () => {
 
     await chooseReactSelectOption(page, "difficultySelect", "Medium");
 
-    await expect(page.getByText("Required Speed: 80wpm")).toBeVisible();
+    await expect(page.getByText("Required Speed: 80 net WPM")).toBeVisible();
     await expect(page.getByText("Required Accuracy: 90%")).toBeVisible();
   });
 

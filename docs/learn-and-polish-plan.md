@@ -83,7 +83,9 @@ A shared score that was a daily challenge should say so in its OG image. Add a "
 
 ---
 
-## Slice 7 — Learn: net WPM + level-complete popover (L) `feat(learn): net WPM and a juicy level-complete popover`
+## Slice 7 — Learn: net WPM + level-complete popover ✅ DONE (L) `feat(learn): net WPM and a juicy level-complete popover`
+
+> Shipped 2026-06-21. Learn progress now uses **net WPM** for level requirements, unlock checks, and saved progress; the existing `LearnProgress.speed` rows are migrated from raw→net and gain a persisted `stars` column. Pure `starsFor` / `learnStarCriteria` math lives in `src/lib/learnStars.ts` with unit coverage. Level completion now opens a polished popover with 0–3 stars, net WPM, accuracy, Try again, Next level / Pick a level, and an explicit star-criteria legend. Failed attempts no longer disappear behind a toast — they show a retry popover and do not save progress. Guest progress stores best stars locally; signed-in progress stores best stars in DB. e2e covers guest success, failed retry popover, net requirement copy, and Next level; screenshot tour captures default learn and the new completion popover on desktop/mobile.
 
 Make the learn page feel like a phone game.
 - **Net WPM**: level requirements + the saved/compared score use net (`netFromRaw(result.speed, result.accuracy)`), not raw `speed`. "Required Speed" reads net. (`src/pages/learn.tsx`, `learn/levels.ts`, learnProgress payloads.)
