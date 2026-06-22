@@ -101,6 +101,8 @@ test.describe("daily challenge", () => {
     await startChallengeTimer(page);
 
     await expect(page.getByTestId("score-screenshot-card")).toBeVisible({ timeout: 40_000 });
+    await expect(page.getByTestId("score-daily-challenge-badge")).toBeVisible();
+    await expect(page.getByTestId("score-share-image")).toContainText("Daily Challenge");
     await expect(page.getByTestId("score-screenshot-card").getByText("+3.2 over my average")).toBeVisible();
     await expect(page.getByTestId("avg-delta")).toContainText("3.2 WPM over your 30-day average");
 

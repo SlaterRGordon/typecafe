@@ -139,6 +139,7 @@ const Challenge: NextPage = () => {
             ranked: result.ranked,
             brag: challengeShareBrag(result.avgDelta),
             avgDelta: result.avgDelta,
+            dailyChallenge: true,
             streak: result.streak,
             wpmSamples: result.wpmSamples,
             count: CHALLENGE_SECONDS,

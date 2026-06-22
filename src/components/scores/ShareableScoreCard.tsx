@@ -657,6 +657,9 @@ export function ShareableScoreCard(props: ShareableScoreCardProps) {
           <div className="flex items-center gap-4">
             <div>
               <div className="mb-2 flex flex-wrap items-center gap-2">
+                {score.dailyChallenge &&
+                  <span data-testid="score-daily-challenge-badge" className="inline-block rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-sm font-bold text-primary">Daily Challenge</span>
+                }
                 {score.brag &&
                   <span className="inline-block rounded-full bg-primary/15 px-3 py-1 text-sm font-bold text-primary">{score.brag}</span>
                 }

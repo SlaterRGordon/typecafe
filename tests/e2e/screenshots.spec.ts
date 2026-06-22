@@ -1,4 +1,4 @@
-import { expect, test, type Page, type TestInfo } from "@playwright/test";
+import { expect, test, type Locator, type Page, type TestInfo } from "@playwright/test";
 import { mockAuthenticatedSession, mockTrpc } from "./helpers/trpc";
 import { chooseReactSelectOption } from "./helpers/select";
 import { typeCurrentCharacter, typeVisibleTestText } from "./helpers/typing";
@@ -16,6 +16,12 @@ async function capture(page: Page, testInfo: TestInfo, name: string) {
   await page.screenshot({
     path: join(screenshotRoot, testInfo.project.name, `${name}.png`),
     fullPage: true,
+  });
+}
+
+async function captureElement(locator: Locator, testInfo: TestInfo, name: string) {
+  await locator.screenshot({
+    path: join(screenshotRoot, testInfo.project.name, `${name}.png`),
   });
 }
 
@@ -469,6 +475,14 @@ test.describe("screenshot tour", () => {
     await expect(page.getByTestId("score-screenshot-card")).toBeVisible({ timeout: 40_000 });
     await expect(page.getByTestId("score-screenshot-card").getByText("+3.2 over my average")).toBeVisible();
     await capture(page, testInfo, "51-daily-challenge-result-share");
+    const shareImage = page.getByTestId("score-share-image");
+    await expect(shareImage).toContainText("Daily Challenge");
+    await shareImage.evaluate((element) => {
+      const wrapper = element.parentElement;
+      if (!wrapper) return;
+      wrapper.setAttribute("style", "position: static; pointer-events: none;");
+    });
+    await captureElement(shareImage, testInfo, "51-daily-challenge-share-image");
   });
 
   test("home: daily challenge prompt", async ({ page }, testInfo) => {
