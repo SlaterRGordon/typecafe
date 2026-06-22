@@ -8,6 +8,7 @@ import { KeyHeatmap } from "~/components/heatmap/KeyHeatmap";
 import { ShareableScoreCard, type ScoreSnapshot } from "~/components/scores/ShareableScoreCard";
 import { ProgressShareCard, isProgressSnapshot } from "~/components/scores/ProgressShareCard";
 import { Typer, type TestCompletionResult } from "~/components/typer/Typer";
+import { typingFocusFadeClass } from "~/components/typer/typingFocus";
 import type { TestModes, TestSubModes } from "~/components/typer/types";
 import { DEFAULT_TEST_SETTINGS } from "~/hooks/useTestSettings";
 import { beatRunAttemptLabel, beatRunBrag, firstDivergenceWord } from "~/lib/beatRun";
@@ -153,6 +154,7 @@ function BeatRunChallenge(props: { slug: string; target: BeatTarget }) {
     createdAt: Date;
     attemptNumber: number;
   }) | null>(null);
+  const [typingFocused, setTypingFocused] = useState(false);
   const [shareUrl, setShareUrl] = useState<string | undefined>(undefined);
   const charAttemptsRef = useRef<Map<string, { attempts: number; correct: number }>>(new Map());
   const createBeatRun = api.scoreShare.createBeatRun.useMutation();
@@ -241,7 +243,7 @@ function BeatRunChallenge(props: { slug: string; target: BeatTarget }) {
     <div id="typer" className={`flex h-full w-full flex-col overflow-auto ${completed ? "py-4" : "[justify-content:safe_center]"} md:w-10/12`}>
       {!completed &&
         <>
-          <div data-testid="beat-run-header" className="mx-auto mb-4 w-full max-w-screen-xl text-center">
+          <div data-testid="beat-run-header" className={typingFocusFadeClass(typingFocused, "mx-auto mb-4 w-full max-w-screen-xl text-center")}>
             <h1 className="font-mono text-2xl font-bold tracking-tight">Beat this run</h1>
             <p className="text-sm text-base-content/60">
               Target: {props.target.rawWpm.toFixed(1)} WPM / {props.target.accuracy.toFixed(1)}% accuracy
@@ -268,6 +270,7 @@ function BeatRunChallenge(props: { slug: string; target: BeatTarget }) {
             onKeyChange={() => undefined}
             restartSignal={restartSignal}
             onTestComplete={onComplete}
+            onTypingFocusChange={setTypingFocused}
             charAttemptsRef={charAttemptsRef}
           />
         </>

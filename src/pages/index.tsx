@@ -1,5 +1,6 @@
 import { type NextPage } from "next";
 import Head from "next/head";
+import Link from "next/link";
 import { useRouter } from "next/router";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
@@ -8,6 +9,7 @@ import { ShareableScoreCard, type ScoreSnapshot } from "~/components/scores/Shar
 import { Keyboard } from "~/components/typer/Keyboard";
 import { Typer, type TestCompletionResult } from "~/components/typer/Typer";
 import { ModeBar } from "~/components/typer/config/ModeBar";
+import { typingFocusFadeClass } from "~/components/typer/typingFocus";
 import { TestModes, TestSubModes, type TestGramScopes, type TestGramSources } from "~/components/typer/types";
 import { useTestSettings } from "~/hooks/useTestSettings";
 import { withPracticeVowel } from "~/lib/diagnosis";
@@ -64,6 +66,7 @@ const Home: NextPage = () => {
   const setGramWpmThreshold = (value: number) => updateSetting("gramWpmThreshold", value)
   const setGramAccuracyThreshold = (value: number) => updateSetting("gramAccuracyThreshold", value)
   const [currentKey, setCurrentKey] = useState("")
+  const [typingFocused, setTypingFocused] = useState(false)
   const currentKeyRef = useRef("")
   const [attemptVersion, setAttemptVersion] = useState(0)
   const [restartSignal, setRestartSignal] = useState(0)
@@ -537,48 +540,50 @@ const Home: NextPage = () => {
       </Head>
       <div id="typer" className={`flex flex-col h-full overflow-auto ${completedScore ? "py-4" : "[justify-content:safe_center]"} ${fullscreen ? 'absolute top-0 left-0 w-full h-full bg-base-100 z-[500] sm:px-8' : 'md:w-10/12'}`}>
         {!completedScore && !fullscreen &&
-          <DailyChallengePrompt className="mx-auto mb-4 w-full max-w-screen-xl" completedCtaLabel="Try now" />
+          <DailyChallengePrompt className={typingFocusFadeClass(typingFocused, "mx-auto mb-4 w-full max-w-screen-xl")} completedCtaLabel="Try now" />
         }
         {!completedScore &&
-          <ModeBar
-            mode={mode} subMode={subMode} setMode={setMode}
-            setSubMode={setSubMode}
-            count={count}
-            customLength={customLength}
-            language={language}
-            selectedKeys={selectedKeys}
-            gramSource={gramSource}
-            gramScope={gramScope}
-            gramCombination={gramCombination}
-            gramRepetition={gramRepetition}
-            gramWpmThreshold={gramWpmThreshold}
-            gramAccuracyThreshold={gramAccuracyThreshold}
-            punctuation={punctuation}
-            capitals={capitals}
-            showStats={showStats}
-            showKeyboard={showKeyboard}
-            setCount={setCount}
-            setCustomLength={setCustomLength}
-            setLanguage={setLanguage}
-            setGramSource={setGramSource}
-            setGramScope={setGramScope}
-            setGramCombination={setGramCombination}
-            setGramRepetition={setGramRepetition}
-            setGramWpmThreshold={setGramWpmThreshold}
-            setGramAccuracyThreshold={setGramAccuracyThreshold}
-            setPunctuation={setPunctuation}
-            setCapitals={setCapitals}
-            setShowStats={setShowStats}
-            setShowKeyboard={setShowKeyboard}
-            onRestart={requestRestart}
-            fullscreen={fullscreen}
-            setFullscreen={setFullscreen}
-          />
+          <div data-testid="typing-focus-home-controls" className={typingFocusFadeClass(typingFocused, "w-full")}>
+            <ModeBar
+              mode={mode} subMode={subMode} setMode={setMode}
+              setSubMode={setSubMode}
+              count={count}
+              customLength={customLength}
+              language={language}
+              selectedKeys={selectedKeys}
+              gramSource={gramSource}
+              gramScope={gramScope}
+              gramCombination={gramCombination}
+              gramRepetition={gramRepetition}
+              gramWpmThreshold={gramWpmThreshold}
+              gramAccuracyThreshold={gramAccuracyThreshold}
+              punctuation={punctuation}
+              capitals={capitals}
+              showStats={showStats}
+              showKeyboard={showKeyboard}
+              setCount={setCount}
+              setCustomLength={setCustomLength}
+              setLanguage={setLanguage}
+              setGramSource={setGramSource}
+              setGramScope={setGramScope}
+              setGramCombination={setGramCombination}
+              setGramRepetition={setGramRepetition}
+              setGramWpmThreshold={setGramWpmThreshold}
+              setGramAccuracyThreshold={setGramAccuracyThreshold}
+              setPunctuation={setPunctuation}
+              setCapitals={setCapitals}
+              setShowStats={setShowStats}
+              setShowKeyboard={setShowKeyboard}
+              onRestart={requestRestart}
+              fullscreen={fullscreen}
+              setFullscreen={setFullscreen}
+            />
+          </div>
         }
         {!completedScore && mode === TestModes.practice && reMeasure &&
           <div
             data-testid="re-measure-prompt"
-            className="mx-auto mb-4 flex w-full max-w-2xl flex-col items-center gap-3 rounded-lg border border-primary/40 bg-primary/10 px-5 py-4 text-center sm:flex-row sm:justify-between sm:text-left"
+            className={typingFocusFadeClass(typingFocused, "mx-auto mb-4 flex w-full max-w-2xl flex-col items-center gap-3 rounded-lg border border-primary/40 bg-primary/10 px-5 py-4 text-center sm:flex-row sm:justify-between sm:text-left")}
           >
             <div>
               <p className="font-semibold text-base-content">Drilling {selectedKeys.join(", ")}</p>
@@ -627,6 +632,7 @@ const Home: NextPage = () => {
           restartSignal={restartSignal}
           onRestart={clearCompletedScore}
           onTestComplete={onTestComplete}
+          onTypingFocusChange={setTypingFocused}
           charAttemptsRef={charAttemptsRef}
           hideInterface={!!completedScore}
         />
@@ -636,14 +642,14 @@ const Home: NextPage = () => {
             {returnToPlan &&
               // Match the score card's width container so the banner edges line up.
               <div className="w-full max-w-7xl px-4 sm:px-6">
-                <a
+                <Link
                   href="/plan?step=done"
                   data-testid="continue-plan"
                   className="flex w-full items-center justify-between gap-3 rounded-lg border border-primary/40 bg-primary/10 px-5 py-3 text-sm font-semibold text-base-content transition hover:bg-primary/15"
                 >
                   <span>Step done — back to your plan.</span>
                   <span className="text-primary">Continue plan →</span>
-                </a>
+                </Link>
               </div>
             }
             <div className="flex w-full justify-center">
@@ -669,7 +675,9 @@ const Home: NextPage = () => {
           null
         }
         {!completedScore && (showKeyboard || mode === TestModes.practice) &&
-          <Keyboard mode={mode} currentKey={currentKey} selectedKeys={selectedKeys} setSelectedKeys={setSelectedKeys} charAttemptsRef={charAttemptsRef} baseAttemptsRef={persistedAttemptsRef} attemptVersion={attemptVersion} />
+          <div data-testid="typing-focus-home-keyboard" className={typingFocusFadeClass(typingFocused)}>
+            <Keyboard mode={mode} currentKey={currentKey} selectedKeys={selectedKeys} setSelectedKeys={setSelectedKeys} charAttemptsRef={charAttemptsRef} baseAttemptsRef={persistedAttemptsRef} attemptVersion={attemptVersion} />
+          </div>
         }
       </div>
     </>

@@ -183,6 +183,21 @@ body>div {
     text-decoration: underline;
 }
 
+.typing-focus-global-fade {
+    transition: opacity 300ms ease;
+}
+
+html[data-typing-focus="active"] .typing-focus-global-fade {
+    pointer-events: none;
+    opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .typing-focus-global-fade {
+        transition: none;
+    }
+}
+
 /* .react-activity-calendar__footer {
     justify-content: center !important;
 } */

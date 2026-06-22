@@ -233,6 +233,9 @@ test.describe("screenshot tour", () => {
     await typeCurrentCharacter(page, 1);
     await page.keyboard.press("0");
     await typeCurrentCharacter(page, 2);
+    await page.keyboard.down("Tab");
+    await page.keyboard.press("Enter");
+    await page.keyboard.up("Tab");
 
     // The analytics view shows per-key accuracy as a heatmap.
     await page.locator("[aria-label='Show keyboard accuracy stats']").click();

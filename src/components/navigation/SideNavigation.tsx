@@ -17,7 +17,7 @@ export const SideNavigation = () => {
 
     return (
         <div
-            className={`fixed flex-col justify-between h-full pt-[4rem] z-[45] bg-base-200 hidden md:flex transition-all duration-150 ease-out ${isExpanded ? 'w-64' : 'w-[4.6rem]'}`}
+            className={`typing-focus-global-fade fixed flex-col justify-between h-full pt-[4rem] z-[45] bg-base-200 hidden md:flex transition-all duration-150 ease-out ${isExpanded ? 'w-64' : 'w-[4.6rem]'}`}
             onMouseEnter={() => setIsExpanded(true)}
             onMouseLeave={() => setIsExpanded(false)}
         >

@@ -6,6 +6,7 @@ import { Avatar } from "~/components/Avatar";
 import { DailyChallengePrompt } from "~/components/challenge/DailyChallengePrompt";
 import { ShareableScoreCard, type ScoreSnapshot } from "~/components/scores/ShareableScoreCard";
 import { Typer, type TestCompletionResult } from "~/components/typer/Typer";
+import { typingFocusFadeClass } from "~/components/typer/typingFocus";
 import { TestModes, TestSubModes } from "~/components/typer/types";
 import { getWords } from "~/components/typer/utils";
 import { DEFAULT_TEST_SETTINGS } from "~/hooks/useTestSettings";
@@ -95,6 +96,7 @@ const Challenge: NextPage = () => {
     const [restartSignal, setRestartSignal] = useState(0);
     const [statusRefreshSignal, setStatusRefreshSignal] = useState(0);
     const [completed, setCompleted] = useState<CompletedScore | null>(null);
+    const [typingFocused, setTypingFocused] = useState(false);
     const [shareUrl, setShareUrl] = useState<string | undefined>(undefined);
     const [dateKey, setDateKey] = useState<string | null>(null);
     const charAttemptsRef = useRef<Map<string, { attempts: number; correct: number }>>(new Map());
@@ -221,7 +223,7 @@ const Challenge: NextPage = () => {
                     :
                     <>
                         {!completed &&
-                            <div data-testid="challenge-header" className="mx-auto mb-4 w-full max-w-screen-xl text-center">
+                            <div data-testid="challenge-header" className={typingFocusFadeClass(typingFocused, "mx-auto mb-4 w-full max-w-screen-xl text-center")}>
                                 <h1 className="font-mono text-2xl font-bold tracking-tight">Daily Challenge</h1>
                                 <p className="text-sm text-base-content/60">{dateKey} / 30s / everyone types the same text today</p>
                             </div>
@@ -248,6 +250,7 @@ const Challenge: NextPage = () => {
                             onKeyChange={() => undefined}
                             restartSignal={restartSignal}
                             onTestComplete={onComplete}
+                            onTypingFocusChange={setTypingFocused}
                             charAttemptsRef={charAttemptsRef}
                             hideInterface={!!completed}
                         />
@@ -281,7 +284,7 @@ const Challenge: NextPage = () => {
                                 </div>
                             </div>
                         }
-                        <div data-testid="daily-challenge-boards" className="mx-auto mt-6 grid w-full max-w-screen-xl gap-4 px-4 pb-8 lg:grid-cols-2">
+                        <div data-testid="daily-challenge-boards" className={typingFocusFadeClass(typingFocused, "mx-auto mt-6 grid w-full max-w-screen-xl gap-4 px-4 pb-8 lg:grid-cols-2")}>
                             <ChallengeBoard
                                 title="Fastest Today"
                                 entries={boards.data?.fastest ?? []}

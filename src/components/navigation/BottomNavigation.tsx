@@ -15,7 +15,7 @@ export const BottomNavigation = () => {
     return (
         <div className="flex md:hidden">
             {/* Bottom Navigation */}
-            <div className="btm-nav fixed bottom-0 left-0 right-0 z-50 flex h-16 min-h-16 w-full bg-base-200">
+            <div className="typing-focus-global-fade btm-nav fixed bottom-0 left-0 right-0 z-50 flex h-16 min-h-16 w-full bg-base-200">
                 {/* Home */}
                 <button onClick={() => router.push('/')} className={getNavButtonClass('/')} aria-label="Home" title="Home">
                     <svg className={navIconClass} aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M6 19h3v-6h6v6h3v-9l-6-4.5L6 10v9Zm0 2q-.825 0-1.413-.588T4 19v-9q0-.475.213-.9t.587-.7l6-4.5q.275-.2.575-.3T12 3.5q.325 0 .625.1t.575.3l6 4.5q.375.275.588.7T20 10v9q0 .825-.588 1.413T18 21h-5v-6h-2v6H6Zm6-8.75Z" /></svg>

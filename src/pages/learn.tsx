@@ -8,6 +8,7 @@ import { api } from "~/utils/api";
 import Select from 'react-select'
 import type { SingleValue } from "react-select";
 import { Keyboard } from "~/components/typer/Keyboard";
+import { typingFocusFadeClass } from "~/components/typer/typingFocus";
 import { useDispatch } from "react-redux";
 import { addAlert } from "~/state/alert/alertSlice";
 import { useSession } from "next-auth/react";
@@ -103,6 +104,7 @@ const Learn: NextPage = () => {
     const [restartSignal, setRestartSignal] = useState(0)
     const [completion, setCompletion] = useState<LearnCompletion | null>(null)
     const [optimisticProgress, setOptimisticProgress] = useState<LearnProgress[]>([])
+    const [typingFocused, setTypingFocused] = useState(false)
     const charAttemptsRef = useRef<Map<string, { attempts: number, correct: number }>>(new Map())
 
     // fetch types
@@ -378,7 +380,7 @@ const Learn: NextPage = () => {
     return (
         <div className={`flex flex-col w-full h-full items-center overflow-y-auto overflow-x-hidden px-4 pt-4 pb-4 ${fullscreen ? 'absolute top-0 left-0 w-full h-full bg-base-100 z-[500]' : "relative md:w-10/12 md:self-center md:px-0 md:pt-8 md:pb-8"}`}>
             <div className="flex w-full flex-col items-center justify-center gap-6 py-4 md:min-h-full md:gap-24 md:py-8">
-            <div className="flex w-full max-w-screen-xl flex-col items-center gap-3 md:gap-4">
+            <div data-testid="learn-controls" className={typingFocusFadeClass(typingFocused, "flex w-full max-w-screen-xl flex-col items-center gap-3 md:gap-4")}>
                 {sessionStatus === "unauthenticated" &&
                     <div className="flex w-full justify-start">
                         <label className="btn btn-primary btn-sm" htmlFor="signInModal">
@@ -490,6 +492,7 @@ const Learn: NextPage = () => {
                         levelRequirements={requirements}
                         onKeyChange={onKeyChange}
                         onTestComplete={onTestComplete}
+                        onTypingFocusChange={setTypingFocused}
                         restartSignal={restartSignal}
                         showStats={true}
                         showConfig={false}
@@ -497,7 +500,9 @@ const Learn: NextPage = () => {
                     />
                 }
                 {!isLearnContentLoading &&
-                    <Keyboard mode={mode} currentKey={currentKey} charAttemptsRef={charAttemptsRef} highlightKeys={level.keys.split("")} />
+                    <div data-testid="learn-keyboard-wrap" className={typingFocusFadeClass(typingFocused)}>
+                        <Keyboard mode={mode} currentKey={currentKey} charAttemptsRef={charAttemptsRef} highlightKeys={level.keys.split("")} />
+                    </div>
                 }
             </div>
             {completion &&

@@ -4,6 +4,7 @@ import Link from "next/link"
 import { useRouter } from "next/router"
 import { useMemo, useRef, useState } from "react"
 import { Typer, type TestCompletionResult } from "~/components/typer/Typer"
+import { typingFocusFadeClass } from "~/components/typer/typingFocus"
 import { TestGramScopes, TestGramSources, TestModes, TestSubModes } from "~/components/typer/types"
 import { getWords } from "~/components/typer/utils"
 import { compileDrillText } from "~/lib/drill"
@@ -60,6 +61,7 @@ function transitionLabel(pair: string) {
 const Drill: NextPage = () => {
     const router = useRouter()
     const [completed, setCompleted] = useState<TestCompletionResult | null>(null)
+    const [typingFocused, setTypingFocused] = useState(false)
     const [restartSignal, setRestartSignal] = useState(0)
     const charAttemptsRef = useRef<Map<string, { attempts: number, correct: number }>>(new Map())
 
@@ -119,10 +121,10 @@ const Drill: NextPage = () => {
                 <meta name="description" content="Targeted typing drills built from your weak keys and transitions." />
             </Head>
             <div className="flex h-full w-full justify-center overflow-auto px-4 py-8">
-                <main className="flex w-full max-w-5xl flex-col gap-5">
+                <main className="flex w-full max-w-5xl flex-col justify-center mb-[12rem] gap-5">
                     {config ? (
                         <>
-                            <section className="rounded-lg border border-base-content/10 bg-base-100/45 p-4 sm:p-5">
+                            <section data-testid="drill-header" className={typingFocusFadeClass(typingFocused, "rounded-lg border border-base-content/10 bg-base-100/45 p-4 sm:p-5")}>
                                 <div className="flex flex-col gap-3">
                                     <div>
                                         <p className="text-xs font-semibold uppercase tracking-wide text-primary">
@@ -143,7 +145,7 @@ const Drill: NextPage = () => {
                             </section>
 
                             {!completed ? (
-                                <section data-testid="drill-typer" className="rounded-lg border border-base-content/10 bg-base-100/30 px-2 py-10 sm:px-4">
+                                <section data-testid="drill-typer" className={`px-2 py-10 transition-colors duration-300 motion-reduce:transition-none sm:px-4 ${typingFocused ? "border border-transparent bg-transparent" : "rounded-lg border border-base-content/10 bg-base-100/30"}`}>
                                     <Typer
                                         language="english"
                                         mode={TestModes.normal}
@@ -167,6 +169,7 @@ const Drill: NextPage = () => {
                                         restartSignal={restartSignal}
                                         onRestart={() => setCompleted(null)}
                                         onTestComplete={setCompleted}
+                                        onTypingFocusChange={setTypingFocused}
                                         charAttemptsRef={charAttemptsRef}
                                     />
                                 </section>
@@ -189,9 +192,9 @@ const Drill: NextPage = () => {
                                     </div>
                                     <div className="mt-5 flex flex-col gap-2 sm:flex-row">
                                         {returnToPlan ? (
-                                            <a href="/plan?step=done" data-testid="drill-continue-plan" className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85">
+                                            <Link href="/plan?step=done" data-testid="drill-continue-plan" className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85">
                                                 Next step →
-                                            </a>
+                                            </Link>
                                         ) : (
                                             // A full-page navigation (not next/link): home must mount with
                                             // ?rm already in the URL so it applies the diagnosed config before

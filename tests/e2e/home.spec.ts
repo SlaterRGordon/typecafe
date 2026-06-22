@@ -9,8 +9,10 @@ async function gotoHome(page: Page) {
 }
 
 // Mode switches inline on the main page; everything else lives in the modal.
-function selectMode(page: Page, name: "Timed" | "Words" | "Practice" | "Grams" | "Relaxed") {
-  return page.getByTestId("mode-bar").getByRole("button", { name }).click();
+function selectMode(page: Page, name: "Timed" | "Words" | "Practice" | "Grams" | "Relaxed", options?: { force?: boolean }) {
+  const button = page.getByTestId("mode-bar").getByRole("button", { name });
+  if (options?.force) return button.evaluate((element: HTMLElement) => element.click());
+  return button.click();
 }
 
 async function setToolbarCustomLength(page: Page, value: string) {
@@ -55,7 +57,9 @@ test.describe("home typing test", () => {
     await typeCurrentCharacter(page);
     await expect(page.locator("#c0")).toHaveClass(/text-base-300/);
 
-    await page.locator("button", { has: page.locator("#restart") }).click();
+    await page.keyboard.down("Tab");
+    await page.keyboard.press("Enter");
+    await page.keyboard.up("Tab");
 
     await expect(page.locator("#c0")).toHaveClass(/active-char/);
     await expect(page.locator("#c0")).not.toHaveClass(/text-base-300/);
@@ -71,7 +75,7 @@ test.describe("home typing test", () => {
     await expect(toolbar.getByRole("button", { name: "15" })).toHaveAttribute("aria-pressed", "true");
 
     // Words owns its length controls directly beside the mode group.
-    await selectMode(page, "Words");
+    await selectMode(page, "Words", { force: true });
     await expect(modeBar.getByRole("button", { name: "Words" })).toHaveAttribute("aria-pressed", "true");
     await toolbar.getByRole("button", { name: "25" }).click();
     await expect(toolbar.getByRole("button", { name: "25" })).toHaveAttribute("aria-pressed", "true");
@@ -138,7 +142,7 @@ test.describe("home typing test", () => {
 
     // Timed (default), Words, Relaxed use a word list → icon shown.
     await expect(langButton).toBeVisible();
-    await selectMode(page, "Words");
+    await selectMode(page, "Words", { force: true });
     await expect(langButton).toBeVisible();
     await selectMode(page, "Relaxed");
     await expect(langButton).toBeVisible();
@@ -173,12 +177,12 @@ test.describe("home typing test", () => {
     await gotoHome(page);
 
     await typeCurrentCharacter(page);
-    await selectMode(page, "Words");
+    await selectMode(page, "Words", { force: true });
     await expect(page.getByTestId("mode-bar").getByRole("button", { name: "Words" })).toHaveAttribute("aria-pressed", "true");
 
     expect(scoreCreates).toBe(0);
 
-    await selectMode(page, "Timed");
+    await selectMode(page, "Timed", { force: true });
     await expect(page.getByTestId("mode-bar").getByRole("button", { name: "Timed" })).toHaveAttribute("aria-pressed", "true");
 
     expect(scoreCreates).toBe(0);
@@ -298,6 +302,7 @@ test.describe("home typing test", () => {
 
     // Start the test; the countdown should expire and show the score card even
     // though the text is nowhere near finished.
+    await page.locator("#text").click();
     await typeCurrentCharacter(page);
     await expect(page.getByRole("button", { name: "Test Again" })).toBeVisible({ timeout: 10_000 });
   });
@@ -480,7 +485,9 @@ test.describe("home typing test", () => {
     await expect(page.locator(".typecafe-keyboard")).toBeVisible();
     for (let i = 0; i < 6; i++) await typeCurrentCharacter(page, i);
 
-    await page.locator("button", { has: page.locator("#restart") }).click();
+    await page.keyboard.down("Tab");
+    await page.keyboard.press("Enter");
+    await page.keyboard.up("Tab");
     await expect.poll(async () =>
       page.evaluate(() => window.localStorage.getItem("typecafe:keyStats")),
     ).toContain('"attempts"');
