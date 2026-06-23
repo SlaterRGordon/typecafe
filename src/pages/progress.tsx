@@ -279,6 +279,14 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
                                     {delta.trend === "down" && `Down over ${periodPhrase(period)}. Drill your weak spots to turn it around.`}
                                     {delta.trend === "flat" && `Flat over ${periodPhrase(period)}. Drill your weak spots to break the plateau.`}
                                 </p>
+                                <div data-testid="headline-start-current" className="mt-4 flex flex-wrap items-center gap-2 rounded-lg border border-base-content/10 bg-base-200/35 px-3 py-2 text-sm text-base-content/65">
+                                    <span className="font-semibold text-base-content/45">Start</span>
+                                    <span className="font-mono text-base-content">{delta.priorAvg === null ? "n/a" : delta.priorAvg.toFixed(1)}</span>
+                                    <span aria-hidden="true" className="text-base-content/35">-&gt;</span>
+                                    <span className="font-semibold text-base-content/45">Current</span>
+                                    <span className="font-mono text-base-content">{delta.currentAvg.toFixed(1)}</span>
+                                    <span className="text-base-content/40">WPM</span>
+                                </div>
                             </>
                         ) : hasData ? (
                             // Enough to chart, but no comparison window yet: just the

@@ -18,6 +18,8 @@ test.describe("progress dashboard", () => {
     await expect(headline).toBeVisible();
     await expect(headline.getByText(/\+\d/)).toBeVisible();
     await expect(headline.getByText("WPM").first()).toBeVisible();
+    await expect(page.getByTestId("headline-start-current")).toContainText("Start");
+    await expect(page.getByTestId("headline-start-current")).toContainText("Current");
 
     // The practice streak chip shows (the mocked history reaches today).
     await expect(page.getByTestId("streak-chip")).toBeVisible();
