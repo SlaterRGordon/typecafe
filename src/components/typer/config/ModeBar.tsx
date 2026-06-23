@@ -28,10 +28,9 @@ const WORD_LENGTHS = [10, 25, 50, 100]
 // demand. They're grouped under one English row in the picker.
 const ENGLISH_SIZES = [
     { value: "english1k", label: "1k" },
+    { value: "english5k", label: "5k" },
     { value: "english", label: "10k" },
     { value: "english25k", label: "25k" },
-    { value: "english50k", label: "50k" },
-    { value: "english100k", label: "100k" },
 ]
 const ENGLISH_VALUES = new Set(ENGLISH_SIZES.map((size) => size.value))
 

@@ -162,14 +162,14 @@ test.describe("home typing test", () => {
     await toolbar.getByRole("button", { name: "Language: English 10k" }).click();
     const menu = page.getByTestId("language-menu");
     await expect(menu).toBeVisible();
-    for (const size of ["1k", "10k", "25k", "50k", "100k"]) {
+    for (const size of ["1k", "5k", "10k", "25k"]) {
       await expect(menu.getByRole("button", { name: `English ${size}`, exact: true })).toBeVisible();
     }
 
     // Picking a larger slice updates the label and keeps a renderable test
-    // (the 100k word list loads lazily as its own chunk).
-    await menu.getByRole("button", { name: "English 100k", exact: true }).click();
-    await expect(toolbar.getByRole("button", { name: "Language: English 100k" })).toBeVisible();
+    // (the 25k word list loads lazily as its own chunk).
+    await menu.getByRole("button", { name: "English 25k", exact: true }).click();
+    await expect(toolbar.getByRole("button", { name: "Language: English 25k" })).toBeVisible();
     await expect(page.locator("#words .char").first()).toBeVisible();
   });
 

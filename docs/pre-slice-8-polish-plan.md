@@ -83,9 +83,10 @@ Output: separate Phase 6 content plan.
 
 Output: separate perf/content architecture plan.
 
-**Done — English vocabulary sizes (1k / 10k / 25k / 50k / 100k):**
-- Build input `data/unigram_freq.zip` (333k frequency-ranked words, committed; extracted `.csv` gitignored). `scripts/gen-english-wordlists.mjs` slices strict `^[a-z]+$` top-N into `english{1k,25k,50k,100k}.json`. Curated `english10k.json` left untouched (default + daily-challenge seed).
-- New sizes register as lazy loaders in `utils.tsx`; only the 10k default stays in the main bundle. 100k chunk ≈ 1 MB raw / ~0.4 MB over the wire, fetched on demand.
+**Done — English vocabulary sizes (1k / 5k / 10k / 25k):**
+- Build inputs (committed, never shipped): `data/unigram_freq.zip` (333k frequency-ranked words; extracted `.csv` gitignored) and `data/scowl-en-us.txt` (SCOWL en-US dictionary). `scripts/gen-english-wordlists.mjs` keeps the frequency ordering but drops any word not in SCOWL — the raw corpus is a web crawl and otherwise ranks brand names / other languages / typos as "frequent" (lumix, nyheter, winmodem). Emits `english{1k,5k,25k}.json`. Curated `english10k.json` left untouched (default + daily-challenge seed).
+- Dropped 50k/100k: reaching 25k clean words already scans to frequency depth ~30k; 100k would dredge the noisy tail, and an educated vocabulary is only ~20–35k words anyway.
+- Sizes register as lazy loaders in `utils.tsx`; only the 10k default stays in the main bundle.
 - Picker groups the sizes as chips under one English row (`ModeBar.tsx`); `10k` maps to the base `english` key. e2e: `home.spec.ts` "English exposes vocabulary sizes".
 - Still open for this item: migrate the default English + other languages fully off the static payload, and lazy gram bundles per language.
 

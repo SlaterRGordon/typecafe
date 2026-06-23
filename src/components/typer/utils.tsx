@@ -22,13 +22,12 @@ const languageLoaders: Record<string, () => Promise<WordList>> = {
     spanish: async () => (await import('./languages/spanish10k.json')).default,
     chinese: async () => (await import('./languages/chinese10k.json')).default,
     hindi: async () => (await import('./languages/hindi1k.json')).default,
-    // English vocabulary sizes derived from the unigram frequency corpus. The
-    // default `english` (10k) ships in the main bundle; these larger/smaller
-    // slices load on demand so they never weigh down first paint.
+    // English vocabulary sizes: frequency-ranked, then filtered against SCOWL so
+    // only real words survive. The default `english` (10k) ships in the main
+    // bundle; these slices load on demand so they never weigh down first paint.
     english1k: async () => (await import('./languages/english1k.json')).default,
+    english5k: async () => (await import('./languages/english5k.json')).default,
     english25k: async () => (await import('./languages/english25k.json')).default,
-    english50k: async () => (await import('./languages/english50k.json')).default,
-    english100k: async () => (await import('./languages/english100k.json')).default,
 }
 
 const languagePromises: Record<string, Promise<void>> = {}
