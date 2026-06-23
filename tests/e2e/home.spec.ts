@@ -214,6 +214,22 @@ test.describe("home typing test", () => {
     await expect(page.getByTestId("mode-bar").getByRole("button", { name: "Relaxed" })).toHaveAttribute("aria-pressed", "true");
   });
 
+  test("keyboard toggle keeps the typing text vertically stable", async ({ page }) => {
+    await gotoHome(page);
+
+    const beforeBox = await page.locator("#words").boundingBox();
+    expect(beforeBox).not.toBeNull();
+
+    await openSettingsMenu(page);
+    await page.getByTestId("settings-menu").getByRole("button", { name: /Keyboard/ }).click();
+    await page.keyboard.press("Escape");
+    await expect(page.locator(".typecafe-keyboard")).toBeVisible();
+
+    const afterBox = await page.locator("#words").boundingBox();
+    expect(afterBox).not.toBeNull();
+    expect(Math.abs(afterBox!.y - beforeBox!.y)).toBeLessThanOrEqual(8);
+  });
+
   // Phase 2 regression: the toolbar moved inside #typer, where Text.tsx's
   // click/keydown handlers used to yank focus back to the hidden typing input —
   // making the custom-length field uneditable (only the first digit ever landed).

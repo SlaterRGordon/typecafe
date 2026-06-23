@@ -529,6 +529,8 @@ const Home: NextPage = () => {
     "operatingSystem": "Any",
     "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
   };
+  const shouldShowHomeKeyboard = showKeyboard || mode === TestModes.practice
+  const shouldReserveHomeKeyboardSpace = shouldShowHomeKeyboard || mode === TestModes.normal
 
   return (
     <>
@@ -674,9 +676,11 @@ const Home: NextPage = () => {
           :
           null
         }
-        {!completedScore && (showKeyboard || mode === TestModes.practice) &&
-          <div data-testid="typing-focus-home-keyboard" className={typingFocusFadeClass(typingFocused)}>
-            <Keyboard mode={mode} currentKey={currentKey} selectedKeys={selectedKeys} setSelectedKeys={setSelectedKeys} charAttemptsRef={charAttemptsRef} baseAttemptsRef={persistedAttemptsRef} attemptVersion={attemptVersion} />
+        {!completedScore && shouldReserveHomeKeyboardSpace &&
+          <div data-testid="typing-focus-home-keyboard" className={typingFocusFadeClass(typingFocused, `min-h-[11rem] md:min-h-[15.25rem] ${shouldShowHomeKeyboard ? "" : "invisible pointer-events-none"}`)}>
+            {shouldShowHomeKeyboard &&
+              <Keyboard mode={mode} currentKey={currentKey} selectedKeys={selectedKeys} setSelectedKeys={setSelectedKeys} charAttemptsRef={charAttemptsRef} baseAttemptsRef={persistedAttemptsRef} attemptVersion={attemptVersion} />
+            }
           </div>
         }
       </div>
