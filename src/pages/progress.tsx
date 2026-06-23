@@ -37,12 +37,62 @@ function periodLabel(period: ProgressPeriod): string {
     return period === "all" ? "All" : `${period}d`;
 }
 
-function periodPhrase(period: ProgressPeriod): string {
-    return period === "all" ? "all time" : `the last ${period} days`;
-}
-
 function formatSigned(value: number, digits = 1): string {
     return `${value >= 0 ? "+" : ""}${value.toFixed(digits)}`;
+}
+
+type HeroTrend = "up" | "down" | "flat";
+
+// The hero "falling step" line: a start value on the left, the current value on
+// the right, and a connector that slopes down/up or stays flat to encode the
+// 30-day change at a glance. Always rendered (flat when there's no change or not
+// enough history yet) so the hero reads the same in every state. Colors come from
+// theme tokens (success / error / base-content) so it works under any theme.
+function HeroDeltaLine(props: { start: number | null; current: number; delta: number | null; trend: HeroTrend }) {
+    const color = props.trend === "up" ? "text-success" : props.trend === "down" ? "text-error" : "text-base-content";
+    // viewBox is 100x36; preserveAspectRatio="none" stretches it to fill width,
+    // and non-scaling-stroke keeps the line weight constant despite the stretch.
+    const path = props.trend === "down"
+        ? "M0 8 H58 L72 28 H100"
+        : props.trend === "up"
+            ? "M0 28 H58 L72 8 H100"
+            : "M0 18 H100";
+    return (
+        <div data-testid="headline-start-current" className="flex items-center gap-3 sm:gap-5">
+            <div className="shrink-0">
+                <div className="font-mono text-xl font-semibold text-base-content/70 sm:text-2xl">
+                    {props.start === null ? "—" : props.start.toFixed(1)}
+                </div>
+                <div className="text-[0.6rem] font-semibold uppercase tracking-wide text-base-content/40">Start</div>
+            </div>
+            <div className="relative h-12 flex-1">
+                {props.delta !== null && (
+                    <div className={`absolute left-1/2 top-0 -translate-x-1/2 font-mono text-lg font-bold ${color}`}>
+                        {formatSigned(props.delta)}
+                    </div>
+                )}
+                <svg viewBox="0 0 100 36" preserveAspectRatio="none" className={`absolute inset-x-0 bottom-0 h-8 w-full ${color}`} aria-hidden="true">
+                    <path
+                        d={path}
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth={2}
+                        strokeOpacity={0.55}
+                        strokeLinejoin="round"
+                        strokeLinecap="round"
+                        vectorEffect="non-scaling-stroke"
+                    />
+                </svg>
+            </div>
+            <div className="shrink-0 text-right">
+                <div className="flex items-baseline justify-end gap-1">
+                    <span className="font-mono text-4xl font-bold text-base-content sm:text-5xl">{props.current.toFixed(1)}</span>
+                    <span className="text-lg font-semibold text-base-content/60">WPM</span>
+                </div>
+                <div className="text-[0.6rem] font-semibold uppercase tracking-wide text-base-content/40">Current</div>
+            </div>
+        </div>
+    );
 }
 
 // Only Timed and Words ever persist Test rows (grams/practice/relaxed don't), so
@@ -267,38 +317,23 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
                                 <p className="mt-2 text-base-content/60">Your sessions repeat the same comfortable words. Switch to transition drills to break the ceiling.</p>
                             </div>
                         ) : delta.delta !== null ? (
-                            <>
-                                <div className="flex items-baseline gap-2">
-                                    <span className={`font-mono text-6xl font-bold ${delta.trend === "up" ? "text-success" : delta.trend === "down" ? "text-error" : "text-base-content"}`}>
-                                        {formatSigned(delta.delta)}
-                                    </span>
-                                    <span className="text-2xl font-semibold text-base-content/70">WPM</span>
-                                </div>
-                                <p className="mt-2 text-base-content/60">
-                                    {delta.trend === "up" && `Faster over ${periodPhrase(period)} — keep going.`}
-                                    {delta.trend === "down" && `Down over ${periodPhrase(period)}. Drill your weak spots to turn it around.`}
-                                    {delta.trend === "flat" && `Flat over ${periodPhrase(period)}. Drill your weak spots to break the plateau.`}
-                                </p>
-                                <div data-testid="headline-start-current" className="mt-4 flex flex-wrap items-center gap-2 rounded-lg border border-base-content/10 bg-base-200/35 px-3 py-2 text-sm text-base-content/65">
-                                    <span className="font-semibold text-base-content/45">Start</span>
-                                    <span className="font-mono text-base-content">{delta.priorAvg === null ? "n/a" : delta.priorAvg.toFixed(1)}</span>
-                                    <span aria-hidden="true" className="text-base-content/35">-&gt;</span>
-                                    <span className="font-semibold text-base-content/45">Current</span>
-                                    <span className="font-mono text-base-content">{delta.currentAvg.toFixed(1)}</span>
-                                    <span className="text-base-content/40">WPM</span>
-                                </div>
-                            </>
+                            <HeroDeltaLine
+                                start={delta.priorAvg}
+                                current={delta.currentAvg}
+                                delta={delta.delta}
+                                trend={delta.trend === "up" || delta.trend === "down" ? delta.trend : "flat"}
+                            />
                         ) : hasData ? (
-                            // Enough to chart, but no comparison window yet: just the
-                            // current average + a one-line hint (no paragraph/button —
-                            // the chart and goal below already carry the story).
-                            <>
-                                <div className="flex items-baseline gap-2">
-                                    <span className="font-mono text-5xl font-bold text-base-content">{averageWpm(inPeriod).toFixed(1)}</span>
-                                    <span className="text-2xl font-semibold text-base-content/70">WPM</span>
-                                </div>
-                                <p className="mt-1 text-sm text-base-content/45">Average over {periodPhrase(period)} — keep testing for a delta.</p>
-                            </>
+                            // Enough to chart, but no comparison window yet: a flat line
+                            // off the current average — the hero reads the same shape,
+                            // just with no change to show. The chart and goal below
+                            // carry the rest of the story.
+                            <HeroDeltaLine
+                                start={null}
+                                current={averageWpm(inPeriod)}
+                                delta={null}
+                                trend="flat"
+                            />
                         ) : (
                             <>
                                 <div className="font-mono text-3xl font-bold text-base-content">
