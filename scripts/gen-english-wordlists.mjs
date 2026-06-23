@@ -14,8 +14,9 @@
 // Run (after extracting the csv from the zip):
 //   node scripts/gen-english-wordlists.mjs
 //
-// english10k.json is intentionally NOT regenerated: it's the curated default
-// language and the daily-challenge seed, and is already clean.
+// All four tiers come from this one pipeline, so they nest cleanly
+// (1k ⊂ 5k ⊂ 10k ⊂ 25k). english10k.json is the default language (imported
+// in utils.tsx) and the daily-challenge seed.
 
 import { createReadStream, readFileSync, writeFileSync } from "node:fs";
 import { createInterface } from "node:readline";
@@ -27,10 +28,10 @@ const CSV = join(__dirname, "..", "data", "unigram_freq.csv");
 const SCOWL = join(__dirname, "..", "data", "scowl-en-us.txt");
 const OUT_DIR = join(__dirname, "..", "src", "components", "typer", "languages");
 
-// label -> size. 10k is omitted (curated default left untouched).
 const TARGETS = [
     { name: "english1k", size: 1_000 },
     { name: "english5k", size: 5_000 },
+    { name: "english10k", size: 10_000 },
     { name: "english25k", size: 25_000 },
 ];
 
