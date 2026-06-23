@@ -15,7 +15,8 @@ test.describe("learn page", () => {
     await expect(page.getByText("Sign in to save level progress")).toBeVisible();
     await expect(page.getByText("Required Speed: 40 net WPM")).toBeVisible();
     await expect(page.getByText("Required Accuracy: 90%")).toHaveCount(0);
-    await expect(page.getByText("1 star: 40 net WPM")).toBeVisible();
+    await expect(page.getByLabel("1 star: 40 net WPM")).toBeVisible();
+    await expect(page.getByText("1 star:", { exact: false })).toHaveCount(0);
     if (!testInfo.project.name.includes("mobile")) {
       await expect(page.getByText("Target Keys:")).toBeVisible();
     }

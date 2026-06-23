@@ -82,6 +82,17 @@ function NeutralMetric(props: { label: string, value: string, note: string, test
     )
 }
 
+function StarThreshold(props: { stars: 1 | 2 | 3, netWpm: number, className?: string }) {
+    const label = `${props.stars} ${props.stars === 1 ? "star" : "stars"}: ${formatNumber(props.netWpm, 0)} net WPM`
+
+    return (
+        <span className={props.className} aria-label={label}>
+            <span className="text-primary" aria-hidden="true">{"★".repeat(props.stars)}</span>
+            <span aria-hidden="true"> {formatNumber(props.netWpm, 0)} net WPM</span>
+        </span>
+    )
+}
+
 const Learn: NextPage = () => {
     const dispatch = useDispatch()
     const { data: sessionData, status: sessionStatus } = useSession()
@@ -451,9 +462,9 @@ const Learn: NextPage = () => {
                         <div className="text-base md:text-lg"><strong>Required Speed: {requirements.wpm} net WPM</strong></div>
                     </div>
                     <div className="flex w-full flex-wrap items-center gap-2 text-xs font-semibold text-base-content/60">
-                        <span className="rounded-full border border-base-content/15 px-2.5 py-1">1 star: {formatNumber(criteria.oneStarNetWpm, 0)} net WPM</span>
-                        <span className="rounded-full border border-base-content/15 px-2.5 py-1">2 stars: {formatNumber(criteria.twoStarNetWpm, 0)} net WPM</span>
-                        <span className="rounded-full border border-base-content/15 px-2.5 py-1">3 stars: {formatNumber(criteria.threeStarNetWpm, 0)} net WPM</span>
+                        <StarThreshold stars={1} netWpm={criteria.oneStarNetWpm} className="rounded-full border border-base-content/15 px-2.5 py-1" />
+                        <StarThreshold stars={2} netWpm={criteria.twoStarNetWpm} className="rounded-full border border-base-content/15 px-2.5 py-1" />
+                        <StarThreshold stars={3} netWpm={criteria.threeStarNetWpm} className="rounded-full border border-base-content/15 px-2.5 py-1" />
                     </div>
                     <div className="hidden gap-2 basis-0 grow justify-start w-full flex-wrap md:flex">
                         <div className="flex justify-start items-center text-base md:text-lg"><strong>Target Keys:</strong></div>
@@ -549,9 +560,9 @@ const Learn: NextPage = () => {
                                     : `Need ${formatNumber(completion.requirement.wpm, 0)} net WPM.`}
                             </p>
                             <div className="mt-4 grid w-full gap-2 rounded-lg border border-base-content/10 bg-base-200/35 p-3 text-left text-xs font-semibold text-base-content/60">
-                                <p>1 star: {formatNumber(completion.requirement.wpm, 0)} net WPM</p>
-                                <p>2 stars: {formatNumber(completion.requirement.wpm * 1.15, 0)} net WPM</p>
-                                <p>3 stars: {formatNumber(completion.requirement.wpm * 1.3, 0)} net WPM</p>
+                                <StarThreshold stars={1} netWpm={completion.requirement.wpm} />
+                                <StarThreshold stars={2} netWpm={completion.requirement.wpm * 1.15} />
+                                <StarThreshold stars={3} netWpm={completion.requirement.wpm * 1.3} />
                             </div>
                             <div className="mt-5 flex w-full flex-col gap-2 sm:flex-row">
                                 <button
