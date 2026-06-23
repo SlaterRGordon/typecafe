@@ -154,6 +154,25 @@ test.describe("home typing test", () => {
     await expect(langButton).toHaveCount(0);
   });
 
+  test("English exposes vocabulary sizes that load on demand", async ({ page }) => {
+    await gotoHome(page);
+    const toolbar = page.getByTestId("typer-toolbar");
+
+    // Default English is the curated 10k slice.
+    await toolbar.getByRole("button", { name: "Language: English 10k" }).click();
+    const menu = page.getByTestId("language-menu");
+    await expect(menu).toBeVisible();
+    for (const size of ["1k", "10k", "25k", "50k", "100k"]) {
+      await expect(menu.getByRole("button", { name: `English ${size}`, exact: true })).toBeVisible();
+    }
+
+    // Picking a larger slice updates the label and keeps a renderable test
+    // (the 100k word list loads lazily as its own chunk).
+    await menu.getByRole("button", { name: "English 100k", exact: true }).click();
+    await expect(toolbar.getByRole("button", { name: "Language: English 100k" })).toBeVisible();
+    await expect(page.locator("#words .char").first()).toBeVisible();
+  });
+
   test("landing on /?mode=grams starts in grams, not a words flash", async ({ page }) => {
     await mockTrpc(page);
     await page.goto("/?mode=grams");

@@ -53,3 +53,6 @@ yarn-error.log*
 /src/generated/prisma/
 
 .env*
+
+# extracted word-frequency source (regenerate from data/unigram_freq.zip)
+/data/*.csv

@@ -83,6 +83,12 @@ Output: separate Phase 6 content plan.
 
 Output: separate perf/content architecture plan.
 
+**Done — English vocabulary sizes (1k / 10k / 25k / 50k / 100k):**
+- Build input `data/unigram_freq.zip` (333k frequency-ranked words, committed; extracted `.csv` gitignored). `scripts/gen-english-wordlists.mjs` slices strict `^[a-z]+$` top-N into `english{1k,25k,50k,100k}.json`. Curated `english10k.json` left untouched (default + daily-challenge seed).
+- New sizes register as lazy loaders in `utils.tsx`; only the 10k default stays in the main bundle. 100k chunk ≈ 1 MB raw / ~0.4 MB over the wire, fetched on demand.
+- Picker groups the sizes as chips under one English row (`ModeBar.tsx`); `10k` maps to the base `english` key. e2e: `home.spec.ts` "English exposes vocabulary sizes".
+- Still open for this item: migrate the default English + other languages fully off the static payload, and lazy gram bundles per language.
+
 ## Then Resume Slice 8
 
 After items 1-8, continue Slice 8: themed Learn challenge levels.

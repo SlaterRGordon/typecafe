@@ -23,11 +23,28 @@ const TOOLBAR_MODES: ToolbarMode[] = [
 const TIMED_LENGTHS = [15, 30, 60, 120]
 const WORD_LENGTHS = [10, 25, 50, 100]
 
-const LANGUAGE_OPTIONS = [
-    { value: "english", label: "English" },
+// English ships as vocabulary-size slices of the unigram frequency corpus. "10k"
+// is the curated default and maps to the base `english` key; the rest load on
+// demand. They're grouped under one English row in the picker.
+const ENGLISH_SIZES = [
+    { value: "english1k", label: "1k" },
+    { value: "english", label: "10k" },
+    { value: "english25k", label: "25k" },
+    { value: "english50k", label: "50k" },
+    { value: "english100k", label: "100k" },
+]
+const ENGLISH_VALUES = new Set(ENGLISH_SIZES.map((size) => size.value))
+
+const OTHER_LANGUAGES = [
     { value: "french", label: "French" },
     { value: "spanish", label: "Spanish" },
 ]
+
+function languageLabelFor(language: string): string {
+    const size = ENGLISH_SIZES.find((option) => option.value === language)
+    if (size) return `English ${size.label}`
+    return OTHER_LANGUAGES.find((option) => option.value === language)?.label ?? language
+}
 
 interface ModeBarProps {
     mode: TestModes
@@ -151,7 +168,7 @@ export function ModeBar(props: ModeBarProps) {
     const isNormal = props.mode === TestModes.normal
     const lengthPresets = props.subMode === TestSubModes.timed ? TIMED_LENGTHS : WORD_LENGTHS
     const lengthMax = props.subMode === TestSubModes.timed ? 3600 : 5000
-    const languageLabel = LANGUAGE_OPTIONS.find((option) => option.value === props.language)?.label ?? props.language
+    const languageLabel = languageLabelFor(props.language)
     // Language only applies to word-list modes (Timed/Words/Relaxed); Grams and
     // Practice generate from n-grams / selected keys, so the picker is hidden.
     const showLanguage = props.mode === TestModes.normal || props.mode === TestModes.relaxed
@@ -340,7 +357,7 @@ export function ModeBar(props: ModeBarProps) {
                     open={openMenu === "language"}
                     onClose={() => setOpenMenu(null)}
                     testId="language-menu"
-                    widthClassName="w-44"
+                    widthClassName="w-52"
                     trigger={
                         <button
                             type="button"
@@ -356,7 +373,33 @@ export function ModeBar(props: ModeBarProps) {
                     }
                 >
                     <div id="language-menu" className="space-y-1">
-                        {LANGUAGE_OPTIONS.map((option) => (
+                        {/* English groups its vocabulary sizes onto one row of chips. */}
+                        <div className={`rounded-md px-3 py-2 ${ENGLISH_VALUES.has(props.language) ? "bg-primary/10" : ""}`}>
+                            <div className="flex items-center justify-between">
+                                <span className={`text-sm ${ENGLISH_VALUES.has(props.language) ? "text-primary" : "text-base-content/75"}`}>English</span>
+                                {ENGLISH_VALUES.has(props.language) &&
+                                    <span className="text-xs font-semibold uppercase tracking-wide text-primary">Active</span>
+                                }
+                            </div>
+                            <div className="mt-2 flex flex-wrap gap-1">
+                                {ENGLISH_SIZES.map((size) => (
+                                    <button
+                                        key={size.value}
+                                        type="button"
+                                        className={`min-h-8 rounded-md px-2.5 text-xs font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${props.language === size.value ? "bg-primary text-primary-content" : "bg-base-content/10 text-base-content/75 hover:bg-base-content/20"}`}
+                                        aria-label={`English ${size.label}`}
+                                        aria-pressed={props.language === size.value}
+                                        onClick={() => {
+                                            props.setLanguage(size.value)
+                                            setOpenMenu(null)
+                                        }}
+                                    >
+                                        {size.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                        {OTHER_LANGUAGES.map((option) => (
                             <button
                                 key={option.value}
                                 type="button"
