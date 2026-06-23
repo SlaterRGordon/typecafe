@@ -4,10 +4,12 @@ import Link from "next/link"
 import { useRouter } from "next/router"
 import { useMemo, useRef, useState } from "react"
 import { Typer, type TestCompletionResult } from "~/components/typer/Typer"
+import { useRestartShortcut } from "~/components/typer/hooks/useRestartShortcut"
 import { typingFocusFadeClass } from "~/components/typer/typingFocus"
 import { TestGramScopes, TestGramSources, TestModes, TestSubModes } from "~/components/typer/types"
 import { getWords } from "~/components/typer/utils"
 import { compileDrillText } from "~/lib/drill"
+import { isAnyModalOpen } from "~/lib/modals"
 
 type DrillKind = "keys" | "transitions" | "timed"
 
@@ -64,6 +66,7 @@ const Drill: NextPage = () => {
     const [typingFocused, setTypingFocused] = useState(false)
     const [restartSignal, setRestartSignal] = useState(0)
     const charAttemptsRef = useRef<Map<string, { attempts: number, correct: number }>>(new Map())
+    const resultRestartRef = useRef<HTMLButtonElement>(null)
 
     const config = useMemo<DrillConfig | null>(() => {
         if (!router.isReady) return null
@@ -102,6 +105,8 @@ const Drill: NextPage = () => {
         setCompleted(null)
         setRestartSignal((signal) => signal + 1)
     }
+
+    useRestartShortcut(resultRestartRef, restartDrill, isAnyModalOpen, { enabled: !!completed })
 
     const wordCount = config?.text.split(" ").filter(Boolean).length ?? DEFAULT_DRILL_WORDS
 
@@ -203,7 +208,7 @@ const Drill: NextPage = () => {
                                                 Re-measure
                                             </a>
                                         )}
-                                        <button type="button" onClick={restartDrill} className="inline-flex items-center justify-center rounded-md border border-base-content/15 px-4 py-2 text-sm font-semibold text-base-content transition hover:bg-base-content/5">
+                                        <button ref={resultRestartRef} type="button" onClick={restartDrill} className="inline-flex items-center justify-center rounded-md border border-base-content/15 px-4 py-2 text-sm font-semibold text-base-content transition hover:bg-base-content/5">
                                             {returnToPlan ? "Restart" : "Drill again"}
                                         </button>
                                     </div>

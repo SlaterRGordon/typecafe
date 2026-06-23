@@ -6,12 +6,14 @@ import { Avatar } from "~/components/Avatar";
 import { DailyChallengePrompt } from "~/components/challenge/DailyChallengePrompt";
 import { ShareableScoreCard, type ScoreSnapshot } from "~/components/scores/ShareableScoreCard";
 import { Typer, type TestCompletionResult } from "~/components/typer/Typer";
+import { useRestartShortcut } from "~/components/typer/hooks/useRestartShortcut";
 import { typingFocusFadeClass } from "~/components/typer/typingFocus";
 import { TestModes, TestSubModes } from "~/components/typer/types";
 import { getWords } from "~/components/typer/utils";
 import { DEFAULT_TEST_SETTINGS } from "~/hooks/useTestSettings";
 import { challengeDateKey, challengeShareBrag, challengeText } from "~/lib/challenge";
 import { recordLocalChallenge } from "~/lib/challengeHistory";
+import { isAnyModalOpen } from "~/lib/modals";
 import { api } from "~/utils/api";
 
 const CHALLENGE_SECONDS = 30;
@@ -159,6 +161,8 @@ const Challenge: NextPage = () => {
         setShareUrl(undefined);
         setRestartSignal((signal) => signal + 1);
     };
+
+    useRestartShortcut(null, playAgain, isAnyModalOpen, { enabled: !!completed });
 
     const createAndCopyShareLink = async () => {
         if (!completed?.testId) return undefined;

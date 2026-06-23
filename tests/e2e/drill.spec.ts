@@ -2,6 +2,12 @@ import { expect, test } from "@playwright/test"
 import { mockTrpc } from "./helpers/trpc"
 import { typeCurrentCharacter, typeVisibleTestText } from "./helpers/typing"
 
+async function pressRestartShortcut(page: Parameters<typeof mockTrpc>[0], key: "Enter" | "Space") {
+  await page.keyboard.down("Tab")
+  await page.keyboard.press(key)
+  await page.keyboard.up("Tab")
+}
+
 test.describe("drill page", () => {
   test("key drill renders real target-key words and completes", async ({ page }) => {
     await mockTrpc(page)
@@ -17,7 +23,12 @@ test.describe("drill page", () => {
 
     await expect(page.getByTestId("drill-result")).toBeVisible()
     await expect(page.getByRole("link", { name: "Re-measure" })).toHaveAttribute("href", "/?mode=timed&count=30")
-    await page.getByRole("button", { name: "Drill again" }).click()
+    await pressRestartShortcut(page, "Enter")
+    await expect(page.getByTestId("drill-typer")).toBeVisible()
+
+    await typeVisibleTestText(page)
+    await expect(page.getByTestId("drill-result")).toBeVisible()
+    await pressRestartShortcut(page, "Space")
     await expect(page.getByTestId("drill-typer")).toBeVisible()
   })
 

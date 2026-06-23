@@ -22,6 +22,12 @@ async function startChallengeTimer(page: Parameters<typeof mockTrpc>[0]) {
   else await page.keyboard.press(firstChar ?? "a");
 }
 
+async function pressRestartShortcut(page: Parameters<typeof mockTrpc>[0]) {
+  await page.keyboard.down("Tab");
+  await page.keyboard.press("Enter");
+  await page.keyboard.up("Tab");
+}
+
 test.describe("daily challenge", () => {
   test("home surfaces local daily challenge status", async ({ page }) => {
     await page.clock.install({ time: new Date("2026-06-16T12:00:00.000Z") });
@@ -120,7 +126,7 @@ test.describe("daily challenge", () => {
       dailyChallenge: true,
     });
 
-    await page.getByTestId("daily-challenge-prompt").getByRole("button", { name: "Try again" }).click();
+    await pressRestartShortcut(page);
 
     await expect(page.getByTestId("score-screenshot-card")).toBeHidden();
     await expect(page.getByTestId("challenge-header")).toBeVisible();

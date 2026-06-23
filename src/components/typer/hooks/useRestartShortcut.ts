@@ -8,11 +8,14 @@ interface Keys {
 // button; Tab held with Space or Enter triggers the restart. Suppressed while
 // any modal is open so modal keyboard navigation keeps working.
 export function useRestartShortcut(
-    restartRef: React.RefObject<HTMLButtonElement | null>,
+    restartRef: React.RefObject<HTMLButtonElement | null> | null,
     onRestart: () => void,
     isModalOpen: () => boolean,
+    options: { enabled?: boolean } = {},
 ) {
     useEffect(() => {
+        if (options.enabled === false) return
+
         let keys: Keys = {}
         let restarting = false
 
@@ -24,7 +27,7 @@ export function useRestartShortcut(
 
             if (keys['Tab']) {
                 e.preventDefault()
-                const restartBtn = restartRef.current
+                const restartBtn = restartRef?.current
                 if (restartBtn) {
                     restartBtn.classList.add("btn-active")
                     restartBtn.focus()
@@ -52,7 +55,7 @@ export function useRestartShortcut(
             }
 
             if (e.key == 'Tab') {
-                const restartBtn = restartRef.current
+                const restartBtn = restartRef?.current
                 if (restartBtn) {
                     restartBtn.classList.remove("btn-active")
                     restartBtn.blur()
@@ -67,5 +70,5 @@ export function useRestartShortcut(
             document.removeEventListener("keydown", handleKeyDown, true);
             document.removeEventListener("keyup", handleKeyUp, true);
         };
-    }, [restartRef, onRestart, isModalOpen]);
+    }, [restartRef, onRestart, isModalOpen, options.enabled]);
 }
