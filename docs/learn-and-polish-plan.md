@@ -10,7 +10,7 @@ A grab-bag of UX fixes plus a gamified learn page. Decisions locked with owner 2
 - Learn level variety = **themed challenge levels** (timed speed-round, accuracy no-miss, grams combo, boss) woven into the key-progression, using timed/words/grams.
 - Tab-restart works on **both** `tab+enter` and `tab+space`.
 
-**Sequencing:** independent polish first (1 Toolbar → 2 Copy&numbers → 3 Banners → 4 Grams-entry → 5 Progress-trim → 6 OG-badge), then the learn feature (7 Learn-net + popover → 8 Themed levels). Learn net WPM must land before the popover (stars read net); themed levels build on the popover.
+**Sequencing:** independent polish first (1 Toolbar → 2 Copy&numbers → 3 Banners → 4 Grams-entry → 5 Progress-trim → 6 OG-badge), then the learn feature (7 Learn-net + popover → 8 Themed levels). Learn net WPM must land before the popover (stars read net); themed levels build on the popover. Before Slice 8, clear the short queue in [pre-slice-8-polish-plan.md](../pre-slice-8-polish-plan.md).
 
 ---
 
