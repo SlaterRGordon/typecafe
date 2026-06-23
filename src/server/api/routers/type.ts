@@ -5,12 +5,13 @@ import {
   publicProcedure,
   protectedProcedure
 } from "~/server/api/trpc";
+import { baseTypeLanguage } from "~/lib/typeLanguage";
 
 export const typeRouter = createTRPCRouter({
   get: publicProcedure
-    .input(z.object({ 
-      mode: z.number().optional(), 
-      subMode: z.number().optional(), 
+    .input(z.object({
+      mode: z.number().optional(),
+      subMode: z.number().optional(),
       language: z.string().optional()
     }))
     .query(({ ctx, input }) => {
@@ -18,14 +19,14 @@ export const typeRouter = createTRPCRouter({
         where: {
           mode: input.mode,
           subMode: input.subMode,
-          language: input.language,
+          language: baseTypeLanguage(input.language),
         },
       });
     }),
     getAll: publicProcedure
-    .input(z.object({ 
-      mode: z.number().optional(), 
-      subMode: z.number().optional(), 
+    .input(z.object({
+      mode: z.number().optional(),
+      subMode: z.number().optional(),
       language: z.string().optional()
     }))
     .query(({ ctx, input }) => {
@@ -33,7 +34,7 @@ export const typeRouter = createTRPCRouter({
         where: {
           mode: input.mode,
           subMode: input.subMode,
-          language: input.language,
+          language: baseTypeLanguage(input.language),
         },
       });
     }),

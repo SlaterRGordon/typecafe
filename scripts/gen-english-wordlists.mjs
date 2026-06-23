@@ -14,7 +14,7 @@
 // Run (after extracting the csv from the zip):
 //   node scripts/gen-english-wordlists.mjs
 //
-// All four tiers come from this one pipeline, so they nest cleanly
+// All tiers come from this one pipeline, so they nest cleanly
 // (1k ⊂ 5k ⊂ 10k ⊂ 25k). english10k.json is the default language (imported
 // in utils.tsx) and the daily-challenge seed.
 
@@ -57,6 +57,7 @@ const BLOCKLIST = new Set([
 
 // SCOWL membership isn't enough for 1-2 letter tokens — gate those on the
 // allowlists; length >= 3 is trusted via SCOWL minus the blocklist.
+/** @param {string} word @returns {boolean} */
 function isRealTypingWord(word) {
     if (BLOCKLIST.has(word)) return false;
     if (word.length === 1) return ONE_LETTER_OK.has(word);
