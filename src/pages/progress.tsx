@@ -50,13 +50,16 @@ type HeroTrend = "up" | "down" | "flat";
 // theme tokens (success / error / base-content) so it works under any theme.
 function HeroDeltaLine(props: { start: number | null; current: number; delta: number | null; trend: HeroTrend }) {
     const color = props.trend === "up" ? "text-success" : props.trend === "down" ? "text-error" : "text-base-content";
-    // viewBox is 100x36; preserveAspectRatio="none" stretches it to fill width,
-    // and non-scaling-stroke keeps the line weight constant despite the stretch.
-    const path = props.trend === "down"
-        ? "M0 8 H58 L72 28 H100"
+    // viewBox is 100x40; preserveAspectRatio="none" stretches the connector to
+    // fill width, and non-scaling-stroke keeps the line weight constant despite
+    // the stretch. The step is a short, fixed-steepness diagonal near the middle.
+    // Endpoint markers (circle / arrowhead) are overlaid as HTML so the non-
+    // uniform stretch can't squash them; their tops mirror the path's y ends.
+    const geo = props.trend === "down"
+        ? { path: "M0 16 H60 L68 34 H100", leftTop: "40%", rightTop: "85%" }
         : props.trend === "up"
-            ? "M0 28 H58 L72 8 H100"
-            : "M0 18 H100";
+            ? { path: "M0 34 H60 L68 16 H100", leftTop: "85%", rightTop: "40%" }
+            : { path: "M0 25 H100", leftTop: "62.5%", rightTop: "62.5%" };
     return (
         <div data-testid="headline-start-current" className="flex items-center gap-3 sm:gap-5">
             <div className="shrink-0">
@@ -65,15 +68,15 @@ function HeroDeltaLine(props: { start: number | null; current: number; delta: nu
                 </div>
                 <div className="text-[0.6rem] font-semibold uppercase tracking-wide text-base-content/40">Start</div>
             </div>
-            <div className="relative h-12 flex-1">
+            <div className={`relative h-14 flex-1 ${color}`}>
                 {props.delta !== null && (
-                    <div className={`absolute left-1/2 top-0 -translate-x-1/2 font-mono text-lg font-bold ${color}`}>
+                    <div className="absolute left-1/2 top-0 -translate-x-1/2 font-mono text-lg font-bold">
                         {formatSigned(props.delta)}
                     </div>
                 )}
-                <svg viewBox="0 0 100 36" preserveAspectRatio="none" className={`absolute inset-x-0 bottom-0 h-8 w-full ${color}`} aria-hidden="true">
+                <svg viewBox="0 0 100 40" preserveAspectRatio="none" className="absolute inset-0 h-full w-full" aria-hidden="true">
                     <path
-                        d={path}
+                        d={geo.path}
                         fill="none"
                         stroke="currentColor"
                         strokeWidth={2}
@@ -83,6 +86,18 @@ function HeroDeltaLine(props: { start: number | null; current: number; delta: nu
                         vectorEffect="non-scaling-stroke"
                     />
                 </svg>
+                {/* Start node */}
+                <span
+                    className="absolute left-0 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-current"
+                    style={{ top: geo.leftTop }}
+                    aria-hidden="true"
+                />
+                {/* Direction arrowhead (always points to the current value) */}
+                <span
+                    className="absolute right-0 h-0 w-0 translate-x-1/2 -translate-y-1/2 border-y-[5px] border-l-[8px] border-y-transparent border-l-current"
+                    style={{ top: geo.rightTop }}
+                    aria-hidden="true"
+                />
             </div>
             <div className="shrink-0 text-right">
                 <div className="flex items-baseline justify-end gap-1">
