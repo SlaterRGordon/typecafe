@@ -37,6 +37,32 @@ const TARGETS = [
 const maxSize = Math.max(...TARGETS.map((t) => t.size));
 const onlyLetters = /^[a-z]+$/;
 
+// SCOWL is a spell-checker dictionary, so it accepts every single letter plus
+// initialisms and abbreviations that rank high in a web crawl but aren't real
+// typing words. Short tokens are where this concentrates, so they get an
+// explicit allowlist; a small blocklist catches the longer offenders (month
+// abbreviations, common acronyms).
+const ONE_LETTER_OK = new Set(["a", "i"]);
+const TWO_LETTER_OK = new Set(
+    "am an as at be by do go he hi if in is it me my no of oh ok on or so to up us we".split(" "),
+);
+const BLOCKLIST = new Set([
+    // month abbreviations (mar/may are real words, so left in)
+    "jan", "feb", "apr", "jun", "jul", "aug", "sep", "sept", "oct", "nov", "dec",
+    // acronyms / initialisms SCOWL accepts but nobody "practices" typing
+    "usa", "url", "faq", "dvd", "cdrom", "html", "http", "https", "www", "ftp",
+    "pm", "tv", "cd", "pc", "uk",
+]);
+
+// SCOWL membership isn't enough for 1-2 letter tokens — gate those on the
+// allowlists; length >= 3 is trusted via SCOWL minus the blocklist.
+function isRealTypingWord(word) {
+    if (BLOCKLIST.has(word)) return false;
+    if (word.length === 1) return ONE_LETTER_OK.has(word);
+    if (word.length === 2) return TWO_LETTER_OK.has(word);
+    return true;
+}
+
 // SCOWL membership set: each accepted line is a single a-z token once lowercased.
 // This skips the prose header and drops possessives/accented variants for free.
 function loadDictionary() {
@@ -62,7 +88,7 @@ async function main() {
         if (header) { header = false; continue; } // drop "word,count"
         scanned += 1;
         const word = line.slice(0, line.indexOf(",")).trim().toLowerCase();
-        if (!word || seen.has(word) || !onlyLetters.test(word) || !dict.has(word)) continue;
+        if (!word || seen.has(word) || !onlyLetters.test(word) || !dict.has(word) || !isRealTypingWord(word)) continue;
         seen.add(word);
         words.push(word);
         if (words.length >= maxSize) break;
