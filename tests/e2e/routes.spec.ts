@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { mockAuthenticatedSession } from "./helpers/trpc";
 
 type PublicRoute =
   | { path: string; visibleText: string }
@@ -30,4 +31,13 @@ test.describe("public routes", () => {
       }
     });
   }
+
+  test("launch navigation hides plan for signed-in users", async ({ page }) => {
+    await mockAuthenticatedSession(page);
+    await page.goto("/");
+
+    await expect(page.getByRole("button", { name: "Progress" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Profile" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Plan" })).toHaveCount(0);
+  });
 });
