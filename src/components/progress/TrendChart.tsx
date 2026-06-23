@@ -1,4 +1,4 @@
-import { useId, useMemo, type ReactNode } from "react"
+import { useId, useMemo, useState, type ReactNode } from "react"
 import type { TrendPoint } from "~/lib/progress"
 
 interface TrendChartProps {
@@ -28,6 +28,14 @@ function formatDate(t: number): string {
     return new Date(t).toLocaleDateString(undefined, { month: "short", day: "numeric" })
 }
 
+function formatTooltipDate(t: number): string {
+    return new Date(t).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })
+}
+
+function formatMetric(value: number, suffix = ""): string {
+    return `${value.toFixed(1)}${suffix}`
+}
+
 // Per-test scatter with a rolling-average line — the chart that proves "am I
 // getting faster?" (§3.1.2). Pure presentation; renders for 1, 10, or 1,000 points.
 export function TrendChart(props: TrendChartProps) {
@@ -35,6 +43,7 @@ export function TrendChart(props: TrendChartProps) {
     const descId = useId()
     const baseline = props.baseline ?? "zero"
     const suffix = props.valueSuffix ?? ""
+    const [activeIndex, setActiveIndex] = useState<number | null>(null)
 
     const layout = useMemo(() => {
         const width = 640
@@ -81,6 +90,22 @@ export function TrendChart(props: TrendChartProps) {
 
     const pointRadius = props.points.length > 120 ? 2 : props.points.length > 40 ? 3 : 5
     const yFor = (value: number) => layout.padding.top + layout.chartHeight - ((value - layout.minY) / (layout.maxY - layout.minY)) * layout.chartHeight
+    const activePoint = activeIndex === null ? null : props.points[activeIndex]
+    const activeScatterPoint = activeIndex === null ? null : layout.scatter[activeIndex]
+    const tooltipLines = activePoint ? [
+        formatTooltipDate(activePoint.t),
+        `Net WPM ${formatMetric(activePoint.wpm)}`,
+        `Accuracy ${formatMetric(activePoint.accuracy, "%")}`,
+        ...(typeof activePoint.consistency === "number" ? [`Consistency ${formatMetric(activePoint.consistency, "%")}`] : []),
+    ] : []
+    const tooltip = activePoint && activeScatterPoint ? (() => {
+        const width = 176
+        const height = 30 + tooltipLines.length * 16
+        const x = Math.min(Math.max(activeScatterPoint.x - width / 2, 6), layout.width - width - 6)
+        const y = activeScatterPoint.y - height - 12 >= 6 ? activeScatterPoint.y - height - 12 : activeScatterPoint.y + 14
+
+        return { x, y, width, height }
+    })() : null
 
     return (
         <div className="rounded-lg border border-base-content/10 bg-base-100/45 p-4">
@@ -113,9 +138,57 @@ export function TrendChart(props: TrendChartProps) {
                 {layout.linePath && props.points.length > 1
                     ? <path d={layout.linePath} fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" />
                     : null}
-                {layout.scatter.map((point, index) => (
-                    <circle key={index} cx={point.x} cy={point.y} r={pointRadius} fill="currentColor" opacity="0.5" />
-                ))}
+                <g role="list" aria-label={`${props.title} data points`}>
+                    {layout.scatter.map((scatterPoint, index) => {
+                        const point = props.points[index]
+                        const lines = point ? [
+                            formatTooltipDate(point.t),
+                            `Net WPM ${formatMetric(point.wpm)}`,
+                            `Accuracy ${formatMetric(point.accuracy, "%")}`,
+                            ...(typeof point.consistency === "number" ? [`Consistency ${formatMetric(point.consistency, "%")}`] : []),
+                        ] : []
+
+                        return (
+                            <g
+                                key={index}
+                                data-testid={`trend-point-${index}`}
+                                role="listitem"
+                                tabIndex={0}
+                                aria-label={lines.join(", ")}
+                                onMouseEnter={() => setActiveIndex(index)}
+                                onMouseLeave={() => setActiveIndex((current) => current === index ? null : current)}
+                                onFocus={() => setActiveIndex(index)}
+                                onBlur={() => setActiveIndex((current) => current === index ? null : current)}
+                                className="outline-none"
+                            >
+                                <circle cx={scatterPoint.x} cy={scatterPoint.y} r={Math.max(pointRadius + 9, 14)} fill="transparent" />
+                                <circle cx={scatterPoint.x} cy={scatterPoint.y} r={pointRadius} fill="currentColor" opacity={activeIndex === index ? "0.95" : "0.5"} />
+                            </g>
+                        )
+                    })}
+                </g>
+                {tooltip && (
+                    <g data-testid="trend-tooltip" pointerEvents="none">
+                        <rect
+                            x={tooltip.x}
+                            y={tooltip.y}
+                            width={tooltip.width}
+                            height={tooltip.height}
+                            rx="6"
+                            className="fill-base-100 stroke-base-content/15"
+                        />
+                        {tooltipLines.map((line, index) => (
+                            <text
+                                key={line}
+                                x={tooltip.x + 12}
+                                y={tooltip.y + 20 + index * 16}
+                                className={`fill-base-content text-xs ${index === 0 ? "font-semibold" : ""}`}
+                            >
+                                {line}
+                            </text>
+                        ))}
+                    </g>
+                )}
             </svg>
         </div>
     )

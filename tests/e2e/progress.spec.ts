@@ -25,11 +25,21 @@ test.describe("progress dashboard", () => {
     // One big trend chart, WPM by default, with metric tabs to toggle it.
     await expect(page.getByText("WPM over time", { exact: true })).toBeVisible();
     await expect(page.getByTestId("trend-chart")).toHaveCount(1);
+    await page.getByTestId("trend-point-0").hover();
+    await expect(page.getByTestId("trend-tooltip")).toContainText("Net WPM");
+    await expect(page.getByTestId("trend-tooltip")).toContainText("Accuracy");
+    await expect(page.getByTestId("trend-tooltip")).toContainText("Consistency");
+    await page.getByTestId("trend-point-0").focus();
+    await expect(page.getByTestId("trend-tooltip")).toContainText("Net WPM");
     const trendTabs = page.getByTestId("trend-tabs");
     await trendTabs.getByRole("button", { name: "Accuracy" }).click();
     await expect(page.getByText("Accuracy over time", { exact: true })).toBeVisible();
+    await page.getByTestId("trend-point-0").hover();
+    await expect(page.getByTestId("trend-tooltip")).toContainText("Accuracy");
     await trendTabs.getByRole("button", { name: "Consistency" }).click();
     await expect(page.getByText("Consistency over time", { exact: true })).toBeVisible();
+    await page.getByTestId("trend-point-0").hover();
+    await expect(page.getByTestId("trend-tooltip")).toContainText("Consistency");
     await trendTabs.getByRole("button", { name: "WPM" }).click();
     await expect(page.getByText("WPM over time", { exact: true })).toBeVisible();
 
