@@ -8,6 +8,12 @@ async function gotoLearn(page: Page) {
   await expect(page.locator("#words .char").first()).toBeVisible({ timeout: 20_000 });
 }
 
+async function openReactSelect(page: Page, instanceId: string) {
+  const input = page.locator(`#react-select-${instanceId}-input`);
+  const control = input.locator("xpath=ancestor::*[contains(@class, 'my-react-select__control')][1]");
+  await control.click();
+}
+
 test.describe("learn page", () => {
   test("renders the guest learning state and target keyboard", async ({ page }, testInfo) => {
     await gotoLearn(page);
@@ -34,6 +40,27 @@ test.describe("learn page", () => {
     await gotoLearn(page);
 
     await expect(page.getByText("Level 2").first()).toBeVisible();
+  });
+
+  test("shows best stars in the active summary and level menu", async ({ page }) => {
+    await page.addInitScript(() => {
+      window.localStorage.setItem(
+        "typecafe.learnProgress.easy",
+        JSON.stringify([{ options: "Level 1", speed: 120, accuracy: 100, stars: 3 }]),
+      );
+    });
+
+    await gotoLearn(page);
+    await expect(page.getByText("Level 2").first()).toBeVisible();
+
+    await openReactSelect(page, "levelSelect");
+    const levelOne = page.getByRole("option", { name: /^Level 1\b/ });
+    await expect(levelOne).toBeVisible();
+    await expect(page.getByLabel("Best 3 stars").first()).toBeVisible();
+    await levelOne.click();
+
+    await expect(page.getByTestId("learn-active-stars")).toBeVisible();
+    await expect(page.getByTestId("learn-active-stars").getByLabel("Best 3 stars")).toBeVisible();
   });
 
   test("completion saves guest progress on this device", async ({ page }) => {

@@ -15,7 +15,7 @@ import { useSession } from "next-auth/react";
 import type { TestCompletionResult } from "~/components/typer/Typer";
 import { learnStarCriteria, starsFor, type LearnRequirement } from "~/lib/learnStars";
 
-type Option = { label: string, value: number | string, isDisabled: boolean }
+type Option = { label: string, value: number | string, isDisabled: boolean, stars?: number }
 type DifficultyName = "easy" | "medium" | "hard"
 type LearnProgress = { options: string, speed: number, accuracy: number, stars?: number }
 type LearnCompletion = {
@@ -93,6 +93,17 @@ function StarThreshold(props: { stars: 1 | 2 | 3, netWpm: number, className?: st
     )
 }
 
+function BestStars(props: { stars?: number, className?: string }) {
+    if (!props.stars) return null
+    const label = `Best ${props.stars} ${props.stars === 1 ? "star" : "stars"}`
+
+    return (
+        <span className={props.className} aria-label={label}>
+            <span className="text-primary" aria-hidden="true">{"★".repeat(props.stars)}</span>
+        </span>
+    )
+}
+
 const Learn: NextPage = () => {
     const dispatch = useDispatch()
     const { data: sessionData, status: sessionStatus } = useSession()
@@ -160,17 +171,19 @@ const Learn: NextPage = () => {
     }
 
     const getLevelOptions = useCallback((completedTests: LearnProgress[]): Option[] => levels.map((level: Level, index: number, array: Level[]) => {
-        if (level.name == "Level 1") return { value: level.name, label: level.name, isDisabled: false } as Option
+        const completedLevel = completedTests.find(test => test.options == level.name)
+        const stars = completedLevel?.stars ?? 0
+        if (level.name == "Level 1") return { value: level.name, label: level.name, isDisabled: false, stars } as Option
 
         const levelTest = completedTests?.find(test => test.options == array[index - 1]?.name)
         const previousLevel = array[index - 1]
         const requirements = previousLevel?.[difficulty]
 
         if (levelTest && requirements && levelTest.speed >= requirements.wpm) {
-            return { value: level.name, label: level.name, isDisabled: false } as Option
+            return { value: level.name, label: level.name, isDisabled: false, stars } as Option
         }
 
-        return { value: level.name, label: level.name, isDisabled: true } as Option
+        return { value: level.name, label: level.name, isDisabled: true, stars } as Option
     }), [difficulty])
 
     const persistedProgress: LearnProgress[] = useMemo(() => [
@@ -373,6 +386,8 @@ const Learn: NextPage = () => {
     const requirements = level[difficulty]
     const isLearnContentLoading = isLearnProgressLoading || isLevelSelectionLoading
     const criteria = learnStarCriteria(requirements)
+    const activeLevelProgress = completedProgress.find(progress => progress.options === level.name)
+    const activeLevelStars = activeLevelProgress?.stars ?? 0
 
     const retryLevel = () => {
         setCompletion(null)
@@ -440,13 +455,18 @@ const Learn: NextPage = () => {
                                     formatOptionLabel={(option: Option) => {
                                         if (option.isDisabled) {
                                             return (
-                                                <div className="flex justify-between">
-                                                    <div>{option.label}</div>
+                                                <div className="flex items-center justify-between gap-3">
+                                                    <div className="min-w-0 truncate">{option.label}</div>
                                                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="currentColor" d="M6 22q-.825 0-1.413-.588T4 20V10q0-.825.588-1.413T6 8h1V6q0-2.075 1.463-3.538T12 1q2.075 0 3.538 1.463T17 6v2h1q.825 0 1.413.588T20 10v10q0 .825-.588 1.413T18 22H6Zm0-2h12V10H6v10Zm6-3q.825 0 1.413-.588T14 15q0-.825-.588-1.413T12 13q-.825 0-1.413.588T10 15q0 .825.588 1.413T12 17ZM9 8h6V6q0-1.25-.875-2.125T12 3q-1.25 0-2.125.875T9 6v2ZM6 20V10v10Z" /></svg>
                                                 </div>
                                             )
                                         }
-                                        return <div>{option.label}</div>
+                                        return (
+                                            <div className="flex items-center justify-between gap-3">
+                                                <div className="min-w-0 truncate">{option.label}</div>
+                                                <BestStars stars={option.stars} className="shrink-0 font-mono text-sm" />
+                                            </div>
+                                        )
                                     }}
                                     isSearchable={false}
                                     className="my-react-select-container min-w-[10rem]"
@@ -460,6 +480,11 @@ const Learn: NextPage = () => {
                     <>
                     <div className="flex w-full basis-0 grow flex-wrap justify-start items-center gap-x-4 gap-y-1">
                         <div className="text-base md:text-lg"><strong>Required Speed: {requirements.wpm} net WPM</strong></div>
+                        {activeLevelStars > 0 &&
+                            <span data-testid="learn-active-stars" className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
+                                Best <BestStars stars={activeLevelStars} className="font-mono" />
+                            </span>
+                        }
                     </div>
                     <div className="flex w-full flex-wrap items-center gap-2 text-xs font-semibold text-base-content/60">
                         <StarThreshold stars={1} netWpm={criteria.oneStarNetWpm} className="rounded-full border border-base-content/15 px-2.5 py-1" />
