@@ -32,7 +32,6 @@ function normalize(text) {
         .replace(/[“”]/g, '"')
         .replace(/[–—]/g, "-")
         .replace(/…/g, "...")
-        .replace(/ /g, " ")
         .replace(/,(?=[A-Za-z])/g, ", ") // the dump's collapsed-newline commas
         .replace(/\s+/g, " ")
         .trim();
