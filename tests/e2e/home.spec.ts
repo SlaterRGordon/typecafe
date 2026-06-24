@@ -9,7 +9,7 @@ async function gotoHome(page: Page) {
 }
 
 // Mode switches inline on the main page; everything else lives in the modal.
-function selectMode(page: Page, name: "Timed" | "Words" | "Practice" | "Grams" | "Relaxed", options?: { force?: boolean }) {
+function selectMode(page: Page, name: "Timed" | "Words" | "Practice" | "Grams" | "Relaxed" | "Quotes", options?: { force?: boolean }) {
   const button = page.getByTestId("mode-bar").getByRole("button", { name });
   if (options?.force) return button.evaluate((element: HTMLElement) => element.click());
   return button.click();
@@ -152,6 +152,26 @@ test.describe("home typing test", () => {
     await expect(langButton).toHaveCount(0);
     await selectMode(page, "Practice");
     await expect(langButton).toHaveCount(0);
+    // Quotes carry their own text → language icon hidden.
+    await selectMode(page, "Quotes");
+    await expect(langButton).toHaveCount(0);
+  });
+
+  test("Quotes mode swaps the length presets for length buckets and types verbatim", async ({ page }) => {
+    await gotoHome(page);
+
+    await selectMode(page, "Quotes");
+    await expect(page.getByTestId("mode-bar").getByRole("button", { name: "Quotes" })).toHaveAttribute("aria-pressed", "true");
+
+    // The length buckets replace the timed/word presets.
+    const bucketBar = page.getByTestId("quote-length-bar");
+    await expect(bucketBar.getByRole("button", { name: "All" })).toHaveAttribute("aria-pressed", "true");
+    await bucketBar.getByRole("button", { name: "Short" }).click();
+    await expect(bucketBar.getByRole("button", { name: "Short" })).toHaveAttribute("aria-pressed", "true");
+
+    // A quote loads as real prose — capitals and punctuation survive (the typer
+    // lowercases word-list text, so an uppercase char proves it's a verbatim quote).
+    await expect(page.locator("#words")).toContainText(/[A-Z]/);
   });
 
   test("English exposes vocabulary sizes that load on demand", async ({ page }) => {

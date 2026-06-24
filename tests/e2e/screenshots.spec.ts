@@ -36,7 +36,7 @@ async function openSettingsMenu(page: Page) {
 }
 
 // Mode switches on the inline mode bar (the modal holds everything else).
-function selectMode(page: Page, name: "Timed" | "Words" | "Practice" | "Grams" | "Relaxed") {
+function selectMode(page: Page, name: "Timed" | "Words" | "Practice" | "Grams" | "Relaxed" | "Quotes") {
   return page.getByTestId("mode-bar").getByRole("button", { name }).click();
 }
 
@@ -191,6 +191,15 @@ test.describe("screenshot tour", () => {
 
     await expect(page.locator("#words .char").first()).toBeVisible();
     await capture(page, testInfo, "27-test-view-relaxed-mode");
+  });
+
+  test("quotes mode: test view with length buckets", async ({ page }, testInfo) => {
+    await gotoHome(page);
+    await selectMode(page, "Quotes");
+
+    await expect(page.getByTestId("quote-length-bar")).toBeVisible();
+    await expect(page.locator("#words .char").first()).toBeVisible();
+    await capture(page, testInfo, "28-test-view-quotes-mode");
   });
 
   test("fullscreen test view", async ({ page }, testInfo) => {

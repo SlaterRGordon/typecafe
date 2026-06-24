@@ -4,10 +4,33 @@ import tetraGrams from './languages/nGrams/tetraGrams.json'
 
 import english10k from './languages/english10k.json'
 
-import { TestGramScopes, TestGramSources } from './types'
+import { TestGramScopes, TestGramSources, type QuoteLength } from './types'
 
 interface WordList {
     words: string[],
+}
+
+type QuoteBuckets = { short: string[], medium: string[], long: string[] }
+
+// Quotes load on demand (the JSON is a few hundred KB) — Quotes is a secondary
+// mode, so it never belongs in the first-paint bundle.
+let quotes: QuoteBuckets | null = null
+let quotesPromise: Promise<void> | null = null
+
+export const ensureQuotesLoaded = (): Promise<void> => {
+    if (quotes) return Promise.resolve()
+    quotesPromise ??= import('./languages/quotes.json').then((m) => { quotes = m.default as QuoteBuckets })
+    return quotesPromise
+}
+
+// A random verbatim quote from the chosen length bucket ("all" pools them).
+// Returns "" until the JSON has loaded — callers await ensureQuotesLoaded first.
+export const generateQuote = (length: QuoteLength): string => {
+    if (!quotes) return ""
+    const pool = length === "short" || length === "medium" || length === "long"
+        ? quotes[length]
+        : [...quotes.short, ...quotes.medium, ...quotes.long] // "all" or any stale value
+    return pool[Math.floor(Math.random() * pool.length)] ?? ""
 }
 
 // English ships in the main bundle because it is the default language for every

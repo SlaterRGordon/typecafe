@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react"
-import { TestGramScopes, TestGramSources, TestModes, TestSubModes } from "../types"
+import { TestGramScopes, TestGramSources, TestModes, TestSubModes, type QuoteLength } from "../types"
 import { ToolbarMenu } from "./ToolbarMenu"
 import { GramsPanel } from "./GramsPanel"
 
@@ -16,12 +16,19 @@ const TOOLBAR_MODES: ToolbarMode[] = [
     { label: "Timed", mode: TestModes.normal, subMode: TestSubModes.timed, defaultCount: 15 },
     { label: "Words", mode: TestModes.normal, subMode: TestSubModes.words, defaultCount: 10 },
     { label: "Practice", mode: TestModes.practice, defaultCount: 10 },
+    { label: "Quotes", mode: TestModes.quotes, defaultCount: 10 },
     { label: "Grams", mode: TestModes.ngrams, defaultCount: 10 },
     { label: "Relaxed", mode: TestModes.relaxed, defaultCount: 10 },
 ]
 
 const TIMED_LENGTHS = [15, 30, 60, 120]
 const WORD_LENGTHS = [10, 25, 50, 100]
+const QUOTE_LENGTHS: { value: QuoteLength, label: string }[] = [
+    { value: "all", label: "All" },
+    { value: "short", label: "Short" },
+    { value: "medium", label: "Medium" },
+    { value: "long", label: "Long" },
+]
 
 // English ships as vocabulary-size slices of the unigram frequency corpus. "10k"
 // is the curated default and maps to the base `english` key; the rest load on
@@ -51,6 +58,7 @@ interface ModeBarProps {
     count: number
     customLength: boolean
     language: string
+    quoteLength: QuoteLength
     selectedKeys: string[]
     gramSource: TestGramSources
     gramScope: TestGramScopes
@@ -68,6 +76,7 @@ interface ModeBarProps {
     setCount: (count: number) => void
     setCustomLength: (value: boolean) => void
     setLanguage: (language: string) => void
+    setQuoteLength: (value: QuoteLength) => void
     setGramSource: (value: TestGramSources) => void
     setGramScope: (value: TestGramScopes) => void
     setGramCombination: (value: number) => void
@@ -165,6 +174,7 @@ export function ModeBar(props: ModeBarProps) {
     const [customOpen, setCustomOpen] = useState(false)
 
     const isNormal = props.mode === TestModes.normal
+    const isQuotes = props.mode === TestModes.quotes
     const lengthPresets = props.subMode === TestSubModes.timed ? TIMED_LENGTHS : WORD_LENGTHS
     const lengthMax = props.subMode === TestSubModes.timed ? 3600 : 5000
     const languageLabel = languageLabelFor(props.language)
@@ -273,8 +283,24 @@ export function ModeBar(props: ModeBarProps) {
                 })}
             </div>
 
-            {isNormal &&
+            {(isNormal || isQuotes) &&
                 <div className="hidden h-8 w-px shrink-0 bg-base-content/10 sm:block" />
+            }
+
+            {isQuotes &&
+            <div data-testid="quote-length-bar" aria-label="Quote length" className="flex h-10 w-full min-w-0 items-center gap-1 sm:w-auto">
+                {QUOTE_LENGTHS.map((option) => (
+                    <button
+                        key={option.value}
+                        type="button"
+                        aria-pressed={props.quoteLength === option.value}
+                        onClick={() => props.setQuoteLength(option.value)}
+                        className={segmentClass(props.quoteLength === option.value)}
+                    >
+                        {option.label}
+                    </button>
+                ))}
+            </div>
             }
 
             {isNormal &&
@@ -439,7 +465,7 @@ export function ModeBar(props: ModeBarProps) {
                     }
                 >
                     <div id="settings-menu" className="space-y-4">
-                        {props.mode !== TestModes.ngrams &&
+                        {props.mode !== TestModes.ngrams && props.mode !== TestModes.quotes &&
                             <SettingsSection label="Text">
                                 <SettingsToggle label="punctuation" active={props.punctuation} onChange={props.setPunctuation} />
                                 <SettingsToggle label="capitals" active={props.capitals} onChange={props.setCapitals} />

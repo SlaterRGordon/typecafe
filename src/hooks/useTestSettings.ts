@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react"
-import { TestGramScopes, TestGramSources, TestModes, TestSubModes } from "~/components/typer/types"
+import { TestGramScopes, TestGramSources, TestModes, TestSubModes, type QuoteLength } from "~/components/typer/types"
 
 // Every user-tweakable test setting, persisted as one object so a returning
 // visitor gets back exactly the test they configured.
@@ -7,6 +7,7 @@ export interface TestSettings {
     mode: TestModes,
     subMode: TestSubModes,
     language: string,
+    quoteLength: QuoteLength,
     count: number,
     customLength: boolean,
     punctuation: boolean,
@@ -26,6 +27,7 @@ export const DEFAULT_TEST_SETTINGS: TestSettings = {
     mode: TestModes.normal,
     subMode: TestSubModes.timed,
     language: "english",
+    quoteLength: "all",
     count: 15,
     customLength: false,
     punctuation: false,

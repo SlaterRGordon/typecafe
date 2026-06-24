@@ -1,7 +1,7 @@
 import { TestModes, TestSubModes } from "../types"
-import type { TestGramScopes, TestGramSources } from "../types"
+import type { QuoteLength, TestGramScopes, TestGramSources } from "../types"
 import type { Level } from "../learn/levels"
-import { applyTextOptions, ensureLanguageLoaded, generateBetterPseudoText, generateNGram, generateText, getWords } from "../utils"
+import { applyTextOptions, ensureLanguageLoaded, ensureQuotesLoaded, generateBetterPseudoText, generateNGram, generateQuote, generateText, getWords } from "../utils"
 import { compileDrillText } from "~/lib/drill"
 
 export interface TestTextConfig {
@@ -9,6 +9,7 @@ export interface TestTextConfig {
     subMode: TestSubModes,
     count: number,
     language: string,
+    quoteLength: QuoteLength,
     punctuation: boolean,
     capitals: boolean,
     level?: Level,
@@ -25,6 +26,13 @@ export interface TestTextConfig {
 // Async because non-English word lists load on demand.
 export async function generateTestText(config: TestTextConfig, gramLevel: number): Promise<string> {
     const { mode, subMode, count, language, punctuation, capitals, level, selectedKeys } = config
+
+    if (mode === TestModes.quotes) {
+        // Quotes are typed verbatim — no lowercasing, no punctuation/capitals
+        // toggles, no shuffling. applyTextOptions would mangle their own casing.
+        await ensureQuotesLoaded()
+        return generateQuote(config.quoteLength)
+    }
 
     await ensureLanguageLoaded(language)
 

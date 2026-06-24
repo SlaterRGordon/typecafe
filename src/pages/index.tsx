@@ -10,7 +10,7 @@ import { Keyboard } from "~/components/typer/Keyboard";
 import { Typer, type TestCompletionResult } from "~/components/typer/Typer";
 import { ModeBar } from "~/components/typer/config/ModeBar";
 import { typingFocusFadeClass } from "~/components/typer/typingFocus";
-import { TestModes, TestSubModes, type TestGramScopes, type TestGramSources } from "~/components/typer/types";
+import { TestModes, TestSubModes, type QuoteLength, type TestGramScopes, type TestGramSources } from "~/components/typer/types";
 import { useTestSettings } from "~/hooks/useTestSettings";
 import { withPracticeVowel } from "~/lib/diagnosis";
 import { appendLocalProgress } from "~/lib/progressHistory";
@@ -45,13 +45,14 @@ const Home: NextPage = () => {
   const [fullscreen, setFullscreen] = useState(false)
   const { settings, updateSetting } = useTestSettings()
   const {
-    mode, subMode, language, count, customLength, punctuation, capitals,
+    mode, subMode, language, quoteLength, count, customLength, punctuation, capitals,
     selectedKeys, gramSource, gramScope, gramCombination, gramRepetition,
     gramWpmThreshold, gramAccuracyThreshold, showStats, showKeyboard,
   } = settings
   const setShowStats = (value: boolean) => updateSetting("showStats", value)
   const setShowKeyboard = (value: boolean) => updateSetting("showKeyboard", value)
   const setLanguage = (value: string) => updateSetting("language", value)
+  const setQuoteLength = (value: QuoteLength) => updateSetting("quoteLength", value)
   const setMode = (value: TestModes) => updateSetting("mode", value)
   const setSubMode = (value: TestSubModes) => updateSetting("subMode", value)
   const setSelectedKeys = (value: string[]) => updateSetting("selectedKeys", value)
@@ -552,6 +553,8 @@ const Home: NextPage = () => {
               count={count}
               customLength={customLength}
               language={language}
+              quoteLength={quoteLength}
+              setQuoteLength={setQuoteLength}
               selectedKeys={selectedKeys}
               gramSource={gramSource}
               gramScope={gramScope}
@@ -611,6 +614,7 @@ const Home: NextPage = () => {
           fullscreen={fullscreen}
           setFullscreen={(full) => setFullscreen(full)}
           language={language}
+          quoteLength={quoteLength}
           mode={mode}
           subMode={subMode}
           selectedKeys={selectedKeys}

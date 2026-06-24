@@ -36,8 +36,12 @@ export enum TestModes {
     normal,
     practice,
     ngrams,
-    relaxed
+    relaxed,
+    quotes
 }
+
+// Quote length buckets shown in the toolbar; "all" draws from every bucket.
+export type QuoteLength = "all" | "short" | "medium" | "long"
 
 export enum TestSubModes {
     timed,

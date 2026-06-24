@@ -18,6 +18,7 @@ The vision filter for any change: *does it make someone faster, or prove they're
 - Every diagnosis shown to a user ends in an action button. Deltas over absolutes wherever a delta exists.
 - Never build: realtime multiplayer racing, theme marketplace, classroom tooling, decorative gamification (XP/badges without deltas or streaks).
 - Tick the relevant checkbox in the phase doc in the same change that completes it.
+- Always use the ponytail skill: laziest solution that works — stdlib/native before deps, shortest diff, no speculative abstraction.
 - One focused task at a time; do not refactor unrelated code you pass by.
 
 ## Committing

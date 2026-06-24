@@ -17,6 +17,7 @@ const modeLabels: Record<TestModes, string> = {
   [TestModes.practice]: "Practice",
   [TestModes.ngrams]: "N-grams",
   [TestModes.relaxed]: "Relaxed",
+  [TestModes.quotes]: "Quotes",
 };
 
 const subModeLabels: Record<TestSubModes, string> = {

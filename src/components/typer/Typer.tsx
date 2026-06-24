@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react"
 import { TestSubModes, TestModes } from "./types"
-import type { TestCompletionResult, TestGramScopes, TestGramSources } from "./types"
+import type { QuoteLength, TestCompletionResult, TestGramScopes, TestGramSources } from "./types"
 import { getGramLevelText } from "./utils"
 import { Text } from "./Text"
 import { Stats } from "./Stats"
@@ -26,6 +26,7 @@ export type { TestCompletionResult } from "./types"
 
 interface TyperProps {
     language: string,
+    quoteLength?: QuoteLength,
     mode: TestModes,
     subMode: TestSubModes,
     selectedKeys?: string[],
@@ -65,6 +66,7 @@ interface TyperProps {
 export const Typer = (props: TyperProps) => {
     const {
         language,
+        quoteLength = "all",
         mode, subMode,
         selectedKeys,
         gramSource, gramScope, gramCombination, gramRepetition,
@@ -208,7 +210,7 @@ export const Typer = (props: TyperProps) => {
                     // the token discards stale results if another restart raced it.
                     const requestToken = ++textRequestRef.current
                     void generateTestText({
-                        mode, subMode, count, language, punctuation, capitals,
+                        mode, subMode, count, language, quoteLength, punctuation, capitals,
                         level, selectedKeys,
                         gramSource, gramScope, gramCombination, gramRepetition,
                     }, targetLevel ?? gramLevel).then((newText) => {
@@ -235,7 +237,7 @@ export const Typer = (props: TyperProps) => {
                 onRestartRef.current?.()
             }
         }, 0)
-    }, [count, gramCombination, gramLevel, gramRepetition, gramScope, gramSource, syncCharAttempts, language, level, mode, pause, punctuation, capitals, selectedKeys, setInitialTime, subMode, props.fixedText])
+    }, [count, gramCombination, gramLevel, gramRepetition, gramScope, gramSource, syncCharAttempts, language, quoteLength, level, mode, pause, punctuation, capitals, selectedKeys, setInitialTime, subMode, props.fixedText])
 
     useEffect(() => {
         handleRestart()
@@ -288,7 +290,9 @@ export const Typer = (props: TyperProps) => {
             : finalStats.durationSeconds
         const wpmSamples = buildWpmSamples(keystrokeTimelineRef.current)
         const timeline = encodeTimeline(keyEventsRef.current)
-        const ranked = !customLength && isRankableTimeline(timeline)
+        // Quotes vary in length/difficulty, so they never post to a leaderboard
+        // (they still persist a timeline and feed diagnosis). Always unranked.
+        const ranked = mode !== TestModes.quotes && !customLength && isRankableTimeline(timeline)
 
         return {
             speed: finalStats.rawWpm,
@@ -376,7 +380,7 @@ export const Typer = (props: TyperProps) => {
         const finalStats = getStats(finalCharacterCount, finalIncorrectCount)
         const completion = buildCompletion(finalStats, finalCharacterCount, finalIncorrectCount)
 
-        if (mode === TestModes.normal) {
+        if (mode === TestModes.normal || mode === TestModes.quotes) {
             if (
                 levelRequirements &&
                 finalStats.netWpm < levelRequirements.wpm
