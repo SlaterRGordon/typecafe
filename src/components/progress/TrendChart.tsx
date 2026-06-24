@@ -28,6 +28,18 @@ function chooseTickInterval(maxValue: number): number {
     return 100
 }
 
+// A "nice" tick (…0.5, 1, 2, 5, 10…) sized to a data range, targeting ~4
+// gridlines. Used by the zoom-to-fit axis so a narrow band (e.g. accuracy
+// 92–99%) gets a fine tick instead of being squashed against a coarse one.
+function chooseFitTick(range: number): number {
+    if (range <= 0) return 1
+    const rough = range / 4
+    const pow = Math.pow(10, Math.floor(Math.log10(rough)))
+    const norm = rough / pow
+    const nice = norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 5 ? 5 : 10
+    return nice * pow
+}
+
 function formatDate(t: number): string {
     return new Date(t).toLocaleDateString(undefined, { month: "short", day: "numeric" })
 }
@@ -61,11 +73,13 @@ export function TrendChart(props: TrendChartProps) {
         const dataMax = Math.max(...all, baseline === "zero" ? 40 : -Infinity)
         const dataMin = Math.min(...all, Infinity)
 
-        // ponytail: fit uses a fixed tick of 5 — only accuracy (a %) uses it; widen
-        // if a non-percentage fit series ever needs it.
-        const tick = baseline === "zero" ? chooseTickInterval(dataMax) : 5
-        const minY = baseline === "zero" ? 0 : Math.max(0, Math.floor((dataMin - tick) / tick) * tick)
-        const rawMaxY = Math.ceil((dataMax + (baseline === "zero" ? 0 : tick)) / tick) * tick
+        // Fit zooms to the data band with a proportional tick (accuracy clusters
+        // near 100, so a 0–100 or coarse-tick axis would waste most of the panel);
+        // zero anchors at 0 for WPM. The half-tick pad keeps the lowest point off
+        // the axis floor without re-wasting the space we just reclaimed.
+        const tick = baseline === "zero" ? chooseTickInterval(dataMax) : chooseFitTick(dataMax - dataMin)
+        const minY = baseline === "zero" ? 0 : Math.max(0, Math.floor((dataMin - tick / 2) / tick) * tick)
+        const rawMaxY = Math.ceil((dataMax + (baseline === "zero" ? 0 : tick / 2)) / tick) * tick
         const maxY = suffix === "%" ? Math.min(rawMaxY, 100) : rawMaxY // a percentage can't exceed 100
         const yTicks = Array.from({ length: Math.floor((maxY - minY) / tick) + 1 }, (_, i) => minY + i * tick)
 
@@ -145,7 +159,7 @@ export function TrendChart(props: TrendChartProps) {
                     return (
                         <g key={value}>
                             <line x1={layout.padding.left} x2={layout.padding.left + layout.chartWidth} y1={y} y2={y} stroke="currentColor" opacity="0.14" />
-                            <text x={layout.padding.left - 10} y={y + 4} textAnchor="end" className="fill-base-content text-xs" opacity="0.7">{value}{suffix}</text>
+                            <text x={layout.padding.left - 10} y={y + 4} textAnchor="end" className="fill-base-content text-xs" opacity="0.7">{Number.isInteger(value) ? value : value.toFixed(1)}{suffix}</text>
                         </g>
                     )
                 })}
