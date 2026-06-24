@@ -521,6 +521,11 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
                     {Object.keys(props.keyAttempts).length === 0 && (
                         <p className="mt-4 text-center text-sm text-base-content/45">Take more tests to color in your per-key accuracy.</p>
                     )}
+                    <div className="mt-4 text-center">
+                        <Link href="/how-we-measure" className="text-xs text-base-content/45 underline-offset-2 hover:text-base-content/70 hover:underline">
+                            How these numbers work →
+                        </Link>
+                    </div>
                 </div>
 
                 <div data-testid="records-timeline" className="rounded-lg border border-base-content/10 bg-base-100/45 p-4">
