@@ -85,6 +85,13 @@ function mean(values: number[]): number {
     return values.reduce((sum, v) => sum + v, 0) / values.length
 }
 
+function median(values: number[]): number {
+    if (values.length === 0) return 0
+    const sorted = [...values].sort((a, b) => a - b)
+    const mid = Math.floor(sorted.length / 2)
+    return sorted.length % 2 ? sorted[mid]! : (sorted[mid - 1]! + sorted[mid]!) / 2
+}
+
 export function averageWpm(records: ProgressRecord[]): number {
     return mean(records.map((r) => r.wpm))
 }
@@ -376,6 +383,70 @@ export function trendSeries(
         rollingWpm: rollingAverage(points.map((p) => p.wpm), Math.max(1, effectiveWindow)),
         window: Math.max(1, effectiveWindow),
     }
+}
+
+// ---------------------------------------------------------------------------
+// Outlier rejection — keep junk tests out of trends and deltas
+// ---------------------------------------------------------------------------
+
+// Drops tests that are almost certainly noise rather than signal — a test
+// abandoned mid-way (stopped typing → near-zero WPM) or a key-mash restart
+// (accuracy in the floor). The WPM cut is low-side only and robust (median ±
+// MAD, not mean ± stdev, so a couple of garbage points can't move the
+// threshold): a freakishly *high* test is a real PB and stays. Imported rollup
+// days (record.day set) are already day-averages with no per-test signal, so
+// they pass through untouched. Pure — apply once and every number downstream
+// (delta, trend, records, best) inherits the cleanup.
+export function rejectOutliers(records: ProgressRecord[]): ProgressRecord[] {
+    const perTest = records.filter((r) => r.day === undefined)
+    const imported = records.filter((r) => r.day !== undefined)
+    // Too few per-test points to call anything an outlier honestly.
+    if (perTest.length < 4) return records
+
+    const med = median(perTest.map((r) => r.wpm))
+    // 1.4826 scales MAD to a standard deviation for normally-distributed data;
+    // `|| 1` avoids a zero threshold when most tests share the same WPM.
+    const mad = median(perTest.map((r) => Math.abs(r.wpm - med))) || 1
+    const wpmFloor = med - 2.5 * 1.4826 * mad
+
+    const kept = perTest.filter((r) => r.wpm > 0 && r.wpm >= wpmFloor && r.accuracy >= 50)
+    return [...kept, ...imported].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+}
+
+// ---------------------------------------------------------------------------
+// Linear trend — the straight fit line that replaces the wiggly rolling avg
+// ---------------------------------------------------------------------------
+
+export interface TrendLine {
+    slope: number // value units per ms
+    // Fitted value at epoch-ms `t`. Used both for the chart line and the hero
+    // delta (fit at the first vs last point), so the headline number always
+    // matches the line the user sees.
+    at: (t: number) => number
+}
+
+// Least-squares fit of `values` over time `ts` (epoch ms, 1:1 aligned). A single
+// straight line reads the direction at a glance where a rolling average wiggles.
+// t is offset to the first point to keep the arithmetic well-conditioned.
+export function linearTrend(ts: number[], values: number[]): TrendLine {
+    const n = ts.length
+    if (n === 0) return { slope: 0, at: () => 0 }
+    const t0 = ts[0]!
+    if (n === 1) { const v = values[0]!; return { slope: 0, at: () => v } }
+
+    const xs = ts.map((t) => t - t0)
+    const mx = mean(xs)
+    const my = mean(values)
+    let num = 0
+    let den = 0
+    for (let i = 0; i < n; i++) {
+        const dx = xs[i]! - mx
+        num += dx * (values[i]! - my)
+        den += dx * dx
+    }
+    const slope = den === 0 ? 0 : num / den
+    const intercept = my - slope * mx
+    return { slope, at: (t) => intercept + slope * (t - t0) }
 }
 
 // ---------------------------------------------------------------------------

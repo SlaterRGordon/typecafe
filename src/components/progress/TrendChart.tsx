@@ -2,11 +2,15 @@ import { useId, useMemo, useState, type ReactNode } from "react"
 import type { TrendPoint } from "~/lib/progress"
 
 interface TrendChartProps {
-    // X source — only `t` is read (createdAt ms); aligned 1:1 with values/rolling.
+    // X source — only `t` is read (createdAt ms); aligned 1:1 with values/trend.
     points: TrendPoint[]
     values: number[]
-    // Rolling-average line aligned 1:1 with `points`.
-    rolling: number[]
+    // The straight trend (least-squares fit) line, aligned 1:1 with `points`.
+    trend: number[]
+    // Optional secondary line at its own x positions (e.g. best WPM per day).
+    // Drawn lighter/dashed so it reads as the ceiling behind the trend.
+    secondary?: { t: number; value: number }[]
+    secondaryLabel?: string
     title: string
     // "zero" anchors the y-axis at 0 (WPM); "fit" zooms to the data range
     // (accuracy, which clusters near the top and would look flat from 0).
@@ -52,7 +56,8 @@ export function TrendChart(props: TrendChartProps) {
         const chartWidth = width - padding.left - padding.right
         const chartHeight = height - padding.top - padding.bottom
 
-        const all = [...props.values, ...props.rolling]
+        const secondaryValues = props.secondary?.map((s) => s.value) ?? []
+        const all = [...props.values, ...props.trend, ...secondaryValues]
         const dataMax = Math.max(...all, baseline === "zero" ? 40 : -Infinity)
         const dataMin = Math.min(...all, Infinity)
 
@@ -67,16 +72,20 @@ export function TrendChart(props: TrendChartProps) {
         const minT = props.points.length > 0 ? props.points[0]!.t : 0
         const maxT = props.points.length > 0 ? props.points[props.points.length - 1]!.t : 0
         const tSpan = maxT - minT
+        const xForT = (t: number) => tSpan <= 0 ? padding.left + chartWidth / 2 : padding.left + ((t - minT) / tSpan) * chartWidth
         const xFor = (point: TrendPoint, index: number) => {
             if (props.points.length === 1) return padding.left + chartWidth / 2
             if (tSpan <= 0) return padding.left + (index / (props.points.length - 1)) * chartWidth
-            return padding.left + ((point.t - minT) / tSpan) * chartWidth
+            return xForT(point.t)
         }
         const yFor = (value: number) => padding.top + chartHeight - ((value - minY) / (maxY - minY)) * chartHeight
 
         const scatter = props.points.map((point, index) => ({ x: xFor(point, index), y: yFor(props.values[index] ?? 0) }))
-        const linePoints = props.points.map((point, index) => ({ x: xFor(point, index), y: yFor(props.rolling[index] ?? props.values[index] ?? 0) }))
+        const linePoints = props.points.map((point, index) => ({ x: xFor(point, index), y: yFor(props.trend[index] ?? props.values[index] ?? 0) }))
         const linePath = linePoints.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(" ")
+        const secondaryPath = (props.secondary ?? [])
+            .map((s, i) => `${i === 0 ? "M" : "L"} ${xForT(s.t).toFixed(1)} ${yFor(s.value).toFixed(1)}`)
+            .join(" ")
 
         const xLabels = props.points.length === 1
             ? [{ x: padding.left + chartWidth / 2, label: formatDate(minT) }]
@@ -85,8 +94,8 @@ export function TrendChart(props: TrendChartProps) {
                 { x: padding.left + chartWidth, label: formatDate(maxT) },
             ]
 
-        return { width, height, padding, chartWidth, chartHeight, minY, maxY, yTicks, scatter, linePath, xLabels }
-    }, [props.points, props.values, props.rolling, baseline, suffix])
+        return { width, height, padding, chartWidth, chartHeight, minY, maxY, yTicks, scatter, linePath, secondaryPath, xLabels }
+    }, [props.points, props.values, props.trend, props.secondary, baseline, suffix])
 
     const pointRadius = props.points.length > 120 ? 2 : props.points.length > 40 ? 3 : 5
     const yFor = (value: number) => layout.padding.top + layout.chartHeight - ((value - layout.minY) / (layout.maxY - layout.minY)) * layout.chartHeight
@@ -110,7 +119,15 @@ export function TrendChart(props: TrendChartProps) {
     return (
         <div className="rounded-lg border border-base-content/10 bg-base-100/45 p-4">
             <div className="mb-3 flex items-center justify-between gap-3">
-                <div className="text-lg font-semibold text-base-content" id={titleId}>{props.title}</div>
+                <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+                    <div className="text-lg font-semibold text-base-content" id={titleId}>{props.title}</div>
+                    {props.secondary && props.secondary.length > 0 && (
+                        <div className="flex items-center gap-3 text-xs text-base-content/60">
+                            <span className="flex items-center gap-1.5"><span className="inline-block h-[2px] w-4 bg-current opacity-90" />Trend</span>
+                            <span className="flex items-center gap-1.5"><span className="inline-block h-[2px] w-4 bg-current opacity-40" style={{ borderTop: "2px dashed currentColor", background: "transparent" }} />{props.secondaryLabel ?? "Best/day"}</span>
+                        </div>
+                    )}
+                </div>
                 {props.action}
             </div>
             <svg
@@ -135,6 +152,9 @@ export function TrendChart(props: TrendChartProps) {
                 {layout.xLabels.map((label, i) => (
                     <text key={i} x={label.x} y={layout.height - 8} textAnchor={i === 0 && layout.xLabels.length > 1 ? "start" : i === layout.xLabels.length - 1 && layout.xLabels.length > 1 ? "end" : "middle"} className="fill-base-content text-xs" opacity="0.7">{label.label}</text>
                 ))}
+                {layout.secondaryPath
+                    ? <path d={layout.secondaryPath} fill="none" stroke="currentColor" strokeWidth="2" strokeOpacity="0.4" strokeLinecap="round" strokeLinejoin="round" strokeDasharray="5 4" data-testid="trend-secondary" />
+                    : null}
                 {layout.linePath && props.points.length > 1
                     ? <path d={layout.linePath} fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" />
                     : null}

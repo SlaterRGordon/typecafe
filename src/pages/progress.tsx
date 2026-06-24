@@ -13,16 +13,16 @@ import { readLocalTransitions } from "~/lib/localTransitions";
 import { worstTransitions, type TransitionAggregate } from "~/lib/transitions";
 import {
     PROGRESS_PERIODS,
-    averageWpm,
     bestWpm,
     currentStreak,
+    dailyRollups,
     filterByPeriod,
     filterProgressRecords,
-    headlineDelta,
+    linearTrend,
     mergeDailyRollups,
     personalRecords,
     progressMode,
-    rollingAverage,
+    rejectOutliers,
     trendSeries,
     type ProgressPeriod,
     type ProgressModeFilter,
@@ -70,7 +70,11 @@ function HeroDeltaLine(props: { start: number | null; current: number; delta: nu
             </div>
             <div className={`relative h-14 flex-1 ${color}`}>
                 {props.delta !== null && (
-                    <div className="absolute left-1/2 top-0 -translate-x-1/2 font-mono text-lg font-bold">
+                    <div 
+                        className={`absolute left-1/2 -translate-x-1/2 font-mono text-2xl font-bold 
+                            ${props.delta > 0 ? "top-[1rem]" : 
+                                props.delta == 0 ? "top-[0rem]" : "top-[-0.5rem]"}
+                        `}>
                         {formatSigned(props.delta)}
                     </div>
                 )}
@@ -139,9 +143,13 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
     const now = useMemo(() => new Date(), []);
     const createProgressShare = api.scoreShare.createProgress.useMutation();
 
+    // Drop junk tests (stopped typing, key-mash restarts) once, up front, so the
+    // delta, trend line, records and best chip are all computed from clean data.
+    const cleanRecords = useMemo(() => rejectOutliers(props.records), [props.records]);
+
     const modeFilteredRecords = useMemo(
-        () => filterProgressRecords(props.records, { mode: modeFilter, count: "all" }),
-        [props.records, modeFilter],
+        () => filterProgressRecords(cleanRecords, { mode: modeFilter, count: "all" }),
+        [cleanRecords, modeFilter],
     );
     const lengthOptions = useMemo(
         () => Array.from(new Set(modeFilteredRecords.map((record) => record.count).filter((count): count is number => typeof count === "number" && count > 0)))
@@ -152,34 +160,64 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
         if (lengthFilter !== "all" && !lengthOptions.includes(lengthFilter)) setLengthFilter("all");
     }, [lengthFilter, lengthOptions]);
     const filteredRecords = useMemo(
-        () => filterProgressRecords(props.records, { mode: modeFilter, count: lengthFilter }),
-        [props.records, modeFilter, lengthFilter],
+        () => filterProgressRecords(cleanRecords, { mode: modeFilter, count: lengthFilter }),
+        [cleanRecords, modeFilter, lengthFilter],
     );
     const activeFilter = modeFilter !== "all" || lengthFilter !== "all";
     // Imported guest history lands as rollup-only days with no mode/length, so it
     // can't be split by those dimensions. Only offer the filters when at least one
     // record carries the metadata, and flag when uncategorized history exists so an
     // emptied filter can explain itself honestly instead of claiming "no tests".
-    const hasFilterableMetadata = useMemo(() => props.records.some((r) => progressMode(r) !== null), [props.records]);
-    const hasImportedHistory = useMemo(() => props.records.some((r) => progressMode(r) === null), [props.records]);
+    const hasFilterableMetadata = useMemo(() => cleanRecords.some((r) => progressMode(r) !== null), [cleanRecords]);
+    const hasImportedHistory = useMemo(() => cleanRecords.some((r) => progressMode(r) === null), [cleanRecords]);
 
     const streak = useMemo(() => currentStreak(filteredRecords, now, -now.getTimezoneOffset()), [filteredRecords, now]);
-    const delta = useMemo(() => headlineDelta(filteredRecords, period, now), [filteredRecords, period, now]);
     const series = useMemo(() => trendSeries(filteredRecords, period, now), [filteredRecords, period, now]);
     const inPeriod = useMemo(() => filterByPeriod(filteredRecords, period, now), [filteredRecords, period, now]);
     const records = useMemo(() => personalRecords(filteredRecords), [filteredRecords]);
-    const accuracy = useMemo(() => ({
-        values: series.points.map((p) => p.accuracy),
-        rolling: rollingAverage(series.points.map((p) => p.accuracy), series.window),
-    }), [series]);
+
+    // Straight least-squares fit per metric — one readable line instead of a
+    // wiggly rolling average, aligned 1:1 with the scatter points.
+    const fitLine = (values: number[]) => {
+        const line = linearTrend(series.points.map((p) => p.t), values);
+        return series.points.map((p) => line.at(p.t));
+    };
+    const wpm = useMemo(() => {
+        const values = series.points.map((p) => p.wpm);
+        const line = linearTrend(series.points.map((p) => p.t), values);
+        return { line, values, trend: series.points.map((p) => line.at(p.t)) };
+    }, [series]);
+    const accuracy = useMemo(() => {
+        const values = series.points.map((p) => p.accuracy);
+        return { values, trend: fitLine(values) };
+    }, [series]);
     // Consistency only exists on tests recorded since the feature shipped; show the
     // chart once every point in the window has it (no mixing real values with 0s).
     const consistency = useMemo(() => {
         const values = series.points.map((p) => p.consistency);
         if (values.length === 0 || values.some((v) => typeof v !== "number")) return null;
         const nums = values as number[];
-        return { values: nums, rolling: rollingAverage(nums, series.window) };
+        return { values: nums, trend: fitLine(nums) };
     }, [series]);
+
+    // The hero delta reads off the WPM trend line's endpoints, so the headline
+    // number is exactly the slope the chart shows — not a separate noisy
+    // window-average subtraction that flips sign on a single junk test.
+    const hero = useMemo(() => {
+        const pts = series.points;
+        if (pts.length === 0) return { start: null as number | null, current: 0, delta: null as number | null, trend: "flat" as HeroTrend };
+        const start = wpm.line.at(pts[0]!.t);
+        const current = wpm.line.at(pts[pts.length - 1]!.t);
+        const delta = pts.length >= 2 ? current - start : null;
+        const trend: HeroTrend = delta === null ? "flat" : delta > 0.05 ? "up" : delta < -0.05 ? "down" : "flat";
+        return { start, current, delta, trend };
+    }, [series, wpm]);
+
+    // Best WPM per local day — a lighter ceiling line behind the WPM trend.
+    const bestPerDay = useMemo(
+        () => dailyRollups(inPeriod, -now.getTimezoneOffset()).map((d) => ({ t: new Date(`${d.day}T12:00:00.000Z`).getTime(), value: d.bestWpm })),
+        [inPeriod, now],
+    );
     const plateau = useMemo(() => detectPlateau(filteredRecords, now), [filteredRecords, now]);
     const slowTransitions = useMemo(() => worstTransitions(props.transitions), [props.transitions]);
     // Top weak keys for the one-click "drill your weakest keys" CTA (slice 5).
@@ -198,22 +236,22 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
     ];
     const activeMetric: TrendMetric = trendMetric === "consistency" && !consistency ? "wpm" : trendMetric;
     const trendConfig = {
-        wpm: { title: "WPM over time", values: series.points.map((p) => p.wpm), rolling: series.rollingWpm, baseline: "zero" as const, suffix: "" },
-        accuracy: { title: "Accuracy over time", values: accuracy.values, rolling: accuracy.rolling, baseline: "fit" as const, suffix: "%" },
-        consistency: { title: "Consistency over time", values: consistency?.values ?? [], rolling: consistency?.rolling ?? [], baseline: "fit" as const, suffix: "%" },
+        wpm: { title: "WPM over time", values: wpm.values, trend: wpm.trend, baseline: "zero" as const, suffix: "" },
+        accuracy: { title: "Accuracy over time", values: accuracy.values, trend: accuracy.trend, baseline: "fit" as const, suffix: "%" },
+        consistency: { title: "Consistency over time", values: consistency?.values ?? [], trend: consistency?.trend ?? [], baseline: "fit" as const, suffix: "%" },
     }[activeMetric];
 
     const hasData = series.points.length > 0;
     // A progress card only makes sense with a real delta to brag about.
-    const canShare = !!props.canShare && delta.delta !== null && series.points.length > 0;
+    const canShare = !!props.canShare && hero.delta !== null && series.points.length > 0;
 
     const shareProgress = async () => {
-        if (delta.delta === null) return;
+        if (hero.delta === null) return;
         setShareState("sharing");
         try {
             const share = await createProgressShare.mutateAsync({
                 snapshot: {
-                    deltaWpm: delta.delta,
+                    deltaWpm: hero.delta,
                     periodLabel: periodShareLabel(period),
                     points: series.points.slice(-2000).map((p) => ({ t: p.t, wpm: p.wpm })),
                     streak: streak > 0 ? streak : undefined,
@@ -331,12 +369,12 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
                                 <div className="font-mono text-3xl font-bold text-base-content">Plateaued for {plateau.weeks} weeks</div>
                                 <p className="mt-2 text-base-content/60">Your sessions repeat the same comfortable words. Switch to transition drills to break the ceiling.</p>
                             </div>
-                        ) : delta.delta !== null ? (
+                        ) : hero.delta !== null ? (
                             <HeroDeltaLine
-                                start={delta.priorAvg}
-                                current={delta.currentAvg}
-                                delta={delta.delta}
-                                trend={delta.trend === "up" || delta.trend === "down" ? delta.trend : "flat"}
+                                start={hero.start}
+                                current={hero.current}
+                                delta={hero.delta}
+                                trend={hero.trend}
                             />
                         ) : hasData ? (
                             // Enough to chart, but no comparison window yet: a flat line
@@ -345,7 +383,7 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
                             // carry the rest of the story.
                             <HeroDeltaLine
                                 start={null}
-                                current={averageWpm(inPeriod)}
+                                current={hero.current}
                                 delta={null}
                                 trend="flat"
                             />
@@ -385,7 +423,9 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
                             title={trendConfig.title}
                             points={series.points}
                             values={trendConfig.values}
-                            rolling={trendConfig.rolling}
+                            trend={trendConfig.trend}
+                            secondary={activeMetric === "wpm" && bestPerDay.length >= 2 ? bestPerDay : undefined}
+                            secondaryLabel="Best/day"
                             baseline={trendConfig.baseline}
                             valueSuffix={trendConfig.suffix}
                             action={

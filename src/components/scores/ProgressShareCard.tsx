@@ -1,7 +1,7 @@
 import { useMemo } from "react"
 import Link from "next/link"
 import { TrendChart } from "~/components/progress/TrendChart"
-import { defaultRollingWindow, rollingAverage } from "~/lib/progress"
+import { linearTrend } from "~/lib/progress"
 
 export interface ProgressShareSnapshot {
     deltaWpm: number
@@ -31,8 +31,8 @@ export function ProgressShareCard(props: { snapshot: ProgressShareSnapshot; shar
 
     const chart = useMemo(() => {
         const points = snapshot.points.map((p) => ({ t: p.t, wpm: p.wpm, accuracy: 0 }))
-        const window = defaultRollingWindow(points.length)
-        return { points, values: points.map((p) => p.wpm), rolling: rollingAverage(points.map((p) => p.wpm), window) }
+        const line = linearTrend(points.map((p) => p.t), points.map((p) => p.wpm))
+        return { points, values: points.map((p) => p.wpm), trend: points.map((p) => line.at(p.t)) }
     }, [snapshot.points])
 
     return (
@@ -60,7 +60,7 @@ export function ProgressShareCard(props: { snapshot: ProgressShareSnapshot; shar
             </div>
 
             <div className="mt-5">
-                <TrendChart title="WPM over time" points={chart.points} values={chart.values} rolling={chart.rolling} baseline="zero" />
+                <TrendChart title="WPM over time" points={chart.points} values={chart.values} trend={chart.trend} baseline="zero" />
             </div>
 
             <div className="mt-5 flex items-center justify-between">

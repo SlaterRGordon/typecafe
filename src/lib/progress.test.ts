@@ -13,10 +13,12 @@ import {
     filterProgressRecords,
     headlineDelta,
     isoWeekStart,
+    linearTrend,
     mergeDailyRollups,
     periodStart,
     personalRecords,
     rankImprovementLeague,
+    rejectOutliers,
     rollingAverage,
     selfLeagueSummary,
     trendSeries,
@@ -30,6 +32,49 @@ const DAY_MS = 24 * 60 * 60 * 1000
 function rec(daysAgo: number, wpm: number, accuracy = 95, consistency?: number): ProgressRecord {
     return { wpm, accuracy, consistency, createdAt: new Date(NOW.getTime() - daysAgo * DAY_MS) }
 }
+
+describe("rejectOutliers", () => {
+    it("drops a stopped-typing test but keeps a real PB", () => {
+        const records = [rec(5, 50), rec(4, 52), rec(3, 48), rec(2, 90), rec(1, 1)]
+        const kept = rejectOutliers(records)
+        const wpms = kept.map((r) => r.wpm)
+        expect(wpms).toContain(90) // high outlier = real PB, kept
+        expect(wpms).not.toContain(1) // near-zero "stopped typing", dropped
+        expect(kept).toHaveLength(4)
+    })
+
+    it("drops a key-mash test on the accuracy floor", () => {
+        const records = [rec(5, 50, 96), rec(4, 52, 95), rec(3, 48, 97), rec(2, 51, 30)]
+        const kept = rejectOutliers(records)
+        expect(kept.map((r) => r.accuracy)).not.toContain(30)
+    })
+
+    it("leaves too-small sets untouched (can't judge an outlier)", () => {
+        const records = [rec(3, 50), rec(2, 1), rec(1, 52)]
+        expect(rejectOutliers(records)).toHaveLength(3)
+    })
+
+    it("passes imported rollup days through untouched", () => {
+        const imported: ProgressRecord = { wpm: 1, accuracy: 95, createdAt: new Date(NOW.getTime() - 6 * DAY_MS), day: "2026-06-08" }
+        const records = [imported, rec(5, 50), rec(4, 52), rec(3, 48), rec(2, 51)]
+        expect(rejectOutliers(records).some((r) => r.day === "2026-06-08")).toBe(true)
+    })
+})
+
+describe("linearTrend", () => {
+    it("fits a rising line through points and gives endpoint values", () => {
+        const ts = [0, 10, 20, 30]
+        const line = linearTrend(ts, [40, 42, 44, 46])
+        expect(line.slope).toBeCloseTo(0.2)
+        expect(line.at(0)).toBeCloseTo(40)
+        expect(line.at(30)).toBeCloseTo(46)
+    })
+
+    it("is flat for a single point and for empty input", () => {
+        expect(linearTrend([5], [50]).at(999)).toBe(50)
+        expect(linearTrend([], []).at(0)).toBe(0)
+    })
+})
 
 describe("periodStart", () => {
     it("is null for all-time (no lower bound)", () => {
