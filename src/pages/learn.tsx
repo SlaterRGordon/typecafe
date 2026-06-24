@@ -405,15 +405,8 @@ const Learn: NextPage = () => {
 
     return (
         <div className={`flex flex-col w-full h-full items-center overflow-y-auto overflow-x-hidden px-4 pt-4 pb-4 ${fullscreen ? 'absolute top-0 left-0 w-full h-full bg-base-100 z-[500]' : "relative md:w-10/12 md:self-center md:px-0 md:pt-8 md:pb-8"}`}>
-            <div className="flex w-full flex-col items-center justify-center gap-6 py-4 md:min-h-full md:gap-24 md:py-8">
+            <div className="flex w-full flex-col items-center justify-center gap-6 py-4 md:min-h-full md:gap-12 md:py-8">
             <div data-testid="learn-controls" className={typingFocusFadeClass(typingFocused, "flex w-full max-w-screen-xl flex-col items-center gap-3 md:gap-4")}>
-                {sessionStatus === "unauthenticated" &&
-                    <div className="flex w-full justify-start">
-                        <label className="btn btn-primary btn-sm" htmlFor="signInModal">
-                            Sign in to save level progress
-                        </label>
-                    </div>
-                }
                 {shouldShowImportPrompt &&
                     <div className="flex w-full items-center justify-between gap-3 rounded bg-base-300 px-4 py-3 text-base-content">
                         <span className="text-sm font-semibold">Device progress is available for this difficulty.</span>
@@ -427,7 +420,7 @@ const Learn: NextPage = () => {
                         </button>
                     </div>
                 }
-                <div className="flex w-full">
+                <div className="flex w-full flex-wrap items-center gap-2">
                     <div className="flex w-full flex-wrap gap-2 md:w-8/12 lg:w-6/12">
                         {isLearnContentLoading ?
                             <div className="flex h-10 items-center" role="status" aria-live="polite">
@@ -475,6 +468,11 @@ const Learn: NextPage = () => {
                             </>
                         }
                     </div>
+                    {sessionStatus === "unauthenticated" &&
+                        <label className="btn btn-primary btn-sm ml-auto" htmlFor="signInModal">
+                            Sign in to save level progress
+                        </label>
+                    }
                 </div>
                 {!isLearnContentLoading &&
                     <>
