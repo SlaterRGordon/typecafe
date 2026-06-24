@@ -418,7 +418,7 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
                         {hasData && <GoalCard records={filteredRecords} now={now} />}
                     </div>
 
-                    {hasData && (
+                    {hasData ? (
                         <TrendChart
                             title={trendConfig.title}
                             points={series.points}
@@ -444,6 +444,10 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
                                 </div>
                             }
                         />
+                    ) : (
+                        <div data-testid="trend-empty" className="flex min-h-[18rem] items-center justify-center rounded-lg border border-base-content/10 bg-base-100/45 p-4 text-center text-sm text-base-content/45">
+                            Complete a few tests and your WPM, accuracy, and consistency trend appears here.
+                        </div>
                     )}
                 </div>
 
@@ -451,13 +455,17 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
                     the column so its footprint is the same whether sparse or full;
                     the transitions list scrolls inside when it's long, so the card
                     never grows taller than the chart beside it. */}
-                {(topWeakKeys.length > 0 || slowTransitions.length > 0) && (
-                    <div data-testid="weak-spots" className="flex h-full flex-col gap-4 rounded-xl border border-primary/25 bg-primary/5 p-5 lg:col-span-1">
+                <div data-testid="weak-spots" className="flex h-full flex-col gap-4 rounded-xl border border-primary/25 bg-primary/5 p-5 lg:col-span-1">
                         <div className="text-lg font-semibold text-base-content">Weak spots → drill</div>
 
                         {/* Center the content so a sparse card reads as balanced, not
                             top-heavy with a void; a long transitions list scrolls. */}
                         <div className="flex min-h-0 flex-1 flex-col gap-4">
+                            {topWeakKeys.length === 0 && slowTransitions.length === 0 && (
+                                <p data-testid="weak-spots-empty" className="m-auto max-w-[16rem] text-center text-sm text-base-content/45">
+                                    Take more tests to reveal your weakest keys and slowest transitions to drill.
+                                </p>
+                            )}
                             {topWeakKeys.length > 0 && (
                                 <div>
                                     <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-base-content/45">Weakest keys</p>
@@ -499,25 +507,25 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
                             )}
                         </div>
                     </div>
-                )}
             </div>
 
             <div className="grid gap-4 lg:grid-cols-2">
-                {Object.keys(props.keyAttempts).length > 0 && (
-                    <div data-testid="lifetime-keyboard-card" className="rounded-lg border border-base-content/10 bg-base-100/45 p-3 sm:p-5">
-                        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                            <div className="text-base font-semibold text-base-content">Lifetime keyboard</div>
-                            <KeyHeatmapLegend />
-                        </div>
-                        <div className="flex w-full justify-center overflow-x-auto pb-1">
-                            <KeyHeatmap attempts={props.keyAttempts} size="full" className="min-w-fit" testId="lifetime-heatmap" />
-                        </div>
+                <div data-testid="lifetime-keyboard-card" className="rounded-lg border border-base-content/10 bg-base-100/45 p-3 sm:p-5">
+                    <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="text-base font-semibold text-base-content">Lifetime keyboard</div>
+                        <KeyHeatmapLegend />
                     </div>
-                )}
+                    <div className="flex w-full justify-center overflow-x-auto pb-1">
+                        <KeyHeatmap attempts={props.keyAttempts} size="full" showPercent={Object.keys(props.keyAttempts).length > 0} className="min-w-fit" testId="lifetime-heatmap" />
+                    </div>
+                    {Object.keys(props.keyAttempts).length === 0 && (
+                        <p className="mt-4 text-center text-sm text-base-content/45">Take more tests to color in your per-key accuracy.</p>
+                    )}
+                </div>
 
-                {records.length > 0 && (
-                    <div data-testid="records-timeline" className="rounded-lg border border-base-content/10 bg-base-100/45 p-4">
-                        <div className="mb-3 text-lg font-semibold text-base-content">Records</div>
+                <div data-testid="records-timeline" className="rounded-lg border border-base-content/10 bg-base-100/45 p-4">
+                    <div className="mb-3 text-lg font-semibold text-base-content">Records</div>
+                    {records.length > 0 ? (
                         <ul className="space-y-2">
                             {records.slice(0, 6).map((event) => (
                                 <li key={event.t} className="flex items-center justify-between gap-3 border-b border-base-content/10 pb-2 text-sm last:border-b-0 last:pb-0">
@@ -528,8 +536,10 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
                                 </li>
                             ))}
                         </ul>
-                    </div>
-                )}
+                    ) : (
+                        <p className="text-sm text-base-content/45">Your personal bests and first-milestone tests land here as you improve.</p>
+                    )}
+                </div>
             </div>
         </div>
     );
@@ -600,7 +610,7 @@ const Progress: NextPage = () => {
                 <title>Progress — TypeCafe</title>
                 <meta name="description" content="Your typing progress over time: WPM trend, accuracy, and the improvement that proves you're getting faster." />
             </Head>
-            <div className="flex h-full w-full justify-center items-center overflow-auto px-4 py-8">
+            <div className="flex h-full w-full justify-center items-start overflow-auto px-4 py-8">
                 {status === "loading" || (sessionData?.user && (recordsQuery.isLoading || rollupsQuery.isLoading)) ? (
                     <div className="mt-16 text-base-content/50">Loading your progress…</div>
                 ) : !sessionData?.user ? (
