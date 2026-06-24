@@ -2,8 +2,9 @@ import { useState, useEffect, useRef } from "react"
 import type { TestModes, TestSubModes } from "~/components/typer/types"
 import { api } from "~/utils/api"
 import type { Test, User } from "~/generated/prisma/client"
-import Image from "next/image";
 import { useRouter } from "next/router";
+import { Avatar } from "~/components/Avatar";
+import { netFromRaw } from "~/lib/stats";
 
 function isBottom(ref: React.RefObject<HTMLElement | null>) {
     if (!ref.current) {
@@ -130,6 +131,7 @@ const Scores = (props: LeaderboardProps) => {
                                     <div className="flex w-[10%] md:[5%]"></div>
                                     <div className="flex basis-0 grow">User</div>
                                     <div className="flex basis-0 grow rounded-tr-lg sm:rounded-tr-none">WPM</div>
+                                    <div className="flex basis-0 grow hidden sm:flex">Raw</div>
                                     <div className="flex basis-0 grow hidden rounded-tr-lg md:rounded-tr-none sm:table-cell">Accuracy</div>
                                     <div className="flex basis-0 grow hidden md:table-cell">Date</div>
                                 </div>
@@ -140,26 +142,17 @@ const Scores = (props: LeaderboardProps) => {
                                         <div className={`flex w-full justify-stretch px-4 py-4 ${index % 2 == 1 ? 'bg-b2' : ''}`} key={index}>
                                             <div className="flex w-[10%] md:[5%] items-center">{index + 1}</div>
                                             <div className="flex basis-0 grow items-center">
-                                                <div className="flex basis-0 grow items-center items-center space-x-3 cursor-pointer" onClick={() => navigateProfile(test.user.username)}>
-                                                    <div className="avatar">
-                                                        <div className="mask mask-squircle w-12 h-12">
-                                                            {test?.user.image ?
-                                                                <Image className="rounded-full" width={500} height={500} src={test.user.image ?? ""} alt="Profile Picture" referrerPolicy="no-referrer" />
-                                                                :
-                                                                <div className="avatar placeholder">
-                                                                    <div className="bg-neutral text-white rounded-full w-12">
-                                                                        <span className="text-xl font-bold">{test?.user.username?.charAt(0).toUpperCase() ?? ""}</span>
-                                                                    </div>
-                                                                </div>
-                                                            }
-                                                        </div>
-                                                    </div>
+                                                <div className="flex basis-0 grow items-center space-x-3 cursor-pointer" onClick={() => navigateProfile(test.user.username)}>
+                                                    <Avatar size={48} image={test.user.image} name={test.user.username ?? test.user.name} />
                                                     <div>
                                                         <div className="font-bold">{test.user.username}</div>
                                                     </div>
                                                 </div>
                                             </div>
-                                            <div className={`flex basis-0 grow items-center ${index + 1 == allTests.length ? "rounded-br-lg sm:rounded-br-none" : ""}`}>
+                                            <div className={`flex basis-0 grow items-center font-mono ${index + 1 == allTests.length ? "rounded-br-lg sm:rounded-br-none" : ""}`}>
+                                                {netFromRaw(test.speed, test.accuracy).toFixed(2)}
+                                            </div>
+                                            <div className="flex basis-0 grow items-center hidden sm:flex font-mono text-base-content/60">
                                                 {test.speed.toFixed(2)}
                                             </div>
                                             <div className={`flex basis-0 grow items-center hidden sm:flex ${index + 1 == allTests.length ? "rounded-br-lg md:rounded-br-none" : ""}`}>

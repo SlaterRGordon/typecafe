@@ -3,16 +3,16 @@ import { type CSSProperties, useId, useMemo, useRef, useState } from "react";
 
 import { TestModes, TestSubModes } from "~/components/typer/types";
 import { ShareableScoreImage } from "./ShareableScoreImage";
+import { consistencyFromSamples, wpmImprovement } from "~/lib/stats";
+import type { KeyAccuracy, TypedSegment, WpmSample as ScoreWpmSample } from "~/lib/stats";
+import { decodeTimeline } from "~/lib/keystrokes";
+import type { EncodedKeystroke } from "~/lib/keystrokes";
+import { diagnose, toDrillKeys } from "~/lib/diagnosis";
+import { aggregateTransitions, worstTransitions } from "~/lib/transitions";
+import { attemptsFromEvents } from "~/lib/heatmap";
+import { KeyHeatmap } from "~/components/heatmap/KeyHeatmap";
 
-export interface ScoreWpmSample {
-  elapsedSeconds: number;
-  wpm: number;
-}
-
-export interface TypedSegment {
-  ch: string;
-  correct: boolean;
-}
+export type { TypedSegment, WpmSample as ScoreWpmSample } from "~/lib/stats";
 
 export interface ScoreSnapshot {
   durationSeconds: number;
@@ -22,9 +22,22 @@ export interface ScoreSnapshot {
   totalKeystrokes: number;
   correctKeystrokes: number;
   incorrectKeystrokes: number;
+  // The source text shown to the typist. Optional on legacy shares, required for
+  // beat-my-run links so another person can type the identical prompt.
+  promptText?: string;
   typedText: string;
   typedSegments?: TypedSegment[];
+  worstKeys?: KeyAccuracy[];
+  // Compact per-keystroke timeline ([charCode, correct, dtMs]) for the post-test
+  // diagnosis panel. Present on a freshly completed normal test; absent on legacy
+  // or shared snapshots (the panel is owner-only and not shown there anyway).
+  timeline?: EncodedKeystroke[];
   brag?: string | null;
+  // WPM vs the user's 30-day average at save time (vision §7 — deltas everywhere).
+  avgDelta?: number | null;
+  dailyChallenge?: boolean;
+  // Current practice-day streak (transient — shown on the live result card).
+  streak?: number | null;
   punctuation?: boolean;
   capitals?: boolean;
   ranked?: boolean;
@@ -33,6 +46,9 @@ export interface ScoreSnapshot {
 
 export interface ShareableScore extends ScoreSnapshot {
   id?: string;
+  // Present when this result is the re-run of a diagnosed test: drives the
+  // before→after delta strip. Transient (never persisted to a share snapshot).
+  reMeasure?: { beforeWpm: number };
   speed: number;
   score?: number;
   count: number;
@@ -61,10 +77,11 @@ interface ShareableScoreCardProps {
 type ActionState = "idle" | "copied" | "downloaded" | "unsupported" | "error";
 
 const modeLabels: Record<TestModes, string> = {
-  [TestModes.normal]: "Normal",
+  [TestModes.normal]: "Timed",
   [TestModes.practice]: "Practice",
   [TestModes.ngrams]: "N-grams",
   [TestModes.relaxed]: "Relaxed",
+  [TestModes.quotes]: "Quotes",
 };
 
 const subModeLabels: Record<TestSubModes, string> = {
@@ -90,6 +107,14 @@ function formatDate(date?: Date) {
     day: "numeric",
     year: "numeric",
   });
+}
+
+function formatModeText(score: Pick<ShareableScore, "mode" | "subMode" | "language">) {
+  if (score.mode === TestModes.normal) {
+    return `${subModeLabels[score.subMode]} / ${score.language}`;
+  }
+
+  return `${modeLabels[score.mode]} / ${subModeLabels[score.subMode]} / ${score.language}`;
 }
 
 async function writeTextToClipboard(text: string) {
@@ -162,20 +187,21 @@ async function copyOrDownloadScoreImage(scoreCard: HTMLElement | null): Promise<
   return "downloaded";
 }
 
-function InfoIcon(props: { label: string }) {
+function InfoIcon(props: { label: string; href?: string }) {
   const tooltipId = useId();
+  const href = props.href ?? "/how-we-measure";
 
   return (
     <span className="group relative inline-flex">
-      <button
-        type="button"
+      <Link
+        href={href}
         className="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-base-content/50 text-[10px] text-base-content/80 outline-none transition hover:border-primary hover:text-primary focus-visible:border-primary focus-visible:text-primary focus-visible:ring-2 focus-visible:ring-primary/40"
-        aria-label={props.label}
+        aria-label={`${props.label} Learn how TypeCafe measures this.`}
         aria-describedby={tooltipId}
-        title={props.label}
+        title={`${props.label} Learn how TypeCafe measures this.`}
       >
         ?
-      </button>
+      </Link>
       <span
         id={tooltipId}
         role="tooltip"
@@ -397,6 +423,155 @@ function DetailRow(props: { label: string; value: string; tone?: "success" | "er
   );
 }
 
+// The loop's payoff: the same test re-run after a drill, with the before→after
+// WPM shown side by side and the delta called out. Only ever present on a fresh
+// re-measure result (never on a shared snapshot).
+function ReMeasureStrip(props: { beforeWpm: number; afterWpm: number }) {
+  const { delta, improved } = wpmImprovement(props.beforeWpm, props.afterWpm);
+  const deltaTone = improved ? "bg-success/20 text-success" : delta < 0 ? "bg-error/20 text-error" : "bg-base-content/10 text-base-content/70";
+
+  return (
+    <div data-testid="re-measure-delta" className="score-reveal mt-7 rounded-lg border border-primary/40 bg-primary/10 p-4" style={{ "--reveal-delay": "40ms" } as CSSProperties}>
+      <div className="flex flex-col items-center gap-3 text-center sm:flex-row sm:justify-between sm:text-left">
+        <div className="flex items-center gap-2 text-sm font-semibold text-primary">
+          <span>Re-measure</span>
+          <InfoIcon label="Your speed on this exact test before the drill versus right after it." />
+        </div>
+        <div className="flex flex-wrap items-baseline justify-center gap-x-3 gap-y-1 font-mono">
+          <span className="text-base-content/55">{formatNumber(props.beforeWpm, 1)}</span>
+          <span className="text-base-content/40">→</span>
+          <span className="text-3xl font-bold text-primary">{formatNumber(props.afterWpm, 1)}</span>
+          <span className="text-sm text-base-content/70">WPM</span>
+          <span className={`rounded-full px-2.5 py-0.5 text-sm font-semibold ${deltaTone}`}>
+            {delta >= 0 ? "+" : ""}{formatNumber(delta, 1)}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Turns the just-completed test's keystroke timeline into up to three honest,
+// actionable findings, each ending in a one-click drill on /drill built from
+// exactly those keys. Owner-only: rendered on the live results card, never on a
+// read-only shared score (which carries no timeline anyway).
+function DiagnosisPanel(props: { score: ShareableScore }) {
+  const { diagnosis, attempts, transitions } = useMemo(() => {
+    const events = props.score.timeline ? decodeTimeline(props.score.timeline) : [];
+    return {
+      diagnosis: diagnose({ events, worstKeys: props.score.worstKeys }),
+      attempts: attemptsFromEvents(events),
+      // This test's slowest transitions, framed against this test's own pace.
+      transitions: worstTransitions(aggregateTransitions(events), 2),
+    };
+  }, [props.score.timeline, props.score.worstKeys]);
+
+  // Only normal-mode tests carry a per-key timeline; without one there is nothing
+  // to diagnose, so the panel stays hidden rather than showing an empty shell.
+  if (!props.score.timeline || props.score.timeline.length === 0) return null;
+
+  // Carry this exact test's config to /drill so its "Re-measure" CTA can round-trip
+  // back home and headline a before→after delta (Phase 1.3, the loop's payoff).
+  const s = props.score;
+  const reMeasureParam = encodeURIComponent(JSON.stringify({
+    beforeWpm: s.netWpm,
+    config: {
+      subMode: s.subMode,
+      count: s.count,
+      language: s.language,
+      customLength: s.ranked === false,
+      punctuation: s.punctuation ?? false,
+      capitals: s.capitals ?? false,
+      options: s.options ?? "",
+    },
+  }));
+  const withReMeasure = (href: string) =>
+    href.startsWith("/drill") ? `${href}&rm=${reMeasureParam}` : href;
+
+  return (
+    <div data-testid="diagnosis-panel" className="score-reveal mt-5 rounded-lg border border-base-content/10 bg-base-100/45 p-5" style={{ "--reveal-delay": "200ms" } as CSSProperties}>
+      <div className="mb-1 flex items-center gap-2 text-lg font-semibold text-base-content">
+        <span>Diagnosis</span>
+        <InfoIcon label="The keys and transitions that cost you the most this test, computed from your keystroke timeline. Each finding opens a targeted drill built from those keys." />
+      </div>
+      <p className="mb-4 text-sm text-base-content/60">What slowed you down this test — and the one-click fix.</p>
+
+      {diagnosis.tooShort ?
+        <p className="text-base-content/75">Too short to diagnose — try a 30s+ test.</p>
+        :
+        <div className="grid gap-5 lg:grid-cols-2 lg:items-start">
+          {/* Findings + drill CTAs on the left, the per-key heatmap alongside on
+              the right (stacks on mobile) — keeps the panel short. */}
+          <div className="flex flex-col gap-4">
+            {(() => {
+              // Transitions get their own richer "N× your average" treatment below,
+              // so drop the generic slow-transitions finding from this list.
+              const keyFindings = diagnosis.findings.filter((f) => f.kind !== "slow-transitions");
+              if (keyFindings.length === 0 && transitions.length === 0) {
+                return <p className="text-base-content/75">No clear weak spots this test — a clean, even run. Keep the pace up.</p>;
+              }
+              return (
+                <>
+                  {keyFindings.length > 0 &&
+                    <ul className="flex flex-col gap-3">
+                      {keyFindings.map((finding) => {
+                        const drillKeys = toDrillKeys(finding.keys);
+                        return (
+                          <li
+                            key={finding.kind}
+                            className="flex flex-col gap-3 border-b border-base-content/10 pb-3 last:border-b-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between"
+                          >
+                            <span className="text-base-content/90">{finding.summary}</span>
+                            {drillKeys.length > 0 ?
+                              <Link
+                                className="inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                                href={withReMeasure(`/drill?keys=${drillKeys.join(",")}`)}
+                                aria-label={`Drill these keys: ${drillKeys.join(", ")}`}
+                                title={`Drill ${drillKeys.join(", ")}`}
+                              >
+                                Drill these keys
+                              </Link>
+                              :
+                              null
+                            }
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  }
+                  {transitions.length > 0 &&
+                    <ul data-testid="diagnosis-transitions" className="flex flex-col gap-3">
+                      {transitions.map((t) => (
+                        <li key={t.pair} className="flex flex-col gap-3 border-b border-base-content/10 pb-3 last:border-b-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between">
+                          <span className="text-base-content/90">
+                            <span className="font-mono font-bold">{t.from}→{t.to}</span> takes you {t.ratio.toFixed(1)}× your average pace.
+                          </span>
+                          <Link
+                            className="inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                            href={withReMeasure(`/drill?transitions=${t.from}${t.to}`)}
+                            aria-label={`Drill the ${t.from} to ${t.to} transition`}
+                          >
+                            Drill {t.from}{t.to}
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  }
+                </>
+              );
+            })()}
+          </div>
+
+          <div className="border-t border-base-content/10 pt-4 lg:border-t-0 lg:border-l lg:pl-5 lg:pt-0">
+            <p className="mb-3 text-sm text-base-content/60">This test&apos;s per-key accuracy — drilled keys ringed.</p>
+            <KeyHeatmap size="mini" attempts={attempts} highlightKeys={diagnosis.drillKeys} testId="diagnosis-heatmap" />
+          </div>
+        </div>
+      }
+    </div>
+  );
+}
+
 export function ShareableScoreCard(props: ShareableScoreCardProps) {
   const { score, shareUrl, readonly = false, isCreatingShare = false, canCreateShare = false, signInHtmlFor, onCreateShare, onTestAgain } = props;
   const showSignInCta = !readonly && !shareUrl && !canCreateShare && !!signInHtmlFor;
@@ -405,7 +580,7 @@ export function ShareableScoreCard(props: ShareableScoreCardProps) {
   const resetTimerRef = useRef<number | null>(null);
   const scoreCardRef = useRef<HTMLDivElement | null>(null);
   const shareImageRef = useRef<HTMLDivElement | null>(null);
-  const modeText = `${modeLabels[score.mode]} / ${subModeLabels[score.subMode]} / ${score.language}`;
+  const modeText = formatModeText(score);
   const shareButtonLabel = isCreatingShare ? "Creating..." : linkState === "copied" ? "Link copied" : "Share Score";
   const screenshotButtonLabel = imageState === "copied" ? "Screenshot copied" : imageState === "downloaded" ? "Image downloaded" : "Copy Screenshot";
 
@@ -446,11 +621,28 @@ export function ShareableScoreCard(props: ShareableScoreCardProps) {
     }
   };
 
+  // How steady the pace was across the test, derived from the chart samples so
+  // it also works for previously shared scores. Hidden when there isn't enough
+  // data to be meaningful.
+  const consistency = useMemo(() => {
+    if (!score.wpmSamples || score.wpmSamples.length < 4) return null;
+    return consistencyFromSamples(score.wpmSamples);
+  }, [score.wpmSamples]);
+
+  const worstKeysText = useMemo(() => {
+    if (!score.worstKeys || score.worstKeys.length === 0) return null;
+    return score.worstKeys
+      .map((entry) => `${entry.key === " " ? "space" : entry.key} (${Math.round(entry.accuracy)}%)`)
+      .join(", ");
+  }, [score.worstKeys]);
+
   const metricItems = useMemo(() => [
-    { label: "WPM", value: formatNumber(score.rawWpm, 1), note: "Raw speed", info: "Raw words per minute, calculated from all typed keystrokes before error adjustment.", hero: true },
+    // Net WPM is the canonical headline "WPM": speed after errors. Raw stays
+    // visible as a secondary stat (and in Performance Details) but never headlines.
+    { label: "WPM", value: formatNumber(score.netWpm, 1), note: "After errors", info: "Net words per minute: your speed after incorrect keystrokes are subtracted. This is your headline WPM.", hero: true },
     { label: "Accuracy", value: `${formatNumber(score.accuracy, 2)}%`, note: "Correct keystrokes", info: "The percentage of typed keystrokes that matched the expected text." },
     { label: "Duration", value: `${formatInteger(score.durationSeconds)}s`, note: "Completed", info: "The completed test duration in seconds." },
-    { label: "Net WPM", value: formatNumber(score.netWpm, 1), note: "Adjusted for errors", info: "Words per minute after incorrect keystrokes are subtracted from the result." },
+    { label: "Raw WPM", value: formatNumber(score.rawWpm, 1), note: "Before errors", info: "Raw words per minute from all typed keystrokes, before error adjustment." },
   ], [score]);
 
   return (
@@ -465,8 +657,21 @@ export function ShareableScoreCard(props: ShareableScoreCardProps) {
         <div className="score-reveal flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-4">
             <div>
-              {score.brag &&
-                <p className="mb-2 inline-block rounded-full bg-primary/15 px-3 py-1 text-sm font-bold text-primary">{score.brag}</p>
+              <div className="mb-2 flex flex-wrap items-center gap-2">
+                {score.dailyChallenge &&
+                  <span data-testid="score-daily-challenge-badge" className="inline-block rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-sm font-bold text-primary">Daily Challenge</span>
+                }
+                {score.brag &&
+                  <span className="inline-block rounded-full bg-primary/15 px-3 py-1 text-sm font-bold text-primary">{score.brag}</span>
+                }
+                {typeof score.streak === "number" && score.streak > 0 &&
+                  <span data-testid="score-streak" className="inline-block rounded-full bg-primary/15 px-3 py-1 text-sm font-semibold text-primary">{score.streak}-day streak</span>
+                }
+              </div>
+              {typeof score.avgDelta === "number" &&
+                <p data-testid="avg-delta" className={`mb-2 text-sm font-semibold ${score.avgDelta >= 0 ? "text-success" : "text-error"}`}>
+                  {formatNumber(Math.abs(score.avgDelta), 1)} WPM {score.avgDelta >= 0 ? "over" : "under"} your 30-day average
+                </p>
               }
               <p className="text-sm text-base-content/65">{modeText} / {formatDate(score.createdAt)}</p>
               {(score.punctuation || score.capitals || score.ranked === false) &&
@@ -548,6 +753,8 @@ export function ShareableScoreCard(props: ShareableScoreCardProps) {
           </div>
         </div>
 
+        {score.reMeasure && <ReMeasureStrip beforeWpm={score.reMeasure.beforeWpm} afterWpm={score.netWpm} />}
+
         <div className="score-reveal mt-7 grid gap-4 md:grid-cols-4" style={{ "--reveal-delay": "80ms" } as CSSProperties}>
           {metricItems.map((item) => (
             <MetricCard key={item.label} {...item} />
@@ -558,14 +765,19 @@ export function ShareableScoreCard(props: ShareableScoreCardProps) {
           <WpmChart samples={score.wpmSamples} durationSeconds={score.durationSeconds} rawWpm={score.rawWpm} />
           <div className="rounded-lg border border-base-content/10 bg-base-100/45 p-5">
             <h2 className="mb-3 text-lg font-semibold text-base-content">Performance Details</h2>
-            <DetailRow label="Total Keystrokes" value={formatInteger(score.totalKeystrokes)} />
-            <DetailRow label="Correct Keystrokes" value={formatInteger(score.correctKeystrokes)} tone="success" />
-            <DetailRow label="Incorrect Keystrokes" value={formatInteger(score.incorrectKeystrokes)} tone="error" />
             <DetailRow label="Accuracy" value={`${formatNumber(score.accuracy, 2)}%`} tone="accent" />
             <DetailRow label="Net WPM" value={formatNumber(score.netWpm, 1)} />
             <DetailRow label="Raw WPM" value={formatNumber(score.rawWpm, 1)} />
+            {consistency !== null &&
+              <DetailRow label="Consistency" value={`${formatNumber(consistency, 0)}%`} />
+            }
+            {worstKeysText &&
+              <DetailRow label="Toughest Keys" value={worstKeysText} tone="error" />
+            }
           </div>
         </div>
+
+        {!readonly && <DiagnosisPanel score={score} />}
 
         <div className="score-reveal mt-5 rounded-lg border border-base-content/10 bg-base-100/45 p-5" style={{ "--reveal-delay": "240ms" } as CSSProperties}>
           <div className="mb-4 flex items-center gap-2 text-lg font-semibold text-base-content">

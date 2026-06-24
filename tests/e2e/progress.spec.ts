@@ -1,0 +1,240 @@
+import { expect, test, type Page } from "@playwright/test";
+import { mockAuthenticatedSession, mockTrpc } from "./helpers/trpc";
+
+async function gotoProgress(page: Page) {
+  await page.goto("/progress");
+}
+
+test.describe("progress dashboard", () => {
+  test("a signed-in user with history sees their delta, trends, and weak spots", async ({ page }) => {
+    await mockAuthenticatedSession(page);
+    await mockTrpc(page, { keyStats: [{ character: "r", total: 120, correct: 96 }, { character: "e", total: 300, correct: 290 }] });
+    await page.addInitScript(() => window.localStorage.setItem("typecafe:lastRecapAt", String(Date.now())));
+    await gotoProgress(page);
+
+    // The headline delta is the largest number on the page and answers
+    // "am I getting faster?" — the mocked history rises, so it's positive.
+    const headline = page.getByTestId("headline-delta");
+    await expect(headline).toBeVisible();
+    await expect(headline.getByText(/\+\d/)).toBeVisible();
+    await expect(headline.getByText("WPM").first()).toBeVisible();
+    await expect(page.getByTestId("headline-start-current")).toContainText("Start");
+    await expect(page.getByTestId("headline-start-current")).toContainText("Current");
+
+    // The practice streak chip shows (the mocked history reaches today).
+    await expect(page.getByTestId("streak-chip")).toBeVisible();
+
+    // One big trend chart, WPM by default, with metric tabs to toggle it.
+    await expect(page.getByText("WPM over time", { exact: true })).toBeVisible();
+    await expect(page.getByTestId("trend-chart")).toHaveCount(1);
+    await page.getByTestId("trend-point-0").hover();
+    await expect(page.getByTestId("trend-tooltip")).toContainText("Net WPM");
+    await expect(page.getByTestId("trend-tooltip")).toContainText("Accuracy");
+    await expect(page.getByTestId("trend-tooltip")).toContainText("Consistency");
+    await page.getByTestId("trend-point-0").focus();
+    await expect(page.getByTestId("trend-tooltip")).toContainText("Net WPM");
+    const trendTabs = page.getByTestId("trend-tabs");
+    await trendTabs.getByRole("button", { name: "Accuracy" }).click();
+    await expect(page.getByText("Accuracy over time", { exact: true })).toBeVisible();
+    await page.getByTestId("trend-point-0").hover();
+    await expect(page.getByTestId("trend-tooltip")).toContainText("Accuracy");
+    await trendTabs.getByRole("button", { name: "Consistency" }).click();
+    await expect(page.getByText("Consistency over time", { exact: true })).toBeVisible();
+    await page.getByTestId("trend-point-0").hover();
+    await expect(page.getByTestId("trend-tooltip")).toContainText("Consistency");
+    await trendTabs.getByRole("button", { name: "WPM" }).click();
+    await expect(page.getByText("WPM over time", { exact: true })).toBeVisible();
+
+    // Best WPM is a header chip now (the rest of the stat cells are gone).
+    await expect(page.getByTestId("best-wpm-chip")).toContainText("Best");
+
+    // Weak spots → drill (§6.4): top weak keys + slowest transitions, each → /drill.
+    const weak = page.getByTestId("weak-spots");
+    await expect(weak).toBeVisible();
+    // r (80%) is weaker than e (96.7%), so it leads the weakest-keys CTA.
+    await expect(weak.getByRole("link", { name: /Drill weakest keys: r, e/ })).toBeVisible();
+    await expect(page.getByTestId("lifetime-keyboard-card")).toContainText("Lifetime keyboard");
+    await expect(page.getByTestId("lifetime-keyboard-card")).toContainText("Lower accuracy");
+    await expect(page.getByTestId("lifetime-heatmap")).toBeVisible();
+    await expect(page.getByTestId("lifetime-heatmap")).toContainText("80%");
+    const transitions = page.getByTestId("worst-transitions");
+    await expect(transitions).toContainText("b→r");
+    await expect(transitions.getByRole("link", { name: "Drill br" })).toBeVisible();
+
+    // The records timeline still anchors the bottom of the story.
+    await expect(page.getByTestId("records-timeline")).toBeVisible();
+
+    // Removed in slice 6: the 1-user self-league trap and the on-page challenge.
+    await expect(page.getByTestId("self-league-card")).toHaveCount(0);
+    await expect(page.getByTestId("daily-challenge")).toHaveCount(0);
+  });
+
+  test("the period switcher rescopes the dashboard", async ({ page }) => {
+    await mockAuthenticatedSession(page);
+    await mockTrpc(page);
+    await gotoProgress(page);
+
+    const switcher = page.getByTestId("period-switcher");
+    await expect(switcher).toBeVisible();
+
+    await switcher.getByRole("button", { name: "All" }).click();
+    await expect(switcher.getByRole("button", { name: "All" })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByTestId("trend-chart").first()).toBeVisible();
+
+    await switcher.getByRole("button", { name: "7d" }).click();
+    await expect(switcher.getByRole("button", { name: "7d" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  test("mode and length filters rescope the dashboard", async ({ page }) => {
+    await mockAuthenticatedSession(page);
+    await mockTrpc(page, { mixedProgress: true });
+    await page.addInitScript(() => window.localStorage.setItem("typecafe:lastRecapAt", String(Date.now())));
+    await gotoProgress(page);
+
+    const filters = page.getByTestId("progress-filters");
+    await expect(filters).toBeVisible();
+
+    // Only All / Timed / Words are offered now (grams/practice/relaxed never persist).
+    const modeFilter = page.getByTestId("progress-mode-filter");
+    await expect(modeFilter.getByRole("button", { name: "Practice" })).toHaveCount(0);
+    await expect(modeFilter.getByRole("button", { name: "Grams" })).toHaveCount(0);
+
+    await modeFilter.getByRole("button", { name: "Words" }).click();
+    await expect(modeFilter.getByRole("button", { name: "Words" })).toHaveAttribute("aria-pressed", "true");
+    const lengthFilter = page.getByTestId("progress-length-filter");
+    await expect(lengthFilter.getByRole("button", { name: "25 words" })).toBeVisible();
+    await expect(page.getByTestId("trend-chart").first()).toBeVisible();
+
+    await lengthFilter.getByRole("button", { name: "25 words" }).click();
+    await expect(lengthFilter.getByRole("button", { name: "25 words" })).toHaveAttribute("aria-pressed", "true");
+
+    // Switching mode drops a now-invalid length and keeps showing data.
+    await modeFilter.getByRole("button", { name: "Timed" }).click();
+    await expect(page.getByTestId("progress-length-filter").getByRole("button", { name: "30s" })).toBeVisible();
+    await modeFilter.getByRole("button", { name: "All" }).click();
+    await expect(modeFilter.getByRole("button", { name: "All" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  test("a signed-in user with no history sees the take-a-test empty state", async ({ page }) => {
+    await mockAuthenticatedSession(page);
+    await mockTrpc(page, { emptyScores: true });
+    await gotoProgress(page);
+
+    await expect(page.getByText("No tests yet")).toBeVisible();
+    await expect(page.getByRole("link", { name: "Take a test" })).toBeVisible();
+    await expect(page.getByTestId("trend-chart")).toHaveCount(0);
+  });
+
+  test("setting a goal projects an honest trajectory", async ({ page }) => {
+    await mockAuthenticatedSession(page);
+    await mockTrpc(page);
+    await page.addInitScript(() => window.localStorage.setItem("typecafe:lastRecapAt", String(Date.now())));
+    await gotoProgress(page);
+
+    // Demoted to a one-liner: expand it before setting a goal.
+    const goal = page.getByTestId("goal-card");
+    await expect(goal).toBeVisible();
+    await goal.getByRole("button", { name: "Set a goal →" }).click();
+    await goal.getByLabel("Target WPM").fill("100");
+    await goal.getByLabel("Target date").fill("2027-12-31");
+    await goal.getByRole("button", { name: "Set goal" }).click();
+
+    // The rising mock history reaches 100 well before a far-future deadline.
+    await expect(page.getByTestId("goal-status")).toContainText("On track");
+
+    // A tight deadline flips it to an honest "behind" with the required pace.
+    await goal.getByRole("button", { name: "Edit" }).click();
+    const soon = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    await goal.getByLabel("Target date").fill(soon);
+    await goal.getByRole("button", { name: "Update goal" }).click();
+    await expect(page.getByTestId("goal-status")).toContainText("Behind");
+    await expect(page.getByTestId("goal-status")).toContainText("WPM/week");
+  });
+
+  test("a flat trend shows the plateau coach voice", async ({ page }) => {
+    await mockAuthenticatedSession(page);
+    await mockTrpc(page, { flatProgress: true });
+    await page.addInitScript(() => window.localStorage.setItem("typecafe:lastRecapAt", String(Date.now())));
+    await gotoProgress(page);
+
+    const plateau = page.getByTestId("plateau-headline");
+    await expect(plateau).toBeVisible();
+    await expect(plateau).toContainText("Plateaued for");
+    await expect(plateau).toContainText("Switch to transition drills to break the ceiling.");
+    await expect(plateau.getByRole("link", { name: "Try transition drills" })).toHaveCount(0);
+  });
+
+  test("a signed-in user can share a progress card", async ({ page }) => {
+    await mockAuthenticatedSession(page);
+    await mockTrpc(page);
+    await gotoProgress(page);
+
+    const button = page.getByTestId("share-progress");
+    await expect(button).toBeVisible();
+    await button.click();
+    await expect(button).toHaveText("Link copied");
+  });
+
+  test("a shared progress card renders the delta and trend", async ({ page }) => {
+    await mockTrpc(page);
+    await page.goto("/score/progress-test-share");
+
+    await expect(page.getByTestId("progress-share-card")).toBeVisible();
+    await expect(page.getByTestId("progress-share-delta")).toContainText("+12.5");
+    await expect(page.getByTestId("trend-chart").first()).toBeVisible();
+  });
+
+  test("a signed-out visitor with no history sees the sign-in pitch", async ({ page }) => {
+    await gotoProgress(page);
+
+    await expect(page.getByTestId("progress-signed-out")).toBeVisible();
+    await expect(page.getByText("Your progress, kept forever")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Take a test first" })).toBeVisible();
+  });
+
+  test("a guest with local history gets the real dashboard plus a keep-it banner", async ({ page }) => {
+    // Seed a rising local history (local-first: no account needed).
+    const now = Date.now();
+    const day = 24 * 60 * 60 * 1000;
+    await page.addInitScript(({ now, day }) => {
+      const entries = Array.from({ length: 12 }, (_, i) => ({ wpm: 55 + i * 1.5, accuracy: 95, t: now - (28 - i * 2.5) * day }));
+      window.localStorage.setItem("typecafe:progressHistory", JSON.stringify(entries));
+    }, { now, day });
+
+    await gotoProgress(page);
+
+    await expect(page.getByTestId("guest-keep-banner")).toBeVisible();
+    await expect(page.getByTestId("trend-chart").first()).toBeVisible();
+    await expect(page.getByTestId("progress-signed-out")).toHaveCount(0);
+  });
+
+  test("guest progress history imports after sign in and renders from daily rollups", async ({ page }) => {
+    const calls: { procedure: string; input: unknown }[] = [];
+    await mockAuthenticatedSession(page);
+    await mockTrpc(page, {
+      emptyScores: true,
+      onProcedure: (procedure, input) => {
+        if (procedure === "test.syncProgressHistory") calls.push({ procedure, input });
+      },
+    });
+
+    await page.addInitScript(() => {
+      window.localStorage.setItem("typecafe:lastRecapAt", String(Date.now()));
+      window.localStorage.setItem("typecafe:progressHistory", JSON.stringify([
+        { wpm: 62, accuracy: 94, c: 72, t: Date.parse("2026-06-10T12:00:00.000Z") },
+        { wpm: 68, accuracy: 96, c: 78, t: Date.parse("2026-06-12T12:00:00.000Z") },
+      ]));
+    });
+
+    await gotoProgress(page);
+
+    await expect.poll(async () => page.evaluate(() => window.localStorage.getItem("typecafe:progressHistory"))).toBeNull();
+    expect(calls).toHaveLength(1);
+    expect(calls[0]!.input).toMatchObject({ entries: expect.arrayContaining([expect.objectContaining({ wpm: 62 })]) });
+    await expect(page.getByTestId("trend-chart").first()).toBeVisible();
+    // Imported history is rollup-only (no mode/length), so the filter controls
+    // that would silently hide it are not offered.
+    await expect(page.getByTestId("progress-filters")).toHaveCount(0);
+    await expect(page.getByText("No tests yet")).toHaveCount(0);
+  });
+});

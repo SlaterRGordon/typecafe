@@ -11,6 +11,10 @@
 /test-results/
 /blob-report/
 
+# generated screenshot-tour artifacts
+/docs/screenshots/desktop-chromium/*.png
+/docs/screenshots/mobile-chromium/*.png
+
 # database
 /prisma/db.sqlite
 /prisma/db.sqlite-journal
@@ -49,3 +53,10 @@ yarn-error.log*
 /src/generated/prisma/
 
 .env*
+
+# extracted word-frequency source (regenerate from data/unigram_freq.zip)
+/data/*.csv
+
+# Goodreads quotes dump — build input for gen-quotes.mjs, never committed
+/quotes.zip
+/quotes.csv

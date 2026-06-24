@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useReducer } from "react";
 import type { Config, ReturnValue, State } from "./types";
 import { reducer } from "./reducer";
+import { deriveTimerTime, nextTickDelay } from "./tick";
 
 export const useTimer = ({
     autostart = false,
@@ -57,37 +58,49 @@ export const useTimer = ({
     }, [time, onTimeUpdate]);
 
     useEffect(() => {
-        if (status !== 'STOPPED' && time === endTime) {
+        if (status === 'STOPPED' || endTime == null) return;
+
+        // The tick below derives time from the wall clock, so a throttled tab can
+        // jump several steps at once — detect crossing the end, not just landing on it.
+        const isOver = timerType === 'DECREMENTAL' ? time <= endTime : time >= endTime;
+        if (isOver) {
             dispatch({ type: 'stop' });
 
             if (typeof onTimeOver === 'function') {
                 onTimeOver();
             }
         }
-    }, [endTime, onTimeOver, time, status]);
+    }, [endTime, onTimeOver, time, status, timerType]);
 
+    // Drift-free ticking: each tick is scheduled against the wall-clock start time
+    // and the displayed time is recomputed from elapsed real time, so render and
+    // effect latency never accumulate into the countdown.
     useEffect(() => {
-        let intervalId: NodeJS.Timeout | null = null;
+        if (status !== 'RUNNING') return;
 
-        if (status === 'RUNNING') {
-            intervalId = setInterval(() => {
-                dispatch({
-                    type: 'set',
-                    payload: {
-                        newTime: timerType === 'DECREMENTAL' ? time - step : time + step,
-                    },
+        let cancelled = false;
+        let timeoutId: NodeJS.Timeout;
+        const startMs = actualStartTime;
+
+        const scheduleNext = () => {
+            const delay = nextTickDelay(Date.now(), startMs, interval);
+            timeoutId = setTimeout(() => {
+                if (cancelled) return;
+                const newTime = deriveTimerTime({
+                    now: Date.now(), startMs, initialTime, interval, step, timerType, endTime,
                 });
-            }, interval);
-        } else if (intervalId) {
-            clearInterval(intervalId);
-        }
+                dispatch({ type: 'set', payload: { newTime } });
+                scheduleNext();
+            }, delay);
+        };
+
+        scheduleNext();
 
         return () => {
-            if (intervalId) {
-                clearInterval(intervalId);
-            }
+            cancelled = true;
+            clearTimeout(timeoutId);
         };
-    }, [status, step, timerType, interval, time]);
+    }, [status, step, timerType, interval, actualStartTime, initialTime, endTime]);
 
     return { advanceTime, pause, reset, start, initialTime, setInitialTime, status, time, actualStartTime, actualEndTime};
 };

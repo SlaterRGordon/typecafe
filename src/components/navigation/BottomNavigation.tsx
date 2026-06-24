@@ -1,6 +1,7 @@
 import { useSession } from "next-auth/react";
 import { Avatar } from "../Avatar";
 import { useRouter } from "next/router";
+import { SHOW_PLAN_NAVIGATION } from "~/lib/features";
 
 export const BottomNavigation = () => {
     const router = useRouter();
@@ -15,7 +16,7 @@ export const BottomNavigation = () => {
     return (
         <div className="flex md:hidden">
             {/* Bottom Navigation */}
-            <div className="btm-nav fixed bottom-0 left-0 right-0 z-50 flex h-16 min-h-16 w-full bg-base-200">
+            <div className="typing-focus-global-fade btm-nav fixed bottom-0 left-0 right-0 z-50 flex h-16 min-h-16 w-full bg-base-200">
                 {/* Home */}
                 <button onClick={() => router.push('/')} className={getNavButtonClass('/')} aria-label="Home" title="Home">
                     <svg className={navIconClass} aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M6 19h3v-6h6v6h3v-9l-6-4.5L6 10v9Zm0 2q-.825 0-1.413-.588T4 19v-9q0-.475.213-.9t.587-.7l6-4.5q.275-.2.575-.3T12 3.5q.325 0 .625.1t.575.3l6 4.5q.375.275.588.7T20 10v9q0 .825-.588 1.413T18 21h-5v-6h-2v6H6Zm6-8.75Z" /></svg>
@@ -28,10 +29,24 @@ export const BottomNavigation = () => {
                 <button onClick={() => router.push('/leaderboard')} className={getNavButtonClass('/leaderboard')} aria-label="Leaderboard" title="Leaderboard">
                     <svg className={navIconClass} aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M4 11v8h4v-8H4Zm6-6v14h4V5h-4Zm6 8v6h4v-6h-4Zm4 8H4q-.825 0-1.413-.588T2 19v-8q0-.825.588-1.413T4 9h4V5q0-.825.588-1.413T10 3h4q.825 0 1.413.588T16 5v6h4q.825 0 1.413.588T22 13v6q0 .825-.588 1.413T20 21Z" /></svg>
                 </button>
+                {/* Daily Challenge */}
+                <button onClick={() => router.push('/challenge')} className={getNavButtonClass('/challenge')} aria-label="Daily Challenge" title="Daily Challenge">
+                    <svg className={navIconClass} aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2L9.19 8.63L2 9.24l5.46 4.73L5.82 21L12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2Z" /></svg>
+                </button>
+                {/* Progress — always shown; guests get the sign-in pitch on the page. */}
+                <button onClick={() => router.push('/progress')} className={getNavButtonClass('/progress')} aria-label="Progress" title="Progress">
+                    <svg className={navIconClass} aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="m3.5 18.5l6-6l4 4L22 6.92L20.59 5.5l-7.09 8l-4-4L2 16.99l1.5 1.51Z" /></svg>
+                </button>
+                {/* Plan, if signed in */}
+                {SHOW_PLAN_NAVIGATION && sessionData?.user &&
+                    <button onClick={() => router.push('/plan')} className={getNavButtonClass('/plan')} aria-label="Plan" title="Plan">
+                        <svg className={navIconClass} aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2Zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1s-1-.45-1-1s.45-1 1-1Zm-2 14l-4-4l1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8Z" /></svg>
+                    </button>
+                }
                 {/* Profile, if signed in */}
                 {sessionData?.user &&
                     <button onClick={() => router.push('/profile')} className={getNavButtonClass('/profile')} aria-label="Profile" title="Profile">
-                        <Avatar size={25} />
+                        <Avatar size={25} image={sessionData.user.image} name={sessionData.user.username ?? sessionData.user.name} />
                     </button>
                 }
             </div>

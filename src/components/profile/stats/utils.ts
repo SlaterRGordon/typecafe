@@ -1,10 +1,12 @@
+import { formatStat } from "~/lib/format"
+
 export const formatValue = (value: number) => {
     if (value > 1000000) {
-        return `${(value / 1000000).toFixed(2)}M`;
+        return `${formatStat(value / 1000000)}M`;
     } else if (value > 1000) {
-        return `${(value / 1000).toFixed(2)}K`;
+        return `${formatStat(value / 1000)}K`;
     } else {
-        return value;
+        return formatStat(value);
     }
 }
 

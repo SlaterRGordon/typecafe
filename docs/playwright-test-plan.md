@@ -46,8 +46,8 @@ Implemented first:
 ## Priority 1: Settings
 
 - Settings modal opens from the home page.
-- Normal timed mode supports 15, 30, 60, and 120 seconds.
-- Normal words mode supports 10, 25, 50, and 100 words.
+- Timed mode supports 15, 30, 60, and 120 seconds.
+- Words mode supports 10, 25, 50, and 100 words.
 - Language selection supports English, French, Hindi, Chinese, and Spanish.
 - Practice mode shows the live keyboard.
 - Grams mode exposes source, scope, combinations, repetitions, WPM threshold, and accuracy threshold controls.
@@ -58,8 +58,8 @@ Why: settings change the state that drives text generation, timers, stats, and k
 
 Implemented first:
 
-- Settings modal switches timed, words, grams, practice, and relaxed modes.
-- Timed/words counts, language selection, grams threshold validation, live stats toggle, and live keyboard toggle are covered.
+- Phase 2 target: the typer toolbar switches Timed, Words, Grams, Practice, and Relaxed modes.
+- Timed and Words counts, custom length, language selection, settings dropdown behavior, grams threshold validation, live stats toggle, and live keyboard toggle are covered.
 
 ## Priority 1: Learn
 
@@ -85,7 +85,7 @@ Why: learn mode combines typing, persistence, locking logic, account state, and 
 ## Priority 2: Leaderboard And Profiles
 
 - `/leaderboard` loads with default filters.
-- Language, timed/words, count, and date-range filters update the displayed scores query.
+- Language, Timed/Words mode, count, and date-range filters update the displayed scores query.
 - `/profile` redirects unauthenticated users to `/`.
 - Authenticated profile shows user details, stats, activity, best scores, and edit/delete modals.
 - `/profile/[username]` renders public user data or a graceful missing-user state.
@@ -136,7 +136,7 @@ Implemented first:
 Start with screenshots for:
 
 - Home desktop and mobile after text renders.
-- Home with settings modal open.
+- Home with settings dropdown open after Phase 2; legacy settings modal open before then.
 - Home with live keyboard enabled.
 - Learn desktop and mobile.
 - Leaderboard mobile.
@@ -147,7 +147,7 @@ Use strict `toHaveScreenshot` only for stable surfaces. Prefer explicit saved sc
 
 Implemented first:
 
-- Explicit screenshot artifacts are saved for home default, settings modal, live keyboard, color modal, learn, leaderboard, and authenticated profile across configured desktop/mobile projects.
+- Explicit screenshot artifacts are saved for home default, settings dropdown/modal, live keyboard, color modal, learn, leaderboard, and authenticated profile across configured desktop/mobile projects.
 
 ## Agent Prompts
 

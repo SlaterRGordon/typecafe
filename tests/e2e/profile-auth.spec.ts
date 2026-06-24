@@ -57,17 +57,20 @@ test.describe("authenticated profile", () => {
 
     await page.goto("/profile");
 
-    await expect(page.locator("#main").getByAltText("Profile Picture", { exact: true })).toBeVisible();
+    // The header avatar renders the picture (shared <Avatar> → an <img>).
+    const headerAvatar = page.getByTestId("profile-avatar");
+    await expect(headerAvatar.getByRole("img")).toBeVisible();
 
     await page.locator("label[for='configModal']").filter({ hasText: /^Edit Profile$/ }).click();
-    await expect(page.getByAltText("Profile picture preview")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Remove" })).toBeVisible();
 
     await page.getByRole("button", { name: "Remove" }).click();
     await page.getByRole("button", { name: "Save Changes" }).click();
 
     await expect(page.locator("#configModal")).not.toBeChecked();
-    await expect(page.locator("#main").getByAltText("Profile Picture", { exact: true })).toHaveCount(0);
-    await expect(page.locator(".avatar").getByText("T").first()).toBeVisible();
+    // Picture gone → the header falls back to the deterministic initial, no image.
+    await expect(headerAvatar.getByRole("img")).toHaveCount(0);
+    await expect(headerAvatar.getByText("T")).toBeVisible();
   });
 
   test("rejects unsupported profile picture files before upload", async ({ page }) => {

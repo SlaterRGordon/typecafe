@@ -8,11 +8,12 @@ import Select from 'react-select'
 import type { SingleValue } from 'react-select'
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
-import Image from "next/image";
+import { Avatar } from "~/components/Avatar";
 import { Modal } from "~/components/Modal";
 import { Edit } from "~/components/profile/edit/Edit";
 import { api } from "~/utils/api";
 import { ConfirmModal } from "~/components/ConfirmModal";
+import { currentStreak } from "~/lib/progress";
 
 type Option = { label: string, value: number | string }
 
@@ -28,6 +29,19 @@ const Profile: NextPage = () => {
   const [deleting, setDeleting] = useState(false)
 
   const { data: userData, refetch: refetchUserData, isLoading } = api.user.get.useQuery()
+
+  // Practice-day streak from the last ~90 days of activity (§3.2). The range is
+  // memoized so the query key stays stable across renders (inline `new Date()`
+  // would churn the key and never settle).
+  const streakRange = useState(() => ({
+    startDate: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000),
+    endDate: new Date(),
+  }))[0]
+  const { data: activity } = api.test.getActivityByDate.useQuery(streakRange)
+  const streak = currentStreak(
+    (activity ?? []).map((day) => ({ wpm: 0, accuracy: 0, createdAt: day.summaryDate })),
+    streakRange.endDate,
+  )
 
   const onModalClose = async () => {
     setUpdate(prevUpdate => !prevUpdate)
@@ -162,20 +176,12 @@ const Profile: NextPage = () => {
         <div className="flex w-11/12 space-x-4 mt-8 mx-4">
           <div className="flex flex-col gap-2">
             <div className="flex gap-4">
-              <div className="flex flex-col items-center justify-center">
-                <div className="avatar">
-                  <div className="mask mask-circle w-24 h-24">
-                    {(userData ? userData.image : sessionData?.user.image) ?
-                      <Image width={192} height={192} sizes="96px" className="h-full w-full object-cover" src={(userData ? userData.image : sessionData?.user.image) ?? ""} alt={"Profile Picture"} />
-                      :
-                      <div className="avatar placeholder">
-                        <div className="bg-neutral text-neutral-content rounded-full w-24">
-                          <span className="text-4xl font-bold">{sessionData?.user.username?.charAt(0).toUpperCase() ?? ""}</span>
-                        </div>
-                      </div>
-                    }
-                  </div>
-                </div>
+              <div data-testid="profile-avatar" className="flex flex-col items-center justify-center">
+                <Avatar
+                  size={96}
+                  image={userData ? userData.image : sessionData?.user.image}
+                  name={userData?.username ?? sessionData?.user.username ?? sessionData?.user.name}
+                />
               </div>
               <div className="flex flex-col justify-center gap-1">
                 {isLoading ?
@@ -184,7 +190,12 @@ const Profile: NextPage = () => {
                   </div>
                   :
                   <>
-                    <p className="text-sm md:text-xl"><strong>{userData?.username ?? ""}</strong></p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm md:text-xl"><strong>{userData?.username ?? ""}</strong></p>
+                      {streak > 0 &&
+                        <span data-testid="profile-streak" className="rounded-full bg-primary/15 px-2.5 py-0.5 text-xs font-semibold text-primary md:text-sm">{streak}-day streak</span>
+                      }
+                    </div>
                     <p className="text-xs md:text-lg">{userData?.bio ?? ""}</p>
                     <p className="cursor-pointer text-xs md:text-lg"><a href={userData?.link ?? ""}>{userData?.link ?? ""}</a></p>
                   </>

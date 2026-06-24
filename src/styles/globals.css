@@ -58,8 +58,22 @@ body>div {
     border-radius: 0.5rem;
     border-color: transparent;
     box-shadow: none;
+    cursor: pointer;
     font-size: 1rem;
     line-height: 1.5rem;
+}
+
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]),
+label[for] {
+    cursor: pointer;
+}
+
+button:disabled,
+.btn:disabled,
+.btn[disabled],
+[aria-disabled="true"] {
+    cursor: not-allowed;
 }
 
 .btn-sm {
@@ -181,6 +195,21 @@ body>div {
 .incorrect-char {
     color: var(--error-color);
     text-decoration: underline;
+}
+
+.typing-focus-global-fade {
+    transition: opacity 300ms ease;
+}
+
+html[data-typing-focus="active"] .typing-focus-global-fade {
+    pointer-events: none;
+    opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .typing-focus-global-fade {
+        transition: none;
+    }
 }
 
 /* .react-activity-calendar__footer {
@@ -398,7 +427,8 @@ body>div {
     cursor: pointer;
 }
 
-.typecafe-keyboard .kbd {
+.typecafe-keyboard .kbd,
+.typecafe-key-heatmap .kbd {
     min-width: 2.2em;
     min-height: 2.2em;
     border-width: 1px;
@@ -411,11 +441,13 @@ body>div {
     justify-content: center;
 }
 
-.typecafe-keyboard .kbd:not(.bg-primary):not(.bg-secondary):not(.bg-base-100) {
+.typecafe-keyboard .kbd:not(.bg-primary):not(.bg-secondary):not(.bg-base-100),
+.typecafe-key-heatmap .kbd:not(.bg-primary):not(.bg-secondary):not(.bg-base-100) {
     background-color: var(--color-base-200, hsl(var(--b2, var(--b1))));
 }
 
-.typecafe-keyboard .kbd-sm {
+.typecafe-keyboard .kbd-sm,
+.typecafe-key-heatmap .kbd-sm {
     min-width: 1.6em;
     min-height: 1.6em;
     padding-inline: 0.25rem;
@@ -425,7 +457,9 @@ body>div {
 
 @media (min-width: 640px) {
     .typecafe-keyboard .kbd-md,
-    .typecafe-keyboard .kbd-lg {
+    .typecafe-keyboard .kbd-lg,
+    .typecafe-key-heatmap .kbd-md,
+    .typecafe-key-heatmap .kbd-lg {
         min-width: 2.5em !important;
         min-height: 2.5em !important;
         padding-inline: 1rem !important;

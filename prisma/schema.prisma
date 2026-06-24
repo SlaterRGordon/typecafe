@@ -56,7 +56,9 @@ model User {
     tests               Test[]
     scoreShares         ScoreShare[]
     colorConfigurations ColorConfiguration[]
+    dailyUserStats      DailyUserStat[]
     practiceStats       PracticeStats[]
+    transitionStats     TransitionStat[]
     learnProgress       LearnProgress[]
 }
 
@@ -89,6 +91,7 @@ model Test {
     typeId    String
     speed     Float
     accuracy  Float
+    consistency Float?
     score     Float
     count     Int      @default(0)
     options   String
@@ -96,6 +99,8 @@ model Test {
     capitals    Boolean @default(false)
     ranked      Boolean @default(true)
     summaryDate DateTime  @db.Date
+    // The daily-challenge day this test belongs to (null = not a challenge run).
+    challengeDate DateTime? @db.Date
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
     user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -104,20 +109,23 @@ model Test {
 
     @@index([userId])
     @@index([typeId])
+    @@index([challengeDate])
 }
 
 model ScoreShare {
     id        String    @id @default(cuid())
     slug      String    @unique
-    testId    String
-    userId    String
+    // "score" (a single test) or "progress" (a trend snapshot, no single test).
+    kind      String    @default("score")
+    testId    String?
+    userId    String?
     snapshot  Json?
     expiresAt DateTime?
     deletedAt DateTime?
     createdAt DateTime  @default(now())
     updatedAt DateTime  @updatedAt
-    test      Test      @relation(fields: [testId], references: [id], onDelete: Cascade)
-    user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+    test      Test?     @relation(fields: [testId], references: [id], onDelete: Cascade)
+    user      User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
     @@index([testId])
     @@index([userId])
@@ -151,6 +159,44 @@ model PracticeStats {
     @@index([userId])
 }
 
+model DailyUserStat {
+    id                 String   @id @default(cuid())
+    userId             String
+    date               DateTime @db.Date
+    tests              Int
+    bestWpm            Float
+    avgWpm             Float
+    avgAccuracy        Float
+    avgConsistency     Float?
+    consistencySamples Int      @default(0)
+    createdAt          DateTime @default(now())
+    updatedAt          DateTime @updatedAt
+
+    user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    @@unique([userId, date])
+    @@index([userId])
+    @@index([date])
+}
+
+model TransitionStat {
+    id        String   @id @default(cuid())
+    userId    String
+    pair      String   @db.VarChar(2)
+    count     Int
+    // ponytail: Int, not BigInt — ceiling ~2.1e9 ms (~24 days) of cumulative
+    // latency on a single pair; upgrade to BigInt if a heavy user ever nears it.
+    totalMs   Int
+    errors    Int
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    @@unique([userId, pair])
+    @@index([userId])
+}
+
 model LearnProgress {
     id         String   @id @default(cuid())
     userId     String
@@ -158,6 +204,7 @@ model LearnProgress {
     options    String
     speed      Float
     accuracy   Float
+    stars      Int      @default(0)
     createdAt  DateTime @default(now())
     updatedAt  DateTime @updatedAt
 

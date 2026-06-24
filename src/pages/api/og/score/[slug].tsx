@@ -1,8 +1,9 @@
 import { ImageResponse } from "next/og";
 import type { NextApiRequest, NextApiResponse } from "next";
 
+import { TestModes, TestSubModes } from "~/components/typer/types";
 import { loadOgFonts } from "~/server/og/fonts";
-import { getShareScoreForOg, type OgScoreData } from "~/server/og/scoreData";
+import { getShareForOg, type OgScoreData, type OgProgressData } from "~/server/og/scoreData";
 
 export const SHARE_IMAGE_WIDTH = 1200;
 export const SHARE_IMAGE_HEIGHT = 630;
@@ -18,7 +19,7 @@ const BRAND = {
   primary: "#ff79c6",
 };
 
-const modeLabels = ["Normal", "Practice", "N-grams", "Relaxed"];
+const modeLabels = ["Timed", "Practice", "N-grams", "Relaxed"];
 const subModeLabels = ["Timed", "Words"];
 
 function formatNumber(value: number, digits = 1) {
@@ -27,6 +28,14 @@ function formatNumber(value: number, digits = 1) {
 
 function formatDate(date: Date) {
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+function formatModeText(data: Pick<OgScoreData, "mode" | "subMode" | "language">) {
+  if (data.mode === TestModes.normal) {
+    return `${subModeLabels[data.subMode] ?? subModeLabels[TestSubModes.timed]} / ${data.language}`;
+  }
+
+  return `${modeLabels[data.mode] ?? "Timed"} / ${subModeLabels[data.subMode] ?? subModeLabels[TestSubModes.timed]} / ${data.language}`;
 }
 
 function sparklineDataUri(samples: OgScoreData["wpmSamples"], rawWpm: number) {
@@ -56,7 +65,7 @@ function Stat(props: { label: string; value: string }) {
 
 function ScoreCard(props: { data: OgScoreData; brag?: string }) {
   const { data, brag } = props;
-  const modeText = `${modeLabels[data.mode] ?? "Normal"} / ${subModeLabels[data.subMode] ?? "Timed"} / ${data.language}`;
+  const modeText = formatModeText(data);
   const username = data.username ? `@${data.username}` : "Guest";
 
   return (
@@ -83,12 +92,22 @@ function ScoreCard(props: { data: OgScoreData; brag?: string }) {
             </div>
             : null}
           <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: 3, color: BRAND.primary, marginTop: brag ? 16 : 48 }}>WORDS PER MINUTE</div>
-          <div style={{ fontSize: 150, fontWeight: 700, lineHeight: 1, letterSpacing: -6, color: BRAND.primary }}>{formatNumber(data.rawWpm, 1)}</div>
+          <div style={{ fontSize: 150, fontWeight: 700, lineHeight: 1, letterSpacing: -6, color: BRAND.primary }}>{formatNumber(data.netWpm, 1)}</div>
+          {typeof data.avgDelta === "number" ?
+            <div style={{ display: "flex", fontSize: 24, fontWeight: 700, color: data.avgDelta >= 0 ? "#50fa7b" : "#ff5555", marginTop: 12 }}>
+              {`${formatNumber(Math.abs(data.avgDelta), 1)} WPM ${data.avgDelta >= 0 ? "over" : "under"} their 30-day average`}
+            </div>
+            : null}
           <div style={{ fontSize: 20, color: BRAND.textMuted, marginTop: 12 }}>{`${modeText} / ${formatDate(data.createdAt)}`}</div>
         </div>
         <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", paddingBottom: 24 }}>
+          {data.dailyChallenge ?
+            <div style={{ display: "flex", justifyContent: "flex-end" }}>
+              <div style={{ fontSize: 20, fontWeight: 700, color: BRAND.primary, backgroundColor: "rgba(255,121,198,0.14)", border: "1px solid rgba(255,121,198,0.45)", borderRadius: 9999, padding: "8px 18px" }}>Daily Challenge</div>
+            </div>
+            : null}
           <Stat label="ACCURACY" value={`${formatNumber(data.accuracy, 1)}%`} />
-          <Stat label="NET WPM" value={formatNumber(data.netWpm, 1)} />
+          <Stat label="RAW WPM" value={formatNumber(data.rawWpm, 1)} />
           <Stat label="DURATION" value={`${Math.round(data.durationSeconds)}s`} />
         </div>
       </div>
@@ -96,6 +115,50 @@ function ScoreCard(props: { data: OgScoreData; brag?: string }) {
       <div style={{ display: "flex", flexDirection: "column" }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={sparklineDataUri(data.wpmSamples, data.rawWpm)} width={1088} height={150} alt="" />
+        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 20 }}>
+          <div style={{ fontSize: 22, fontWeight: 700, color: BRAND.text, maxWidth: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{username}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// The "+18 WPM in 60 days" unfurl — leads with the delta, not an absolute.
+function ProgressCard(props: { data: OgProgressData }) {
+  const { data } = props;
+  const positive = data.deltaWpm >= 0;
+  const sign = positive ? "+" : "";
+  const username = data.username ? `@${data.username}` : "A TypeCafe typist";
+  const samples = data.points.map((p) => ({ elapsedSeconds: p.t, wpm: p.wpm }));
+  const maxWpm = Math.max(...data.points.map((p) => p.wpm), 1);
+
+  return (
+    <div
+      style={{
+        width: SHARE_IMAGE_WIDTH,
+        height: SHARE_IMAGE_HEIGHT,
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "space-between",
+        padding: 56,
+        backgroundColor: BRAND.bg,
+        color: BRAND.text,
+        fontFamily: "Roboto Mono",
+      }}
+    >
+      <div style={{ display: "flex", flexDirection: "column" }}>
+        <div style={{ fontSize: 40, fontWeight: 700, color: BRAND.text }}>TypeCafe</div>
+        <div style={{ fontSize: 20, color: BRAND.textMuted, marginTop: 4 }}>{SHARE_DOMAIN}</div>
+        <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: 3, color: BRAND.primary, marginTop: 44 }}>WORDS PER MINUTE GAINED</div>
+        <div style={{ display: "flex", alignItems: "baseline" }}>
+          <div style={{ fontSize: 150, fontWeight: 700, lineHeight: 1, letterSpacing: -6, color: positive ? "#50fa7b" : "#ff5555" }}>{`${sign}${formatNumber(data.deltaWpm, 1)}`}</div>
+        </div>
+        <div style={{ fontSize: 30, color: BRAND.text, marginTop: 16 }}>{`in ${data.periodLabel}`}</div>
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column" }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={sparklineDataUri(samples, maxWpm)} width={1088} height={150} alt="" />
         <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 20 }}>
           <div style={{ fontSize: 22, fontWeight: 700, color: BRAND.text, maxWidth: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{username}</div>
         </div>
@@ -132,15 +195,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     // A data-fetch failure (e.g. DB unavailable) still yields a valid brand image
     // rather than a broken unfurl.
-    let data: OgScoreData | null = null;
+    let data: Awaited<ReturnType<typeof getShareForOg>> = null;
     try {
-      data = slug ? await getShareScoreForOg(slug) : null;
+      data = slug ? await getShareForOg(slug) : null;
     } catch {
       data = null;
     }
     const fonts = await loadOgFonts();
 
-    const image = new ImageResponse(data ? <ScoreCard data={data} brag={data.brag ?? undefined} /> : <FallbackCard />, {
+    const card = !data
+      ? <FallbackCard />
+      : data.kind === "progress"
+        ? <ProgressCard data={data} />
+        : <ScoreCard data={data} brag={data.brag ?? undefined} />;
+    const image = new ImageResponse(card, {
       width: SHARE_IMAGE_WIDTH,
       height: SHARE_IMAGE_HEIGHT,
       fonts: fonts.map((font) => ({ name: font.name, data: font.data, weight: font.weight, style: font.style })),

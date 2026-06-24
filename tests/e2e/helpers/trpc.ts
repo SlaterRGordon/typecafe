@@ -8,6 +8,15 @@ interface MockTrpcOptions {
   profileImage?: string | null;
   emptyScores?: boolean;
   invalidShare?: boolean;
+  // Per-key practice stats for the /progress lifetime heatmap.
+  keyStats?: { character: string; total: number; correct: number }[];
+  // Make the progress history flat (a plateau) instead of rising.
+  flatProgress?: boolean;
+  // Mix timed and words records so /progress filter tests can prove scoping.
+  mixedProgress?: boolean;
+  // Procedures listed here resolve to a tRPC error instead of data, so tests can
+  // exercise client-side failure handling (e.g. a save that fails on the network).
+  errorProcedures?: string[];
   onProcedure?: (procedure: string, input: ProcedureInput) => void;
 }
 
@@ -38,6 +47,20 @@ function serializeResult(data: unknown) {
     result: {
       data: superjson.serialize(data),
     },
+  };
+}
+
+function serializeError(procedure: string) {
+  return {
+    error: superjson.serialize({
+      message: `Simulated failure for ${procedure}`,
+      code: -32603,
+      data: {
+        code: "INTERNAL_SERVER_ERROR",
+        httpStatus: 500,
+        path: procedure,
+      },
+    }),
   };
 }
 
@@ -78,6 +101,7 @@ function makeScore(input: ProcedureInput) {
     score: 7000,
     count,
     options: "",
+    ranked: typeof input?.ranked === "boolean" ? input.ranked : true,
     user: {
       ...profileUser,
       id: userId,
@@ -92,9 +116,11 @@ function makeScoreSnapshot() {
     rawWpm: 72.35,
     netWpm: 68.7,
     accuracy: 96.5,
+    avgDelta: 4.1,
     totalKeystrokes: 548,
     correctKeystrokes: 531,
     incorrectKeystrokes: 17,
+    promptText: typedText,
     typedText,
     typedSegments: typedText.split("").map((ch, index) => ({ ch, correct: index % 17 !== 0 })),
     wpmSamples: [
@@ -106,7 +132,62 @@ function makeScoreSnapshot() {
   };
 }
 
-function responseForProcedure(procedure: string, input: ProcedureInput, options: MockTrpcOptions, state: { importedLearnProgress: boolean }) {
+// A rising WPM history over the last ~60 days, generated relative to now so the
+// /progress headline delta is deterministic (current window beats the prior).
+function makeProgressRecords(flat = false, mixed = false) {
+  const dayMs = 24 * 60 * 60 * 1000;
+  const now = Date.now();
+  return Array.from({ length: 24 }, (_, i) => {
+    const daysAgo = 58 - i * 2.5;
+    const wordsRecord = mixed && i % 2 === 1;
+    return {
+      wpm: flat ? 70 + (i % 2 === 0 ? 0.4 : -0.4) : 58 + i * 1.1,
+      // Hold accuracy constant for the flat fixture so the derived net WPM stays
+      // flat too (varying accuracy would inject a trend the plateau test rejects).
+      accuracy: flat ? 96 : 94 + (i % 5),
+      consistency: 74 + (i % 8),
+      count: wordsRecord ? 25 : 30,
+      createdAt: new Date(now - daysAgo * dayMs),
+      day: new Date(now - daysAgo * dayMs).toISOString().slice(0, 10),
+      mode: 0,
+      subMode: wordsRecord ? 1 : 0,
+      language: "english",
+    };
+  });
+}
+
+function progressRollupsFromEntries(input: ProcedureInput) {
+  const entries = Array.isArray(input?.entries) ? input.entries : [];
+  const byDay = new Map<string, { day: string; tests: number; bestWpm: number; totalWpm: number; totalAccuracy: number; totalConsistency: number; consistencySamples: number }>();
+
+  for (const raw of entries) {
+    if (!raw || typeof raw !== "object") continue;
+    const entry = raw as Record<string, unknown>;
+    if (typeof entry.wpm !== "number" || typeof entry.accuracy !== "number" || typeof entry.t !== "number") continue;
+    const day = new Date(entry.t).toISOString().slice(0, 10);
+    const current = byDay.get(day) ?? { day, tests: 0, bestWpm: 0, totalWpm: 0, totalAccuracy: 0, totalConsistency: 0, consistencySamples: 0 };
+    current.tests += 1;
+    current.bestWpm = Math.max(current.bestWpm, entry.wpm);
+    current.totalWpm += entry.wpm;
+    current.totalAccuracy += entry.accuracy;
+    if (typeof entry.c === "number") {
+      current.totalConsistency += entry.c;
+      current.consistencySamples += 1;
+    }
+    byDay.set(day, current);
+  }
+
+  return Array.from(byDay.values()).map((day) => ({
+    day: day.day,
+    tests: day.tests,
+    bestWpm: day.bestWpm,
+    avgWpm: day.totalWpm / day.tests,
+    avgAccuracy: day.totalAccuracy / day.tests,
+    avgConsistency: day.consistencySamples > 0 ? day.totalConsistency / day.consistencySamples : null,
+  }));
+}
+
+function responseForProcedure(procedure: string, input: ProcedureInput, options: MockTrpcOptions, state: { importedLearnProgress: boolean; syncedProgressRollups: unknown[] }) {
   switch (procedure) {
     case "type.get":
       return {
@@ -123,16 +204,62 @@ function responseForProcedure(procedure: string, input: ProcedureInput, options:
     case "test.getAll":
       if (options.emptyScores) return [];
       return [makeScore(input)];
+    case "test.getLeaderboard": {
+      if (options.emptyScores) return [];
+      const count = typeof input?.count === "number" ? input.count : 15;
+      const rawWpm = count >= 100 ? 101.25 : count >= 25 ? 88.5 : 72.35;
+      const accuracy = count >= 100 ? 98.25 : 96.5;
+      const wpm = Math.max(0, rawWpm * (2 * accuracy / 100 - 1));
+      return [{
+        rank: 1,
+        userId: profileUser.id,
+        username: profileUser.username,
+        image: profileUser.image,
+        wpm,
+        rawWpm,
+        accuracy,
+        createdAt: new Date("2026-06-01T12:00:00.000Z"),
+      }];
+    }
     case "test.create":
-      return { ...makeScore({ ...input, userId: profileUser.id }), brag: "New personal best" };
+      return { ...makeScore({ ...input, userId: profileUser.id }), brag: "Faster than 72% of similar starters", avgDelta: 3.2, streak: 5 };
+    case "test.syncProgressHistory":
+      state.syncedProgressRollups = progressRollupsFromEntries(input);
+      return { count: Array.isArray(input?.entries) ? input.entries.length : 0, days: state.syncedProgressRollups.length, rollups: state.syncedProgressRollups };
+    case "test.getDailyProgressRollups":
+      return state.syncedProgressRollups;
+    case "test.getDailyChallengeStatus":
+      return {
+        today: { dateKey: input?.dateKey ?? "2026-06-16", wpm: 82.4, accuracy: 98.1, t: Date.now(), delta: 3.2 },
+        yesterday: { dateKey: "2026-06-15", wpm: 79.1, accuracy: 97.4, t: Date.now() - 24 * 60 * 60 * 1000 },
+        streak: 4,
+      };
+    case "test.getDailyChallengeBoards":
+      return {
+        fastest: [
+          { rank: 1, userId: profileUser.id, username: profileUser.username, image: profileUser.image, wpm: 82.4, accuracy: 98.1 },
+          { rank: 2, userId: "user-2", username: "steadykeys", image: null, wpm: 76.2, accuracy: 97.3 },
+        ],
+        improved: [
+          { rank: 1, userId: "user-3", username: "slowgain", image: null, wpm: 61.5, accuracy: 96.2, baseline: 55.5, delta: 6.0, baselineTests: 5 },
+          { rank: 2, userId: profileUser.id, username: profileUser.username, image: profileUser.image, wpm: 82.4, accuracy: 98.1, baseline: 79.2, delta: 3.2, baselineTests: 9 },
+        ],
+      };
     case "test.getTimeTyped":
       return { _sum: { count: 1234 } };
     case "test.getBestScore":
       return makeScore({ count: 120, userId: input?.userId });
     case "test.getPercentile":
       return { better: 0, worse: 5, total: 5, percentile: 0 };
+    case "test.getProgressRecords":
+      if (options.emptyScores) return [];
+      return makeProgressRecords(options.flatProgress, options.mixedProgress);
     case "test.getActivityByDate":
-      return [];
+      // Recent consecutive days so the profile streak chip has data.
+      return Array.from({ length: 5 }, (_, i) => ({
+        summaryDate: new Date(Date.now() - i * 24 * 60 * 60 * 1000),
+        _count: { _all: 3 },
+      }));
     case "learnProgress.getByDifficulty":
       return state.importedLearnProgress ? (options.importedLearnProgress ?? options.savedLearnProgress ?? []) : (options.savedLearnProgress ?? []);
     case "learnProgress.batchImport":
@@ -140,6 +267,20 @@ function responseForProcedure(procedure: string, input: ProcedureInput, options:
       return [];
     case "learnProgress.complete":
       return [];
+    case "practiceStats.get":
+      return options.keyStats ?? [];
+    case "transitionStats.get":
+      if (options.emptyScores) return [];
+      return [
+        { pair: "br", count: 12, totalMs: 4800, errors: 3 }, // 400ms mean, 25% errors
+        { pair: "th", count: 30, totalMs: 3000, errors: 0 }, // 100ms
+        { pair: "he", count: 25, totalMs: 3000, errors: 0 }, // 120ms
+        { pair: "io", count: 10, totalMs: 3000, errors: 1 }, // 300ms
+      ];
+    case "transitionStats.batchSync":
+      return { count: Array.isArray(input?.stats) ? input.stats.length : 0 };
+    case "practiceStats.batchSync":
+      return { count: Array.isArray(input?.stats) ? input.stats.length : 0 };
     case "user.get":
       return currentProfileUser;
     case "user.getProfileByUsername":
@@ -169,9 +310,111 @@ function responseForProcedure(procedure: string, input: ProcedureInput, options:
       return null;
     case "scoreShare.create":
       return { slug: "share-test-score" };
+    case "scoreShare.createBeatRun":
+      return { slug: "beat-run-share" };
+    case "scoreShare.createProgress":
+      return { slug: "progress-test-share" };
     case "scoreShare.get":
       if (options.invalidShare) return null;
+      if (input?.slug === "beat-source-score") {
+        const promptText = "steady hands";
+        return {
+          kind: "score",
+          id: "share-beat-source",
+          slug: input.slug,
+          createdAt: new Date("2026-06-01T12:00:00.000Z"),
+          expiresAt: null,
+          score: {
+            id: "score-beat-source",
+            speed: 50,
+            accuracy: 95,
+            score: 4750,
+            count: 2,
+            options: "",
+            createdAt: new Date("2026-06-01T12:00:00.000Z"),
+            mode: 0,
+            subMode: 1,
+            language: "english",
+            punctuation: false,
+            capitals: false,
+            ranked: true,
+          },
+          snapshot: {
+            durationSeconds: 2,
+            rawWpm: 50,
+            netWpm: 47.5,
+            accuracy: 95,
+            totalKeystrokes: promptText.length,
+            correctKeystrokes: promptText.length - 1,
+            incorrectKeystrokes: 1,
+            promptText,
+            typedText: promptText,
+            typedSegments: promptText.split("").map((ch) => ({ ch, correct: true })),
+            wpmSamples: [
+              { elapsedSeconds: 0, wpm: 0 },
+              { elapsedSeconds: 2, wpm: 50 },
+            ],
+          },
+          user: { id: profileUser.id, username: profileUser.username, image: profileUser.image },
+        };
+      }
+      if (input?.slug === "beat-run-share") {
+        const promptText = "steady hands";
+        return {
+          kind: "beat",
+          id: "share-beat-run",
+          slug: input.slug,
+          createdAt: new Date("2026-06-01T12:05:00.000Z"),
+          expiresAt: null,
+          score: null,
+          snapshot: {
+            durationSeconds: 1.8,
+            rawWpm: 73.3,
+            netWpm: 73.3,
+            accuracy: 100,
+            totalKeystrokes: promptText.length,
+            correctKeystrokes: promptText.length,
+            incorrectKeystrokes: 0,
+            promptText,
+            typedText: promptText,
+            typedSegments: promptText.split("").map((ch) => ({ ch, correct: true })),
+            wpmSamples: [
+              { elapsedSeconds: 0, wpm: 0 },
+              { elapsedSeconds: 1.8, wpm: 73.3 },
+            ],
+            brag: "Beat by +23.3 WPM",
+            count: 2,
+            mode: 0,
+            subMode: 1,
+            language: "english",
+            sourceShareSlug: "beat-source-score",
+            attemptNumber: 1,
+            createdAt: Date.parse("2026-06-01T12:05:00.000Z"),
+          },
+          user: null,
+        };
+      }
+      if (typeof input?.slug === "string" && input.slug.startsWith("progress")) {
+        return {
+          id: "share-progress-1",
+          slug: input.slug,
+          kind: "progress",
+          createdAt: new Date("2026-06-15T12:00:00.000Z"),
+          expiresAt: null,
+          score: null,
+          snapshot: {
+            deltaWpm: 12.5,
+            periodLabel: "30 days",
+            points: Array.from({ length: 10 }, (_, i) => ({ t: Date.UTC(2026, 5, 5 + i), wpm: 60 + i * 1.4 })),
+            streak: 4,
+            username: profileUser.username,
+            generatedAt: Date.UTC(2026, 5, 15),
+          },
+          user: { id: profileUser.id, username: profileUser.username, image: profileUser.image },
+        };
+      }
       return {
+        kind: "score",
         id: "share-1",
         slug: input?.slug ?? "share-test-score",
         createdAt: new Date("2026-06-01T12:00:00.000Z"),
@@ -202,7 +445,7 @@ function responseForProcedure(procedure: string, input: ProcedureInput, options:
 
 export async function mockTrpc(page: Page, options: MockTrpcOptions = {}) {
   currentProfileUser = { ...profileUser, image: options.profileImage ?? profileUser.image };
-  const state = { importedLearnProgress: false };
+  const state = { importedLearnProgress: false, syncedProgressRollups: [] as unknown[] };
 
   await page.route("**/api/trpc/**", async (route: Route) => {
     const url = new URL(route.request().url());
@@ -213,6 +456,7 @@ export async function mockTrpc(page: Page, options: MockTrpcOptions = {}) {
     const body = procedures.map((procedure, index) => {
       const input = deserializeInput(rawInput, index);
       options.onProcedure?.(procedure, input);
+      if (options.errorProcedures?.includes(procedure)) return serializeError(procedure);
       return serializeResult(responseForProcedure(procedure, input, options, state));
     });
 

@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { mockAuthenticatedSession } from "./helpers/trpc";
 
 type PublicRoute =
   | { path: string; visibleText: string }
@@ -8,6 +9,7 @@ type PublicRoute =
 const publicRoutes: PublicRoute[] = [
   { path: "/", visibleText: "TypeCafe" },
   { path: "/learn", selector: "#words .char" },
+  { path: "/drill?keys=x", heading: "x" },
   { path: "/leaderboard", visibleText: "TypeCafe" },
   { path: "/support", heading: "Support TypeCafe" },
   { path: "/contact", heading: "Contact TypeCafe" },
@@ -29,4 +31,24 @@ test.describe("public routes", () => {
       }
     });
   }
+
+  test("launch navigation hides plan for signed-in users", async ({ page }) => {
+    await mockAuthenticatedSession(page);
+    await page.goto("/");
+
+    await expect(page.getByRole("button", { name: "Progress" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Profile" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Plan" })).toHaveCount(0);
+  });
+
+  test("guests see Progress in the nav and reach the sign-in pitch", async ({ page }) => {
+    await page.goto("/");
+
+    const progress = page.getByRole("button", { name: "Progress" }).first();
+    await expect(progress).toBeVisible();
+    await expect(page.getByRole("button", { name: "Profile" })).toHaveCount(0);
+
+    await progress.click();
+    await expect(page.getByTestId("progress-signed-out")).toBeVisible();
+  });
 });

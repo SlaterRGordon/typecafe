@@ -1,9 +1,9 @@
 import { type NextPage } from "next"
 import { useState, useEffect } from "react"
-import { TestModes, TestSubModes } from "~/components/typer/types"
+import { TestSubModes } from "~/components/typer/types"
 import type { SingleValue } from 'react-select'
 import Select from 'react-select'
-import Scores from "~/components/scores/Scores"
+import LeaderboardList from "~/components/scores/LeaderboardList"
 
 type Option = { label: string, value: number | string }
 
@@ -139,7 +139,7 @@ const Leaderboard: NextPage = () => {
                             classNamePrefix="my-react-select"
                         />
                     </div>
-                    <Scores mode={TestModes.normal} subMode={subMode} count={count} date={date} language={language} />
+                    <LeaderboardList subMode={subMode} count={count} date={date} language={language} />
                 </div>
             </div>
         </>

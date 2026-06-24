@@ -25,16 +25,19 @@ async function expectTypingIgnoredWhileModalOpen(page: Page, modal: Locator) {
 }
 
 test.describe("modal focus behavior", () => {
-  test("settings modal pauses typing and returns focus after closing", async ({ page }) => {
+  // Settings is now a non-modal toolbar dropdown (Phase 2). It no longer pauses
+  // typing the way the old modal did; closing it must leave typing focus intact.
+  test("settings dropdown closes on escape and typing resumes after", async ({ page }) => {
     await gotoHome(page);
 
     await page.locator("[aria-label='Open typing settings']").click({ force: true });
-    const modal = page.locator("#configModal");
-    await expectTypingIgnoredWhileModalOpen(page, modal);
+    const menu = page.getByTestId("settings-menu");
+    await expect(menu).toBeVisible();
 
-    await closeCheckboxModal(modal);
+    await page.keyboard.press("Escape");
+    await expect(menu).toBeHidden();
+
     await typeCurrentCharacter(page);
-
     await expect(page.locator("#c0")).toHaveClass(/text-base-300/);
     await expect(page.locator("#c1")).toHaveClass(/active-char/);
   });
