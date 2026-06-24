@@ -33,12 +33,10 @@ export const BottomNavigation = () => {
                 <button onClick={() => router.push('/challenge')} className={getNavButtonClass('/challenge')} aria-label="Daily Challenge" title="Daily Challenge">
                     <svg className={navIconClass} aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2L9.19 8.63L2 9.24l5.46 4.73L5.82 21L12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2Z" /></svg>
                 </button>
-                {/* Progress, if signed in */}
-                {sessionData?.user &&
-                    <button onClick={() => router.push('/progress')} className={getNavButtonClass('/progress')} aria-label="Progress" title="Progress">
-                        <svg className={navIconClass} aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="m3.5 18.5l6-6l4 4L22 6.92L20.59 5.5l-7.09 8l-4-4L2 16.99l1.5 1.51Z" /></svg>
-                    </button>
-                }
+                {/* Progress — always shown; guests get the sign-in pitch on the page. */}
+                <button onClick={() => router.push('/progress')} className={getNavButtonClass('/progress')} aria-label="Progress" title="Progress">
+                    <svg className={navIconClass} aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="m3.5 18.5l6-6l4 4L22 6.92L20.59 5.5l-7.09 8l-4-4L2 16.99l1.5 1.51Z" /></svg>
+                </button>
                 {/* Plan, if signed in */}
                 {SHOW_PLAN_NAVIGATION && sessionData?.user &&
                     <button onClick={() => router.push('/plan')} className={getNavButtonClass('/plan')} aria-label="Plan" title="Plan">

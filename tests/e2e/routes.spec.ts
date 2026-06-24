@@ -40,4 +40,15 @@ test.describe("public routes", () => {
     await expect(page.getByRole("button", { name: "Profile" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Plan" })).toHaveCount(0);
   });
+
+  test("guests see Progress in the nav and reach the sign-in pitch", async ({ page }) => {
+    await page.goto("/");
+
+    const progress = page.getByRole("button", { name: "Progress" }).first();
+    await expect(progress).toBeVisible();
+    await expect(page.getByRole("button", { name: "Profile" })).toHaveCount(0);
+
+    await progress.click();
+    await expect(page.getByTestId("progress-signed-out")).toBeVisible();
+  });
 });
