@@ -10,7 +10,7 @@ async function expectTypingFocus(page: Page, faded: Locator) {
 }
 
 test.describe("typing focus fade", () => {
-  test("home fades the toolbar, keyboard, and global nav while typing", async ({ page }) => {
+  test("home fades the toolbar and global nav while typing", async ({ page }) => {
     await page.goto("/");
     await expect(page.locator("#words .char").first()).toBeVisible();
 
@@ -26,14 +26,15 @@ test.describe("typing focus fade", () => {
     await expect(page.getByTestId("typing-focus-home-controls")).toHaveCSS("opacity", "1");
   });
 
-  test("learn fades level controls and keyboard while typing", async ({ page }) => {
+  test("learn fades level controls but keeps the keyboard visible while typing", async ({ page }) => {
     await page.goto("/learn");
     await expect(page.locator("#words .char").first()).toBeVisible({ timeout: 20_000 });
 
     await typeCurrentCharacter(page);
 
     await expectTypingFocus(page, page.getByTestId("learn-controls"));
-    await expect(page.getByTestId("learn-keyboard-wrap")).toHaveCSS("opacity", "0");
+    // The keyboard stays visible while typing — it's a typing aid, not chrome.
+    await expect(page.getByTestId("learn-keyboard-wrap")).toHaveCSS("opacity", "1");
   });
 
   test("challenge fades the header and boards while typing", async ({ page }) => {

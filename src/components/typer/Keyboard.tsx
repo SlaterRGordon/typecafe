@@ -10,9 +10,9 @@ const VOWELS = "aeiou"
 const CONSONANTS = "bcdfghjklmnpqrstvwxyz"
 const ALPHABET = "abcdefghijklmnopqrstuvwxyz"
 const isDrillable = (key: string) => ALPHABET.includes(key) || isDrillDigit(key) || isDrillMark(key)
-// The physical keys a user can lock/unlock for a drill (excludes display-only
-// filler like [ ] \ = and space).
-const LOCKABLE_KEYS = HEATMAP_ROWS.join("").split("").filter(isDrillable)
+// Every physical key on the board. Anything not in the drill set is shown locked —
+// including display-only filler ([ ] \ = / ') that text generation never uses.
+const ALL_KEYS = HEATMAP_ROWS.join("").split("")
 
 interface KeyboardProps {
     mode: TestModes,
@@ -31,12 +31,15 @@ export const Keyboard = (props: KeyboardProps) => {
     const { mode, currentKey, selectedKeys, setSelectedKeys, charAttemptsRef, baseAttemptsRef, highlightKeys } = props
     const dispatch = useDispatch()
 
-    // Locked = a drillable key not in the current set; the merged keyboard badges
-    // these so accuracy + drill membership read in one view.
-    const lockedKeys = new Set(selectedKeys ? LOCKABLE_KEYS.filter((key) => !selectedKeys.includes(key)) : [])
+    // Locked = any key not in the current drill set; the merged keyboard badges
+    // these so accuracy + drill membership read in one view. Display-only filler
+    // keys are never selected, so they always read as locked.
+    const lockedKeys = new Set(selectedKeys ? ALL_KEYS.filter((key) => !selectedKeys.includes(key)) : [])
 
     const handleKeyClicked = (key: string) => {
         if (!selectedKeys || !setSelectedKeys || mode !== TestModes.practice) return
+        // Only drillable keys toggle; display-only filler stays permanently locked.
+        if (!isDrillable(key)) return
 
         if (selectedKeys.includes(key)) {
             // Letters anchor word generation, so keep enough of them: at least 6,
@@ -122,24 +125,25 @@ export const Keyboard = (props: KeyboardProps) => {
 
     return (
         <div className="typecafe-keyboard flex flex-col w-full items-center justify-start py-3 pt-2 md:py-4">
-            {mode === TestModes.practice && (
-                <div className="flex w-full max-w-[34rem] items-center justify-end pb-1">
-                    <button className="btn btn-primary btn-sm gap-1 normal-case shadow-sm focus:outline-0" onClick={handleSmartDrill} aria-label="Drill your six least accurate keys" title="Drill your six least accurate keys">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2Zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8Zm0-12a4 4 0 1 0 4 4 4 4 0 0 0-4-4Zm0 6a2 2 0 1 1 2-2 2 2 0 0 1-2 2Z" /></svg>
-                        Smart drill
-                    </button>
-                </div>
-            )}
-
             {mode === TestModes.practice ?
-                <KeyHeatmap
-                    size="full"
-                    attempts={buildStatsAttempts()}
-                    lockedKeys={lockedKeys}
-                    onKeyClick={handleKeyClicked}
-                    currentKey={currentKey}
-                    highlightKeys={highlightKeys}
-                />
+                // Wrapper hugs the keyboard's width so the Smart drill toolbar can
+                // right-align flush with the keyboard's top-right corner.
+                <div className="flex flex-col">
+                    <div className="flex justify-end pb-1">
+                        <button className="btn btn-primary btn-sm gap-1 normal-case shadow-sm focus:outline-0" onClick={handleSmartDrill} aria-label="Drill your six least accurate keys" title="Drill your six least accurate keys">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2Zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8Zm0-12a4 4 0 1 0 4 4 4 4 0 0 0-4-4Zm0 6a2 2 0 1 1 2-2 2 2 0 0 1-2 2Z" /></svg>
+                            Smart drill
+                        </button>
+                    </div>
+                    <KeyHeatmap
+                        size="full"
+                        attempts={buildStatsAttempts()}
+                        lockedKeys={lockedKeys}
+                        onKeyClick={handleKeyClicked}
+                        currentKey={currentKey}
+                        highlightKeys={highlightKeys}
+                    />
+                </div>
                 :
                 // Non-practice modes: a read-only keyboard that just highlights the
                 // next key (and any diagnosed keys) as a typing aid.

@@ -527,7 +527,7 @@ const Learn: NextPage = () => {
                         />
                     }
                     {!isLearnContentLoading &&
-                        <div data-testid="learn-keyboard-wrap" className={typingFocusFadeClass(typingFocused)}>
+                        <div data-testid="learn-keyboard-wrap">
                             <Keyboard mode={mode} currentKey={currentKey} charAttemptsRef={charAttemptsRef} highlightKeys={level.keys.split("")} />
                         </div>
                     }

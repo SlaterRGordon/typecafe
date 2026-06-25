@@ -1,8 +1,7 @@
 import { TestModes, TestSubModes } from "../types"
 import type { QuoteLength, TestGramScopes, TestGramSources } from "../types"
 import type { Level } from "../learn/levels"
-import { applyTextOptions, ensureLanguageLoaded, ensureQuotesLoaded, generateBetterPseudoText, generateNGram, generateQuote, generateText, getWords, isDrillDigit, isDrillMark } from "../utils"
-import { compileDrillText } from "~/lib/drill"
+import { applyTextOptions, ensureLanguageLoaded, ensureQuotesLoaded, generateBetterPseudoText, generateNGram, generateQuote, generateText, isDrillDigit, isDrillMark } from "../utils"
 
 export interface TestTextConfig {
     mode: TestModes,
@@ -49,12 +48,14 @@ export async function generateTestText(config: TestTextConfig, gramLevel: number
 
     if (mode === TestModes.practice) {
         if (!selectedKeys) return ""
-        // Letters drive word generation (compileDrillText ignores non-letters);
-        // locked numbers/punctuation are sprinkled in as drill targets.
+        // Practice uses ONLY the unlocked keys: the selected letters build the
+        // words *exclusively* (a locked letter never appears), and locked-in
+        // numbers/punctuation are sprinkled in as drill targets. The min-keys rule
+        // (>=6 letters incl. a vowel + consonant) guarantees text is always buildable.
+        const letters = selectedKeys.filter((key) => /^[a-z]$/.test(key))
         const marks = selectedKeys.filter(isDrillMark)
         const digits = selectedKeys.filter(isDrillDigit)
-        const drillText = compileDrillText({ keys: selectedKeys, wordList: getWords(language), length: 500 })
-        return applyTextOptions(drillText, punctuation, capitals, { marks, digits })
+        return applyTextOptions(generateBetterPseudoText(500, letters), punctuation, capitals, { marks, digits })
     }
 
     if (mode === TestModes.ngrams) {
