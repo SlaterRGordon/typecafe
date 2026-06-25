@@ -14,7 +14,7 @@ import type { KeystrokeEvent } from "./keystrokes"
 // map reads as one cell per real key. The bracket/equals keys ([ ] \ = ) are
 // display-only filler for keyboard fidelity: nothing generates text for them, so
 // they read as neutral "no data" until a user actually hits one.
-export const HEATMAP_ROWS = ["1234567890-=", "qwertyuiop[]\\", "asdfghjkl;'", "zxcvbnm,./"] as const
+export const HEATMAP_ROWS = ["1234567890-=\\", "qwertyuiop[]", "asdfghjkl;'", "zxcvbnm,./"] as const
 export const HEATMAP_SPACE = " "
 
 // Shifted glyphs fold onto the physical key that produces them (Shift is a
