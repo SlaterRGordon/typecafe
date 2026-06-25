@@ -509,8 +509,8 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
                     </div>
             </div>
 
-            <div className="grid gap-4 lg:grid-cols-2">
-                <div data-testid="lifetime-keyboard-card" className="rounded-lg border border-base-content/10 bg-base-100/45 p-3 sm:p-5">
+            <div className="grid gap-4 lg:grid-cols-3">
+                <div data-testid="lifetime-keyboard-card" className="rounded-lg border border-base-content/10 bg-base-100/45 p-3 sm:p-5 lg:col-span-2">
                     <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div className="text-base font-semibold text-base-content">Lifetime keyboard</div>
                         <KeyHeatmapLegend />
@@ -528,7 +528,7 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
                     </div>
                 </div>
 
-                <div data-testid="records-timeline" className="rounded-lg border border-base-content/10 bg-base-100/45 p-4">
+                <div data-testid="records-timeline" className="rounded-lg border border-base-content/10 bg-base-100/45 p-4 lg:col-span-1">
                     <div className="mb-3 text-lg font-semibold text-base-content">Records</div>
                     {records.length > 0 ? (
                         <ul className="space-y-2">
