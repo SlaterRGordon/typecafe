@@ -252,6 +252,13 @@ test.describe("screenshot tour", () => {
     // Accuracy is always visible now — no toggle. The per-key percentages render
     // directly on the keyboard.
     await capture(page, testInfo, "32-practice-keyboard-analytics");
+
+    // Shift layer: the toggle flips every cell to its shifted twin (; → :, / → ?)
+    // so capital/symbol accuracy reads separately, without moving the layout.
+    await page.getByRole("button", { name: "Show shifted keys (capitals and symbols)" }).click();
+    await expect(keyboardKey(":")).toHaveCount(1);
+    await expect(keyboardKey(";")).toHaveCount(0);
+    await capture(page, testInfo, "59-practice-shift-layer");
   });
 
   test("learn page: difficulty and level selection", async ({ page }, testInfo) => {

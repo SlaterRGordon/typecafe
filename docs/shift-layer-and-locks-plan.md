@@ -62,9 +62,17 @@ Glyph drillability (already encoded in `isDrillMark`/`isDrillDigit`, no change):
 
 ---
 
-## Phase A — shift-layer display (read-only, ship first)
+## Phase A — shift-layer display (read-only) — ✅ done
 
 Lowest risk: pure render, no generation change. Proves the layer before locks ride on it.
+
+> **Status:** ✅ done. `shiftedGlyph` + the `shiftLayer` prop ship; the Practice
+> keyboard has a sticky `⇧ Shift` toggle and hold-Shift peek (gated off while the
+> typer's `#input` is focused, so capitals don't strobe it). `buildStatsAttempts`
+> is now unfolded, so each layer reads its own glyph — which also gave **smart
+> drill** raw-glyph targeting (`? ! :` can now be picked) for free, landing part of
+> B-rest early. Manual shifted-mark *clicking* is still suppressed (read-only
+> layer) until the B-rest letter-guard wiring.
 
 `src/lib/heatmap.ts`:
 - Add `SHIFT_GLYPH: Record<string,string>` (base→shifted: reverse of `SHIFT_MAP`
@@ -149,8 +157,8 @@ key and as a drill target instead of being stripped.
 ## Build order (each commit: suite green + screenshot tour)
 
 1. **Phase B (leak fix)** ✅ — authoritative punctuation. Fixes the reported bug now.
-2. **Phase A** — shift-layer display, read-only. Proves the layer; unlocks `? ! :`.
-3. **Phase B (rest)** — per-glyph shifted-mark locks + raw-glyph smart drill (needs A).
+2. **Phase A** ✅ — shift-layer display, read-only. Unfold also gave smart-drill `? ! :`.
+3. **Phase B (rest)** — make shifted-mark cells clickable-to-lock (letter cells inert).
 4. **Phase C** — surface symbol/capital latency as findings + drill targets.
 
 Glyph maps and the sprinkle/partition stay pure in `src/lib` + `utils.tsx` with

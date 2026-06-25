@@ -6,6 +6,7 @@ import {
     accuracyColor,
     heatmapCell,
     lookupAttempt,
+    shiftedGlyph,
     type KeyAttempt,
 } from "~/lib/heatmap"
 
@@ -29,6 +30,10 @@ interface KeyHeatmapProps {
     lockedKeys?: ReadonlySet<string>,
     onKeyClick?: (key: string) => void,
     currentKey?: string,
+    // Shift layer: render each cell's shifted twin (R, ?, !, :) with its own raw
+    // accuracy instead of the base glyph. Read-only — locking happens in the base
+    // layer. Callers pass *unfolded* attempts so each layer resolves its own glyph.
+    shiftLayer?: boolean,
     className?: string,
     testId?: string,
 }
@@ -95,36 +100,40 @@ export function KeyHeatmapLegend() {
 // A reusable per-key accuracy heatmap. The rendering is intentionally the same
 // primitive for Practice, score-card diagnosis, beat-run compare, and /progress.
 export function KeyHeatmap(props: KeyHeatmapProps) {
-    const { attempts, size = "full", includeSpace = true, highlightKeys, lockedKeys, onKeyClick, currentKey } = props
+    const { attempts, size = "full", includeSpace = true, highlightKeys, lockedKeys, onKeyClick, currentKey, shiftLayer } = props
     const showPercent = props.showPercent ?? size === "full"
     const { lowColor, highColor } = useHeatmapColors()
     const highlight = new Set(highlightKeys)
-    const interactive = !!onKeyClick
+    // The shift layer is a read-only peek; locking stays on the base layer.
+    const interactive = !!onKeyClick && !shiftLayer
 
     const rowClass = ROW_CLASS_BY_SIZE[size]
     const keyClass = KEY_CLASS_BY_SIZE[size]
     const spaceClass = SPACE_CLASS_BY_SIZE[size]
 
     const renderKey = (key: string, isSpace = false) => {
-        const cell = heatmapCell(key, lookupAttempt(attempts, key))
+        // Base layer renders the physical key; shift layer renders its shifted twin
+        // and reads that glyph's own (unfolded) accuracy. Space has no twin.
+        const glyph = shiftLayer && !isSpace ? shiftedGlyph(key) : key
+        const cell = heatmapCell(glyph, lookupAttempt(attempts, glyph))
         const color = accuracyColor(cell.accuracy, lowColor, highColor)
-        const isCurrent = currentKey != null && key === currentKey
-        const ringed = isCurrent || highlight.has(key)
-        const isLocked = !!lockedKeys?.has(key)
-        const label = key === HEATMAP_SPACE ? "space" : key
-        const keyLabel = isSpace ? "space" : key
+        const isCurrent = currentKey != null && glyph === currentKey
+        const ringed = isCurrent || highlight.has(glyph)
+        const isLocked = !!lockedKeys?.has(glyph)
+        const label = key === HEATMAP_SPACE ? "space" : glyph
+        const keyLabel = isSpace ? "space" : glyph
 
         return (
             <kbd
                 key={key}
-                onClick={interactive ? () => onKeyClick!(key) : undefined}
+                onClick={interactive ? () => onKeyClick!(glyph) : undefined}
                 role={interactive ? "button" : undefined}
                 className={`${keyClass} ${isSpace ? spaceClass : ""} ${ringed ? "ring-2 ring-primary ring-offset-1 ring-offset-base-200" : ""} ${interactive ? "cursor-pointer select-none" : ""} ${isLocked ? "opacity-60" : ""}`}
                 style={{ backgroundColor: color }}
                 title={`${label}: ${cell.hasData ? `${cell.accuracy}%` : "no data"}${isLocked ? " (locked \u2014 click to add)" : ""}`}
             >
                 <span className={`leading-none ${showPercent ? "absolute left-1 top-1 text-sm sm:left-1.5 sm:top-1.5 sm:text-base" : ""}`}>
-                    {showPercent ? keyLabel : isSpace ? "\u00a0" : key}
+                    {showPercent ? keyLabel : isSpace ? "\u00a0" : glyph}
                 </span>
                 {showPercent &&
                     <span className="pointer-events-none absolute bottom-0.5 right-1 text-[0.6rem] leading-none text-white/95 drop-shadow-sm sm:bottom-1 sm:right-1.5 sm:text-xs">

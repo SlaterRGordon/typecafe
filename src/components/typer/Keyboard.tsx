@@ -1,8 +1,9 @@
+import { useEffect, useState } from "react";
 import { addAlert } from "~/state/alert/alertSlice";
 import { TestModes } from "./types";
 import { useDispatch } from "react-redux";
 import { worstKeysFromAttempts } from "~/lib/stats";
-import { foldAttempts, HEATMAP_ROWS } from "~/lib/heatmap";
+import { HEATMAP_ROWS } from "~/lib/heatmap";
 import { isDrillDigit, isDrillMark } from "./utils";
 import { KeyHeatmap } from "~/components/heatmap/KeyHeatmap";
 
@@ -30,6 +31,33 @@ const letters = "qwertyuiopasdfghjklzxcvbnm/"
 export const Keyboard = (props: KeyboardProps) => {
     const { mode, currentKey, selectedKeys, setSelectedKeys, charAttemptsRef, baseAttemptsRef, highlightKeys } = props
     const dispatch = useDispatch()
+
+    // Shift layer flips every cell to its shifted twin (R, ?, !, :) to read those
+    // accuracies separately. Two ways in: a sticky toggle, or holding Shift to peek
+    // — but only when not mid-typing (the typer's hidden #input is focused then),
+    // so typing a capital doesn't strobe the keyboard.
+    const [shiftToggle, setShiftToggle] = useState(false)
+    const [shiftHeld, setShiftHeld] = useState(false)
+    const shiftLayer = shiftToggle || shiftHeld
+
+    useEffect(() => {
+        if (mode !== TestModes.practice) return
+        const onDown = (e: KeyboardEvent) => {
+            if (e.key !== "Shift" || e.repeat) return
+            if (document.activeElement?.id === "input") return
+            setShiftHeld(true)
+        }
+        const onUp = (e: KeyboardEvent) => { if (e.key === "Shift") setShiftHeld(false) }
+        const clear = () => setShiftHeld(false)
+        window.addEventListener("keydown", onDown)
+        window.addEventListener("keyup", onUp)
+        window.addEventListener("blur", clear)
+        return () => {
+            window.removeEventListener("keydown", onDown)
+            window.removeEventListener("keyup", onUp)
+            window.removeEventListener("blur", clear)
+        }
+    }, [mode])
 
     // Locked = any key not in the current drill set; the merged keyboard badges
     // these so accuracy + drill membership read in one view. Display-only filler
@@ -108,8 +136,8 @@ export const Keyboard = (props: KeyboardProps) => {
     }
 
     // Combined lifetime + live-session per-key tally that feeds the analytics
-    // heatmap, folded onto physical keys so capitals/numbers/punctuation land on
-    // their real key. Kept as a Map for the data-source-agnostic <KeyHeatmap>.
+    // heatmap, kept *unfolded* (keyed by the actual char) so the base layer reads
+    // r/;/1 and the shift layer reads R/:/! — each glyph its own accuracy.
     const buildStatsAttempts = () => {
         const merged = new Map<string, { attempts: number, correct: number }>()
         const addAll = (m?: Map<string, { attempts: number, correct: number }>) => {
@@ -123,7 +151,7 @@ export const Keyboard = (props: KeyboardProps) => {
         }
         addAll(baseAttemptsRef?.current)
         addAll(charAttemptsRef.current)
-        return foldAttempts(merged)
+        return merged
     }
 
     return (
@@ -132,7 +160,16 @@ export const Keyboard = (props: KeyboardProps) => {
                 // Wrapper hugs the keyboard's width so the Smart drill toolbar can
                 // right-align flush with the keyboard's top-right corner.
                 <div className="flex flex-col">
-                    <div className="flex justify-end pb-1">
+                    <div className="flex justify-end gap-2 pb-1">
+                        <button
+                            className={`btn btn-sm gap-1 normal-case shadow-sm focus:outline-0 ${shiftLayer ? "btn-secondary" : "btn-ghost"}`}
+                            onClick={() => setShiftToggle((on) => !on)}
+                            aria-pressed={shiftLayer}
+                            aria-label="Show shifted keys (capitals and symbols)"
+                            title="Show shifted keys (capitals & symbols) — or hold Shift"
+                        >
+                            ⇧ Shift
+                        </button>
                         <button className="btn btn-primary btn-sm gap-1 normal-case shadow-sm focus:outline-0" onClick={handleSmartDrill} aria-label="Drill your six least accurate keys" title="Drill your six least accurate keys">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2Zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8Zm0-12a4 4 0 1 0 4 4 4 4 0 0 0-4-4Zm0 6a2 2 0 1 1 2-2 2 2 0 0 1-2 2Z" /></svg>
                             Smart drill
@@ -145,6 +182,7 @@ export const Keyboard = (props: KeyboardProps) => {
                         onKeyClick={handleKeyClicked}
                         currentKey={currentKey}
                         highlightKeys={highlightKeys}
+                        shiftLayer={shiftLayer}
                     />
                 </div>
                 :

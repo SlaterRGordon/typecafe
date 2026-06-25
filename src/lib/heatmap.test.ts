@@ -6,6 +6,7 @@ import {
     foldToPhysicalKey,
     heatmapCell,
     lookupAttempt,
+    shiftedGlyph,
 } from "./heatmap"
 import type { KeystrokeEvent } from "./keystrokes"
 
@@ -87,6 +88,32 @@ describe("foldToPhysicalKey", () => {
     it("returns null for off-keyboard characters", () => {
         expect(foldToPhysicalKey("\t")).toBeNull()
         expect(foldToPhysicalKey("é")).toBeNull()
+    })
+})
+
+describe("shiftedGlyph", () => {
+    it("uppercases letters", () => {
+        expect(shiftedGlyph("r")).toBe("R")
+        expect(shiftedGlyph("a")).toBe("A")
+    })
+
+    it("maps number-row and punctuation keys to their shifted twin", () => {
+        expect(shiftedGlyph("1")).toBe("!")
+        expect(shiftedGlyph("/")).toBe("?")
+        expect(shiftedGlyph(";")).toBe(":")
+        expect(shiftedGlyph("'")).toBe("\"")
+        expect(shiftedGlyph("-")).toBe("_")
+        expect(shiftedGlyph(",")).toBe("<")
+    })
+
+    it("is the inverse of foldToPhysicalKey for shifted keys", () => {
+        for (const base of "1234567890-=;',./[]\\") {
+            expect(foldToPhysicalKey(shiftedGlyph(base))).toBe(base)
+        }
+    })
+
+    it("returns the key itself when it has no shifted variant", () => {
+        expect(shiftedGlyph(" ")).toBe(" ")
     })
 })
 

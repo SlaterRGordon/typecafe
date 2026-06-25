@@ -29,6 +29,21 @@ const SHIFT_MAP: Record<string, string> = {
 
 const PHYSICAL_KEYS = new Set(`${HEATMAP_ROWS.join("")}${HEATMAP_SPACE}`.split(""))
 
+// Reverse of SHIFT_MAP: the glyph produced by holding Shift on a base key
+// (1→!, ;→:, /→?, ,→<, ...). Drives the heatmap's shift layer so each cell can
+// show its shifted twin's own accuracy instead of folding the two together.
+const SHIFT_GLYPH: Record<string, string> = Object.fromEntries(
+    Object.entries(SHIFT_MAP).map(([shifted, base]) => [base, shifted]),
+)
+
+// The glyph shown when the Shift layer is active: uppercase for letters, the
+// shifted twin for number-row/punctuation keys, or the key itself when it has no
+// shifted variant (space). The inverse of foldToPhysicalKey for display.
+export function shiftedGlyph(key: string): string {
+    if (/^[a-z]$/.test(key)) return key.toUpperCase()
+    return SHIFT_GLYPH[key] ?? key
+}
+
 // Map a typed character onto the physical key that produced it: letters fold to
 // lowercase, shifted symbols to their base key, plain keys pass through, and
 // anything off this keyboard (tab, accented chars, etc.) returns null so callers
