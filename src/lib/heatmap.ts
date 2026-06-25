@@ -7,21 +7,24 @@
 import { interpolateColor } from "~/utils/convertColor"
 import type { KeystrokeEvent } from "./keystrokes"
 
-// The physical keyboard rows the heatmap renders, in visual order: number row,
-// three letter rows extended with the ANSI punctuation cluster, and a space bar
-// handled separately by the component. Every typed character folds onto one of
-// these physical keys (see foldToPhysicalKey), so the map reads as one cell per
-// real key — capitals and shifted symbols included.
-export const HEATMAP_ROWS = ["1234567890-", "qwertyuiop", "asdfghjkl;'", "zxcvbnm,./"] as const
+// The physical keyboard rows the heatmap renders, in visual order: the full ANSI
+// shape — number row, three letter rows extended with the punctuation/bracket
+// cluster, and a space bar handled separately by the component. Every typed
+// character folds onto one of these physical keys (see foldToPhysicalKey), so the
+// map reads as one cell per real key. The bracket/equals keys ([ ] \ = ) are
+// display-only filler for keyboard fidelity: nothing generates text for them, so
+// they read as neutral "no data" until a user actually hits one.
+export const HEATMAP_ROWS = ["1234567890-=", "qwertyuiop[]\\", "asdfghjkl;'", "zxcvbnm,./"] as const
 export const HEATMAP_SPACE = " "
 
 // Shifted glyphs fold onto the physical key that produces them (Shift is a
 // motion, not a cell): symbols on the number row drop to their digit, and the
-// punctuation-cluster shifts drop to their base mark.
+// punctuation/bracket-cluster shifts drop to their base key.
 const SHIFT_MAP: Record<string, string> = {
     "!": "1", "@": "2", "#": "3", "$": "4", "%": "5",
-    "^": "6", "&": "7", "*": "8", "(": "9", ")": "0", "_": "-",
+    "^": "6", "&": "7", "*": "8", "(": "9", ")": "0", "_": "-", "+": "=",
     ":": ";", "\"": "'", "<": ",", ">": ".", "?": "/",
+    "{": "[", "}": "]", "|": "\\",
 }
 
 const PHYSICAL_KEYS = new Set(`${HEATMAP_ROWS.join("")}${HEATMAP_SPACE}`.split(""))

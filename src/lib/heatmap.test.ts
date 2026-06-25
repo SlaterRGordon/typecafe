@@ -69,9 +69,18 @@ describe("foldToPhysicalKey", () => {
         expect(foldToPhysicalKey("_")).toBe("-")
     })
 
-    it("passes through plain keys and space", () => {
+    it("folds shifted bracket/equals keys onto their display-only base key", () => {
+        expect(foldToPhysicalKey("+")).toBe("=")
+        expect(foldToPhysicalKey("{")).toBe("[")
+        expect(foldToPhysicalKey("}")).toBe("]")
+        expect(foldToPhysicalKey("|")).toBe("\\")
+    })
+
+    it("passes through plain keys, brackets and space", () => {
         expect(foldToPhysicalKey("5")).toBe("5")
         expect(foldToPhysicalKey(".")).toBe(".")
+        expect(foldToPhysicalKey("[")).toBe("[")
+        expect(foldToPhysicalKey("=")).toBe("=")
         expect(foldToPhysicalKey(" ")).toBe(" ")
     })
 
