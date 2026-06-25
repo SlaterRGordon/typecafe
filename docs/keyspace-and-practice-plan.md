@@ -137,7 +137,7 @@ mini size needs tightening.
 
 ---
 
-## Phase 3 — merge the practice keyboards + smart-drill standout
+## Phase 3 — merge the practice keyboards + smart-drill standout — ✅ done
 
 Today Practice has two keyboards toggled by `showStats`: the interactive lock
 keyboard and the read-only `KeyHeatmap`. Merge into one.
