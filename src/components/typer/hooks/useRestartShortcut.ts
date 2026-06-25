@@ -27,6 +27,11 @@ export function useRestartShortcut(
 
             if (keys['Tab']) {
                 e.preventDefault()
+                // Tab is the restart modifier: while it's held, swallow the chord
+                // keys (Space/Enter) so they can't also land on the typing input as
+                // a (transiently flashed) missed keystroke. preventDefault alone
+                // only blocks the browser default, not React's keydown handler.
+                e.stopPropagation()
                 const restartBtn = restartRef?.current
                 if (restartBtn) {
                     restartBtn.classList.add("btn-active")

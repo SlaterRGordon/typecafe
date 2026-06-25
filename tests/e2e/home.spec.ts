@@ -65,6 +65,23 @@ test.describe("home typing test", () => {
     await expect(page.locator("#c0")).not.toHaveClass(/text-base-300/);
   });
 
+  test("Tab+Space restarts the test (Tab swallows the chord key)", async ({ page }) => {
+    await gotoHome(page);
+
+    await typeCurrentCharacter(page);
+    await expect(page.locator("#c0")).toHaveClass(/text-base-300/);
+
+    await page.keyboard.down("Tab");
+    await page.keyboard.press("Space");
+    await page.keyboard.up("Tab");
+
+    // Tab+Space restarts (back to the first character) — the Space is consumed by
+    // the restart chord, not typed against the test.
+    await expect(page.locator("#c0")).toHaveClass(/active-char/);
+    await expect(page.locator("#c0")).not.toHaveClass(/text-base-300/);
+    await expect(page.locator("#words .text-secondary")).toHaveCount(0);
+  });
+
   test("toolbar owns mode, length, language, and right-side actions", async ({ page }) => {
     await gotoHome(page);
 
