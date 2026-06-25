@@ -32,7 +32,7 @@ on read.**
 
 ## Phase 2 — full keyspace in measurement
 
-### 2.1 Fold + expanded layout (display only)
+### 2.1 Fold + expanded layout (display only) — ✅ done
 
 `src/lib/heatmap.ts`:
 
@@ -68,7 +68,7 @@ Tests: `heatmap.test.ts` — fold table (`R→r`, `!→1`, `?→/`, `:→;`, off
 
 Files: `lib/heatmap.ts`, `lib/heatmap.test.ts`, `components/typer/Keyboard.tsx`.
 
-### 2.2 Drillable numbers & punctuation
+### 2.2 Drillable numbers & punctuation — ✅ done
 
 `src/components/typer/utils.tsx` — extend `applyTextOptions` (or a thin practice
 wrapper) to accept optional `marks: string[]` and `digits: string[]`:
@@ -98,6 +98,42 @@ still terminates. `stats`/Keyboard smart-drill partition keeps ≥ letters.
 
 Files: `components/typer/utils.tsx`, `utils.test.ts`,
 `components/typer/Keyboard.tsx`.
+
+### 2.3 Full physical layout — display-only filler keys (lands with Phase 3)
+
+The heatmap/keyboard should *look* like the user's real board, not just the keys
+we can measure. Extend `HEATMAP_ROWS` to the full ANSI shape, adding the keys we
+don't generate text for as **display-only** cells:
+
+```
+numbers: "1234567890-="
+top:     "qwertyuiop[]\\"
+home:    "asdfghjkl;'"
+bottom:  "zxcvbnm,./"
+space
+```
+
+- These extra keys (`= [ ] \`, and their shifted twins `+ { } |`) fold like any
+  other: extend `SHIFT_MAP` so `+→=`, `{→[`, `}→]`, `|→\`. They get a real cell,
+  so if a user ever *does* hit them (capture already records every char) the
+  accuracy shows; until then they read as neutral "no data", exactly like an
+  untyped letter.
+- **Never drilled, never auto-selected.** They're not in `DRILL_MARKS` and aren't
+  letters/digits, so `isDrillable` already excludes them — smart drill and the
+  sprinkler ignore them for free. Purely visual fidelity + honest capture.
+- Purpose: a balanced, real-keyboard silhouette so the merged Practice keyboard
+  (Phase 3) reads as "your layout", and the right-hand cluster stops looking
+  truncated. ponytail: filler cells are data in `HEATMAP_ROWS` + a few `SHIFT_MAP`
+  lines — no new component logic.
+- Centering: rows now differ in length (13 / 13 / 11 / 10). `flex justify-center`
+  still centers each, giving the natural ANSI stagger; check the mini score-card
+  size doesn't overflow its column and shrink `kbd` if needed.
+
+Deferred to land *with* Phase 3 so the layout grows once, at the same time the
+two keyboards merge (avoids re-screenshotting the heatmap twice).
+
+Files: `lib/heatmap.ts` (+ test for the new folds), `KeyHeatmap.tsx` if the
+mini size needs tightening.
 
 ---
 
@@ -131,7 +167,7 @@ Files: `components/heatmap/KeyHeatmap.tsx`, `components/typer/Keyboard.tsx`.
 
 ---
 
-## Surface /how-we-measure (carried from auth plan §3)
+## Surface /how-we-measure (carried from auth plan §3) — ✅ done
 
 Today only reachable from the score-card "Raw WPM" link. Make it a normal
 destination:
