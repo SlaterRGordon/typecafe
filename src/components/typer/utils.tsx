@@ -215,26 +215,63 @@ export const generateBetterPseudoText = (count: number, characters: string[]) =>
 const SENTENCE_ENDERS = ['.', '.', '.', '.', '?', '!']
 const MID_PUNCTUATION = [',', ',', ',', ';', ':']
 
+// The punctuation the Practice drill can sprinkle at word boundaries, split by
+// where it lands. Apostrophe lives on the keyboard heatmap (capture only) but
+// isn't sprinkled — it's intra-word (contractions), which the [a-z] word list
+// can't produce. ponytail: skip it, add when the drill grows a contraction list.
+const ENDER_MARKS = ['.', '?', '!']
+const MID_MARKS = [',', ';', ':', '-']
+export const DRILL_MARKS = [...ENDER_MARKS, ...MID_MARKS]
+export const isDrillMark = (key: string) => DRILL_MARKS.includes(key)
+export const isDrillDigit = (key: string) => /^[0-9]$/.test(key)
+
 const capitalise = (word: string) => word.charAt(0).toUpperCase() + word.slice(1)
 const pick = (choices: string[]) => choices[Math.floor(Math.random() * choices.length)] as string
 
-// Layer punctuation and/or capitalisation onto generated (lowercase) text.
+// A standalone 1–2 digit number token built from the locked drill digits.
+const digitToken = (digits: string[]) => {
+    const len = 1 + Math.floor(Math.random() * 2)
+    let token = ''
+    for (let i = 0; i < len; i++) token += pick(digits)
+    return token
+}
+
+// Layer punctuation, capitalisation and/or drill targets onto generated
+// (lowercase) text.
 // - punctuation: sprinkles sentence-ending and mid-sentence marks between words.
 // - capitals: with punctuation on, capitalises sentence starts; on its own it
 //   capitalises a sprinkle of words so the user still practises the shift key.
-export const applyTextOptions = (text: string, punctuation: boolean, capitals: boolean) => {
-    if (!text || (!punctuation && !capitals)) return text
+// - drill: Practice's locked number/punctuation keys. Locked marks force
+//   sprinkling restricted to exactly those marks; locked digits get injected as
+//   standalone number tokens, so the weak key gets real reps in natural prose.
+export const applyTextOptions = (
+    text: string,
+    punctuation: boolean,
+    capitals: boolean,
+    drill?: { marks?: string[]; digits?: string[] },
+) => {
+    const lockedMarks = drill?.marks ?? []
+    const digits = drill?.digits ?? []
+    // Locked drill marks force punctuation even if the toggle is off.
+    const usePunct = punctuation || lockedMarks.length > 0
+    if (!text || (!usePunct && !capitals && digits.length === 0)) return text
+
+    // Restrict the sprinkle pools to the locked marks when drilling; otherwise
+    // use the natural prose weighting.
+    const enders = lockedMarks.length ? lockedMarks.filter((m) => ENDER_MARKS.includes(m)) : SENTENCE_ENDERS
+    const mids = lockedMarks.length ? lockedMarks.filter((m) => MID_MARKS.includes(m)) : MID_PUNCTUATION
 
     const words = text.split(' ')
     let startsSentence = true
+    const out: string[] = []
 
-    const transformed = words.map((word, index) => {
-        if (!word) return word
+    words.forEach((word, index) => {
+        if (!word) { out.push(word); return }
         let result = word
         const isLast = index === words.length - 1
 
         if (capitals) {
-            if (punctuation) {
+            if (usePunct) {
                 if (startsSentence) result = capitalise(result)
             } else if (Math.random() < 0.2) {
                 result = capitalise(result)
@@ -242,22 +279,26 @@ export const applyTextOptions = (text: string, punctuation: boolean, capitals: b
         }
         startsSentence = false
 
-        if (punctuation && !isLast) {
+        if (usePunct && !isLast) {
             const roll = Math.random()
-            if (roll < 0.1) {
-                result += pick(SENTENCE_ENDERS)
+            if (enders.length && roll < 0.1) {
+                result += pick(enders)
                 startsSentence = true
-            } else if (roll < 0.22) {
-                result += pick(MID_PUNCTUATION)
+            } else if (mids.length && roll < 0.22) {
+                result += pick(mids)
             }
         }
+        out.push(result)
 
-        return result
+        // Drill number tokens land as their own standalone "words".
+        if (digits.length && !isLast && Math.random() < 0.14) out.push(digitToken(digits))
     })
 
-    let output = transformed.join(' ')
-    // Close the passage on a sentence ender when punctuation is on.
-    if (punctuation && !SENTENCE_ENDERS.includes(output.slice(-1))) output += '.'
+    let output = out.join(' ')
+    // Close the passage on a sentence ender when one is available.
+    if (usePunct && enders.length && !enders.includes(output.slice(-1))) {
+        output += lockedMarks.length ? pick(enders) : '.'
+    }
     return output
 }
 

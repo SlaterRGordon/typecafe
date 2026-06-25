@@ -39,6 +39,39 @@ describe("applyTextOptions", () => {
         const output = applyTextOptions("hello world", true, true)
         expect(output.charAt(0)).toBe("H")
     })
+
+    it("drill marks restrict sprinkling to exactly the locked marks", () => {
+        const input = "the quick brown fox jumps over the lazy dog and runs away fast now"
+        const allowed = new Set([";", ":"])
+        for (let i = 0; i < 30; i++) {
+            const output = applyTextOptions(input, false, false, { marks: [";", ":"] })
+            for (const char of output.replace(/[a-z ]/g, "")) {
+                expect(allowed.has(char)).toBe(true)
+            }
+        }
+    })
+
+    it("locked marks force punctuation even when the toggle is off", () => {
+        // A '.' ender always closes the passage.
+        const output = applyTextOptions("a b c d e f g h i j", false, false, { marks: ["."] })
+        expect(output.endsWith(".")).toBe(true)
+    })
+
+    it("drill digits inject only the locked digits as number tokens", () => {
+        const input = Array.from({ length: 60 }, () => "word").join(" ")
+        const allowed = new Set(["5", "7"])
+        let sawDigit = false
+        for (let i = 0; i < 20; i++) {
+            const output = applyTextOptions(input, false, false, { digits: ["5", "7"] })
+            for (const char of output) {
+                if (/[0-9]/.test(char)) {
+                    sawDigit = true
+                    expect(allowed.has(char)).toBe(true)
+                }
+            }
+        }
+        expect(sawDigit).toBe(true)
+    })
 })
 
 describe("generateBetterPseudoText", () => {
