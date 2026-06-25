@@ -80,7 +80,10 @@ export const Keyboard = (props: KeyboardProps) => {
             if (isDrillable(key)) drillable.set(key, value)
         }
 
-        const worst = worstKeysFromAttempts(drillable, 6, 5)
+        // minAttempts 3 matches the /progress "weakest keys" list, so smart drill
+        // targets exactly the keys shown as weak there (a 0%-accuracy key with only
+        // a few attempts was being skipped at the old threshold of 5).
+        const worst = worstKeysFromAttempts(drillable, 6, 3)
         if (worst.length === 0) {
             dispatch(addAlert({ message: "Not enough typing data yet — practice a little first!", type: "warning" }))
             return
