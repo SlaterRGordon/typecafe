@@ -7,11 +7,34 @@
 import { interpolateColor } from "~/utils/convertColor"
 import type { KeystrokeEvent } from "./keystrokes"
 
-// The alphabet keyboard rows the heatmap renders, in visual order. Matches the
-// original Practice stats view (three letter rows + a space bar handled
-// separately by the component).
-export const HEATMAP_ROWS = ["qwertyuiop", "asdfghjkl", "zxcvbnm"] as const
+// The physical keyboard rows the heatmap renders, in visual order: number row,
+// three letter rows extended with the ANSI punctuation cluster, and a space bar
+// handled separately by the component. Every typed character folds onto one of
+// these physical keys (see foldToPhysicalKey), so the map reads as one cell per
+// real key — capitals and shifted symbols included.
+export const HEATMAP_ROWS = ["1234567890-", "qwertyuiop", "asdfghjkl;'", "zxcvbnm,./"] as const
 export const HEATMAP_SPACE = " "
+
+// Shifted glyphs fold onto the physical key that produces them (Shift is a
+// motion, not a cell): symbols on the number row drop to their digit, and the
+// punctuation-cluster shifts drop to their base mark.
+const SHIFT_MAP: Record<string, string> = {
+    "!": "1", "@": "2", "#": "3", "$": "4", "%": "5",
+    "^": "6", "&": "7", "*": "8", "(": "9", ")": "0", "_": "-",
+    ":": ";", "\"": "'", "<": ",", ">": ".", "?": "/",
+}
+
+const PHYSICAL_KEYS = new Set(`${HEATMAP_ROWS.join("")}${HEATMAP_SPACE}`.split(""))
+
+// Map a typed character onto the physical key that produced it: letters fold to
+// lowercase, shifted symbols to their base key, plain keys pass through, and
+// anything off this keyboard (tab, accented chars, etc.) returns null so callers
+// can skip it. The single source of truth for "which cell does this char belong to".
+export function foldToPhysicalKey(char: string): string | null {
+    if (/^[A-Za-z]$/.test(char)) return char.toLowerCase()
+    if (char in SHIFT_MAP) return SHIFT_MAP[char]!
+    return PHYSICAL_KEYS.has(char) ? char : null
+}
 
 // Per-key tally — the single shape every data source (live session refs,
 // localStorage aggregates, a decoded test timeline) reduces to.
@@ -56,18 +79,38 @@ export function accuracyColor(accuracy: number, lowColor: string, highColor: str
 }
 
 // Roll a single test's keystroke timeline into per-key attempts for a this-test
-// heatmap (the score card). Alphabetic keys fold to lowercase so capitalized
-// variants light up their base letter on the keyboard; space stays itself.
+// heatmap (the score card). Every key folds onto its physical key (capitals →
+// base letter, shifted symbols → base key); off-keyboard chars are skipped.
 export function attemptsFromEvents(events: KeystrokeEvent[]): Map<string, KeyAttempt> {
     const byKey = new Map<string, KeyAttempt>()
     for (const event of events) {
-        const key = /^[A-Za-z]$/.test(event.key) ? event.key.toLowerCase() : event.key
+        const key = foldToPhysicalKey(event.key)
+        if (!key) continue
         const entry = byKey.get(key) ?? { attempts: 0, correct: 0 }
         entry.attempts += 1
         if (event.correct) entry.correct += 1
         byKey.set(key, entry)
     }
     return byKey
+}
+
+// Fold a per-char tally (Map or record, keyed by the raw typed character) onto
+// physical keys, summing variants that share a key (r + R, 1 + !). The one
+// read-time primitive the lifetime heatmap, smart drill, and key selection share.
+export function foldAttempts(
+    source: ReadonlyMap<string, KeyAttempt> | Record<string, KeyAttempt>,
+): Map<string, KeyAttempt> {
+    const out = new Map<string, KeyAttempt>()
+    const entries = isAttemptMap(source) ? source.entries() : Object.entries(source)
+    for (const [char, value] of entries) {
+        const key = foldToPhysicalKey(char)
+        if (!key) continue
+        const entry = out.get(key) ?? { attempts: 0, correct: 0 }
+        entry.attempts += value.attempts
+        entry.correct += value.correct
+        out.set(key, entry)
+    }
+    return out
 }
 
 // Normalize either accepted data shape to a lookup. Lets the component accept a

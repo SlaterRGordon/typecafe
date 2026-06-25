@@ -3,6 +3,7 @@ import { TestModes } from "./types";
 import { useDispatch } from "react-redux";
 import { useState } from "react";
 import { worstKeysFromAttempts } from "~/lib/stats";
+import { foldAttempts } from "~/lib/heatmap";
 import { KeyHeatmap } from "~/components/heatmap/KeyHeatmap";
 
 const VOWELS = "aeiou"
@@ -87,18 +88,22 @@ export const Keyboard = (props: KeyboardProps) => {
     }
 
     // Combined lifetime + live-session per-key tally that feeds the analytics
-    // heatmap. The same additive merge as the smart-drill set, kept as a Map for
-    // the data-source-agnostic <KeyHeatmap>.
+    // heatmap, folded onto physical keys so capitals/numbers/punctuation land on
+    // their real key. Kept as a Map for the data-source-agnostic <KeyHeatmap>.
     const buildStatsAttempts = () => {
-        const combined = new Map<string, { attempts: number, correct: number }>()
-        for (const key of ALPHABET + " ") {
-            const base = baseAttemptsRef?.current.get(key)
-            const session = charAttemptsRef.current.get(key)
-            const attempts = (base?.attempts ?? 0) + (session?.attempts ?? 0)
-            const correct = (base?.correct ?? 0) + (session?.correct ?? 0)
-            if (attempts > 0) combined.set(key, { attempts, correct })
+        const merged = new Map<string, { attempts: number, correct: number }>()
+        const addAll = (m?: Map<string, { attempts: number, correct: number }>) => {
+            if (!m) return
+            for (const [key, value] of m) {
+                const entry = merged.get(key) ?? { attempts: 0, correct: 0 }
+                entry.attempts += value.attempts
+                entry.correct += value.correct
+                merged.set(key, entry)
+            }
         }
-        return combined
+        addAll(baseAttemptsRef?.current)
+        addAll(charAttemptsRef.current)
+        return foldAttempts(merged)
     }
 
     return (

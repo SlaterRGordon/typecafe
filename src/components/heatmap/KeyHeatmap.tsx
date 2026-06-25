@@ -27,11 +27,7 @@ interface KeyHeatmapProps {
     testId?: string,
 }
 
-const HEATMAP_LAYOUT = [
-    HEATMAP_ROWS[0],
-    HEATMAP_ROWS[1],
-    HEATMAP_ROWS[2],
-] as const
+const HEATMAP_LAYOUT = HEATMAP_ROWS
 
 const ROW_CLASS_BY_SIZE: Record<KeyHeatmapSize, string> = {
     full: "flex justify-center gap-0.5 my-0.5 w-full md:gap-1 md:my-1",

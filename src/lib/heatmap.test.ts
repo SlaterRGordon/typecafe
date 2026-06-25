@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest"
 import {
     accuracyColor,
     attemptsFromEvents,
+    foldAttempts,
+    foldToPhysicalKey,
     heatmapCell,
     lookupAttempt,
 } from "./heatmap"
@@ -50,6 +52,54 @@ describe("attemptsFromEvents", () => {
         const attempts = attemptsFromEvents([ev("R", true), ev("r", false), ev(" ", true)])
         expect(attempts.get("r")).toEqual({ attempts: 2, correct: 1 })
         expect(attempts.get(" ")).toEqual({ attempts: 1, correct: 1 })
+    })
+})
+
+describe("foldToPhysicalKey", () => {
+    it("folds capitals onto their base letter", () => {
+        expect(foldToPhysicalKey("R")).toBe("r")
+        expect(foldToPhysicalKey("a")).toBe("a")
+    })
+
+    it("folds shifted symbols onto their physical key", () => {
+        expect(foldToPhysicalKey("!")).toBe("1")
+        expect(foldToPhysicalKey("?")).toBe("/")
+        expect(foldToPhysicalKey(":")).toBe(";")
+        expect(foldToPhysicalKey("\"")).toBe("'")
+        expect(foldToPhysicalKey("_")).toBe("-")
+    })
+
+    it("passes through plain keys and space", () => {
+        expect(foldToPhysicalKey("5")).toBe("5")
+        expect(foldToPhysicalKey(".")).toBe(".")
+        expect(foldToPhysicalKey(" ")).toBe(" ")
+    })
+
+    it("returns null for off-keyboard characters", () => {
+        expect(foldToPhysicalKey("\t")).toBeNull()
+        expect(foldToPhysicalKey("é")).toBeNull()
+    })
+})
+
+describe("foldAttempts", () => {
+    it("sums variants that share a physical key", () => {
+        const folded = foldAttempts({
+            r: { attempts: 3, correct: 2 },
+            R: { attempts: 1, correct: 1 },
+            "1": { attempts: 2, correct: 2 },
+            "!": { attempts: 1, correct: 0 },
+        })
+        expect(folded.get("r")).toEqual({ attempts: 4, correct: 3 })
+        expect(folded.get("1")).toEqual({ attempts: 3, correct: 2 })
+    })
+
+    it("reads from a Map and drops off-keyboard chars", () => {
+        const folded = foldAttempts(new Map([
+            ["t", { attempts: 1, correct: 1 }],
+            ["\t", { attempts: 5, correct: 5 }],
+        ]))
+        expect(folded.get("t")).toEqual({ attempts: 1, correct: 1 })
+        expect(folded.has("\t")).toBe(false)
     })
 })
 
