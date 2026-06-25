@@ -467,7 +467,12 @@ export function ModeBar(props: ModeBarProps) {
                     <div id="settings-menu" className="space-y-4">
                         {props.mode !== TestModes.ngrams && props.mode !== TestModes.quotes &&
                             <SettingsSection label="Text">
-                                <SettingsToggle label="punctuation" active={props.punctuation} onChange={props.setPunctuation} />
+                                {/* Practice punctuation is driven by which mark keys are locked, not
+                                    a global toggle — so the toggle is hidden there. capitals stays
+                                    as the single Capitalize add-on. */}
+                                {props.mode !== TestModes.practice &&
+                                    <SettingsToggle label="punctuation" active={props.punctuation} onChange={props.setPunctuation} />
+                                }
                                 <SettingsToggle label="capitals" active={props.capitals} onChange={props.setCapitals} />
                             </SettingsSection>
                         }

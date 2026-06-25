@@ -55,7 +55,11 @@ export async function generateTestText(config: TestTextConfig, gramLevel: number
         const letters = selectedKeys.filter((key) => /^[a-z]$/.test(key))
         const marks = selectedKeys.filter(isDrillMark)
         const digits = selectedKeys.filter(isDrillDigit)
-        return applyTextOptions(generateBetterPseudoText(500, letters), punctuation, capitals, { marks, digits })
+        // Locks are authoritative in Practice: punctuation comes *only* from the
+        // locked marks, never the global toggle (which would force the full natural
+        // pool past the locks). Lock no marks → no punctuation. `capitals` stays as
+        // the one Capitalize add-on (today's caps sprinkle).
+        return applyTextOptions(generateBetterPseudoText(500, letters), false, capitals, { marks, digits })
     }
 
     if (mode === TestModes.ngrams) {
