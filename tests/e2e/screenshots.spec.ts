@@ -266,6 +266,13 @@ test.describe("screenshot tour", () => {
     await expect(keyboardKey(":")).toHaveCount(1);
     await expect(keyboardKey(";")).toHaveCount(0);
     await capture(page, testInfo, "59-practice-shift-layer");
+
+    // Shifted marks lock from the shift layer (? starts locked, click adds it to the
+    // drill); capitals stay inert — display + diagnosis only (Decision 4).
+    await expect(keyboardKey("?").locator("svg")).toHaveCount(1);
+    await keyboardKey("?").click();
+    await expect(keyboardKey("?").locator("svg")).toHaveCount(0);
+    await expect(keyboardKey("R")).not.toHaveAttribute("role", "button");
   });
 
   test("learn page: difficulty and level selection", async ({ page }, testInfo) => {

@@ -3,7 +3,7 @@ import { addAlert } from "~/state/alert/alertSlice";
 import { TestModes } from "./types";
 import { useDispatch } from "react-redux";
 import { worstKeysFromAttempts } from "~/lib/stats";
-import { HEATMAP_ROWS } from "~/lib/heatmap";
+import { HEATMAP_ROWS, shiftedGlyph } from "~/lib/heatmap";
 import { isDrillDigit, isDrillMark } from "./utils";
 import { KeyHeatmap } from "~/components/heatmap/KeyHeatmap";
 
@@ -14,6 +14,10 @@ const isDrillable = (key: string) => ALPHABET.includes(key) || isDrillDigit(key)
 // Every physical key on the board. Anything not in the drill set is shown locked —
 // including display-only filler ([ ] \ = / ') that text generation never uses.
 const ALL_KEYS = HEATMAP_ROWS.join("").split("")
+// The drillable marks that live on the shift layer (! ? :). These are the only
+// shift-layer cells that lock/unlock — capitals and the other shifted glyphs are
+// display-only (Decision 4).
+const SHIFT_DRILL_MARKS = ALL_KEYS.map(shiftedGlyph).filter(isDrillMark)
 
 interface KeyboardProps {
     mode: TestModes,
@@ -58,10 +62,14 @@ export const Keyboard = (props: KeyboardProps) => {
         }
     }, [mode])
 
-    // Locked = any key not in the current drill set; the merged keyboard badges
-    // these so accuracy + drill membership read in one view. Display-only filler
-    // keys are never selected, so they always read as locked.
-    const lockedKeys = new Set(selectedKeys ? ALL_KEYS.filter((key) => !selectedKeys.includes(key)) : [])
+    // Locked = any drillable cell of the active layer not in the current drill set;
+    // the keyboard badges these so accuracy + drill membership read in one view. The
+    // base layer covers every physical key (display-only filler always reads locked);
+    // the shift layer covers only its drillable marks (! ? :), so capitals never get
+    // a lock badge. Only those same marks are clickable on the shift layer.
+    const layerKeys = shiftLayer ? SHIFT_DRILL_MARKS : ALL_KEYS
+    const lockedKeys = new Set(selectedKeys ? layerKeys.filter((key) => !selectedKeys.includes(key)) : [])
+    const interactiveKeys = shiftLayer ? new Set(SHIFT_DRILL_MARKS) : undefined
 
     const handleKeyClicked = (key: string) => {
         if (!selectedKeys || !setSelectedKeys || mode !== TestModes.practice) return
@@ -182,6 +190,7 @@ export const Keyboard = (props: KeyboardProps) => {
                         currentKey={currentKey}
                         highlightKeys={highlightKeys}
                         shiftLayer={shiftLayer}
+                        interactiveKeys={interactiveKeys}
                     />
                 </div>
                 :

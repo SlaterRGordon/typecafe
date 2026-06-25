@@ -31,9 +31,14 @@ interface KeyHeatmapProps {
     onKeyClick?: (key: string) => void,
     currentKey?: string,
     // Shift layer: render each cell's shifted twin (R, ?, !, :) with its own raw
-    // accuracy instead of the base glyph. Read-only — locking happens in the base
-    // layer. Callers pass *unfolded* attempts so each layer resolves its own glyph.
+    // accuracy instead of the base glyph. Callers pass *unfolded* attempts so each
+    // layer resolves its own glyph.
     shiftLayer?: boolean,
+    // When given, only these glyphs are clickable-to-lock (e.g. the shift layer
+    // exposes just the drillable marks ? ! :, leaving capitals inert). When
+    // omitted, every cell is interactive in the base layer and none in the shift
+    // layer — preserving the read-only score-card/progress views.
+    interactiveKeys?: ReadonlySet<string>,
     className?: string,
     testId?: string,
 }
@@ -100,12 +105,10 @@ export function KeyHeatmapLegend() {
 // A reusable per-key accuracy heatmap. The rendering is intentionally the same
 // primitive for Practice, score-card diagnosis, beat-run compare, and /progress.
 export function KeyHeatmap(props: KeyHeatmapProps) {
-    const { attempts, size = "full", includeSpace = true, highlightKeys, lockedKeys, onKeyClick, currentKey, shiftLayer } = props
+    const { attempts, size = "full", includeSpace = true, highlightKeys, lockedKeys, onKeyClick, currentKey, shiftLayer, interactiveKeys } = props
     const showPercent = props.showPercent ?? size === "full"
     const { lowColor, highColor } = useHeatmapColors()
     const highlight = new Set(highlightKeys)
-    // The shift layer is a read-only peek; locking stays on the base layer.
-    const interactive = !!onKeyClick && !shiftLayer
 
     const rowClass = ROW_CLASS_BY_SIZE[size]
     const keyClass = KEY_CLASS_BY_SIZE[size]
@@ -115,6 +118,9 @@ export function KeyHeatmap(props: KeyHeatmapProps) {
         // Base layer renders the physical key; shift layer renders its shifted twin
         // and reads that glyph's own (unfolded) accuracy. Space has no twin.
         const glyph = shiftLayer && !isSpace ? shiftedGlyph(key) : key
+        // Interactive iff a click handler exists and either an explicit allow-set
+        // names this glyph, or (no allow-set) we're on the base layer.
+        const interactive = !!onKeyClick && (interactiveKeys ? interactiveKeys.has(glyph) : !shiftLayer)
         const cell = heatmapCell(glyph, lookupAttempt(attempts, glyph))
         const color = accuracyColor(cell.accuracy, lowColor, highColor)
         const isCurrent = currentKey != null && glyph === currentKey

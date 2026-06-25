@@ -158,7 +158,7 @@ key and as a drill target instead of being stripped.
 
 1. **Phase B (leak fix)** ✅ — authoritative punctuation. Fixes the reported bug now.
 2. **Phase A** ✅ — shift-layer display, read-only. Unfold also gave smart-drill `? ! :`.
-3. **Phase B (rest)** — make shifted-mark cells clickable-to-lock (letter cells inert).
+3. **Phase B (rest)** ✅ — shifted-mark cells (! ? :) lock from the shift layer; capitals inert.
 4. **Phase C** — surface symbol/capital latency as findings + drill targets.
 
 Glyph maps and the sprinkle/partition stay pure in `src/lib` + `utils.tsx` with
