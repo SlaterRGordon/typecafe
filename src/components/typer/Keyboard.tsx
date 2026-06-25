@@ -33,9 +33,9 @@ export const Keyboard = (props: KeyboardProps) => {
     const dispatch = useDispatch()
 
     // Shift layer flips every cell to its shifted twin (R, ?, !, :) to read those
-    // accuracies separately. Two ways in: a sticky toggle, or holding Shift to peek
-    // — but only when not mid-typing (the typer's hidden #input is focused then),
-    // so typing a capital doesn't strobe the keyboard.
+    // accuracies separately. Two ways in: a sticky button toggle, or holding Shift
+    // to peek (release returns to base). Hold-to-peek rather than a key toggle so
+    // typing a shifted glyph mid-test can't leave the layer stuck flipped.
     const [shiftToggle, setShiftToggle] = useState(false)
     const [shiftHeld, setShiftHeld] = useState(false)
     const shiftLayer = shiftToggle || shiftHeld
@@ -44,7 +44,6 @@ export const Keyboard = (props: KeyboardProps) => {
         if (mode !== TestModes.practice) return
         const onDown = (e: KeyboardEvent) => {
             if (e.key !== "Shift" || e.repeat) return
-            if (document.activeElement?.id === "input") return
             setShiftHeld(true)
         }
         const onUp = (e: KeyboardEvent) => { if (e.key === "Shift") setShiftHeld(false) }

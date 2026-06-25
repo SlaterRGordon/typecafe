@@ -253,8 +253,15 @@ test.describe("screenshot tour", () => {
     // directly on the keyboard.
     await capture(page, testInfo, "32-practice-keyboard-analytics");
 
-    // Shift layer: the toggle flips every cell to its shifted twin (; → :, / → ?)
-    // so capital/symbol accuracy reads separately, without moving the layout.
+    // Shift layer: holding Shift peeks the shifted twins (; → :, / → ?); releasing
+    // returns to base. The layout never moves.
+    await page.keyboard.down("Shift");
+    await expect(keyboardKey(":")).toHaveCount(1);
+    await expect(keyboardKey(";")).toHaveCount(0);
+    await page.keyboard.up("Shift");
+    await expect(keyboardKey(";")).toHaveCount(1);
+
+    // The sticky toggle button does the same, but stays put (touch / lingering).
     await page.getByRole("button", { name: "Show shifted keys (capitals and symbols)" }).click();
     await expect(keyboardKey(":")).toHaveCount(1);
     await expect(keyboardKey(";")).toHaveCount(0);
