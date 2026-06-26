@@ -40,8 +40,23 @@ function chooseFitTick(range: number): number {
     return nice * pow
 }
 
-function formatDate(t: number): string {
-    return new Date(t).toLocaleDateString(undefined, { month: "short", day: "numeric" })
+// Extend a polyline's first and last segments out to the given x edges, so the
+// line spans the full plot width along its own slope instead of floating inset
+// between the first and last data points.
+export function extendToEdges(pts: { x: number; y: number }[], left: number, right: number) {
+    if (pts.length < 2) return pts
+    const a = pts[0]!, b = pts[1]!, y = pts[pts.length - 2]!, z = pts[pts.length - 1]!
+    const at = (p: { x: number; y: number }, q: { x: number; y: number }, x: number) =>
+        q.x === p.x ? p.y : p.y + (q.y - p.y) * (x - p.x) / (q.x - p.x)
+    return [{ x: left, y: at(a, b, left) }, ...pts, { x: right, y: at(z, y, right) }]
+}
+
+function toPath(pts: { x: number; y: number }[]): string {
+    return pts.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(" ")
+}
+
+function formatDate(t: number, withYear = false): string {
+    return new Date(t).toLocaleDateString(undefined, { month: "short", day: "numeric", ...(withYear ? { year: "numeric" } : {}) })
 }
 
 function formatTooltipDate(t: number): string {
@@ -83,8 +98,13 @@ export function TrendChart(props: TrendChartProps) {
         const maxY = suffix === "%" ? Math.min(rawMaxY, 100) : rawMaxY // a percentage can't exceed 100
         const yTicks = Array.from({ length: Math.floor((maxY - minY) / tick) + 1 }, (_, i) => minY + i * tick)
 
-        const minT = props.points.length > 0 ? props.points[0]!.t : 0
-        const maxT = props.points.length > 0 ? props.points[props.points.length - 1]!.t : 0
+        // Domain must cover every plotted x, including the secondary (best/day)
+        // line. Best/day points sit at noon-UTC of each day, which can fall
+        // outside the scatter's first/last test time — pinning the domain to the
+        // scatter alone would push that line off the left/right edge.
+        const allT = [...props.points.map((p) => p.t), ...(props.secondary?.map((s) => s.t) ?? [])]
+        const minT = allT.length > 0 ? Math.min(...allT) : 0
+        const maxT = allT.length > 0 ? Math.max(...allT) : 0
         const tSpan = maxT - minT
         const xForT = (t: number) => tSpan <= 0 ? padding.left + chartWidth / 2 : padding.left + ((t - minT) / tSpan) * chartWidth
         const xFor = (point: TrendPoint, index: number) => {
@@ -94,18 +114,23 @@ export function TrendChart(props: TrendChartProps) {
         }
         const yFor = (value: number) => padding.top + chartHeight - ((value - minY) / (maxY - minY)) * chartHeight
 
+        const rightEdge = padding.left + chartWidth
         const scatter = props.points.map((point, index) => ({ x: xFor(point, index), y: yFor(props.values[index] ?? 0) }))
         const linePoints = props.points.map((point, index) => ({ x: xFor(point, index), y: yFor(props.trend[index] ?? props.values[index] ?? 0) }))
-        const linePath = linePoints.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(" ")
-        const secondaryPath = (props.secondary ?? [])
-            .map((s, i) => `${i === 0 ? "M" : "L"} ${xForT(s.t).toFixed(1)} ${yFor(s.value).toFixed(1)}`)
-            .join(" ")
+        // Both lines run the full plot width along their own slope (edge to edge),
+        // rather than stopping at the first/last data point.
+        const linePath = toPath(extendToEdges(linePoints, padding.left, rightEdge))
+        const secondaryPoints = (props.secondary ?? []).map((s) => ({ x: xForT(s.t), y: yFor(s.value) }))
+        const secondaryPath = toPath(extendToEdges(secondaryPoints, padding.left, rightEdge))
 
+        // Show the year on the axis labels once the data spans more than one
+        // calendar year, so "Jun" alone isn't ambiguous across years.
+        const multiYear = new Date(minT).getFullYear() !== new Date(maxT).getFullYear()
         const xLabels = props.points.length === 1
-            ? [{ x: padding.left + chartWidth / 2, label: formatDate(minT) }]
+            ? [{ x: padding.left + chartWidth / 2, label: formatDate(minT, multiYear) }]
             : [
-                { x: padding.left, label: formatDate(minT) },
-                { x: padding.left + chartWidth, label: formatDate(maxT) },
+                { x: padding.left, label: formatDate(minT, multiYear) },
+                { x: padding.left + chartWidth, label: formatDate(maxT, multiYear) },
             ]
 
         return { width, height, padding, chartWidth, chartHeight, minY, maxY, yTicks, scatter, linePath, secondaryPath, xLabels }

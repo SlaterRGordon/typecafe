@@ -6,6 +6,7 @@ import {
     accuracyColor,
     heatmapCell,
     lookupAttempt,
+    shiftedGlyph,
     type KeyAttempt,
 } from "~/lib/heatmap"
 
@@ -23,15 +24,37 @@ interface KeyHeatmapProps {
     showPercent?: boolean,
     // Keys to ring, e.g. the diagnosed keys the user is about to drill.
     highlightKeys?: string[],
+    // Practice interaction (all optional — score-card/progress stay read-only):
+    // keys to badge with a lock (excluded from the drill set), a click handler
+    // that makes cells interactive, and the live "next key" to ring.
+    lockedKeys?: ReadonlySet<string>,
+    onKeyClick?: (key: string) => void,
+    currentKey?: string,
+    // Shift layer: render each cell's shifted twin (R, ?, !, :) with its own raw
+    // accuracy instead of the base glyph. Callers pass *unfolded* attempts so each
+    // layer resolves its own glyph.
+    shiftLayer?: boolean,
+    // When given, only these glyphs are clickable-to-lock (e.g. the shift layer
+    // exposes just the drillable marks ? ! :, leaving capitals inert). When
+    // omitted, every cell is interactive in the base layer and none in the shift
+    // layer — preserving the read-only score-card/progress views.
+    interactiveKeys?: ReadonlySet<string>,
     className?: string,
     testId?: string,
 }
 
-const HEATMAP_LAYOUT = [
-    HEATMAP_ROWS[0],
-    HEATMAP_ROWS[1],
-    HEATMAP_ROWS[2],
-] as const
+// Small padlock marking a key that's excluded from the current drill set.
+function LockBadge() {
+    return (
+        <span className="pointer-events-none absolute right-0.5 top-0.5 opacity-70">
+            <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" aria-hidden="true">
+                <path fill="currentColor" d="M6 22q-.825 0-1.413-.588T4 20V10q0-.825.588-1.413T6 8h1V6q0-2.075 1.463-3.538T12 1q2.075 0 3.538 1.463T17 6v2h1q.825 0 1.413.588T20 10v10q0 .825-.588 1.413T18 22H6Zm0-2h12V10H6v10Zm6-3q.825 0 1.413-.588T14 15q0-.825-.588-1.413T12 13q-.825 0-1.413.588T10 15q0 .825.588 1.413T12 17ZM9 8h6V6q0-1.25-.875-2.125T12 3q-1.25 0-2.125.875T9 6v2Z" />
+            </svg>
+        </span>
+    )
+}
+
+const HEATMAP_LAYOUT = HEATMAP_ROWS
 
 const ROW_CLASS_BY_SIZE: Record<KeyHeatmapSize, string> = {
     full: "flex justify-center gap-0.5 my-0.5 w-full md:gap-1 md:my-1",
@@ -82,7 +105,7 @@ export function KeyHeatmapLegend() {
 // A reusable per-key accuracy heatmap. The rendering is intentionally the same
 // primitive for Practice, score-card diagnosis, beat-run compare, and /progress.
 export function KeyHeatmap(props: KeyHeatmapProps) {
-    const { attempts, size = "full", includeSpace = true, highlightKeys } = props
+    const { attempts, size = "full", includeSpace = true, highlightKeys, lockedKeys, onKeyClick, currentKey, shiftLayer, interactiveKeys } = props
     const showPercent = props.showPercent ?? size === "full"
     const { lowColor, highColor } = useHeatmapColors()
     const highlight = new Set(highlightKeys)
@@ -92,27 +115,38 @@ export function KeyHeatmap(props: KeyHeatmapProps) {
     const spaceClass = SPACE_CLASS_BY_SIZE[size]
 
     const renderKey = (key: string, isSpace = false) => {
-        const cell = heatmapCell(key, lookupAttempt(attempts, key))
+        // Base layer renders the physical key; shift layer renders its shifted twin
+        // and reads that glyph's own (unfolded) accuracy. Space has no twin.
+        const glyph = shiftLayer && !isSpace ? shiftedGlyph(key) : key
+        // Interactive iff a click handler exists and either an explicit allow-set
+        // names this glyph, or (no allow-set) we're on the base layer.
+        const interactive = !!onKeyClick && (interactiveKeys ? interactiveKeys.has(glyph) : !shiftLayer)
+        const cell = heatmapCell(glyph, lookupAttempt(attempts, glyph))
         const color = accuracyColor(cell.accuracy, lowColor, highColor)
-        const ringed = highlight.has(key)
-        const label = key === HEATMAP_SPACE ? "space" : key
-        const keyLabel = isSpace ? "space" : key
+        const isCurrent = currentKey != null && glyph === currentKey
+        const ringed = isCurrent || highlight.has(glyph)
+        const isLocked = !!lockedKeys?.has(glyph)
+        const label = key === HEATMAP_SPACE ? "space" : glyph
+        const keyLabel = isSpace ? "space" : glyph
 
         return (
             <kbd
                 key={key}
-                className={`${keyClass} ${isSpace ? spaceClass : ""} ${ringed ? "ring-2 ring-primary ring-offset-1 ring-offset-base-200" : ""}`}
+                onClick={interactive ? () => onKeyClick!(glyph) : undefined}
+                role={interactive ? "button" : undefined}
+                className={`${keyClass} ${isSpace ? spaceClass : ""} ${ringed ? "ring-2 ring-primary ring-offset-1 ring-offset-base-200" : ""} ${interactive ? "cursor-pointer select-none" : ""} ${isLocked ? "opacity-60" : ""}`}
                 style={{ backgroundColor: color }}
-                title={`${label}: ${cell.hasData ? `${cell.accuracy}%` : "no data"}`}
+                title={`${label}: ${cell.hasData ? `${cell.accuracy}%` : "no data"}${isLocked ? (interactive ? " (locked \u2014 click to add)" : " (locked)") : ""}`}
             >
                 <span className={`leading-none ${showPercent ? "absolute left-1 top-1 text-sm sm:left-1.5 sm:top-1.5 sm:text-base" : ""}`}>
-                    {showPercent ? keyLabel : isSpace ? "\u00a0" : key}
+                    {showPercent ? keyLabel : isSpace ? "\u00a0" : glyph}
                 </span>
                 {showPercent &&
                     <span className="pointer-events-none absolute bottom-0.5 right-1 text-[0.6rem] leading-none text-white/95 drop-shadow-sm sm:bottom-1 sm:right-1.5 sm:text-xs">
                         {cell.accuracy}%
                     </span>
                 }
+                {isLocked && <LockBadge />}
             </kbd>
         )
     }

@@ -46,6 +46,11 @@ const HowWeMeasure: NextPage = () => {
           <p>Backspace changes the live character count for speed timing, but it is not a magic eraser for accuracy. The score card reports the correctness of what you typed against the prompt.</p>
         </DocumentSection>
 
+        <DocumentSection title="Per-Key Heatmap">
+          <p>The keyboard heatmap shades each <em>physical</em> key by your accuracy on it. Because there is one physical key per cell, characters that share a key fold together: a capital <code>R</code> counts toward the <code>r</code> key, and shifted symbols count toward their base key (<code>!</code>→<code>1</code>, <code>?</code>→<code>/</code>, <code>:</code>→<code>;</code>). So the <code>r</code> cell reflects every time you reached for that key, shifted or not.</p>
+          <p>Untyped keys read as 100% (neutral) rather than alarming red, so the map only lights up where there is real evidence.</p>
+        </DocumentSection>
+
         <DocumentSection title="Net WPM">
           <p>Net WPM is the canonical &quot;WPM&quot; across TypeCafe — the headline number on score cards, the figure leaderboards and personal bests rank by, and what your progress trends and improvement measure. Raw WPM is shown beside it for reference, never as the headline.</p>
           <p><code>((correct keystrokes - incorrect keystrokes) / 5) / elapsed minutes</code></p>

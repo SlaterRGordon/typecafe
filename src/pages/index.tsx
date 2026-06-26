@@ -681,7 +681,7 @@ const Home: NextPage = () => {
           null
         }
         {!completedScore && shouldReserveHomeKeyboardSpace &&
-          <div data-testid="typing-focus-home-keyboard" className={typingFocusFadeClass(typingFocused, `min-h-[11rem] md:min-h-[15.25rem] ${shouldShowHomeKeyboard ? "" : "invisible pointer-events-none"}`)}>
+          <div data-testid="typing-focus-home-keyboard" className={`min-h-[11rem] md:min-h-[15.25rem] ${shouldShowHomeKeyboard ? "" : "invisible pointer-events-none"}`}>
             {shouldShowHomeKeyboard &&
               <Keyboard mode={mode} currentKey={currentKey} selectedKeys={selectedKeys} setSelectedKeys={setSelectedKeys} charAttemptsRef={charAttemptsRef} baseAttemptsRef={persistedAttemptsRef} attemptVersion={attemptVersion} />
             }

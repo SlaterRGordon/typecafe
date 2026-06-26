@@ -217,10 +217,13 @@ test.describe("screenshot tour", () => {
     await expect(page.locator(".typecafe-keyboard")).toBeVisible();
     await capture(page, testInfo, "09-home-practice-keyboard");
 
+    // The merged practice keyboard always shows per-key accuracy + lock state, so
+    // cells carry a "<key>: …" title (a bare-text match would hit the % badge too).
     const keyboardKey = (key: string) =>
-      page.locator(".typecafe-keyboard kbd", { hasText: new RegExp(`^${key}$`) });
+      page.locator(`.typecafe-keyboard kbd[title^="${key}: "]`);
 
-    // Unlock an extra key: "e" starts locked outside the default home-row set.
+    // Unlock an extra key: "e" starts locked (lock badge) outside the default set.
+    await expect(keyboardKey("e").locator("svg")).toHaveCount(1);
     await keyboardKey("e").click();
     await expect(keyboardKey("e").locator("svg")).toHaveCount(0);
     await capture(page, testInfo, "29-practice-key-added");
@@ -236,7 +239,7 @@ test.describe("screenshot tour", () => {
     await expect(page.getByText("Not enough typing data yet — practice a little first!")).toBeVisible();
     await capture(page, testInfo, "31-practice-smart-drill-no-data");
 
-    // Type a few characters so the analytics view has real session data.
+    // Type a few characters so the keyboard's per-key accuracy reflects the session.
     await page.locator("#text").click();
     await typeCurrentCharacter(page, 0);
     await typeCurrentCharacter(page, 1);
@@ -246,10 +249,35 @@ test.describe("screenshot tour", () => {
     await page.keyboard.press("Enter");
     await page.keyboard.up("Tab");
 
-    // The analytics view shows per-key accuracy as a heatmap.
-    await page.locator("[aria-label='Show keyboard accuracy stats']").click();
-    await expect(page.locator("[aria-label='Hide keyboard accuracy stats']")).toBeVisible();
+    // Accuracy is always visible now — no toggle. The per-key percentages render
+    // directly on the keyboard.
     await capture(page, testInfo, "32-practice-keyboard-analytics");
+
+    // Shift layer: holding Shift peeks the shifted twins (; → :, / → ?); releasing
+    // returns to base. The layout never moves.
+    await page.keyboard.down("Shift");
+    await expect(keyboardKey(":")).toHaveCount(1);
+    await expect(keyboardKey(";")).toHaveCount(0);
+    await page.keyboard.up("Shift");
+    await expect(keyboardKey(";")).toHaveCount(1);
+
+    // The sticky toggle button does the same, but stays put (touch / lingering).
+    await page.getByRole("button", { name: "Show shifted keys (capitals and symbols)" }).click();
+    await expect(keyboardKey(":")).toHaveCount(1);
+    await expect(keyboardKey(";")).toHaveCount(0);
+    await capture(page, testInfo, "59-practice-shift-layer");
+
+    // Shifted marks lock from the shift layer (? starts locked, click adds it to the
+    // drill); capitals stay inert — display + diagnosis only (Decision 4).
+    await expect(keyboardKey("?").locator("svg")).toHaveCount(1);
+    await keyboardKey("?").click();
+    await expect(keyboardKey("?").locator("svg")).toHaveCount(0);
+    await expect(keyboardKey("R")).not.toHaveAttribute("role", "button");
+
+    // A capital mirrors its lowercase letter's lock state: 'a' is in the default
+    // drill set so 'A' reads unlocked; 'r' is not, so 'R' reads locked.
+    await expect(keyboardKey("A").locator("svg")).toHaveCount(0);
+    await expect(keyboardKey("R").locator("svg")).toHaveCount(1);
   });
 
   test("learn page: difficulty and level selection", async ({ page }, testInfo) => {
@@ -421,7 +449,6 @@ test.describe("screenshot tour", () => {
     await page.addInitScript(() => window.localStorage.setItem("typecafe:lastRecapAt", String(Date.now())));
     await page.goto("/progress");
     await expect(page.getByTestId("headline-delta")).toBeVisible();
-    await expect(page.getByTestId("progress-filters")).toBeVisible();
     await expect(page.getByText("WPM over time", { exact: true })).toBeVisible();
     await expect(page.getByTestId("weak-spots")).toContainText("b→r");
     await expect(page.getByTestId("lifetime-heatmap")).toBeVisible();

@@ -1,8 +1,7 @@
 import { TestModes, TestSubModes } from "../types"
 import type { QuoteLength, TestGramScopes, TestGramSources } from "../types"
 import type { Level } from "../learn/levels"
-import { applyTextOptions, ensureLanguageLoaded, ensureQuotesLoaded, generateBetterPseudoText, generateNGram, generateQuote, generateText, getWords } from "../utils"
-import { compileDrillText } from "~/lib/drill"
+import { applyTextOptions, ensureLanguageLoaded, ensureQuotesLoaded, generateBetterPseudoText, generateNGram, generateQuote, generateText, isDrillDigit, isDrillMark } from "../utils"
 
 export interface TestTextConfig {
     mode: TestModes,
@@ -49,7 +48,18 @@ export async function generateTestText(config: TestTextConfig, gramLevel: number
 
     if (mode === TestModes.practice) {
         if (!selectedKeys) return ""
-        return applyTextOptions(compileDrillText({ keys: selectedKeys, wordList: getWords(language), length: 500 }), punctuation, capitals)
+        // Practice uses ONLY the unlocked keys: the selected letters build the
+        // words *exclusively* (a locked letter never appears), and locked-in
+        // numbers/punctuation are sprinkled in as drill targets. The min-keys rule
+        // (>=6 letters incl. a vowel + consonant) guarantees text is always buildable.
+        const letters = selectedKeys.filter((key) => /^[a-z]$/.test(key))
+        const marks = selectedKeys.filter(isDrillMark)
+        const digits = selectedKeys.filter(isDrillDigit)
+        // Locks are authoritative in Practice: punctuation comes *only* from the
+        // locked marks, never the global toggle (which would force the full natural
+        // pool past the locks). Lock no marks → no punctuation. `capitals` stays as
+        // the one Capitalize add-on (today's caps sprinkle).
+        return applyTextOptions(generateBetterPseudoText(500, letters), false, capitals, { marks, digits })
     }
 
     if (mode === TestModes.ngrams) {

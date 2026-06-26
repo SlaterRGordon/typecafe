@@ -7,8 +7,9 @@ import { Typer, type TestCompletionResult } from "~/components/typer/Typer"
 import { useRestartShortcut } from "~/components/typer/hooks/useRestartShortcut"
 import { typingFocusFadeClass } from "~/components/typer/typingFocus"
 import { TestGramScopes, TestGramSources, TestModes, TestSubModes } from "~/components/typer/types"
-import { getWords } from "~/components/typer/utils"
+import { applyTextOptions, getWords } from "~/components/typer/utils"
 import { compileDrillText } from "~/lib/drill"
+import { isDrillMark, isDrillDigit, isDrillableKey } from "~/lib/drillKeys"
 import { isAnyModalOpen } from "~/lib/modals"
 
 type DrillKind = "keys" | "transitions" | "timed"
@@ -44,14 +45,14 @@ const parseKeys = (value: string | string[] | undefined): string[] => {
     return Array.from(new Set(raw
         .split(",")
         .map((key) => key.trim().toLowerCase())
-        .filter((key) => /^[a-z]$/.test(key))))
+        .filter(isDrillableKey)))
 }
 
 const parseTransitions = (value: string | string[] | undefined): string[] => {
     const raw = Array.isArray(value) ? value.join(",") : value ?? ""
     return Array.from(new Set(raw
         .split(",")
-        .map((pair) => pair.toLowerCase().replace(/[^a-z]/g, ""))
+        .map((pair) => pair.toLowerCase().split("").filter(isDrillableKey).join(""))
         .filter((pair) => pair.length >= 2)
         .map((pair) => pair.slice(0, 2))))
 }
@@ -86,10 +87,16 @@ const Drill: NextPage = () => {
         }
 
         if (keys.length > 0) {
+            // Letters build the words; locked digits/marks get sprinkled in (the
+            // same tested sprinkler Practice uses), so a weak ; or 5 gets real reps
+            // in natural prose instead of being stripped out.
+            const letters = keys.filter((key) => /^[a-z]$/.test(key))
+            const marks = keys.filter(isDrillMark)
+            const digits = keys.filter(isDrillDigit)
             return {
                 kind: "keys",
                 labels: keys,
-                text: compileDrillText({ keys, wordList, length }),
+                text: applyTextOptions(compileDrillText({ keys: letters, wordList, length }), false, false, { marks, digits }),
             }
         }
 

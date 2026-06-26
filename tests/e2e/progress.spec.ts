@@ -51,8 +51,12 @@ test.describe("progress dashboard", () => {
     // Weak spots → drill (§6.4): top weak keys + slowest transitions, each → /drill.
     const weak = page.getByTestId("weak-spots");
     await expect(weak).toBeVisible();
-    // r (80%) is weaker than e (96.7%), so it leads the weakest-keys CTA.
-    await expect(weak.getByRole("link", { name: /Drill weakest keys: r, e/ })).toBeVisible();
+    // r (80%) is weaker than e (96.7%), so it leads the weakest-keys CTA — the
+    // keys show as chips above the button; the button just carries the action,
+    // and the drill href preserves their order.
+    const drillWeak = weak.getByRole("link", { name: /Drill weakest keys/ });
+    await expect(drillWeak).toBeVisible();
+    await expect(drillWeak).toHaveAttribute("href", /keys=r,e/);
     await expect(page.getByTestId("lifetime-keyboard-card")).toContainText("Lifetime keyboard");
     await expect(page.getByTestId("lifetime-keyboard-card")).toContainText("Lower accuracy");
     await expect(page.getByTestId("lifetime-heatmap")).toBeVisible();
@@ -85,34 +89,17 @@ test.describe("progress dashboard", () => {
     await expect(switcher.getByRole("button", { name: "7d" })).toHaveAttribute("aria-pressed", "true");
   });
 
-  test("mode and length filters rescope the dashboard", async ({ page }) => {
+  test("progress combines all modes and lengths with no filter controls", async ({ page }) => {
     await mockAuthenticatedSession(page);
     await mockTrpc(page, { mixedProgress: true });
     await page.addInitScript(() => window.localStorage.setItem("typecafe:lastRecapAt", String(Date.now())));
     await gotoProgress(page);
 
-    const filters = page.getByTestId("progress-filters");
-    await expect(filters).toBeVisible();
-
-    // Only All / Timed / Words are offered now (grams/practice/relaxed never persist).
-    const modeFilter = page.getByTestId("progress-mode-filter");
-    await expect(modeFilter.getByRole("button", { name: "Practice" })).toHaveCount(0);
-    await expect(modeFilter.getByRole("button", { name: "Grams" })).toHaveCount(0);
-
-    await modeFilter.getByRole("button", { name: "Words" }).click();
-    await expect(modeFilter.getByRole("button", { name: "Words" })).toHaveAttribute("aria-pressed", "true");
-    const lengthFilter = page.getByTestId("progress-length-filter");
-    await expect(lengthFilter.getByRole("button", { name: "25 words" })).toBeVisible();
+    // Mode/length filters are gone — every test rolls into one combined view.
+    await expect(page.getByTestId("progress-filters")).toHaveCount(0);
+    await expect(page.getByTestId("progress-mode-filter")).toHaveCount(0);
+    await expect(page.getByTestId("progress-length-filter")).toHaveCount(0);
     await expect(page.getByTestId("trend-chart").first()).toBeVisible();
-
-    await lengthFilter.getByRole("button", { name: "25 words" }).click();
-    await expect(lengthFilter.getByRole("button", { name: "25 words" })).toHaveAttribute("aria-pressed", "true");
-
-    // Switching mode drops a now-invalid length and keeps showing data.
-    await modeFilter.getByRole("button", { name: "Timed" }).click();
-    await expect(page.getByTestId("progress-length-filter").getByRole("button", { name: "30s" })).toBeVisible();
-    await modeFilter.getByRole("button", { name: "All" }).click();
-    await expect(modeFilter.getByRole("button", { name: "All" })).toHaveAttribute("aria-pressed", "true");
   });
 
   test("a signed-in user with no history sees the take-a-test empty state", async ({ page }) => {
@@ -232,9 +219,6 @@ test.describe("progress dashboard", () => {
     expect(calls).toHaveLength(1);
     expect(calls[0]!.input).toMatchObject({ entries: expect.arrayContaining([expect.objectContaining({ wpm: 62 })]) });
     await expect(page.getByTestId("trend-chart").first()).toBeVisible();
-    // Imported history is rollup-only (no mode/length), so the filter controls
-    // that would silently hide it are not offered.
-    await expect(page.getByTestId("progress-filters")).toHaveCount(0);
     await expect(page.getByText("No tests yet")).toHaveCount(0);
   });
 });
