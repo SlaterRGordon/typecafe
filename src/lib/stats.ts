@@ -161,6 +161,20 @@ export function worstKeysFromAttempts(
         .slice(0, limit)
 }
 
+// Compose a weak-keys drill list that stays letter-led. Given a worst-first
+// ranking, cap non-letters (capitals, punctuation, digits) at `maxOther` and
+// fill the rest with the worst lowercase letters, up to `total`. Keeps a user
+// who rarely types punctuation from seeing a CTA that's all symbols, while still
+// surfacing their genuinely-worst marks. `ranked` must already be sorted
+// worst-first (e.g. from worstKeysFromAttempts); the result is re-sorted so it
+// still reads worst-first across both groups.
+export function composeWeakKeys(ranked: KeyAccuracy[], total = 6, maxOther = 3): KeyAccuracy[] {
+    const isLetter = (k: string) => /^[a-z]$/.test(k)
+    const others = ranked.filter((e) => !isLetter(e.key)).slice(0, maxOther)
+    const letters = ranked.filter((e) => isLetter(e.key)).slice(0, total - others.length)
+    return [...letters, ...others].sort((a, b) => a.accuracy - b.accuracy)
+}
+
 // Before/after WPM change for the re-measure loop: rerun the diagnosed test
 // after a drill and report the gain. `improved` treats a flat result (0) as a
 // non-improvement so the UI doesn't claim a win that isn't there.

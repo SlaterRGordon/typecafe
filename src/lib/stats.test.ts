@@ -9,6 +9,7 @@ import {
     isReliableWpmSample,
     netFromRaw,
     worstKeysFromAttempts,
+    composeWeakKeys,
     wpmImprovement,
     WPM_SAMPLE_TARGET_POINTS,
     type Keystroke,
@@ -257,6 +258,37 @@ describe("worstKeysFromAttempts", () => {
 
     it("returns [] for an empty map", () => {
         expect(worstKeysFromAttempts(new Map())).toEqual([])
+    })
+})
+
+describe("composeWeakKeys", () => {
+    const rank = (entries: [string, number][]) =>
+        entries.map(([key, accuracy]) => ({ key, accuracy, attempts: 10 }))
+
+    it("caps non-letters at maxOther and keeps the worst of each group, worst-first", () => {
+        // Worst six are all marks/capitals; only letters f/g are weaker behind them.
+        const result = composeWeakKeys(rank([
+            ["?", 40], [":", 50], [",", 55], [".", 60], ["R", 65],
+            ["f", 70], ["g", 75], ["h", 80],
+        ]))
+        // 3 letters + 3 non-letters, total 6, sorted by accuracy across both.
+        expect(result.map((e) => e.key)).toEqual(["?", ":", ",", "f", "g", "h"])
+    })
+
+    it("lets letters fill unused non-letter slots", () => {
+        const result = composeWeakKeys(rank([
+            ["?", 40], ["a", 50], ["b", 55], ["c", 60], ["d", 65], ["e", 70], ["f", 75],
+        ]))
+        // Only one weak mark → five letters ride along to reach six.
+        expect(result.map((e) => e.key)).toEqual(["?", "a", "b", "c", "d", "e"])
+    })
+
+    it("never exceeds the non-letter cap even when letters are scarce", () => {
+        const result = composeWeakKeys(rank([
+            ["?", 40], [":", 45], [",", 50], ["!", 55], ["a", 60], ["b", 65],
+        ]))
+        // 4 weak marks available but capped at 3; 2 letters → total 5, cap respected.
+        expect(result.map((e) => e.key)).toEqual(["?", ":", ",", "a", "b"])
     })
 })
 

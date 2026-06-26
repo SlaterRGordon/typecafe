@@ -29,7 +29,7 @@ import {
     type ProgressRecord,
 } from "~/lib/progress";
 import { readLocalProgress } from "~/lib/progressHistory";
-import { netFromRaw, worstKeysFromAttempts } from "~/lib/stats";
+import { composeWeakKeys, netFromRaw, worstKeysFromAttempts } from "~/lib/stats";
 import { detectPlateau } from "~/lib/trajectory";
 import { api } from "~/utils/api";
 
@@ -220,9 +220,11 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
     );
     const plateau = useMemo(() => detectPlateau(filteredRecords, now), [filteredRecords, now]);
     const slowTransitions = useMemo(() => worstTransitions(props.transitions), [props.transitions]);
-    // Top weak keys for the one-click "drill your weakest keys" CTA (slice 5).
+    // Top weak keys for the one-click "drill your weakest keys" CTA. Rank every
+    // key, then compose a letter-led set (≤3 punctuation/capitals) so a user who
+    // rarely types marks doesn't get a CTA that's all symbols.
     const topWeakKeys = useMemo(
-        () => worstKeysFromAttempts(new Map(Object.entries(props.keyAttempts)), 6),
+        () => composeWeakKeys(worstKeysFromAttempts(new Map(Object.entries(props.keyAttempts)), Infinity)),
         [props.keyAttempts],
     );
 
