@@ -136,7 +136,7 @@ export function KeyHeatmap(props: KeyHeatmapProps) {
                 role={interactive ? "button" : undefined}
                 className={`${keyClass} ${isSpace ? spaceClass : ""} ${ringed ? "ring-2 ring-primary ring-offset-1 ring-offset-base-200" : ""} ${interactive ? "cursor-pointer select-none" : ""} ${isLocked ? "opacity-60" : ""}`}
                 style={{ backgroundColor: color }}
-                title={`${label}: ${cell.hasData ? `${cell.accuracy}%` : "no data"}${isLocked ? " (locked \u2014 click to add)" : ""}`}
+                title={`${label}: ${cell.hasData ? `${cell.accuracy}%` : "no data"}${isLocked ? (interactive ? " (locked \u2014 click to add)" : " (locked)") : ""}`}
             >
                 <span className={`leading-none ${showPercent ? "absolute left-1 top-1 text-sm sm:left-1.5 sm:top-1.5 sm:text-base" : ""}`}>
                     {showPercent ? keyLabel : isSpace ? "\u00a0" : glyph}

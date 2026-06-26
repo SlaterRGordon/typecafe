@@ -273,6 +273,11 @@ test.describe("screenshot tour", () => {
     await keyboardKey("?").click();
     await expect(keyboardKey("?").locator("svg")).toHaveCount(0);
     await expect(keyboardKey("R")).not.toHaveAttribute("role", "button");
+
+    // A capital mirrors its lowercase letter's lock state: 'a' is in the default
+    // drill set so 'A' reads unlocked; 'r' is not, so 'R' reads locked.
+    await expect(keyboardKey("A").locator("svg")).toHaveCount(0);
+    await expect(keyboardKey("R").locator("svg")).toHaveCount(1);
   });
 
   test("learn page: difficulty and level selection", async ({ page }, testInfo) => {

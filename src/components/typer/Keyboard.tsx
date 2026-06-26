@@ -62,13 +62,20 @@ export const Keyboard = (props: KeyboardProps) => {
         }
     }, [mode])
 
-    // Locked = any drillable cell of the active layer not in the current drill set;
-    // the keyboard badges these so accuracy + drill membership read in one view. The
-    // base layer covers every physical key (display-only filler always reads locked);
-    // the shift layer covers only its drillable marks (! ? :), so capitals never get
-    // a lock badge. Only those same marks are clickable on the shift layer.
-    const layerKeys = shiftLayer ? SHIFT_DRILL_MARKS : ALL_KEYS
-    const lockedKeys = new Set(selectedKeys ? layerKeys.filter((key) => !selectedKeys.includes(key)) : [])
+    // Lock badges read off the active layer, so every not-enabled cell shows locked.
+    // Base layer: any physical key not in the drill set (display-only filler always
+    // reads locked). Shift layer: a shifted mark (! ? :) is locked when it isn't its
+    // own selected drill key; every other shifted glyph follows its base key — so a
+    // capital is locked exactly when its lowercase letter is, and display-only
+    // shifted glyphs always read locked. Only the marks are clickable.
+    const lockedKeys = new Set<string>()
+    if (selectedKeys) {
+        for (const key of ALL_KEYS) {
+            const glyph = shiftLayer ? shiftedGlyph(key) : key
+            const enabledKey = shiftLayer && !isDrillMark(glyph) ? key : glyph
+            if (!selectedKeys.includes(enabledKey)) lockedKeys.add(glyph)
+        }
+    }
     const interactiveKeys = shiftLayer ? new Set(SHIFT_DRILL_MARKS) : undefined
 
     const handleKeyClicked = (key: string) => {
