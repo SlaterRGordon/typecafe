@@ -83,8 +83,13 @@ export function TrendChart(props: TrendChartProps) {
         const maxY = suffix === "%" ? Math.min(rawMaxY, 100) : rawMaxY // a percentage can't exceed 100
         const yTicks = Array.from({ length: Math.floor((maxY - minY) / tick) + 1 }, (_, i) => minY + i * tick)
 
-        const minT = props.points.length > 0 ? props.points[0]!.t : 0
-        const maxT = props.points.length > 0 ? props.points[props.points.length - 1]!.t : 0
+        // Domain must cover every plotted x, including the secondary (best/day)
+        // line. Best/day points sit at noon-UTC of each day, which can fall
+        // outside the scatter's first/last test time — pinning the domain to the
+        // scatter alone would push that line off the left/right edge.
+        const allT = [...props.points.map((p) => p.t), ...(props.secondary?.map((s) => s.t) ?? [])]
+        const minT = allT.length > 0 ? Math.min(...allT) : 0
+        const maxT = allT.length > 0 ? Math.max(...allT) : 0
         const tSpan = maxT - minT
         const xForT = (t: number) => tSpan <= 0 ? padding.left + chartWidth / 2 : padding.left + ((t - minT) / tSpan) * chartWidth
         const xFor = (point: TrendPoint, index: number) => {
