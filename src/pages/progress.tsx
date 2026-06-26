@@ -17,15 +17,12 @@ import {
     currentStreak,
     dailyRollups,
     filterByPeriod,
-    filterProgressRecords,
     linearTrend,
     mergeDailyRollups,
     personalRecords,
-    progressMode,
     rejectOutliers,
     trendSeries,
     type ProgressPeriod,
-    type ProgressModeFilter,
     type ProgressRecord,
 } from "~/lib/progress";
 import { readLocalProgress } from "~/lib/progressHistory";
@@ -114,21 +111,7 @@ function HeroDeltaLine(props: { start: number | null; current: number; delta: nu
     );
 }
 
-// Only Timed and Words ever persist Test rows (grams/practice/relaxed don't), so
-// those are the only filters worth offering alongside All.
-const MODE_FILTERS: { key: ProgressModeFilter; label: string }[] = [
-    { key: "all", label: "All" },
-    { key: "timed", label: "Timed" },
-    { key: "words", label: "Words" },
-];
-
 type TrendMetric = "wpm" | "accuracy" | "consistency";
-
-function lengthLabel(count: number, mode: ProgressModeFilter): string {
-    if (mode === "timed") return `${count}s`;
-    if (mode === "words") return `${count} words`;
-    return String(count);
-}
 
 function periodShareLabel(period: ProgressPeriod): string {
     return period === "all" ? "all time" : `${period} days`;
@@ -137,44 +120,20 @@ function periodShareLabel(period: ProgressPeriod): string {
 const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Record<string, KeyAttempt>; transitions: TransitionAggregate[]; canShare?: boolean; username?: string | null }) => {
     const [period, setPeriod] = useState<ProgressPeriod>(30);
     const [trendMetric, setTrendMetric] = useState<TrendMetric>("wpm");
-    const [modeFilter, setModeFilter] = useState<ProgressModeFilter>("all");
-    const [lengthFilter, setLengthFilter] = useState<number | "all">("all");
     const [shareState, setShareState] = useState<"idle" | "sharing" | "copied">("idle");
     const now = useMemo(() => new Date(), []);
     const createProgressShare = api.scoreShare.createProgress.useMutation();
 
     // Drop junk tests (stopped typing, key-mash restarts) once, up front, so the
     // delta, trend line, records and best chip are all computed from clean data.
+    // Progress combines every mode and length into one view — no per-mode/length
+    // filtering, so the only knob left is the time period.
     const cleanRecords = useMemo(() => rejectOutliers(props.records), [props.records]);
 
-    const modeFilteredRecords = useMemo(
-        () => filterProgressRecords(cleanRecords, { mode: modeFilter, count: "all" }),
-        [cleanRecords, modeFilter],
-    );
-    const lengthOptions = useMemo(
-        () => Array.from(new Set(modeFilteredRecords.map((record) => record.count).filter((count): count is number => typeof count === "number" && count > 0)))
-            .sort((a, b) => a - b),
-        [modeFilteredRecords],
-    );
-    useEffect(() => {
-        if (lengthFilter !== "all" && !lengthOptions.includes(lengthFilter)) setLengthFilter("all");
-    }, [lengthFilter, lengthOptions]);
-    const filteredRecords = useMemo(
-        () => filterProgressRecords(cleanRecords, { mode: modeFilter, count: lengthFilter }),
-        [cleanRecords, modeFilter, lengthFilter],
-    );
-    const activeFilter = modeFilter !== "all" || lengthFilter !== "all";
-    // Imported guest history lands as rollup-only days with no mode/length, so it
-    // can't be split by those dimensions. Only offer the filters when at least one
-    // record carries the metadata, and flag when uncategorized history exists so an
-    // emptied filter can explain itself honestly instead of claiming "no tests".
-    const hasFilterableMetadata = useMemo(() => cleanRecords.some((r) => progressMode(r) !== null), [cleanRecords]);
-    const hasImportedHistory = useMemo(() => cleanRecords.some((r) => progressMode(r) === null), [cleanRecords]);
-
-    const streak = useMemo(() => currentStreak(filteredRecords, now, -now.getTimezoneOffset()), [filteredRecords, now]);
-    const series = useMemo(() => trendSeries(filteredRecords, period, now), [filteredRecords, period, now]);
-    const inPeriod = useMemo(() => filterByPeriod(filteredRecords, period, now), [filteredRecords, period, now]);
-    const records = useMemo(() => personalRecords(filteredRecords), [filteredRecords]);
+    const streak = useMemo(() => currentStreak(cleanRecords, now, -now.getTimezoneOffset()), [cleanRecords, now]);
+    const series = useMemo(() => trendSeries(cleanRecords, period, now), [cleanRecords, period, now]);
+    const inPeriod = useMemo(() => filterByPeriod(cleanRecords, period, now), [cleanRecords, period, now]);
+    const records = useMemo(() => personalRecords(cleanRecords), [cleanRecords]);
 
     // Straight least-squares fit per metric — one readable line instead of a
     // wiggly rolling average, aligned 1:1 with the scatter points.
@@ -218,7 +177,7 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
         () => dailyRollups(inPeriod, -now.getTimezoneOffset()).map((d) => ({ t: new Date(`${d.day}T12:00:00.000Z`).getTime(), value: d.bestWpm })),
         [inPeriod, now],
     );
-    const plateau = useMemo(() => detectPlateau(filteredRecords, now), [filteredRecords, now]);
+    const plateau = useMemo(() => detectPlateau(cleanRecords, now), [cleanRecords, now]);
     const slowTransitions = useMemo(() => worstTransitions(props.transitions), [props.transitions]);
     // Top weak keys for the one-click "drill your weakest keys" CTA. Rank every
     // key, then compose a letter-led set (≤3 punctuation/capitals) so a user who
@@ -314,52 +273,6 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
                 </div>
             </div>
 
-            {/* Filters (only when the records carry mode/length metadata). */}
-            {hasFilterableMetadata && (
-            <div data-testid="progress-filters" className="grid gap-3 rounded-xl border border-base-content/10 bg-base-100/45 p-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
-                <div>
-                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-base-content/45">Mode</p>
-                    <div data-testid="progress-mode-filter" className="flex flex-wrap gap-1">
-                        {MODE_FILTERS.map((option) => (
-                            <button
-                                key={option.key}
-                                type="button"
-                                aria-pressed={modeFilter === option.key}
-                                onClick={() => setModeFilter(option.key)}
-                                className={`min-h-9 rounded-md px-3 text-sm font-medium transition-colors ${modeFilter === option.key ? "bg-primary text-primary-content shadow-sm" : "text-base-content/70 hover:bg-base-content/5 hover:text-base-content"}`}
-                            >
-                                {option.label}
-                            </button>
-                        ))}
-                    </div>
-                </div>
-                <div>
-                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-base-content/45">Length</p>
-                    <div data-testid="progress-length-filter" className="flex flex-wrap gap-1">
-                        <button
-                            type="button"
-                            aria-pressed={lengthFilter === "all"}
-                            onClick={() => setLengthFilter("all")}
-                            className={`min-h-9 rounded-md px-3 text-sm font-medium transition-colors ${lengthFilter === "all" ? "bg-primary text-primary-content shadow-sm" : "text-base-content/70 hover:bg-base-content/5 hover:text-base-content"}`}
-                        >
-                            All lengths
-                        </button>
-                        {lengthOptions.map((count) => (
-                            <button
-                                key={count}
-                                type="button"
-                                aria-pressed={lengthFilter === count}
-                                onClick={() => setLengthFilter(count)}
-                                className={`min-h-9 rounded-md px-3 text-sm font-medium transition-colors ${lengthFilter === count ? "bg-primary text-primary-content shadow-sm" : "text-base-content/70 hover:bg-base-content/5 hover:text-base-content"}`}
-                            >
-                                {lengthLabel(count, modeFilter)}
-                            </button>
-                        ))}
-                    </div>
-                </div>
-            </div>
-            )}
-
             {/* Above the fold: "am I getting faster?" (the delta + the WPM proof)
                 sits beside the single highest-leverage action (drill your weak
                 spots). The three things that matter, no scrolling. */}
@@ -391,33 +304,15 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
                             />
                         ) : (
                             <>
-                                <div className="font-mono text-3xl font-bold text-base-content">
-                                    {activeFilter && props.records.length > 0 ? "No matching tests" : "No tests yet"}
-                                </div>
-                                <p className="mt-2 text-base-content/60">
-                                    {activeFilter && props.records.length > 0
-                                        ? hasImportedHistory
-                                            ? "Imported history isn't split by mode or length — switch back to All to see it, or take a matching test to start a trend here."
-                                            : "This filter has no ranked tests yet. Clear the filters or take a matching test."
-                                        : "Complete a few tests and your trend appears here."}
-                                </p>
-                                {activeFilter && props.records.length > 0 ? (
-                                    <button
-                                        type="button"
-                                        onClick={() => { setModeFilter("all"); setLengthFilter("all"); }}
-                                        className="mt-3 inline-flex items-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85"
-                                    >
-                                        Clear filters
-                                    </button>
-                                ) : (
-                                    <Link href="/" className="mt-3 inline-flex items-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85">
-                                        Take a test
-                                    </Link>
-                                )}
+                                <div className="font-mono text-3xl font-bold text-base-content">No tests yet</div>
+                                <p className="mt-2 text-base-content/60">Complete a few tests and your trend appears here.</p>
+                                <Link href="/" className="mt-3 inline-flex items-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85">
+                                    Take a test
+                                </Link>
                             </>
                         )}
 
-                        {hasData && <GoalCard records={filteredRecords} now={now} />}
+                        {hasData && <GoalCard records={cleanRecords} now={now} />}
                     </div>
 
                     {hasData ? (

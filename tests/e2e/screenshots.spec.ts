@@ -449,7 +449,6 @@ test.describe("screenshot tour", () => {
     await page.addInitScript(() => window.localStorage.setItem("typecafe:lastRecapAt", String(Date.now())));
     await page.goto("/progress");
     await expect(page.getByTestId("headline-delta")).toBeVisible();
-    await expect(page.getByTestId("progress-filters")).toBeVisible();
     await expect(page.getByText("WPM over time", { exact: true })).toBeVisible();
     await expect(page.getByTestId("weak-spots")).toContainText("b→r");
     await expect(page.getByTestId("lifetime-heatmap")).toBeVisible();
