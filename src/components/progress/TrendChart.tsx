@@ -55,8 +55,8 @@ function toPath(pts: { x: number; y: number }[]): string {
     return pts.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(" ")
 }
 
-function formatDate(t: number): string {
-    return new Date(t).toLocaleDateString(undefined, { month: "short", day: "numeric" })
+function formatDate(t: number, withYear = false): string {
+    return new Date(t).toLocaleDateString(undefined, { month: "short", day: "numeric", ...(withYear ? { year: "numeric" } : {}) })
 }
 
 function formatTooltipDate(t: number): string {
@@ -123,11 +123,14 @@ export function TrendChart(props: TrendChartProps) {
         const secondaryPoints = (props.secondary ?? []).map((s) => ({ x: xForT(s.t), y: yFor(s.value) }))
         const secondaryPath = toPath(extendToEdges(secondaryPoints, padding.left, rightEdge))
 
+        // Show the year on the axis labels once the data spans more than one
+        // calendar year, so "Jun" alone isn't ambiguous across years.
+        const multiYear = new Date(minT).getFullYear() !== new Date(maxT).getFullYear()
         const xLabels = props.points.length === 1
-            ? [{ x: padding.left + chartWidth / 2, label: formatDate(minT) }]
+            ? [{ x: padding.left + chartWidth / 2, label: formatDate(minT, multiYear) }]
             : [
-                { x: padding.left, label: formatDate(minT) },
-                { x: padding.left + chartWidth, label: formatDate(maxT) },
+                { x: padding.left, label: formatDate(minT, multiYear) },
+                { x: padding.left + chartWidth, label: formatDate(maxT, multiYear) },
             ]
 
         return { width, height, padding, chartWidth, chartHeight, minY, maxY, yTicks, scatter, linePath, secondaryPath, xLabels }
