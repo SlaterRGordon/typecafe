@@ -137,20 +137,35 @@ Tests: `utils.test.ts` already covers restricted-mark sprinkling — add a case 
 `{ marks: ["?"] }` sprinkles `?` and empty marks yield no punctuation regardless.
 Keyboard smart-drill partition keeps ≥ letters with shifted extras.
 
-## Phase C — surface symbol & capital latency
+## Phase C — surface symbol & capital latency — ✅ done
 
-- [drill.ts:31](../src/lib/drill.ts#L31) strips transitions to `[a-z]` — widen so
-  symbol/punctuation pairs survive into the transition drill (or gate behind a
-  letters-only fallback only when no symbol data exists).
-- Weak-key / slow-transition displays (`/progress`, score-card diagnosis) already
-  read raw chars; ensure none filter out non-letters and that shifted glyphs get a
-  readable label (show `:` not `;`). `aggregateKeyLatency` already keys on raw
-  char, so `:` vs `;` latency is distinct for free.
-- "Slow on X" findings end in a drill button that locks that exact glyph (Phase B
-  makes the glyph lockable).
+> **Status:** ✅ done.
+> - Drillable-key definitions moved to a single source [lib/drillKeys.ts](../src/lib/drillKeys.ts)
+>   (`DRILL_MARKS`, `isDrillMark`, `isDrillDigit`, `isDrillableKey`); `utils.tsx`
+>   re-exports them, so diagnosis and the drill page no longer cross layers.
+> - **Findings already reported** symbols/capitals — `slowestKeys` /
+>   `costliestTransitions` key on the raw char and label via `keyLabel`. Pinned
+>   with a `diagnosis.test.ts` case (a slow `:` surfaces and stays a drill target).
+> - `toDrillKeys` now keeps digits + drill marks (incl. shifted `? ! :`); capitals
+>   fold to their base letter (Decision 4).
+> - [drill.ts](../src/lib/drill.ts) `normalizeTransitions` + the `/drill` page's
+>   `parseKeys`/`parseTransitions` keep drillable glyphs. A pure-symbol transition
+>   (`e:`) matches no word and drills via the fallback grams; a key drill sprinkles
+>   the locked marks/digits through the existing `applyTextOptions` sprinkler.
+>
+> **Known ceilings** (ponytail — add when a real signal needs it): mixed
+> letter+symbol *transition* drills still favor the letter pair (the symbol pair is
+> dropped when ranked words exist); the `/?mode=practice&keys=` handoff stays
+> letter-only (symbols drill via `/drill` or manual shift-layer locking).
 
-Tests: `diagnosis.test.ts` / `drill.test.ts` — a symbol/capital appears as a weak
-key and as a drill target instead of being stripped.
+Done:
+- `lib/drillKeys.ts` single source; `utils.tsx` re-exports.
+- `toDrillKeys` keeps letters (caps folded), digits and drill marks.
+- `drill.ts` + `/drill` widen the `[a-z]` strip; key drills sprinkle marks/digits.
+
+Tests: `diagnosis.test.ts` (slow `:` is a finding + drill target; `toDrillKeys`
+keeps marks/digits), `drill.test.ts` (symbol transition via fallback; capital
+transition folds to base letters).
 
 ---
 
@@ -159,7 +174,7 @@ key and as a drill target instead of being stripped.
 1. **Phase B (leak fix)** ✅ — authoritative punctuation. Fixes the reported bug now.
 2. **Phase A** ✅ — shift-layer display, read-only. Unfold also gave smart-drill `? ! :`.
 3. **Phase B (rest)** ✅ — shifted-mark cells (! ? :) lock from the shift layer; capitals inert.
-4. **Phase C** — surface symbol/capital latency as findings + drill targets.
+4. **Phase C** ✅ — symbol/capital latency surfaces as findings + drill targets.
 
 Glyph maps and the sprinkle/partition stay pure in `src/lib` + `utils.tsx` with
 unit tests; components only render and wire.

@@ -5,6 +5,10 @@ import tetraGrams from './languages/nGrams/tetraGrams.json'
 import english10k from './languages/english10k.json'
 
 import { TestGramScopes, TestGramSources, type QuoteLength } from './types'
+// Drillable-key definitions live in lib (single source shared with diagnosis and
+// the drill page); re-exported here for the typer modules that import from utils.
+import { DRILL_MARKS, ENDER_MARKS, MID_MARKS, isDrillMark, isDrillDigit } from '~/lib/drillKeys'
+export { DRILL_MARKS, isDrillMark, isDrillDigit }
 
 interface WordList {
     words: string[],
@@ -214,16 +218,6 @@ export const generateBetterPseudoText = (count: number, characters: string[]) =>
 // Weighted so periods/commas dominate, matching natural prose.
 const SENTENCE_ENDERS = ['.', '.', '.', '.', '?', '!']
 const MID_PUNCTUATION = [',', ',', ',', ';', ':']
-
-// The punctuation the Practice drill can sprinkle at word boundaries, split by
-// where it lands. Apostrophe lives on the keyboard heatmap (capture only) but
-// isn't sprinkled — it's intra-word (contractions), which the [a-z] word list
-// can't produce. ponytail: skip it, add when the drill grows a contraction list.
-const ENDER_MARKS = ['.', '?', '!']
-const MID_MARKS = [',', ';', ':', '-']
-export const DRILL_MARKS = [...ENDER_MARKS, ...MID_MARKS]
-export const isDrillMark = (key: string) => DRILL_MARKS.includes(key)
-export const isDrillDigit = (key: string) => /^[0-9]$/.test(key)
 
 const capitalise = (word: string) => word.charAt(0).toUpperCase() + word.slice(1)
 const pick = (choices: string[]) => choices[Math.floor(Math.random() * choices.length)] as string

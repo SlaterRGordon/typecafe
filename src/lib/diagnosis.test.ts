@@ -35,12 +35,28 @@ describe("keyLabel", () => {
 })
 
 describe("toDrillKeys", () => {
-    it("keeps only single letters, lowercased and de-duplicated, order preserved", () => {
-        expect(toDrillKeys(["R", "t", "r", " ", ".", "B"])).toEqual(["r", "t", "b"])
+    it("keeps letters (capitals folded), digits and marks, de-duplicated, order preserved", () => {
+        expect(toDrillKeys(["R", "t", "r", " ", ".", "B"])).toEqual(["r", "t", ".", "b"])
     })
 
-    it("drops non-letters entirely", () => {
-        expect(toDrillKeys([" ", ".", "3", "th"])).toEqual([])
+    it("keeps the shifted drill marks and digits, drops space and non-drill glyphs", () => {
+        expect(toDrillKeys([":", "?", "!", "5", " ", "'", "/", "th"])).toEqual([":", "?", "!", "5"])
+    })
+})
+
+describe("symbol latency", () => {
+    it("surfaces a slow punctuation key as a finding and a drill target", () => {
+        // A steady 'a' rhythm at 100ms with a slow ':' (300ms) spliced in — the
+        // colon must be diagnosed and kept drillable, not stripped as a non-letter.
+        const evts = [
+            ...steady("a", 25, 100),
+            ...events([[":", 300], ["a", 100], [":", 300], ["a", 100], [":", 300], ["a", 100]], 1_002_500),
+        ]
+        const result = diagnose({ events: evts, baselineMeanMs: 100 })
+
+        const slow = result.findings.find((f) => f.kind === "slow-keys")
+        expect(slow?.keys).toContain(":")
+        expect(result.drillKeys).toContain(":")
     })
 })
 

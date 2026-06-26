@@ -88,6 +88,31 @@ describe("compileDrillText", () => {
         }
     })
 
+    test("drills a symbol transition via fallback grams (no English word has it)", () => {
+        // 'e:' can't appear in any [a-z] word, so the drill must fall through to the
+        // generated grams instead of stripping the colon away.
+        const words = compileDrillText({
+            transitions: ["e:"],
+            wordList: ["alpha", "omega"],
+            length: 6,
+            rng: cyclingRng(),
+        }).split(" ")
+
+        expect(words).toHaveLength(6)
+        expect(words.every((word) => word.includes("e:"))).toBe(true)
+    })
+
+    test("folds a capital transition onto its base letters", () => {
+        const words = compileDrillText({
+            transitions: ["tH"],
+            wordList: ["this", "that", "math", "stone"],
+            length: 6,
+            rng: cyclingRng(),
+        }).split(" ")
+
+        expect(words.every((word) => word.includes("th"))).toBe(true)
+    })
+
     test("terminates with key fallback tokens when no matching words exist", () => {
         const words = compileDrillText({
             keys: ["q"],

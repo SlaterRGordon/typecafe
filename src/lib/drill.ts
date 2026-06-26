@@ -1,3 +1,5 @@
+import { isDrillableKey } from "./drillKeys"
+
 export interface CompileDrillTextInput {
     keys?: string[],
     transitions?: string[],
@@ -26,9 +28,12 @@ const uniqueChars = (chars: string[] | undefined): string[] =>
         .flatMap((char) => char.toLowerCase().split(""))
         .filter((char) => /^[a-z]$/.test(char))))
 
+// Keep a transition's drillable chars (letters lowercased, digits, marks) so
+// symbol/capital pairs survive: a pure-symbol pair like "e:" matches no English
+// word and falls through to the fallback tokens, which drill the pair directly.
 const normalizeTransitions = (transitions: string[] | undefined): string[] =>
     Array.from(new Set((transitions ?? [])
-        .map((pair) => pair.toLowerCase().replace(/[^a-z]/g, ""))
+        .map((pair) => pair.toLowerCase().split("").filter(isDrillableKey).join(""))
         .filter((pair) => pair.length >= 2)
         .map((pair) => pair.slice(0, 2))))
 
