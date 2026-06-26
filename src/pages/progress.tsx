@@ -480,7 +480,7 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
                                         href={`/drill?keys=${topWeakKeys.map((k) => k.key).join(",")}`}
                                         className="inline-flex w-full items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85"
                                     >
-                                        Drill weakest keys: {topWeakKeys.map((k) => k.key).join(", ")}
+                                        Drill weakest keys
                                     </Link>
                                 </div>
                             )}

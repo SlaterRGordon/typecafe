@@ -51,8 +51,12 @@ test.describe("progress dashboard", () => {
     // Weak spots → drill (§6.4): top weak keys + slowest transitions, each → /drill.
     const weak = page.getByTestId("weak-spots");
     await expect(weak).toBeVisible();
-    // r (80%) is weaker than e (96.7%), so it leads the weakest-keys CTA.
-    await expect(weak.getByRole("link", { name: /Drill weakest keys: r, e/ })).toBeVisible();
+    // r (80%) is weaker than e (96.7%), so it leads the weakest-keys CTA — the
+    // keys show as chips above the button; the button just carries the action,
+    // and the drill href preserves their order.
+    const drillWeak = weak.getByRole("link", { name: /Drill weakest keys/ });
+    await expect(drillWeak).toBeVisible();
+    await expect(drillWeak).toHaveAttribute("href", /keys=r,e/);
     await expect(page.getByTestId("lifetime-keyboard-card")).toContainText("Lifetime keyboard");
     await expect(page.getByTestId("lifetime-keyboard-card")).toContainText("Lower accuracy");
     await expect(page.getByTestId("lifetime-heatmap")).toBeVisible();
