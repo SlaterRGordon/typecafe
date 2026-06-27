@@ -8,9 +8,10 @@ import { useTimer } from "~/hooks/timer/useTimer"
 import { api } from "~/utils/api"
 import type { Level } from "./learn/levels"
 import { buildWpmSamples, computeStats, consistencyFromSamples, isReliableWpmSample, worstKeysFromAttempts } from "~/lib/stats"
-import type { Keystroke, TypedSegment } from "~/lib/stats"
+import type { TypedSegment } from "~/lib/stats"
 import { encodeTimeline } from "~/lib/keystrokes"
-import type { KeystrokeEvent } from "~/lib/keystrokes"
+import { createKeystrokeRecorder } from "~/lib/keystrokeRecorder"
+import type { KeystrokeRecorder } from "~/lib/keystrokeRecorder"
 import { isAnyModalOpen } from "~/lib/modals"
 import { isRankableTimeline } from "~/lib/antiCheat"
 import { generateTestText } from "./hooks/useTestText"
@@ -90,10 +91,13 @@ export const Typer = (props: TyperProps) => {
     // the regenerated text is identical (e.g. a grams level produces the same
     // deterministic gram), where `restarted`/`text` alone wouldn't change.
     const [restartNonce, setRestartNonce] = useState(0)
-    // Per-keystroke counts live in refs so typing never re-renders Typer; the
-    // visible numbers (wpm/accuracy/typedCount) refresh on a 250ms interval.
-    const characterCountRef = useRef(0)
-    const incorrectCountRef = useRef(0)
+    // The recorder owns every per-keystroke capture for the attempt — the raw
+    // event log plus the derived timeline, net counts and per-character attempts.
+    // It's a ref (not state) so typing never re-renders Typer; the visible numbers
+    // (wpm/accuracy/typedCount) refresh by reading it on a 250ms interval.
+    const recorderRef = useRef<KeystrokeRecorder | null>(null)
+    recorderRef.current ??= createKeystrokeRecorder()
+    const recorder = recorderRef.current
     const [typedCount, setTypedCount] = useState(0)
     const [wpm, setWpm] = useState(0.00)
     const [accuracy, setAccuracy] = useState(0.00)
@@ -103,13 +107,6 @@ export const Typer = (props: TyperProps) => {
     const [wpmPending, setWpmPending] = useState(false)
     const typedTextRef = useRef("")
     const typedSegmentsRef = useRef<TypedSegment[]>([])
-    // Per-attempt accuracy by expected character, reset on every restart — the
-    // source for the "toughest keys" line on the results card.
-    const testCharAttemptsRef = useRef<Map<string, { attempts: number, correct: number }>>(new Map())
-    const keystrokeTimelineRef = useRef<Keystroke[]>([])
-    // Per-keystroke events (expected key + correctness + timestamp), the raw
-    // material for the persisted timeline and for per-key latency diagnosis.
-    const keyEventsRef = useRef<KeystrokeEvent[]>([])
     const onRestartRef = useRef(onRestart)
     const activeAttemptRef = useRef<{
         mode: TestModes,
@@ -160,7 +157,7 @@ export const Typer = (props: TyperProps) => {
         timerType: isTimed ? 'DECREMENTAL' : 'INCREMENTAL',
         endTime: isTimed ? 0 : 999999,
         onTimeOver: () => {
-            handleComplete(false, false, "timer")
+            handleComplete("timer")
         },
     })
 
@@ -180,14 +177,14 @@ export const Typer = (props: TyperProps) => {
 
     const getStats = useCallback((finalCharacterCount: number, finalIncorrectCount: number) => {
         return computeStats({
-            timeline: keystrokeTimelineRef.current,
+            timeline: recorder.timeline,
             characterCount: finalCharacterCount,
             incorrectCount: finalIncorrectCount,
             isTimed: subMode === TestSubModes.timed && mode === TestModes.normal,
             timedDurationSeconds: count,
             fallbackStartTime: actualStartTime,
         })
-    }, [actualStartTime, subMode, mode, count])
+    }, [recorder, actualStartTime, subMode, mode, count])
 
     const cancelRestartRef = useRef(false)
     const textRequestRef = useRef(0)
@@ -224,20 +221,16 @@ export const Typer = (props: TyperProps) => {
                 activeAttemptRef.current = null
                 typedTextRef.current = ""
                 typedSegmentsRef.current = []
-                testCharAttemptsRef.current = new Map()
-                keystrokeTimelineRef.current = []
-                keyEventsRef.current = []
+                recorder.reset()
                 setRestarted(true)
                 setRestartNonce((nonce) => nonce + 1)
-                characterCountRef.current = 0
-                incorrectCountRef.current = 0
                 setTypedCount(0)
                 // Blank the WPM in grams until a level produces a measurable sample.
                 setWpmPending(mode === TestModes.ngrams)
                 onRestartRef.current?.()
             }
         }, 0)
-    }, [count, gramCombination, gramLevel, gramRepetition, gramScope, gramSource, syncCharAttempts, language, quoteLength, level, mode, pause, punctuation, capitals, selectedKeys, setInitialTime, subMode, props.fixedText])
+    }, [recorder, count, gramCombination, gramLevel, gramRepetition, gramScope, gramSource, syncCharAttempts, language, quoteLength, level, mode, pause, punctuation, capitals, selectedKeys, setInitialTime, subMode, props.fixedText])
 
     useEffect(() => {
         handleRestart()
@@ -288,8 +281,8 @@ export const Typer = (props: TyperProps) => {
         const durationSeconds = subMode === TestSubModes.timed && mode === TestModes.normal
             ? count
             : finalStats.durationSeconds
-        const wpmSamples = buildWpmSamples(keystrokeTimelineRef.current)
-        const timeline = encodeTimeline(keyEventsRef.current)
+        const wpmSamples = buildWpmSamples(recorder.timeline)
+        const timeline = encodeTimeline(recorder.events)
         // Quotes vary in length/difficulty, so they never post to a leaderboard
         // (they still persist a timeline and feed diagnosis). Always unranked.
         const ranked = mode !== TestModes.quotes && !customLength && isRankableTimeline(timeline)
@@ -306,7 +299,7 @@ export const Typer = (props: TyperProps) => {
             promptText: text,
             typedText: typedTextRef.current,
             typedSegments: [...typedSegmentsRef.current],
-            worstKeys: worstKeysFromAttempts(testCharAttemptsRef.current),
+            worstKeys: worstKeysFromAttempts(recorder.charAttempts),
             timeline,
             wpmSamples,
             punctuation,
@@ -316,7 +309,7 @@ export const Typer = (props: TyperProps) => {
             typeId: testType?.id,
             persisted: false,
         }
-    }, [subMode, mode, count, punctuation, capitals, customLength, level, testType?.id, text])
+    }, [recorder, subMode, mode, count, punctuation, capitals, customLength, level, testType?.id, text])
 
     const isCompletionValid = useCallback((source: CompletionSource) => {
         const attempt = activeAttemptRef.current
@@ -363,7 +356,7 @@ export const Typer = (props: TyperProps) => {
         }
     }, [started])
 
-    const handleComplete = useCallback((correct: boolean, includeFinalCharacter = true, source: CompletionSource = "text") => {
+    const handleComplete = useCallback((source: CompletionSource = "text") => {
         if (!isCompletionValid(source)) return
 
         // Timed Normal tests run to the clock, so the timer pauses itself; every
@@ -373,10 +366,11 @@ export const Typer = (props: TyperProps) => {
         setRestarted(false)
         activeAttemptRef.current = null
 
-        const characterCount = characterCountRef.current
-        const incorrectCount = incorrectCountRef.current
-        const finalCharacterCount = includeFinalCharacter ? characterCount + 1 : characterCount
-        const finalIncorrectCount = includeFinalCharacter && !correct ? incorrectCount + 1 : incorrectCount
+        // The recorder records each keystroke synchronously (append fires before
+        // completion), so its counts already include the final character — no
+        // lag-correction needed.
+        const finalCharacterCount = recorder.characterCount
+        const finalIncorrectCount = recorder.incorrectCount
         const finalStats = getStats(finalCharacterCount, finalIncorrectCount)
         const completion = buildCompletion(finalStats, finalCharacterCount, finalIncorrectCount)
 
@@ -423,9 +417,9 @@ export const Typer = (props: TyperProps) => {
         if (mode !== TestModes.ngrams) syncCharAttempts()
         // Transition analytics come from normal-mode tests, where the text is real
         // language (grams/practice text would skew the bigram picture).
-        if (mode === TestModes.normal) syncTransitions(keyEventsRef.current)
+        if (mode === TestModes.normal) syncTransitions(recorder.events)
     }, [
-        isCompletionValid, isTimed, pause, getStats, buildCompletion, mode, levelRequirements,
+        recorder, isCompletionValid, isTimed, pause, getStats, buildCompletion, mode, levelRequirements,
         sessionData, testType, persistCompletion, count, level, punctuation,
         capitals, props.gramWpmThreshold, props.gramAccuracyThreshold,
         props.challengeDate, recordPassedLevel, syncCharAttempts, syncTransitions,
@@ -446,30 +440,20 @@ export const Typer = (props: TyperProps) => {
         onAttemptChangeRef.current?.()
     }, [])
 
-    const handleSetCharacterCount = useCallback((charCount: number) => {
-        characterCountRef.current = charCount
-    }, [])
-    const handleSetIncorrectCount = useCallback((charCount: number) => {
-        incorrectCountRef.current = charCount
-    }, [])
     const handleCharacterAttempt = useCallback((attempt: { expected: string, typed: string, correct: boolean }) => {
         typedTextRef.current += attempt.typed
         // Keep the correctness segments in lock-step with typedText so the rendered
         // text and its per-character highlight stay index-aligned.
         typedSegmentsRef.current.push({ ch: attempt.typed, correct: attempt.correct })
-        // Timestamp the keystroke against the expected character for latency diagnosis.
-        keyEventsRef.current.push({ key: attempt.expected, correct: attempt.correct, t: Date.now() })
-
-        const entry = testCharAttemptsRef.current.get(attempt.expected) ?? { attempts: 0, correct: 0 }
-        entry.attempts += 1
-        if (attempt.correct) entry.correct += 1
-        testCharAttemptsRef.current.set(attempt.expected, entry)
-    }, [])
-    // Record every keystroke (and backspace) with a real timestamp. This timeline is
-    // the source of truth for the live WPM and the over-time chart.
-    const handleProgress = useCallback((chars: number) => {
-        keystrokeTimelineRef.current.push({ t: Date.now(), chars })
-    }, [])
+        // Hand the committed keystroke to the recorder: it stamps the event,
+        // advances the timeline + counts, and tallies the per-character attempt.
+        recorder.append(attempt.expected, attempt.correct)
+    }, [recorder])
+    // A committed key was walked back; the recorder lowers the net count and
+    // records the dip on the timeline (the source for live WPM and the chart).
+    const handleBackspace = useCallback(() => {
+        recorder.backspace()
+    }, [recorder])
 
     useEffect(() => {
         if (!started) return
@@ -481,9 +465,9 @@ export const Typer = (props: TyperProps) => {
         // Refreshing on an interval (rather than per keystroke) keeps typing from
         // re-rendering the whole Typer tree on every key.
         const update = () => {
-            const characterCount = characterCountRef.current
-            const incorrectCount = incorrectCountRef.current
-            const timeline = keystrokeTimelineRef.current
+            const characterCount = recorder.characterCount
+            const incorrectCount = recorder.incorrectCount
+            const timeline = recorder.timeline
             const startTime = timeline.length > 0 ? timeline[0]!.t : actualStartTime
             const elapsedMinutes = (Date.now() - startTime) / 60000
             setWpm(elapsedMinutes <= 0 ? 0 : (characterCount / 5) / elapsedMinutes)
@@ -506,7 +490,7 @@ export const Typer = (props: TyperProps) => {
         update()
         const intervalId = setInterval(update, 250)
         return () => clearInterval(intervalId)
-    }, [actualStartTime, started, mode])
+    }, [recorder, actualStartTime, started, mode])
 
     useRestartShortcut(restartRef, restartTest, isAnyModalOpen)
 
@@ -535,11 +519,9 @@ export const Typer = (props: TyperProps) => {
             charAttempts={charAttemptsRef.current}
             onStart={handleStart}
             onComplete={handleComplete}
-            setCharacterCount={handleSetCharacterCount}
-            setIncorrectCount={handleSetIncorrectCount}
             onKeyChange={stableOnKeyChange}
             onCharacterAttempt={handleCharacterAttempt}
-            onProgress={handleProgress}
+            onBackspace={handleBackspace}
             onAttemptChange={stableOnAttemptChange}
         />
     )
