@@ -6,7 +6,7 @@ import { api } from "~/utils/api";
 
 import "~/styles/globals.css";
 import Layout from "~/components/Layout";
-import { ProgressHistorySync } from "~/components/progress/ProgressHistorySync";
+import { GuestImport } from "~/components/GuestImport";
 import { store } from '../state/store';
 import { Provider } from 'react-redux';
 import Head from "next/head";
@@ -19,7 +19,7 @@ const MyApp: AppType<{ session: Session | null }> = ({
   return (
     <Provider store={store}>
       <SessionProvider session={session}>
-        <ProgressHistorySync />
+        <GuestImport />
         <Layout>
           <Head>
             <title>Type Cafe</title>

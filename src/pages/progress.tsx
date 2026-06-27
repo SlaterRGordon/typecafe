@@ -3,13 +3,12 @@ import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { useSession } from "next-auth/react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { TrendChart } from "~/components/progress/TrendChart";
 import { GoalCard } from "~/components/progress/GoalCard";
 import { KeyHeatmap, KeyHeatmapLegend } from "~/components/heatmap/KeyHeatmap";
 import type { KeyAttempt } from "~/lib/heatmap";
-import { readLocalKeyStats } from "~/lib/localSync";
-import { readLocalTransitions } from "~/lib/localTransitions";
+import { useGuestEvidence } from "~/hooks/useGuestEvidence";
 import { worstTransitions, type TransitionAggregate } from "~/lib/transitions";
 import {
     PROGRESS_PERIODS,
@@ -25,7 +24,6 @@ import {
     type ProgressPeriod,
     type ProgressRecord,
 } from "~/lib/progress";
-import { readLocalProgress } from "~/lib/progressHistory";
 import { composeWeakKeys, netFromRaw, worstKeysFromAttempts } from "~/lib/stats";
 import { detectPlateau } from "~/lib/trajectory";
 import { api } from "~/utils/api";
@@ -491,20 +489,20 @@ const Progress: NextPage = () => {
     const transitionsQuery = api.transitionStats.get.useQuery(undefined, { enabled: !!sessionData?.user });
     const dbTransitions: TransitionAggregate[] = transitionsQuery.data ?? [];
 
-    // Guest history + key-stats live in localStorage (read client-side after mount
-    // to avoid an SSR mismatch). A guest with history gets the real dashboard + a
-    // keep-it banner; a guest with none gets the signup pitch.
-    const [guestRecords, setGuestRecords] = useState<ProgressRecord[]>([]);
-    const [guestKeyAttempts, setGuestKeyAttempts] = useState<Record<string, KeyAttempt>>({});
-    const [guestTransitions, setGuestTransitions] = useState<TransitionAggregate[]>([]);
-    useEffect(() => {
-        if (sessionData?.user) return;
-        setGuestRecords(readLocalProgress().map((e) => ({ wpm: netFromRaw(e.wpm, e.accuracy), accuracy: e.accuracy, consistency: e.c, createdAt: new Date(e.t) })));
+    // Guest evidence lives in localStorage (read client-side after mount to avoid
+    // an SSR mismatch). A guest with history gets the real dashboard + a keep-it
+    // banner; a guest with none gets the signup pitch.
+    const guest = useGuestEvidence();
+    const guestRecords: ProgressRecord[] = useMemo(
+        () => (guest?.progress ?? []).map((e) => ({ wpm: netFromRaw(e.wpm, e.accuracy), accuracy: e.accuracy, consistency: e.c, createdAt: new Date(e.t) })),
+        [guest],
+    );
+    const guestKeyAttempts = useMemo(() => {
         const attempts: Record<string, KeyAttempt> = {};
-        for (const stat of readLocalKeyStats()) attempts[stat.key] = { attempts: stat.attempts, correct: stat.correct };
-        setGuestKeyAttempts(attempts);
-        setGuestTransitions(readLocalTransitions());
-    }, [sessionData?.user]);
+        for (const stat of guest?.keyStats ?? []) attempts[stat.key] = { attempts: stat.attempts, correct: stat.correct };
+        return attempts;
+    }, [guest]);
+    const guestTransitions: TransitionAggregate[] = guest?.transitions ?? [];
 
     return (
         <>

@@ -14,11 +14,9 @@ import {
     type PlanSessionState,
 } from "~/lib/planSession";
 import { worstKeysFromAttempts } from "~/lib/stats";
-import { worstTransitions, type TransitionAggregate } from "~/lib/transitions";
+import { worstTransitions } from "~/lib/transitions";
 import type { KeyAttempt } from "~/lib/heatmap";
-import { readLocalProgress } from "~/lib/progressHistory";
-import { readLocalKeyStats } from "~/lib/localSync";
-import { readLocalTransitions } from "~/lib/localTransitions";
+import { useGuestEvidence } from "~/hooks/useGuestEvidence";
 import { api } from "~/utils/api";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -183,20 +181,14 @@ const PlanPage: NextPage = () => {
     const practiceStatsQuery = api.practiceStats.get.useQuery(undefined, { enabled: signedIn });
     const transitionsQuery = api.transitionStats.get.useQuery(undefined, { enabled: signedIn });
 
-    const [guest, setGuest] = useState<{ dates: number[]; keyAttempts: Record<string, KeyAttempt>; transitions: TransitionAggregate[] } | null>(null);
-    useEffect(() => {
-        if (signedIn) return;
-        const keyAttempts: Record<string, KeyAttempt> = {};
-        for (const s of readLocalKeyStats()) keyAttempts[s.key] = { attempts: s.attempts, correct: s.correct };
-        setGuest({ dates: readLocalProgress().map((e) => e.t), keyAttempts, transitions: readLocalTransitions() });
-    }, [signedIn]);
+    const guest = useGuestEvidence();
 
     const plan = useMemo(() => {
-        const dates = signedIn ? (recordsQuery.data ?? []).map((r) => new Date(r.createdAt).getTime()) : guest?.dates ?? [];
+        const dates = signedIn ? (recordsQuery.data ?? []).map((r) => new Date(r.createdAt).getTime()) : (guest?.progress ?? []).map((e) => e.t);
         const keyAttempts: Record<string, KeyAttempt> = signedIn
             ? Object.fromEntries((practiceStatsQuery.data ?? []).map((s) => [s.character, { attempts: s.total, correct: s.correct }]))
-            : guest?.keyAttempts ?? {};
-        const transitions = signedIn ? (transitionsQuery.data ?? []) : guest?.transitions ?? [];
+            : Object.fromEntries((guest?.keyStats ?? []).map((s) => [s.key, { attempts: s.attempts, correct: s.correct }]));
+        const transitions = signedIn ? (transitionsQuery.data ?? []) : (guest?.transitions ?? []);
 
         const historyDays = dates.length > 0 ? (Date.now() - Math.min(...dates)) / DAY_MS : 0;
         return generatePlan({

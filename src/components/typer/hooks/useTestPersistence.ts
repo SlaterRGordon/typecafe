@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useRef } from "react"
+import { useCallback, useRef } from "react"
 import { useSession } from "next-auth/react"
 import { useDispatch } from "react-redux"
 import { addAlert } from "~/state/alert/alertSlice"
-import { addLocalKeyStats, clearLocalKeyStats, readLocalKeyStats } from "~/lib/localSync"
+import { addLocalKeyStats } from "~/lib/localSync"
 import { addLocalTransitions } from "~/lib/localTransitions"
 import { aggregateTransitions } from "~/lib/transitions"
 import type { EncodedKeystroke, KeystrokeEvent } from "~/lib/keystrokes"
@@ -39,7 +39,6 @@ export function useTestPersistence({ mode, charAttemptsRef, onTestComplete }: Us
     const { data: sessionData } = useSession()
     const dispatch = useDispatch()
     const pendingCompletionRef = useRef<TestCompletionResult | null>(null)
-    const importedLocalStatsRef = useRef(false)
 
     const createTest = api.test.create.useMutation({
         onSuccess: (test) => {
@@ -97,31 +96,6 @@ export function useTestPersistence({ mode, charAttemptsRef, onTestComplete }: Us
         }
         syncTransitionStats({ stats: aggregates })
     }, [sessionData?.user, syncTransitionStats])
-
-    useEffect(() => {
-        if (!sessionData?.user) return
-        if (importedLocalStatsRef.current) return
-
-        const localStats = readLocalKeyStats()
-        if (localStats.length === 0) return
-
-        importedLocalStatsRef.current = true
-        syncPracticeStats({
-            stats: localStats.map((stat) => ({
-                character: stat.key,
-                total: stat.attempts,
-                correct: stat.correct,
-            })),
-        }, {
-            onSuccess: () => {
-                clearLocalKeyStats()
-            },
-            onError: (error) => {
-                console.error(error)
-                importedLocalStatsRef.current = false
-            },
-        })
-    }, [sessionData?.user, syncPracticeStats])
 
     const syncCharAttempts = useCallback(() => {
         if (mode !== TestModes.practice) return
