@@ -1,13 +1,11 @@
+import { createKeyedStore } from "./keyedStore"
+
 export const LOCAL_KEY_STATS_KEY = "typecafe:keyStats"
 
 export interface LocalKeyStat {
     key: string
     attempts: number
     correct: number
-}
-
-function isStorageAvailable(storage: Storage | undefined): storage is Storage {
-    return typeof storage !== "undefined"
 }
 
 function sanitizeStat(raw: unknown): LocalKeyStat | null {
@@ -41,45 +39,9 @@ export function mergeKeyStats(existing: LocalKeyStat[], incoming: LocalKeyStat[]
     return Array.from(byKey.values()).sort((a, b) => a.key.localeCompare(b.key))
 }
 
-export function readLocalKeyStats(storage: Storage | undefined = typeof window === "undefined" ? undefined : window.localStorage): LocalKeyStat[] {
-    if (!isStorageAvailable(storage)) return []
+const store = createKeyedStore(LOCAL_KEY_STATS_KEY, sanitizeStat, mergeKeyStats)
 
-    try {
-        const raw = storage.getItem(LOCAL_KEY_STATS_KEY)
-        if (!raw) return []
-        const parsed = JSON.parse(raw) as unknown
-        if (!Array.isArray(parsed)) return []
-        return mergeKeyStats([], parsed.filter(Boolean) as LocalKeyStat[])
-    } catch {
-        return []
-    }
-}
-
-export function writeLocalKeyStats(stats: LocalKeyStat[], storage: Storage | undefined = typeof window === "undefined" ? undefined : window.localStorage) {
-    if (!isStorageAvailable(storage)) return false
-
-    const merged = mergeKeyStats([], stats)
-    try {
-        if (merged.length === 0) storage.removeItem(LOCAL_KEY_STATS_KEY)
-        else storage.setItem(LOCAL_KEY_STATS_KEY, JSON.stringify(merged))
-        return true
-    } catch {
-        return false
-    }
-}
-
-export function addLocalKeyStats(stats: LocalKeyStat[], storage: Storage | undefined = typeof window === "undefined" ? undefined : window.localStorage) {
-    if (!isStorageAvailable(storage)) return false
-    return writeLocalKeyStats(mergeKeyStats(readLocalKeyStats(storage), stats), storage)
-}
-
-export function clearLocalKeyStats(storage: Storage | undefined = typeof window === "undefined" ? undefined : window.localStorage) {
-    if (!isStorageAvailable(storage)) return false
-
-    try {
-        storage.removeItem(LOCAL_KEY_STATS_KEY)
-        return true
-    } catch {
-        return false
-    }
-}
+export const readLocalKeyStats = store.read
+export const writeLocalKeyStats = store.write
+export const addLocalKeyStats = store.add
+export const clearLocalKeyStats = store.clear
