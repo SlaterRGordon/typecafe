@@ -1,4 +1,5 @@
 import { prisma } from "~/server/db";
+import { netFromRaw } from "~/lib/stats";
 
 export interface OgScoreData {
   kind: "score";
@@ -123,7 +124,7 @@ export async function getShareForOg(slug: string): Promise<OgShareData | null> {
   return {
     kind: "score",
     rawWpm,
-    netWpm: snapshot.netWpm ?? Math.max(share.test.speed * (accuracy / 100), 0),
+    netWpm: snapshot.netWpm ?? netFromRaw(share.test.speed, accuracy),
     accuracy,
     durationSeconds: snapshot.durationSeconds ?? share.test.count,
     mode: share.test.type.mode,

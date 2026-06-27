@@ -12,6 +12,7 @@ import { typingFocusFadeClass } from "~/components/typer/typingFocus";
 import type { TestModes, TestSubModes } from "~/components/typer/types";
 import { DEFAULT_TEST_SETTINGS } from "~/hooks/useTestSettings";
 import { beatRunAttemptLabel, beatRunBrag, firstDivergenceWord } from "~/lib/beatRun";
+import { netFromRaw } from "~/lib/stats";
 import { getShareForOg, type OgShareData } from "~/server/og/scoreData";
 import { api } from "~/utils/api";
 
@@ -411,7 +412,7 @@ const SharedScorePage: NextPage<SharedScorePageProps> = ({ slug, meta }) => {
     const snapshot: ScoreSnapshot = isScoreSnapshot(data.snapshot) ? data.snapshot : {
       durationSeconds: data.score.count,
       rawWpm: data.score.speed,
-      netWpm: Math.max(data.score.speed * (data.score.accuracy / 100), 0),
+      netWpm: netFromRaw(data.score.speed, data.score.accuracy),
       accuracy: data.score.accuracy,
       totalKeystrokes: 0,
       correctKeystrokes: 0,
