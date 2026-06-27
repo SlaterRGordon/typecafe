@@ -16,6 +16,13 @@ import {
   starterPeersFromTests,
 } from "~/lib/peerPercentile";
 import { currentStreak, dayKey } from "~/lib/progress";
+import {
+  aggregateProgressHistory,
+  dailyUserStatRollup,
+  dateFromDayKey,
+  mergeDailyStat,
+  type DailyStatAggregate,
+} from "~/lib/dailyRollup";
 
 // Only surface a percentile brag when it is flattering — never tell a slow typer
 // they are "faster than 8% of typers". Below the threshold we fall back to a
@@ -34,16 +41,6 @@ const progressHistoryEntrySchema = z.object({
   c: z.number().min(0).max(100).optional(),
   t: z.number().finite(),
 });
-
-interface DailyStatAggregate {
-  date: Date;
-  tests: number;
-  bestWpm: number;
-  totalWpm: number;
-  totalAccuracy: number;
-  totalConsistency: number;
-  consistencySamples: number;
-}
 
 interface BragArgs {
   ranked: boolean;
@@ -143,115 +140,29 @@ async function thirtyDayDelta(
   return netFromRaw(args.speed, args.accuracy) - avgNet;
 }
 
-function dateFromDayKey(key: string): Date {
-  return new Date(`${key}T00:00:00.000Z`);
-}
-
+// Find-or-create the day's row and write the merged values; the averaging math
+// lives in mergeDailyStat (src/lib/dailyRollup.ts), this just does the I/O.
 async function upsertDailyUserStat(
   prisma: Pick<PrismaClient, "dailyUserStat">,
   userId: string,
   aggregate: DailyStatAggregate,
 ) {
   const existing = await prisma.dailyUserStat.findUnique({
-    where: {
-      userId_date: {
-        userId,
-        date: aggregate.date,
-      },
-    },
+    where: { userId_date: { userId, date: aggregate.date } },
   });
 
-  const avgWpm = aggregate.totalWpm / aggregate.tests;
-  const avgAccuracy = aggregate.totalAccuracy / aggregate.tests;
-  const avgConsistency = aggregate.consistencySamples > 0
-    ? aggregate.totalConsistency / aggregate.consistencySamples
-    : null;
+  const values = mergeDailyStat(existing, aggregate);
 
   if (!existing) {
     return prisma.dailyUserStat.create({
-      data: {
-        userId,
-        date: aggregate.date,
-        tests: aggregate.tests,
-        bestWpm: aggregate.bestWpm,
-        avgWpm,
-        avgAccuracy,
-        avgConsistency,
-        consistencySamples: aggregate.consistencySamples,
-      },
+      data: { userId, date: aggregate.date, ...values },
     });
   }
 
-  const tests = existing.tests + aggregate.tests;
-  const consistencySamples = existing.consistencySamples + aggregate.consistencySamples;
-  const consistencyTotal = (existing.avgConsistency ?? 0) * existing.consistencySamples + aggregate.totalConsistency;
-
   return prisma.dailyUserStat.update({
     where: { id: existing.id },
-    data: {
-      tests,
-      bestWpm: Math.max(existing.bestWpm, aggregate.bestWpm),
-      avgWpm: ((existing.avgWpm * existing.tests) + aggregate.totalWpm) / tests,
-      avgAccuracy: ((existing.avgAccuracy * existing.tests) + aggregate.totalAccuracy) / tests,
-      avgConsistency: consistencySamples > 0 ? consistencyTotal / consistencySamples : null,
-      consistencySamples,
-    },
+    data: values,
   });
-}
-
-function aggregateProgressHistory(
-  entries: z.infer<typeof progressHistoryEntrySchema>[],
-  utcOffsetMinutes = 0,
-): DailyStatAggregate[] {
-  const byDay = new Map<string, DailyStatAggregate>();
-
-  for (const entry of entries) {
-    const key = dayKey(new Date(entry.t), utcOffsetMinutes);
-    const current = byDay.get(key);
-    const consistency = typeof entry.c === "number" && Number.isFinite(entry.c) ? entry.c : null;
-
-    if (!current) {
-      byDay.set(key, {
-        date: dateFromDayKey(key),
-        tests: 1,
-        bestWpm: entry.wpm,
-        totalWpm: entry.wpm,
-        totalAccuracy: entry.accuracy,
-        totalConsistency: consistency ?? 0,
-        consistencySamples: consistency === null ? 0 : 1,
-      });
-      continue;
-    }
-
-    current.tests += 1;
-    current.bestWpm = Math.max(current.bestWpm, entry.wpm);
-    current.totalWpm += entry.wpm;
-    current.totalAccuracy += entry.accuracy;
-    if (consistency !== null) {
-      current.totalConsistency += consistency;
-      current.consistencySamples += 1;
-    }
-  }
-
-  return Array.from(byDay.values());
-}
-
-function dailyUserStatRollup(row: {
-  date: Date;
-  tests: number;
-  bestWpm: number;
-  avgWpm: number;
-  avgAccuracy: number;
-  avgConsistency: number | null;
-}) {
-  return {
-    day: row.date.toISOString().slice(0, 10),
-    tests: row.tests,
-    bestWpm: row.bestWpm,
-    avgWpm: row.avgWpm,
-    avgAccuracy: row.avgAccuracy,
-    avgConsistency: row.avgConsistency,
-  };
 }
 
 async function thirtyDayChallengeBaseline(
