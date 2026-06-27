@@ -20,6 +20,7 @@ The vision filter for any change: *does it make someone faster, or prove they're
 - Tick the relevant checkbox in the phase doc in the same change that completes it.
 - Always use the ponytail skill: laziest solution that works — stdlib/native before deps, shortest diff, no speculative abstraction.
 - One focused task at a time; do not refactor unrelated code you pass by.
+- Record load-bearing architecture decisions as ADRs in [docs/adr/](docs/adr/) (see `0001-local-first-guest-data.md`): a settled cross-cutting constraint, or an approach rejected for a reason a future review would otherwise re-suggest. Skip routine module extractions and reversible code choices — don't ADR what the code and its tests already document. Update the relevant ADR rather than committing a contradicting one, and don't relitigate an existing ADR without a load-bearing reason.
 
 ## Committing
 
@@ -35,13 +36,3 @@ The vision filter for any change: *does it make someone faster, or prove they're
 - Unit tests: `npx vitest run` (config: `vitest.config.ts`, tests in `src/**/*.test.ts`)
 - E2E: `npx playwright test` (desktop + mobile projects; helpers in `tests/e2e/helpers/`)
 - Screenshot tour: `npx playwright test tests/e2e/screenshots.spec.ts`
-
-## Architecture pointers
-
-- `src/components/typer/Typer.tsx` — test orchestration (being decomposed into `src/components/typer/hooks/`)
-- `src/lib/stats.ts` — WPM/accuracy/consistency math (pure; the source of truth)
-- `src/hooks/useTestSettings.ts` — persisted test settings (localStorage `typecafe:testSettings`)
-- `src/server/api/routers/` — tRPC routers; Prisma schema in `prisma/schema.prisma` (Postgres)
-- Target mode model after Phase 2: Timed / Words / Practice / Grams / Relaxed are top-level; there should be no user-facing Normal mode.
-- Phase 2 UI direction: frequent controls live in the typer toolbar (mode, length/custom length, language, settings icon, restart, fullscreen); settings becomes a dropdown for secondary toggles only. Do not preserve the old gear modal as the front door when working on the overhaul.
-- E2E gotchas: before the Phase 2 toolbar overhaul lands, legacy config modal tests close via the `#configModal` checkbox `evaluate` trick (overlay intercepts clicks); modals fade in — settle ~600ms before screenshots; pages mostly lack `h1` — wait on content instead
