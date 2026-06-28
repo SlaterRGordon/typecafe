@@ -1,6 +1,6 @@
 # Split the Share-card frame policy from its queries
 
-**Strength:** Worth exploring · **Category:** in-process **Status:** open
+**Strength:** Worth exploring · **Category:** in-process **Status:** ✅ done
 
 ## Files
 
@@ -52,3 +52,27 @@ practiceStreak(prisma)                    (pure, table-testable)
 Softer than [06](06-net-scores-aggregation.md). The brag queries are deliberately
 **lazy** — tier 3 only runs if tier 2's pool is empty. Keep that staging in the
 router; extract the per-tier *decision*, not one giant pre-fetch.
+
+## Decisions (grilled + built 2026-06-27)
+
+**Scope narrowed to the untested policy — the brag ladder.** After [06](06-net-scores-aggregation.md),
+`thirtyDayDelta` was already thin (`averageNet` + a subtraction whose boundary
+`averageNet` tests) and `practiceStreak` is a pure `currentStreak` call; neither
+hides untested branching, so both stay as-is. Tier 2 (similar-starter percentile)
+already lived in `peerPercentile.ts`. The only inline, untested policy was tiers
+1 and 3 of the brag.
+
+Built `src/lib/shareCard.ts`: `PERCENTILE_BRAG_THRESHOLD` (moved out of the
+router), `personalBestBrag(priorNets, currentNet)`, `globalPercentileBrag(better,
+total, threshold?)`. The router's `buildBrag` keeps its lazy query staging and
+early returns, now calling the pure deciders. **No `pickBrag`/`netDelta`** — a
+variadic `pickBrag` would force eager evaluation of all three tiers' queries,
+defeating the laziness, and `netDelta` would wrap a one-line subtraction (YAGNI).
+
+**Preserved a control-flow subtlety:** once the similar-starter pool is meaningful,
+tier 2 returns its result *even when that's null* — it does **not** fall through to
+the global percentile (only a too-small pool falls through). That `if
+(peerPercentile) return …` block was left untouched.
+
+Verified: `tsc --noEmit` clean, `vitest run` 341/341 (7 new `shareCard` tests
+pinning the threshold boundary + the "first run isn't a best" rule).

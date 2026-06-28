@@ -18,6 +18,11 @@ import {
 } from "~/lib/peerPercentile";
 import { currentStreak, dayKey } from "~/lib/progress";
 import {
+  globalPercentileBrag,
+  personalBestBrag,
+  PERCENTILE_BRAG_THRESHOLD,
+} from "~/lib/shareCard";
+import {
   aggregateProgressHistory,
   dailyUserStatRollup,
   dateFromDayKey,
@@ -25,10 +30,6 @@ import {
   type DailyStatAggregate,
 } from "~/lib/dailyRollup";
 
-// Only surface a percentile brag when it is flattering — never tell a slow typer
-// they are "faster than 8% of typers". Below the threshold we fall back to a
-// personal best or no brag at all.
-const PERCENTILE_BRAG_THRESHOLD = 60;
 const MAX_PEER_PERCENTILE_TESTS = 20000;
 const encodedKeystrokeSchema = z.tuple([
   z.number().int().nonnegative(),
@@ -73,8 +74,8 @@ async function buildBrag(prisma: PrismaClient, args: BragArgs): Promise<string |
     },
     select: { speed: true, accuracy: true },
   });
-  const prevBestNet = priorAtConfig.reduce((best, row) => Math.max(best, netFromRaw(row.speed, row.accuracy)), -Infinity);
-  if (priorAtConfig.length > 0 && args.netWpm > prevBestNet) return "New personal best";
+  const pb = personalBestBrag(priorAtConfig.map(netOf), args.netWpm);
+  if (pb) return pb;
 
   // 2. Flattering peer percentile: users whose first ranked tests started
   // within the same WPM band. Until that pool is meaningful, fall through to
@@ -112,14 +113,7 @@ async function buildBrag(prisma: PrismaClient, args: BragArgs): Promise<string |
       select: { userId: true },
     }),
   ]);
-  const total = allUsers.length;
-  if (total === 0) return null;
-  const fasterThanPct = ((total - betterUsers.length) / total) * 100;
-  if (fasterThanPct >= PERCENTILE_BRAG_THRESHOLD) {
-    return `Faster than ${Math.round(fasterThanPct)}% of typers`;
-  }
-
-  return null;
+  return globalPercentileBrag(betterUsers.length, allUsers.length);
 }
 
 // WPM change vs the user's 30-day rolling average (a delta available to share —
