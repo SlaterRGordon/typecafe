@@ -36,7 +36,7 @@ interface UseTestPersistenceArgs {
 // Owns everything that talks to the server after a test: saving the score (and
 // reporting completion back once the save settles) and syncing per-character
 // practice stats.
-export function useTestPersistence({ mode, charAttemptsRef, onTestComplete }: UseTestPersistenceArgs) {
+export function useTestPersistence({ charAttemptsRef, onTestComplete }: UseTestPersistenceArgs) {
     const { data: sessionData } = useSession()
     const dispatch = useDispatch()
     const pendingCompletionRef = useRef<TestCompletionResult | null>(null)
@@ -98,9 +98,11 @@ export function useTestPersistence({ mode, charAttemptsRef, onTestComplete }: Us
         syncTransitionStats({ stats: aggregates })
     }, [sessionData?.user, syncTransitionStats])
 
+    // Per-key accuracy is tracked in every mode (Normal, Quotes, Practice, Drill),
+    // not just Practice — the heatmap and smart drill want the user's real typing,
+    // wherever it happens. Ngrams is excluded by the callers in Typer because its
+    // repeated-gram text would skew the per-key picture.
     const syncCharAttempts = useCallback(() => {
-        if (mode !== TestModes.practice) return
-
         const stats = Array.from(charAttemptsRef.current.entries()).map(
             ([character, value]) => ({
                 character,
@@ -125,7 +127,7 @@ export function useTestPersistence({ mode, charAttemptsRef, onTestComplete }: Us
         syncPracticeStats({ stats }, {
             onSuccess: () => drainSyncedAttempts(charAttemptsRef.current, stats),
         })
-    }, [charAttemptsRef, mode, sessionData?.user, syncPracticeStats])
+    }, [charAttemptsRef, sessionData?.user, syncPracticeStats])
 
     return { sessionData, persistCompletion, syncCharAttempts, syncTransitions }
 }
