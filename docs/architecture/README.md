@@ -45,7 +45,7 @@ stored, so every surface re-derives it.
 | [06](06-net-scores-aggregation.md) | Lift net-WPM aggregation to `src/lib/` | Strong | `netScores.ts` (`netOf`/`averageNet`/`bestNetPerUser`); replace 5 inline sites in `test.ts` |
 | [07](07-share-card-frame.md) | Split share-card frame from queries | Worth exploring | `shareCard.ts` owns the brag-ladder deciders + threshold; router keeps lazy staging |
 | [08](08-timer-ceremony-collapse.md) | Collapse timer to a countdown-only ticker | Worth exploring | Delete `actions`/`helpers`/`reducer`; rewrite `useTimer` to tick only when timed; keep `tick.ts` |
-| [09](09-shallow-single-caller-utils.md) | Inline shallow single-caller utils | Speculative | Inline `learnStars`/`typeLanguage`; keep `format.ts` |
+| [09](09-shallow-single-caller-utils.md) | Inline shallow single-caller utils | Speculative → ❌ rejected | On inspection all four carry depth of meaning; inlining `learnStars` would violate the scoring-in-lib rule |
 
 **Discarded:** "keystrokeRecorder created but never fed during typing" — false;
 `Typer.tsx:450/456` feed `append`/`backspace` live (#05 is wired correctly).
@@ -66,6 +66,10 @@ Order: **#06** (pure extraction, unlocks #07) → #07 → #08 (independent) → 
    (`personalBestBrag`, `globalPercentileBrag`) and `PERCENTILE_BRAG_THRESHOLD`;
    `buildBrag` keeps its lazy query staging and calls them. Delta/streak were
    already thin and stayed. 7 new tests pin the flattering-threshold boundary.
+4. **#09** — ❌ rejected on inspection. The line-count shallowness hid real depth:
+   `learnStars` is scoring math (standing rule keeps it in lib), `typeLanguage`
+   guards a silent save-drop, `drillKeys` is multi-caller shared vocabulary,
+   `format` stays. No code change; reasons recorded in the candidate doc.
 
 ## Notes carried out of grilling
 
