@@ -44,6 +44,8 @@ interface TyperProps {
     customLength?: boolean,
     level?: Level,
     levelRequirements?: { wpm: number, accuracy: number },
+    // Boss levels: pace the typist against a line moving at this net WPM.
+    pacerWpm?: number,
     onKeyChange: (key: string) => void,
     onAttemptChange?: () => void,
     onTestComplete?: (result: TestCompletionResult) => void,
@@ -521,6 +523,7 @@ export const Typer = (props: TyperProps) => {
             punctuation={punctuation}
             capitals={capitals}
             noAppend={!!props.fixedText}
+            pacerWpm={props.pacerWpm}
             started={started} restarted={restarted} restartNonce={restartNonce}
             modalOpen={props.modalOpen}
             charAttempts={charAttemptsRef.current}

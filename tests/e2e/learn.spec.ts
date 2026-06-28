@@ -142,6 +142,44 @@ test.describe("learn page", () => {
     await expect(page.getByText("Required Accuracy: 90%")).toHaveCount(0);
   });
 
+  test("boss level: the pacer overtaking the cursor ends the run as a fail", async ({ page }) => {
+    // Clear Levels 1–9 so the first boss (Level 10) is unlocked and auto-resumed.
+    await page.addInitScript(() => {
+      const cleared = Array.from({ length: 9 }, (_, i) => ({
+        options: `Level ${i + 1}`, speed: 200, accuracy: 100, stars: 3,
+      }));
+      window.localStorage.setItem("typecafe.learnProgress.easy", JSON.stringify(cleared));
+    });
+
+    await gotoLearn(page);
+    await expect(page.getByText("Level 10").first()).toBeVisible();
+
+    // Type one character to start the attempt, then stop — the pacer catches up.
+    await typeCurrentCharacter(page);
+
+    const popover = page.getByTestId("learn-complete-popover");
+    await expect(popover).toBeVisible({ timeout: 10_000 });
+    await expect(popover).toContainText("not cleared yet");
+  });
+
+  test("boss level: outrunning the pacer clears it", async ({ page }) => {
+    await page.addInitScript(() => {
+      const cleared = Array.from({ length: 9 }, (_, i) => ({
+        options: `Level ${i + 1}`, speed: 200, accuracy: 100, stars: 3,
+      }));
+      window.localStorage.setItem("typecafe.learnProgress.easy", JSON.stringify(cleared));
+    });
+
+    await gotoLearn(page);
+    await expect(page.getByText("Level 10").first()).toBeVisible();
+
+    await typeVisibleTestText(page);
+
+    const popover = page.getByTestId("learn-complete-popover");
+    await expect(popover).toBeVisible();
+    await expect(popover).toContainText("Level 10 clear!");
+  });
+
   test("signed-in users can import device progress when account progress exists", async ({ page }) => {
     await mockAuthenticatedSession(page);
     await mockTrpc(page, {

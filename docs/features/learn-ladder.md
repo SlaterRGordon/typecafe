@@ -144,8 +144,9 @@ boss level's `pacerWpm`.
    `buildLevels()`; `Level` gains `kind`/`subMode`, drops difficulties +
    description; boss/speed/noMiss slots marked (still behave as `keys`). e2e +
    screenshots.
-- [ ] 3. `feat(typer): paced cursor with overtake-death` — `pacerWpm` prop,
-   marker, early-fail; boss levels wired @1★; modal copy. e2e + screenshots.
+- [x] 3. `feat(typer): paced cursor with overtake-death` — `pacerWpm` prop, a
+   smooth rAF-animated vertical line, overtake early-fail; boss levels wired @1★.
+   e2e covers overtake-death + outrun-to-clear.
 - [ ] 4. `feat(learn): speed-round levels` — timed submode driven by
    `level.subMode`; grade reuse.
 - [ ] 5. `feat(learn): no-miss levels` — 100% gate + first-miss death + WPM

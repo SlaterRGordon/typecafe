@@ -370,6 +370,7 @@ const Learn: NextPage = () => {
                             count={level.count}
                             level={level}
                             levelRequirements={{ wpm: criteria.oneStarNetWpm, accuracy: 0 }}
+                            pacerWpm={level.kind === "boss" ? criteria.oneStarNetWpm : undefined}
                             onKeyChange={onKeyChange}
                             onTestComplete={onTestComplete}
                             onTypingFocusChange={setTypingFocused}

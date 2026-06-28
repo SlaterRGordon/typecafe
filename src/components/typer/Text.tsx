@@ -19,6 +19,9 @@ interface TextProps {
     // Challenge runs use fixed seeded text; never append generated words (which
     // would break the byte-identical-across-clients guarantee).
     noAppend?: boolean,
+    // Boss levels: a pacer line glides across the text at this net WPM. If it
+    // catches the typist's cursor the run ends early (overtake = death).
+    pacerWpm?: number,
     charAttempts: Map<string, { attempts: number, correct: number }>
     onStart: () => void,
     onComplete: () => void,
@@ -54,6 +57,7 @@ export const Text = memo(function Text(props: TextProps) {
         punctuation = false,
         capitals = false,
         noAppend = false,
+        pacerWpm,
         charAttempts,
         onStart,
         onComplete,
@@ -78,9 +82,20 @@ export const Text = memo(function Text(props: TextProps) {
     // ref input to focus
     const inputRef = useRef<HTMLInputElement>(null)
 
+    // The pacer line and the moment the attempt started (set on the first
+    // keystroke, the same instant onStart fires).
+    const pacerLineRef = useRef<HTMLDivElement>(null)
+    const pacerStartRef = useRef(0)
+    // Latest onComplete without making it a dependency of the pacer loop.
+    const onCompleteRef = useRef(onComplete)
+
     useEffect(() => {
         callbacksRef.current = { onKeyChange }
     }, [onKeyChange])
+
+    useEffect(() => {
+        onCompleteRef.current = onComplete
+    }, [onComplete])
 
     const createCharSpan = useCallback((char: string, index: number) => {
         const span = document.createElement('span')
@@ -231,6 +246,12 @@ export const Text = memo(function Text(props: TextProps) {
         }
     }, [position, typerRef])
 
+    // First keystroke: start the clock the pacer races against, then the timer.
+    const startAttempt = () => {
+        pacerStartRef.current = performance.now()
+        onStart()
+    }
+
     const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
         if (completedRef.current) return
 
@@ -242,13 +263,13 @@ export const Text = memo(function Text(props: TextProps) {
             if ((current.innerText.trim() === '' && e.key === ' ') || current.innerText.trim() === e.key) {
                 nextLetter(true, e.key)
                 // start timer
-                if (currentPosition === 0 && !started) onStart()
+                if (currentPosition === 0 && !started) startAttempt()
             } else if (e.code == 'Space' || e.key.length == 1) {
                 // Any single printable key (letter, capital, punctuation, symbol) that
                 // does not match the expected character counts as an incorrect attempt —
                 // including on the very first character, which also starts the timer.
                 nextLetter(false, e.key)
-                if (currentPosition === 0 && !started) onStart()
+                if (currentPosition === 0 && !started) startAttempt()
             } else if (currentPosition > 0 && e.code === 'Backspace') {
                 prevLetter()
             }
@@ -329,9 +350,66 @@ export const Text = memo(function Text(props: TextProps) {
         callbacksRef.current.onKeyChange(textContainerRef.current?.querySelector(`#c${position}`)?.textContent || '')
     }, [position])
 
+    // Boss pacer: a vertical line glides across the text at pacerWpm. It advances
+    // on a continuous clock (rAF), interpolating between character boxes so it
+    // slides smoothly rather than jumping per character. If it consumes as many
+    // characters as the typist has (it reached the cursor), the run ends —
+    // overtake = death. Only runs once typing has started and a pacer is set.
+    useEffect(() => {
+        const line = pacerLineRef.current
+        if (!line) return
+        if (!started || !pacerWpm) {
+            line.style.display = 'none'
+            return
+        }
+        const words = typerRef.current
+        const container = textContainerRef.current
+        if (!words || !container) return
+
+        line.style.display = 'block'
+        const charsPerSec = pacerWpm * 5 / 60
+        let raf = 0
+
+        const tick = () => {
+            const elapsed = (performance.now() - pacerStartRef.current) / 1000
+            const pacerChars = Math.max(0, elapsed * charsPerSec)
+
+            // Overtake: the pacer has reached the character the typist is on.
+            if (!completedRef.current && pacerChars >= positionRef.current) {
+                completedRef.current = true
+                line.style.display = 'none'
+                onCompleteRef.current()
+                return
+            }
+
+            const index = Math.floor(pacerChars)
+            const frac = pacerChars - index
+            const a = container.querySelector(`#c${index}`) as HTMLElement | null
+            const b = container.querySelector(`#c${index + 1}`) as HTMLElement | null
+            if (a) {
+                // Interpolate within the line; at a line wrap, slide to a's right edge.
+                const sameLine = b !== null && b.offsetTop === a.offsetTop
+                const right = sameLine ? b!.offsetLeft : a.offsetLeft + a.offsetWidth
+                const x = a.offsetLeft + frac * (right - a.offsetLeft)
+                const y = a.offsetTop - words.scrollTop
+                line.style.height = `${a.offsetHeight}px`
+                line.style.transform = `translate(${x}px, ${y}px)`
+            }
+            raf = requestAnimationFrame(tick)
+        }
+        raf = requestAnimationFrame(tick)
+
+        return () => {
+            cancelAnimationFrame(raf)
+            line.style.display = 'none'
+        }
+    }, [started, pacerWpm, restartNonce, text])
+
     return (
         <div id="text" className="relative z-30 mb-8 flex w-full max-w-[calc(100vw-2rem)] max-h-[6.6rem] leading-[2.2rem] flex-col overflow-hidden text-[24px] sm:max-h-[9rem] sm:text-[34px] sm:leading-[3rem] md:max-w-screen-xl">
             <input id="input" autoCapitalize="none" autoComplete="off" className="h-0 p-0 m-0 border-none" onKeyDown={handleKeyPress} ref={inputRef} autoFocus />
+            {/* Boss pacer line — positioned and animated imperatively by the pacer effect. */}
+            <div ref={pacerLineRef} aria-hidden="true" className="pointer-events-none absolute left-0 top-0 z-40 w-[3px] rounded-full bg-error/90 will-change-transform" style={{ display: 'none', height: 0, transform: 'translate(-9999px, 0)' }} />
             <div className="flex w-full flex-wrap justify-start overflow-y-hidden no-scrollbar scroll-smooth font-mono select-none sm:justify-start" id="words" ref={typerRef}>
                 <div
                     className="max-w-full"
