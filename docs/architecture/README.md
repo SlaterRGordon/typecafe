@@ -92,7 +92,12 @@ Order: **#10** (pure extraction, unlocks #11) → #11 → #12 (independent) → 
    wiring over it. Killed the ×2 grade + ×3 normalization duplications. 19 unit
    tests pin current behaviour; learn e2e 8/8 desktop + mobile (unchanged). Added
    the **Learn ladder** vocabulary (Level, Unlock) to `CONTEXT.md`.
-2. **#11–#13** — ⏳ mapped, not yet grilled.
+2. **#11** — ✅ done. `src/hooks/useLearnProgress.ts` owns the dual-source save
+   seam (saved query, both mutations, the merge derivation, localStorage, alerts).
+   `save`/`importDevice` resolve with the outcome; the page awaits and drives the
+   modal + level advance, no longer branching on session. ~90 lines left the page.
+   learn e2e 8/8 desktop + mobile.
+3. **#12–#13** — ⏳ mapped, not yet grilled.
 
 **Carried out of #10's grilling:** the persisted `{options, speed}` wire names
 were judged confusing enough to translate to domain `{levelName, netWpm}` at each
