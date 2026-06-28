@@ -20,7 +20,7 @@ test.describe("learn page", () => {
 
     await expect(page.getByText("Sign in to save level progress")).toBeVisible();
     await expect(page.getByText("Required Accuracy: 90%")).toHaveCount(0);
-    await expect(page.getByLabel("1 star: 40 net WPM")).toBeVisible();
+    await expect(page.getByLabel("1 star: 22 net WPM")).toBeVisible();
     await expect(page.getByText("1 star:", { exact: false })).toHaveCount(0);
     if (!testInfo.project.name.includes("mobile")) {
       await expect(page.getByText("Target Keys:")).toBeVisible();
@@ -67,7 +67,7 @@ test.describe("learn page", () => {
     await expect(popover).toBeVisible();
     await expect(popover).toContainText("Level 1 clear!");
     await expect(popover).toContainText("Best result saved.");
-    await expect(popover.getByTestId("learn-net-result")).toContainText("Passed 40 net WPM");
+    await expect(popover.getByTestId("learn-net-result")).toContainText("Passed 22 net WPM");
     await expect(popover.getByTestId("learn-net-result")).toHaveClass(/border-success/);
     await expect(popover.getByTestId("learn-accuracy-result")).toContainText("Accuracy");
     await expect(popover.getByTestId("learn-accuracy-result")).toContainText("Included in net WPM");
@@ -85,7 +85,7 @@ test.describe("learn page", () => {
         stars: 3,
       }),
     ]);
-    expect(parsed[0]?.speed).toBeGreaterThanOrEqual(40);
+    expect(parsed[0]?.speed).toBeGreaterThanOrEqual(28);
 
     await popover.getByRole("button", { name: "Next level" }).click();
     await expect(page.getByText("Level 2").first()).toBeVisible();
@@ -103,8 +103,8 @@ test.describe("learn page", () => {
     const popover = page.getByTestId("learn-complete-popover");
     await expect(popover).toBeVisible();
     await expect(popover).toContainText("Level 1 not cleared yet");
-    await expect(popover).toContainText("Need 40 net WPM.");
-    await expect(popover.getByTestId("learn-net-result")).toContainText("Need 40 net WPM");
+    await expect(popover).toContainText("Need 22 net WPM.");
+    await expect(popover.getByTestId("learn-net-result")).toContainText("Need 22 net WPM");
     await expect(popover.getByTestId("learn-net-result")).toHaveClass(/border-error/);
     await expect(popover.getByTestId("learn-accuracy-result")).toContainText("Accuracy");
     await expect(popover.getByTestId("learn-accuracy-result")).toContainText("Included in net WPM");
@@ -138,7 +138,7 @@ test.describe("learn page", () => {
 
     await chooseReactSelectOption(page, "difficultySelect", "Medium");
 
-    await expect(page.getByLabel("1 star: 80 net WPM")).toBeVisible();
+    await expect(page.getByLabel("1 star: 29 net WPM")).toBeVisible();
     await expect(page.getByText("Required Accuracy: 90%")).toHaveCount(0);
   });
 

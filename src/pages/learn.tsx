@@ -11,10 +11,11 @@ import { Keyboard } from "~/components/typer/Keyboard";
 import { typingFocusFadeClass } from "~/components/typer/typingFocus";
 import { useSession } from "next-auth/react";
 import type { TestCompletionResult } from "~/components/typer/Typer";
-import { learnStarCriteria, type LearnRequirement } from "~/lib/learnStars";
+import { starThresholds, type StarThresholds } from "~/lib/learnThresholds";
 import {
     gradeResult,
     ladderState,
+    levelNumber,
     nextLevel,
     resumeLevel,
     type DifficultyName,
@@ -28,7 +29,7 @@ type LearnCompletion = {
     netWpm: number,
     accuracy: number,
     stars: 0 | 1 | 2 | 3,
-    requirement: LearnRequirement,
+    thresholds: StarThresholds,
     nextLevelName: string | null,
     saved: boolean,
 }
@@ -128,6 +129,8 @@ const Learn: NextPage = () => {
         { value: "easy", label: 'Easy' },
         { value: "medium", label: 'Medium' },
         { value: "hard", label: 'Hard' },
+        { value: "extreme", label: 'Extreme' },
+        { value: "insane", label: 'Insane' },
     ]
     const handleChangeDifficulty = (value: SingleValue<{ value: string, label: string }>) => {
         if (value) {
@@ -187,14 +190,14 @@ const Learn: NextPage = () => {
     ) => {
         const levelName = result.levelName ?? level.name
         const completedLevel = levels.find(item => item.name == levelName) ?? level
-        const { requirement, stars } = gradeResult(completedLevel, difficulty, { netWpm: result.netWpm, accuracy: result.accuracy })
+        const { thresholds, stars } = gradeResult(completedLevel, difficulty, { netWpm: result.netWpm, accuracy: result.accuracy })
 
         setCompletion({
             levelName,
             netWpm: result.netWpm,
             accuracy: result.accuracy,
             stars,
-            requirement,
+            thresholds,
             nextLevelName: stars > 0 && options.nextProgress ? (nextLevel(options.nextProgress, levelName, difficulty)?.name ?? null) : null,
             saved: options.saved,
         })
@@ -234,9 +237,8 @@ const Learn: NextPage = () => {
         setLevel(progressSelectedLevel)
     }, [completion, isLearnProgressLoading, progressSelectedLevel, levelChanged])
 
-    const requirements = level[difficulty]
+    const criteria = starThresholds(levelNumber(level.name), difficulty)
     const isLearnContentLoading = isLearnProgressLoading || isLevelSelectionLoading
-    const criteria = learnStarCriteria(requirements)
     const activeLevelProgress = completedProgress.find(progress => progress.levelName === level.name)
     const activeLevelStars = activeLevelProgress?.stars ?? 0
 
@@ -367,7 +369,7 @@ const Learn: NextPage = () => {
                             gramAccuracyThreshold={gramAccuracyThreshold}
                             count={level.count}
                             level={level}
-                            levelRequirements={requirements}
+                            levelRequirements={{ wpm: criteria.oneStarNetWpm, accuracy: 0 }}
                             onKeyChange={onKeyChange}
                             onTestComplete={onTestComplete}
                             onTypingFocusChange={setTypingFocused}
@@ -408,8 +410,8 @@ const Learn: NextPage = () => {
                                     <ResultMetric
                                         label="Net WPM"
                                         value={formatNumber(completion.netWpm, 1)}
-                                        target={`${formatNumber(completion.requirement.wpm, 0)} net WPM`}
-                                        passed={completion.netWpm >= completion.requirement.wpm}
+                                        target={`${formatNumber(completion.thresholds.oneStarNetWpm, 0)} net WPM`}
+                                        passed={completion.netWpm >= completion.thresholds.oneStarNetWpm}
                                         testId="learn-net-result"
                                     />
                                     <NeutralMetric
@@ -424,12 +426,12 @@ const Learn: NextPage = () => {
                                         ? completion.saved
                                             ? "Best result saved."
                                             : "Clear earned, but saving failed."
-                                        : `Need ${formatNumber(completion.requirement.wpm, 0)} net WPM.`}
+                                        : `Need ${formatNumber(completion.thresholds.oneStarNetWpm, 0)} net WPM.`}
                                 </p>
                                 <div className="mt-4 grid w-full gap-2 rounded-lg border border-base-content/10 bg-base-200/35 p-3 text-left text-xs font-semibold text-base-content/60">
-                                    <StarThreshold stars={1} netWpm={completion.requirement.wpm} />
-                                    <StarThreshold stars={2} netWpm={completion.requirement.wpm * 1.15} />
-                                    <StarThreshold stars={3} netWpm={completion.requirement.wpm * 1.3} />
+                                    <StarThreshold stars={1} netWpm={completion.thresholds.oneStarNetWpm} />
+                                    <StarThreshold stars={2} netWpm={completion.thresholds.twoStarNetWpm} />
+                                    <StarThreshold stars={3} netWpm={completion.thresholds.threeStarNetWpm} />
                                 </div>
                                 <div className="mt-5 flex w-full flex-col gap-2 sm:flex-row">
                                     <button

@@ -1,7 +1,14 @@
 import { levels, type Level } from "~/components/typer/learn/levels"
-import { starsFor, type LearnRequirement } from "~/lib/learnStars"
+import { starThresholds, starsForWpm, targetWpm, type StarThresholds } from "~/lib/learnThresholds"
 
-export type DifficultyName = "easy" | "medium" | "hard"
+export type { DifficultyName } from "~/lib/learnThresholds"
+import type { DifficultyName } from "~/lib/learnThresholds"
+
+// A Level's 1-based number on the ladder — the speed axis the thresholds key on.
+export function levelNumber(levelName: string): number {
+    const index = levels.findIndex((level) => level.name === levelName)
+    return index >= 0 ? index + 1 : 1
+}
 
 // A cleared Level's best result, in domain terms. The persisted shape (DB
 // columns, tRPC input, the localStorage mirror) calls these `options`/`speed`
@@ -78,8 +85,8 @@ export function ladderState(progress: LevelProgress[], difficulty: DifficultyNam
 
         const prev = array[index - 1]
         const prevProgress = progress.find((item) => item.levelName === prev?.name)
-        const requirement = prev?.[difficulty]
-        const unlocked = !!(prevProgress && requirement && prevProgress.netWpm >= requirement.wpm)
+        // prev's level number is `index` (its 0-based position is index − 1).
+        const unlocked = !!(prevProgress && prevProgress.netWpm >= targetWpm(index, difficulty, 1))
 
         return { level, unlocked, stars }
     })
@@ -106,18 +113,18 @@ export function nextLevel(progress: LevelProgress[], levelName: string, difficul
     return status?.unlocked ? next : null
 }
 
-// Grade a finished attempt against a Level's requirement: the requirement to
-// show, the star grade, and the progress entry to save.
+// Grade a finished attempt against a Level: the visible star thresholds, the star
+// grade, and the progress entry to save.
 export function gradeResult(
     level: Level,
     difficulty: DifficultyName,
     result: { netWpm: number; accuracy: number },
-): { requirement: LearnRequirement; stars: 0 | 1 | 2 | 3; entry: LevelProgress } {
-    const requirement = level[difficulty]
-    const stars = starsFor({ netWpm: result.netWpm }, requirement)
+): { thresholds: StarThresholds; stars: 0 | 1 | 2 | 3; entry: LevelProgress } {
+    const levelNum = levelNumber(level.name)
+    const stars = starsForWpm(result.netWpm, levelNum, difficulty)
 
     return {
-        requirement,
+        thresholds: starThresholds(levelNum, difficulty),
         stars,
         entry: {
             levelName: level.name,

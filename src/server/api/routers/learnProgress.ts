@@ -4,8 +4,9 @@ import {
   createTRPCRouter,
   protectedProcedure,
 } from "~/server/api/trpc";
+import { DIFFICULTIES, type DifficultyName } from "~/lib/learnThresholds";
 
-const difficultySchema = z.enum(["easy", "medium", "hard"]);
+const difficultySchema = z.enum(DIFFICULTIES as [DifficultyName, ...DifficultyName[]]);
 
 const learnProgressInput = z.object({
   options: z.string(),

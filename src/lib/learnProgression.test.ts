@@ -59,15 +59,15 @@ describe("ladderState", () => {
         expect(ladder.slice(1).every((s) => !s.unlocked)).toBe(true)
     })
 
-    it("unlocks the next level once the prior level meets its net-WPM requirement", () => {
-        // Easy Level 1 requires 40 net WPM.
-        const ladder = ladderState([cleared("Level 1", 40)], "easy")
+    it("unlocks the next level once the prior level meets its 1★ net-WPM target", () => {
+        // Easy Level 1's 1★ target is 22 net WPM.
+        const ladder = ladderState([cleared("Level 1", 22)], "easy")
         expect(ladder[1]!.unlocked).toBe(true)
         expect(ladder[2]!.unlocked).toBe(false)
     })
 
     it("keeps the next level locked when the prior level falls short", () => {
-        const ladder = ladderState([cleared("Level 1", 39)], "easy")
+        const ladder = ladderState([cleared("Level 1", 21)], "easy")
         expect(ladder[1]!.unlocked).toBe(false)
     })
 
@@ -76,9 +76,9 @@ describe("ladderState", () => {
         expect(ladder[1]!.unlocked).toBe(true)
     })
 
-    it("uses the difficulty's requirement (hard needs 120)", () => {
-        expect(ladderState([cleared("Level 1", 80)], "hard")[1]!.unlocked).toBe(false)
-        expect(ladderState([cleared("Level 1", 120)], "hard")[1]!.unlocked).toBe(true)
+    it("uses the difficulty's target (hard Level 1 needs 36)", () => {
+        expect(ladderState([cleared("Level 1", 35)], "hard")[1]!.unlocked).toBe(false)
+        expect(ladderState([cleared("Level 1", 36)], "hard")[1]!.unlocked).toBe(true)
     })
 
     it("surfaces the stored stars per level", () => {
@@ -107,7 +107,7 @@ describe("nextLevel", () => {
     })
 
     it("returns null when the next level is still locked", () => {
-        expect(nextLevel([cleared("Level 1", 39)], "Level 1", "easy")).toBeNull()
+        expect(nextLevel([cleared("Level 1", 21)], "Level 1", "easy")).toBeNull()
     })
 
     it("returns null at the end of the ladder", () => {
@@ -119,16 +119,16 @@ describe("nextLevel", () => {
 describe("gradeResult", () => {
     const level1 = levels[0]!
 
-    it("awards stars on the 1x / 1.15x / 1.3x net-WPM thresholds (easy req 40)", () => {
-        expect(gradeResult(level1, "easy", { netWpm: 39, accuracy: 95 }).stars).toBe(0)
-        expect(gradeResult(level1, "easy", { netWpm: 40, accuracy: 95 }).stars).toBe(1)
-        expect(gradeResult(level1, "easy", { netWpm: 46, accuracy: 95 }).stars).toBe(2)
-        expect(gradeResult(level1, "easy", { netWpm: 52, accuracy: 95 }).stars).toBe(3)
+    it("awards stars on the formula thresholds (easy Level 1 = 22 / 25 / 28)", () => {
+        expect(gradeResult(level1, "easy", { netWpm: 21, accuracy: 95 }).stars).toBe(0)
+        expect(gradeResult(level1, "easy", { netWpm: 22, accuracy: 95 }).stars).toBe(1)
+        expect(gradeResult(level1, "easy", { netWpm: 25, accuracy: 95 }).stars).toBe(2)
+        expect(gradeResult(level1, "easy", { netWpm: 28, accuracy: 95 }).stars).toBe(3)
     })
 
-    it("returns the difficulty's requirement and a saveable entry", () => {
-        const graded = gradeResult(level1, "easy", { netWpm: 50, accuracy: 93 })
-        expect(graded.requirement).toEqual({ wpm: 40, accuracy: 90 })
-        expect(graded.entry).toEqual({ levelName: "Level 1", netWpm: 50, accuracy: 93, stars: 2 })
+    it("returns the visible star thresholds and a saveable entry", () => {
+        const graded = gradeResult(level1, "easy", { netWpm: 26, accuracy: 93 })
+        expect(graded.thresholds).toEqual({ oneStarNetWpm: 22, twoStarNetWpm: 25, threeStarNetWpm: 28 })
+        expect(graded.entry).toEqual({ levelName: "Level 1", netWpm: 26, accuracy: 93, stars: 2 })
     })
 })

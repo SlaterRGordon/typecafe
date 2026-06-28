@@ -62,7 +62,7 @@ The opening week of varied Tests that builds a weakness profile before a Plan ca
 ### The Learn ladder
 
 **Level**:
-A numbered stage in Learn — its target keys and per-difficulty net-WPM requirement, graded 0–3 stars on each attempt (the star thresholds live in `src/lib/learnStars.ts`).
+A numbered stage in Learn — its target keys, graded 0–3 stars on each attempt against a net-WPM target derived by `targetWpm(level, difficulty, star)` in `src/lib/learnThresholds.ts` (formula, not authored per level; difficulty is a ramp multiplier — see ADR-0003).
 _Avoid_: lesson, stage (as the metric name)
 
 **Unlock**:
