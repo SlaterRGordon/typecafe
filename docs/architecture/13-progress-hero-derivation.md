@@ -1,6 +1,6 @@
 # Extract the Progress hero delta
 
-**Strength:** Speculative · **Category:** in-process **Status:** ⏳ pending
+**Strength:** Speculative · **Category:** in-process **Status:** ✅ done
 
 ## Files
 
@@ -36,8 +36,15 @@ progress.tsx                             lib/progress
 
 - locality: the shared headline number gets a test
 
-## Notes
+## Outcome (2026-06-27)
 
-Marginal — the surrounding math is already extracted, so this is one small
-derivation, not a trapped module. Listed for completeness; lowest priority of the
-round. Not yet grilled.
+`heroDelta(points)` + the `HeroDelta` type now live in `src/lib/progress.ts`; it
+recomputes the WPM trend line internally (same inputs as the chart's `wpm` memo,
+so the headline matches the slope the chart shows). The page's `hero` memo is now
+`heroDelta(series.points)`, and the dead `line` field dropped out of the `wpm`
+memo. 5 tests pin the empty / single-point / rising / falling / flat-band cases.
+
+Verified: `tsc` clean; 371 unit tests pass; progress e2e green.
+
+Marginal as predicted — one small derivation, not a trapped module. Done for
+completeness now that the seam was open.

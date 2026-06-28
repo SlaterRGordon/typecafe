@@ -97,7 +97,13 @@ Order: **#10** (pure extraction, unlocks #11) → #11 → #12 (independent) → 
    `save`/`importDevice` resolve with the outcome; the page awaits and drives the
    modal + level advance, no longer branching on session. ~90 lines left the page.
    learn e2e 8/8 desktop + mobile.
-3. **#12–#13** — ⏳ mapped, not yet grilled.
+3. **#12** — ✅ done. `src/lib/practiceAttempts.ts` `drainSyncedAttempts` replaces
+   the verbatim drain loop in both `syncCharAttempts` branches; mutates the live
+   Map in place so in-flight keystrokes survive. 6 unit tests.
+4. **#13** — ✅ done. `heroDelta` lifted to `src/lib/progress.ts`; the page's
+   `hero` memo is one call and the dead `wpm.line` field dropped. 5 unit tests.
+
+All four round-3 candidates complete.
 
 **Carried out of #10's grilling:** the persisted `{options, speed}` wire names
 were judged confusing enough to translate to domain `{levelName, netWpm}` at each

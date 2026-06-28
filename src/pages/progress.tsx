@@ -16,6 +16,7 @@ import {
     currentStreak,
     dailyRollups,
     filterByPeriod,
+    heroDelta,
     linearTrend,
     mergeDailyRollups,
     personalRecords,
@@ -142,7 +143,7 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
     const wpm = useMemo(() => {
         const values = series.points.map((p) => p.wpm);
         const line = linearTrend(series.points.map((p) => p.t), values);
-        return { line, values, trend: series.points.map((p) => line.at(p.t)) };
+        return { values, trend: series.points.map((p) => line.at(p.t)) };
     }, [series]);
     const accuracy = useMemo(() => {
         const values = series.points.map((p) => p.accuracy);
@@ -160,15 +161,7 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
     // The hero delta reads off the WPM trend line's endpoints, so the headline
     // number is exactly the slope the chart shows — not a separate noisy
     // window-average subtraction that flips sign on a single junk test.
-    const hero = useMemo(() => {
-        const pts = series.points;
-        if (pts.length === 0) return { start: null as number | null, current: 0, delta: null as number | null, trend: "flat" as HeroTrend };
-        const start = wpm.line.at(pts[0]!.t);
-        const current = wpm.line.at(pts[pts.length - 1]!.t);
-        const delta = pts.length >= 2 ? current - start : null;
-        const trend: HeroTrend = delta === null ? "flat" : delta > 0.05 ? "up" : delta < -0.05 ? "down" : "flat";
-        return { start, current, delta, trend };
-    }, [series, wpm]);
+    const hero = useMemo(() => heroDelta(series.points), [series]);
 
     // Best WPM per local day — a lighter ceiling line behind the WPM trend.
     const bestPerDay = useMemo(

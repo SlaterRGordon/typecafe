@@ -449,6 +449,29 @@ export function linearTrend(ts: number[], values: number[]): TrendLine {
     return { slope, at: (t) => intercept + slope * (t - t0) }
 }
 
+export interface HeroDelta {
+    start: number | null
+    current: number
+    delta: number | null
+    trend: "up" | "down" | "flat"
+}
+
+// The headline 30-day change: the WPM trend line read at its first vs last point,
+// so the number is exactly the slope the chart shows — not a separate window
+// average that flips sign on a single junk test. Null delta until there are two
+// points to compare; flat within ±0.05 WPM.
+export function heroDelta(points: { t: number; wpm: number }[]): HeroDelta {
+    if (points.length === 0) return { start: null, current: 0, delta: null, trend: "flat" }
+
+    const line = linearTrend(points.map((p) => p.t), points.map((p) => p.wpm))
+    const start = line.at(points[0]!.t)
+    const current = line.at(points[points.length - 1]!.t)
+    const delta = points.length >= 2 ? current - start : null
+    const trend = delta === null ? "flat" : delta > 0.05 ? "up" : delta < -0.05 ? "down" : "flat"
+
+    return { start, current, delta, trend }
+}
+
 // ---------------------------------------------------------------------------
 // Daily rollups — the O(days) aggregation behind the trends and streaks
 // ---------------------------------------------------------------------------

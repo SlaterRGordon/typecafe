@@ -12,6 +12,7 @@ import {
     filterByPeriod,
     filterProgressRecords,
     headlineDelta,
+    heroDelta,
     isoWeekStart,
     linearTrend,
     mergeDailyRollups,
@@ -516,5 +517,39 @@ describe("currentStreak", () => {
 describe("PROGRESS_PERIODS", () => {
     it("lists the switchable periods", () => {
         expect(PROGRESS_PERIODS).toEqual([7, 30, 90, "all"])
+    })
+})
+
+describe("heroDelta", () => {
+    it("returns a flat zero with no points", () => {
+        expect(heroDelta([])).toEqual({ start: null, current: 0, delta: null, trend: "flat" })
+    })
+
+    it("has a null delta with a single point (no comparison window)", () => {
+        const hero = heroDelta([{ t: 0, wpm: 50 }])
+        expect(hero.delta).toBeNull()
+        expect(hero.trend).toBe("flat")
+        expect(hero.start).toBeCloseTo(50)
+        expect(hero.current).toBeCloseTo(50)
+    })
+
+    it("reads the trend line endpoints for a rising series", () => {
+        const hero = heroDelta([{ t: 0, wpm: 40 }, { t: 10, wpm: 50 }, { t: 20, wpm: 60 }])
+        expect(hero.start).toBeCloseTo(40)
+        expect(hero.current).toBeCloseTo(60)
+        expect(hero.delta).toBeCloseTo(20)
+        expect(hero.trend).toBe("up")
+    })
+
+    it("trends down for a falling series", () => {
+        const hero = heroDelta([{ t: 0, wpm: 60 }, { t: 10, wpm: 50 }, { t: 20, wpm: 40 }])
+        expect(hero.delta).toBeCloseTo(-20)
+        expect(hero.trend).toBe("down")
+    })
+
+    it("is flat within the ±0.05 band", () => {
+        const hero = heroDelta([{ t: 0, wpm: 50 }, { t: 10, wpm: 50 }])
+        expect(hero.delta).toBeCloseTo(0)
+        expect(hero.trend).toBe("flat")
     })
 })
