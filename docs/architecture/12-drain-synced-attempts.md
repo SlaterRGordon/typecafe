@@ -1,6 +1,6 @@
 # One pure `drainSyncedAttempts`, two callers
 
-**Strength:** Worth exploring · **Category:** in-process **Status:** ⏳ pending
+**Strength:** Worth exploring · **Category:** in-process **Status:** ✅ done
 
 ## Files
 
@@ -39,7 +39,16 @@ useTestPersistence.syncCharAttempts      drainSyncedAttempts(ref, synced)
 - leverage: one interface, two call sites
 - testable without mounting `Typer` — assert over a `Map` directly
 
-## Notes
+## Outcome (2026-06-27)
+
+`src/lib/practiceAttempts.ts` owns `drainSyncedAttempts(attempts, synced)`; both
+branches in `syncCharAttempts` call it. **It mutates the live Map in place** — the
+one load-bearing decision: keystrokes typed while the sync is in flight are
+already in that Map, so subtracting (not replacing the Map, not deleting the key)
+is what keeps them for the next sync. Not strictly pure, but unit-testable — 6
+tests pin the subtract/remove/clamp/skip cases and the in-place mutation.
+
+Verified: `tsc` clean; 371 unit tests pass; drill e2e green.
 
 Small, clear ceiling. Independent of [10](10-learn-ladder-progression.md) /
-[11](11-learn-save-hook.md). Not yet grilled.
+[11](11-learn-save-hook.md).

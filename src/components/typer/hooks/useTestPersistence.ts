@@ -5,6 +5,7 @@ import { addAlert } from "~/state/alert/alertSlice"
 import { addLocalKeyStats } from "~/lib/localSync"
 import { addLocalTransitions } from "~/lib/localTransitions"
 import { aggregateTransitions } from "~/lib/transitions"
+import { drainSyncedAttempts } from "~/lib/practiceAttempts"
 import type { EncodedKeystroke, KeystrokeEvent } from "~/lib/keystrokes"
 import { api } from "~/utils/api"
 import { TestModes } from "../types"
@@ -117,33 +118,12 @@ export function useTestPersistence({ mode, charAttemptsRef, onTestComplete }: Us
                 correct: stat.correct,
             })))
 
-            if (saved) {
-                for (const stat of stats) {
-                    const current = charAttemptsRef.current.get(stat.character)
-                    if (!current) continue
-                    const attempts = current.attempts - stat.total
-                    const correct = current.correct - stat.correct
-                    if (attempts <= 0) charAttemptsRef.current.delete(stat.character)
-                    else charAttemptsRef.current.set(stat.character, { attempts, correct: Math.max(correct, 0) })
-                }
-            }
+            if (saved) drainSyncedAttempts(charAttemptsRef.current, stats)
             return
         }
 
         syncPracticeStats({ stats }, {
-            onSuccess: () => {
-                // Subtract exactly what was synced rather than deleting the key —
-                // keystrokes typed while the request was in flight must survive
-                // for the next sync.
-                for (const stat of stats) {
-                    const current = charAttemptsRef.current.get(stat.character)
-                    if (!current) continue
-                    const attempts = current.attempts - stat.total
-                    const correct = current.correct - stat.correct
-                    if (attempts <= 0) charAttemptsRef.current.delete(stat.character)
-                    else charAttemptsRef.current.set(stat.character, { attempts, correct: Math.max(correct, 0) })
-                }
-            },
+            onSuccess: () => drainSyncedAttempts(charAttemptsRef.current, stats),
         })
     }, [charAttemptsRef, mode, sessionData?.user, syncPracticeStats])
 
