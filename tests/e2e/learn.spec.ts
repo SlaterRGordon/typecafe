@@ -19,7 +19,6 @@ test.describe("learn page", () => {
     await gotoLearn(page);
 
     await expect(page.getByText("Sign in to save level progress")).toBeVisible();
-    await expect(page.getByText("Required Speed: 40 net WPM")).toBeVisible();
     await expect(page.getByText("Required Accuracy: 90%")).toHaveCount(0);
     await expect(page.getByLabel("1 star: 40 net WPM")).toBeVisible();
     await expect(page.getByText("1 star:", { exact: false })).toHaveCount(0);
@@ -42,7 +41,7 @@ test.describe("learn page", () => {
     await expect(page.getByText("Level 2").first()).toBeVisible();
   });
 
-  test("shows best stars in the active summary and level menu", async ({ page }) => {
+  test("shows best stars in the level menu", async ({ page }) => {
     await page.addInitScript(() => {
       window.localStorage.setItem(
         "typecafe.learnProgress.easy",
@@ -57,10 +56,6 @@ test.describe("learn page", () => {
     const levelOne = page.getByRole("option", { name: /^Level 1\b/ });
     await expect(levelOne).toBeVisible();
     await expect(page.getByLabel("Best 3 stars").first()).toBeVisible();
-    await levelOne.click();
-
-    await expect(page.getByTestId("learn-active-stars")).toBeVisible();
-    await expect(page.getByTestId("learn-active-stars").getByLabel("Best 3 stars")).toBeVisible();
   });
 
   test("completion saves guest progress on this device", async ({ page }) => {
@@ -143,7 +138,7 @@ test.describe("learn page", () => {
 
     await chooseReactSelectOption(page, "difficultySelect", "Medium");
 
-    await expect(page.getByText("Required Speed: 80 net WPM")).toBeVisible();
+    await expect(page.getByLabel("1 star: 80 net WPM")).toBeVisible();
     await expect(page.getByText("Required Accuracy: 90%")).toHaveCount(0);
   });
 

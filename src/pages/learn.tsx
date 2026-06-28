@@ -9,15 +9,20 @@ import Select from 'react-select'
 import type { SingleValue } from "react-select";
 import { Keyboard } from "~/components/typer/Keyboard";
 import { typingFocusFadeClass } from "~/components/typer/typingFocus";
-import { useDispatch } from "react-redux";
-import { addAlert } from "~/state/alert/alertSlice";
 import { useSession } from "next-auth/react";
 import type { TestCompletionResult } from "~/components/typer/Typer";
-import { learnStarCriteria, starsFor, type LearnRequirement } from "~/lib/learnStars";
+import { learnStarCriteria, type LearnRequirement } from "~/lib/learnStars";
+import {
+    gradeResult,
+    ladderState,
+    nextLevel,
+    resumeLevel,
+    type DifficultyName,
+    type LevelProgress,
+} from "~/lib/learnProgression";
+import { useLearnProgress } from "~/hooks/useLearnProgress";
 
 type Option = { label: string, value: number | string, isDisabled: boolean, stars?: number }
-type DifficultyName = "easy" | "medium" | "hard"
-type LearnProgress = { options: string, speed: number, accuracy: number, stars?: number }
 type LearnCompletion = {
     levelName: string,
     netWpm: number,
@@ -28,28 +33,11 @@ type LearnCompletion = {
     saved: boolean,
 }
 
-const getStorageKey = (difficulty: DifficultyName) => `typecafe.learnProgress.${difficulty}`
-
 function formatNumber(value: number, digits = 1) {
     return value.toLocaleString(undefined, {
         maximumFractionDigits: digits,
         minimumFractionDigits: digits,
     })
-}
-
-function mergeLearnProgress(progress: LearnProgress[], entry: LearnProgress): LearnProgress[] {
-    const current = progress.find((item) => item.options === entry.options)
-    const rest = progress.filter((item) => item.options !== entry.options)
-
-    return [
-        ...rest,
-        {
-            options: entry.options,
-            speed: Math.max(current?.speed ?? 0, entry.speed),
-            accuracy: Math.max(current?.accuracy ?? 0, entry.accuracy),
-            stars: Math.max(current?.stars ?? 0, entry.stars ?? 0),
-        },
-    ]
 }
 
 function ResultMetric(props: { label: string, value: string, target: string, passed: boolean, testId: string }) {
@@ -105,8 +93,7 @@ function BestStars(props: { stars?: number, className?: string }) {
 }
 
 const Learn: NextPage = () => {
-    const dispatch = useDispatch()
-    const { data: sessionData, status: sessionStatus } = useSession()
+    const { status: sessionStatus } = useSession()
     const language = "english"
     const mode = TestModes.normal
     const subMode = TestSubModes.words
@@ -121,41 +108,20 @@ const Learn: NextPage = () => {
     const [currentKey, setCurrentKey] = useState<string>("")
     const [levelChanged, setLevelChanged] = useState<boolean>(false)
     const [fullscreen, setFullscreen] = useState(false)
-    const [localProgress, setLocalProgress] = useState<LearnProgress[]>([])
-    const [isLocalProgressLoaded, setIsLocalProgressLoaded] = useState(false)
     const [restartSignal, setRestartSignal] = useState(0)
     const [completion, setCompletion] = useState<LearnCompletion | null>(null)
-    const [optimisticProgress, setOptimisticProgress] = useState<LearnProgress[]>([])
     const [typingFocused, setTypingFocused] = useState(false)
     const charAttemptsRef = useRef<Map<string, { attempts: number, correct: number }>>(new Map())
 
+    const learn = useLearnProgress(difficulty)
+    const completedProgress = learn.completedProgress
+
     // fetch types
     const { isLoading: isLoadingTestType } = api.type.get.useQuery({ mode, subMode, language: language })
-    const {
-        data: savedProgress = [],
-        refetch: refetchSavedProgress,
-        isLoading: isLoadingSavedProgress,
-    } = api.learnProgress.getByDifficulty.useQuery({ difficulty }, { enabled: !!sessionData?.user })
-    const importLearnProgress = api.learnProgress.batchImport.useMutation()
-    const completeLearnProgress = api.learnProgress.complete.useMutation()
 
+    // The modal belongs to the page; clear it when the ladder changes.
     useEffect(() => {
         setCompletion(null)
-        setOptimisticProgress([])
-        setIsLocalProgressLoaded(false)
-        const storedProgress = window.localStorage.getItem(getStorageKey(difficulty))
-        if (!storedProgress) {
-            setLocalProgress([])
-            setIsLocalProgressLoaded(true)
-            return
-        }
-
-        try {
-            setLocalProgress(JSON.parse(storedProgress) as LearnProgress[])
-        } catch {
-            setLocalProgress([])
-        }
-        setIsLocalProgressLoaded(true)
     }, [difficulty])
 
     const difficultyOptions = [
@@ -170,95 +136,37 @@ const Learn: NextPage = () => {
         }
     }
 
-    const getLevelOptions = useCallback((completedTests: LearnProgress[]): Option[] => levels.map((level: Level, index: number, array: Level[]) => {
-        const completedLevel = completedTests.find(test => test.options == level.name)
-        const stars = completedLevel?.stars ?? 0
-        if (level.name == "Level 1") return { value: level.name, label: level.name, isDisabled: false, stars } as Option
-
-        const levelTest = completedTests?.find(test => test.options == array[index - 1]?.name)
-        const previousLevel = array[index - 1]
-        const requirements = previousLevel?.[difficulty]
-
-        if (levelTest && requirements && levelTest.speed >= requirements.wpm) {
-            return { value: level.name, label: level.name, isDisabled: false, stars } as Option
-        }
-
-        return { value: level.name, label: level.name, isDisabled: true, stars } as Option
-    }), [difficulty])
-
-    const persistedProgress: LearnProgress[] = useMemo(() => [
-        ...savedProgress.map((progress: LearnProgress) => ({
-            options: progress.options,
-            speed: progress.speed,
-            accuracy: progress.accuracy,
-            stars: progress.stars ?? 0,
+    const levelOptions: Option[] = useMemo(
+        () => ladderState(completedProgress, difficulty).map((status) => ({
+            value: status.level.name,
+            label: status.level.name,
+            isDisabled: !status.unlocked,
+            stars: status.stars,
         })),
-    ], [savedProgress])
-    const accountProgress: LearnProgress[] = useMemo(
-        () => optimisticProgress.reduce((progress, entry) => mergeLearnProgress(progress, entry), persistedProgress),
-        [optimisticProgress, persistedProgress],
+        [completedProgress, difficulty],
     )
-    const completedProgress: LearnProgress[] = sessionData?.user ? accountProgress : localProgress
-    const levelOptions: Option[] = useMemo(() => getLevelOptions(completedProgress), [completedProgress, getLevelOptions])
-    const hasDeviceProgress = localProgress.length > 0
-    const shouldShowImportPrompt = !!sessionData?.user && hasDeviceProgress && persistedProgress.length > 0
-    const progressSelectedLevel = useMemo(() => {
-        const firstLocked = levelOptions.findIndex(levelOption => levelOption.isDisabled)
-        const levelIndex = firstLocked === -1 ? levels.length - 1 : firstLocked <= 0 ? 0 : firstLocked - 1
+    const progressSelectedLevel = useMemo(
+        () => resumeLevel(completedProgress, difficulty),
+        [completedProgress, difficulty],
+    )
 
-        return levels[levelIndex] as Level
-    }, [levelOptions])
+    const advanceToNextLevel = useCallback((freshProgress: LevelProgress[]) => {
+        const next = nextLevel(freshProgress, level.name, difficulty)
 
-    const advanceToNextLevel = useCallback((updatedLevelOptions: Option[]) => {
-        const currentLevelIndex = levels.findIndex(option => option.name == level.name)
-        const nextLevel = levels[currentLevelIndex + 1]
-        const nextLevelOption = nextLevel ? updatedLevelOptions.find(option => option.value == nextLevel.name) : undefined
-
-        if (nextLevel && nextLevelOption && !nextLevelOption.isDisabled) {
-            setLevel(nextLevel)
+        if (next) {
+            setLevel(next)
             setLevelChanged(true)
             return
         }
 
         setLevelChanged(false)
-    }, [level.name])
+    }, [level.name, difficulty])
 
+    // Import the guest mirror, then advance from the current level (page state).
     const importDeviceProgress = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
-        if (!sessionData?.user || localProgress.length === 0 || importLearnProgress.isPending) return
-
-        try {
-            await importLearnProgress.mutateAsync({
-                difficulty,
-                progress: localProgress,
-            })
-            window.localStorage.removeItem(getStorageKey(difficulty))
-            setLocalProgress([])
-            const savedResult = await refetchSavedProgress()
-            advanceToNextLevel(getLevelOptions([
-                ...(savedResult.data ?? []).map((progress: LearnProgress) => ({
-                    options: progress.options,
-                    speed: progress.speed,
-                    accuracy: progress.accuracy,
-                    stars: progress.stars ?? 0,
-                })),
-            ]))
-            if (!silent) {
-                dispatch(addAlert({ message: "Device progress imported to your account.", type: "success" }))
-            }
-        } catch (error) {
-            console.log(error)
-            dispatch(addAlert({ message: "Could not import device progress.", type: "error" }))
-        }
-    }, [
-        difficulty,
-        dispatch,
-        advanceToNextLevel,
-        getLevelOptions,
-        importLearnProgress,
-        localProgress,
-        refetchSavedProgress,
-        sessionData?.user,
-    ])
+        const fresh = await learn.importDevice({ silent })
+        if (fresh) advanceToNextLevel(fresh)
+    }, [learn.importDevice, advanceToNextLevel])
 
     const handleChangeLevel = (value: SingleValue<Option>) => {
         if (value && !value.isDisabled) {
@@ -273,109 +181,50 @@ const Learn: NextPage = () => {
         setCurrentKey(key)
     }
 
-    const nextLevelNameFromProgress = useCallback((progress: LearnProgress[], levelName: string) => {
-        const currentLevelIndex = levels.findIndex(option => option.name == levelName)
-        const nextLevel = levels[currentLevelIndex + 1]
-        if (!nextLevel) return null
-
-        const nextLevelOption = getLevelOptions(progress).find(option => option.value == nextLevel.name)
-        return nextLevelOption && !nextLevelOption.isDisabled ? nextLevel.name : null
-    }, [getLevelOptions])
-
     const showCompletion = useCallback((
         result: TestCompletionResult,
-        options: { saved: boolean, nextProgress?: LearnProgress[] } = { saved: false },
+        options: { saved: boolean, nextProgress?: LevelProgress[] } = { saved: false },
     ) => {
         const levelName = result.levelName ?? level.name
-        const completedLevel = levels.find(level => level.name == levelName) ?? level
-        const requirement = completedLevel[difficulty]
-        const netWpm = result.netWpm
-        const stars = starsFor({ netWpm }, requirement)
+        const completedLevel = levels.find(item => item.name == levelName) ?? level
+        const { requirement, stars } = gradeResult(completedLevel, difficulty, { netWpm: result.netWpm, accuracy: result.accuracy })
 
         setCompletion({
             levelName,
-            netWpm,
+            netWpm: result.netWpm,
             accuracy: result.accuracy,
             stars,
             requirement,
-            nextLevelName: stars > 0 && options.nextProgress ? nextLevelNameFromProgress(options.nextProgress, levelName) : null,
+            nextLevelName: stars > 0 && options.nextProgress ? (nextLevel(options.nextProgress, levelName, difficulty)?.name ?? null) : null,
             saved: options.saved,
         })
-    }, [difficulty, level, nextLevelNameFromProgress])
+    }, [difficulty, level])
 
     const onTestComplete = (result: TestCompletionResult) => {
         const levelName = result.levelName ?? level.name
-        const completedLevel = levels.find(level => level.name == levelName) ?? level
-        const requirement = completedLevel[difficulty]
-        const netWpm = result.netWpm
-        const stars = starsFor({ netWpm }, requirement)
+        const completedLevel = levels.find(item => item.name == levelName) ?? level
+        const { stars, entry } = gradeResult(completedLevel, difficulty, { netWpm: result.netWpm, accuracy: result.accuracy })
 
         if (stars === 0) {
             showCompletion(result)
             return
         }
 
-        const progressEntry: LearnProgress = {
-            options: levelName,
-            speed: netWpm,
-            accuracy: result.accuracy,
-            stars,
-        }
-
-        if (!sessionData?.user) {
-            const nextProgress = mergeLearnProgress(localProgress, progressEntry)
-
-            window.localStorage.setItem(getStorageKey(difficulty), JSON.stringify(nextProgress))
-            setLocalProgress(nextProgress)
-            showCompletion(result, { saved: true, nextProgress })
-            return
-        }
-
-        const optimisticNextProgress = mergeLearnProgress(completedProgress, progressEntry)
-        completeLearnProgress.mutateAsync({
-            difficulty,
-            progress: progressEntry,
-        }).then(() => refetchSavedProgress()).then((savedResult) => {
-            const savedProgress = [
-                ...(savedResult.data ?? []).map((progress: LearnProgress) => ({
-                    options: progress.options,
-                    speed: progress.speed,
-                    accuracy: progress.accuracy,
-                    stars: progress.stars ?? 0,
-                })),
-            ]
-            const nextProgress = mergeLearnProgress(
-                savedProgress.length > 0 ? savedProgress : optimisticNextProgress,
-                progressEntry,
-            )
-            setOptimisticProgress((progress) => mergeLearnProgress(progress, progressEntry))
-            showCompletion(result, { saved: true, nextProgress })
-        }).catch((error) => {
-            console.log(error)
-            showCompletion(result, { saved: false })
-            dispatch(addAlert({ message: "Could not refresh level progress.", type: "error" }))
+        void learn.save(entry).then(({ saved, nextProgress }) => {
+            showCompletion(result, saved ? { saved: true, nextProgress } : { saved: false })
         })
     }
 
     const isLearnProgressLoading = sessionStatus === "loading" ||
         isLoadingTestType ||
-        !isLocalProgressLoaded ||
-        importLearnProgress.isPending ||
-        completeLearnProgress.isPending ||
-        (!!sessionData?.user && isLoadingSavedProgress)
+        learn.isLoading
     const isLevelSelectionLoading = !levelChanged && level.name !== progressSelectedLevel.name
 
     useEffect(() => {
-        if (!sessionData?.user || isLoadingSavedProgress || !hasDeviceProgress || persistedProgress.length > 0) return
+        if (!learn.canSilentImport) return
 
         void importDeviceProgress({ silent: true })
-    }, [
-        hasDeviceProgress,
-        importDeviceProgress,
-        isLoadingSavedProgress,
-        persistedProgress.length,
-        sessionData?.user,
-    ])
+    }, [learn.canSilentImport, importDeviceProgress])
 
     useEffect(() => {
         if (completion || levelChanged || isLearnProgressLoading) return
@@ -386,7 +235,7 @@ const Learn: NextPage = () => {
     const requirements = level[difficulty]
     const isLearnContentLoading = isLearnProgressLoading || isLevelSelectionLoading
     const criteria = learnStarCriteria(requirements)
-    const activeLevelProgress = completedProgress.find(progress => progress.options === level.name)
+    const activeLevelProgress = completedProgress.find(progress => progress.levelName === level.name)
     const activeLevelStars = activeLevelProgress?.stars ?? 0
 
     const retryLevel = () => {
@@ -407,13 +256,13 @@ const Learn: NextPage = () => {
         <div className={`flex flex-col w-full h-full items-center overflow-y-auto overflow-x-hidden px-4 pt-4 pb-4 ${fullscreen ? 'absolute top-0 left-0 w-full h-full bg-base-100 z-[500]' : "relative md:w-10/12 md:self-center md:px-0 md:pt-8 md:pb-8"}`}>
             <div className="flex w-full flex-col items-center justify-center gap-6 py-4 md:min-h-full md:gap-12 md:py-8">
                 <div data-testid="learn-controls" className={typingFocusFadeClass(typingFocused, "flex w-full max-w-screen-xl flex-col items-center gap-3 md:gap-4")}>
-                    {shouldShowImportPrompt &&
+                    {learn.shouldShowImportPrompt &&
                         <div className="flex w-full items-center justify-between gap-3 rounded bg-base-300 px-4 py-3 text-base-content">
                             <span className="text-sm font-semibold">Device progress is available for this difficulty.</span>
                             <button
                                 className="btn btn-primary btn-sm"
                                 type="button"
-                                disabled={importLearnProgress.isPending}
+                                disabled={learn.isImporting}
                                 onClick={() => void importDeviceProgress()}
                             >
                                 Import progress

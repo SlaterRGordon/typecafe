@@ -1,6 +1,0 @@
-interface:
-  display_name: "QA Review"
-  short_description: "Check changes for regressions and release risk"
-  default_prompt: "Use $qa-review to review this change for bugs, regressions, missing tests, accessibility issues, edge cases, and release readiness."
-policy:
-  allow_implicit_invocation: true

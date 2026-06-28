@@ -20,13 +20,11 @@ interface TextProps {
     // would break the byte-identical-across-clients guarantee).
     noAppend?: boolean,
     charAttempts: Map<string, { attempts: number, correct: number }>
-    setCharacterCount: (count: number) => void,
-    setIncorrectCount: (count: number) => void,
     onStart: () => void,
-    onComplete: (correct: boolean) => void,
+    onComplete: () => void,
     onKeyChange: (key: string) => void,
     onCharacterAttempt?: (attempt: { expected: string, typed: string, correct: boolean }) => void,
-    onProgress?: (chars: number) => void,
+    onBackspace?: () => void,
     onAttemptChange?: () => void,
 }
 
@@ -57,29 +55,21 @@ export const Text = memo(function Text(props: TextProps) {
         capitals = false,
         noAppend = false,
         charAttempts,
-        setCharacterCount,
-        setIncorrectCount,
         onStart,
         onComplete,
         onKeyChange,
         onCharacterAttempt,
-        onProgress,
+        onBackspace,
         onAttemptChange,
     } = props
     const [position, setPosition] = useState(0)
-    const [incorrect, setIncorrect] = useState<number>(0)
     const positionRef = useRef(0)
-    const incorrectRef = useRef(0)
     const textContainerRef = useRef<HTMLDivElement>(null)
     const charStatesRef = useRef<Map<number, 'correct' | 'incorrect'>>(new Map())
     const currentTextRef = useRef(text)
     const isAppendingRef = useRef(false)
     const completedRef = useRef(false)
-    const callbacksRef = useRef({
-        setCharacterCount,
-        setIncorrectCount,
-        onKeyChange,
-    })
+    const callbacksRef = useRef({ onKeyChange })
     const [loadingText, setLoadingText] = useState(true)
 
     // ref div to scroll text
@@ -89,12 +79,8 @@ export const Text = memo(function Text(props: TextProps) {
     const inputRef = useRef<HTMLInputElement>(null)
 
     useEffect(() => {
-        callbacksRef.current = {
-            setCharacterCount,
-            setIncorrectCount,
-            onKeyChange,
-        }
-    }, [setCharacterCount, setIncorrectCount, onKeyChange])
+        callbacksRef.current = { onKeyChange }
+    }, [onKeyChange])
 
     const createCharSpan = useCallback((char: string, index: number) => {
         const span = document.createElement('span')
@@ -191,9 +177,7 @@ export const Text = memo(function Text(props: TextProps) {
         setLoadingText(text.length === 0)
         renderInitialText(text)
         positionRef.current = 0
-        incorrectRef.current = 0
         setPosition(0)
-        setIncorrect(0)
 
         const restartBtn = document.getElementById("restart") as HTMLButtonElement
         if (restartBtn) restartBtn.classList.remove("blinking", "text-primary")
@@ -298,17 +282,11 @@ export const Text = memo(function Text(props: TextProps) {
             const nextPosition = currentIndex + 1
             positionRef.current = nextPosition
             setPosition(nextPosition)
-            onProgress?.(nextPosition)
-
-            if (!correct) {
-                incorrectRef.current += 1
-                setIncorrect(incorrectRef.current)
-            }
 
             // Check if test is complete
             if (currentIndex === currentTextRef.current.length - 1) {
                 completedRef.current = true
-                onComplete(correct)
+                onComplete()
             }
 
             // Update active character styling for new position
@@ -333,17 +311,14 @@ export const Text = memo(function Text(props: TextProps) {
             prevChar.classList.remove('text-base-300', 'text-secondary', 'underline')
 
             // Update state tracking
-            const wasIncorrect = charStatesRef.current.get(prevIndex) === 'incorrect'
             charStatesRef.current.delete(prevIndex)
 
             // Update React states
             positionRef.current = prevIndex
             setPosition(prevIndex)
-            onProgress?.(prevIndex)
-            if (wasIncorrect) {
-                incorrectRef.current = Math.max(incorrectRef.current - 1, 0)
-                setIncorrect(incorrectRef.current)
-            }
+            // The recorder owns the net character/incorrect counts; tell it a
+            // committed key was walked back.
+            onBackspace?.()
 
             // Update active character styling
             prevChar.classList.add('active-char', 'text-primary')
@@ -351,10 +326,8 @@ export const Text = memo(function Text(props: TextProps) {
     }
 
     useEffect(() => {
-        callbacksRef.current.setCharacterCount(position)
-        callbacksRef.current.setIncorrectCount(incorrect)
         callbacksRef.current.onKeyChange(textContainerRef.current?.querySelector(`#c${position}`)?.textContent || '')
-    }, [position, incorrect])
+    }, [position])
 
     return (
         <div id="text" className="relative z-30 mb-8 flex w-full max-w-[calc(100vw-2rem)] max-h-[6.6rem] leading-[2.2rem] flex-col overflow-hidden text-[24px] sm:max-h-[9rem] sm:text-[34px] sm:leading-[3rem] md:max-w-screen-xl">

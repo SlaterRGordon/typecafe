@@ -10,17 +10,26 @@ import { detectImpossibleTimeline } from "~/lib/antiCheat";
 import { challengeStreakFromDateKeys, shiftChallengeDateKey } from "~/lib/challenge";
 import { timelineDurationMs, type EncodedKeystroke } from "~/lib/keystrokes";
 import { isRankableSample, netFromRaw } from "~/lib/stats";
+import { averageNet, bestNetPerUser, netOf } from "~/lib/netScores";
 import {
   peerPercentileBrag,
   peerPercentileForScore,
   starterPeersFromTests,
 } from "~/lib/peerPercentile";
 import { currentStreak, dayKey } from "~/lib/progress";
+import {
+  globalPercentileBrag,
+  personalBestBrag,
+  PERCENTILE_BRAG_THRESHOLD,
+} from "~/lib/shareCard";
+import {
+  aggregateProgressHistory,
+  dailyUserStatRollup,
+  dateFromDayKey,
+  mergeDailyStat,
+  type DailyStatAggregate,
+} from "~/lib/dailyRollup";
 
-// Only surface a percentile brag when it is flattering — never tell a slow typer
-// they are "faster than 8% of typers". Below the threshold we fall back to a
-// personal best or no brag at all.
-const PERCENTILE_BRAG_THRESHOLD = 60;
 const MAX_PEER_PERCENTILE_TESTS = 20000;
 const encodedKeystrokeSchema = z.tuple([
   z.number().int().nonnegative(),
@@ -34,16 +43,6 @@ const progressHistoryEntrySchema = z.object({
   c: z.number().min(0).max(100).optional(),
   t: z.number().finite(),
 });
-
-interface DailyStatAggregate {
-  date: Date;
-  tests: number;
-  bestWpm: number;
-  totalWpm: number;
-  totalAccuracy: number;
-  totalConsistency: number;
-  consistencySamples: number;
-}
 
 interface BragArgs {
   ranked: boolean;
@@ -75,8 +74,8 @@ async function buildBrag(prisma: PrismaClient, args: BragArgs): Promise<string |
     },
     select: { speed: true, accuracy: true },
   });
-  const prevBestNet = priorAtConfig.reduce((best, row) => Math.max(best, netFromRaw(row.speed, row.accuracy)), -Infinity);
-  if (priorAtConfig.length > 0 && args.netWpm > prevBestNet) return "New personal best";
+  const pb = personalBestBrag(priorAtConfig.map(netOf), args.netWpm);
+  if (pb) return pb;
 
   // 2. Flattering peer percentile: users whose first ranked tests started
   // within the same WPM band. Until that pool is meaningful, fall through to
@@ -114,14 +113,7 @@ async function buildBrag(prisma: PrismaClient, args: BragArgs): Promise<string |
       select: { userId: true },
     }),
   ]);
-  const total = allUsers.length;
-  if (total === 0) return null;
-  const fasterThanPct = ((total - betterUsers.length) / total) * 100;
-  if (fasterThanPct >= PERCENTILE_BRAG_THRESHOLD) {
-    return `Faster than ${Math.round(fasterThanPct)}% of typers`;
-  }
-
-  return null;
+  return globalPercentileBrag(betterUsers.length, allUsers.length);
 }
 
 // WPM change vs the user's 30-day rolling average (a delta available to share —
@@ -138,120 +130,34 @@ async function thirtyDayDelta(
     where: { userId: args.userId, ranked: true, id: { not: args.testId }, createdAt: { gte: since } },
     select: { speed: true, accuracy: true },
   });
-  if (prior.length < MIN_TESTS_FOR_AVG_DELTA) return null;
-  const avgNet = prior.reduce((sum, row) => sum + netFromRaw(row.speed, row.accuracy), 0) / prior.length;
+  const avgNet = averageNet(prior, MIN_TESTS_FOR_AVG_DELTA);
+  if (avgNet === null) return null;
   return netFromRaw(args.speed, args.accuracy) - avgNet;
 }
 
-function dateFromDayKey(key: string): Date {
-  return new Date(`${key}T00:00:00.000Z`);
-}
-
+// Find-or-create the day's row and write the merged values; the averaging math
+// lives in mergeDailyStat (src/lib/dailyRollup.ts), this just does the I/O.
 async function upsertDailyUserStat(
   prisma: Pick<PrismaClient, "dailyUserStat">,
   userId: string,
   aggregate: DailyStatAggregate,
 ) {
   const existing = await prisma.dailyUserStat.findUnique({
-    where: {
-      userId_date: {
-        userId,
-        date: aggregate.date,
-      },
-    },
+    where: { userId_date: { userId, date: aggregate.date } },
   });
 
-  const avgWpm = aggregate.totalWpm / aggregate.tests;
-  const avgAccuracy = aggregate.totalAccuracy / aggregate.tests;
-  const avgConsistency = aggregate.consistencySamples > 0
-    ? aggregate.totalConsistency / aggregate.consistencySamples
-    : null;
+  const values = mergeDailyStat(existing, aggregate);
 
   if (!existing) {
     return prisma.dailyUserStat.create({
-      data: {
-        userId,
-        date: aggregate.date,
-        tests: aggregate.tests,
-        bestWpm: aggregate.bestWpm,
-        avgWpm,
-        avgAccuracy,
-        avgConsistency,
-        consistencySamples: aggregate.consistencySamples,
-      },
+      data: { userId, date: aggregate.date, ...values },
     });
   }
 
-  const tests = existing.tests + aggregate.tests;
-  const consistencySamples = existing.consistencySamples + aggregate.consistencySamples;
-  const consistencyTotal = (existing.avgConsistency ?? 0) * existing.consistencySamples + aggregate.totalConsistency;
-
   return prisma.dailyUserStat.update({
     where: { id: existing.id },
-    data: {
-      tests,
-      bestWpm: Math.max(existing.bestWpm, aggregate.bestWpm),
-      avgWpm: ((existing.avgWpm * existing.tests) + aggregate.totalWpm) / tests,
-      avgAccuracy: ((existing.avgAccuracy * existing.tests) + aggregate.totalAccuracy) / tests,
-      avgConsistency: consistencySamples > 0 ? consistencyTotal / consistencySamples : null,
-      consistencySamples,
-    },
+    data: values,
   });
-}
-
-function aggregateProgressHistory(
-  entries: z.infer<typeof progressHistoryEntrySchema>[],
-  utcOffsetMinutes = 0,
-): DailyStatAggregate[] {
-  const byDay = new Map<string, DailyStatAggregate>();
-
-  for (const entry of entries) {
-    const key = dayKey(new Date(entry.t), utcOffsetMinutes);
-    const current = byDay.get(key);
-    const consistency = typeof entry.c === "number" && Number.isFinite(entry.c) ? entry.c : null;
-
-    if (!current) {
-      byDay.set(key, {
-        date: dateFromDayKey(key),
-        tests: 1,
-        bestWpm: entry.wpm,
-        totalWpm: entry.wpm,
-        totalAccuracy: entry.accuracy,
-        totalConsistency: consistency ?? 0,
-        consistencySamples: consistency === null ? 0 : 1,
-      });
-      continue;
-    }
-
-    current.tests += 1;
-    current.bestWpm = Math.max(current.bestWpm, entry.wpm);
-    current.totalWpm += entry.wpm;
-    current.totalAccuracy += entry.accuracy;
-    if (consistency !== null) {
-      current.totalConsistency += consistency;
-      current.consistencySamples += 1;
-    }
-  }
-
-  return Array.from(byDay.values());
-}
-
-function dailyUserStatRollup(row: {
-  date: Date;
-  tests: number;
-  bestWpm: number;
-  avgWpm: number;
-  avgAccuracy: number;
-  avgConsistency: number | null;
-}) {
-  return {
-    day: row.date.toISOString().slice(0, 10),
-    tests: row.tests,
-    bestWpm: row.bestWpm,
-    avgWpm: row.avgWpm,
-    avgAccuracy: row.avgAccuracy,
-    avgConsistency: row.avgConsistency,
-  };
 }
 
 async function thirtyDayChallengeBaseline(
@@ -270,8 +176,8 @@ async function thirtyDayChallengeBaseline(
     select: { speed: true, accuracy: true },
   });
 
-  if (prior.length < MIN_TESTS_FOR_AVG_DELTA) return null;
-  const average = prior.reduce((sum, row) => sum + netFromRaw(row.speed, row.accuracy), 0) / prior.length;
+  const average = averageNet(prior, MIN_TESTS_FOR_AVG_DELTA);
+  if (average === null) return null;
   return { average, tests: prior.length };
 }
 
@@ -393,14 +299,9 @@ export const testRouter = createTRPCRouter({
 
       // Boards rank by net WPM (the canonical metric), keeping each user's best
       // net run. Net isn't stored, so derive it from raw speed + accuracy.
-      const netOf = (row: { speed: number; accuracy: number }) => netFromRaw(row.speed, row.accuracy);
-      const bestByUser = new Map<string, typeof rows[number]>();
-      for (const row of rows) {
-        const current = bestByUser.get(row.userId);
-        if (!current || netOf(row) > netOf(current)) bestByUser.set(row.userId, row);
-      }
+      const bestRows = bestNetPerUser(rows);
 
-      const fastest = Array.from(bestByUser.values())
+      const fastest = bestRows
         .sort((a, b) => netOf(b) - netOf(a))
         .slice(0, limit)
         .map((row, index) => ({
@@ -413,7 +314,7 @@ export const testRouter = createTRPCRouter({
         }));
 
       const improvedCandidates = await Promise.all(
-        Array.from(bestByUser.values()).map(async (row) => {
+        bestRows.map(async (row) => {
           const baseline = await thirtyDayChallengeBaseline(ctx.prisma, {
             userId: row.userId,
             before: challengeDate,
@@ -472,14 +373,7 @@ export const testRouter = createTRPCRouter({
         },
       });
 
-      const netOf = (row: { speed: number; accuracy: number }) => netFromRaw(row.speed, row.accuracy);
-      const best = new Map<string, typeof rows[number]>();
-      for (const row of rows) {
-        const current = best.get(row.userId);
-        if (!current || netOf(row) > netOf(current)) best.set(row.userId, row);
-      }
-
-      const sorted = Array.from(best.values()).sort((a, b) => netOf(b) - netOf(a));
+      const sorted = bestNetPerUser(rows).sort((a, b) => netOf(b) - netOf(a));
       const start = input.page * input.limit;
       return sorted.slice(start, start + input.limit).map((row, index) => ({
         rank: start + index + 1,

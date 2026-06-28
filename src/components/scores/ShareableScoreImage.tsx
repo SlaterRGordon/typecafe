@@ -113,16 +113,17 @@ export const ShareableScoreImage = forwardRef<HTMLDivElement, { score: Shareable
                 }
               </div>
             }
-            {/* Hero */}
+            {/* Hero — net WPM is the canonical headline "WPM" (speed after errors);
+                raw stays a secondary stat on the right. */}
             <span className="mt-5 text-2xl font-semibold uppercase tracking-widest text-primary">Words per minute</span>
             <span className="font-mono font-bold leading-none text-primary" style={{ fontSize: "132px", letterSpacing: "-0.04em" }}>
-              {formatNumber(score.rawWpm, 1)}
+              {formatNumber(score.netWpm, 1)}
             </span>
             <span className="mt-2 font-mono text-xl text-base-content/60">{modeText} / {formatDate(score.createdAt)}</span>
           </div>
           <div className="flex w-64 shrink-0 flex-col justify-between pb-7">
             <Stat label="Accuracy" value={`${formatNumber(score.accuracy, 1)}%`} />
-            <Stat label="Net WPM" value={formatNumber(score.netWpm, 1)} />
+            <Stat label="Raw WPM" value={formatNumber(score.rawWpm, 1)} />
             <Stat label="Duration" value={`${Math.round(score.durationSeconds)}s`} />
           </div>
         </div>

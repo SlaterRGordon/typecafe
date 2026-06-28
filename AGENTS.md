@@ -20,6 +20,7 @@ The vision filter for any change: *does it make someone faster, or prove they're
 - Tick the relevant checkbox in the phase doc in the same change that completes it.
 - Always use the ponytail skill: laziest solution that works — stdlib/native before deps, shortest diff, no speculative abstraction.
 - One focused task at a time; do not refactor unrelated code you pass by.
+- Record load-bearing architecture decisions as ADRs in [docs/adr/](docs/adr/) (see `0001-local-first-guest-data.md`): a settled cross-cutting constraint, or an approach rejected for a reason a future review would otherwise re-suggest. Skip routine module extractions and reversible code choices — don't ADR what the code and its tests already document. Update the relevant ADR rather than committing a contradicting one, and don't relitigate an existing ADR without a load-bearing reason.
 
 ## Committing
 
@@ -35,40 +36,3 @@ The vision filter for any change: *does it make someone faster, or prove they're
 - Unit tests: `npx vitest run` (config: `vitest.config.ts`, tests in `src/**/*.test.ts`)
 - E2E: `npx playwright test` (desktop + mobile projects; helpers in `tests/e2e/helpers/`)
 - Screenshot tour: `npx playwright test tests/e2e/screenshots.spec.ts`
-
-## Architecture pointers
-
-- `src/components/typer/Typer.tsx` — test orchestration (being decomposed into `src/components/typer/hooks/`)
-- `src/lib/stats.ts` — WPM/accuracy/consistency math (pure; the source of truth)
-- `src/hooks/useTestSettings.ts` — persisted test settings (localStorage `typecafe:testSettings`)
-- `src/server/api/routers/` — tRPC routers; Prisma schema in `prisma/schema.prisma` (Postgres)
-- Target mode model after Phase 2: Timed / Words / Practice / Grams / Relaxed are top-level; there should be no user-facing Normal mode.
-- Phase 2 UI direction: frequent controls live in the typer toolbar (mode, length/custom length, language, settings icon, restart, fullscreen); settings becomes a dropdown for secondary toggles only. Do not preserve the old gear modal as the front door when working on the overhaul.
-- E2E gotchas: before the Phase 2 toolbar overhaul lands, legacy config modal tests close via the `#configModal` checkbox `evaluate` trick (overlay intercepts clicks); modals fade in — settle ~600ms before screenshots; pages mostly lack `h1` — wait on content instead
-
-<!-- pane-agent-context:start -->
-## Pane
-
-The developer is using Pane for this repository. Pane can manage saved repositories and create user-visible panes with terminal-backed tools for planning, discussion, implementation, and review work.
-
-Start with `runpane doctor --json` before taking Pane actions. Use it to understand wrapper/runtime details, daemon reachability, and the next safe commands.
-
-Use `runpane agent-context --json` for full Pane CLI context. Use `runpane agent-context --command "panels wait" --json` or another command name for detailed schema only when needed.
-
-Default to context-safe validation: after creating panes or sending terminal input, run `runpane panels wait` or `runpane panels screen` before reporting success. Prefer `runpane panels submit` for normal text plus Enter; use `runpane panels input` only for exact bytes such as Ctrl-C or escape sequences.
-
-Common commands:
-- `runpane doctor --json`
-- `runpane agent-context --json`
-- `runpane repos list --json`
-- `runpane repos add --path <repo> --yes --json`
-- `runpane agents doctor --agent codex --repo active --json`
-- `runpane panes create --repo active --name <name> --agent codex --prompt "<task>" --wait-ready --yes --json`
-- `runpane panels list --pane <pane-id> --json`
-- `runpane panels screen --panel <panel-id> --limit 80 --json`
-- `runpane panels wait --panel <panel-id> --for ready --timeout-ms 30000 --json`
-- `runpane panels submit --panel <panel-id> --text "<answer>" --yes --json`
-- `runpane panels input --panel <panel-id> --input-file <path|-> --yes --json`
-
-WSL note: if `runpane doctor --json` cannot find `/tmp/pane-daemon.../daemon.sock` or `runpane` resolves to a broken Windows shim, Pane may be running on Windows. Try `powershell.exe -NoProfile -Command 'Set-Location $env:TEMP; runpane doctor --json'`, then create panes through the same PowerShell form using the saved WSL repo name or id. Use `runpane agents doctor --agent codex --repo <selector> --json` to diagnose the repo environment Pane will actually use.
-<!-- pane-agent-context:end -->

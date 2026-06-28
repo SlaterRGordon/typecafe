@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useRef } from "react"
+import { useCallback, useRef } from "react"
 import { useSession } from "next-auth/react"
 import { useDispatch } from "react-redux"
 import { addAlert } from "~/state/alert/alertSlice"
-import { addLocalKeyStats, clearLocalKeyStats, readLocalKeyStats } from "~/lib/localSync"
+import { addLocalKeyStats } from "~/lib/localSync"
 import { addLocalTransitions } from "~/lib/localTransitions"
 import { aggregateTransitions } from "~/lib/transitions"
+import { drainSyncedAttempts } from "~/lib/practiceAttempts"
 import type { EncodedKeystroke, KeystrokeEvent } from "~/lib/keystrokes"
 import { api } from "~/utils/api"
 import { TestModes } from "../types"
@@ -35,11 +36,10 @@ interface UseTestPersistenceArgs {
 // Owns everything that talks to the server after a test: saving the score (and
 // reporting completion back once the save settles) and syncing per-character
 // practice stats.
-export function useTestPersistence({ mode, charAttemptsRef, onTestComplete }: UseTestPersistenceArgs) {
+export function useTestPersistence({ charAttemptsRef, onTestComplete }: UseTestPersistenceArgs) {
     const { data: sessionData } = useSession()
     const dispatch = useDispatch()
     const pendingCompletionRef = useRef<TestCompletionResult | null>(null)
-    const importedLocalStatsRef = useRef(false)
 
     const createTest = api.test.create.useMutation({
         onSuccess: (test) => {
@@ -98,34 +98,11 @@ export function useTestPersistence({ mode, charAttemptsRef, onTestComplete }: Us
         syncTransitionStats({ stats: aggregates })
     }, [sessionData?.user, syncTransitionStats])
 
-    useEffect(() => {
-        if (!sessionData?.user) return
-        if (importedLocalStatsRef.current) return
-
-        const localStats = readLocalKeyStats()
-        if (localStats.length === 0) return
-
-        importedLocalStatsRef.current = true
-        syncPracticeStats({
-            stats: localStats.map((stat) => ({
-                character: stat.key,
-                total: stat.attempts,
-                correct: stat.correct,
-            })),
-        }, {
-            onSuccess: () => {
-                clearLocalKeyStats()
-            },
-            onError: (error) => {
-                console.error(error)
-                importedLocalStatsRef.current = false
-            },
-        })
-    }, [sessionData?.user, syncPracticeStats])
-
+    // Per-key accuracy is tracked in every mode (Normal, Quotes, Practice, Drill),
+    // not just Practice — the heatmap and smart drill want the user's real typing,
+    // wherever it happens. Ngrams is excluded by the callers in Typer because its
+    // repeated-gram text would skew the per-key picture.
     const syncCharAttempts = useCallback(() => {
-        if (mode !== TestModes.practice) return
-
         const stats = Array.from(charAttemptsRef.current.entries()).map(
             ([character, value]) => ({
                 character,
@@ -143,35 +120,14 @@ export function useTestPersistence({ mode, charAttemptsRef, onTestComplete }: Us
                 correct: stat.correct,
             })))
 
-            if (saved) {
-                for (const stat of stats) {
-                    const current = charAttemptsRef.current.get(stat.character)
-                    if (!current) continue
-                    const attempts = current.attempts - stat.total
-                    const correct = current.correct - stat.correct
-                    if (attempts <= 0) charAttemptsRef.current.delete(stat.character)
-                    else charAttemptsRef.current.set(stat.character, { attempts, correct: Math.max(correct, 0) })
-                }
-            }
+            if (saved) drainSyncedAttempts(charAttemptsRef.current, stats)
             return
         }
 
         syncPracticeStats({ stats }, {
-            onSuccess: () => {
-                // Subtract exactly what was synced rather than deleting the key —
-                // keystrokes typed while the request was in flight must survive
-                // for the next sync.
-                for (const stat of stats) {
-                    const current = charAttemptsRef.current.get(stat.character)
-                    if (!current) continue
-                    const attempts = current.attempts - stat.total
-                    const correct = current.correct - stat.correct
-                    if (attempts <= 0) charAttemptsRef.current.delete(stat.character)
-                    else charAttemptsRef.current.set(stat.character, { attempts, correct: Math.max(correct, 0) })
-                }
-            },
+            onSuccess: () => drainSyncedAttempts(charAttemptsRef.current, stats),
         })
-    }, [charAttemptsRef, mode, sessionData?.user, syncPracticeStats])
+    }, [charAttemptsRef, sessionData?.user, syncPracticeStats])
 
     return { sessionData, persistCompletion, syncCharAttempts, syncTransitions }
 }

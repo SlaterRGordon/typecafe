@@ -2,13 +2,10 @@
 // account (locked constraint), same shape the DB stores so sync-on-signup is a
 // straight batch-import. Mirrors localSync.ts for key stats.
 
+import { createKeyedStore } from "./keyedStore"
 import { mergeTransitions, type TransitionAggregate } from "./transitions"
 
 export const LOCAL_TRANSITIONS_KEY = "typecafe:transitionStats"
-
-function storage(): Storage | undefined {
-    return typeof window === "undefined" ? undefined : window.localStorage
-}
 
 function sanitize(raw: unknown): TransitionAggregate | null {
     if (!raw || typeof raw !== "object") return null
@@ -19,30 +16,10 @@ function sanitize(raw: unknown): TransitionAggregate | null {
     return { pair: v.pair, count: v.count as number, totalMs: v.totalMs as number, errors: v.errors as number }
 }
 
-export function readLocalTransitions(s = storage()): TransitionAggregate[] {
-    if (!s) return []
-    try {
-        const parsed = JSON.parse(s.getItem(LOCAL_TRANSITIONS_KEY) ?? "[]") as unknown
-        if (!Array.isArray(parsed)) return []
-        return mergeTransitions([], parsed.map(sanitize).filter((a): a is TransitionAggregate => a !== null))
-    } catch {
-        return []
-    }
-}
+const store = createKeyedStore(LOCAL_TRANSITIONS_KEY, sanitize, mergeTransitions)
 
-export function writeLocalTransitions(aggs: TransitionAggregate[], s = storage()): boolean {
-    if (!s) return false
-    const merged = mergeTransitions([], aggs)
-    try {
-        if (merged.length === 0) s.removeItem(LOCAL_TRANSITIONS_KEY)
-        else s.setItem(LOCAL_TRANSITIONS_KEY, JSON.stringify(merged))
-        return true
-    } catch {
-        return false
-    }
-}
-
-export function addLocalTransitions(aggs: TransitionAggregate[], s = storage()): boolean {
-    if (!s) return false
-    return writeLocalTransitions(mergeTransitions(readLocalTransitions(s), aggs), s)
-}
+export const readLocalTransitions = store.read
+export const writeLocalTransitions = store.write
+export const addLocalTransitions = store.add
+// Exported for the sync-on-sign-in import (candidate #01).
+export const clearLocalTransitions = store.clear

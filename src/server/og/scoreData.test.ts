@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { netFromRaw } from "~/lib/stats"
 
 const findUnique = vi.hoisted(() => vi.fn())
 
@@ -95,8 +96,20 @@ describe("getShareForOg", () => {
     expect(data).toMatchObject({
       kind: "score",
       dailyChallenge: true,
-      netWpm: 69.84,
+      netWpm: netFromRaw(72, 97), // canonical raw·(2a−1) = 67.68, not raw·a = 69.84
     })
+  })
+
+  it("falls back to the canonical net WPM when a snapshot lacks netWpm", async () => {
+    findUnique.mockResolvedValueOnce(scoreShare({ snapshot: {} }))
+
+    const data = await getShareForOg("legacy-no-net")
+
+    // The share card must agree with the leaderboard/percentile, which use
+    // netFromRaw. The old fallback computed raw·(accuracy/100) = 69.84 — a
+    // different, more flattering number. Pin to the canonical one (= 67.68).
+    expect(data).toMatchObject({ kind: "score", netWpm: netFromRaw(72, 97) })
+    expect(netFromRaw(72, 97)).not.toBe(72 * (97 / 100))
   })
 
   it("leaves ordinary score shares unbadged", async () => {
