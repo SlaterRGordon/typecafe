@@ -374,6 +374,13 @@ export const Typer = (props: TyperProps) => {
         const finalStats = getStats(finalCharacterCount, finalIncorrectCount)
         const completion = buildCompletion(finalStats, finalCharacterCount, finalIncorrectCount)
 
+        window.gtag?.("event", "test_completed", {
+            mode,
+            wpm: Math.round(finalStats.netWpm),
+            accuracy: Math.round(finalStats.accuracy),
+            signed_in: !!sessionData?.user,
+        })
+
         if (mode === TestModes.normal || mode === TestModes.quotes) {
             if (
                 levelRequirements &&

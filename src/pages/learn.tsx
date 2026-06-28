@@ -205,6 +205,8 @@ const Learn: NextPage = () => {
         const completedLevel = levels.find(item => item.name == levelName) ?? level
         const { stars, entry } = gradeResult(completedLevel, difficulty, { netWpm: result.netWpm, accuracy: result.accuracy })
 
+        window.gtag?.("event", "learn_lesson_done", { level: levelName, difficulty, stars })
+
         if (stars === 0) {
             showCompletion(result)
             return

@@ -49,6 +49,9 @@ export function GuestImport() {
             const entries = readLocalProgress();
             if (entries.length > 0) {
                 progressForUserRef.current = userId;
+                // A guest who'd been typing locally just signed in — the conversion
+                // moment. Local progress is cleared on import, so this fires once.
+                window.gtag?.("event", "guest_signup", { tests: entries.length });
                 syncProgress.mutate({ entries, utcOffsetMinutes: -new Date().getTimezoneOffset() });
             }
         }
