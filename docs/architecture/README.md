@@ -71,6 +71,35 @@ Order: **#06** (pure extraction, unlocks #07) → #07 → #08 (independent) → 
    guards a silent save-drop, `drillKeys` is multi-caller shared vocabulary,
    `format` stays. No code change; reasons recorded in the candidate doc.
 
+## Round 3 (2026-06-27)
+
+A third pass after the router and `src/lib/` were emptied of trapped math. The
+remaining friction moved into the **Learn flow** and the **persistence hooks** —
+progression logic running untested inside a 611-line page, and a small piece of
+drain math copied across the guest/DB seam.
+
+| # | Candidate | Strength | Resolved scope |
+|---|-----------|----------|----------------|
+| [10](10-learn-ladder-progression.md) | Lift the Learn level-ladder progression to `src/lib/` | Strong | `learnProgression.ts` (`ladderState`/`resumeLevel`/`nextLevel`/`mergeProgress`/`gradeResult` + mappers); extract + test, behaviour untouched |
+| [11](11-learn-save-hook.md) | `useLearnProgress` hook for the dual-source save | Worth exploring | Consolidate the optimistic guest/DB save dance into one named hook; depends on #10 |
+| [12](12-drain-synced-attempts.md) | One pure `drainSyncedAttempts`, two callers | Worth exploring | Dedupe the verbatim subtract-synced loop in `useTestPersistence` into a tested pure function |
+| [13](13-progress-hero-derivation.md) | Extract the Progress hero delta | Speculative | Move the trend-endpoint `heroDelta` into `src/lib/progress`; marginal, surrounding math already deep |
+
+Order: **#10** (pure extraction, unlocks #11) → #11 → #12 (independent) → #13 (lowest priority).
+
+1. **#10** — ✅ done. `src/lib/learnProgression.ts` owns the unlock ladder, merge,
+   resume/next navigation, grading and the wire↔domain mappers; `learn.tsx` is now
+   wiring over it. Killed the ×2 grade + ×3 normalization duplications. 19 unit
+   tests pin current behaviour; learn e2e 8/8 desktop + mobile (unchanged). Added
+   the **Learn ladder** vocabulary (Level, Unlock) to `CONTEXT.md`.
+2. **#11–#13** — ⏳ mapped, not yet grilled.
+
+**Carried out of #10's grilling:** the persisted `{options, speed}` wire names
+were judged confusing enough to translate to domain `{levelName, netWpm}` at each
+boundary rather than spread through the logic; the gating returns a domain
+`LevelStatus[]` so react-select vocabulary stays in the page; `levels` is imported
+(one ladder, no speculative seam).
+
 ## Notes carried out of grilling
 
 - No ports/adapters layer anywhere: tRPC is hooks-only (`createTRPCNext`), so the
