@@ -11,14 +11,35 @@ import { store } from '../state/store';
 import { Provider } from 'react-redux';
 import Head from "next/head";
 import Script from "next/script";
+import { useRouter } from "next/router";
+import { useEffect } from "react";
+import { Analytics } from "@vercel/analytics/next"
+
+declare global {
+  interface Window {
+    gtag?: (...args: unknown[]) => void;
+  }
+}
 
 const MyApp: AppType<{ session: Session | null }> = ({
   Component,
   pageProps: { session, ...pageProps },
 }) => {
+  const router = useRouter();
+
+  // GA4 only fires page_view on first load; SPA route changes need a manual hit.
+  useEffect(() => {
+    const onRouteChange = (url: string) => {
+      window.gtag?.("event", "page_view", { page_path: url });
+    };
+    router.events.on("routeChangeComplete", onRouteChange);
+    return () => router.events.off("routeChangeComplete", onRouteChange);
+  }, [router.events]);
+
   return (
     <Provider store={store}>
       <SessionProvider session={session}>
+        <Analytics/>
         <GuestImport />
         <Layout>
           <Head>
