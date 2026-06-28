@@ -1,82 +1,76 @@
-import { useCallback, useEffect, useReducer } from "react";
-import type { Config, ReturnValue, State } from "./types";
-import { reducer } from "./reducer";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { deriveTimerTime, nextTickDelay } from "./tick";
+import type { TimerType } from "./types";
+
+// A drift-free countdown for timed tests — and nothing more. Only DECREMENTAL
+// (timed Normal) actually runs a clock: it schedules ticks against the wall-clock
+// start and re-derives the remaining time each tick (see tick.ts), so render/tab
+// latency never accumulates into the countdown. Every other mode is INCREMENTAL,
+// where the displayed time isn't shown and elapsed time is measured from the
+// keystroke recorder's timeline, not here — so we don't tick at all, we just
+// stamp the start time (the empty-timeline fallback for stats/live WPM).
+
+interface Config {
+    _initialTime: number;
+    timerType: TimerType;
+    endTime: number | null;
+    interval: number;
+    step: number;
+    onTimeOver?: () => void;
+}
+
+interface ReturnValue {
+    time: number;
+    start: () => void;
+    pause: () => void;
+    setInitialTime: (newInitialTime: number) => void;
+    actualStartTime: number;
+}
 
 export const useTimer = ({
-    autostart = false,
-    endTime,
-    initialStatus = 'STOPPED',
     _initialTime = 0,
-    interval = 1000,
-    onTimeOver,
-    onTimeUpdate,
-    step = 1,
     timerType = 'INCREMENTAL',
+    endTime = null,
+    interval = 1000,
+    step = 1,
+    onTimeOver,
 }: Partial<Config> = {}): ReturnValue => {
-    const [state, dispatch] = useReducer(reducer, {
-        status: initialStatus,
-        time: _initialTime,
-        timerType,
-        initialTime: _initialTime,
-        actualStartTime: Date.now(),
-        actualEndTime: Date.now(),
-    } satisfies State);
+    const [running, setRunning] = useState(false);
+    const [time, setTime] = useState(_initialTime);
+    const [initialTime, setInitialTimeState] = useState(_initialTime);
+    const [actualStartTime, setActualStartTime] = useState(() => Date.now());
 
-    const { status, time, initialTime, actualStartTime, actualEndTime } = state;
-
-    const advanceTime = useCallback((timeToAdd: number) => {
-        dispatch({ type: 'advanceTime', payload: { timeToAdd } });
-    }, [dispatch]);
-
-    const pause = useCallback(() => {
-        dispatch({ type: 'pause' });
-    }, []);
-
-    const reset = useCallback(() => {
-        dispatch({ type: 'reset', payload: { initialTime } });
-    }, [initialTime]);
+    const counts = timerType === 'DECREMENTAL' && endTime != null;
 
     const start = useCallback(() => {
-        dispatch({ type: 'start', payload: { initialTime } });
+        setActualStartTime(Date.now());
+        setTime(initialTime);
+        setRunning(true);
     }, [initialTime]);
 
+    const pause = useCallback(() => setRunning(false), []);
+
     const setInitialTime = useCallback((newInitialTime: number) => {
-        dispatch({ type: 'setInitialTime', payload: { newInitialTime } });
+        setInitialTimeState(newInitialTime);
+        setTime(newInitialTime);
     }, []);
 
+    // Fire onTimeOver once when the countdown crosses the end. A throttled tab can
+    // jump several steps in one tick, so detect crossing (<=), not landing on it.
+    const onTimeOverRef = useRef(onTimeOver);
+    useEffect(() => { onTimeOverRef.current = onTimeOver; }, [onTimeOver]);
     useEffect(() => {
-        if (autostart) {
-            dispatch({ type: 'start', payload: { initialTime } });
+        if (!running || !counts) return;
+        if (time <= (endTime as number)) {
+            setRunning(false);
+            onTimeOverRef.current?.();
         }
-    }, [autostart, initialTime]);
+    }, [running, counts, time, endTime]);
 
+    // Drift-free ticking, scheduled against the wall-clock start. Only runs for a
+    // real countdown — non-timed modes never enter here.
     useEffect(() => {
-        if (typeof onTimeUpdate === 'function') {
-            onTimeUpdate(time);
-        }
-    }, [time, onTimeUpdate]);
-
-    useEffect(() => {
-        if (status === 'STOPPED' || endTime == null) return;
-
-        // The tick below derives time from the wall clock, so a throttled tab can
-        // jump several steps at once — detect crossing the end, not just landing on it.
-        const isOver = timerType === 'DECREMENTAL' ? time <= endTime : time >= endTime;
-        if (isOver) {
-            dispatch({ type: 'stop' });
-
-            if (typeof onTimeOver === 'function') {
-                onTimeOver();
-            }
-        }
-    }, [endTime, onTimeOver, time, status, timerType]);
-
-    // Drift-free ticking: each tick is scheduled against the wall-clock start time
-    // and the displayed time is recomputed from elapsed real time, so render and
-    // effect latency never accumulate into the countdown.
-    useEffect(() => {
-        if (status !== 'RUNNING') return;
+        if (!running || !counts) return;
 
         let cancelled = false;
         let timeoutId: NodeJS.Timeout;
@@ -89,7 +83,7 @@ export const useTimer = ({
                 const newTime = deriveTimerTime({
                     now: Date.now(), startMs, initialTime, interval, step, timerType, endTime,
                 });
-                dispatch({ type: 'set', payload: { newTime } });
+                setTime(newTime);
                 scheduleNext();
             }, delay);
         };
@@ -100,7 +94,7 @@ export const useTimer = ({
             cancelled = true;
             clearTimeout(timeoutId);
         };
-    }, [status, step, timerType, interval, actualStartTime, initialTime, endTime]);
+    }, [running, counts, step, timerType, interval, actualStartTime, initialTime, endTime]);
 
-    return { advanceTime, pause, reset, start, initialTime, setInitialTime, status, time, actualStartTime, actualEndTime};
+    return { time, start, pause, setInitialTime, actualStartTime };
 };

@@ -1,6 +1,6 @@
-# Collapse the timer's Redux ceremony
+# Collapse the timer to a countdown-only ticker
 
-**Strength:** Worth exploring · **Category:** in-process **Status:** open
+**Strength:** Worth exploring · **Category:** in-process **Status:** ✅ done
 
 ## Files
 
@@ -22,35 +22,56 @@ worth of unused knobs — `autostart`, `onTimeUpdate`, `advanceTime`, `reset`,
 setInitialTime, actualStartTime }`). Answering "how does the countdown end?"
 means bouncing `useTimer` → `reducer` → `types` → back.
 
+## The deeper cut (Level 2)
+
+Beyond deleting the ceremony, the timer only ever *runs* for timed tests. For
+every other mode the displayed `time` is shown nowhere (Stats only renders the
+time cell when `isTimed`; `Typer`'s countdown is inside the `isTimed` block), and
+**elapsed time is measured from the keystroke recorder's timeline, not the timer**
+— `Typer`'s live-WPM effect and `computeStats` both read `timeline[0].t`, using
+the timer's `actualStartTime` only as an empty-timeline fallback. So the
+`INCREMENTAL` branch was ticking a value nobody reads, re-deriving an elapsed time
+the recorder already owns. It was redundant twice over.
+
 ## Solution
 
-Delete `actions.ts` + `helpers.ts`; inline the discriminated union into
-`types.ts`. Fold the 7-case `reducer` into `useTimer` (dispatched from nowhere
-else). Drop the unused config/return knobs. **Keep `tick.ts` unchanged** — it's
-the genuinely **deep** module here: pure drift-free wall-clock math with 84 lines
-of adversarial tests.
+Delete `actions.ts` + `helpers.ts` + `reducer.ts`; shrink `types.ts` to the lone
+`TimerType` (its only other consumer is `tick.ts`). Rewrite `useTimer` as a
+countdown-only ticker over plain `useState`: it ticks **only** when
+`timerType === 'DECREMENTAL'` with a finite `endTime`; otherwise `start()` just
+stamps `actualStartTime` and nothing schedules. The public interface is
+**unchanged** (`{ time, start, pause, setInitialTime, actualStartTime }`), so
+`Typer` isn't touched. **Keep `tick.ts` unchanged** — the genuinely **deep**
+module: pure drift-free wall-clock math with adversarial tests.
 
 ## Before / After
 
 ```
-Before (6 files)                        After (2 files)
-────────────────                        ───────────────
-actions.ts   (dead creators)            useTimer.ts  (shell + state machine + types)
+Before (6 files, ticks every mode)      After (3 files, ticks only timed)
+──────────────────────────────────      ────────────────────────────────
+actions.ts   (dead creators)            useTimer.ts  (countdown hook, useState)
 helpers.ts   (serves actions.ts)        tick.ts      (pure math, unchanged ✓✓)
-reducer.ts   (7-case switch)
-types.ts
-useTimer.ts
+reducer.ts   (7-case switch)            types.ts     (just TimerType)
+types.ts     (State/Config/Return)
+useTimer.ts  (reducer shell)
 tick.ts      (deep, tested)
 ```
 
 ## Benefits
 
-- ~70 lines and 4 file-hops removed; zero behaviour change
+- ~110 lines and 3 files removed; zero behaviour change
+- non-timed modes stop ticking a value nobody renders — the recorder is the clock
 - locality: the state machine sits next to the effect that drives it
 - the reducer ceremony bought substitutability the app never uses
 
-## Note
+## Decisions (grilled + built 2026-06-27)
 
-Independent of [06](06-net-scores-aggregation.md)/[07](07-share-card-frame.md);
-low-risk deletion, lower-value (no new test leverage — `tick` already pins the
-only logic worth pinning).
+**Scope: Level 2.** Confirmed only `Typer` imports `useTimer`, and it destructures
+exactly the five-field interface kept. Confirmed the recorder owns timekeeping
+(per-keystroke `Date.now()` stamps → `timeline`), so the timer's measurement role
+for non-timed modes was vestigial. Kept the interface identical to avoid any
+`Typer` churn; the hook is now a countdown that no-ops for non-timed.
+
+Verified: `tsc --noEmit` clean, `vitest run` 334/334 (incl. `tick` drift tests),
+and the two behavioural e2e — `timed test completes when the timer expires` and
+`practice mode has no countdown and keeps running` — both green.
