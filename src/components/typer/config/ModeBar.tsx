@@ -30,13 +30,13 @@ const QUOTE_LENGTHS: { value: QuoteLength, label: string }[] = [
     { value: "long", label: "Long" },
 ]
 
-// English ships as vocabulary-size slices of the unigram frequency corpus. "10k"
+// English ships as vocabulary-size slices of the unigram frequency corpus. "1k"
 // is the curated default and maps to the base `english` key; the rest load on
 // demand. They're grouped under one English row in the picker.
 const ENGLISH_SIZES = [
-    { value: "english1k", label: "1k" },
+    { value: "english", label: "1k" },
     { value: "english5k", label: "5k" },
-    { value: "english", label: "10k" },
+    { value: "english10k", label: "10k" },
     { value: "english25k", label: "25k" },
 ]
 const ENGLISH_VALUES = new Set(ENGLISH_SIZES.map((size) => size.value))

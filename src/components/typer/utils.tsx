@@ -2,7 +2,7 @@ import biGrams from './languages/nGrams/biGrams.json'
 import triGrams from './languages/nGrams/triGrams.json'
 import tetraGrams from './languages/nGrams/tetraGrams.json'
 
-import english10k from './languages/english10k.json'
+import english1k from './languages/english1k.json'
 
 import { TestGramScopes, TestGramSources, type QuoteLength } from './types'
 // Drillable-key definitions live in lib (single source shared with diagnosis and
@@ -41,7 +41,7 @@ export const generateQuote = (length: QuoteLength): string => {
 // mode. All other word lists (and the 400 KB pentagrams file) load on demand —
 // they would otherwise dominate the first-paint bundle.
 const languages: Record<string, WordList> = {
-    english: english10k,
+    english: english1k,
 }
 
 const languageLoaders: Record<string, () => Promise<WordList>> = {
@@ -50,10 +50,10 @@ const languageLoaders: Record<string, () => Promise<WordList>> = {
     chinese: async () => (await import('./languages/chinese10k.json')).default,
     hindi: async () => (await import('./languages/hindi1k.json')).default,
     // English vocabulary sizes: frequency-ranked, then filtered against SCOWL so
-    // only real words survive. The default `english` (10k) ships in the main
+    // only real words survive. The default `english` (1k) ships in the main
     // bundle; these slices load on demand so they never weigh down first paint.
-    english1k: async () => (await import('./languages/english1k.json')).default,
     english5k: async () => (await import('./languages/english5k.json')).default,
+    english10k: async () => (await import('./languages/english10k.json')).default,
     english25k: async () => (await import('./languages/english25k.json')).default,
 }
 
