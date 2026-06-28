@@ -1,533 +1,80 @@
 import { TestSubModes } from "~/components/typer/types";
 
+export type LevelKind = "keys" | "speed" | "noMiss" | "boss"
+
 export interface Level {
     name: string,
-    description: string,
     keys: string,
-    subMode: TestSubModes,
     count: number,
-    easy: Difficulty,
-    medium: Difficulty,
-    hard: Difficulty,
+    kind: LevelKind,
+    subMode: TestSubModes,
 }
 
-export interface Difficulty {
-    wpm: number,
-    accuracy: number,
-}
+// The 100-level Learn ladder, generated from a compact spec rather than authored
+// per level (docs/features/learn-ladder.md). Thresholds are not stored here — they
+// derive from the level number via src/lib/learnThresholds.ts. Curves below are
+// tunable knobs; the generated shape is what the rest of the app consumes.
 
-export const levels: Level[] = [
-    {
-        name: 'Level 1',
-        description: 'Learn the home row keys',
-        keys: 'asdfjkl',
-        subMode: TestSubModes.words,
-        count: 10,
-        easy: {
-            wpm: 40,
-            accuracy: 90,
-        },
-        medium: {
-            wpm: 80,
-            accuracy: 90,
-        },
-        hard: {
-            wpm: 120,
-            accuracy: 90,
-        },
-    },
-    {
-        name: 'Level 2',
-        description: 'Learn the home row keys',
-        keys: 'asdfjkl',
-        subMode: TestSubModes.words,
-        count: 25,
-        easy: {
-            wpm: 40,
-            accuracy: 90,
-        },
-        medium: {
-            wpm: 80,
-            accuracy: 90,
-        },
-        hard: {
-            wpm: 120,
-            accuracy: 90,
-        },
-    },
-    {
-        name: 'Level 3',
-        description: 'Learn the home row keys',
-        keys: 'asdfjkl',
-        subMode: TestSubModes.words,
-        count: 50,
-        easy: {
-            wpm: 40,
-            accuracy: 90,
-        },
-        medium: {
-            wpm: 80,
-            accuracy: 90,
-        },
-        hard: {
-            wpm: 120,
-            accuracy: 90,
-        },
-    },
-    {
-        name: 'Level 4',
-        description: 'Learn the home row keys',
-        keys: 'erdfuijk',
-        subMode: TestSubModes.words,
-        count: 10,
-        easy: {
-            wpm: 40,
-            accuracy: 90,
-        },
-        medium: {
-            wpm: 80,
-            accuracy: 90,
-        },
-        hard: {
-            wpm: 120,
-            accuracy: 90,
-        },
-    },
-    {
-        name: 'Level 5',
-        description: 'Learn the home row keys',
-        keys: 'erdfuijk',
-        subMode: TestSubModes.words,
-        count: 25,
-        easy: {
-            wpm: 40,
-            accuracy: 90,
-        },
-        medium: {
-            wpm: 80,
-            accuracy: 90,
-        },
-        hard: {
-            wpm: 120,
-            accuracy: 90,
-        },
-    },
-    {
-        name: 'Level 6',
-        description: 'Learn the home row keys',
-        keys: 'erdfuijk',
-        subMode: TestSubModes.words,
-        count: 50,
-        easy: {
-            wpm: 40,
-            accuracy: 90,
-        },
-        medium: {
-            wpm: 80,
-            accuracy: 90,
-        },
-        hard: {
-            wpm: 120,
-            accuracy: 90,
-        },
-    },
-    {
-        name: 'Level 7',
-        description: 'Learn the home row keys',
-        keys: 'ertyuidfghjk',
-        subMode: TestSubModes.words,
-        count: 10,
-        easy: {
-            wpm: 40,
-            accuracy: 90,
-        },
-        medium: {
-            wpm: 80,
-            accuracy: 90,
-        },
-        hard: {
-            wpm: 120,
-            accuracy: 90,
-        },
-    },
-    {
-        name: 'Level 8',
-        description: 'Learn the home row keys',
-        keys: 'ertyuidfghjk',
-        subMode: TestSubModes.words,
-        count: 25,
-        easy: {
-            wpm: 40,
-            accuracy: 90,
-        },
-        medium: {
-            wpm: 80,
-            accuracy: 90,
-        },
-        hard: {
-            wpm: 120,
-            accuracy: 90,
-        },
-    },
-    {
-        name: 'Level 9',
-        description: 'Learn the home row keys',
-        keys: 'ertyuidfghjk',
-        subMode: TestSubModes.words,
-        count: 50,
-        easy: {
-            wpm: 40,
-            accuracy: 90,
-        },
-        medium: {
-            wpm: 80,
-            accuracy: 90,
-        },
-        hard: {
-            wpm: 120,
-            accuracy: 90,
-        },
-    },
-    {
-        name: 'Level 10',
-        description: 'Learn the home row keys',
-        keys: 'ertyuisdfghjkl',
-        subMode: TestSubModes.words,
-        count: 10,
-        easy: {
-            wpm: 40,
-            accuracy: 90,
-        },
-        medium: {
-            wpm: 80,
-            accuracy: 90,
-        },
-        hard: {
-            wpm: 120,
-            accuracy: 90,
-        },
-    },
-    {
-        name: 'Level 11',
-        description: 'Learn the home row keys',
-        keys: 'ertyuisdfghjkl',
-        subMode: TestSubModes.words,
-        count: 25,
-        easy: {
-            wpm: 40,
-            accuracy: 90,
-        },
-        medium: {
-            wpm: 80,
-            accuracy: 90,
-        },
-        hard: {
-            wpm: 120,
-            accuracy: 90,
-        },
-    },
-    {
-        name: 'Level 12',
-        description: 'Learn the home row keys',
-        keys: 'ertyuisdfghjkl',
-        subMode: TestSubModes.words,
-        count: 50,
-        easy: {
-            wpm: 40,
-            accuracy: 90,
-        },
-        medium: {
-            wpm: 80,
-            accuracy: 90,
-        },
-        hard: {
-            wpm: 120,
-            accuracy: 90,
-        },
-    },
-    {
-        name: 'Level 13',
-        description: 'Learn the home row keys',
-        keys: 'wertyuiosdfghjkl',
-        subMode: TestSubModes.words,
-        count: 10,
-        easy: {
-            wpm: 40,
-            accuracy: 90,
-        },
-        medium: {
-            wpm: 80,
-            accuracy: 90,
-        },
-        hard: {
-            wpm: 120,
-            accuracy: 90,
-        },
-    },
-    {
-        name: 'Level 14',
-        description: 'Learn the home row keys',
-        keys: 'wertyuiosdfghjkl',
-        subMode: TestSubModes.words,
-        count: 25,
-        easy: {
-            wpm: 40,
-            accuracy: 90,
-        },
-        medium: {
-            wpm: 80,
-            accuracy: 90,
-        },
-        hard: {
-            wpm: 120,
-            accuracy: 90,
-        },
-    },
-    {
-        name: 'Level 15',
-        description: 'Learn the home row keys',
-        keys: 'wertyuiosdfghjkl',
-        subMode: TestSubModes.words,
-        count: 50,
-        easy: {
-            wpm: 40,
-            accuracy: 90,
-        },
-        medium: {
-            wpm: 80,
-            accuracy: 90,
-        },
-        hard: {
-            wpm: 120,
-            accuracy: 90,
-        },
-    },
-    {
-        name: 'Level 16',
-        description: 'Learn the home row keys',
-        keys: 'wertyuiosdfghjklcn',
-        subMode: TestSubModes.words,
-        count: 10,
-        easy: {
-            wpm: 40,
-            accuracy: 90,
-        },
-        medium: {
-            wpm: 80,
-            accuracy: 90,
-        },
-        hard: {
-            wpm: 120,
-            accuracy: 90,
-        },
-    },
-    {
-        name: 'Level 17',
-        description: 'Learn the home row keys',
-        keys: 'wertyuiosdfghjklcn',
-        subMode: TestSubModes.words,
-        count: 25,
-        easy: {
-            wpm: 40,
-            accuracy: 90,
-        },
-        medium: {
-            wpm: 80,
-            accuracy: 90,
-        },
-        hard: {
-            wpm: 120,
-            accuracy: 90,
-        },
-    },
-    {
-        name: 'Level 18',
-        description: 'Learn the home row keys',
-        keys: 'wertyuiosdfghjklcn',
-        subMode: TestSubModes.words,
-        count: 50,
-        easy: {
-            wpm: 40,
-            accuracy: 90,
-        },
-        medium: {
-            wpm: 80,
-            accuracy: 90,
-        },
-        hard: {
-            wpm: 120,
-            accuracy: 90,
-        },
-    },
-    {
-        name: 'Level 19',
-        description: 'Learn the home row keys',
-        keys: 'wertyuiosdfghjklcvbn',
-        subMode: TestSubModes.words,
-        count: 10,
-        easy: {
-            wpm: 40,
-            accuracy: 90,
-        },
-        medium: {
-            wpm: 80,
-            accuracy: 90,
-        },
-        hard: {
-            wpm: 120,
-            accuracy: 90,
-        },
-    },
-    {
-        name: 'Level 20',
-        description: 'Learn the home row keys',
-        keys: 'wertyuiosdfghjklcvbn',
-        subMode: TestSubModes.words,
-        count: 25,
-        easy: {
-            wpm: 40,
-            accuracy: 90,
-        },
-        medium: {
-            wpm: 80,
-            accuracy: 90,
-        },
-        hard: {
-            wpm: 120,
-            accuracy: 90,
-        },
-    },
-    {
-        name: 'Level 21',
-        description: 'Learn the home row keys',
-        keys: 'wertyuiosdfghjklcvbn',
-        subMode: TestSubModes.words,
-        count: 50,
-        easy: {
-            wpm: 40,
-            accuracy: 90,
-        },
-        medium: {
-            wpm: 80,
-            accuracy: 90,
-        },
-        hard: {
-            wpm: 120,
-            accuracy: 90,
-        },
-    },
-    {
-        name: 'Level 22',
-        description: 'Learn the home row keys',
-        keys: 'wertyuiosdfghjklxcvbnm',
-        subMode: TestSubModes.words,
-        count: 10,
-        easy: {
-            wpm: 40,
-            accuracy: 90,
-        },
-        medium: {
-            wpm: 80,
-            accuracy: 90,
-        },
-        hard: {
-            wpm: 120,
-            accuracy: 90,
-        },
-    },
-    {
-        name: 'Level 23',
-        description: 'Learn the home row keys',
-        keys: 'wertyuiosdfghjklxcvbnm',
-        subMode: TestSubModes.words,
-        count: 25,
-        easy: {
-            wpm: 40,
-            accuracy: 90,
-        },
-        medium: {
-            wpm: 80,
-            accuracy: 90,
-        },
-        hard: {
-            wpm: 120,
-            accuracy: 90,
-        },
-    },
-    {
-        name: 'Level 24',
-        description: 'Learn the home row keys',
-        keys: 'wertyuiosdfghjklxcvbnm',
-        subMode: TestSubModes.words,
-        count: 50,
-        easy: {
-            wpm: 40,
-            accuracy: 90,
-        },
-        medium: {
-            wpm: 80,
-            accuracy: 90,
-        },
-        hard: {
-            wpm: 120,
-            accuracy: 90,
-        },
-    },
-    {
-        name: 'Level 25',
-        description: 'Learn the home row keys',
-        keys: 'qwertyuiopasdfghjklzxcvbnm',
-        subMode: TestSubModes.words,
-        count: 10,
-        easy: {
-            wpm: 40,
-            accuracy: 90,
-        },
-        medium: {
-            wpm: 80,
-            accuracy: 90,
-        },
-        hard: {
-            wpm: 120,
-            accuracy: 90,
-        },
-    },
-    {
-        name: 'Level 26',
-        description: 'Learn the home row keys',
-        keys: 'qwertyuiopasdfghjklzxcvbnm',
-        subMode: TestSubModes.words,
-        count: 25,
-        easy: {
-            wpm: 40,
-            accuracy: 90,
-        },
-        medium: {
-            wpm: 80,
-            accuracy: 90,
-        },
-        hard: {
-            wpm: 120,
-            accuracy: 90,
-        },
-    },
-    {
-        name: 'Level 27',
-        description: 'Learn the home row keys',
-        keys: 'qwertyuiopasdfghjklzxcvbnm',
-        subMode: TestSubModes.words,
-        count: 50,
-        easy: {
-            wpm: 40,
-            accuracy: 90,
-        },
-        medium: {
-            wpm: 80,
-            accuracy: 90,
-        },
-        hard: {
-            wpm: 120,
-            accuracy: 90,
-        },
-    }
+// Keys are introduced progressively over the first INTRO_LEVELS, then the full
+// alphabet is held for the rest of the climb — later difficulty comes from the
+// WPM ramp, longer counts and themed kinds, not new keys.
+const KEY_STAGES = [
+    "asdfjkl",                    // home row
+    "asdfghjkl",                  // + g h
+    "asdefghijkl",                // + e i
+    "asderfghijkul",              // + r u
+    "asdertfghijkuly",            // + t y
+    "wasdertfghijkulyo",          // + w o
+    "qwasdertfghijkulyop",        // + q p
+    "qwasdertfghijkulyopcn",      // + c n
+    "qwasdertfghijkulyopcnvm",    // + v m
+    "qwasdertfghijkulyopcnvmb",   // + b
+    "qwertyuiopasdfghjklzxcvbnm", // full alphabet
 ]
+
+const TOTAL_LEVELS = 100
+const INTRO_LEVELS = 44 // keys fully introduced by ~L44
+const BASE_COUNT = 10   // words at L1
+const MAX_COUNT = 50    // words at the top (non-boss/speed)
+const BOSS_COUNT = 60   // boss levels are longer
+const SPEED_SECONDS = 30 // speed rounds are timed (count is seconds — wired in slice 4)
+
+function keysForLevel(level: number): string {
+    if (level > INTRO_LEVELS) return KEY_STAGES[KEY_STAGES.length - 1]!
+    const perStage = INTRO_LEVELS / KEY_STAGES.length
+    const index = Math.min(KEY_STAGES.length - 1, Math.floor((level - 1) / perStage))
+    return KEY_STAGES[index]!
+}
+
+// Block-of-10 rhythm: boss on the 10th, a speed round at position 4 and a no-miss
+// at position 7, the rest plain key levels. (Speed/no-miss/boss behaviour lands in
+// slices 4/5/3; until then they render as ordinary key levels.)
+function kindForLevel(level: number): LevelKind {
+    const position = level % 10 // 1..9 within the block, 0 = the 10th
+    if (position === 0) return "boss"
+    if (position === 4) return "speed"
+    if (position === 7) return "noMiss"
+    return "keys"
+}
+
+function countForLevel(level: number, kind: LevelKind): number {
+    if (kind === "boss") return BOSS_COUNT
+    if (kind === "speed") return SPEED_SECONDS
+    return Math.round(BASE_COUNT + (MAX_COUNT - BASE_COUNT) * (level - 1) / (TOTAL_LEVELS - 1))
+}
+
+function buildLevels(): Level[] {
+    return Array.from({ length: TOTAL_LEVELS }, (_, i) => {
+        const level = i + 1
+        const kind = kindForLevel(level)
+        return {
+            name: `Level ${level}`,
+            keys: keysForLevel(level),
+            count: countForLevel(level, kind),
+            kind,
+            subMode: kind === "speed" ? TestSubModes.timed : TestSubModes.words,
+        }
+    })
+}
+
+export const levels: Level[] = buildLevels()

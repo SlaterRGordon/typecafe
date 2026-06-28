@@ -137,18 +137,20 @@ boss level's `pacerWpm`.
 
 ## 7. Build slices (each suite-green, own commit)
 
-1. `feat(learn): formula-derived thresholds` — new `learnThresholds.ts` + tests;
-   rewire `learnStars`/`learnProgression`; `DifficultyName` → 5 tiers; dropdown →
-   5. *(Levels still 27, all `kind=keys`.)*
-2. `feat(learn): generate the 100-level ladder from a spec` — `buildLevels(spec)`;
-   `Level` gains `kind`, drops difficulties; boss slots marked. e2e + screenshots.
-3. `feat(typer): paced cursor with overtake-death` — `pacerWpm` prop, marker,
-   early-fail; boss levels wired @1★; modal copy. e2e + screenshots.
-4. `feat(learn): speed-round levels` — timed submode driven by `level.subMode`;
-   grade reuse.
-5. `feat(learn): no-miss levels` — 100% gate + first-miss death + WPM stars;
-   `gradeLevel` branch; modal copy.
-6. Tune curves/numbers; full screenshot tour; finalize ADR-0003.
+- [x] 1. `feat(learn): formula-derived thresholds` — new `learnThresholds.ts` +
+   tests; fold in `learnStars`; rewire `learnProgression`; `DifficultyName` → 5
+   tiers; dropdown → 5. *(Levels still 27, all implicitly `keys`.)*
+- [x] 2. `feat(learn): generate the 100-level ladder from a spec` —
+   `buildLevels()`; `Level` gains `kind`/`subMode`, drops difficulties +
+   description; boss/speed/noMiss slots marked (still behave as `keys`). e2e +
+   screenshots.
+- [ ] 3. `feat(typer): paced cursor with overtake-death` — `pacerWpm` prop,
+   marker, early-fail; boss levels wired @1★; modal copy. e2e + screenshots.
+- [ ] 4. `feat(learn): speed-round levels` — timed submode driven by
+   `level.subMode`; grade reuse.
+- [ ] 5. `feat(learn): no-miss levels` — 100% gate + first-miss death + WPM
+   stars; `gradeLevel` branch; modal copy.
+- [ ] 6. Tune curves/numbers; full screenshot tour; finalize ADR-0003.
 
 Every UI-touching slice updates `tests/e2e/` and the screenshot tour
 (`tests/e2e/screenshots.spec.ts`) in the same commit, per the standing rules.
