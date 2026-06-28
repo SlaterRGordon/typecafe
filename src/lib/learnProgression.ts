@@ -1,0 +1,129 @@
+import { levels, type Level } from "~/components/typer/learn/levels"
+import { starsFor, type LearnRequirement } from "~/lib/learnStars"
+
+export type DifficultyName = "easy" | "medium" | "hard"
+
+// A cleared Level's best result, in domain terms. The persisted shape (DB
+// columns, tRPC input, the localStorage mirror) calls these `options`/`speed`
+// — see PersistedProgress and the toLevelProgress/fromLevelProgress mappers.
+export interface LevelProgress {
+    levelName: string
+    netWpm: number
+    accuracy: number
+    stars: 0 | 1 | 2 | 3
+}
+
+// The wire/storage shape: `options` is the level name, `speed` is net WPM.
+export interface PersistedProgress {
+    options: string
+    speed: number
+    accuracy: number
+    stars?: number
+}
+
+// One Level's standing on the ladder for a difficulty: whether it's Unlocked and
+// the user's best star grade on it.
+export interface LevelStatus {
+    level: Level
+    unlocked: boolean
+    stars: 0 | 1 | 2 | 3
+}
+
+const clampStars = (value: number): 0 | 1 | 2 | 3 =>
+    value >= 3 ? 3 : value >= 2 ? 2 : value >= 1 ? 1 : 0
+
+export function toLevelProgress(row: PersistedProgress): LevelProgress {
+    return {
+        levelName: row.options,
+        netWpm: row.speed,
+        accuracy: row.accuracy,
+        stars: clampStars(row.stars ?? 0),
+    }
+}
+
+export function fromLevelProgress(entry: LevelProgress): PersistedProgress {
+    return {
+        options: entry.levelName,
+        speed: entry.netWpm,
+        accuracy: entry.accuracy,
+        stars: entry.stars,
+    }
+}
+
+// Fold an attempt into the lifetime progress, keeping the best of each metric.
+export function mergeProgress(progress: LevelProgress[], entry: LevelProgress): LevelProgress[] {
+    const current = progress.find((item) => item.levelName === entry.levelName)
+    const rest = progress.filter((item) => item.levelName !== entry.levelName)
+
+    return [
+        ...rest,
+        {
+            levelName: entry.levelName,
+            netWpm: Math.max(current?.netWpm ?? 0, entry.netWpm),
+            accuracy: Math.max(current?.accuracy ?? 0, entry.accuracy),
+            stars: clampStars(Math.max(current?.stars ?? 0, entry.stars)),
+        },
+    ]
+}
+
+// The ladder's standing for a difficulty: Level 1 is always Unlocked; every
+// other Level unlocks once the prior Level's best net WPM meets the prior
+// Level's requirement (accuracy is not gated).
+export function ladderState(progress: LevelProgress[], difficulty: DifficultyName): LevelStatus[] {
+    return levels.map((level, index, array) => {
+        const cleared = progress.find((item) => item.levelName === level.name)
+        const stars = clampStars(cleared?.stars ?? 0)
+
+        if (index === 0) return { level, unlocked: true, stars }
+
+        const prev = array[index - 1]
+        const prevProgress = progress.find((item) => item.levelName === prev?.name)
+        const requirement = prev?.[difficulty]
+        const unlocked = !!(prevProgress && requirement && prevProgress.netWpm >= requirement.wpm)
+
+        return { level, unlocked, stars }
+    })
+}
+
+// The Level to resume at: the last Unlocked Level (i.e. one before the first
+// locked one). All cleared → the final Level; nothing cleared → Level 1.
+export function resumeLevel(progress: LevelProgress[], difficulty: DifficultyName): Level {
+    const ladder = ladderState(progress, difficulty)
+    const firstLocked = ladder.findIndex((status) => !status.unlocked)
+    const index = firstLocked === -1 ? levels.length - 1 : firstLocked <= 0 ? 0 : firstLocked - 1
+
+    return levels[index] as Level
+}
+
+// The Level to advance to after clearing `levelName`: the next one, but only if
+// it's now Unlocked. Null at the end of the ladder or if it's still locked.
+export function nextLevel(progress: LevelProgress[], levelName: string, difficulty: DifficultyName): Level | null {
+    const currentIndex = levels.findIndex((level) => level.name === levelName)
+    const next = levels[currentIndex + 1]
+    if (!next) return null
+
+    const status = ladderState(progress, difficulty).find((item) => item.level.name === next.name)
+    return status?.unlocked ? next : null
+}
+
+// Grade a finished attempt against a Level's requirement: the requirement to
+// show, the star grade, and the progress entry to save.
+export function gradeResult(
+    level: Level,
+    difficulty: DifficultyName,
+    result: { netWpm: number; accuracy: number },
+): { requirement: LearnRequirement; stars: 0 | 1 | 2 | 3; entry: LevelProgress } {
+    const requirement = level[difficulty]
+    const stars = starsFor({ netWpm: result.netWpm }, requirement)
+
+    return {
+        requirement,
+        stars,
+        entry: {
+            levelName: level.name,
+            netWpm: result.netWpm,
+            accuracy: result.accuracy,
+            stars,
+        },
+    }
+}

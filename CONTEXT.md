@@ -59,6 +59,16 @@ _Avoid_: course, curriculum, program
 **Calibration**:
 The opening week of varied Tests that builds a weakness profile before a Plan can target it.
 
+### The Learn ladder
+
+**Level**:
+A numbered stage in Learn — its target keys and per-difficulty net-WPM requirement, graded 0–3 stars on each attempt (the star thresholds live in `src/lib/learnStars.ts`).
+_Avoid_: lesson, stage (as the metric name)
+
+**Unlock**:
+The rule that opens a Level: it becomes available once the prior Level's best net WPM meets that prior Level's requirement (accuracy is not gated). Level 1 is always open.
+_Avoid_: gate, pass
+
 ### Diagnosis
 
 **Diagnosis**:
