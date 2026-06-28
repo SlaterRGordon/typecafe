@@ -2,6 +2,10 @@
 
 **Strength:** Strong · **Category:** in-process **Status:** ✅ done
 
+> Threshold/grading model superseded by [ADR-0003](../adr/0003-learn-thresholds-and-kinds.md)
+> (formula-derived `targetWpm`, ramp-multiplier difficulty, per-kind `gradeLevel`,
+> paced bosses). The unlock/resume/next ladder lib described below is unchanged.
+
 ## Files
 
 `src/pages/learn.tsx` (611) → `src/lib/learnProgression.ts` (new module)
