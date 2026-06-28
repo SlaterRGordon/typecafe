@@ -1,6 +1,6 @@
 # Give net WPM a home
 
-**Strength:** Strong (correctness fix, not a deepening) · **Category:** in-process
+**Strength:** Strong (correctness fix, not a deepening) · **Category:** in-process **Status:** ✅ done
 
 ## Files
 

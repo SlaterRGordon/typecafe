@@ -10,6 +10,7 @@ import { detectImpossibleTimeline } from "~/lib/antiCheat";
 import { challengeStreakFromDateKeys, shiftChallengeDateKey } from "~/lib/challenge";
 import { timelineDurationMs, type EncodedKeystroke } from "~/lib/keystrokes";
 import { isRankableSample, netFromRaw } from "~/lib/stats";
+import { averageNet, bestNetPerUser, netOf } from "~/lib/netScores";
 import {
   peerPercentileBrag,
   peerPercentileForScore,
@@ -135,8 +136,8 @@ async function thirtyDayDelta(
     where: { userId: args.userId, ranked: true, id: { not: args.testId }, createdAt: { gte: since } },
     select: { speed: true, accuracy: true },
   });
-  if (prior.length < MIN_TESTS_FOR_AVG_DELTA) return null;
-  const avgNet = prior.reduce((sum, row) => sum + netFromRaw(row.speed, row.accuracy), 0) / prior.length;
+  const avgNet = averageNet(prior, MIN_TESTS_FOR_AVG_DELTA);
+  if (avgNet === null) return null;
   return netFromRaw(args.speed, args.accuracy) - avgNet;
 }
 
@@ -181,8 +182,8 @@ async function thirtyDayChallengeBaseline(
     select: { speed: true, accuracy: true },
   });
 
-  if (prior.length < MIN_TESTS_FOR_AVG_DELTA) return null;
-  const average = prior.reduce((sum, row) => sum + netFromRaw(row.speed, row.accuracy), 0) / prior.length;
+  const average = averageNet(prior, MIN_TESTS_FOR_AVG_DELTA);
+  if (average === null) return null;
   return { average, tests: prior.length };
 }
 
@@ -304,14 +305,9 @@ export const testRouter = createTRPCRouter({
 
       // Boards rank by net WPM (the canonical metric), keeping each user's best
       // net run. Net isn't stored, so derive it from raw speed + accuracy.
-      const netOf = (row: { speed: number; accuracy: number }) => netFromRaw(row.speed, row.accuracy);
-      const bestByUser = new Map<string, typeof rows[number]>();
-      for (const row of rows) {
-        const current = bestByUser.get(row.userId);
-        if (!current || netOf(row) > netOf(current)) bestByUser.set(row.userId, row);
-      }
+      const bestRows = bestNetPerUser(rows);
 
-      const fastest = Array.from(bestByUser.values())
+      const fastest = bestRows
         .sort((a, b) => netOf(b) - netOf(a))
         .slice(0, limit)
         .map((row, index) => ({
@@ -324,7 +320,7 @@ export const testRouter = createTRPCRouter({
         }));
 
       const improvedCandidates = await Promise.all(
-        Array.from(bestByUser.values()).map(async (row) => {
+        bestRows.map(async (row) => {
           const baseline = await thirtyDayChallengeBaseline(ctx.prisma, {
             userId: row.userId,
             before: challengeDate,
@@ -383,14 +379,7 @@ export const testRouter = createTRPCRouter({
         },
       });
 
-      const netOf = (row: { speed: number; accuracy: number }) => netFromRaw(row.speed, row.accuracy);
-      const best = new Map<string, typeof rows[number]>();
-      for (const row of rows) {
-        const current = best.get(row.userId);
-        if (!current || netOf(row) > netOf(current)) best.set(row.userId, row);
-      }
-
-      const sorted = Array.from(best.values()).sort((a, b) => netOf(b) - netOf(a));
+      const sorted = bestNetPerUser(rows).sort((a, b) => netOf(b) - netOf(a));
       const start = input.page * input.limit;
       return sorted.slice(start, start + input.limit).map((row, index) => ({
         rank: start + index + 1,

@@ -33,6 +33,30 @@ key stats, transitions, progress — must read identically from a guest's
    `onBackspace` and no longer reports counts. The completion `+1` lag-correction
    is gone (the recorder counts synchronously). Typer/Text e2e green.
 
+## Round 2 (2026-06-27)
+
+A second pass on the **signed-in write path** — the `test` router and the timer
+hook — where the scoring numbers are computed *inside* the I/O instead of behind
+a tested seam. Same root friction as round 1, other end of it: Net WPM isn't
+stored, so every surface re-derives it.
+
+| # | Candidate | Strength | Resolved scope |
+|---|-----------|----------|----------------|
+| [06](06-net-scores-aggregation.md) | Lift net-WPM aggregation to `src/lib/` | Strong | `netScores.ts` (`netOf`/`averageNet`/`bestNetPerUser`); replace 5 inline sites in `test.ts` |
+| [07](07-share-card-frame.md) | Split share-card frame from queries | Worth exploring | Fetch in router, decide in `shareCard.ts`; needs #06 |
+| [08](08-timer-ceremony-collapse.md) | Collapse timer Redux ceremony | Worth exploring | Delete `actions`/`helpers`, fold reducer into `useTimer`, keep `tick.ts` |
+| [09](09-shallow-single-caller-utils.md) | Inline shallow single-caller utils | Speculative | Inline `learnStars`/`typeLanguage`; keep `format.ts` |
+
+**Discarded:** "keystrokeRecorder created but never fed during typing" — false;
+`Typer.tsx:450/456` feed `append`/`backspace` live (#05 is wired correctly).
+
+Order: **#06** (pure extraction, unlocks #07) → #07 → #08 (independent) → #09 (hygiene).
+
+1. **#06** — ✅ done. `src/lib/netScores.ts` owns `netOf` / `averageNet` /
+   `bestNetPerUser`; the 30-day-delta, challenge-baseline, leaderboard and
+   challenge-board sites in `test.ts` now call it. Zero behaviour change; unit
+   tests over plain row arrays, no Prisma.
+
 ## Notes carried out of grilling
 
 - No ports/adapters layer anywhere: tRPC is hooks-only (`createTRPCNext`), so the

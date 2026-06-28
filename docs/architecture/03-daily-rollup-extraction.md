@@ -1,6 +1,6 @@
 # Lift the daily-rollup math out of the test router
 
-**Strength:** Strong · **Category:** in-process
+**Strength:** Strong · **Category:** in-process **Status:** ✅ done
 
 ## Files
 

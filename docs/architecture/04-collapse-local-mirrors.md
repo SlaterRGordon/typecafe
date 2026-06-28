@@ -1,6 +1,6 @@
 # Collapse the twin local mirrors
 
-**Strength:** Worth exploring · **Category:** local-substitutable
+**Strength:** Worth exploring · **Category:** local-substitutable **Status:** ✅ done
 
 ## Files
 
