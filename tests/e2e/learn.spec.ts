@@ -26,6 +26,11 @@ test.describe("learn page", () => {
       await expect(page.getByText("Target Keys:")).toBeVisible();
     }
     await expect(page.locator(".typecafe-keyboard")).toBeVisible();
+
+    // Level 1 is a plain key level — the type chip and its "?" explainer show.
+    const kind = page.getByTestId("learn-level-kind");
+    await expect(kind).toContainText("Keys");
+    await expect(kind.getByRole("img")).toHaveAttribute("aria-label", /How Keys levels work/);
   });
 
   test("uses local progress to select the next unlocked level", async ({ page }) => {
@@ -103,7 +108,7 @@ test.describe("learn page", () => {
     const popover = page.getByTestId("learn-complete-popover");
     await expect(popover).toBeVisible();
     await expect(popover).toContainText("Level 1 not cleared yet");
-    await expect(popover).toContainText("Need 22 net WPM.");
+    await expect(popover).toContainText("Need 22 net WPM to clear — you hit 0.");
     await expect(popover.getByTestId("learn-net-result")).toContainText("Need 22 net WPM");
     await expect(popover.getByTestId("learn-net-result")).toHaveClass(/border-error/);
     await expect(popover.getByTestId("learn-accuracy-result")).toContainText("Accuracy");
@@ -153,6 +158,8 @@ test.describe("learn page", () => {
 
     await gotoLearn(page);
     await expect(page.getByText("Level 10").first()).toBeVisible();
+    // Boss levels carry a "Boss" type chip in the controls.
+    await expect(page.getByTestId("learn-level-kind")).toContainText("Boss");
 
     // Type one character to start the attempt, then stop — the pacer catches up.
     await typeCurrentCharacter(page);
@@ -160,6 +167,8 @@ test.describe("learn page", () => {
     const popover = page.getByTestId("learn-complete-popover");
     await expect(popover).toBeVisible({ timeout: 10_000 });
     await expect(popover).toContainText("not cleared yet");
+    // The popup spells out why: the pacer caught them.
+    await expect(popover).toContainText("pacer caught you");
   });
 
   test("boss level: a fast burst then getting caught still fails (no WPM loophole)", async ({ page }) => {
@@ -216,8 +225,9 @@ test.describe("learn page", () => {
     await gotoLearn(page);
     await expect(page.getByText("Level 4").first()).toBeVisible();
 
-    // Speed rounds are timed — a countdown is shown.
+    // Speed rounds are timed — a countdown is shown and the chip reads "Timed".
     await expect(page.getByTestId("timed-countdown")).toBeVisible();
+    await expect(page.getByTestId("learn-level-kind")).toContainText("Timed");
 
     // ...and the drill stays on Level 4's keys (home row: asdfjkl).
     const chars = await page.locator("#words .char").allTextContents();
@@ -239,6 +249,8 @@ test.describe("learn page", () => {
 
     await gotoLearn(page);
     await expect(page.getByText("Level 7").first()).toBeVisible();
+    // No-miss levels carry a "No miss" type chip in the controls.
+    await expect(page.getByTestId("learn-level-kind")).toContainText("No miss");
 
     await typeCurrentCharacter(page, 0); // correct — starts the run
     await typeWrongCharacter(page, 1);   // one miss ends it

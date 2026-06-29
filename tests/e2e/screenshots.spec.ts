@@ -431,6 +431,21 @@ test.describe("screenshot tour", () => {
     await capture(page, testInfo, "60-learn-no-miss-failed");
   });
 
+  test("learn boss failed popover", async ({ page }, testInfo) => {
+    await page.addInitScript(() => {
+      const cleared = Array.from({ length: 9 }, (_, i) => ({
+        options: `Level ${i + 1}`, speed: 200, accuracy: 100, stars: 3,
+      }));
+      window.localStorage.setItem("typecafe.learnProgress.easy", JSON.stringify(cleared));
+    });
+    await page.goto("/learn");
+    await expect(page.locator("#words .char").first()).toBeVisible({ timeout: 20_000 });
+    // Start the run, then stall so the pacer overtakes and the boss fails.
+    await typeCurrentCharacter(page, 0);
+    await expect(page.getByTestId("learn-complete-popover")).toBeVisible({ timeout: 10_000 });
+    await capture(page, testInfo, "61-learn-boss-failed");
+  });
+
   test("learn level failed popover", async ({ page }, testInfo) => {
     await page.goto("/learn");
     await expect(page.locator("#words .char").first()).toBeVisible({ timeout: 20_000 });

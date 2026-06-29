@@ -2,8 +2,9 @@ import { type NextPage } from "next";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Typer } from "~/components/typer/Typer";
 import { TestGramScopes, TestGramSources, TestModes } from "~/components/typer/types";
-import type { Level } from "~/components/typer/learn/levels";
+import type { Level, LevelKind } from "~/components/typer/learn/levels";
 import { levels } from "~/components/typer/learn/levels";
+import { KIND_META } from "~/components/typer/learn/kindMeta";
 import { api } from "~/utils/api";
 import Select from 'react-select'
 import type { SingleValue } from "react-select";
@@ -23,16 +24,50 @@ import {
 } from "~/lib/learnProgression";
 import { useLearnProgress } from "~/hooks/useLearnProgress";
 
-type Option = { label: string, value: number | string, isDisabled: boolean, stars?: number }
+type Option = { label: string, value: number | string, isDisabled: boolean, stars?: number, kind: LevelKind }
 type LearnCompletion = {
     levelName: string,
     netWpm: number,
     accuracy: number,
     stars: 0 | 1 | 2 | 3,
     thresholds: StarThresholds,
+    kind: LevelKind,
+    pacerCaught: boolean,
     isNoMiss: boolean,
     nextLevelName: string | null,
     saved: boolean,
+}
+
+// Why a fail popup says what it does — the specific cause, not just the WPM gap.
+function failMessage(c: LearnCompletion): string {
+    if (c.pacerCaught) return "The pacer caught you — reach the end before the line does to beat the boss."
+    if (c.kind === "noMiss" && c.accuracy < 100) return "One miss ends a no-miss level — stay perfect."
+    return `Need ${formatNumber(c.thresholds.oneStarNetWpm, 0)} net WPM to clear — you hit ${formatNumber(c.netWpm, 0)}.`
+}
+
+// The level-type chip + a "?" tooltip explaining how the active level is scored.
+function LevelKindBadge(props: { kind: LevelKind }) {
+    const meta = KIND_META[props.kind]
+    return (
+        <div className="flex items-center gap-2" data-testid="learn-level-kind">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
+                <meta.Icon className="h-3.5 w-3.5" />
+                {meta.label}
+            </span>
+            <span
+                className="tooltip tooltip-bottom before:max-w-[16rem] before:whitespace-normal before:text-left"
+                data-tip={meta.blurb}
+            >
+                <span
+                    className="inline-flex h-5 w-5 cursor-help items-center justify-center rounded-full border border-base-content/25 text-xs font-bold text-base-content/60"
+                    aria-label={`How ${meta.label} levels work: ${meta.blurb}`}
+                    role="img"
+                >
+                    ?
+                </span>
+            </span>
+        </div>
+    )
 }
 
 function formatNumber(value: number, digits = 1) {
@@ -147,6 +182,7 @@ const Learn: NextPage = () => {
             label: status.level.name,
             isDisabled: !status.unlocked,
             stars: status.stars,
+            kind: status.level.kind,
         })),
         [completedProgress, difficulty],
     )
@@ -202,6 +238,8 @@ const Learn: NextPage = () => {
             accuracy: result.accuracy,
             stars,
             thresholds,
+            kind: completedLevel.kind,
+            pacerCaught: !!result.pacerCaught,
             isNoMiss: completedLevel.kind === "noMiss",
             nextLevelName: stars > 0 && options.nextProgress ? (nextLevel(options.nextProgress, levelName, difficulty)?.name ?? null) : null,
             saved: options.saved,
@@ -312,17 +350,24 @@ const Learn: NextPage = () => {
                                         value={levelOptions.find(option => option.value == level.name)}
                                         onChange={handleChangeLevel}
                                         formatOptionLabel={(option: Option) => {
+                                            const meta = KIND_META[option.kind]
                                             if (option.isDisabled) {
                                                 return (
                                                     <div className="flex items-center justify-between gap-3">
-                                                        <div className="min-w-0 truncate">{option.label}</div>
+                                                        <div className="flex min-w-0 items-center gap-2">
+                                                            <meta.Icon className="h-4 w-4 shrink-0 opacity-50" />
+                                                            <span className="truncate">{option.label}</span>
+                                                        </div>
                                                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="currentColor" d="M6 22q-.825 0-1.413-.588T4 20V10q0-.825.588-1.413T6 8h1V6q0-2.075 1.463-3.538T12 1q2.075 0 3.538 1.463T17 6v2h1q.825 0 1.413.588T20 10v10q0 .825-.588 1.413T18 22H6Zm0-2h12V10H6v10Zm6-3q.825 0 1.413-.588T14 15q0-.825-.588-1.413T12 13q-.825 0-1.413.588T10 15q0 .825.588 1.413T12 17ZM9 8h6V6q0-1.25-.875-2.125T12 3q-1.25 0-2.125.875T9 6v2ZM6 20V10v10Z" /></svg>
                                                     </div>
                                                 )
                                             }
                                             return (
                                                 <div className="flex items-center justify-between gap-3">
-                                                    <div className="min-w-0 truncate">{option.label}</div>
+                                                    <div className="flex min-w-0 items-center gap-2">
+                                                        <meta.Icon className={`h-4 w-4 shrink-0 ${meta.special ? "text-primary" : "opacity-50"}`} />
+                                                        <span className="truncate">{option.label}</span>
+                                                    </div>
                                                     <BestStars stars={option.stars} className="shrink-0 font-mono text-sm" />
                                                 </div>
                                             )
@@ -337,6 +382,9 @@ const Learn: NextPage = () => {
                     </div>
                     {!isLearnContentLoading &&
                         <>
+                            <div className="flex w-full items-center justify-start">
+                                <LevelKindBadge kind={level.kind} />
+                            </div>
                             <div className="flex w-full flex-wrap items-center gap-2 text-xs font-semibold text-base-content/60">
                                 <StarThreshold stars={1} netWpm={criteria.oneStarNetWpm} className="rounded-full border border-base-content/15 px-2.5 py-1" />
                                 <StarThreshold stars={2} netWpm={criteria.twoStarNetWpm} className="rounded-full border border-base-content/15 px-2.5 py-1" />
@@ -404,6 +452,12 @@ const Learn: NextPage = () => {
                                 <h2 id="learn-complete-title" className="mt-2 font-mono text-3xl font-bold">
                                     {completion.stars > 0 ? `${completion.levelName} clear!` : `${completion.levelName} not cleared yet`}
                                 </h2>
+                                {KIND_META[completion.kind].special &&
+                                    <span className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
+                                        {(() => { const Icon = KIND_META[completion.kind].Icon; return <Icon className="h-3.5 w-3.5" /> })()}
+                                        {KIND_META[completion.kind].label}
+                                    </span>
+                                }
                                 <div className="mt-4 flex gap-2" aria-label={`${completion.stars} stars`}>
                                     {[1, 2, 3].map((star) => (
                                         <span
@@ -445,9 +499,7 @@ const Learn: NextPage = () => {
                                         ? completion.saved
                                             ? "Best result saved."
                                             : "Clear earned, but saving failed."
-                                        : completion.isNoMiss && completion.accuracy < 100
-                                            ? "One miss ends a no-miss level — stay perfect."
-                                            : `Need ${formatNumber(completion.thresholds.oneStarNetWpm, 0)} net WPM.`}
+                                        : failMessage(completion)}
                                 </p>
                                 <div className="mt-4 grid w-full gap-2 rounded-lg border border-base-content/10 bg-base-200/35 p-3 text-left text-xs font-semibold text-base-content/60">
                                     <StarThreshold stars={1} netWpm={completion.thresholds.oneStarNetWpm} />
