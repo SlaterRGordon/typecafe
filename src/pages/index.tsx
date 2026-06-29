@@ -5,6 +5,7 @@ import { useRouter } from "next/router";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { DailyChallengePrompt } from "~/components/challenge/DailyChallengePrompt";
+import { HomeNextAction } from "~/components/home/HomeNextAction";
 import { ShareableScoreCard, type ScoreSnapshot } from "~/components/scores/ShareableScoreCard";
 import { Keyboard } from "~/components/typer/Keyboard";
 import { Typer, type TestCompletionResult } from "~/components/typer/Typer";
@@ -571,6 +572,7 @@ const Home: NextPage = () => {
         }
         {!completedScore &&
           <div data-testid="typing-focus-home-controls" className={typingFocusFadeClass(typingFocused, "w-full")}>
+            <HomeNextAction />
             <ModeBar
               mode={mode} subMode={subMode} setMode={setMode}
               setSubMode={setSubMode}

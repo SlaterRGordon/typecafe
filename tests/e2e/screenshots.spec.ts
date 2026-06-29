@@ -609,6 +609,14 @@ test.describe("screenshot tour", () => {
     await capture(page, testInfo, "50-home-daily-challenge-prompt");
   });
 
+  test("home: next-action coaching pill", async ({ page }, testInfo) => {
+    await mockAuthenticatedSession(page);
+    await mockTrpc(page);
+    await gotoHome(page);
+    await expect(page.getByTestId("home-next-action")).toBeVisible();
+    await capture(page, testInfo, "57-home-next-action");
+  });
+
   test("practice plan (targeted)", async ({ page }, testInfo) => {
     await mockAuthenticatedSession(page);
     await mockTrpc(page, { keyStats: [{ character: "r", total: 100, correct: 70 }, { character: "t", total: 80, correct: 62 }] });

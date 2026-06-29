@@ -18,14 +18,14 @@ among the active items so it sweeps pages after their content has settled.
 **Decision:** remove the large banner above the test; show the daily challenge as
 a small fixed card in the bottom-right corner instead.
 
-- [ ] Drop the full-width `DailyChallengePrompt` banner from above the mode bar in
+- [x] Drop the full-width `DailyChallengePrompt` banner from above the mode bar in
   [index.tsx](../../src/pages/index.tsx) (currently lines ~545–547).
-- [ ] Render it as a compact card `position: fixed; bottom-right`, above the test,
+- [x] Render it as a compact card `position: fixed; bottom-right`, above the test,
   out of the typing column entirely.
-- [ ] Show **only when today's challenge is undone**; collapse to nothing once done.
-- [ ] Dismissible, and hidden in fullscreen + during typing-focus fade (reuse
+- [x] Show **only when today's challenge is undone**; collapse to nothing once done.
+- [x] Dismissible, and hidden in fullscreen + during typing-focus fade (reuse
   `typingFocusFadeClass`).
-- [ ] Don't let it overlap the score card or the bottom-nav (mobile) — desktop only
+- [x] Don't let it overlap the score card or the bottom-nav (mobile) — desktop only
   concern here, but keep z-index below modals.
 
 Net effect: ~120px of vertical space above the test reclaimed; test moves up.
@@ -90,16 +90,16 @@ page. Keep the activity chart. **No heatmap** (that's a Progress thing).
 **Decision:** for returning signed-in users with history, show **one** coaching row
 in the space the banner vacated. Must feel minimal and look good.
 
-- [ ] A single slim, centered pill above the mode bar, e.g.
+- [x] A single slim, centered pill above the mode bar, e.g.
   `Next: your slowest jump is b→r (2.2× avg)   [ Drill it → ]`.
-- [ ] One finding only — never a dashboard. Pull from the same weak-spot data
+- [x] One finding only — never a dashboard. Pull from the same weak-spot data
   Progress already computes (`worstTransitions` / `composeWeakKeys` in
   [src/lib/](../../src/lib/)). Reuse cached/query data; no new query cost
-  (free-tier constraint).
-- [ ] Click → `/drill` (or `/?mode=practice&keys=…`) with those keys.
-- [ ] Dismissible. Shown only when there's enough history; guests / new users see
-  nothing (or the existing sign-in nudge) — keep the empty state clean.
-- [ ] Coexists with #1: challenge lives in the corner, this single row is the only
+  (free-tier constraint). Slowest transition leads; falls back to weakest keys.
+- [x] Click → `/drill` with those keys (same handoff Progress uses).
+- [x] Dismissible. Shown only when there's enough history; guests / new users see
+  nothing (signed-in only, returns null with no finding) — empty state clean.
+- [x] Coexists with #1: challenge lives in the corner, this single row is the only
   thing above the test.
 
 ---

@@ -252,6 +252,28 @@ test.describe("home typing test", () => {
     expect(scoreCreates).toBe(0);
   });
 
+  test("signed-in users get a next-action pill that drills their slowest transition", async ({ page }) => {
+    await mockAuthenticatedSession(page);
+    await mockTrpc(page);
+    await gotoHome(page);
+
+    const pill = page.getByTestId("home-next-action");
+    await expect(pill).toBeVisible();
+    await expect(pill).toContainText("b→r");
+    await expect(pill).toContainText("2.2× avg");
+    await expect(pill.getByTestId("home-next-action-drill")).toHaveAttribute("href", "/drill?keys=b,r");
+
+    // Dismissible — and stays gone for the session.
+    await pill.getByRole("button", { name: "Dismiss" }).click();
+    await expect(pill).toBeHidden();
+  });
+
+  test("guests see no next-action pill", async ({ page }) => {
+    await mockTrpc(page);
+    await gotoHome(page);
+    await expect(page.getByTestId("home-next-action")).toBeHidden();
+  });
+
   test("settings cover language, practice, no-timer length, stats, and keyboard options", async ({ page }) => {
     await gotoHome(page);
 
