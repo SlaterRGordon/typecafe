@@ -622,7 +622,7 @@ export const Typer = (props: TyperProps) => {
                     <div className="mx-auto flex w-full max-w-screen-xl flex-col gap-5">
                         <Stats layout="stacked" mode={mode} wpm={wpm} accuracy={accuracy} pending={statsPending} wpmPending={wpmPending}
                             averageWpm={gramWpm} levelText={getGramLevelText(gramLevel, gramCombination, gramScope)}
-                            isTimed={isTimed} time={time} showLiveStats={showStats}
+                            isTimed={isTimed} countUp={mode === TestModes.relaxed && subMode === TestSubModes.timed} time={time} showLiveStats={showStats}
                         />
                         {textNode}
                     </div>

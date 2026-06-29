@@ -274,11 +274,13 @@ test.describe("home typing test", () => {
     await selectMode(page, "Practice");
     await expect(page.locator(".typecafe-keyboard")).toBeVisible();
 
-    // ∞ (no timer) runs the relaxed engine while keeping the Timed sub-mode lit.
+    // ∞ (no timer) runs the relaxed engine while keeping the Timed sub-mode lit,
+    // and shows an elapsed count-up clock instead of a countdown.
     await selectMode(page, "Timed");
     await page.getByTestId("toolbar-context").getByRole("button", { name: "No timer" }).click();
     await expect(page.getByTestId("toolbar-context").getByRole("button", { name: "No timer" })).toHaveAttribute("aria-pressed", "true");
     await expect(page.getByTestId("mode-bar").getByRole("button", { name: "Timed" })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByTestId("stat-time")).toBeVisible();
   });
 
   test("keyboard toggle keeps the typing text vertically stable", async ({ page }) => {

@@ -20,6 +20,9 @@ interface StatsProps {
     // stacked only: when timed, the remaining seconds render as the first cell and
     // stay visible regardless of the live-stats toggle.
     isTimed?: boolean,
+    // stacked only: Timed ∞ (no timer) — show `time` as an elapsed count-up cell
+    // instead of a countdown, so the typist still sees a clock running.
+    countUp?: boolean,
     time?: number,
     // stacked only: whether the live WPM/accuracy cells render (live-stats toggle).
     showLiveStats?: boolean,
@@ -53,7 +56,7 @@ export const Stats = (props: StatsProps) => {
             }
             cells.push({ label: "level", value: props.levelText })
         } else {
-            if (props.isTimed) cells.push({ label: "time", value: String(props.time ?? 0) })
+            if (props.isTimed || props.countUp) cells.push({ label: "time", value: String(props.time ?? 0) })
             if (props.showLiveStats) {
                 cells.push({ label: "wpm", value: wpmText })
                 cells.push({ label: "acc", value: props.pending ? "—" : `${accuracyText}%` })
