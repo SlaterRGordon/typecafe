@@ -148,8 +148,9 @@ boss level's `pacerWpm`.
    smooth rAF-animated vertical line, overtake early-fail; boss levels wired @1★.
    An overtake forces a fail regardless of the net WPM the typed span banked
    (`pacerCaught` flag — no fast-burst-then-stall loophole). When the typist
-   races ahead and the line scrolls off the top, a "▲ pacer" hint pins to the top
-   edge (option B). e2e covers overtake-death, outrun-to-clear, and the loophole.
+   races ahead and the line scrolls off the top, an up-caret rides the top edge
+   at the pacer's horizontal column so its position stays legible (option B).
+   e2e covers overtake-death, outrun-to-clear, and the loophole.
 - [ ] 4. `feat(learn): speed-round levels` — timed submode driven by
    `level.subMode`; grade reuse.
 - [ ] 5. `feat(learn): no-miss levels` — 100% gate + first-miss death + WPM

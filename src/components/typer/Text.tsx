@@ -399,11 +399,14 @@ export const Text = memo(function Text(props: TextProps) {
                 const x = a.offsetLeft + frac * (right - a.offsetLeft)
                 const y = a.offsetTop - words.scrollTop
                 // When the typist races ahead, the pacer's line scrolls off the top
-                // and clips. Rather than lose it, pin a "pacer above" hint to the top
-                // edge so its threat stays on screen (option B).
+                // and clips. Rather than lose it, show an up-caret riding the top edge
+                // at the pacer's horizontal position, so where it is stays legible.
                 if (y < 0) {
                     line.style.display = 'none'
-                    if (above) above.style.display = 'flex'
+                    if (above) {
+                        above.style.display = 'block'
+                        above.style.transform = `translate(${x - 4}px, 0)`
+                    }
                 } else {
                     line.style.display = 'block'
                     line.style.height = `${a.offsetHeight}px`
@@ -427,10 +430,9 @@ export const Text = memo(function Text(props: TextProps) {
             <input id="input" autoCapitalize="none" autoComplete="off" className="h-0 p-0 m-0 border-none" onKeyDown={handleKeyPress} ref={inputRef} autoFocus />
             {/* Boss pacer line — positioned and animated imperatively by the pacer effect. */}
             <div ref={pacerLineRef} aria-hidden="true" className="pointer-events-none absolute left-0 top-0 z-40 w-[3px] rounded-full bg-error/90 will-change-transform" style={{ display: 'none', height: 0, transform: 'translate(-9999px, 0)' }} />
-            {/* Shown instead, pinned to the top edge, when the pacer has scrolled out of view above. */}
-            <div ref={pacerAboveRef} aria-hidden="true" className="pointer-events-none absolute left-0 top-0 z-40 hidden items-center gap-1 rounded-br bg-error/90 px-1.5 py-0.5 font-mono text-[0.6rem] font-bold uppercase leading-none text-error-content" style={{ display: 'none' }}>
-                <span>▲</span><span>pacer</span>
-            </div>
+            {/* Shown instead when the pacer has scrolled above the view: an up-caret that
+                tracks its horizontal position along the top edge, so its location stays legible. */}
+            <div ref={pacerAboveRef} aria-hidden="true" className="pointer-events-none absolute left-0 top-0 z-40 text-[0.7rem] leading-none text-error will-change-transform" style={{ display: 'none', transform: 'translate(-9999px, 0)' }}>▲</div>
             <div className="flex w-full flex-wrap justify-start overflow-y-hidden no-scrollbar scroll-smooth font-mono select-none sm:justify-start" id="words" ref={typerRef}>
                 <div
                     className="max-w-full"
