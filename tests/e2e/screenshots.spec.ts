@@ -243,7 +243,7 @@ test.describe("screenshot tour", () => {
     await capture(page, testInfo, "30-practice-vowel-alert");
 
     // Smart drill without enough typing history surfaces the warning toast.
-    await page.getByRole("button", { name: "Drill your six least accurate keys" }).click();
+    await page.getByRole("button", { name: "Drill your eight least accurate keys" }).click();
     await expect(page.getByText("Not enough typing data yet — practice a little first!")).toBeVisible();
     await capture(page, testInfo, "31-practice-smart-drill-no-data");
 

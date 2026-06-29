@@ -109,10 +109,10 @@ export const Keyboard = (props: KeyboardProps) => {
         }
     }
 
-    // Build a practice set from the user's six least-accurate keys (folded
+    // Build a practice set from the user's eight least-accurate keys (folded
     // lifetime + session attempts) across letters, numbers and punctuation. The
     // worst letters anchor word generation — padded with home-row keys and
-    // balanced so generation always has a vowel and a consonant; any weak
+    // balanced so generation always has two vowels and a consonant; any weak
     // numbers/punctuation ride along as extra drill targets sprinkled into the text.
     const handleSmartDrill = () => {
         if (!setSelectedKeys || mode !== TestModes.practice) return
@@ -125,22 +125,30 @@ export const Keyboard = (props: KeyboardProps) => {
         // minAttempts 3 matches the /progress "weakest keys" list, so smart drill
         // targets exactly the keys shown as weak there (a 0%-accuracy key with only
         // a few attempts was being skipped at the old threshold of 5).
-        const worst = worstKeysFromAttempts(drillable, 6, 3)
+        const worst = worstKeysFromAttempts(drillable, 8, 3)
         if (worst.length === 0) {
             dispatch(addAlert({ message: "Not enough typing data yet — practice a little first!", type: "warning" }))
             return
         }
         const worstKeys = worst.map((entry) => entry.key)
 
-        // Letters anchor word-gen: keep the weak letters, pad to six, guarantee a
-        // vowel + consonant.
+        // Letters anchor word-gen: keep the weak letters, pad to eight.
         const letters = worstKeys.filter((key) => ALPHABET.includes(key))
         for (const key of "asdfghjkleiou") {
-            if (letters.length >= 6) break
+            if (letters.length >= 8) break
             if (!letters.includes(key)) letters.push(key)
         }
-        if (!letters.some((key) => VOWELS.includes(key))) letters[letters.length - 1] = "e"
-        if (!letters.some((key) => !VOWELS.includes(key))) letters[letters.length - 1] = "t"
+        // Word generation needs variety: guarantee at least two vowels and one
+        // consonant, swapping the trailing (least-weak) slots if short.
+        const ensureMin = (pool: string, wanted: (key: string) => boolean, min: number) => {
+            for (let i = letters.length - 1; i >= 0 && letters.filter(wanted).length < min; i--) {
+                if (wanted(letters[i]!)) continue
+                const fill = pool.split("").find((f) => !letters.includes(f))
+                if (fill) letters[i] = fill
+            }
+        }
+        ensureMin("eaiou", (key) => VOWELS.includes(key), 2)
+        ensureMin("tnshr", (key) => !VOWELS.includes(key), 1)
 
         const extras = worstKeys.filter((key) => isDrillDigit(key) || isDrillMark(key))
         const keys = [...letters, ...extras]
@@ -184,7 +192,7 @@ export const Keyboard = (props: KeyboardProps) => {
                         >
                             ⇧ Shift
                         </button>
-                        <button className="btn btn-primary btn-sm gap-1 normal-case shadow-sm focus:outline-0" onClick={handleSmartDrill} aria-label="Drill your six least accurate keys" title="Drill your six least accurate keys">
+                        <button className="btn btn-primary btn-sm gap-1 normal-case shadow-sm focus:outline-0" onClick={handleSmartDrill} aria-label="Drill your eight least accurate keys" title="Drill your eight least accurate keys">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2Zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8Zm0-12a4 4 0 1 0 4 4 4 4 0 0 0-4-4Zm0 6a2 2 0 1 1 2-2 2 2 0 0 1-2 2Z" /></svg>
                             Smart drill
                         </button>
