@@ -114,14 +114,16 @@ export function nextLevel(progress: LevelProgress[], levelName: string, difficul
 }
 
 // Grade a finished attempt against a Level: the visible star thresholds, the star
-// grade, and the progress entry to save.
-export function gradeResult(
+// grade, and the progress entry to save. Stars come from net WPM; the only
+// per-kind rule is no-miss, where any error fails the level outright.
+export function gradeLevel(
     level: Level,
     difficulty: DifficultyName,
     result: { netWpm: number; accuracy: number },
 ): { thresholds: StarThresholds; stars: 0 | 1 | 2 | 3; entry: LevelProgress } {
     const levelNum = levelNumber(level.name)
-    const stars = starsForWpm(result.netWpm, levelNum, difficulty)
+    const wpmStars = starsForWpm(result.netWpm, levelNum, difficulty)
+    const stars = level.kind === "noMiss" && result.accuracy < 100 ? 0 : wpmStars
 
     return {
         thresholds: starThresholds(levelNum, difficulty),

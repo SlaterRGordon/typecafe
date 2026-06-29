@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest"
 import { levels } from "~/components/typer/learn/levels"
 import {
     fromLevelProgress,
-    gradeResult,
+    gradeLevel,
     ladderState,
     mergeProgress,
     nextLevel,
@@ -116,19 +116,25 @@ describe("nextLevel", () => {
     })
 })
 
-describe("gradeResult", () => {
+describe("gradeLevel", () => {
     const level1 = levels[0]!
 
     it("awards stars on the formula thresholds (easy Level 1 = 22 / 25 / 28)", () => {
-        expect(gradeResult(level1, "easy", { netWpm: 21, accuracy: 95 }).stars).toBe(0)
-        expect(gradeResult(level1, "easy", { netWpm: 22, accuracy: 95 }).stars).toBe(1)
-        expect(gradeResult(level1, "easy", { netWpm: 25, accuracy: 95 }).stars).toBe(2)
-        expect(gradeResult(level1, "easy", { netWpm: 28, accuracy: 95 }).stars).toBe(3)
+        expect(gradeLevel(level1, "easy", { netWpm: 21, accuracy: 95 }).stars).toBe(0)
+        expect(gradeLevel(level1, "easy", { netWpm: 22, accuracy: 95 }).stars).toBe(1)
+        expect(gradeLevel(level1, "easy", { netWpm: 25, accuracy: 95 }).stars).toBe(2)
+        expect(gradeLevel(level1, "easy", { netWpm: 28, accuracy: 95 }).stars).toBe(3)
     })
 
     it("returns the visible star thresholds and a saveable entry", () => {
-        const graded = gradeResult(level1, "easy", { netWpm: 26, accuracy: 93 })
+        const graded = gradeLevel(level1, "easy", { netWpm: 26, accuracy: 93 })
         expect(graded.thresholds).toEqual({ oneStarNetWpm: 22, twoStarNetWpm: 25, threeStarNetWpm: 28 })
         expect(graded.entry).toEqual({ levelName: "Level 1", netWpm: 26, accuracy: 93, stars: 2 })
+    })
+
+    it("fails a no-miss level on any error, but grades by WPM at 100%", () => {
+        const noMiss = levels.find((l) => l.kind === "noMiss")!
+        expect(gradeLevel(noMiss, "easy", { netWpm: 999, accuracy: 99.9 }).stars).toBe(0)
+        expect(gradeLevel(noMiss, "easy", { netWpm: 999, accuracy: 100 }).stars).toBe(3)
     })
 })

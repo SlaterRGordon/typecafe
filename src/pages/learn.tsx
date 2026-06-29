@@ -13,7 +13,7 @@ import { useSession } from "next-auth/react";
 import type { TestCompletionResult } from "~/components/typer/Typer";
 import { starThresholds, type StarThresholds } from "~/lib/learnThresholds";
 import {
-    gradeResult,
+    gradeLevel,
     ladderState,
     levelNumber,
     nextLevel,
@@ -30,6 +30,7 @@ type LearnCompletion = {
     accuracy: number,
     stars: 0 | 1 | 2 | 3,
     thresholds: StarThresholds,
+    isNoMiss: boolean,
     nextLevelName: string | null,
     saved: boolean,
 }
@@ -191,7 +192,7 @@ const Learn: NextPage = () => {
     ) => {
         const levelName = result.levelName ?? level.name
         const completedLevel = levels.find(item => item.name == levelName) ?? level
-        const { thresholds, stars: gradedStars } = gradeResult(completedLevel, difficulty, { netWpm: result.netWpm, accuracy: result.accuracy })
+        const { thresholds, stars: gradedStars } = gradeLevel(completedLevel, difficulty, { netWpm: result.netWpm, accuracy: result.accuracy })
         // An overtake on a boss is a loss regardless of the WPM the typed span hit.
         const stars = result.pacerCaught ? 0 : gradedStars
 
@@ -201,6 +202,7 @@ const Learn: NextPage = () => {
             accuracy: result.accuracy,
             stars,
             thresholds,
+            isNoMiss: completedLevel.kind === "noMiss",
             nextLevelName: stars > 0 && options.nextProgress ? (nextLevel(options.nextProgress, levelName, difficulty)?.name ?? null) : null,
             saved: options.saved,
         })
@@ -209,7 +211,7 @@ const Learn: NextPage = () => {
     const onTestComplete = (result: TestCompletionResult) => {
         const levelName = result.levelName ?? level.name
         const completedLevel = levels.find(item => item.name == levelName) ?? level
-        const { stars: gradedStars, entry } = gradeResult(completedLevel, difficulty, { netWpm: result.netWpm, accuracy: result.accuracy })
+        const { stars: gradedStars, entry } = gradeLevel(completedLevel, difficulty, { netWpm: result.netWpm, accuracy: result.accuracy })
         // An overtake on a boss is a loss regardless of the WPM the typed span hit.
         const stars = result.pacerCaught ? 0 : gradedStars
 
@@ -376,6 +378,7 @@ const Learn: NextPage = () => {
                             level={level}
                             levelRequirements={{ wpm: criteria.oneStarNetWpm, accuracy: 0 }}
                             pacerWpm={level.kind === "boss" ? criteria.oneStarNetWpm : undefined}
+                            failOnMiss={level.kind === "noMiss"}
                             onKeyChange={onKeyChange}
                             onTestComplete={onTestComplete}
                             onTypingFocusChange={setTypingFocused}
@@ -420,19 +423,31 @@ const Learn: NextPage = () => {
                                         passed={completion.netWpm >= completion.thresholds.oneStarNetWpm}
                                         testId="learn-net-result"
                                     />
-                                    <NeutralMetric
-                                        label="Accuracy"
-                                        value={`${formatNumber(completion.accuracy, 1)}%`}
-                                        note="Included in net WPM"
-                                        testId="learn-accuracy-result"
-                                    />
+                                    {completion.isNoMiss ?
+                                        <ResultMetric
+                                            label="Accuracy"
+                                            value={`${formatNumber(completion.accuracy, 1)}%`}
+                                            target="100%"
+                                            passed={completion.accuracy >= 100}
+                                            testId="learn-accuracy-result"
+                                        />
+                                        :
+                                        <NeutralMetric
+                                            label="Accuracy"
+                                            value={`${formatNumber(completion.accuracy, 1)}%`}
+                                            note="Included in net WPM"
+                                            testId="learn-accuracy-result"
+                                        />
+                                    }
                                 </div>
                                 <p className="mt-4 text-sm text-base-content/65">
                                     {completion.stars > 0
                                         ? completion.saved
                                             ? "Best result saved."
                                             : "Clear earned, but saving failed."
-                                        : `Need ${formatNumber(completion.thresholds.oneStarNetWpm, 0)} net WPM.`}
+                                        : completion.isNoMiss && completion.accuracy < 100
+                                            ? "One miss ends a no-miss level — stay perfect."
+                                            : `Need ${formatNumber(completion.thresholds.oneStarNetWpm, 0)} net WPM.`}
                                 </p>
                                 <div className="mt-4 grid w-full gap-2 rounded-lg border border-base-content/10 bg-base-200/35 p-3 text-left text-xs font-semibold text-base-content/60">
                                     <StarThreshold stars={1} netWpm={completion.thresholds.oneStarNetWpm} />

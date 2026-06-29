@@ -46,6 +46,8 @@ interface TyperProps {
     levelRequirements?: { wpm: number, accuracy: number },
     // Boss levels: pace the typist against a line moving at this net WPM.
     pacerWpm?: number,
+    // No-miss levels: a single error ends the run and fails it (never persisted).
+    failOnMiss?: boolean,
     onKeyChange: (key: string) => void,
     onAttemptChange?: () => void,
     onTestComplete?: (result: TestCompletionResult) => void,
@@ -390,10 +392,11 @@ export const Typer = (props: TyperProps) => {
         })
 
         if (mode === TestModes.normal || mode === TestModes.quotes) {
-            // An overtake is a loss no matter what net WPM the typed span measured —
-            // always the fail path, never persisted.
+            // An overtake (boss) or any error (no-miss) is a loss no matter what net
+            // WPM the typed span measured — always the fail path, never persisted.
             if (
                 pacerCaughtRef.current ||
+                (props.failOnMiss && finalStats.accuracy < 100) ||
                 (levelRequirements && finalStats.netWpm < levelRequirements.wpm)
             ) {
                 onTestCompleteRef.current?.(completion)
@@ -441,7 +444,7 @@ export const Typer = (props: TyperProps) => {
         recorder, isCompletionValid, isTimed, pause, getStats, buildCompletion, mode, levelRequirements,
         sessionData, testType, persistCompletion, count, level, punctuation,
         capitals, props.gramWpmThreshold, props.gramAccuracyThreshold,
-        props.challengeDate, recordPassedLevel, syncCharAttempts, syncTransitions,
+        props.challengeDate, props.failOnMiss, recordPassedLevel, syncCharAttempts, syncTransitions,
     ])
 
     // Stable identities for parent-provided callbacks (parents recreate them every
@@ -542,6 +545,7 @@ export const Typer = (props: TyperProps) => {
             noAppend={!!props.fixedText}
             pacerWpm={props.pacerWpm}
             onPacerCaught={handlePacerCaught}
+            failOnMiss={props.failOnMiss}
             appendKeys={level?.keys}
             started={started} restarted={restarted} restartNonce={restartNonce}
             modalOpen={props.modalOpen}

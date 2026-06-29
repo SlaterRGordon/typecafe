@@ -153,8 +153,9 @@ boss level's `pacerWpm`.
    e2e covers overtake-death, outrun-to-clear, and the loophole.
 - [x] 4. `feat(learn): speed-round levels` — `subMode` driven by `level.subMode`;
    timed text (and appends) drilled from the level's keys; net-WPM grade reused.
-- [ ] 5. `feat(learn): no-miss levels` — 100% gate + first-miss death + WPM
-   stars; `gradeLevel` branch; modal copy.
+- [x] 5. `feat(learn): no-miss levels` — `gradeResult`→`gradeLevel` with a
+   no-miss branch (100% accuracy or 0★, stars by WPM); first-miss death in Text;
+   a no-persist accuracy gate in Typer; modal shows accuracy as a pass/fail gate.
 - [ ] 6. Tune curves/numbers; full screenshot tour; finalize ADR-0003.
 
 Every UI-touching slice updates `tests/e2e/` and the screenshot tour

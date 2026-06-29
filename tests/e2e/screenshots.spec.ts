@@ -1,7 +1,7 @@
 import { expect, test, type Locator, type Page, type TestInfo } from "@playwright/test";
 import { mockAuthenticatedSession, mockTrpc } from "./helpers/trpc";
 import { chooseReactSelectOption } from "./helpers/select";
-import { typeCurrentCharacter, typeVisibleTestText } from "./helpers/typing";
+import { typeCurrentCharacter, typeVisibleTestText, typeWrongCharacter } from "./helpers/typing";
 import { join } from "node:path";
 
 // Captures every page and menu state into docs/screenshots/<project>/ so the
@@ -414,6 +414,21 @@ test.describe("screenshot tour", () => {
     await expect(page.locator("#words .char").first()).toBeVisible({ timeout: 20_000 });
     await expect(page.getByTestId("timed-countdown")).toBeVisible();
     await capture(page, testInfo, "59-learn-speed-round");
+  });
+
+  test("learn no-miss failed popover", async ({ page }, testInfo) => {
+    await page.addInitScript(() => {
+      const cleared = Array.from({ length: 6 }, (_, i) => ({
+        options: `Level ${i + 1}`, speed: 200, accuracy: 100, stars: 3,
+      }));
+      window.localStorage.setItem("typecafe.learnProgress.easy", JSON.stringify(cleared));
+    });
+    await page.goto("/learn");
+    await expect(page.locator("#words .char").first()).toBeVisible({ timeout: 20_000 });
+    await typeCurrentCharacter(page, 0);
+    await typeWrongCharacter(page, 1);
+    await expect(page.getByTestId("learn-complete-popover")).toBeVisible();
+    await capture(page, testInfo, "60-learn-no-miss-failed");
   });
 
   test("learn level failed popover", async ({ page }, testInfo) => {

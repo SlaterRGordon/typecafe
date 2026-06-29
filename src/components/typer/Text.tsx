@@ -23,6 +23,8 @@ interface TextProps {
     // catches the typist's cursor the run ends early (overtake = death).
     pacerWpm?: number,
     onPacerCaught?: () => void,
+    // No-miss levels: the first incorrect keystroke ends the run.
+    failOnMiss?: boolean,
     // When a level supplies its keys, timed/relaxed appends are built from those
     // keys (a speed round stays on the level's keys) rather than full language.
     appendKeys?: string,
@@ -63,6 +65,7 @@ export const Text = memo(function Text(props: TextProps) {
         noAppend = false,
         pacerWpm,
         onPacerCaught,
+        failOnMiss,
         appendKeys,
         charAttempts,
         onStart,
@@ -314,6 +317,14 @@ export const Text = memo(function Text(props: TextProps) {
             const nextPosition = currentIndex + 1
             positionRef.current = nextPosition
             setPosition(nextPosition)
+
+            // No-miss levels end on the first error — the recorded miss makes the
+            // completion grade as a fail (accuracy < 100).
+            if (!correct && failOnMiss && !completedRef.current) {
+                completedRef.current = true
+                onComplete()
+                return
+            }
 
             // Check if test is complete
             if (currentIndex === currentTextRef.current.length - 1) {

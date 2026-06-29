@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { chooseReactSelectOption } from "./helpers/select";
 import { mockAuthenticatedSession, mockTrpc } from "./helpers/trpc";
-import { typeCurrentCharacter, typeVisibleTestText } from "./helpers/typing";
+import { typeCurrentCharacter, typeVisibleTestText, typeWrongCharacter } from "./helpers/typing";
 
 async function gotoLearn(page: Page) {
   await page.goto("/learn");
@@ -226,6 +226,47 @@ test.describe("learn page", () => {
     for (const c of chars) {
       expect(allowed.has(c)).toBe(true);
     }
+  });
+
+  test("no-miss level: the first mistake ends the run as a fail", async ({ page }) => {
+    // Clear Levels 1–6 so Level 7 (a no-miss round) is unlocked and auto-resumed.
+    await page.addInitScript(() => {
+      const cleared = Array.from({ length: 6 }, (_, i) => ({
+        options: `Level ${i + 1}`, speed: 200, accuracy: 100, stars: 3,
+      }));
+      window.localStorage.setItem("typecafe.learnProgress.easy", JSON.stringify(cleared));
+    });
+
+    await gotoLearn(page);
+    await expect(page.getByText("Level 7").first()).toBeVisible();
+
+    await typeCurrentCharacter(page, 0); // correct — starts the run
+    await typeWrongCharacter(page, 1);   // one miss ends it
+
+    const popover = page.getByTestId("learn-complete-popover");
+    await expect(popover).toBeVisible();
+    await expect(popover).toContainText("not cleared yet");
+    await expect(popover).toContainText("One miss");
+    await expect(popover.getByTestId("learn-accuracy-result")).toContainText("Need 100%");
+  });
+
+  test("no-miss level: a perfect run clears it", async ({ page }) => {
+    await page.addInitScript(() => {
+      const cleared = Array.from({ length: 6 }, (_, i) => ({
+        options: `Level ${i + 1}`, speed: 200, accuracy: 100, stars: 3,
+      }));
+      window.localStorage.setItem("typecafe.learnProgress.easy", JSON.stringify(cleared));
+    });
+
+    await gotoLearn(page);
+    await expect(page.getByText("Level 7").first()).toBeVisible();
+
+    await typeVisibleTestText(page);
+
+    const popover = page.getByTestId("learn-complete-popover");
+    await expect(popover).toBeVisible();
+    await expect(popover).toContainText("Level 7 clear!");
+    await expect(popover.getByTestId("learn-accuracy-result")).toContainText("Passed 100%");
   });
 
   test("signed-in users can import device progress when account progress exists", async ({ page }) => {
