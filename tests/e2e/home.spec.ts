@@ -9,7 +9,13 @@ async function gotoHome(page: Page) {
 }
 
 // Mode switches inline on the main page; everything else lives in the modal.
-function selectMode(page: Page, name: "Timed" | "Words" | "Practice" | "Grams" | "Quotes", options?: { force?: boolean }) {
+// Quotes is now a text source in the language picker rather than a mode button.
+async function selectQuotesLanguage(page: Page) {
+  await page.getByTestId("typer-toolbar").getByRole("button", { name: /^Language:/ }).click();
+  await page.getByTestId("language-menu").getByRole("button", { name: "Quotes", exact: true }).click();
+}
+
+function selectMode(page: Page, name: "Timed" | "Words" | "Practice" | "Grams", options?: { force?: boolean }) {
   const button = page.getByTestId("mode-bar").getByRole("button", { name });
   if (options?.force) return button.evaluate((element: HTMLElement) => element.click());
   return button.click();
@@ -169,16 +175,18 @@ test.describe("home typing test", () => {
     await expect(langButton).toHaveCount(0);
     await selectMode(page, "Practice");
     await expect(langButton).toHaveCount(0);
-    // Quotes carry their own text → language icon hidden.
-    await selectMode(page, "Quotes");
-    await expect(langButton).toHaveCount(0);
+
+    // Quotes is a text source in the picker, so the icon stays — now labelled Quotes.
+    await selectMode(page, "Timed");
+    await selectQuotesLanguage(page);
+    await expect(toolbar.getByRole("button", { name: "Language: Quotes" })).toBeVisible();
   });
 
-  test("Quotes mode swaps the length presets for length buckets and types verbatim", async ({ page }) => {
+  test("Quotes text source swaps the length presets for length buckets and types verbatim", async ({ page }) => {
     await gotoHome(page);
 
-    await selectMode(page, "Quotes");
-    await expect(page.getByTestId("mode-bar").getByRole("button", { name: "Quotes" })).toHaveAttribute("aria-pressed", "true");
+    await selectQuotesLanguage(page);
+    await expect(page.getByTestId("typer-toolbar").getByRole("button", { name: "Language: Quotes" })).toBeVisible();
 
     // The length buckets replace the timed/word presets.
     const bucketBar = page.getByTestId("quote-length-bar");

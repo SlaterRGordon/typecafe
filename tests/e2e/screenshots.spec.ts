@@ -36,8 +36,14 @@ async function openSettingsMenu(page: Page) {
 }
 
 // Mode switches on the inline mode bar (the modal holds everything else).
-function selectMode(page: Page, name: "Timed" | "Words" | "Practice" | "Grams" | "Quotes") {
+function selectMode(page: Page, name: "Timed" | "Words" | "Practice" | "Grams") {
   return page.getByTestId("mode-bar").getByRole("button", { name }).click();
+}
+
+// Quotes is now a text source in the language picker rather than a mode button.
+async function selectQuotesLanguage(page: Page) {
+  await page.getByTestId("typer-toolbar").getByRole("button", { name: /^Language:/ }).click();
+  await page.getByTestId("language-menu").getByRole("button", { name: "Quotes", exact: true }).click();
 }
 
 async function setToolbarCustomLength(page: Page, value: string) {
@@ -197,7 +203,7 @@ test.describe("screenshot tour", () => {
 
   test("quotes mode: test view with length buckets", async ({ page }, testInfo) => {
     await gotoHome(page);
-    await selectMode(page, "Quotes");
+    await selectQuotesLanguage(page);
 
     await expect(page.getByTestId("quote-length-bar")).toBeVisible();
     await expect(page.locator("#words .char").first()).toBeVisible();

@@ -116,30 +116,27 @@ regenerates forever and the test **never completes — no score card.** That *is
 intended free-typing/warmup behavior. So ∞ is a re-label of the existing relaxed
 engine, **not** new logic.
 
-- [ ] Keep `TestModes.relaxed` as the internal **engine** — leave the enum, the
+- [x] Keep `TestModes.relaxed` as the internal **engine** — leave the enum, the
   progress filter ([progress.ts](../../src/lib/progress.ts)), and the score-card
   label as-is. Only the *presentation* changes.
-- [ ] Remove the top-level **Relaxed** button from `TOOLBAR_MODES`
+- [x] Remove the top-level **Relaxed** button from `TOOLBAR_MODES`
   ([ModeBar.tsx](../../src/components/typer/config/ModeBar.tsx)).
-- [ ] Add an **∞ (infinity)** option as the last Timed length ("no timer") and as
+- [x] Add an **∞ (infinity)** option as the last Timed length ("no timer") and as
   the last Words length ("infinite words"). Selecting ∞ in either sub-mode switches
   the engine to `relaxed`; picking a finite length switches back to normal.
-- [ ] No completion / scoring work needed: ∞ runs never produce a result by design.
-  Confirm `showLanguage` still includes the relaxed engine so the language picker
-  stays available while typing ∞.
+- [x] No completion / scoring work needed: ∞ runs never produce a result by design.
+  `showLanguage` includes the relaxed engine so the picker stays available in ∞.
 
 ### 6b. Replace Quotes mode with a Quotes "language"
-- [ ] Remove **Quotes** from `TOOLBAR_MODES`; add **Quotes** as an entry in the
-  language picker (`OTHER_LANGUAGES` or its own group).
-- [ ] Selecting Quotes:
-  - disables the length presets (no count choice),
-  - defaults to **no-timer / infinite** behavior,
-  - keeps the existing quote-length buckets (All/Short/Medium/Long) — surface them
-    where the length controls were, or inline.
-- [ ] Quotes scores stay **unranked** (already enforced: `mode !== TestModes.quotes`
-  in Typer's `ranked` check — re-point this to the quotes-language condition).
-- [ ] Audit `showLanguage` / `isQuotes` branches in ModeBar so the picker logic
-  follows the new "quotes is a language" model.
+- [x] Remove **Quotes** from `TOOLBAR_MODES`; add **Quotes** as an entry in the
+  language picker (its own row below the word languages).
+- [x] Selecting Quotes flips `mode` to the quote engine, which hides the length
+  presets and shows the existing quote-length buckets (All/Short/Medium/Long); no
+  timer / count applies. Picking a word language returns to Normal.
+- [x] Quotes scores stay **unranked** (already enforced by `mode !== TestModes.quotes`
+  in Typer's `ranked` check — unchanged, since Quotes is still `TestModes.quotes`).
+- [x] `showLanguage` / label / active-state branches updated so the picker reads
+  "Quotes" while the quote engine runs.
 
 Net: mode bar drops from 6 → 4; parity behavior preserved as options, not modes.
 
