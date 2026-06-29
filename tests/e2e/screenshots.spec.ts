@@ -588,9 +588,9 @@ test.describe("screenshot tour", () => {
   test("home: daily challenge prompt", async ({ page }, testInfo) => {
     await page.clock.install({ time: new Date("2026-06-16T12:00:00.000Z") });
     await page.addInitScript(() => {
+      // Only yesterday done → today's challenge is still open, so the corner card shows.
       window.localStorage.setItem("typecafe:challengeHistory", JSON.stringify([
         { dateKey: "2026-06-15", wpm: 70.1, accuracy: 97, t: Date.parse("2026-06-15T12:00:00.000Z") },
-        { dateKey: "2026-06-16", wpm: 74.2, accuracy: 98, t: Date.parse("2026-06-16T12:00:00.000Z") },
       ]));
     });
     await page.goto("/");

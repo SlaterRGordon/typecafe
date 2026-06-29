@@ -29,7 +29,26 @@ async function pressRestartShortcut(page: Parameters<typeof mockTrpc>[0]) {
 }
 
 test.describe("daily challenge", () => {
-  test("home surfaces local daily challenge status", async ({ page }) => {
+  test("home shows the daily challenge nudge while undone, and dismiss hides it", async ({ page }) => {
+    await page.clock.install({ time: new Date("2026-06-16T12:00:00.000Z") });
+    // Only yesterday done → today's challenge is still open, so the corner card shows.
+    await page.addInitScript(() => {
+      window.localStorage.setItem("typecafe:challengeHistory", JSON.stringify([
+        { dateKey: "2026-06-15", wpm: 70.1, accuracy: 97, t: Date.parse("2026-06-15T12:00:00.000Z") },
+      ]));
+    });
+
+    await page.goto("/");
+
+    const card = page.getByTestId("daily-challenge-prompt");
+    await expect(card).toBeVisible();
+    await expect(card.getByRole("link", { name: "Start challenge" })).toHaveAttribute("href", "/challenge");
+
+    await card.getByRole("button", { name: "Dismiss daily challenge" }).click();
+    await expect(card).toHaveCount(0);
+  });
+
+  test("home hides the daily challenge nudge once today is done", async ({ page }) => {
     await page.clock.install({ time: new Date("2026-06-16T12:00:00.000Z") });
     await page.addInitScript(() => {
       window.localStorage.setItem("typecafe:challengeHistory", JSON.stringify([
@@ -40,11 +59,8 @@ test.describe("daily challenge", () => {
 
     await page.goto("/");
 
-    await expect(page.getByTestId("daily-challenge-prompt")).toBeVisible();
-    await expect(page.getByText("Today complete: 74.2 WPM")).toBeVisible();
-    await expect(page.getByText("Yesterday: 70.1 WPM")).toBeVisible();
-    await expect(page.getByTestId("challenge-streak")).toContainText("2-day streak");
-    await expect(page.getByRole("link", { name: "Try now" })).toHaveAttribute("href", "/challenge");
+    await expect(page.locator("#words .char").first()).toBeVisible();
+    await expect(page.getByTestId("daily-challenge-prompt")).toHaveCount(0);
   });
 
   test("renders today's seeded challenge text", async ({ page }) => {
@@ -76,17 +92,14 @@ test.describe("daily challenge", () => {
     expect(second).toBe(first);
   });
 
-  test("home surfaces signed-in daily challenge status", async ({ page }) => {
+  test("home hides the daily challenge nudge for a signed-in user who finished today", async ({ page }) => {
     await mockAuthenticatedSession(page);
     await mockTrpc(page);
-    // Slice 6 moved the challenge prompt off /progress; it lives on home now.
+    // The mock reports today's challenge already complete, so the corner nudge stays hidden.
     await page.goto("/");
 
-    await expect(page.getByTestId("daily-challenge-prompt")).toBeVisible();
-    await expect(page.getByText("Today complete: 82.4 WPM")).toBeVisible();
-    await expect(page.getByText("+3.2 vs avg")).toBeVisible();
-    await expect(page.getByText("Yesterday: 79.1 WPM")).toBeVisible();
-    await expect(page.getByTestId("challenge-streak")).toContainText("4-day streak");
+    await expect(page.locator("#words .char").first()).toBeVisible();
+    await expect(page.getByTestId("daily-challenge-prompt")).toHaveCount(0);
   });
 
   test("completed challenge results lead with delta framing and can be shared", async ({ page }, testInfo) => {
