@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
-import { applyTextOptions, generateText } from "./utils"
+import { applyTextOptions, generateBetterPseudoText, generateText } from "./utils"
 import { TestModes, TestSubModes } from "./types"
 import { isAnyModalOpen, isModalOpen, MODAL_IDS } from "~/lib/modals"
 
@@ -23,6 +23,9 @@ interface TextProps {
     // catches the typist's cursor the run ends early (overtake = death).
     pacerWpm?: number,
     onPacerCaught?: () => void,
+    // When a level supplies its keys, timed/relaxed appends are built from those
+    // keys (a speed round stays on the level's keys) rather than full language.
+    appendKeys?: string,
     charAttempts: Map<string, { attempts: number, correct: number }>
     onStart: () => void,
     onComplete: () => void,
@@ -60,6 +63,7 @@ export const Text = memo(function Text(props: TextProps) {
         noAppend = false,
         pacerWpm,
         onPacerCaught,
+        appendKeys,
         charAttempts,
         onStart,
         onComplete,
@@ -217,13 +221,16 @@ export const Text = memo(function Text(props: TextProps) {
             const threshold = 300
             if (position >= currentTextRef.current.length - threshold) {
                 isAppendingRef.current = true
-                const newText = applyTextOptions(generateText(100, language), punctuation, capitals)
+                const generated = appendKeys
+                    ? generateBetterPseudoText(100, appendKeys.split(""))
+                    : generateText(100, language)
+                const newText = applyTextOptions(generated, punctuation, capitals)
                 appendNewText(" " + newText)
                 currentTextRef.current += " " + newText
                 isAppendingRef.current = false
             }
         }
-    }, [appendNewText, appendsText, language, position, punctuation, capitals])
+    }, [appendNewText, appendsText, appendKeys, language, position, punctuation, capitals])
 
     useEffect(() => {
         if (!started && !restarted) {

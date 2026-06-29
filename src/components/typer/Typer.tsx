@@ -542,6 +542,7 @@ export const Typer = (props: TyperProps) => {
             noAppend={!!props.fixedText}
             pacerWpm={props.pacerWpm}
             onPacerCaught={handlePacerCaught}
+            appendKeys={level?.keys}
             started={started} restarted={restarted} restartNonce={restartNonce}
             modalOpen={props.modalOpen}
             charAttempts={charAttemptsRef.current}
@@ -591,7 +592,7 @@ export const Typer = (props: TyperProps) => {
                     <div className="flex flex-col relative items-center w-full">
                         {/* Countdown is Normal/Timed only — see the isTimed note above. */}
                         {isTimed &&
-                            <div className={`py-2`}>
+                            <div className={`py-2`} data-testid="timed-countdown">
                                 <span className={`flex font-mono text-4xl gap-4`}>
                                     <span className="flex">{time}</span>
                                 </span>

@@ -403,6 +403,19 @@ test.describe("screenshot tour", () => {
     await capture(page, testInfo, "57-learn-level-complete");
   });
 
+  test("learn speed round (timed)", async ({ page }, testInfo) => {
+    await page.addInitScript(() => {
+      const cleared = Array.from({ length: 3 }, (_, i) => ({
+        options: `Level ${i + 1}`, speed: 200, accuracy: 100, stars: 3,
+      }));
+      window.localStorage.setItem("typecafe.learnProgress.easy", JSON.stringify(cleared));
+    });
+    await page.goto("/learn");
+    await expect(page.locator("#words .char").first()).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByTestId("timed-countdown")).toBeVisible();
+    await capture(page, testInfo, "59-learn-speed-round");
+  });
+
   test("learn level failed popover", async ({ page }, testInfo) => {
     await page.goto("/learn");
     await expect(page.locator("#words .char").first()).toBeVisible({ timeout: 20_000 });

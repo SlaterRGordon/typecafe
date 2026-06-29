@@ -37,6 +37,9 @@ export async function generateTestText(config: TestTextConfig, gramLevel: number
 
     if (mode === TestModes.normal) {
         if (subMode === TestSubModes.timed) {
+            // A speed-round level drills its own keys at speed; the buffer is large
+            // so a 30s run never exhausts it (Text appends more from the same keys).
+            if (level) return applyTextOptions(generateBetterPseudoText(500, level.keys.split("")), punctuation, capitals)
             return applyTextOptions(generateText(500, language), punctuation, capitals)
         }
         if (subMode === TestSubModes.words) {

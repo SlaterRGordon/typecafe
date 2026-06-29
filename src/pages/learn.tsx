@@ -1,7 +1,7 @@
 import { type NextPage } from "next";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Typer } from "~/components/typer/Typer";
-import { TestGramScopes, TestGramSources, TestModes, TestSubModes } from "~/components/typer/types";
+import { TestGramScopes, TestGramSources, TestModes } from "~/components/typer/types";
 import type { Level } from "~/components/typer/learn/levels";
 import { levels } from "~/components/typer/learn/levels";
 import { api } from "~/utils/api";
@@ -97,7 +97,6 @@ const Learn: NextPage = () => {
     const { status: sessionStatus } = useSession()
     const language = "english"
     const mode = TestModes.normal
-    const subMode = TestSubModes.words
     const gramSource = TestGramSources.bigrams
     const gramScope = TestGramScopes.fifty
     const gramCombination = 1
@@ -106,6 +105,8 @@ const Learn: NextPage = () => {
     const gramAccuracyThreshold = 100
     const [difficulty, setDifficulty] = useState<DifficultyName>("easy")
     const [level, setLevel] = useState<Level>(levels[0] as Level)
+    // Speed-round levels run as short timed tests; every other kind is a words run.
+    const subMode = level.subMode
     const [currentKey, setCurrentKey] = useState<string>("")
     const [levelChanged, setLevelChanged] = useState<boolean>(false)
     const [fullscreen, setFullscreen] = useState(false)

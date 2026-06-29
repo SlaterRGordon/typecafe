@@ -204,6 +204,30 @@ test.describe("learn page", () => {
     await expect(popover).toContainText("Level 10 clear!");
   });
 
+  test("speed-round level runs as a timed test on the level's keys", async ({ page }) => {
+    // Clear Levels 1–3 so Level 4 (a speed round) is unlocked and auto-resumed.
+    await page.addInitScript(() => {
+      const cleared = Array.from({ length: 3 }, (_, i) => ({
+        options: `Level ${i + 1}`, speed: 200, accuracy: 100, stars: 3,
+      }));
+      window.localStorage.setItem("typecafe.learnProgress.easy", JSON.stringify(cleared));
+    });
+
+    await gotoLearn(page);
+    await expect(page.getByText("Level 4").first()).toBeVisible();
+
+    // Speed rounds are timed — a countdown is shown.
+    await expect(page.getByTestId("timed-countdown")).toBeVisible();
+
+    // ...and the drill stays on Level 4's keys (home row: asdfjkl).
+    const chars = await page.locator("#words .char").allTextContents();
+    expect(chars.length).toBeGreaterThan(0);
+    const allowed = new Set("asdfjkl ".split(""));
+    for (const c of chars) {
+      expect(allowed.has(c)).toBe(true);
+    }
+  });
+
   test("signed-in users can import device progress when account progress exists", async ({ page }) => {
     await mockAuthenticatedSession(page);
     await mockTrpc(page, {

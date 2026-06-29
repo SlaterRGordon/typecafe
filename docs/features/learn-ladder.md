@@ -151,8 +151,8 @@ boss level's `pacerWpm`.
    races ahead and the line scrolls off the top, an up-caret rides the top edge
    at the pacer's horizontal column so its position stays legible (option B).
    e2e covers overtake-death, outrun-to-clear, and the loophole.
-- [ ] 4. `feat(learn): speed-round levels` — timed submode driven by
-   `level.subMode`; grade reuse.
+- [x] 4. `feat(learn): speed-round levels` — `subMode` driven by `level.subMode`;
+   timed text (and appends) drilled from the level's keys; net-WPM grade reused.
 - [ ] 5. `feat(learn): no-miss levels` — 100% gate + first-miss death + WPM
    stars; `gradeLevel` branch; modal copy.
 - [ ] 6. Tune curves/numbers; full screenshot tour; finalize ADR-0003.
