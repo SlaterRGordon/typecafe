@@ -109,6 +109,10 @@ export const Typer = (props: TyperProps) => {
     const [wpmPending, setWpmPending] = useState(false)
     const typedTextRef = useRef("")
     const typedSegmentsRef = useRef<TypedSegment[]>([])
+    // Set the instant the pacer overtakes the typist; read by handleComplete to
+    // force a fail, then cleared. A ref (not state) so it's readable synchronously
+    // inside the completion that the overtake itself triggers.
+    const pacerCaughtRef = useRef(false)
     const onRestartRef = useRef(onRestart)
     const activeAttemptRef = useRef<{
         mode: TestModes,
@@ -223,6 +227,7 @@ export const Typer = (props: TyperProps) => {
                 activeAttemptRef.current = null
                 typedTextRef.current = ""
                 typedSegmentsRef.current = []
+                pacerCaughtRef.current = false
                 recorder.reset()
                 setRestarted(true)
                 setRestartNonce((nonce) => nonce + 1)
@@ -308,6 +313,7 @@ export const Typer = (props: TyperProps) => {
             capitals,
             ranked,
             levelName: level?.name,
+            pacerCaught: pacerCaughtRef.current,
             typeId: testType?.id,
             persisted: false,
         }
@@ -384,9 +390,11 @@ export const Typer = (props: TyperProps) => {
         })
 
         if (mode === TestModes.normal || mode === TestModes.quotes) {
+            // An overtake is a loss no matter what net WPM the typed span measured —
+            // always the fail path, never persisted.
             if (
-                levelRequirements &&
-                finalStats.netWpm < levelRequirements.wpm
+                pacerCaughtRef.current ||
+                (levelRequirements && finalStats.netWpm < levelRequirements.wpm)
             ) {
                 onTestCompleteRef.current?.(completion)
             } else {
@@ -427,6 +435,8 @@ export const Typer = (props: TyperProps) => {
         // Transition analytics come from normal-mode tests, where the text is real
         // language (grams/practice text would skew the bigram picture).
         if (mode === TestModes.normal) syncTransitions(recorder.events)
+
+        pacerCaughtRef.current = false
     }, [
         recorder, isCompletionValid, isTimed, pause, getStats, buildCompletion, mode, levelRequirements,
         sessionData, testType, persistCompletion, count, level, punctuation,
@@ -448,6 +458,13 @@ export const Typer = (props: TyperProps) => {
     const stableOnAttemptChange = useCallback(() => {
         onAttemptChangeRef.current?.()
     }, [])
+
+    // The pacer caught the typist: flag the loss, then run completion (which reads
+    // the flag, forces the fail path, and clears it).
+    const handlePacerCaught = useCallback(() => {
+        pacerCaughtRef.current = true
+        handleComplete("text")
+    }, [handleComplete])
 
     const handleCharacterAttempt = useCallback((attempt: { expected: string, typed: string, correct: boolean }) => {
         typedTextRef.current += attempt.typed
@@ -524,6 +541,7 @@ export const Typer = (props: TyperProps) => {
             capitals={capitals}
             noAppend={!!props.fixedText}
             pacerWpm={props.pacerWpm}
+            onPacerCaught={handlePacerCaught}
             started={started} restarted={restarted} restartNonce={restartNonce}
             modalOpen={props.modalOpen}
             charAttempts={charAttemptsRef.current}

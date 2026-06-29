@@ -190,7 +190,9 @@ const Learn: NextPage = () => {
     ) => {
         const levelName = result.levelName ?? level.name
         const completedLevel = levels.find(item => item.name == levelName) ?? level
-        const { thresholds, stars } = gradeResult(completedLevel, difficulty, { netWpm: result.netWpm, accuracy: result.accuracy })
+        const { thresholds, stars: gradedStars } = gradeResult(completedLevel, difficulty, { netWpm: result.netWpm, accuracy: result.accuracy })
+        // An overtake on a boss is a loss regardless of the WPM the typed span hit.
+        const stars = result.pacerCaught ? 0 : gradedStars
 
         setCompletion({
             levelName,
@@ -206,7 +208,9 @@ const Learn: NextPage = () => {
     const onTestComplete = (result: TestCompletionResult) => {
         const levelName = result.levelName ?? level.name
         const completedLevel = levels.find(item => item.name == levelName) ?? level
-        const { stars, entry } = gradeResult(completedLevel, difficulty, { netWpm: result.netWpm, accuracy: result.accuracy })
+        const { stars: gradedStars, entry } = gradeResult(completedLevel, difficulty, { netWpm: result.netWpm, accuracy: result.accuracy })
+        // An overtake on a boss is a loss regardless of the WPM the typed span hit.
+        const stars = result.pacerCaught ? 0 : gradedStars
 
         window.gtag?.("event", "learn_lesson_done", { level: levelName, difficulty, stars })
 

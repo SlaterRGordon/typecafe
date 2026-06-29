@@ -22,6 +22,9 @@ export interface TestCompletionResult {
     capitals: boolean,
     ranked: boolean,
     levelName?: string,
+    // Boss levels: the pacer overtook the typist. A definitive loss regardless of
+    // the net WPM measured over the typed span, so grading must force 0 stars.
+    pacerCaught?: boolean,
     persisted: boolean,
     testId?: string,
     typeId?: string,

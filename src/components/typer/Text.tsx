@@ -22,6 +22,7 @@ interface TextProps {
     // Boss levels: a pacer line glides across the text at this net WPM. If it
     // catches the typist's cursor the run ends early (overtake = death).
     pacerWpm?: number,
+    onPacerCaught?: () => void,
     charAttempts: Map<string, { attempts: number, correct: number }>
     onStart: () => void,
     onComplete: () => void,
@@ -58,6 +59,7 @@ export const Text = memo(function Text(props: TextProps) {
         capitals = false,
         noAppend = false,
         pacerWpm,
+        onPacerCaught,
         charAttempts,
         onStart,
         onComplete,
@@ -85,17 +87,19 @@ export const Text = memo(function Text(props: TextProps) {
     // The pacer line and the moment the attempt started (set on the first
     // keystroke, the same instant onStart fires).
     const pacerLineRef = useRef<HTMLDivElement>(null)
+    // The "pacer is above" hint shown when it scrolls out of the top of the view.
+    const pacerAboveRef = useRef<HTMLDivElement>(null)
     const pacerStartRef = useRef(0)
-    // Latest onComplete without making it a dependency of the pacer loop.
-    const onCompleteRef = useRef(onComplete)
+    // Latest overtake callback without making it a dependency of the pacer loop.
+    const onPacerCaughtRef = useRef(onPacerCaught)
 
     useEffect(() => {
         callbacksRef.current = { onKeyChange }
     }, [onKeyChange])
 
     useEffect(() => {
-        onCompleteRef.current = onComplete
-    }, [onComplete])
+        onPacerCaughtRef.current = onPacerCaught
+    }, [onPacerCaught])
 
     const createCharSpan = useCallback((char: string, index: number) => {
         const span = document.createElement('span')
@@ -357,16 +361,17 @@ export const Text = memo(function Text(props: TextProps) {
     // overtake = death. Only runs once typing has started and a pacer is set.
     useEffect(() => {
         const line = pacerLineRef.current
+        const above = pacerAboveRef.current
         if (!line) return
         if (!started || !pacerWpm) {
             line.style.display = 'none'
+            if (above) above.style.display = 'none'
             return
         }
         const words = typerRef.current
         const container = textContainerRef.current
         if (!words || !container) return
 
-        line.style.display = 'block'
         const charsPerSec = pacerWpm * 5 / 60
         let raf = 0
 
@@ -378,7 +383,8 @@ export const Text = memo(function Text(props: TextProps) {
             if (!completedRef.current && pacerChars >= positionRef.current) {
                 completedRef.current = true
                 line.style.display = 'none'
-                onCompleteRef.current()
+                if (above) above.style.display = 'none'
+                onPacerCaughtRef.current?.()
                 return
             }
 
@@ -392,8 +398,18 @@ export const Text = memo(function Text(props: TextProps) {
                 const right = sameLine ? b!.offsetLeft : a.offsetLeft + a.offsetWidth
                 const x = a.offsetLeft + frac * (right - a.offsetLeft)
                 const y = a.offsetTop - words.scrollTop
-                line.style.height = `${a.offsetHeight}px`
-                line.style.transform = `translate(${x}px, ${y}px)`
+                // When the typist races ahead, the pacer's line scrolls off the top
+                // and clips. Rather than lose it, pin a "pacer above" hint to the top
+                // edge so its threat stays on screen (option B).
+                if (y < 0) {
+                    line.style.display = 'none'
+                    if (above) above.style.display = 'flex'
+                } else {
+                    line.style.display = 'block'
+                    line.style.height = `${a.offsetHeight}px`
+                    line.style.transform = `translate(${x}px, ${y}px)`
+                    if (above) above.style.display = 'none'
+                }
             }
             raf = requestAnimationFrame(tick)
         }
@@ -402,6 +418,7 @@ export const Text = memo(function Text(props: TextProps) {
         return () => {
             cancelAnimationFrame(raf)
             line.style.display = 'none'
+            if (above) above.style.display = 'none'
         }
     }, [started, pacerWpm, restartNonce, text])
 
@@ -410,6 +427,10 @@ export const Text = memo(function Text(props: TextProps) {
             <input id="input" autoCapitalize="none" autoComplete="off" className="h-0 p-0 m-0 border-none" onKeyDown={handleKeyPress} ref={inputRef} autoFocus />
             {/* Boss pacer line — positioned and animated imperatively by the pacer effect. */}
             <div ref={pacerLineRef} aria-hidden="true" className="pointer-events-none absolute left-0 top-0 z-40 w-[3px] rounded-full bg-error/90 will-change-transform" style={{ display: 'none', height: 0, transform: 'translate(-9999px, 0)' }} />
+            {/* Shown instead, pinned to the top edge, when the pacer has scrolled out of view above. */}
+            <div ref={pacerAboveRef} aria-hidden="true" className="pointer-events-none absolute left-0 top-0 z-40 hidden items-center gap-1 rounded-br bg-error/90 px-1.5 py-0.5 font-mono text-[0.6rem] font-bold uppercase leading-none text-error-content" style={{ display: 'none' }}>
+                <span>▲</span><span>pacer</span>
+            </div>
             <div className="flex w-full flex-wrap justify-start overflow-y-hidden no-scrollbar scroll-smooth font-mono select-none sm:justify-start" id="words" ref={typerRef}>
                 <div
                     className="max-w-full"

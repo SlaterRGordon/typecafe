@@ -162,6 +162,30 @@ test.describe("learn page", () => {
     await expect(popover).toContainText("not cleared yet");
   });
 
+  test("boss level: a fast burst then getting caught still fails (no WPM loophole)", async ({ page }) => {
+    await page.addInitScript(() => {
+      const cleared = Array.from({ length: 9 }, (_, i) => ({
+        options: `Level ${i + 1}`, speed: 200, accuracy: 100, stars: 3,
+      }));
+      window.localStorage.setItem("typecafe.learnProgress.easy", JSON.stringify(cleared));
+    });
+
+    await gotoLearn(page);
+    await expect(page.getByText("Level 10").first()).toBeVisible();
+
+    // Sprint a handful of characters (banking a high net WPM over that span), then
+    // stop and let the pacer catch up. The run must still grade as a loss.
+    const chars = await page.locator("#words .char").allTextContents();
+    for (const c of chars.slice(0, 10)) {
+      await page.keyboard.press(c === " " ? "Space" : c);
+    }
+
+    const popover = page.getByTestId("learn-complete-popover");
+    await expect(popover).toBeVisible({ timeout: 15_000 });
+    await expect(popover).toContainText("not cleared yet");
+    await expect(popover.getByRole("button", { name: "Next level" })).toHaveCount(0);
+  });
+
   test("boss level: outrunning the pacer clears it", async ({ page }) => {
     await page.addInitScript(() => {
       const cleared = Array.from({ length: 9 }, (_, i) => ({
