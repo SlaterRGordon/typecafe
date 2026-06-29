@@ -36,7 +36,7 @@ async function openSettingsMenu(page: Page) {
 }
 
 // Mode switches on the inline mode bar (the modal holds everything else).
-function selectMode(page: Page, name: "Timed" | "Words" | "Practice" | "Grams" | "Relaxed" | "Quotes") {
+function selectMode(page: Page, name: "Timed" | "Words" | "Practice" | "Grams" | "Quotes") {
   return page.getByTestId("mode-bar").getByRole("button", { name }).click();
 }
 
@@ -141,15 +141,17 @@ test.describe("screenshot tour", () => {
     await expect(page.getByTestId("grams-panel")).toBeVisible();
     await capture(page, testInfo, "05-settings-grams");
 
-    // Practice (keyboard) and Relaxed switch inline with no modal round-trip.
+    // Practice switches inline with no modal round-trip.
     await selectMode(page, "Practice");
     await expect(page.locator(".typecafe-keyboard")).toBeVisible();
     await capture(page, testInfo, "07-settings-practice-mode");
 
-    await selectMode(page, "Relaxed");
+    // ∞ (no timer) — the relaxed engine, now a length option on Timed.
+    await selectMode(page, "Timed");
+    await page.getByTestId("toolbar-context").getByRole("button", { name: "No timer" }).click();
     await openSettingsMenu(page);
     await expect(page.getByTestId("settings-menu")).toBeVisible();
-    await capture(page, testInfo, "08-settings-relaxed-mode");
+    await capture(page, testInfo, "08-settings-no-timer");
   });
 
   test("words mode: test view after closing modal", async ({ page }, testInfo) => {
@@ -185,12 +187,12 @@ test.describe("screenshot tour", () => {
     await capture(page, testInfo, "26-test-view-grams-mid-level");
   });
 
-  test("relaxed mode: test view", async ({ page }, testInfo) => {
+  test("no-timer (∞) test view", async ({ page }, testInfo) => {
     await gotoHome(page);
-    await selectMode(page, "Relaxed");
+    await page.getByTestId("toolbar-context").getByRole("button", { name: "No timer" }).click();
 
     await expect(page.locator("#words .char").first()).toBeVisible();
-    await capture(page, testInfo, "27-test-view-relaxed-mode");
+    await capture(page, testInfo, "27-test-view-no-timer");
   });
 
   test("quotes mode: test view with length buckets", async ({ page }, testInfo) => {

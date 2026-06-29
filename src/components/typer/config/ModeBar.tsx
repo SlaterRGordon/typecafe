@@ -18,7 +18,6 @@ const TOOLBAR_MODES: ToolbarMode[] = [
     { label: "Practice", mode: TestModes.practice, defaultCount: 10 },
     { label: "Quotes", mode: TestModes.quotes, defaultCount: 10 },
     { label: "Grams", mode: TestModes.ngrams, defaultCount: 10 },
-    { label: "Relaxed", mode: TestModes.relaxed, defaultCount: 10 },
 ]
 
 const TIMED_LENGTHS = [15, 30, 60, 120]
@@ -175,11 +174,15 @@ export function ModeBar(props: ModeBarProps) {
 
     const isNormal = props.mode === TestModes.normal
     const isQuotes = props.mode === TestModes.quotes
+    // The "relaxed" engine is no longer its own mode — it backs the ∞ length option
+    // (no timer / infinite words), which keeps the typist in Timed/Words.
+    const isRelaxed = props.mode === TestModes.relaxed
+    const showLengths = isNormal || isRelaxed
     const lengthPresets = props.subMode === TestSubModes.timed ? TIMED_LENGTHS : WORD_LENGTHS
     const lengthMax = props.subMode === TestSubModes.timed ? 3600 : 5000
     const languageLabel = languageLabelFor(props.language)
-    // Language only applies to word-list modes (Timed/Words/Relaxed); Grams and
-    // Practice generate from n-grams / selected keys, so the picker is hidden.
+    // Language only applies to word-list modes (Timed/Words, incl. the ∞ relaxed
+    // engine); Grams and Practice generate from n-grams / selected keys, so it's hidden.
     const showLanguage = props.mode === TestModes.normal || props.mode === TestModes.relaxed
 
     useEffect(() => {
@@ -188,7 +191,10 @@ export function ModeBar(props: ModeBarProps) {
 
     const isActive = (option: ToolbarMode) => {
         if (option.mode === TestModes.normal) {
-            return props.mode === TestModes.normal && props.subMode === option.subMode
+            // Timed/Words stay highlighted under the ∞ relaxed engine too — ∞ is a
+            // length, not a different mode, so the sub-mode chip mustn't go dark.
+            const inWordEngine = props.mode === TestModes.normal || props.mode === TestModes.relaxed
+            return inWordEngine && props.subMode === option.subMode
         }
         return props.mode === option.mode
     }
@@ -208,15 +214,27 @@ export function ModeBar(props: ModeBarProps) {
     }
 
     const handleSelectLength = (value: number) => {
+        // Picking a finite length leaves the ∞ relaxed engine and returns to Normal
+        // on the current sub-mode (no-op when already Normal).
+        props.setMode(TestModes.normal)
         props.setCustomLength(false)
         setCustomOpen(false)
         props.setCount(value)
     }
 
     const handleSelectCustom = () => {
+        props.setMode(TestModes.normal)
         setCustomText(String(props.count))
         props.setCustomLength(true)
         setCustomOpen(true)
+    }
+
+    // ∞: no timer (Timed) / infinite words (Words). Both run the relaxed engine —
+    // text scrolls forever and the test never auto-completes (free-typing / warmup).
+    const handleSelectInfinite = () => {
+        props.setMode(TestModes.relaxed)
+        props.setCustomLength(false)
+        setCustomOpen(false)
     }
 
     const commitCustomLength = () => {
@@ -283,7 +301,7 @@ export function ModeBar(props: ModeBarProps) {
                 })}
             </div>
 
-            {(isNormal || isQuotes) &&
+            {(showLengths || isQuotes) &&
                 <div className="hidden h-8 w-px shrink-0 bg-base-content/10 sm:block" />
             }
 
@@ -303,21 +321,31 @@ export function ModeBar(props: ModeBarProps) {
             </div>
             }
 
-            {isNormal &&
+            {showLengths &&
             <div data-testid="toolbar-context" className="relative flex min-h-10 w-full min-w-0 items-center overflow-hidden rounded-md sm:w-auto">
-                {isNormal &&
+                {showLengths &&
                     <div className="flex h-10 w-full items-center gap-1">
                         {lengthPresets.map((length) => (
                             <button
                                 key={length}
                                 type="button"
-                                aria-pressed={props.count === length && !props.customLength}
+                                aria-pressed={isNormal && props.count === length && !props.customLength}
                                 onClick={() => handleSelectLength(length)}
-                                className={segmentClass(props.count === length && !props.customLength)}
+                                className={segmentClass(isNormal && props.count === length && !props.customLength)}
                             >
                                 {length}
                             </button>
                         ))}
+                        <button
+                            type="button"
+                            aria-pressed={isRelaxed}
+                            onClick={handleSelectInfinite}
+                            className={segmentClass(isRelaxed)}
+                            aria-label={props.subMode === TestSubModes.timed ? "No timer" : "Infinite words"}
+                            title={props.subMode === TestSubModes.timed ? "No timer" : "Infinite words"}
+                        >
+                            ∞
+                        </button>
                         <button
                             type="button"
                             aria-pressed={props.customLength}
@@ -329,11 +357,11 @@ export function ModeBar(props: ModeBarProps) {
                     </div>
                 }
 
-                {isNormal &&
+                {showLengths &&
                     <div
                         data-testid="custom-length-panel"
                         aria-hidden={!customOpen}
-                        className={`absolute inset-0 flex items-center gap-1 rounded-md border border-primary/35 bg-base-200 px-2 py-1 shadow-sm transition-transform duration-200 ease-out ${customOpen ? "translate-x-0" : "translate-x-full pointer-events-none"}`}
+                        className={`absolute inset-0 flex items-center gap-1 rounded-md border border-primary/35 bg-base-200 px-2 py-1 shadow-sm transition-transform duration-200 ease-out ${customOpen ? "translate-x-0" : "!border-none translate-x-full pointer-events-none"}`}
                     >
                         <input
                             id="customLengthInput"

@@ -9,7 +9,7 @@ async function gotoHome(page: Page) {
 }
 
 // Mode switches inline on the main page; everything else lives in the modal.
-function selectMode(page: Page, name: "Timed" | "Words" | "Practice" | "Grams" | "Relaxed" | "Quotes", options?: { force?: boolean }) {
+function selectMode(page: Page, name: "Timed" | "Words" | "Practice" | "Grams" | "Quotes", options?: { force?: boolean }) {
   const button = page.getByTestId("mode-bar").getByRole("button", { name });
   if (options?.force) return button.evaluate((element: HTMLElement) => element.click());
   return button.click();
@@ -157,11 +157,11 @@ test.describe("home typing test", () => {
     const toolbar = page.getByTestId("typer-toolbar");
     const langButton = toolbar.getByRole("button", { name: /^Language:/ });
 
-    // Timed (default), Words, Relaxed use a word list → icon shown.
+    // Timed (default), Words use a word list → icon shown; ∞ (no timer) keeps it.
     await expect(langButton).toBeVisible();
     await selectMode(page, "Words", { force: true });
     await expect(langButton).toBeVisible();
-    await selectMode(page, "Relaxed");
+    await page.getByTestId("toolbar-context").getByRole("button", { name: "Infinite words" }).click();
     await expect(langButton).toBeVisible();
 
     // Grams + Practice generate from n-grams / selected keys → icon hidden.
@@ -244,7 +244,7 @@ test.describe("home typing test", () => {
     expect(scoreCreates).toBe(0);
   });
 
-  test("settings cover language, practice, relaxed, stats, and keyboard options", async ({ page }) => {
+  test("settings cover language, practice, no-timer length, stats, and keyboard options", async ({ page }) => {
     await gotoHome(page);
 
     await page.getByTestId("typer-toolbar").getByRole("button", { name: "Language: English" }).click();
@@ -266,8 +266,11 @@ test.describe("home typing test", () => {
     await selectMode(page, "Practice");
     await expect(page.locator(".typecafe-keyboard")).toBeVisible();
 
-    await selectMode(page, "Relaxed");
-    await expect(page.getByTestId("mode-bar").getByRole("button", { name: "Relaxed" })).toHaveAttribute("aria-pressed", "true");
+    // ∞ (no timer) runs the relaxed engine while keeping the Timed sub-mode lit.
+    await selectMode(page, "Timed");
+    await page.getByTestId("toolbar-context").getByRole("button", { name: "No timer" }).click();
+    await expect(page.getByTestId("toolbar-context").getByRole("button", { name: "No timer" })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByTestId("mode-bar").getByRole("button", { name: "Timed" })).toHaveAttribute("aria-pressed", "true");
   });
 
   test("keyboard toggle keeps the typing text vertically stable", async ({ page }) => {
