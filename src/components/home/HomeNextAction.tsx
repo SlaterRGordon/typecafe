@@ -12,21 +12,25 @@ const DISMISS_KEY = "typecafe:nextActionDismissed";
 // keys), with a one-click drill. Signed-in only; guests/new users see nothing.
 // Reuses the same query keys Progress already uses, so it's cached, not a new
 // round-trip when the user has visited Progress this session.
+//
+// Dismissal is keyed to the finding itself: hiding "b→r" suppresses only that
+// nudge, so the pill returns when the slowest jump actually changes — a new
+// thing worth surfacing, never the same one nagging.
 export function HomeNextAction() {
     const { data: session } = useSession();
     const signedIn = !!session?.user;
-    const [dismissed, setDismissed] = useState(() => {
-        try { return sessionStorage.getItem(DISMISS_KEY) === "1"; } catch { return false; }
+    const [dismissedFinding, setDismissedFinding] = useState(() => {
+        try { return localStorage.getItem(DISMISS_KEY); } catch { return null; }
     });
 
     const transitionsQuery = api.transitionStats.get.useQuery(undefined, { enabled: signedIn });
     const practiceStatsQuery = api.practiceStats.get.useQuery(undefined, { enabled: signedIn });
 
-    if (!signedIn || dismissed) return null;
+    if (!signedIn) return null;
 
-    const dismiss = () => {
-        setDismissed(true);
-        try { sessionStorage.setItem(DISMISS_KEY, "1"); } catch { /* sessionStorage unavailable */ }
+    const dismiss = (finding: string) => {
+        setDismissedFinding(finding);
+        try { localStorage.setItem(DISMISS_KEY, finding); } catch { /* localStorage unavailable */ }
     };
 
     const slowest = worstTransitions(transitionsQuery.data ?? [])[0];
@@ -51,14 +55,16 @@ export function HomeNextAction() {
         return null;
     }
 
+    if (dismissedFinding === drillKeys) return null;
+
     return (
-        <div data-testid="home-next-action" className="mx-auto mb-3 flex w-full max-w-screen-xl justify-center px-4">
+        <div data-testid="home-next-action" className="mx-auto mb-3 flex w-full max-w-screen-xl justify-start">
             <div className="inline-flex items-center gap-3 rounded-full border border-primary/30 bg-primary/10 px-4 py-1.5 text-sm">
                 <span className="text-base-content/80">{body}</span>
                 <Link href={`/drill?keys=${drillKeys}`} data-testid="home-next-action-drill" className="shrink-0 font-semibold text-primary hover:underline">
                     Drill it →
                 </Link>
-                <button type="button" onClick={dismiss} aria-label="Dismiss" className="shrink-0 text-base-content/40 transition hover:text-base-content/70">
+                <button type="button" onClick={() => dismiss(drillKeys)} aria-label="Dismiss" className="shrink-0 text-base-content/40 transition hover:text-base-content/70">
                     ✕
                 </button>
             </div>
