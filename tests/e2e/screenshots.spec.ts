@@ -340,6 +340,9 @@ test.describe("screenshot tour", () => {
     // Shorten the test to 3 seconds so the completion dashboard appears fast.
     await setToolbarCustomLength(page, "3");
 
+    // Focus the typing surface before the first keystroke — committing the custom
+    // length can leave focus on the toolbar, dropping a bare keyboard press.
+    await page.locator("#text").click();
     await typeCurrentCharacter(page);
     await expect(page.getByRole("button", { name: "Test Again" })).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText("WPM Over Time")).toBeVisible();

@@ -51,6 +51,10 @@ interface TyperProps {
     onKeyChange: (key: string) => void,
     onAttemptChange?: () => void,
     onTestComplete?: (result: TestCompletionResult) => void,
+    // Render the result instantly and patch in server fields when the save settles
+    // (home only — see useTestPersistence). Pairs with onSavingChange for the loader.
+    eagerResult?: boolean,
+    onSavingChange?: (saving: boolean) => void,
     onTypingFocusChange?: (isTyping: boolean) => void,
     showStats: boolean,
     modalOpen: boolean,
@@ -145,11 +149,18 @@ export const Typer = (props: TyperProps) => {
     // fetch types
     const { data: testType } = api.type.get.useQuery({ mode, subMode, language })
 
-    const { sessionData, persistCompletion, syncCharAttempts, syncTransitions } = useTestPersistence({
+    const { sessionData, persistCompletion, syncCharAttempts, syncTransitions, isSaving } = useTestPersistence({
         mode,
         charAttemptsRef,
         onTestComplete: props.onTestComplete,
+        eagerResult: props.eagerResult,
     })
+
+    // Surface the save's in-flight state so the result card can show a loader while
+    // the server-derived fields (share link, brag, delta, streak) are still coming.
+    const onSavingChangeRef = useRef(props.onSavingChange)
+    useEffect(() => { onSavingChangeRef.current = props.onSavingChange }, [props.onSavingChange])
+    useEffect(() => { onSavingChangeRef.current?.(isSaving) }, [isSaving])
 
     const { gramLevel, gramWpm, resetProgression, recordPassedLevel } = useGramProgression(gramScope)
 

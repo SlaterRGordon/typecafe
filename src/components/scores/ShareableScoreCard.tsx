@@ -69,6 +69,9 @@ interface ShareableScoreCardProps {
   readonly?: boolean;
   isCreatingShare?: boolean;
   canCreateShare?: boolean;
+  // True while the just-finished test is still saving: the card is shown eagerly,
+  // so the share action waits (loader) for the server to return a shareable id.
+  isSaving?: boolean;
   signInHtmlFor?: string;
   onCreateShare?: () => Promise<string | undefined> | string | undefined;
   onTestAgain?: () => void;
@@ -222,6 +225,15 @@ function RestartIcon() {
   );
 }
 
+function Spinner() {
+  return (
+    <span
+      className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-current border-t-transparent"
+      aria-hidden="true"
+    />
+  );
+}
+
 function ShareIcon() {
   return (
     <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -259,7 +271,6 @@ function MetricCard(props: { label: string; value: string; note: string; info: s
       <div className={`mt-4 font-mono font-bold leading-none text-primary ${props.hero ? "text-5xl sm:text-6xl" : "text-4xl sm:text-5xl"}`}>
         {props.value}
       </div>
-      <p className="mt-4 text-sm text-base-content/70">{props.note}</p>
     </div>
   );
 }
@@ -573,15 +584,18 @@ function DiagnosisPanel(props: { score: ShareableScore }) {
 }
 
 export function ShareableScoreCard(props: ShareableScoreCardProps) {
-  const { score, shareUrl, readonly = false, isCreatingShare = false, canCreateShare = false, signInHtmlFor, onCreateShare, onTestAgain } = props;
-  const showSignInCta = !readonly && !shareUrl && !canCreateShare && !!signInHtmlFor;
+  const { score, shareUrl, readonly = false, isCreatingShare = false, canCreateShare = false, isSaving = false, signInHtmlFor, onCreateShare, onTestAgain } = props;
+  // While the result is still saving (signed-in eager render) the share action is
+  // a loader, not a sign-in prompt — the user is already signed in.
+  const showSignInCta = !readonly && !shareUrl && !canCreateShare && !isSaving && !!signInHtmlFor;
   const [linkState, setLinkState] = useState<ActionState>("idle");
   const [imageState, setImageState] = useState<ActionState>("idle");
   const resetTimerRef = useRef<number | null>(null);
   const scoreCardRef = useRef<HTMLDivElement | null>(null);
   const shareImageRef = useRef<HTMLDivElement | null>(null);
   const modeText = formatModeText(score);
-  const shareButtonLabel = isCreatingShare ? "Creating..." : linkState === "copied" ? "Link copied" : "Share Score";
+  const shareLoading = isCreatingShare || isSaving;
+  const shareButtonLabel = isSaving ? "Saving..." : isCreatingShare ? "Creating..." : linkState === "copied" ? "Link copied" : "Share Score";
   const screenshotButtonLabel = imageState === "copied" ? "Screenshot copied" : imageState === "downloaded" ? "Image downloaded" : "Copy Screenshot";
 
   const scheduleReset = () => {
@@ -646,7 +660,7 @@ export function ShareableScoreCard(props: ShareableScoreCardProps) {
   ], [score]);
 
   return (
-    <section className="w-full max-w-7xl px-4 py-4 sm:px-6">
+    <section className="w-full max-w-7xl px-4 sm:px-6">
       <div
         ref={scoreCardRef}
         data-testid="score-screenshot-card"
@@ -729,12 +743,12 @@ export function ShareableScoreCard(props: ShareableScoreCardProps) {
               <button
                 className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50"
                 type="button"
-                disabled={isCreatingShare || (!shareUrl && !canCreateShare)}
+                disabled={shareLoading || (!shareUrl && !canCreateShare)}
                 onClick={handleCopyLink}
                 aria-label={shareButtonLabel}
-                title={isCreatingShare ? "Creating share link" : linkState === "copied" ? "Share link copied" : "Copy share score link"}
+                title={isSaving ? "Saving your score" : isCreatingShare ? "Creating share link" : linkState === "copied" ? "Share link copied" : "Copy share score link"}
               >
-                <ShareIcon />
+                {shareLoading ? <Spinner /> : <ShareIcon />}
                 <span>{shareButtonLabel}</span>
               </button>
               :
@@ -780,17 +794,19 @@ export function ShareableScoreCard(props: ShareableScoreCardProps) {
         {!readonly && <DiagnosisPanel score={score} />}
 
         <div className="score-reveal mt-5 rounded-lg border border-base-content/10 bg-base-100/45 p-5" style={{ "--reveal-delay": "240ms" } as CSSProperties}>
-          <div className="mb-4 flex items-center gap-2 text-lg font-semibold text-base-content">
-            <span>Your Typed Text</span>
-            <InfoIcon label="The text you typed during this test. Incorrect characters are highlighted in the theme error color." />
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-2 text-lg font-semibold text-base-content">
+              <span>Your Typed Text</span>
+              <InfoIcon label="The text you typed during this test. Incorrect characters are highlighted in the theme error color." />
+            </div>
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-sm text-base-content/80">
+              <span><span className="mr-2 inline-block h-3 w-3 rounded-full bg-success" />{formatInteger(score.correctKeystrokes)} correct</span>
+              <span><span className="mr-2 inline-block h-3 w-3 rounded-full bg-error" />{formatInteger(score.incorrectKeystrokes)} incorrect</span>
+              <span className="text-primary">{formatNumber(score.accuracy, 2)}% accuracy</span>
+            </div>
           </div>
           <div className="max-h-36 overflow-y-auto whitespace-pre-wrap break-words rounded-md border border-base-content/10 bg-base-200/70 p-4 font-mono text-base leading-8 text-base-content focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:text-lg" tabIndex={0} role="region" aria-label="Typed text from the completed test">
             <TypedText segments={score.typedSegments} plainText={score.typedText} />
-          </div>
-          <div className="mt-5 flex flex-col gap-3 border-t border-base-content/10 pt-4 text-sm text-base-content/80 sm:flex-row sm:items-center sm:gap-8">
-            <span><span className="mr-2 inline-block h-3 w-3 rounded-full bg-success" />{formatInteger(score.correctKeystrokes)} correct</span>
-            <span><span className="mr-2 inline-block h-3 w-3 rounded-full bg-error" />{formatInteger(score.incorrectKeystrokes)} incorrect</span>
-            <span className="text-primary">{formatNumber(score.accuracy, 2)}% accuracy</span>
           </div>
         </div>
       </div>
