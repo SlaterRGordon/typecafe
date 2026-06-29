@@ -283,6 +283,16 @@ test.describe("home typing test", () => {
     await expect(page.getByTestId("stat-time")).toBeVisible();
   });
 
+  test("Timed ∞ runs a rising count-up clock", async ({ page }) => {
+    await gotoHome(page);
+    await page.getByTestId("toolbar-context").getByRole("button", { name: "No timer" }).click();
+    await expect(page.getByTestId("stat-time")).toHaveText("0");
+
+    // Typing starts the stopwatch; it must tick upward, not sit at 0.
+    await typeCurrentCharacter(page);
+    await expect(page.getByTestId("stat-time")).not.toHaveText("0", { timeout: 4000 });
+  });
+
   test("keyboard toggle keeps the typing text vertically stable", async ({ page }) => {
     await gotoHome(page);
 

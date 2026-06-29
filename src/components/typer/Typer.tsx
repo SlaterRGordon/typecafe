@@ -159,11 +159,15 @@ export const Typer = (props: TyperProps) => {
     // decremental-to-0 countdown that fires onTimeOver the instant the test
     // starts, ending Practice/Grams/Relaxed immediately.
     const isTimed = subMode === TestSubModes.timed && mode === TestModes.normal
+    // Timed ∞ (no timer): the relaxed engine on the timed sub-mode shows a rising
+    // stopwatch instead of a countdown.
+    const isCountUp = mode === TestModes.relaxed && subMode === TestSubModes.timed
 
     const { time, start, pause, setInitialTime, actualStartTime } = useTimer({
         _initialTime: isTimed ? count : 0,
         timerType: isTimed ? 'DECREMENTAL' : 'INCREMENTAL',
         endTime: isTimed ? 0 : 999999,
+        countUp: isCountUp,
         onTimeOver: () => {
             handleComplete("timer")
         },
@@ -620,11 +624,19 @@ export const Typer = (props: TyperProps) => {
                         (the timed countdown, or the grams level progress) stacked above it
                         on the left. Stats returns null when there's nothing to show. */}
                     <div className="mx-auto flex w-full max-w-screen-xl flex-col gap-5">
-                        <Stats layout="stacked" mode={mode} wpm={wpm} accuracy={accuracy} pending={statsPending} wpmPending={wpmPending}
-                            averageWpm={gramWpm} levelText={getGramLevelText(gramLevel, gramCombination, gramScope)}
-                            isTimed={isTimed} countUp={mode === TestModes.relaxed && subMode === TestSubModes.timed} time={time} showLiveStats={showStats}
-                        />
-                        {textNode}
+                        {/* Reserve the stats row height so an empty/absent stat line
+                            (e.g. Words with live stats off) never shifts the text. */}
+                        <div className="flex min-h-[2.75rem] items-end">
+                            <Stats layout="stacked" mode={mode} wpm={wpm} accuracy={accuracy} pending={statsPending} wpmPending={wpmPending}
+                                averageWpm={gramWpm} levelText={getGramLevelText(gramLevel, gramCombination, gramScope)}
+                                isTimed={isTimed} countUp={isCountUp} time={time} showLiveStats={showStats}
+                            />
+                        </div>
+                        {/* Hold three lines of text height so a short prompt (e.g. a brief
+                            quote) doesn't shrink the block and re-center the whole view. */}
+                        <div className="flex min-h-[6.6rem] sm:min-h-[9rem]">
+                            {textNode}
+                        </div>
                     </div>
                     <p className={typingFocusFadeClass(started, "mt-6 font-mono text-xs text-base-content/40 select-none")}>
                         <kbd className="kbd kbd-xs">tab</kbd> + <kbd className="kbd kbd-xs">enter</kbd> / <kbd className="kbd kbd-xs">space</kbd> — restart

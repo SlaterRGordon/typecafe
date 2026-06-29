@@ -531,7 +531,10 @@ const Home: NextPage = () => {
     "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
   };
   const shouldShowHomeKeyboard = showKeyboard || mode === TestModes.practice
-  const shouldReserveHomeKeyboardSpace = shouldShowHomeKeyboard || mode === TestModes.normal
+  // Always hold the keyboard slot on the test view so toggling the keyboard — or
+  // switching modes/lengths (including ∞, which runs the non-normal relaxed
+  // engine) — never shifts the centered text and toolbar vertically.
+  const shouldReserveHomeKeyboardSpace = true
 
   return (
     <>
