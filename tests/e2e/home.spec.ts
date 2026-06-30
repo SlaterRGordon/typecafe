@@ -274,6 +274,22 @@ test.describe("home typing test", () => {
     await expect(page.getByTestId("home-next-action")).toBeHidden();
   });
 
+  test("grams advanced thresholds stay folded behind a disclosure", async ({ page }) => {
+    await gotoHome(page);
+    await selectMode(page, "Grams");
+    const panel = page.getByTestId("grams-panel");
+    await expect(panel).toBeVisible();
+
+    // Source + Scope are the meaningful choices, shown by default.
+    await expect(panel.getByText("Source", { exact: true })).toBeVisible();
+    await expect(panel.getByText("Scope", { exact: true })).toBeVisible();
+
+    // The fiddly numeric knobs are hidden until Advanced is opened.
+    await expect(page.locator("#testGramWpmThresholdInput")).toBeHidden();
+    await panel.getByText("Advanced", { exact: true }).click();
+    await expect(page.locator("#testGramWpmThresholdInput")).toBeVisible();
+  });
+
   test("settings cover language, practice, no-timer length, stats, and keyboard options", async ({ page }) => {
     await gotoHome(page);
 

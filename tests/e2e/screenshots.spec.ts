@@ -147,6 +147,11 @@ test.describe("screenshot tour", () => {
     await expect(page.getByTestId("grams-panel")).toBeVisible();
     await capture(page, testInfo, "05-settings-grams");
 
+    // The numeric thresholds fold behind an Advanced disclosure; show it open.
+    await page.getByTestId("grams-panel").getByText("Advanced", { exact: true }).click();
+    await expect(page.locator("#testGramWpmThresholdInput")).toBeVisible();
+    await capture(page, testInfo, "59-settings-grams-advanced");
+
     // Practice switches inline with no modal round-trip.
     await selectMode(page, "Practice");
     await expect(page.locator(".typecafe-keyboard")).toBeVisible();

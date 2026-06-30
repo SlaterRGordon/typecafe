@@ -143,44 +143,51 @@ export function GramsPanel(props: GramsPanelProps) {
                 </Field>
             </div>
 
-            <div className="my-4 h-px w-full bg-base-content/10" />
-
-            <div className="grid grid-cols-1 gap-x-10 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
-                <NumberField
-                    id="testGramCombinationInput"
-                    label="Combinations"
-                    description="Grams shown per level"
-                    value={props.gramCombination}
-                    min={1}
-                    max={props.gramScope}
-                    onCommit={props.setGramCombination}
-                />
-                <NumberField
-                    id="testGramRepetitionInput"
-                    label="Repetitions"
-                    description="Times each level repeats"
-                    value={props.gramRepetition}
-                    min={0}
-                    onCommit={props.setGramRepetition}
-                />
-                <NumberField
-                    id="testGramWpmThresholdInput"
-                    label="WPM threshold"
-                    description="Speed needed to advance"
-                    value={props.gramWpmThreshold}
-                    min={0}
-                    onCommit={props.setGramWpmThreshold}
-                />
-                <NumberField
-                    id="testGramAccuracyThresholdInput"
-                    label="Accuracy threshold"
-                    description="Accuracy needed to advance"
-                    value={props.gramAccuracyThreshold}
-                    min={0}
-                    max={100}
-                    onCommit={props.setGramAccuracyThreshold}
-                />
-            </div>
+            {/* The fiddly numeric knobs default to sensible values; fold them behind a
+                disclosure so the panel reads as the two meaningful choices above.
+                Native <details> — no state, keyboard-accessible for free. */}
+            <details data-testid="grams-advanced" className="group mt-4 border-t border-base-content/10 pt-4">
+                <summary className="flex cursor-pointer list-none items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-base-content/55 marker:content-none [&::-webkit-details-marker]:hidden">
+                    Advanced
+                    <svg className="h-4 w-4 transition-transform group-open:rotate-180" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M7 10l5 5l5-5H7Z" /></svg>
+                </summary>
+                <div className="mt-4 grid grid-cols-1 gap-x-10 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
+                    <NumberField
+                        id="testGramCombinationInput"
+                        label="Combinations"
+                        description="Grams shown per level"
+                        value={props.gramCombination}
+                        min={1}
+                        max={props.gramScope}
+                        onCommit={props.setGramCombination}
+                    />
+                    <NumberField
+                        id="testGramRepetitionInput"
+                        label="Repetitions"
+                        description="Times each level repeats"
+                        value={props.gramRepetition}
+                        min={0}
+                        onCommit={props.setGramRepetition}
+                    />
+                    <NumberField
+                        id="testGramWpmThresholdInput"
+                        label="WPM threshold"
+                        description="Speed needed to advance"
+                        value={props.gramWpmThreshold}
+                        min={0}
+                        onCommit={props.setGramWpmThreshold}
+                    />
+                    <NumberField
+                        id="testGramAccuracyThresholdInput"
+                        label="Accuracy threshold"
+                        description="Accuracy needed to advance"
+                        value={props.gramAccuracyThreshold}
+                        min={0}
+                        max={100}
+                        onCommit={props.setGramAccuracyThreshold}
+                    />
+                </div>
+            </details>
         </div>
     )
 }

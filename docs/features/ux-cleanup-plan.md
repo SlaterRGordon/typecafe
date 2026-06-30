@@ -53,11 +53,12 @@ at the bottom of the side rail.
 **Decision:** default the fiddly numeric thresholds and hide them; show only the
 two meaningful choices by default.
 
-- [ ] In [GramsPanel](../../src/components/typer/config/GramsPanel.tsx), keep
+- [x] In [GramsPanel](../../src/components/typer/config/GramsPanel.tsx), keep
   **Source** (bigrams/trigrams/…) and **Scope** (top 50/100/200) visible by default.
-- [ ] Move **Combinations**, **Repetitions**, **WPM threshold**, **Accuracy
-  threshold** behind an "Advanced ▾" disclosure, collapsed by default.
-- [ ] Keep current values as the defaults (combinations 1, repetitions 0, WPM 20,
+- [x] Move **Combinations**, **Repetitions**, **WPM threshold**, **Accuracy
+  threshold** behind an "Advanced ▾" disclosure (native `<details>`), collapsed by
+  default.
+- [x] Keep current values as the defaults (combinations 1, repetitions 0, WPM 20,
   accuracy 100) so behavior is unchanged for anyone who never opens Advanced.
 
 ---
