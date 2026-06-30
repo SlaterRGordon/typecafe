@@ -37,12 +37,13 @@ Net effect: ~120px of vertical space above the test reclaimed; test moves up.
 **Decision:** keep the page footer-free; roll the five footer links into one button
 at the bottom of the side rail.
 
-- [ ] In [SideNavigation.tsx](../../src/components/navigation/SideNavigation.tsx),
+- [x] In [SideNavigation.tsx](../../src/components/navigation/SideNavigation.tsx),
   replace the bottom cluster (Support, Contact, Privacy, Terms, How-we-measure)
-  with a single button — info / `···` icon, label "More" on hover-expand.
-- [ ] Clicking opens a small popover listing those five links (reuse the existing
-  hover-expand label pattern; a lightweight popover, no new dep).
-- [ ] Primary rail then reads: Home, Learn, Leaderboard, Challenge, Progress,
+  with a single button — `···` icon, label "More" on hover-expand.
+- [x] Clicking opens a small popover listing those five links. No new dep; the
+  popover fits within the rail's expanded width so the rail's mouse-leave closes
+  it (no backdrop/listener needed).
+- [x] Primary rail then reads: Home, Learn, Leaderboard, Challenge, Progress,
   Profile, + More. ~6 meaningful icons instead of 11.
 
 ---

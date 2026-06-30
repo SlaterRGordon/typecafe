@@ -18,21 +18,37 @@ test.describe("app navigation", () => {
     await expect(page.locator("#words .char").first()).toBeVisible();
   });
 
-  test("desktop secondary navigation reaches static routes", async ({ page }, testInfo) => {
+  test("desktop secondary navigation reaches static routes via the More menu", async ({ page }, testInfo) => {
     test.skip(testInfo.project.name.includes("mobile"), "Secondary routes live in the desktop side navigation.");
 
     await page.goto("/");
 
-    await page.getByRole("button", { name: "Support", exact: true }).click();
-    await expect(page.getByRole("heading", { name: "Support TypeCafe" })).toBeVisible();
+    const menu = page.getByTestId("nav-more-menu");
+    const openMore = async () => {
+      await page.getByTestId("nav-more").click();
+      await expect(menu).toBeVisible();
+    };
 
-    await page.getByRole("button", { name: "Contact" }).click();
+    // The five footer links now live behind one "More" popover.
+    await openMore();
+    await menu.getByRole("button", { name: "Support Me" }).click();
+    await expect(page.getByRole("heading", { name: "Support TypeCafe" })).toBeVisible();
+    await expect(menu).toBeHidden();
+
+    await openMore();
+    await menu.getByRole("button", { name: "Contact Us" }).click();
     await expect(page.getByRole("heading", { name: "Contact TypeCafe" })).toBeVisible();
 
-    await page.getByRole("button", { name: "Privacy Policy" }).click();
+    await openMore();
+    await menu.getByRole("button", { name: "Privacy Policy" }).click();
     await expect(page.getByRole("heading", { name: "Privacy Policy for TypeCafe" })).toBeVisible();
 
-    await page.getByRole("button", { name: "Terms" }).click();
+    await openMore();
+    await menu.getByRole("button", { name: "Terms" }).click();
     await expect(page.getByRole("heading", { name: "Terms and Conditions", exact: true })).toBeVisible();
+
+    await openMore();
+    await menu.getByRole("button", { name: "How we measure" }).click();
+    await expect(page).toHaveURL(/\/how-we-measure$/);
   });
 });

@@ -4,10 +4,22 @@ import { Avatar } from "../Avatar";
 import { useRouter } from "next/router";
 import { SHOW_PLAN_NAVIGATION } from "~/lib/features";
 
+// The legal/support links that used to sit in the page footer, now rolled into
+// one "More" popover at the bottom of the rail.
+const MORE_LINKS = [
+    { href: "/support", label: "Support Me" },
+    { href: "/contact", label: "Contact Us" },
+    { href: "/privacy-policy", label: "Privacy Policy" },
+    { href: "/terms-and-conditions", label: "Terms" },
+    { href: "/how-we-measure", label: "How we measure" },
+];
+
 export const SideNavigation = () => {
     const router = useRouter();
     const { data: sessionData } = useSession();
     const [isExpanded, setIsExpanded] = useState(false);
+    const [moreOpen, setMoreOpen] = useState(false);
+    const moreActive = MORE_LINKS.some((link) => router.pathname.startsWith(link.href));
     const getNavButtonClass = (href: string) => {
         const isActive = router.pathname === href || (href !== "/" && router.pathname.startsWith(href))
 
@@ -20,7 +32,7 @@ export const SideNavigation = () => {
         <div
             className={`typing-focus-global-fade fixed flex-col justify-between h-full pt-[4rem] z-[45] bg-base-200 hidden md:flex transition-all duration-150 ease-out ${isExpanded ? 'w-64' : 'w-[4.6rem]'}`}
             onMouseEnter={() => setIsExpanded(true)}
-            onMouseLeave={() => setIsExpanded(false)}
+            onMouseLeave={() => { setIsExpanded(false); setMoreOpen(false); }}
         >
             <div className="flex flex-col">
                 {/* Home */}
@@ -63,31 +75,30 @@ export const SideNavigation = () => {
                     </button>
                 }
             </div>
-            <div className="flex flex-col">
-                {/* Donate */}
-                <button onClick={() => router.push('/support')} className={getNavButtonClass('/support')} aria-label="Support" title="Support TypeCafe">
-                    <svg className={navIconClass} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><g><rect fill="none" height="24" width="24"/></g><g><path d="M12,2C6.48,2,2,6.48,2,12s4.48,10,10,10s10-4.48,10-10S17.52,2,12,2z M12,20c-4.41,0-8-3.59-8-8c0-4.41,3.59-8,8-8 s8,3.59,8,8C20,16.41,16.41,20,12,20z M12.89,11.1c-1.78-0.59-2.64-0.96-2.64-1.9c0-1.02,1.11-1.39,1.81-1.39 c1.31,0,1.79,0.99,1.9,1.34l1.58-0.67c-0.15-0.44-0.82-1.91-2.66-2.23V5h-1.75v1.26c-2.6,0.56-2.62,2.85-2.62,2.96 c0,2.27,2.25,2.91,3.35,3.31c1.58,0.56,2.28,1.07,2.28,2.03c0,1.13-1.05,1.61-1.98,1.61c-1.82,0-2.34-1.87-2.4-2.09L8.1,14.75 c0.63,2.19,2.28,2.78,3.02,2.96V19h1.75v-1.24c0.52-0.09,3.02-0.59,3.02-3.22C15.9,13.15,15.29,11.93,12.89,11.1z"/></g></svg>
-                    <div className={navLabelClass}>Support Me</div>
-                </button>
-                {/* Contact */}
-                <button onClick={() => router.push('/contact')} className={getNavButtonClass('/contact')} aria-label="Contact" title="Contact">
-                    <svg className={navIconClass} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V8l8 5 8-5v10zm-8-7L4 6h16l-8 5z" /></svg>
-                    <div className={navLabelClass}>Contact Us</div>
-                </button>
-                {/* Privacy Policy */}
-                <button onClick={() => router.push('/privacy-policy')} className={getNavButtonClass('/privacy-policy')} aria-label="Privacy Policy" title="Privacy Policy">
-                    <svg className={navIconClass} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><g><rect fill="none" height="24" width="24" x="0" /></g><g><g><g><path d="M12,17c1.1,0,2-0.9,2-2s-0.9-2-2-2s-2,0.9-2,2S10.9,17,12,17z M18,8h-1V6c0-2.76-2.24-5-5-5S7,3.24,7,6v2H6 c-1.1,0-2,0.9-2,2v10c0,1.1,0.9,2,2,2h12c1.1,0,2-0.9,2-2V10C20,8.9,19.1,8,18,8z M8.9,6c0-1.71,1.39-3.1,3.1-3.1 s3.1,1.39,3.1,3.1v2H8.9V6z M18,20H6V10h12V20z" /></g></g></g></svg>
-                    <div className={navLabelClass}>Privacy Policy</div>
-                </button>
-                {/* Terms and Conditions */}
-                <button onClick={() => router.push('/terms-and-conditions')} className={getNavButtonClass('/terms-and-conditions')} aria-label="Terms" title="Terms">
-                    <svg className={navIconClass} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><g><rect fill="none" height="24" width="24"/><g><path d="M19,5v14H5V5H19 M19,3H5C3.9,3,3,3.9,3,5v14c0,1.1,0.9,2,2,2h14c1.1,0,2-0.9,2-2V5C21,3.9,20.1,3,19,3L19,3z"/></g><path d="M14,17H7v-2h7V17z M17,13H7v-2h10V13z M17,9H7V7h10V9z"/></g></svg>
-                    <div className={navLabelClass}>Terms</div>
-                </button>
-                {/* How we measure */}
-                <button onClick={() => router.push('/how-we-measure')} className={getNavButtonClass('/how-we-measure')} aria-label="How we measure" title="How we measure">
-                    <svg className={navIconClass} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M21 6H3c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 10H3V8h2v4h2V8h2v4h2V8h2v4h2V8h2v4h2V8h2v8z"/></svg>
-                    <div className={navLabelClass}>How we measure</div>
+            <div className="relative flex flex-col">
+                {/* More: the legal/support links rolled into one popover. It fits within
+                    the rail's expanded (16rem) width, so the pointer stays inside the
+                    rail while using it — the rail's mouse-leave closes it. */}
+                {moreOpen &&
+                    <div data-testid="nav-more-menu" className="absolute bottom-full left-2 z-[46] mb-1 w-52 rounded-lg border border-base-content/10 bg-base-200 p-1 shadow-lg">
+                        {MORE_LINKS.map((link) => (
+                            <button
+                                key={link.href}
+                                onClick={() => { setMoreOpen(false); void router.push(link.href); }}
+                                className={`flex w-full items-center rounded-md px-3 py-2 text-left text-sm transition-colors hover:bg-base-content/10 ${router.pathname.startsWith(link.href) ? "bg-base-300 text-base-content" : "text-base-content/80 hover:text-base-content"}`}
+                            >
+                                {link.label}
+                            </button>
+                        ))}
+                    </div>
+                }
+                <button
+                    onClick={() => setMoreOpen((open) => !open)}
+                    className={`${getNavButtonClass('__more__')} ${moreActive ? "bg-base-300 text-base-content" : ""}`}
+                    aria-label="More" title="More" aria-expanded={moreOpen} data-testid="nav-more"
+                >
+                    <svg className={navIconClass} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M6 10c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm12 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm-6 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
+                    <div className={navLabelClass}>More</div>
                 </button>
             </div>
         </div>

@@ -609,6 +609,16 @@ test.describe("screenshot tour", () => {
     await capture(page, testInfo, "50-home-daily-challenge-prompt");
   });
 
+  test("navigation: More popover", async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name.includes("mobile"), "The side rail is desktop-only.");
+    await gotoHome(page);
+    // Hover expands the rail; clicking More opens the rolled-up footer links.
+    await page.getByTestId("nav-more").hover();
+    await page.getByTestId("nav-more").click();
+    await expect(page.getByTestId("nav-more-menu")).toBeVisible();
+    await capture(page, testInfo, "58-nav-more-popover");
+  });
+
   test("home: next-action coaching pill", async ({ page }, testInfo) => {
     await mockAuthenticatedSession(page);
     await mockTrpc(page);
