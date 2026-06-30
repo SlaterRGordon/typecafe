@@ -1,5 +1,4 @@
 import { expect, test } from "@playwright/test";
-import { chooseReactSelectOption } from "./helpers/select";
 import { mockTrpc } from "./helpers/trpc";
 
 test.describe("public profile", () => {
@@ -8,23 +7,26 @@ test.describe("public profile", () => {
     await page.goto("/profile/testuser");
   });
 
-  test("renders public profile, stats, and best scores from mocked API data", async ({ page }) => {
+  test("renders public profile identity card, hero, stats, and signature bests", async ({ page }) => {
     await expect(page.getByText("testuser").first()).toBeVisible();
     await expect(page.getByText("Typing fast, testing faster.")).toBeVisible();
     await expect(page.getByText("https://typecafe.vercel.app")).toBeVisible();
 
-    await expect(page.getByText("Time Typing")).toBeVisible();
-    await expect(page.getByText("Words Typed")).toBeVisible();
+    // Hero: top speed + ranking.
     await expect(page.getByText("Top Speed")).toBeVisible();
     await expect(page.getByText("1st place")).toBeVisible();
-    await expect(page.getByText("Best Scores")).toBeVisible();
-    await expect(page.getByText("72.35")).toBeVisible();
-  });
 
-  test("switches best-score filters on the public profile", async ({ page }) => {
-    await chooseReactSelectOption(page, "subModeSelect", "Words");
-    await chooseReactSelectOption(page, "countSelect", "100");
+    // Secondary stats.
+    await expect(page.getByText("Time Typing")).toBeVisible();
+    await expect(page.getByText("Words Typed")).toBeVisible();
 
-    await expect(page.locator("#list").getByText("101.25", { exact: true })).toBeVisible();
+    // Signature best cards, one per common config.
+    await expect(page.getByRole("heading", { name: "Best Scores" })).toBeVisible();
+    const bests = page.getByTestId("signature-bests");
+    await expect(bests.getByText("15 seconds")).toBeVisible();
+    await expect(bests.getByText("60 seconds")).toBeVisible();
+    await expect(bests.getByText("100 words")).toBeVisible();
+    await expect(bests.getByText("72.3")).toBeVisible();
+    await expect(bests.getByText("101.2")).toBeVisible();
   });
 });

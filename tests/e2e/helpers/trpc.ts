@@ -249,6 +249,17 @@ function responseForProcedure(procedure: string, input: ProcedureInput, options:
       return { _sum: { count: 1234 } };
     case "test.getBestScore":
       return makeScore({ count: 120, userId: input?.userId });
+    case "test.getSignatureBests":
+      if (options.emptyScores) return [
+        { key: "timed-15", eyebrow: "15 seconds", wpm: null, rawWpm: null, accuracy: null, createdAt: null },
+        { key: "timed-60", eyebrow: "60 seconds", wpm: null, rawWpm: null, accuracy: null, createdAt: null },
+        { key: "words-100", eyebrow: "100 words", wpm: null, rawWpm: null, accuracy: null, createdAt: null },
+      ];
+      return [
+        { key: "timed-15", eyebrow: "15 seconds", wpm: 72.3, rawWpm: 75.0, accuracy: 96.5, createdAt: new Date("2026-06-01T12:00:00.000Z") },
+        { key: "timed-60", eyebrow: "60 seconds", wpm: 88.5, rawWpm: 91.0, accuracy: 97.4, createdAt: new Date("2026-06-10T12:00:00.000Z") },
+        { key: "words-100", eyebrow: "100 words", wpm: 101.2, rawWpm: 104.0, accuracy: 98.2, createdAt: new Date("2026-06-12T12:00:00.000Z") },
+      ];
     case "test.getPercentile":
       return { better: 0, worse: 5, total: 5, percentile: 0 };
     case "test.getProgressRecords":

@@ -10,6 +10,7 @@ import { detectImpossibleTimeline } from "~/lib/antiCheat";
 import { challengeStreakFromDateKeys, shiftChallengeDateKey } from "~/lib/challenge";
 import { timelineDurationMs, type EncodedKeystroke } from "~/lib/keystrokes";
 import { isRankableSample, netFromRaw } from "~/lib/stats";
+import { baseTypeLanguage } from "~/lib/typeLanguage";
 import { averageNet, bestNetPerUser, netOf } from "~/lib/netScores";
 import {
   peerPercentileBrag,
@@ -37,6 +38,14 @@ const encodedKeystrokeSchema = z.tuple([
   z.number().nonnegative(),
 ]);
 const utcOffsetMinutesSchema = z.number().int().min(-14 * 60).max(14 * 60).optional();
+
+// The fixed configs surfaced as profile "signature bests": best 15s, best 60s,
+// best 100-word run. subMode 0 = timed, 1 = words; mode 0 = normal.
+const SIGNATURE_BEST_CONFIGS = [
+  { key: "timed-15", eyebrow: "15 seconds", subMode: 0, count: 15 },
+  { key: "timed-60", eyebrow: "60 seconds", subMode: 0, count: 60 },
+  { key: "words-100", eyebrow: "100 words", subMode: 1, count: 100 },
+] as const;
 const progressHistoryEntrySchema = z.object({
   wpm: z.number().min(0),
   accuracy: z.number().min(0).max(100),
@@ -670,6 +679,41 @@ export const testRouter = createTRPCRouter({
           score: "desc",
         },
       });
+    }),
+  // Signature personal bests for the profile identity card: one per common
+  // config (15s, 60s, 100 words). Returns net WPM (the canonical number) plus the
+  // raw/accuracy/date secondary stats, with null where the user has no ranked run.
+  getSignatureBests: publicProcedure
+    .input(z.object({
+      userId: z.string().optional(),
+      language: z.string().optional(),
+    }))
+    .query(async ({ ctx, input }) => {
+      const userId = input.userId ?? ctx.session?.user.id;
+      if (!userId) return [];
+      const language = baseTypeLanguage(input.language ?? "english");
+
+      return Promise.all(SIGNATURE_BEST_CONFIGS.map(async (config) => {
+        const type = await ctx.prisma.testType.findFirst({
+          where: { mode: 0, subMode: config.subMode, language },
+          select: { id: true },
+        });
+        const best = type
+          ? await ctx.prisma.test.findFirst({
+            where: { userId, ranked: true, typeId: type.id, count: config.count },
+            orderBy: { score: "desc" },
+            select: { speed: true, accuracy: true, createdAt: true },
+          })
+          : null;
+        return {
+          key: config.key,
+          eyebrow: config.eyebrow,
+          wpm: best ? netFromRaw(best.speed, best.accuracy) : null,
+          rawWpm: best?.speed ?? null,
+          accuracy: best?.accuracy ?? null,
+          createdAt: best?.createdAt ?? null,
+        };
+      }));
     }),
   getPercentile: publicProcedure
     .input(z.object({

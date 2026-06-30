@@ -68,22 +68,20 @@ two meaningful choices by default.
 **Decision:** make the profile read like a typist's identity card, not a settings
 page. Keep the activity chart. **No heatmap** (that's a Progress thing).
 
-- [ ] Demote **Edit Profile**: replace the full-width purple button
-  ([profile.tsx](../../src/pages/profile.tsx) line ~205) with a small pencil icon
-  next to the name. Own profile should look ~identical to the public view.
-- [ ] Add a **hero**: lead with a big top-speed number + rank/percentile badge +
-  streak, so the page has a proud headline (it currently has none).
-- [ ] Keep the **Activity** contribution chart. **No heatmap** (Progress owns it).
-- [ ] Replace the "Best Scores" block (generic leaderboard table + four
-  `react-select` filters) with **fancy scored-cards**: one per common config (best
-  15s, best 60s, best 100-words), **WPM hero'd**, with accuracy + date secondary.
-  Trophies, not a filterable log — drop the dropdowns.
-  - **Records stay on Progress too**, and intentionally differ: Progress shows
-    *dated PB milestones* (coaching evidence tied to the deltas); Profile shows
-    *signature bests as showcase cards*. Different data slice, different UI — do not
-    share the component.
-- [ ] Unify public ([profile/[username].tsx](../../src/pages/profile/[username].tsx))
-  and own profile so they share one card; own adds only the pencil affordance.
+- [x] Demote **Edit Profile**: replaced the full-width purple button with a small
+  pencil icon next to the name. Own profile now looks ~identical to the public view.
+- [x] Add a **hero**: top-speed number + rank/percentile badge, with the streak chip
+  by the name. (Top Speed + Ranking moved out of the Stats boxes into the hero.)
+- [x] Keep the **Activity** contribution chart. **No heatmap** (Progress owns it).
+- [x] Replace the "Best Scores" block (table + four `react-select` filters) with
+  **scored-cards**: one per common config (best 15s, best 60s, best 100-words),
+  **WPM hero'd**, accuracy + raw + date secondary. Trophies, not a filterable log.
+  - Built as a **portable `ScoreCard`** (presentational, takes computed numbers, no
+    queries) so leaderboard / challenge boards can reuse it. `SignatureBests` is the
+    profile-specific wrapper over the new `test.getSignatureBests` query.
+  - **Records stay on Progress too**, intentionally different UI — not shared.
+- [x] Unify public ([profile/[username].tsx](../../src/pages/profile/[username].tsx))
+  and own profile into one shared `ProfileView`; own adds only the pencil affordance.
 
 ---
 

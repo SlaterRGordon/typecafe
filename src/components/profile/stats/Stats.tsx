@@ -1,6 +1,5 @@
 import { api } from "~/utils/api"
-import { formatPercentile, formatValue } from "./utils"
-import { formatStat } from "~/lib/format"
+import { formatValue } from "./utils"
 
 interface StatsProps {
     profile: {
@@ -27,63 +26,30 @@ export const Stats = (props: StatsProps) => {
         userId: profile?.id
     })
 
-    const { data: bestScore, isLoading: isLoadingScore } = api.test.getBestScore.useQuery({ userId: profile?.id })
-    const { data: percentile, isLoading: isLoadingPercentile } = api.test.getPercentile.useQuery({ userId: profile?.id })
-
     return (
-        <div className="flex gap-4">
-            <div className="flex flex-col lg:flex-row gap-4">
-                <div className="flex items-center py-4 px-4 rounded-md bg-b2">
-                    <div className="flex flex-col">
-                        <div className="stat-title">Time Typing</div>
-                        {isLoadingTime || isLoadingTimeType ?
-                            <div className="flex basis-0 grow items-center">
-                                <div className="w-8 h-8 rounded-full animate-spin border border-solid text-primary border-t-transparent"></div>
-                            </div>
-                            :
-                            <div className="stat-value text-secondary text-[1.5rem] sm:text-[2.25rem]">{timeTyped?._sum.count ? formatValue(timeTyped._sum.count / 60) : 0.00} mins</div>
-                        }
-                    </div>
-                </div>
-                <div className="flex items-center py-4 px-4 rounded-md bg-b2">
-                    <div className="flex flex-col">
-                        <div className="stat-title">Words Typed</div>
-                        {isLoadingWords || isLoadingWordsType ?
-                            <div className="flex basis-0 grow items-center">
-                                <div className="w-8 h-8 rounded-full animate-spin border border-solid text-primary border-t-transparent"></div>
-                            </div>
-                            :
-                            <div className="stat-value text-secondary text-[1.5rem] sm:text-[2.25rem]">{wordsTyped?._sum?.count != null ? formatValue(wordsTyped._sum.count) : 0} words</div>
-                        }
-                    </div>
+        <div className="flex flex-col gap-4 lg:flex-row">
+            <div className="flex items-center py-4 px-4 rounded-md bg-b2">
+                <div className="flex flex-col">
+                    <div className="stat-title">Time Typing</div>
+                    {isLoadingTime || isLoadingTimeType ?
+                        <div className="flex basis-0 grow items-center">
+                            <div className="w-8 h-8 rounded-full animate-spin border border-solid text-primary border-t-transparent"></div>
+                        </div>
+                        :
+                        <div className="stat-value text-secondary text-[1.5rem] sm:text-[2.25rem]">{timeTyped?._sum.count ? formatValue(timeTyped._sum.count / 60) : 0.00} mins</div>
+                    }
                 </div>
             </div>
-            <div className="flex gap-4">
-                <div className="flex flex-col lg:flex-row gap-4">
-                    <div className="flex items-center py-4 px-4 rounded-md bg-b2">
-                        <div className="flex flex-col">
-                            <div className="stat-title">Top Speed</div>
-                            {isLoadingScore ?
-                                <div className="flex basis-0 grow items-center">
-                                    <div className="w-8 h-8 rounded-full animate-spin border border-solid text-primary border-t-transparent"></div>
-                                </div>
-                                :
-                                <div className="stat-value text-primary text-[1.5rem] sm:text-[2.25rem]">{bestScore ? formatStat(bestScore.speed) : 0} wpm</div>
-                            }
+            <div className="flex items-center py-4 px-4 rounded-md bg-b2">
+                <div className="flex flex-col">
+                    <div className="stat-title">Words Typed</div>
+                    {isLoadingWords || isLoadingWordsType ?
+                        <div className="flex basis-0 grow items-center">
+                            <div className="w-8 h-8 rounded-full animate-spin border border-solid text-primary border-t-transparent"></div>
                         </div>
-                    </div>
-                    <div className="flex items-center py-4 px-4 rounded-md bg-b2">
-                        <div className="flex flex-col">
-                            <div className="stat-title">Ranking</div>
-                            {isLoadingPercentile ?
-                                <div className="flex basis-0 grow items-center">
-                                    <div className="w-8 h-8 rounded-full animate-spin border border-solid text-primary border-t-transparent"></div>
-                                </div>
-                                :
-                                <div className="stat-value text-primary text-[1.5rem] sm:text-[2.25rem]">{percentile ? formatPercentile(percentile.percentile, percentile.better, percentile.worse) : 'N/A'}</div>
-                            }
-                        </div>
-                    </div>
+                        :
+                        <div className="stat-value text-secondary text-[1.5rem] sm:text-[2.25rem]">{wordsTyped?._sum?.count != null ? formatValue(wordsTyped._sum.count) : 0} words</div>
+                    }
                 </div>
             </div>
         </div>

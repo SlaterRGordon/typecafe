@@ -1,5 +1,4 @@
 import { expect, test } from "@playwright/test";
-import { chooseReactSelectOption } from "./helpers/select";
 import { mockAuthenticatedSession, mockTrpc } from "./helpers/trpc";
 
 test.describe("authenticated profile", () => {
@@ -24,13 +23,12 @@ test.describe("authenticated profile", () => {
 
     await expect(page.getByText("testuser").first()).toBeVisible();
     await expect(page.locator("p").getByText("Typing fast, testing faster.")).toBeVisible();
-    await expect(page.getByText("Best Scores")).toBeVisible();
 
-    await chooseReactSelectOption(page, "subModeSelect", "Words");
-    await chooseReactSelectOption(page, "countSelect", "100");
-    await expect(page.locator("#list").getByText("101.25", { exact: true })).toBeVisible();
+    // Signature best cards replace the old filterable table.
+    await expect(page.getByRole("heading", { name: "Best Scores" })).toBeVisible();
+    await expect(page.getByTestId("signature-bests").getByText("101.2")).toBeVisible();
 
-    await page.locator("label[for='configModal']").filter({ hasText: /^Edit Profile$/ }).click();
+    await page.getByTestId("edit-profile").click();
     await expect(page.locator("#configModal")).toBeChecked();
     await expect(page.getByRole("heading", { name: "Edit Profile" })).toBeVisible();
 
@@ -43,7 +41,7 @@ test.describe("authenticated profile", () => {
     await expect(page.getByText("updateduser").first()).toBeVisible();
     await expect(page.locator("p").getByText("Updated bio from Playwright.")).toBeVisible();
 
-    await page.locator("label[for='configModal']").filter({ hasText: /^Edit Profile$/ }).click();
+    await page.getByTestId("edit-profile").click();
     await page.getByRole("button", { name: "Delete Profile" }).click();
     await expect(page.locator("#confirmModal")).toBeChecked();
     await expect(page.getByText("Are you sure you want to delete your account?")).toBeVisible();
@@ -61,7 +59,7 @@ test.describe("authenticated profile", () => {
     const headerAvatar = page.getByTestId("profile-avatar");
     await expect(headerAvatar.getByRole("img")).toBeVisible();
 
-    await page.locator("label[for='configModal']").filter({ hasText: /^Edit Profile$/ }).click();
+    await page.getByTestId("edit-profile").click();
     await expect(page.getByRole("button", { name: "Remove" })).toBeVisible();
 
     await page.getByRole("button", { name: "Remove" }).click();
@@ -78,7 +76,7 @@ test.describe("authenticated profile", () => {
     await mockTrpc(page);
 
     await page.goto("/profile");
-    await page.locator("label[for='configModal']").filter({ hasText: /^Edit Profile$/ }).click();
+    await page.getByTestId("edit-profile").click();
     await page.setInputFiles("#avatarInput", {
       name: "avatar.txt",
       mimeType: "text/plain",
@@ -93,7 +91,7 @@ test.describe("authenticated profile", () => {
     await mockTrpc(page);
 
     await page.goto("/profile");
-    await page.locator("label[for='configModal']").filter({ hasText: /^Edit Profile$/ }).click();
+    await page.getByTestId("edit-profile").click();
     await page.setInputFiles("#avatarInput", {
       name: "avatar.png",
       mimeType: "image/png",
