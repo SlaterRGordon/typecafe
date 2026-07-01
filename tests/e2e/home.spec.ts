@@ -262,7 +262,7 @@ test.describe("home typing test", () => {
       await expect(inlineTab).toBeVisible();
       await expect(inlineTab.getByText("Fix this")).toBeVisible();
       await expect(inlineTab).toContainText("b->r");
-      await expect(inlineTab.getByRole("link", { name: "Start drill" })).toHaveAttribute("href", "/drill?keys=b,r");
+      await expect(inlineTab.getByRole("link", { name: "Start drill" })).toHaveAttribute("href", "/drill?transitions=br");
       await inlineTab.getByRole("button", { name: "Dismiss drill suggestion" }).click();
       await expect(inlineTab).toBeHidden();
       return;
@@ -271,7 +271,7 @@ test.describe("home typing test", () => {
     const tab = page.getByTestId("home-coach-tab-drill");
     await expect(tab).toBeVisible();
     const collapsedLink = tab.getByRole("link", { name: "Targeted drill" });
-    await expect(collapsedLink).toHaveAttribute("href", "/drill?keys=b,r");
+    await expect(collapsedLink).toHaveAttribute("href", "/drill?transitions=br");
     const collapsedLabel = tab.getByText("Fix this");
     await expect(collapsedLabel).toBeVisible();
     await tab.hover();
@@ -279,7 +279,7 @@ test.describe("home typing test", () => {
     await expect(collapsedLink).toHaveCSS("opacity", "0");
     await expect(panel).toContainText("b->r");
     await expect(panel).toContainText("2.2x avg");
-    await expect(panel.getByRole("link", { name: "Start drill" })).toHaveAttribute("href", "/drill?keys=b,r");
+    await expect(panel.getByRole("link", { name: "Start drill" })).toHaveAttribute("href", "/drill?transitions=br");
 
     // Dismissible — and stays gone for the session.
     await panel.getByRole("button", { name: "Dismiss drill suggestion" }).click();
