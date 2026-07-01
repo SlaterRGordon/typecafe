@@ -117,6 +117,133 @@ function periodShareLabel(period: ProgressPeriod): string {
     return period === "all" ? "all time" : `${period} days`;
 }
 
+function SkeletonBlock(props: { className: string }) {
+    return <div className={`rounded-md bg-base-content/10 ${props.className}`} aria-hidden="true" />;
+}
+
+function ProgressLoadingSkeleton() {
+    const keyboardRows = [
+        ["w-9", "w-9", "w-9", "w-9", "w-9", "w-9", "w-9", "w-9", "w-9", "w-9"],
+        ["w-9", "w-9", "w-9", "w-9", "w-9", "w-9", "w-9", "w-9", "w-9"],
+        ["w-9", "w-9", "w-9", "w-9", "w-9", "w-9", "w-9", "w-9"],
+        ["w-56"],
+    ];
+
+    return (
+        <div
+            data-testid="progress-loading-skeleton"
+            role="status"
+            aria-busy="true"
+            className="w-full max-w-6xl space-y-4 motion-safe:animate-pulse"
+        >
+            <span className="sr-only">Loading your progress...</span>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center gap-2">
+                    <SkeletonBlock className="h-9 w-36" />
+                    <SkeletonBlock className="h-8 w-28 rounded-full" />
+                    <SkeletonBlock className="h-8 w-32 rounded-full" />
+                </div>
+                <div className="flex items-center gap-2">
+                    <SkeletonBlock className="h-9 w-28" />
+                    <div className="flex gap-1 rounded-lg border border-base-content/10 bg-base-200/40 p-1">
+                        {PROGRESS_PERIODS.map((option) => (
+                            <SkeletonBlock key={option} className="h-9 w-11" />
+                        ))}
+                    </div>
+                </div>
+            </div>
+
+            <div className="grid gap-4 lg:grid-cols-3">
+                <div className="space-y-4 lg:col-span-2">
+                    <div className="rounded-xl border border-base-content/10 bg-base-100/45 p-6">
+                        <div className="flex items-center gap-4">
+                            <div className="shrink-0 space-y-2">
+                                <SkeletonBlock className="h-7 w-20" />
+                                <SkeletonBlock className="h-3 w-12" />
+                            </div>
+                            <SkeletonBlock className="h-14 flex-1" />
+                            <div className="shrink-0 space-y-2">
+                                <SkeletonBlock className="ml-auto h-12 w-32" />
+                                <SkeletonBlock className="ml-auto h-3 w-16" />
+                            </div>
+                        </div>
+                        <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-base-content/10 pt-4">
+                            <SkeletonBlock className="h-5 w-44" />
+                            <SkeletonBlock className="h-9 w-28" />
+                        </div>
+                    </div>
+
+                    <div className="rounded-lg border border-base-content/10 bg-base-100/45 p-4">
+                        <div className="mb-3 flex items-center justify-between gap-3">
+                            <SkeletonBlock className="h-6 w-36" />
+                            <div className="flex gap-1 rounded-lg border border-base-content/10 bg-base-200/40 p-1">
+                                <SkeletonBlock className="h-8 w-14" />
+                                <SkeletonBlock className="h-8 w-20" />
+                                <SkeletonBlock className="h-8 w-24" />
+                            </div>
+                        </div>
+                        <div className="relative h-64 overflow-hidden rounded-md border border-base-content/10 bg-base-200/25">
+                            <SkeletonBlock className="absolute bottom-8 left-8 h-36 w-px" />
+                            <SkeletonBlock className="absolute bottom-8 left-8 h-px w-[88%]" />
+                            <SkeletonBlock className="absolute left-[16%] top-[54%] h-2 w-2 rounded-full" />
+                            <SkeletonBlock className="absolute left-[34%] top-[45%] h-2 w-2 rounded-full" />
+                            <SkeletonBlock className="absolute left-[52%] top-[38%] h-2 w-2 rounded-full" />
+                            <SkeletonBlock className="absolute left-[71%] top-[28%] h-2 w-2 rounded-full" />
+                            <SkeletonBlock className="absolute left-[12%] top-[49%] h-1 w-[72%] rotate-[-8deg]" />
+                        </div>
+                    </div>
+                </div>
+
+                <div className="flex min-h-[28rem] flex-col gap-4 rounded-xl border border-primary/20 bg-primary/5 p-5">
+                    <SkeletonBlock className="h-6 w-32" />
+                    <div className="space-y-3">
+                        <SkeletonBlock className="h-3 w-24" />
+                        <div className="flex flex-wrap gap-1.5">
+                            <SkeletonBlock className="h-8 w-14" />
+                            <SkeletonBlock className="h-8 w-14" />
+                            <SkeletonBlock className="h-8 w-14" />
+                        </div>
+                        <SkeletonBlock className="h-10 w-full" />
+                    </div>
+                    <div className="space-y-2">
+                        <SkeletonBlock className="h-3 w-32" />
+                        <SkeletonBlock className="h-12 w-full" />
+                        <SkeletonBlock className="h-12 w-full" />
+                        <SkeletonBlock className="h-12 w-full" />
+                    </div>
+                </div>
+            </div>
+
+            <div className="grid gap-4 lg:grid-cols-3">
+                <div className="rounded-lg border border-base-content/10 bg-base-100/45 p-3 sm:p-5 lg:col-span-2">
+                    <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <SkeletonBlock className="h-5 w-40" />
+                        <SkeletonBlock className="h-6 w-64" />
+                    </div>
+                    <div className="space-y-1 overflow-hidden">
+                        {keyboardRows.map((row, rowIndex) => (
+                            <div key={rowIndex} className="flex justify-center gap-1">
+                                {row.map((width, index) => (
+                                    <SkeletonBlock key={`${rowIndex}-${index}`} className={`h-10 ${width}`} />
+                                ))}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                <div className="rounded-lg border border-base-content/10 bg-base-100/45 p-4">
+                    <SkeletonBlock className="mb-3 h-6 w-24" />
+                    <div className="space-y-3">
+                        <SkeletonBlock className="h-8 w-full" />
+                        <SkeletonBlock className="h-8 w-full" />
+                        <SkeletonBlock className="h-8 w-4/5" />
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Record<string, KeyAttempt>; transitions: TransitionAggregate[]; canShare?: boolean; username?: string | null }) => {
     const [period, setPeriod] = useState<ProgressPeriod>(30);
     const [trendMetric, setTrendMetric] = useState<TrendMetric>("wpm");
@@ -521,7 +648,7 @@ const Progress: NextPage = () => {
             </Head>
             <div className="flex h-full w-full justify-center items-start overflow-auto px-4 py-8">
                 {status === "loading" || (sessionData?.user && (recordsQuery.isLoading || rollupsQuery.isLoading)) ? (
-                    <div className="mt-16 text-base-content/50">Loading your progress…</div>
+                    <ProgressLoadingSkeleton />
                 ) : !sessionData?.user ? (
                     guestRecords.length > 0 ? (
                         <div className="w-full max-w-6xl space-y-4">

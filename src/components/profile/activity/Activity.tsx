@@ -6,6 +6,9 @@ import { getActivityData } from "./utils"
 import { useStyle } from "~/utils/hooks/useMutationObserver"
 import { longestStreak } from "~/lib/progress"
 import { Chip } from "~/components/ui/Chip"
+import type { RouterOutputs } from "~/utils/api"
+
+export type ProfileActivityData = RouterOutputs["test"]["getActivityByDate"]
 
 interface ActivityProps {
   profile: {
@@ -15,6 +18,7 @@ interface ActivityProps {
     id: string;
     image: string | null;
   } | null | undefined,
+  data?: ProfileActivityData,
 }
 
 export const Activity = (props: ActivityProps) => {
@@ -38,11 +42,12 @@ export const Activity = (props: ActivityProps) => {
     }
   }, [style])
 
-  const { data: testCounts } = api.test.getActivityByDate.useQuery({
+  const { data: fetchedTestCounts } = api.test.getActivityByDate.useQuery({
     startDate,
     endDate,
     userId: profile?.id
-  })
+  }, { enabled: !props.data })
+  const testCounts = props.data ?? fetchedTestCounts
 
   useEffect(() => {
     setData(getActivityData(testCounts))

@@ -1,6 +1,13 @@
 import { useState } from "react"
 import { api } from "~/utils/api"
+import type { RouterOutputs } from "~/utils/api"
 import { formatTypedDuration, formatValue } from "./utils"
+
+export interface ProfileStatsData {
+    timeTyped: RouterOutputs["test"]["getTimeTyped"];
+    wordsTyped: RouterOutputs["test"]["getTimeTyped"];
+    yearlyActivity: RouterOutputs["test"]["getActivityByDate"];
+}
 
 interface StatsProps {
     profile: {
@@ -10,6 +17,7 @@ interface StatsProps {
         id: string;
         image: string | null;
     } | null | undefined,
+    data?: ProfileStatsData,
 }
 
 function StatTile(props: { icon: string; label: string; tone: "primary" | "secondary" | "accent"; value: string; loading?: boolean }) {
@@ -22,7 +30,13 @@ function StatTile(props: { icon: string; label: string; tone: "primary" | "secon
     return (
         <div className="flex min-h-[7rem] items-center gap-4 rounded-lg border border-base-content/10 bg-base-200/45 px-5 py-4">
             {props.loading ?
-                <div className="mx-auto h-8 w-8 animate-spin rounded-full border border-solid border-t-transparent text-primary" />
+                <>
+                    <div className="h-14 w-14 shrink-0 rounded-full bg-base-content/10" aria-hidden="true" />
+                    <div className="flex min-w-0 flex-col gap-2">
+                        <div className="h-10 w-28 rounded-md bg-base-content/10" aria-hidden="true" />
+                        <div className="h-4 w-24 rounded-md bg-base-content/10" aria-hidden="true" />
+                    </div>
+                </>
                 :
                 <>
                     <div className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-full border border-base-content/10 bg-base-content/10 text-2xl ${toneClasses}`}>
@@ -40,18 +54,19 @@ function StatTile(props: { icon: string; label: string; tone: "primary" | "secon
 
 export const Stats = (props: StatsProps) => {
     const { profile } = props
+    const shouldFetch = !props.data
     // fetch types
-    const { data: wordTypes, isLoading: isLoadingWordsType } = api.type.getAll.useQuery({ subMode: 1 })
+    const { data: wordTypes, isLoading: isLoadingWordsType } = api.type.getAll.useQuery({ subMode: 1 }, { enabled: shouldFetch })
     const { data: wordsTyped, isLoading: isLoadingWords } = api.test.getTimeTyped.useQuery({
         typeIds: wordTypes ? wordTypes.map(type => { return type.id; }) : [],
         userId: profile?.id
-    })
+    }, { enabled: shouldFetch && !!wordTypes })
 
-    const { data: timeTypes, isLoading: isLoadingTimeType } = api.type.getAll.useQuery({ subMode: 0 })
+    const { data: timeTypes, isLoading: isLoadingTimeType } = api.type.getAll.useQuery({ subMode: 0 }, { enabled: shouldFetch })
     const { data: timeTyped, isLoading: isLoadingTime } = api.test.getTimeTyped.useQuery({
         typeIds: timeTypes ? timeTypes.map(type => { return type.id; }) : [],
         userId: profile?.id
-    })
+    }, { enabled: shouldFetch && !!timeTypes })
 
     const [startDate] = useState(() => new Date(new Date().getFullYear(), 0, 1))
     const [endDate] = useState(() => new Date())
@@ -59,9 +74,10 @@ export const Stats = (props: StatsProps) => {
         startDate,
         endDate,
         userId: profile?.id
-    })
-    const testsThisYear = yearlyActivity?.reduce((total, day) => total + day._count._all, 0) ?? 0
-    const typedDuration = formatTypedDuration(timeTyped?._sum.count)
+    }, { enabled: shouldFetch })
+    const testsThisYear = (props.data?.yearlyActivity ?? yearlyActivity)?.reduce((total, day) => total + day._count._all, 0) ?? 0
+    const typedDuration = formatTypedDuration((props.data?.timeTyped ?? timeTyped)?._sum.count)
+    const wordsTypedCount = (props.data?.wordsTyped ?? wordsTyped)?._sum?.count
 
     return (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -76,7 +92,7 @@ export const Stats = (props: StatsProps) => {
                 icon="fa-file-lines"
                 label="Words typed"
                 tone="secondary"
-                value={wordsTyped?._sum?.count != null ? formatValue(wordsTyped._sum.count) : "0"}
+                value={wordsTypedCount != null ? formatValue(wordsTypedCount) : "0"}
                 loading={isLoadingWords || isLoadingWordsType}
             />
             <StatTile

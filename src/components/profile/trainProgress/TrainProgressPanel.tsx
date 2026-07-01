@@ -2,6 +2,9 @@ import Link from "next/link";
 
 import { Chip } from "~/components/ui/Chip";
 import { api } from "~/utils/api";
+import type { RouterOutputs } from "~/utils/api";
+
+export type ProfileTrainProgressSummary = RouterOutputs["trainProgress"]["getSummary"];
 
 function formatPercent(value: number) {
     return `${Math.round(value)}%`;
@@ -52,14 +55,34 @@ function DifficultyRow(props: {
 function LoadingState() {
     return (
         <div className="flex min-h-48 items-center justify-center" role="status" aria-live="polite">
-            <div className="h-7 w-7 animate-spin rounded-full border border-solid border-t-transparent text-primary" />
+            <div className="grid w-full gap-2 motion-safe:animate-pulse">
+                {[0, 1, 2].map((row) => (
+                    <div key={row} className="rounded-lg border border-base-content/10 bg-base-100/35 px-3 py-2.5">
+                        <div className="flex items-start justify-between gap-2">
+                            <div className="space-y-2">
+                                <div className="h-4 w-28 rounded-md bg-base-content/10" aria-hidden="true" />
+                                <div className="h-3 w-20 rounded-md bg-base-content/10" aria-hidden="true" />
+                            </div>
+                            <div className="space-y-1">
+                                <div className="ml-auto h-3 w-20 rounded-md bg-base-content/10" aria-hidden="true" />
+                                <div className="ml-auto h-3 w-16 rounded-md bg-base-content/10" aria-hidden="true" />
+                            </div>
+                        </div>
+                        <div className="mt-2 h-1.5 rounded-full bg-base-content/10" aria-hidden="true" />
+                    </div>
+                ))}
+            </div>
             <span className="sr-only">Loading train progress...</span>
         </div>
     );
 }
 
-export function TrainProgressPanel(props: { userId?: string }) {
-    const { data, isLoading } = api.trainProgress.getSummary.useQuery({ userId: props.userId });
+export function TrainProgressPanel(props: { userId?: string; data?: ProfileTrainProgressSummary }) {
+    const { data: fetchedData, isLoading } = api.trainProgress.getSummary.useQuery(
+        { userId: props.userId },
+        { enabled: !props.data },
+    );
+    const data = props.data ?? fetchedData;
 
     return (
         <section

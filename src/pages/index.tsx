@@ -4,8 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
-import { DailyChallengePrompt } from "~/components/challenge/DailyChallengePrompt";
-import { HomeNextAction } from "~/components/home/HomeNextAction";
+import { HomeCoachTabs } from "~/components/home/HomeCoachTabs";
 import { ShareableScoreCard, type ScoreSnapshot } from "~/components/scores/ShareableScoreCard";
 import { Keyboard } from "~/components/typer/Keyboard";
 import { Typer, type TestCompletionResult } from "~/components/typer/Typer";
@@ -568,11 +567,10 @@ const Home: NextPage = () => {
       </Head>
       <div id="typer" className={`flex flex-col h-full overflow-auto ${completedScore ? "py-4" : "[justify-content:safe_center]"} ${fullscreen ? 'absolute top-0 left-0 w-full h-full bg-base-100 z-[500] sm:px-8' : 'md:w-10/12'}`}>
         {!completedScore && !fullscreen &&
-          <DailyChallengePrompt corner className={typingFocusFadeClass(typingFocused, "")} />
+          <HomeCoachTabs className={typingFocusFadeClass(typingFocused, "")} />
         }
         {!completedScore &&
           <div data-testid="typing-focus-home-controls" className={typingFocusFadeClass(typingFocused, "w-full")}>
-            <HomeNextAction />
             <ModeBar
               mode={mode} subMode={subMode} setMode={setMode}
               setSubMode={setSubMode}

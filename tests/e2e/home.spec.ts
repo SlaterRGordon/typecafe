@@ -203,8 +203,8 @@ test.describe("home typing test", () => {
     await gotoHome(page);
     const toolbar = page.getByTestId("typer-toolbar");
 
-    // Default English is the curated 10k slice.
-    await toolbar.getByRole("button", { name: "Language: English 10k" }).click();
+    // Default English is the bundled curated 1k slice.
+    await toolbar.getByRole("button", { name: "Language: English 1k" }).click();
     const menu = page.getByTestId("language-menu");
     await expect(menu).toBeVisible();
     for (const size of ["1k", "5k", "10k", "25k"]) {
@@ -252,26 +252,33 @@ test.describe("home typing test", () => {
     expect(scoreCreates).toBe(0);
   });
 
-  test("signed-in users get a next-action pill that drills their slowest transition", async ({ page }) => {
+  test("signed-in users get a coach tab that drills their slowest transition", async ({ page }) => {
     await mockAuthenticatedSession(page);
     await mockTrpc(page);
     await gotoHome(page);
 
-    const pill = page.getByTestId("home-next-action");
-    await expect(pill).toBeVisible();
-    await expect(pill).toContainText("b→r");
-    await expect(pill).toContainText("2.2× avg");
-    await expect(pill.getByTestId("home-next-action-drill")).toHaveAttribute("href", "/drill?keys=b,r");
+    const tab = page.getByTestId("home-coach-tab-drill");
+    await expect(tab).toBeVisible();
+    const collapsedLink = tab.getByRole("link", { name: "Targeted drill" });
+    await expect(collapsedLink).toHaveAttribute("href", "/drill?keys=b,r");
+    const collapsedLabel = tab.getByText("Fix this");
+    await expect(collapsedLabel).toBeVisible();
+    await tab.hover();
+    const panel = page.getByTestId("home-coach-tab-drill-panel");
+    await expect(collapsedLink).toHaveCSS("opacity", "0");
+    await expect(panel).toContainText("b->r");
+    await expect(panel).toContainText("2.2x avg");
+    await expect(panel.getByRole("link", { name: "Start drill" })).toHaveAttribute("href", "/drill?keys=b,r");
 
     // Dismissible — and stays gone for the session.
-    await pill.getByRole("button", { name: "Dismiss" }).click();
-    await expect(pill).toBeHidden();
+    await panel.getByRole("button", { name: "Dismiss drill suggestion" }).click();
+    await expect(tab).toBeHidden();
   });
 
-  test("guests see no next-action pill", async ({ page }) => {
+  test("guests see no drill coach tab", async ({ page }) => {
     await mockTrpc(page);
     await gotoHome(page);
-    await expect(page.getByTestId("home-next-action")).toBeHidden();
+    await expect(page.getByTestId("home-coach-tab-drill")).toBeHidden();
   });
 
   test("grams advanced thresholds stay folded behind a disclosure", async ({ page }) => {

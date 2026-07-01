@@ -488,11 +488,58 @@ test.describe("screenshot tour", () => {
     await capture(page, testInfo, "16-profile-own");
   });
 
+  test("profile loading skeleton", async ({ page }, testInfo) => {
+    let releaseProfile = () => {};
+    const profileHold = new Promise<void>((resolve) => {
+      releaseProfile = resolve;
+    });
+
+    await mockTrpc(page);
+    await page.route("**/api/trpc/user.getProfileByUsername**", async (route) => {
+      await profileHold;
+      await route.fallback();
+    });
+    await page.goto("/profile/testuser");
+    await expect(page.getByTestId("profile-loading-skeleton")).toBeVisible();
+    await capture(page, testInfo, "17-profile-loading");
+    releaseProfile();
+  });
+
   test("public profile page", async ({ page }, testInfo) => {
     await mockTrpc(page);
     await page.goto("/profile/testuser");
     await expect(page.getByText("testuser").first()).toBeVisible();
     await capture(page, testInfo, "17-profile-public");
+  });
+
+  test("progress dashboard loading skeleton", async ({ page }, testInfo) => {
+    let releaseSession = () => {};
+    const sessionHold = new Promise<void>((resolve) => {
+      releaseSession = resolve;
+    });
+
+    await page.route("**/api/auth/session", async (route) => {
+      await sessionHold;
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          user: {
+            id: "user-1",
+            name: "Test User",
+            email: "test@example.com",
+            username: "testuser",
+            image: null,
+          },
+          expires: "2099-01-01T00:00:00.000Z",
+        }),
+      });
+    });
+    await mockTrpc(page);
+    await page.goto("/progress");
+    await expect(page.getByTestId("progress-loading-skeleton")).toBeVisible();
+    await capture(page, testInfo, "40-progress-loading");
+    releaseSession();
   });
 
   test("progress dashboard (authenticated, rich history)", async ({ page }, testInfo) => {
@@ -601,7 +648,8 @@ test.describe("screenshot tour", () => {
     await captureElement(shareImage, testInfo, "51-daily-challenge-share-image");
   });
 
-  test("home: daily challenge prompt", async ({ page }, testInfo) => {
+  test("home: daily challenge coach tab", async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name.includes("mobile"), "The rail coach tabs are desktop-only.");
     await page.clock.install({ time: new Date("2026-06-16T12:00:00.000Z") });
     await page.addInitScript(() => {
       // Only yesterday done → today's challenge is still open, so the corner card shows.
@@ -610,8 +658,20 @@ test.describe("screenshot tour", () => {
       ]));
     });
     await page.goto("/");
-    await expect(page.getByTestId("daily-challenge-prompt")).toBeVisible();
-    await capture(page, testInfo, "50-home-daily-challenge-prompt");
+    const tab = page.getByTestId("home-coach-tab-challenge");
+    await expect(tab).toBeVisible();
+    await tab.hover();
+    await expect(page.getByTestId("home-coach-tab-challenge-panel")).toBeVisible();
+    await capture(page, testInfo, "50-home-daily-challenge-tab");
+  });
+
+  test("navigation: expanded side rail", async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name.includes("mobile"), "The side rail is desktop-only.");
+    await gotoHome(page);
+    const homeButton = page.getByTestId("side-primary-nav").getByRole("button", { name: "Home" });
+    await homeButton.hover();
+    await expect(homeButton.locator("div").getByText("Home", { exact: true })).toBeVisible();
+    await capture(page, testInfo, "58-nav-expanded");
   });
 
   test("navigation: More popover", async ({ page }, testInfo) => {
@@ -625,12 +685,16 @@ test.describe("screenshot tour", () => {
     await capture(page, testInfo, "58-nav-more-popover");
   });
 
-  test("home: next-action coaching pill", async ({ page }, testInfo) => {
+  test("home: targeted drill coach tab", async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name.includes("mobile"), "The rail coach tabs are desktop-only.");
     await mockAuthenticatedSession(page);
     await mockTrpc(page);
     await gotoHome(page);
-    await expect(page.getByTestId("home-next-action")).toBeVisible();
-    await capture(page, testInfo, "57-home-next-action");
+    const tab = page.getByTestId("home-coach-tab-drill");
+    await expect(tab).toBeVisible();
+    await tab.hover();
+    await expect(page.getByTestId("home-coach-tab-drill-panel")).toBeVisible();
+    await capture(page, testInfo, "57-home-targeted-drill-tab");
   });
 
   test("practice plan (targeted)", async ({ page }, testInfo) => {

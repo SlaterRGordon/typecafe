@@ -6,6 +6,39 @@ async function gotoProgress(page: Page) {
 }
 
 test.describe("progress dashboard", () => {
+  test("shows a dashboard skeleton while progress is loading", async ({ page }) => {
+    let releaseSession = () => {};
+    const sessionHold = new Promise<void>((resolve) => {
+      releaseSession = resolve;
+    });
+
+    await page.route("**/api/auth/session", async (route) => {
+      await sessionHold;
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          user: {
+            id: "user-1",
+            name: "Test User",
+            email: "test@example.com",
+            username: "testuser",
+            image: null,
+          },
+          expires: "2099-01-01T00:00:00.000Z",
+        }),
+      });
+    });
+    await mockTrpc(page);
+    await gotoProgress(page);
+
+    await expect(page.getByTestId("progress-loading-skeleton")).toBeVisible();
+    await expect(page.getByTestId("progress-loading-skeleton")).toHaveAttribute("aria-busy", "true");
+
+    releaseSession();
+    await expect(page.getByTestId("headline-delta")).toBeVisible();
+  });
+
   test("a signed-in user with history sees their delta, trends, and weak spots", async ({ page }) => {
     await mockAuthenticatedSession(page);
     await mockTrpc(page, { keyStats: [{ character: "r", total: 120, correct: 96 }, { character: "e", total: 300, correct: 290 }] });
