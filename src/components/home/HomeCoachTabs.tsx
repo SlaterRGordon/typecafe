@@ -196,7 +196,7 @@ export function HomeCoachTabs({ className = "", desktop = true, inline = true }:
                     href: `/drill?keys=${drillKeys}`,
                     cta: "Start drill",
                     testId: "home-coach-tab-drill",
-                    topClassName: "top-[8.5rem]",
+                    topClassName: "top-[12.5rem]",
                     dismissLabel: "Dismiss drill suggestion",
                     onDismiss: () => {
                         setDismissedFinding(drillKeys);

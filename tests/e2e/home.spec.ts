@@ -252,10 +252,21 @@ test.describe("home typing test", () => {
     expect(scoreCreates).toBe(0);
   });
 
-  test("signed-in users get a coach tab that drills their slowest transition", async ({ page }) => {
+  test("signed-in users get a coach tab that drills their slowest transition", async ({ page }, testInfo) => {
     await mockAuthenticatedSession(page);
     await mockTrpc(page);
     await gotoHome(page);
+
+    if (testInfo.project.name.includes("mobile")) {
+      const inlineTab = page.getByTestId("home-coach-tab-drill-inline");
+      await expect(inlineTab).toBeVisible();
+      await expect(inlineTab.getByText("Fix this")).toBeVisible();
+      await expect(inlineTab).toContainText("b->r");
+      await expect(inlineTab.getByRole("link", { name: "Start drill" })).toHaveAttribute("href", "/drill?keys=b,r");
+      await inlineTab.getByRole("button", { name: "Dismiss drill suggestion" }).click();
+      await expect(inlineTab).toBeHidden();
+      return;
+    }
 
     const tab = page.getByTestId("home-coach-tab-drill");
     await expect(tab).toBeVisible();
@@ -282,6 +293,18 @@ test.describe("home typing test", () => {
     await gotoHome(page);
 
     await expect(page.getByTestId("home-coach-tab-drill")).toBeVisible();
+    const nav = page.getByTestId("side-primary-nav");
+    const tabBox = await page.getByTestId("home-coach-tab-drill").boundingBox();
+    const trainBox = await nav.getByRole("button", { name: "Train" }).boundingBox();
+    const progressBox = await nav.getByRole("button", { name: "Progress" }).boundingBox();
+    expect(tabBox).not.toBeNull();
+    expect(trainBox).not.toBeNull();
+    expect(progressBox).not.toBeNull();
+    const tabCenterY = tabBox!.y + tabBox!.height / 2;
+    const trainCenterY = trainBox!.y + trainBox!.height / 2;
+    const progressCenterY = progressBox!.y + progressBox!.height / 2;
+    expect(Math.abs(tabCenterY - progressCenterY)).toBeLessThanOrEqual(2);
+    expect(Math.abs(tabCenterY - trainCenterY)).toBeGreaterThan(16);
     await page.getByRole("button", { name: "Progress" }).click();
     await expect(page).toHaveURL(/\/progress$/);
     await expect(page.getByTestId("headline-delta")).toBeVisible();
