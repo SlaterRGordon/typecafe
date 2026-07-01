@@ -1,7 +1,7 @@
 import { expect, test, type Locator, type Page, type TestInfo } from "@playwright/test";
 import { mockAuthenticatedSession, mockTrpc } from "./helpers/trpc";
 import { chooseReactSelectOption } from "./helpers/select";
-import { typeCurrentCharacter, typeVisibleTestText } from "./helpers/typing";
+import { typeCurrentCharacter, typeVisibleTestText, typeWrongCharacter } from "./helpers/typing";
 import { join } from "node:path";
 
 // Captures every page and menu state into docs/screenshots/<project>/ so the
@@ -36,8 +36,14 @@ async function openSettingsMenu(page: Page) {
 }
 
 // Mode switches on the inline mode bar (the modal holds everything else).
-function selectMode(page: Page, name: "Timed" | "Words" | "Practice" | "Grams" | "Relaxed" | "Quotes") {
+function selectMode(page: Page, name: "Timed" | "Words" | "Practice" | "Grams") {
   return page.getByTestId("mode-bar").getByRole("button", { name }).click();
+}
+
+// Quotes is now a text source in the language picker rather than a mode button.
+async function selectQuotesLanguage(page: Page) {
+  await page.getByTestId("typer-toolbar").getByRole("button", { name: /^Language:/ }).click();
+  await page.getByTestId("language-menu").getByRole("button", { name: "Quotes", exact: true }).click();
 }
 
 async function setToolbarCustomLength(page: Page, value: string) {
@@ -141,15 +147,22 @@ test.describe("screenshot tour", () => {
     await expect(page.getByTestId("grams-panel")).toBeVisible();
     await capture(page, testInfo, "05-settings-grams");
 
-    // Practice (keyboard) and Relaxed switch inline with no modal round-trip.
+    // The numeric thresholds fold behind an Advanced disclosure; show it open.
+    await page.getByTestId("grams-panel").getByText("Advanced", { exact: true }).click();
+    await expect(page.locator("#testGramWpmThresholdInput")).toBeVisible();
+    await capture(page, testInfo, "59-settings-grams-advanced");
+
+    // Practice switches inline with no modal round-trip.
     await selectMode(page, "Practice");
     await expect(page.locator(".typecafe-keyboard")).toBeVisible();
     await capture(page, testInfo, "07-settings-practice-mode");
 
-    await selectMode(page, "Relaxed");
+    // ∞ (no timer) — the relaxed engine, now a length option on Timed.
+    await selectMode(page, "Timed");
+    await page.getByTestId("toolbar-context").getByRole("button", { name: "No timer" }).click();
     await openSettingsMenu(page);
     await expect(page.getByTestId("settings-menu")).toBeVisible();
-    await capture(page, testInfo, "08-settings-relaxed-mode");
+    await capture(page, testInfo, "08-settings-no-timer");
   });
 
   test("words mode: test view after closing modal", async ({ page }, testInfo) => {
@@ -185,17 +198,17 @@ test.describe("screenshot tour", () => {
     await capture(page, testInfo, "26-test-view-grams-mid-level");
   });
 
-  test("relaxed mode: test view", async ({ page }, testInfo) => {
+  test("no-timer (∞) test view", async ({ page }, testInfo) => {
     await gotoHome(page);
-    await selectMode(page, "Relaxed");
+    await page.getByTestId("toolbar-context").getByRole("button", { name: "No timer" }).click();
 
     await expect(page.locator("#words .char").first()).toBeVisible();
-    await capture(page, testInfo, "27-test-view-relaxed-mode");
+    await capture(page, testInfo, "27-test-view-no-timer");
   });
 
   test("quotes mode: test view with length buckets", async ({ page }, testInfo) => {
     await gotoHome(page);
-    await selectMode(page, "Quotes");
+    await selectQuotesLanguage(page);
 
     await expect(page.getByTestId("quote-length-bar")).toBeVisible();
     await expect(page.locator("#words .char").first()).toBeVisible();
@@ -235,7 +248,7 @@ test.describe("screenshot tour", () => {
     await capture(page, testInfo, "30-practice-vowel-alert");
 
     // Smart drill without enough typing history surfaces the warning toast.
-    await page.getByRole("button", { name: "Drill your six least accurate keys" }).click();
+    await page.getByRole("button", { name: "Drill your eight least accurate keys" }).click();
     await expect(page.getByText("Not enough typing data yet — practice a little first!")).toBeVisible();
     await capture(page, testInfo, "31-practice-smart-drill-no-data");
 
@@ -280,20 +293,20 @@ test.describe("screenshot tour", () => {
     await expect(keyboardKey("R").locator("svg")).toHaveCount(1);
   });
 
-  test("learn page: difficulty and level selection", async ({ page }, testInfo) => {
-    await page.goto("/learn");
+  test("train page: difficulty and level selection", async ({ page }, testInfo) => {
+    await page.goto("/train");
     await expect(page.locator("#words .char").first()).toBeVisible({ timeout: 20_000 });
 
     await chooseReactSelectOption(page, "difficultySelect", "Hard");
     await expect(page.locator("#words .char").first()).toBeVisible();
-    await capture(page, testInfo, "33-learn-hard-difficulty");
+    await capture(page, testInfo, "33-train-hard-difficulty");
 
     // Open the level dropdown to show locked levels.
     await page.locator("#react-select-levelSelect-input")
       .locator("xpath=ancestor::*[contains(@class, 'my-react-select__control')][1]")
       .click();
     await expect(page.getByRole("option", { name: "Level 2", exact: true })).toBeVisible();
-    await capture(page, testInfo, "34-learn-level-dropdown");
+    await capture(page, testInfo, "34-train-level-dropdown");
   });
 
   test("home: keyboard enabled and live stats disabled", async ({ page }, testInfo) => {
@@ -332,6 +345,9 @@ test.describe("screenshot tour", () => {
     // Shorten the test to 3 seconds so the completion dashboard appears fast.
     await setToolbarCustomLength(page, "3");
 
+    // Focus the typing surface before the first keystroke — committing the custom
+    // length can leave focus on the toolbar, dropping a bare keyboard press.
+    await page.locator("#text").click();
     await typeCurrentCharacter(page);
     await expect(page.getByRole("button", { name: "Test Again" })).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText("WPM Over Time")).toBeVisible();
@@ -389,28 +405,71 @@ test.describe("screenshot tour", () => {
     await capture(page, testInfo, "38-re-measure-delta");
   });
 
-  test("learn page", async ({ page }, testInfo) => {
-    await page.goto("/learn");
+  test("train page", async ({ page }, testInfo) => {
+    await page.goto("/train");
     await expect(page.locator("#words .char").first()).toBeVisible({ timeout: 20_000 });
-    await capture(page, testInfo, "14-learn-default");
+    await capture(page, testInfo, "14-train-default");
   });
 
-  test("learn level complete popover", async ({ page }, testInfo) => {
-    await page.goto("/learn");
+  test("train level complete popover", async ({ page }, testInfo) => {
+    await page.goto("/train");
     await expect(page.locator("#words .char").first()).toBeVisible({ timeout: 20_000 });
     await typeVisibleTestText(page);
-    await expect(page.getByTestId("learn-complete-popover")).toBeVisible();
-    await capture(page, testInfo, "57-learn-level-complete");
+    await expect(page.getByTestId("train-complete-popover")).toBeVisible();
+    await capture(page, testInfo, "57-train-level-complete");
   });
 
-  test("learn level failed popover", async ({ page }, testInfo) => {
-    await page.goto("/learn");
+  test("train speed round (timed)", async ({ page }, testInfo) => {
+    await page.addInitScript(() => {
+      const cleared = Array.from({ length: 3 }, (_, i) => ({
+        options: `Level ${i + 1}`, speed: 200, accuracy: 100, stars: 3,
+      }));
+      window.localStorage.setItem("typecafe.trainProgress.easy", JSON.stringify(cleared));
+    });
+    await page.goto("/train");
+    await expect(page.locator("#words .char").first()).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByTestId("timed-countdown")).toBeVisible();
+    await capture(page, testInfo, "59-train-speed-round");
+  });
+
+  test("train no-miss failed popover", async ({ page }, testInfo) => {
+    await page.addInitScript(() => {
+      const cleared = Array.from({ length: 6 }, (_, i) => ({
+        options: `Level ${i + 1}`, speed: 200, accuracy: 100, stars: 3,
+      }));
+      window.localStorage.setItem("typecafe.trainProgress.easy", JSON.stringify(cleared));
+    });
+    await page.goto("/train");
+    await expect(page.locator("#words .char").first()).toBeVisible({ timeout: 20_000 });
+    await typeCurrentCharacter(page, 0);
+    await typeWrongCharacter(page, 1);
+    await expect(page.getByTestId("train-complete-popover")).toBeVisible();
+    await capture(page, testInfo, "60-train-no-miss-failed");
+  });
+
+  test("train boss failed popover", async ({ page }, testInfo) => {
+    await page.addInitScript(() => {
+      const cleared = Array.from({ length: 9 }, (_, i) => ({
+        options: `Level ${i + 1}`, speed: 200, accuracy: 100, stars: 3,
+      }));
+      window.localStorage.setItem("typecafe.trainProgress.easy", JSON.stringify(cleared));
+    });
+    await page.goto("/train");
+    await expect(page.locator("#words .char").first()).toBeVisible({ timeout: 20_000 });
+    // Start the run, then stall so the pacer overtakes and the boss fails.
+    await typeCurrentCharacter(page, 0);
+    await expect(page.getByTestId("train-complete-popover")).toBeVisible({ timeout: 10_000 });
+    await capture(page, testInfo, "61-train-boss-failed");
+  });
+
+  test("train level failed popover", async ({ page }, testInfo) => {
+    await page.goto("/train");
     await expect(page.locator("#words .char").first()).toBeVisible({ timeout: 20_000 });
     await typeCurrentCharacter(page);
     const remaining = await page.locator("#words .char").count();
     for (let index = 1; index < remaining; index += 1) await page.keyboard.press("q");
-    await expect(page.getByTestId("learn-complete-popover")).toBeVisible();
-    await capture(page, testInfo, "58-learn-level-failed");
+    await expect(page.getByTestId("train-complete-popover")).toBeVisible();
+    await capture(page, testInfo, "58-train-level-failed");
   });
 
   test("leaderboard page", async ({ page }, testInfo) => {
@@ -545,14 +604,33 @@ test.describe("screenshot tour", () => {
   test("home: daily challenge prompt", async ({ page }, testInfo) => {
     await page.clock.install({ time: new Date("2026-06-16T12:00:00.000Z") });
     await page.addInitScript(() => {
+      // Only yesterday done → today's challenge is still open, so the corner card shows.
       window.localStorage.setItem("typecafe:challengeHistory", JSON.stringify([
         { dateKey: "2026-06-15", wpm: 70.1, accuracy: 97, t: Date.parse("2026-06-15T12:00:00.000Z") },
-        { dateKey: "2026-06-16", wpm: 74.2, accuracy: 98, t: Date.parse("2026-06-16T12:00:00.000Z") },
       ]));
     });
     await page.goto("/");
     await expect(page.getByTestId("daily-challenge-prompt")).toBeVisible();
     await capture(page, testInfo, "50-home-daily-challenge-prompt");
+  });
+
+  test("navigation: More popover", async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name.includes("mobile"), "The side rail is desktop-only.");
+    await gotoHome(page);
+    await expect(page.getByTestId("side-primary-nav").locator(".material-symbols-rounded").first()).toHaveText("home");
+    // Hover expands the rail; clicking More opens the rolled-up footer links.
+    await page.getByTestId("nav-more").hover();
+    await page.getByTestId("nav-more").click();
+    await expect(page.getByTestId("nav-more-menu")).toBeVisible();
+    await capture(page, testInfo, "58-nav-more-popover");
+  });
+
+  test("home: next-action coaching pill", async ({ page }, testInfo) => {
+    await mockAuthenticatedSession(page);
+    await mockTrpc(page);
+    await gotoHome(page);
+    await expect(page.getByTestId("home-next-action")).toBeVisible();
+    await capture(page, testInfo, "57-home-next-action");
   });
 
   test("practice plan (targeted)", async ({ page }, testInfo) => {

@@ -1,6 +1,6 @@
+import { useState } from "react"
 import { api } from "~/utils/api"
-import { formatPercentile, formatValue } from "./utils"
-import { formatStat } from "~/lib/format"
+import { formatTypedDuration, formatValue } from "./utils"
 
 interface StatsProps {
     profile: {
@@ -10,6 +10,32 @@ interface StatsProps {
         id: string;
         image: string | null;
     } | null | undefined,
+}
+
+function StatTile(props: { icon: string; label: string; tone: "primary" | "secondary" | "accent"; value: string; loading?: boolean }) {
+    const toneClasses = {
+        primary: "text-primary",
+        secondary: "text-secondary",
+        accent: "text-accent",
+    }[props.tone]
+
+    return (
+        <div className="flex min-h-[7rem] items-center gap-4 rounded-lg border border-base-content/10 bg-base-200/45 px-5 py-4">
+            {props.loading ?
+                <div className="mx-auto h-8 w-8 animate-spin rounded-full border border-solid border-t-transparent text-primary" />
+                :
+                <>
+                    <div className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-full border border-base-content/10 bg-base-content/10 text-2xl ${toneClasses}`}>
+                        <i className={`fa-solid ${props.icon}`} aria-hidden="true" />
+                    </div>
+                    <div className="flex min-w-0 flex-col gap-1">
+                        <span className="font-mono text-4xl font-bold leading-none text-base-content sm:text-5xl">{props.value}</span>
+                        <div className="text-sm font-semibold text-base-content/60">{props.label}</div>
+                    </div>
+                </>
+            }
+        </div>
+    )
 }
 
 export const Stats = (props: StatsProps) => {
@@ -27,65 +53,39 @@ export const Stats = (props: StatsProps) => {
         userId: profile?.id
     })
 
-    const { data: bestScore, isLoading: isLoadingScore } = api.test.getBestScore.useQuery({ userId: profile?.id })
-    const { data: percentile, isLoading: isLoadingPercentile } = api.test.getPercentile.useQuery({ userId: profile?.id })
+    const [startDate] = useState(() => new Date(new Date().getFullYear(), 0, 1))
+    const [endDate] = useState(() => new Date())
+    const { data: yearlyActivity, isLoading: isLoadingActivity } = api.test.getActivityByDate.useQuery({
+        startDate,
+        endDate,
+        userId: profile?.id
+    })
+    const testsThisYear = yearlyActivity?.reduce((total, day) => total + day._count._all, 0) ?? 0
+    const typedDuration = formatTypedDuration(timeTyped?._sum.count)
 
     return (
-        <div className="flex gap-4">
-            <div className="flex flex-col lg:flex-row gap-4">
-                <div className="flex items-center py-4 px-4 rounded-md bg-b2">
-                    <div className="flex flex-col">
-                        <div className="stat-title">Time Typing</div>
-                        {isLoadingTime || isLoadingTimeType ?
-                            <div className="flex basis-0 grow items-center">
-                                <div className="w-8 h-8 rounded-full animate-spin border border-solid text-primary border-t-transparent"></div>
-                            </div>
-                            :
-                            <div className="stat-value text-secondary text-[1.5rem] sm:text-[2.25rem]">{timeTyped?._sum.count ? formatValue(timeTyped._sum.count / 60) : 0.00} mins</div>
-                        }
-                    </div>
-                </div>
-                <div className="flex items-center py-4 px-4 rounded-md bg-b2">
-                    <div className="flex flex-col">
-                        <div className="stat-title">Words Typed</div>
-                        {isLoadingWords || isLoadingWordsType ?
-                            <div className="flex basis-0 grow items-center">
-                                <div className="w-8 h-8 rounded-full animate-spin border border-solid text-primary border-t-transparent"></div>
-                            </div>
-                            :
-                            <div className="stat-value text-secondary text-[1.5rem] sm:text-[2.25rem]">{wordsTyped?._sum?.count != null ? formatValue(wordsTyped._sum.count) : 0} words</div>
-                        }
-                    </div>
-                </div>
-            </div>
-            <div className="flex gap-4">
-                <div className="flex flex-col lg:flex-row gap-4">
-                    <div className="flex items-center py-4 px-4 rounded-md bg-b2">
-                        <div className="flex flex-col">
-                            <div className="stat-title">Top Speed</div>
-                            {isLoadingScore ?
-                                <div className="flex basis-0 grow items-center">
-                                    <div className="w-8 h-8 rounded-full animate-spin border border-solid text-primary border-t-transparent"></div>
-                                </div>
-                                :
-                                <div className="stat-value text-primary text-[1.5rem] sm:text-[2.25rem]">{bestScore ? formatStat(bestScore.speed) : 0} wpm</div>
-                            }
-                        </div>
-                    </div>
-                    <div className="flex items-center py-4 px-4 rounded-md bg-b2">
-                        <div className="flex flex-col">
-                            <div className="stat-title">Ranking</div>
-                            {isLoadingPercentile ?
-                                <div className="flex basis-0 grow items-center">
-                                    <div className="w-8 h-8 rounded-full animate-spin border border-solid text-primary border-t-transparent"></div>
-                                </div>
-                                :
-                                <div className="stat-value text-primary text-[1.5rem] sm:text-[2.25rem]">{percentile ? formatPercentile(percentile.percentile, percentile.better, percentile.worse) : 'N/A'}</div>
-                            }
-                        </div>
-                    </div>
-                </div>
-            </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <StatTile
+                icon="fa-clock"
+                label={typedDuration.label}
+                tone="primary"
+                value={typedDuration.value}
+                loading={isLoadingTime || isLoadingTimeType}
+            />
+            <StatTile
+                icon="fa-file-lines"
+                label="Words typed"
+                tone="secondary"
+                value={wordsTyped?._sum?.count != null ? formatValue(wordsTyped._sum.count) : "0"}
+                loading={isLoadingWords || isLoadingWordsType}
+            />
+            <StatTile
+                icon="fa-bullseye"
+                label="Tests this year"
+                tone="accent"
+                value={formatValue(testsThisYear)}
+                loading={isLoadingActivity}
+            />
         </div>
     )
 }

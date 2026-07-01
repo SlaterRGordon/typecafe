@@ -2,6 +2,7 @@ import { useSession } from "next-auth/react";
 import { Avatar } from "../Avatar";
 import { useRouter } from "next/router";
 import { SHOW_PLAN_NAVIGATION } from "~/lib/features";
+import { MaterialNavIcon } from "./MaterialNavIcon";
 
 export const BottomNavigation = () => {
     const router = useRouter();
@@ -16,31 +17,31 @@ export const BottomNavigation = () => {
     return (
         <div className="flex md:hidden">
             {/* Bottom Navigation */}
-            <div className="typing-focus-global-fade btm-nav fixed bottom-0 left-0 right-0 z-50 flex h-16 min-h-16 w-full bg-base-200">
+            <div className="typing-focus-global-fade btm-nav fixed bottom-0 left-0 right-0 z-50 flex h-16 min-h-16 w-full bg-base-200" data-testid="bottom-primary-nav">
                 {/* Home */}
                 <button onClick={() => router.push('/')} className={getNavButtonClass('/')} aria-label="Home" title="Home">
-                    <svg className={navIconClass} aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M6 19h3v-6h6v6h3v-9l-6-4.5L6 10v9Zm0 2q-.825 0-1.413-.588T4 19v-9q0-.475.213-.9t.587-.7l6-4.5q.275-.2.575-.3T12 3.5q.325 0 .625.1t.575.3l6 4.5q.375.275.588.7T20 10v9q0 .825-.588 1.413T18 21h-5v-6h-2v6H6Zm6-8.75Z" /></svg>
+                    <MaterialNavIcon name="home" className={navIconClass} />
                 </button>
-                {/* Learn */}
-                <button onClick={() => router.push('/learn')} className={getNavButtonClass('/learn')} aria-label="Learn" title="Learn">
-                    <svg className={navIconClass} aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M12 20.725q-.25 0-.488-.063t-.462-.187l-5-2.7q-.5-.275-.775-.737T5 16v-4.8L2.6 9.875q-.275-.15-.4-.375T2.075 9q0-.275.125-.5t.4-.375l8.45-4.6q.225-.125.463-.188T12 3.275q.25 0 .488.063t.462.187l9.525 5.2q.25.125.388.363T23 9.6V16q0 .425-.288.713T22 17q-.425 0-.713-.288T21 16v-5.9l-2 1.1V16q0 .575-.275 1.038t-.775.737l-5 2.7q-.225.125-.462.188t-.488.062Zm0-8.025L18.85 9L12 5.3L5.15 9L12 12.7Zm0 6.025l5-2.7V12.25l-4.025 2.225q-.225.125-.475.188t-.5.062q-.25 0-.5-.063t-.475-.187L7 12.25v3.775l5 2.7Zm0-6.025Zm0 3.025Zm0 0Z" /></svg>
+                {/* Train */}
+                <button onClick={() => router.push('/train')} className={getNavButtonClass('/train')} aria-label="Train" title="Train">
+                    <MaterialNavIcon name="fitness_center" className={navIconClass} />
                 </button>
-                {/* Leaderboard */}
-                <button onClick={() => router.push('/leaderboard')} className={getNavButtonClass('/leaderboard')} aria-label="Leaderboard" title="Leaderboard">
-                    <svg className={navIconClass} aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M4 11v8h4v-8H4Zm6-6v14h4V5h-4Zm6 8v6h4v-6h-4Zm4 8H4q-.825 0-1.413-.588T2 19v-8q0-.825.588-1.413T4 9h4V5q0-.825.588-1.413T10 3h4q.825 0 1.413.588T16 5v6h4q.825 0 1.413.588T22 13v6q0 .825-.588 1.413T20 21Z" /></svg>
+                {/* Progress */}
+                <button onClick={() => router.push('/progress')} className={getNavButtonClass('/progress')} aria-label="Progress" title="Progress">
+                    <MaterialNavIcon name="trending_up" className={navIconClass} />
                 </button>
                 {/* Daily Challenge */}
                 <button onClick={() => router.push('/challenge')} className={getNavButtonClass('/challenge')} aria-label="Daily Challenge" title="Daily Challenge">
-                    <svg className={navIconClass} aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2L9.19 8.63L2 9.24l5.46 4.73L5.82 21L12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2Z" /></svg>
+                    <MaterialNavIcon name="calendar_today" className={navIconClass} />
                 </button>
-                {/* Progress — always shown; guests get the sign-in pitch on the page. */}
-                <button onClick={() => router.push('/progress')} className={getNavButtonClass('/progress')} aria-label="Progress" title="Progress">
-                    <svg className={navIconClass} aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="m3.5 18.5l6-6l4 4L22 6.92L20.59 5.5l-7.09 8l-4-4L2 16.99l1.5 1.51Z" /></svg>
+                {/* Leaderboard */}
+                <button onClick={() => router.push('/leaderboard')} className={getNavButtonClass('/leaderboard')} aria-label="Leaderboard" title="Leaderboard">
+                    <MaterialNavIcon name="leaderboard" className={navIconClass} />
                 </button>
                 {/* Plan, if signed in */}
                 {SHOW_PLAN_NAVIGATION && sessionData?.user &&
                     <button onClick={() => router.push('/plan')} className={getNavButtonClass('/plan')} aria-label="Plan" title="Plan">
-                        <svg className={navIconClass} aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2Zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1s-1-.45-1-1s.45-1 1-1Zm-2 14l-4-4l1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8Z" /></svg>
+                        <MaterialNavIcon name="assignment_turned_in" className={navIconClass} />
                     </button>
                 }
                 {/* Profile, if signed in */}

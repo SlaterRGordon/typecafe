@@ -11,10 +11,10 @@ One completed typing attempt — the unit of evidence everything else is built f
 _Avoid_: run, result, attempt, session
 
 **Mode**:
-The configuration a Test runs under. The modes are Timed, Words, Practice, Grams, Relaxed, and Learn.
+The configuration a Test runs under. The modes are Timed, Words, Practice, Grams, Relaxed, and Train.
 _Avoid_: game type, test type
 
-**Learn**:
+**Train**:
 The self-directed mode that teaches a beginner the keyboard, feeding them into the improvement loop.
 _Avoid_: course, lessons, school, curriculum
 
@@ -59,10 +59,10 @@ _Avoid_: course, curriculum, program
 **Calibration**:
 The opening week of varied Tests that builds a weakness profile before a Plan can target it.
 
-### The Learn ladder
+### The Train ladder
 
 **Level**:
-A numbered stage in Learn — its target keys and per-difficulty net-WPM requirement, graded 0–3 stars on each attempt (the star thresholds live in `src/lib/learnStars.ts`).
+A numbered stage in Train — its target keys, graded 0–3 stars on each attempt against a net-WPM target derived by `targetWpm(level, difficulty, star)` in `src/lib/trainThresholds.ts` (formula, not authored per level; difficulty is a ramp multiplier — see ADR-0003).
 _Avoid_: lesson, stage (as the metric name)
 
 **Unlock**:

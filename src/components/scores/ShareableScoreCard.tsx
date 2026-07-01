@@ -11,6 +11,7 @@ import { diagnose, toDrillKeys } from "~/lib/diagnosis";
 import { aggregateTransitions, worstTransitions } from "~/lib/transitions";
 import { attemptsFromEvents } from "~/lib/heatmap";
 import { KeyHeatmap } from "~/components/heatmap/KeyHeatmap";
+import { Chip } from "~/components/ui/Chip";
 
 export type { TypedSegment, WpmSample as ScoreWpmSample } from "~/lib/stats";
 
@@ -69,6 +70,9 @@ interface ShareableScoreCardProps {
   readonly?: boolean;
   isCreatingShare?: boolean;
   canCreateShare?: boolean;
+  // True while the just-finished test is still saving: the card is shown eagerly,
+  // so the share action waits (loader) for the server to return a shareable id.
+  isSaving?: boolean;
   signInHtmlFor?: string;
   onCreateShare?: () => Promise<string | undefined> | string | undefined;
   onTestAgain?: () => void;
@@ -196,9 +200,9 @@ function InfoIcon(props: { label: string; href?: string }) {
       <Link
         href={href}
         className="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-base-content/50 text-[10px] text-base-content/80 outline-none transition hover:border-primary hover:text-primary focus-visible:border-primary focus-visible:text-primary focus-visible:ring-2 focus-visible:ring-primary/40"
-        aria-label={`${props.label} Learn how TypeCafe measures this.`}
+        aria-label={`${props.label} Train how TypeCafe measures this.`}
         aria-describedby={tooltipId}
-        title={`${props.label} Learn how TypeCafe measures this.`}
+        title={`${props.label} Train how TypeCafe measures this.`}
       >
         ?
       </Link>
@@ -219,6 +223,15 @@ function RestartIcon() {
       <path d="M20 12a8 8 0 1 1-2.34-5.66" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
       <path d="M20 4v6h-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
+  );
+}
+
+function Spinner() {
+  return (
+    <span
+      className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-current border-t-transparent"
+      aria-hidden="true"
+    />
   );
 }
 
@@ -259,7 +272,6 @@ function MetricCard(props: { label: string; value: string; note: string; info: s
       <div className={`mt-4 font-mono font-bold leading-none text-primary ${props.hero ? "text-5xl sm:text-6xl" : "text-4xl sm:text-5xl"}`}>
         {props.value}
       </div>
-      <p className="mt-4 text-sm text-base-content/70">{props.note}</p>
     </div>
   );
 }
@@ -428,7 +440,6 @@ function DetailRow(props: { label: string; value: string; tone?: "success" | "er
 // re-measure result (never on a shared snapshot).
 function ReMeasureStrip(props: { beforeWpm: number; afterWpm: number }) {
   const { delta, improved } = wpmImprovement(props.beforeWpm, props.afterWpm);
-  const deltaTone = improved ? "bg-success/20 text-success" : delta < 0 ? "bg-error/20 text-error" : "bg-base-content/10 text-base-content/70";
 
   return (
     <div data-testid="re-measure-delta" className="score-reveal mt-7 rounded-lg border border-primary/40 bg-primary/10 p-4" style={{ "--reveal-delay": "40ms" } as CSSProperties}>
@@ -442,9 +453,14 @@ function ReMeasureStrip(props: { beforeWpm: number; afterWpm: number }) {
           <span className="text-base-content/40">→</span>
           <span className="text-3xl font-bold text-primary">{formatNumber(props.afterWpm, 1)}</span>
           <span className="text-sm text-base-content/70">WPM</span>
-          <span className={`rounded-full px-2.5 py-0.5 text-sm font-semibold ${deltaTone}`}>
+          <Chip
+            size="md"
+            tone={improved ? "success" : delta < 0 ? "error" : "neutral"}
+            className="font-mono"
+            icon={<i className={`fa-solid ${improved ? "fa-arrow-trend-up" : delta < 0 ? "fa-arrow-trend-down" : "fa-minus"}`} aria-hidden="true" />}
+          >
             {delta >= 0 ? "+" : ""}{formatNumber(delta, 1)}
-          </span>
+          </Chip>
         </div>
       </div>
     </div>
@@ -573,15 +589,18 @@ function DiagnosisPanel(props: { score: ShareableScore }) {
 }
 
 export function ShareableScoreCard(props: ShareableScoreCardProps) {
-  const { score, shareUrl, readonly = false, isCreatingShare = false, canCreateShare = false, signInHtmlFor, onCreateShare, onTestAgain } = props;
-  const showSignInCta = !readonly && !shareUrl && !canCreateShare && !!signInHtmlFor;
+  const { score, shareUrl, readonly = false, isCreatingShare = false, canCreateShare = false, isSaving = false, signInHtmlFor, onCreateShare, onTestAgain } = props;
+  // While the result is still saving (signed-in eager render) the share action is
+  // a loader, not a sign-in prompt — the user is already signed in.
+  const showSignInCta = !readonly && !shareUrl && !canCreateShare && !isSaving && !!signInHtmlFor;
   const [linkState, setLinkState] = useState<ActionState>("idle");
   const [imageState, setImageState] = useState<ActionState>("idle");
   const resetTimerRef = useRef<number | null>(null);
   const scoreCardRef = useRef<HTMLDivElement | null>(null);
   const shareImageRef = useRef<HTMLDivElement | null>(null);
   const modeText = formatModeText(score);
-  const shareButtonLabel = isCreatingShare ? "Creating..." : linkState === "copied" ? "Link copied" : "Share Score";
+  const shareLoading = isCreatingShare || isSaving;
+  const shareButtonLabel = isSaving ? "Saving..." : isCreatingShare ? "Creating..." : linkState === "copied" ? "Link copied" : "Share Score";
   const screenshotButtonLabel = imageState === "copied" ? "Screenshot copied" : imageState === "downloaded" ? "Image downloaded" : "Copy Screenshot";
 
   const scheduleReset = () => {
@@ -646,7 +665,7 @@ export function ShareableScoreCard(props: ShareableScoreCardProps) {
   ], [score]);
 
   return (
-    <section className="w-full max-w-7xl px-4 py-4 sm:px-6">
+    <section className="w-full max-w-7xl px-4 sm:px-6">
       <div
         ref={scoreCardRef}
         data-testid="score-screenshot-card"
@@ -659,31 +678,76 @@ export function ShareableScoreCard(props: ShareableScoreCardProps) {
             <div>
               <div className="mb-2 flex flex-wrap items-center gap-2">
                 {score.dailyChallenge &&
-                  <span data-testid="score-daily-challenge-badge" className="inline-block rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-sm font-bold text-primary">Daily Challenge</span>
+                  <Chip
+                    testId="score-daily-challenge-badge"
+                    tone="primary"
+                    size="md"
+                    icon={<i className="fa-solid fa-calendar-day" aria-hidden="true" />}
+                  >
+                    Daily Challenge
+                  </Chip>
                 }
                 {score.brag &&
-                  <span className="inline-block rounded-full bg-primary/15 px-3 py-1 text-sm font-bold text-primary">{score.brag}</span>
+                  <Chip
+                    tone="primary"
+                    size="md"
+                    icon={<i className="fa-solid fa-trophy" aria-hidden="true" />}
+                  >
+                    {score.brag}
+                  </Chip>
                 }
                 {typeof score.streak === "number" && score.streak > 0 &&
-                  <span data-testid="score-streak" className="inline-block rounded-full bg-primary/15 px-3 py-1 text-sm font-semibold text-primary">{score.streak}-day streak</span>
+                  <Chip
+                    testId="score-streak"
+                    tone="primary"
+                    size="md"
+                    icon={<i className="fa-solid fa-fire" aria-hidden="true" />}
+                  >
+                    {score.streak}-day streak
+                  </Chip>
                 }
               </div>
               {typeof score.avgDelta === "number" &&
-                <p data-testid="avg-delta" className={`mb-2 text-sm font-semibold ${score.avgDelta >= 0 ? "text-success" : "text-error"}`}>
-                  {formatNumber(Math.abs(score.avgDelta), 1)} WPM {score.avgDelta >= 0 ? "over" : "under"} your 30-day average
-                </p>
+                <div className="mb-2">
+                  <Chip
+                    testId="avg-delta"
+                    tone={score.avgDelta >= 0 ? "success" : "error"}
+                    size="md"
+                    icon={<i className={`fa-solid ${score.avgDelta >= 0 ? "fa-arrow-trend-up" : "fa-arrow-trend-down"}`} aria-hidden="true" />}
+                  >
+                    {formatNumber(Math.abs(score.avgDelta), 1)} WPM {score.avgDelta >= 0 ? "over" : "under"} your 30-day average
+                  </Chip>
+                </div>
               }
               <p className="text-sm text-base-content/65">{modeText} / {formatDate(score.createdAt)}</p>
               {(score.punctuation || score.capitals || score.ranked === false) &&
                 <div className="mt-2 flex flex-wrap gap-2">
                   {score.punctuation &&
-                    <span className="rounded-full border border-primary/40 bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">Punctuation</span>
+                    <Chip
+                      tone="primary"
+                      size="xs"
+                      icon={<i className="fa-solid fa-quote-right" aria-hidden="true" />}
+                    >
+                      Punctuation
+                    </Chip>
                   }
                   {score.capitals &&
-                    <span className="rounded-full border border-primary/40 bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">Capitals</span>
+                    <Chip
+                      tone="primary"
+                      size="xs"
+                      icon={<i className="fa-solid fa-font" aria-hidden="true" />}
+                    >
+                      Capitals
+                    </Chip>
                   }
                   {score.ranked === false &&
-                    <span className="rounded-full border border-warning/40 bg-warning/10 px-2.5 py-0.5 text-xs font-semibold text-warning">Unranked</span>
+                    <Chip
+                      tone="warning"
+                      size="xs"
+                      icon={<i className="fa-solid fa-triangle-exclamation" aria-hidden="true" />}
+                    >
+                      Unranked
+                    </Chip>
                   }
                 </div>
               }
@@ -729,12 +793,12 @@ export function ShareableScoreCard(props: ShareableScoreCardProps) {
               <button
                 className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50"
                 type="button"
-                disabled={isCreatingShare || (!shareUrl && !canCreateShare)}
+                disabled={shareLoading || (!shareUrl && !canCreateShare)}
                 onClick={handleCopyLink}
                 aria-label={shareButtonLabel}
-                title={isCreatingShare ? "Creating share link" : linkState === "copied" ? "Share link copied" : "Copy share score link"}
+                title={isSaving ? "Saving your score" : isCreatingShare ? "Creating share link" : linkState === "copied" ? "Share link copied" : "Copy share score link"}
               >
-                <ShareIcon />
+                {shareLoading ? <Spinner /> : <ShareIcon />}
                 <span>{shareButtonLabel}</span>
               </button>
               :
@@ -780,17 +844,19 @@ export function ShareableScoreCard(props: ShareableScoreCardProps) {
         {!readonly && <DiagnosisPanel score={score} />}
 
         <div className="score-reveal mt-5 rounded-lg border border-base-content/10 bg-base-100/45 p-5" style={{ "--reveal-delay": "240ms" } as CSSProperties}>
-          <div className="mb-4 flex items-center gap-2 text-lg font-semibold text-base-content">
-            <span>Your Typed Text</span>
-            <InfoIcon label="The text you typed during this test. Incorrect characters are highlighted in the theme error color." />
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-2 text-lg font-semibold text-base-content">
+              <span>Your Typed Text</span>
+              <InfoIcon label="The text you typed during this test. Incorrect characters are highlighted in the theme error color." />
+            </div>
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-sm text-base-content/80">
+              <span><span className="mr-2 inline-block h-3 w-3 rounded-full bg-success" />{formatInteger(score.correctKeystrokes)} correct</span>
+              <span><span className="mr-2 inline-block h-3 w-3 rounded-full bg-error" />{formatInteger(score.incorrectKeystrokes)} incorrect</span>
+              <span className="text-primary">{formatNumber(score.accuracy, 2)}% accuracy</span>
+            </div>
           </div>
           <div className="max-h-36 overflow-y-auto whitespace-pre-wrap break-words rounded-md border border-base-content/10 bg-base-200/70 p-4 font-mono text-base leading-8 text-base-content focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:text-lg" tabIndex={0} role="region" aria-label="Typed text from the completed test">
             <TypedText segments={score.typedSegments} plainText={score.typedText} />
-          </div>
-          <div className="mt-5 flex flex-col gap-3 border-t border-base-content/10 pt-4 text-sm text-base-content/80 sm:flex-row sm:items-center sm:gap-8">
-            <span><span className="mr-2 inline-block h-3 w-3 rounded-full bg-success" />{formatInteger(score.correctKeystrokes)} correct</span>
-            <span><span className="mr-2 inline-block h-3 w-3 rounded-full bg-error" />{formatInteger(score.incorrectKeystrokes)} incorrect</span>
-            <span className="text-primary">{formatNumber(score.accuracy, 2)}% accuracy</span>
           </div>
         </div>
       </div>

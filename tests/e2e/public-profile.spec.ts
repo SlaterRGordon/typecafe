@@ -1,5 +1,4 @@
 import { expect, test } from "@playwright/test";
-import { chooseReactSelectOption } from "./helpers/select";
 import { mockTrpc } from "./helpers/trpc";
 
 test.describe("public profile", () => {
@@ -8,23 +7,35 @@ test.describe("public profile", () => {
     await page.goto("/profile/testuser");
   });
 
-  test("renders public profile, stats, and best scores from mocked API data", async ({ page }) => {
+  test("renders public profile identity card, hero, stats, and training proof", async ({ page }) => {
     await expect(page.getByText("testuser").first()).toBeVisible();
     await expect(page.getByText("Typing fast, testing faster.")).toBeVisible();
     await expect(page.getByText("https://typecafe.vercel.app")).toBeVisible();
 
-    await expect(page.getByText("Time Typing")).toBeVisible();
-    await expect(page.getByText("Words Typed")).toBeVisible();
-    await expect(page.getByText("Top Speed")).toBeVisible();
+    // Hero: top speed + ranking.
+    await expect(page.getByText("Top speed")).toBeVisible();
     await expect(page.getByText("1st place")).toBeVisible();
-    await expect(page.getByText("Best Scores")).toBeVisible();
-    await expect(page.getByText("72.35")).toBeVisible();
-  });
+    await expect(page.getByTestId("profile-delta-chip")).toContainText("+4.2 WPM this month");
 
-  test("switches best-score filters on the public profile", async ({ page }) => {
-    await chooseReactSelectOption(page, "subModeSelect", "Words");
-    await chooseReactSelectOption(page, "countSelect", "100");
+    // Secondary stats.
+    await expect(page.getByText("minutes typed")).toBeVisible();
+    await expect(page.getByText("Words typed")).toBeVisible();
+    await expect(page.getByText("Tests this year")).toBeVisible();
+    await expect(page.getByTestId("profile-activity-surface")).toBeVisible();
+    await expect(page.getByTestId("profile-longest-streak")).toContainText("Longest streak: 5 days");
+    await expect(page.getByTestId("profile-typing-style")).toContainText("Speed");
+    await expect(page.getByTestId("profile-typing-style")).toContainText("84.6 WPM");
+    await expect(page.getByTestId("profile-typing-style")).toContainText("97.4%");
+    await expect(page.getByTestId("profile-typing-style")).toContainText("Momentum");
+    await expect(page.getByTestId("profile-typing-style")).toContainText("Speed lift");
+    await expect(page.getByTestId("profile-typing-style")).toContainText("+6.2 WPM");
+    await expect(page.getByTestId("typing-style-chart")).toBeVisible();
 
-    await expect(page.locator("#list").getByText("101.25", { exact: true })).toBeVisible();
+    // Train progress: profile proof beyond raw top speed.
+    const train = page.getByTestId("profile-train-progress");
+    await expect(train.getByRole("heading", { name: "Train progress" })).toBeVisible();
+    await expect(train.getByTestId("profile-train-link")).toHaveAttribute("href", "/train");
+    await expect(train.getByText("32/100 levels")).toBeVisible();
+    await expect(train.getByText("71/300 stars")).toBeVisible();
   });
 });

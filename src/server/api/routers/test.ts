@@ -10,6 +10,7 @@ import { detectImpossibleTimeline } from "~/lib/antiCheat";
 import { challengeStreakFromDateKeys, shiftChallengeDateKey } from "~/lib/challenge";
 import { timelineDurationMs, type EncodedKeystroke } from "~/lib/keystrokes";
 import { isRankableSample, netFromRaw } from "~/lib/stats";
+import { baseTypeLanguage } from "~/lib/typeLanguage";
 import { averageNet, bestNetPerUser, netOf } from "~/lib/netScores";
 import {
   peerPercentileBrag,
@@ -17,6 +18,7 @@ import {
   starterPeersFromTests,
 } from "~/lib/peerPercentile";
 import { currentStreak, dayKey } from "~/lib/progress";
+import { profileProofSummary } from "~/lib/profileProof";
 import {
   globalPercentileBrag,
   personalBestBrag,
@@ -37,6 +39,14 @@ const encodedKeystrokeSchema = z.tuple([
   z.number().nonnegative(),
 ]);
 const utcOffsetMinutesSchema = z.number().int().min(-14 * 60).max(14 * 60).optional();
+
+// The fixed configs surfaced as profile "signature bests": best 15s, best 60s,
+// best 100-word run. subMode 0 = timed, 1 = words; mode 0 = normal.
+const SIGNATURE_BEST_CONFIGS = [
+  { key: "timed-15", eyebrow: "15 seconds", subMode: 0, count: 15 },
+  { key: "timed-60", eyebrow: "60 seconds", subMode: 0, count: 60 },
+  { key: "words-100", eyebrow: "100 words", subMode: 1, count: 100 },
+] as const;
 const progressHistoryEntrySchema = z.object({
   wpm: z.number().min(0),
   accuracy: z.number().min(0).max(100),
@@ -182,7 +192,7 @@ async function thirtyDayChallengeBaseline(
 }
 
 // The user's current practice-day streak, from their distinct test days.
-async function practiceStreak(prisma: PrismaClient, userId: string): Promise<number> {
+async function practiceStreak(prisma: PrismaClient, userId: string, utcOffsetMinutes = 0): Promise<number> {
   const days = await prisma.test.findMany({
     where: { userId },
     distinct: ["summaryDate"],
@@ -190,7 +200,12 @@ async function practiceStreak(prisma: PrismaClient, userId: string): Promise<num
     orderBy: { summaryDate: "desc" },
     take: 400,
   });
-  return currentStreak(days.map((d) => ({ wpm: 0, accuracy: 0, createdAt: d.summaryDate })), new Date());
+  return currentStreak(days.map((d) => ({
+    wpm: 0,
+    accuracy: 0,
+    createdAt: d.summaryDate,
+    day: d.summaryDate.toISOString().slice(0, 10),
+  })), new Date(), utcOffsetMinutes);
 }
 
 const testOrderBySchema = z.enum([
@@ -517,7 +532,7 @@ export const testRouter = createTRPCRouter({
           speed: input.speed,
           accuracy: input.accuracy,
         }),
-        practiceStreak(ctx.prisma, ctx.session.user.id),
+        practiceStreak(ctx.prisma, ctx.session.user.id, input.utcOffsetMinutes ?? 0),
       ]);
 
       return { ...test, brag, avgDelta, streak };
@@ -670,6 +685,63 @@ export const testRouter = createTRPCRouter({
           score: "desc",
         },
       });
+    }),
+  // Signature personal bests for the profile identity card: one per common
+  // config (15s, 60s, 100 words). Returns net WPM (the canonical number) plus the
+  // raw/accuracy/date secondary stats, with null where the user has no ranked run.
+  getSignatureBests: publicProcedure
+    .input(z.object({
+      userId: z.string().optional(),
+      language: z.string().optional(),
+    }))
+    .query(async ({ ctx, input }) => {
+      const userId = input.userId ?? ctx.session?.user.id;
+      if (!userId) return [];
+      const language = baseTypeLanguage(input.language ?? "english");
+
+      return Promise.all(SIGNATURE_BEST_CONFIGS.map(async (config) => {
+        const type = await ctx.prisma.testType.findFirst({
+          where: { mode: 0, subMode: config.subMode, language },
+          select: { id: true },
+        });
+        const best = type
+          ? await ctx.prisma.test.findFirst({
+            where: { userId, ranked: true, typeId: type.id, count: config.count },
+            orderBy: { score: "desc" },
+            select: { speed: true, accuracy: true, createdAt: true },
+          })
+          : null;
+        return {
+          key: config.key,
+          eyebrow: config.eyebrow,
+          wpm: best ? netFromRaw(best.speed, best.accuracy) : null,
+          rawWpm: best?.speed ?? null,
+          accuracy: best?.accuracy ?? null,
+          createdAt: best?.createdAt ?? null,
+        };
+      }));
+    }),
+  getProfileProof: publicProcedure
+    .input(z.object({
+      userId: z.string().optional(),
+    }))
+    .query(async ({ ctx, input }) => {
+      const userId = input.userId ?? ctx.session?.user.id;
+      if (!userId) return profileProofSummary([]);
+
+      const rows = await ctx.prisma.test.findMany({
+        where: { userId, ranked: true },
+        orderBy: { createdAt: "desc" },
+        take: 2000,
+        select: {
+          speed: true,
+          accuracy: true,
+          consistency: true,
+          createdAt: true,
+        },
+      });
+
+      return profileProofSummary(rows);
     }),
   getPercentile: publicProcedure
     .input(z.object({

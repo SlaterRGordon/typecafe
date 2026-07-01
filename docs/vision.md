@@ -18,7 +18,7 @@ Every successful typing site owns one verb:
 | Site | Verb | What they actually sell |
 |---|---|---|
 | Monkeytype | **Test** | A beautiful stopwatch. Deep customization, zero diagnosis. |
-| Keybr | **Learn** | Adaptive lessons, but you're locked into its rigid flow and ugly UI. |
+| Keybr | **Train** | Adaptive lessons, but you're locked into its rigid flow and ugly UI. |
 | TypeRacer | **Race** | Competition. Fun, but you don't improve — you just perform. |
 | TypingClub | **Teach** | Curriculum for schools. Children's product. |
 
@@ -26,7 +26,7 @@ Nobody owns **improve**. Monkeytype measures but never diagnoses. Keybr diagnose
 
 **Measure → Diagnose → Drill → Re-measure → See the delta.**
 
-TypeCafe already has every raw ingredient: per-key accuracy tracked across sessions in every mode, smart drill, key-isolation practice, n-gram progression, a structured learn path, score history. What's missing is the connective tissue — and the conviction to put improvement, not testing, at the center of every screen.
+TypeCafe already has every raw ingredient: per-key accuracy tracked across sessions in every mode, smart drill, key-isolation practice, n-gram progression, a structured training path, score history. What's missing is the connective tissue — and the conviction to put improvement, not testing, at the center of every screen.
 
 A 7/10 Monkeytype clone loses to Monkeytype every time. A 9/10 typing coach has no competitor.
 
@@ -34,7 +34,7 @@ A 7/10 Monkeytype clone loses to Monkeytype every time. A 9/10 typing coach has 
 
 1. **The plateaued intermediate (primary).** 60–90 WPM, takes tests constantly, hasn't gotten faster in a year. They don't need more tests — they need to know *why* they're stuck and what to do about it. Nobody serves them. They are the most numerous, most frustrated, and most likely to evangelize when a number that hasn't moved in a year starts moving.
 2. **The keyboard enthusiast.** Benchmarks every new board, posts screenshots. Served by the share cards, heatmaps, and aesthetics. They're the acquisition channel.
-3. **The beginner.** Served by Learn mode. They become plateaued intermediates — the pipeline feeds itself.
+3. **The beginner.** Served by Train mode. They become plateaued intermediates — the pipeline feeds itself.
 
 ## Product principles
 
@@ -63,7 +63,7 @@ We keep the aesthetic that earned the r/MechanicalKeyboards post. Minimal means 
 
 - **Not a customization playground.** We will never out-theme Monkeytype. Themes serve the aesthetic; they are not the product.
 - **Not a realtime arcade.** Live multiplayer racing is TypeRacer's moat and a populated-lobby problem we refuse to inherit. Competition at TypeCafe is asynchronous: daily challenges, beat-my-run links, leaderboards.
-- **Not a school curriculum.** Learn mode is self-directed, for adults who want it, with none of the gamified-classroom cruft.
+- **Not a school curriculum.** Train mode is self-directed, for adults who want it, with none of the gamified-classroom cruft.
 - **Not a test mill.** If a feature encourages mindlessly grinding 15-second tests with no feedback loop, it's working against the product.
 
 ## The promise, restated as UX

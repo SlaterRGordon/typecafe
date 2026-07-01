@@ -3,7 +3,6 @@ import Head from "next/head";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { Avatar } from "~/components/Avatar";
-import { DailyChallengePrompt } from "~/components/challenge/DailyChallengePrompt";
 import { ShareableScoreCard, type ScoreSnapshot } from "~/components/scores/ShareableScoreCard";
 import { Typer, type TestCompletionResult } from "~/components/typer/Typer";
 import { useRestartShortcut } from "~/components/typer/hooks/useRestartShortcut";
@@ -96,12 +95,15 @@ const Challenge: NextPage = () => {
     const { data: session } = useSession();
     const [fullscreen, setFullscreen] = useState(false);
     const [restartSignal, setRestartSignal] = useState(0);
-    const [statusRefreshSignal, setStatusRefreshSignal] = useState(0);
     const [completed, setCompleted] = useState<CompletedScore | null>(null);
     const [typingFocused, setTypingFocused] = useState(false);
     const [shareUrl, setShareUrl] = useState<string | undefined>(undefined);
+    const [isSavingScore, setIsSavingScore] = useState(false);
     const [dateKey, setDateKey] = useState<string | null>(null);
     const charAttemptsRef = useRef<Map<string, { attempts: number; correct: number }>>(new Map());
+    // True while the result card is on screen for the current attempt — guards the
+    // async save upgrade from re-showing the card after the user already restarted.
+    const cardActiveRef = useRef(false);
     const utils = api.useUtils();
     const createShare = api.scoreShare.create.useMutation();
 
@@ -118,11 +120,16 @@ const Challenge: NextPage = () => {
     );
 
     const onComplete = (result: TestCompletionResult) => {
-        if (dateKey) {
+        // A persisted result is the save upgrade for the eager card; ignore it if
+        // the user already dismissed/restarted (its eager render set the flag).
+        if (result.persisted && !cardActiveRef.current) return;
+        cardActiveRef.current = true;
+        // Record the challenge and refresh the boards once — on the first (eager)
+        // report — not again when the save settles.
+        if (!result.persisted && dateKey) {
             // Store net (the canonical WPM) so the guest challenge status/board
             // matches the signed-in path.
             recordLocalChallenge({ dateKey, wpm: result.netWpm, accuracy: result.accuracy, t: Date.now() });
-            setStatusRefreshSignal((signal) => signal + 1);
             void utils.test.getDailyChallengeStatus.invalidate({ dateKey });
             void utils.test.getDailyChallengeBoards.invalidate({ dateKey, limit: 10 });
         }
@@ -157,8 +164,10 @@ const Challenge: NextPage = () => {
     };
 
     const playAgain = () => {
+        cardActiveRef.current = false;
         setCompleted(null);
         setShareUrl(undefined);
+        setIsSavingScore(false);
         setRestartSignal((signal) => signal + 1);
     };
 
@@ -254,53 +263,50 @@ const Challenge: NextPage = () => {
                             onKeyChange={() => undefined}
                             restartSignal={restartSignal}
                             onTestComplete={onComplete}
+                            eagerResult
+                            onSavingChange={setIsSavingScore}
                             onTypingFocusChange={setTypingFocused}
                             charAttemptsRef={charAttemptsRef}
                             hideInterface={!!completed}
                         />
                         {completed &&
-                            <div className="m-auto flex w-full flex-col items-center gap-4">
-                                {/* Match the score card's width container so the banner aligns. */}
-                                <div className="w-full max-w-7xl px-4 sm:px-6">
-                                    <DailyChallengePrompt
-                                        className="w-full"
-                                        refreshSignal={statusRefreshSignal}
-                                        onCompletedCta={playAgain}
-                                    />
-                                </div>
-                                <div className="flex w-full justify-center">
-                                    <ShareableScoreCard
-                                        score={{
-                                            ...completed,
-                                            score: completed.speed * completed.accuracy,
-                                            user: {
-                                                username: session?.user?.username ?? session?.user?.name ?? null,
-                                                image: session?.user?.image,
-                                            },
-                                        }}
-                                        shareUrl={shareUrl}
-                                        canCreateShare={!!completed.testId}
-                                        signInHtmlFor="signInModal"
-                                        isCreatingShare={createShare.isPending}
-                                        onCreateShare={createAndCopyShareLink}
-                                        onTestAgain={playAgain}
-                                    />
-                                </div>
+                            <div className="m-auto flex w-full justify-center">
+                                <ShareableScoreCard
+                                    score={{
+                                        ...completed,
+                                        score: completed.speed * completed.accuracy,
+                                        user: {
+                                            username: session?.user?.username ?? session?.user?.name ?? null,
+                                            image: session?.user?.image,
+                                        },
+                                    }}
+                                    shareUrl={shareUrl}
+                                    canCreateShare={!!completed.testId}
+                                    isSaving={isSavingScore}
+                                    signInHtmlFor="signInModal"
+                                    isCreatingShare={createShare.isPending}
+                                    onCreateShare={createAndCopyShareLink}
+                                    onTestAgain={playAgain}
+                                />
                             </div>
                         }
-                        <div data-testid="daily-challenge-boards" className={typingFocusFadeClass(typingFocused, "mx-auto mt-6 grid w-full max-w-screen-xl gap-4 px-4 pb-8 lg:grid-cols-2")}>
-                            <ChallengeBoard
-                                title="Fastest Today"
-                                entries={boards.data?.fastest ?? []}
-                                empty={boards.isLoading ? "Loading today's scores..." : "No challenge scores yet. Claim the first spot."}
-                            />
-                            <ChallengeBoard
-                                title="Most Improved"
-                                improved
-                                entries={boards.data?.improved ?? []}
-                                empty={boards.isLoading ? "Loading improvement scores..." : "Need 3 prior tests to rank improvement honestly."}
-                            />
-                        </div>
+                        {/* The Fastest/Most-Improved boards belong to the pre-test view; the
+                            result card stands on its own (chip + delta say it's the challenge). */}
+                        {!completed &&
+                            <div data-testid="daily-challenge-boards" className={typingFocusFadeClass(typingFocused, "mx-auto mt-6 grid w-full max-w-screen-xl gap-4 px-4 pb-8 lg:grid-cols-2")}>
+                                <ChallengeBoard
+                                    title="Fastest Today"
+                                    entries={boards.data?.fastest ?? []}
+                                    empty={boards.isLoading ? "Loading today's scores..." : "No challenge scores yet. Claim the first spot."}
+                                />
+                                <ChallengeBoard
+                                    title="Most Improved"
+                                    improved
+                                    entries={boards.data?.improved ?? []}
+                                    empty={boards.isLoading ? "Loading improvement scores..." : "Need 3 prior tests to rank improvement honestly."}
+                                />
+                            </div>
+                        }
                     </>
                 }
             </div>

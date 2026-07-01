@@ -4,7 +4,7 @@
 
 ## Files
 
-- `src/lib/learnStars.ts` (32) → `learn.tsx` only
+- `src/lib/trainStars.ts` (32) → `train.tsx` only
 - `src/lib/typeLanguage.ts` (10) → type router only
 - `src/lib/drillKeys.ts` (18) — predicates split from `drill.ts`
 - `src/lib/format.ts` (7) — **keep**
@@ -25,7 +25,7 @@ things worse):
 - **`learnStars.ts` — scoring math; the standing rule forbids the move.** The
   star thresholds (`wpm × 1.15`, `× 1.3`) are product decisions, not arithmetic.
   CLAUDE.md: *"Scoring/diagnosis math lives in `src/lib/` as pure functions with
-  unit tests — never inside components."* Inlining into `learn.tsx` would violate
+  unit tests — never inside components."* Inlining into `train.tsx` would violate
   it outright. Single-caller today; still belongs in lib.
 
 - **`typeLanguage.ts` — a load-bearing correctness rule, not a one-liner.**

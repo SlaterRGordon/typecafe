@@ -32,11 +32,11 @@ test.describe("visual QA artifacts", () => {
     await saveScreenshot(page, testInfo, "home-color-modal");
   });
 
-  test("learn page", async ({ page }, testInfo) => {
-    await page.goto("/learn");
+  test("train page", async ({ page }, testInfo) => {
+    await page.goto("/train");
     await expect(page.locator("#words .char").first()).toBeVisible({ timeout: 20_000 });
 
-    await saveScreenshot(page, testInfo, "learn");
+    await saveScreenshot(page, testInfo, "train");
   });
 
   test("leaderboard", async ({ page }, testInfo) => {

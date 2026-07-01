@@ -31,12 +31,17 @@ interface UseTestPersistenceArgs {
     mode: TestModes,
     charAttemptsRef: React.MutableRefObject<Map<string, { attempts: number, correct: number }>>,
     onTestComplete?: (result: TestCompletionResult) => void,
+    // Show the result instantly instead of waiting for the save round-trip: report
+    // completion once up front (unpersisted), then again with the server-derived
+    // fields when the save settles. Only safe for callers whose onTestComplete is
+    // idempotent under a double-call (the home page); off by default.
+    eagerResult?: boolean,
 }
 
 // Owns everything that talks to the server after a test: saving the score (and
 // reporting completion back once the save settles) and syncing per-character
 // practice stats.
-export function useTestPersistence({ charAttemptsRef, onTestComplete }: UseTestPersistenceArgs) {
+export function useTestPersistence({ charAttemptsRef, onTestComplete, eagerResult = false }: UseTestPersistenceArgs) {
     const { data: sessionData } = useSession()
     const dispatch = useDispatch()
     const pendingCompletionRef = useRef<TestCompletionResult | null>(null)
@@ -67,11 +72,14 @@ export function useTestPersistence({ charAttemptsRef, onTestComplete }: UseTestP
 
     // Save a completed test for the signed-in user; completion is reported via
     // the mutation callbacks above so the result can carry the test id and brag.
+    // When eager, also report it immediately (unpersisted) so the result card
+    // shows without waiting for the save — the callbacks then patch it in place.
     const persistCompletion = useCallback((completion: TestCompletionResult, input: CreateTestInput) => {
         pendingCompletionRef.current = completion
+        if (eagerResult) onTestComplete?.(completion)
         createTest.mutate(input)
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [createTest.mutate])
+    }, [createTest.mutate, eagerResult, onTestComplete])
 
     const { mutate: syncPracticeStats } = api.practiceStats.batchSync.useMutation({
         onError: (error) => {
@@ -129,5 +137,5 @@ export function useTestPersistence({ charAttemptsRef, onTestComplete }: UseTestP
         })
     }, [charAttemptsRef, sessionData?.user, syncPracticeStats])
 
-    return { sessionData, persistCompletion, syncCharAttempts, syncTransitions }
+    return { sessionData, persistCompletion, syncCharAttempts, syncTransitions, isSaving: createTest.isPending }
 }

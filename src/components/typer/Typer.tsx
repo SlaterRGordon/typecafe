@@ -6,7 +6,7 @@ import { Text } from "./Text"
 import { Stats } from "./Stats"
 import { useTimer } from "~/hooks/timer/useTimer"
 import { api } from "~/utils/api"
-import type { Level } from "./learn/levels"
+import type { Level } from "./train/levels"
 import { buildWpmSamples, computeStats, consistencyFromSamples, isReliableWpmSample, worstKeysFromAttempts } from "~/lib/stats"
 import type { TypedSegment } from "~/lib/stats"
 import { encodeTimeline } from "~/lib/keystrokes"
@@ -44,9 +44,17 @@ interface TyperProps {
     customLength?: boolean,
     level?: Level,
     levelRequirements?: { wpm: number, accuracy: number },
+    // Boss levels: pace the typist against a line moving at this net WPM.
+    pacerWpm?: number,
+    // No-miss levels: a single error ends the run and fails it (never persisted).
+    failOnMiss?: boolean,
     onKeyChange: (key: string) => void,
     onAttemptChange?: () => void,
     onTestComplete?: (result: TestCompletionResult) => void,
+    // Render the result instantly and patch in server fields when the save settles
+    // (home only — see useTestPersistence). Pairs with onSavingChange for the loader.
+    eagerResult?: boolean,
+    onSavingChange?: (saving: boolean) => void,
     onTypingFocusChange?: (isTyping: boolean) => void,
     showStats: boolean,
     modalOpen: boolean,
@@ -107,6 +115,10 @@ export const Typer = (props: TyperProps) => {
     const [wpmPending, setWpmPending] = useState(false)
     const typedTextRef = useRef("")
     const typedSegmentsRef = useRef<TypedSegment[]>([])
+    // Set the instant the pacer overtakes the typist; read by handleComplete to
+    // force a fail, then cleared. A ref (not state) so it's readable synchronously
+    // inside the completion that the overtake itself triggers.
+    const pacerCaughtRef = useRef(false)
     const onRestartRef = useRef(onRestart)
     const activeAttemptRef = useRef<{
         mode: TestModes,
@@ -137,11 +149,18 @@ export const Typer = (props: TyperProps) => {
     // fetch types
     const { data: testType } = api.type.get.useQuery({ mode, subMode, language })
 
-    const { sessionData, persistCompletion, syncCharAttempts, syncTransitions } = useTestPersistence({
+    const { sessionData, persistCompletion, syncCharAttempts, syncTransitions, isSaving } = useTestPersistence({
         mode,
         charAttemptsRef,
         onTestComplete: props.onTestComplete,
+        eagerResult: props.eagerResult,
     })
+
+    // Surface the save's in-flight state so the result card can show a loader while
+    // the server-derived fields (share link, brag, delta, streak) are still coming.
+    const onSavingChangeRef = useRef(props.onSavingChange)
+    useEffect(() => { onSavingChangeRef.current = props.onSavingChange }, [props.onSavingChange])
+    useEffect(() => { onSavingChangeRef.current?.(isSaving) }, [isSaving])
 
     const { gramLevel, gramWpm, resetProgression, recordPassedLevel } = useGramProgression(gramScope)
 
@@ -151,11 +170,15 @@ export const Typer = (props: TyperProps) => {
     // decremental-to-0 countdown that fires onTimeOver the instant the test
     // starts, ending Practice/Grams/Relaxed immediately.
     const isTimed = subMode === TestSubModes.timed && mode === TestModes.normal
+    // Timed ∞ (no timer): the relaxed engine on the timed sub-mode shows a rising
+    // stopwatch instead of a countdown.
+    const isCountUp = mode === TestModes.relaxed && subMode === TestSubModes.timed
 
     const { time, start, pause, setInitialTime, actualStartTime } = useTimer({
         _initialTime: isTimed ? count : 0,
         timerType: isTimed ? 'DECREMENTAL' : 'INCREMENTAL',
         endTime: isTimed ? 0 : 999999,
+        countUp: isCountUp,
         onTimeOver: () => {
             handleComplete("timer")
         },
@@ -221,6 +244,7 @@ export const Typer = (props: TyperProps) => {
                 activeAttemptRef.current = null
                 typedTextRef.current = ""
                 typedSegmentsRef.current = []
+                pacerCaughtRef.current = false
                 recorder.reset()
                 setRestarted(true)
                 setRestartNonce((nonce) => nonce + 1)
@@ -306,6 +330,7 @@ export const Typer = (props: TyperProps) => {
             capitals,
             ranked,
             levelName: level?.name,
+            pacerCaught: pacerCaughtRef.current,
             typeId: testType?.id,
             persisted: false,
         }
@@ -382,9 +407,12 @@ export const Typer = (props: TyperProps) => {
         })
 
         if (mode === TestModes.normal || mode === TestModes.quotes) {
+            // An overtake (boss) or any error (no-miss) is a loss no matter what net
+            // WPM the typed span measured — always the fail path, never persisted.
             if (
-                levelRequirements &&
-                finalStats.netWpm < levelRequirements.wpm
+                pacerCaughtRef.current ||
+                (props.failOnMiss && finalStats.accuracy < 100) ||
+                (levelRequirements && finalStats.netWpm < levelRequirements.wpm)
             ) {
                 onTestCompleteRef.current?.(completion)
             } else {
@@ -425,11 +453,13 @@ export const Typer = (props: TyperProps) => {
         // Transition analytics come from normal-mode tests, where the text is real
         // language (grams/practice text would skew the bigram picture).
         if (mode === TestModes.normal) syncTransitions(recorder.events)
+
+        pacerCaughtRef.current = false
     }, [
         recorder, isCompletionValid, isTimed, pause, getStats, buildCompletion, mode, levelRequirements,
         sessionData, testType, persistCompletion, count, level, punctuation,
         capitals, props.gramWpmThreshold, props.gramAccuracyThreshold,
-        props.challengeDate, recordPassedLevel, syncCharAttempts, syncTransitions,
+        props.challengeDate, props.failOnMiss, recordPassedLevel, syncCharAttempts, syncTransitions,
     ])
 
     // Stable identities for parent-provided callbacks (parents recreate them every
@@ -446,6 +476,13 @@ export const Typer = (props: TyperProps) => {
     const stableOnAttemptChange = useCallback(() => {
         onAttemptChangeRef.current?.()
     }, [])
+
+    // The pacer caught the typist: flag the loss, then run completion (which reads
+    // the flag, forces the fail path, and clears it).
+    const handlePacerCaught = useCallback(() => {
+        pacerCaughtRef.current = true
+        handleComplete("text")
+    }, [handleComplete])
 
     const handleCharacterAttempt = useCallback((attempt: { expected: string, typed: string, correct: boolean }) => {
         typedTextRef.current += attempt.typed
@@ -521,6 +558,10 @@ export const Typer = (props: TyperProps) => {
             punctuation={punctuation}
             capitals={capitals}
             noAppend={!!props.fixedText}
+            pacerWpm={props.pacerWpm}
+            onPacerCaught={handlePacerCaught}
+            failOnMiss={props.failOnMiss}
+            appendKeys={level?.keys}
             started={started} restarted={restarted} restartNonce={restartNonce}
             modalOpen={props.modalOpen}
             charAttempts={charAttemptsRef.current}
@@ -570,7 +611,7 @@ export const Typer = (props: TyperProps) => {
                     <div className="flex flex-col relative items-center w-full">
                         {/* Countdown is Normal/Timed only — see the isTimed note above. */}
                         {isTimed &&
-                            <div className={`py-2`}>
+                            <div className={`py-2`} data-testid="timed-countdown">
                                 <span className={`flex font-mono text-4xl gap-4`}>
                                     <span className="flex">{time}</span>
                                 </span>
@@ -594,11 +635,19 @@ export const Typer = (props: TyperProps) => {
                         (the timed countdown, or the grams level progress) stacked above it
                         on the left. Stats returns null when there's nothing to show. */}
                     <div className="mx-auto flex w-full max-w-screen-xl flex-col gap-5">
-                        <Stats layout="stacked" mode={mode} wpm={wpm} accuracy={accuracy} pending={statsPending} wpmPending={wpmPending}
-                            averageWpm={gramWpm} levelText={getGramLevelText(gramLevel, gramCombination, gramScope)}
-                            isTimed={isTimed} time={time} showLiveStats={showStats}
-                        />
-                        {textNode}
+                        {/* Reserve the stats row height so an empty/absent stat line
+                            (e.g. Words with live stats off) never shifts the text. */}
+                        <div className="flex min-h-[2.75rem] items-end">
+                            <Stats layout="stacked" mode={mode} wpm={wpm} accuracy={accuracy} pending={statsPending} wpmPending={wpmPending}
+                                averageWpm={gramWpm} levelText={getGramLevelText(gramLevel, gramCombination, gramScope)}
+                                isTimed={isTimed} countUp={isCountUp} time={time} showLiveStats={showStats}
+                            />
+                        </div>
+                        {/* Hold three lines of text height so a short prompt (e.g. a brief
+                            quote) doesn't shrink the block and re-center the whole view. */}
+                        <div className="flex min-h-[6.6rem] sm:min-h-[9rem]">
+                            {textNode}
+                        </div>
                     </div>
                     <p className={typingFocusFadeClass(started, "mt-6 font-mono text-xs text-base-content/40 select-none")}>
                         <kbd className="kbd kbd-xs">tab</kbd> + <kbd className="kbd kbd-xs">enter</kbd> / <kbd className="kbd kbd-xs">space</kbd> — restart

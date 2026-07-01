@@ -16,9 +16,7 @@ const TOOLBAR_MODES: ToolbarMode[] = [
     { label: "Timed", mode: TestModes.normal, subMode: TestSubModes.timed, defaultCount: 15 },
     { label: "Words", mode: TestModes.normal, subMode: TestSubModes.words, defaultCount: 10 },
     { label: "Practice", mode: TestModes.practice, defaultCount: 10 },
-    { label: "Quotes", mode: TestModes.quotes, defaultCount: 10 },
     { label: "Grams", mode: TestModes.ngrams, defaultCount: 10 },
-    { label: "Relaxed", mode: TestModes.relaxed, defaultCount: 10 },
 ]
 
 const TIMED_LENGTHS = [15, 30, 60, 120]
@@ -136,7 +134,7 @@ function SvgGlobe() {
 const toolbarButtonClass = "inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-md text-base-content/80 transition-colors hover:bg-base-content/10 hover:text-base-content focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
 // A bordered toolbar group: the mode+context cluster and the icon cluster are now
 // two separate groups, justified to opposite ends of the toolbar row.
-const toolbarGroupClass = "flex items-center gap-1 rounded-lg border border-base-content/15 bg-base-200/35 p-2 shadow-[0_18px_60px_rgba(0,0,0,0.18)] backdrop-blur"
+const toolbarGroupClass = "flex items-center gap-1 rounded-lg border border-base-content/15 bg-base-200/35 p-2 backdrop-blur"
 const segmentClass = (active: boolean) => `min-h-10 flex-1 basis-0 rounded-md px-3 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:flex-none ${active ? "bg-primary text-primary-content shadow-sm" : "text-base-content/70 hover:bg-base-content/5 hover:text-base-content"}`
 
 function SettingsToggle(props: { label: string, active: boolean, onChange: (active: boolean) => void }) {
@@ -175,12 +173,18 @@ export function ModeBar(props: ModeBarProps) {
 
     const isNormal = props.mode === TestModes.normal
     const isQuotes = props.mode === TestModes.quotes
+    // The "relaxed" engine is no longer its own mode — it backs the ∞ length option
+    // (no timer / infinite words), which keeps the typist in Timed/Words.
+    const isRelaxed = props.mode === TestModes.relaxed
+    const showLengths = isNormal || isRelaxed
     const lengthPresets = props.subMode === TestSubModes.timed ? TIMED_LENGTHS : WORD_LENGTHS
     const lengthMax = props.subMode === TestSubModes.timed ? 3600 : 5000
-    const languageLabel = languageLabelFor(props.language)
-    // Language only applies to word-list modes (Timed/Words/Relaxed); Grams and
-    // Practice generate from n-grams / selected keys, so the picker is hidden.
-    const showLanguage = props.mode === TestModes.normal || props.mode === TestModes.relaxed
+    // Quotes is now a text source in the language picker rather than a mode, so it
+    // reads as the active "language" while the quote engine runs.
+    const languageLabel = isQuotes ? "Quotes" : languageLabelFor(props.language)
+    // The picker drives the text source for word-list modes (Timed/Words, incl. the
+    // ∞ relaxed engine) and Quotes; Grams and Practice generate their own text.
+    const showLanguage = isNormal || isRelaxed || isQuotes
 
     useEffect(() => {
         if (!props.customLength) setCustomText(String(props.count))
@@ -188,7 +192,10 @@ export function ModeBar(props: ModeBarProps) {
 
     const isActive = (option: ToolbarMode) => {
         if (option.mode === TestModes.normal) {
-            return props.mode === TestModes.normal && props.subMode === option.subMode
+            // Timed/Words stay highlighted under the ∞ relaxed engine too — ∞ is a
+            // length, not a different mode, so the sub-mode chip mustn't go dark.
+            const inWordEngine = props.mode === TestModes.normal || props.mode === TestModes.relaxed
+            return inWordEngine && props.subMode === option.subMode
         }
         return props.mode === option.mode
     }
@@ -208,15 +215,41 @@ export function ModeBar(props: ModeBarProps) {
     }
 
     const handleSelectLength = (value: number) => {
+        // Picking a finite length leaves the ∞ relaxed engine and returns to Normal
+        // on the current sub-mode (no-op when already Normal).
+        props.setMode(TestModes.normal)
         props.setCustomLength(false)
         setCustomOpen(false)
         props.setCount(value)
     }
 
     const handleSelectCustom = () => {
+        props.setMode(TestModes.normal)
         setCustomText(String(props.count))
         props.setCustomLength(true)
         setCustomOpen(true)
+    }
+
+    // ∞: no timer (Timed) / infinite words (Words). Both run the relaxed engine —
+    // text scrolls forever and the test never auto-completes (free-typing / warmup).
+    const handleSelectInfinite = () => {
+        props.setMode(TestModes.relaxed)
+        props.setCustomLength(false)
+        setCustomOpen(false)
+    }
+
+    // The language picker doubles as a text-source picker: a word-list language
+    // leaves the quote engine for Normal; "Quotes" enters it. Quotes carry their
+    // own verbatim prose (no length/timer), so picking it just flips the mode.
+    const selectWordLanguage = (value: string) => {
+        if (isQuotes) props.setMode(TestModes.normal)
+        props.setLanguage(value)
+        setOpenMenu(null)
+    }
+
+    const selectQuotes = () => {
+        props.setMode(TestModes.quotes)
+        setOpenMenu(null)
     }
 
     const commitCustomLength = () => {
@@ -283,7 +316,7 @@ export function ModeBar(props: ModeBarProps) {
                 })}
             </div>
 
-            {(isNormal || isQuotes) &&
+            {(showLengths || isQuotes) &&
                 <div className="hidden h-8 w-px shrink-0 bg-base-content/10 sm:block" />
             }
 
@@ -303,21 +336,31 @@ export function ModeBar(props: ModeBarProps) {
             </div>
             }
 
-            {isNormal &&
+            {showLengths &&
             <div data-testid="toolbar-context" className="relative flex min-h-10 w-full min-w-0 items-center overflow-hidden rounded-md sm:w-auto">
-                {isNormal &&
+                {showLengths &&
                     <div className="flex h-10 w-full items-center gap-1">
                         {lengthPresets.map((length) => (
                             <button
                                 key={length}
                                 type="button"
-                                aria-pressed={props.count === length && !props.customLength}
+                                aria-pressed={isNormal && props.count === length && !props.customLength}
                                 onClick={() => handleSelectLength(length)}
-                                className={segmentClass(props.count === length && !props.customLength)}
+                                className={segmentClass(isNormal && props.count === length && !props.customLength)}
                             >
                                 {length}
                             </button>
                         ))}
+                        <button
+                            type="button"
+                            aria-pressed={isRelaxed}
+                            onClick={handleSelectInfinite}
+                            className={segmentClass(isRelaxed)}
+                            aria-label={props.subMode === TestSubModes.timed ? "No timer" : "Infinite words"}
+                            title={props.subMode === TestSubModes.timed ? "No timer" : "Infinite words"}
+                        >
+                            ∞
+                        </button>
                         <button
                             type="button"
                             aria-pressed={props.customLength}
@@ -329,11 +372,11 @@ export function ModeBar(props: ModeBarProps) {
                     </div>
                 }
 
-                {isNormal &&
+                {showLengths &&
                     <div
                         data-testid="custom-length-panel"
                         aria-hidden={!customOpen}
-                        className={`absolute inset-0 flex items-center gap-1 rounded-md border border-primary/35 bg-base-200 px-2 py-1 shadow-sm transition-transform duration-200 ease-out ${customOpen ? "translate-x-0" : "translate-x-full pointer-events-none"}`}
+                        className={`absolute inset-0 flex items-center gap-1 rounded-md border border-primary/35 bg-base-200 px-2 py-1 transition-transform duration-200 ease-out ${customOpen ? "translate-x-0" : "!border-none translate-x-full pointer-events-none"}`}
                     >
                         <input
                             id="customLengthInput"
@@ -398,11 +441,12 @@ export function ModeBar(props: ModeBarProps) {
                     }
                 >
                     <div id="language-menu" className="space-y-1">
-                        {/* English groups its vocabulary sizes onto one row of chips. */}
-                        <div className={`rounded-md px-3 py-2 ${ENGLISH_VALUES.has(props.language) ? "bg-primary/10" : ""}`}>
+                        {/* English groups its vocabulary sizes onto one row of chips. A
+                            word language is only "active" outside the quote engine. */}
+                        <div className={`rounded-md px-3 py-2 ${ENGLISH_VALUES.has(props.language) && !isQuotes ? "bg-primary/10" : ""}`}>
                             <div className="flex items-center justify-between">
-                                <span className={`text-sm ${ENGLISH_VALUES.has(props.language) ? "text-primary" : "text-base-content/75"}`}>English</span>
-                                {ENGLISH_VALUES.has(props.language) &&
+                                <span className={`text-sm ${ENGLISH_VALUES.has(props.language) && !isQuotes ? "text-primary" : "text-base-content/75"}`}>English</span>
+                                {ENGLISH_VALUES.has(props.language) && !isQuotes &&
                                     <span className="text-xs font-semibold uppercase tracking-wide text-primary">Active</span>
                                 }
                             </div>
@@ -411,13 +455,10 @@ export function ModeBar(props: ModeBarProps) {
                                     <button
                                         key={size.value}
                                         type="button"
-                                        className={`min-h-8 rounded-md px-2.5 text-xs font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${props.language === size.value ? "bg-primary text-primary-content" : "bg-base-content/10 text-base-content/75 hover:bg-base-content/20"}`}
+                                        className={`min-h-8 rounded-md px-2.5 text-xs font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${props.language === size.value && !isQuotes ? "bg-primary text-primary-content" : "bg-base-content/10 text-base-content/75 hover:bg-base-content/20"}`}
                                         aria-label={`English ${size.label}`}
-                                        aria-pressed={props.language === size.value}
-                                        onClick={() => {
-                                            props.setLanguage(size.value)
-                                            setOpenMenu(null)
-                                        }}
+                                        aria-pressed={props.language === size.value && !isQuotes}
+                                        onClick={() => selectWordLanguage(size.value)}
                                     >
                                         {size.label}
                                     </button>
@@ -428,19 +469,28 @@ export function ModeBar(props: ModeBarProps) {
                             <button
                                 key={option.value}
                                 type="button"
-                                className={`flex min-h-10 w-full cursor-pointer items-center justify-between rounded-md px-3 text-left text-sm transition-colors hover:bg-base-content/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${props.language === option.value ? "bg-primary/10 text-primary" : "text-base-content/75"}`}
-                                aria-pressed={props.language === option.value}
-                                onClick={() => {
-                                    props.setLanguage(option.value)
-                                    setOpenMenu(null)
-                                }}
+                                className={`flex min-h-10 w-full cursor-pointer items-center justify-between rounded-md px-3 text-left text-sm transition-colors hover:bg-base-content/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${props.language === option.value && !isQuotes ? "bg-primary/10 text-primary" : "text-base-content/75"}`}
+                                aria-pressed={props.language === option.value && !isQuotes}
+                                onClick={() => selectWordLanguage(option.value)}
                             >
                                 <span>{option.label}</span>
-                                {props.language === option.value &&
+                                {props.language === option.value && !isQuotes &&
                                     <span className="text-xs font-semibold uppercase tracking-wide">Active</span>
                                 }
                             </button>
                         ))}
+                        {/* Quotes: a verbatim-prose text source, not a word language. */}
+                        <button
+                            type="button"
+                            className={`flex min-h-10 w-full cursor-pointer items-center justify-between rounded-md px-3 text-left text-sm transition-colors hover:bg-base-content/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${isQuotes ? "bg-primary/10 text-primary" : "text-base-content/75"}`}
+                            aria-pressed={isQuotes}
+                            onClick={selectQuotes}
+                        >
+                            <span>Quotes</span>
+                            {isQuotes &&
+                                <span className="text-xs font-semibold uppercase tracking-wide">Active</span>
+                            }
+                        </button>
                     </div>
                 </ToolbarMenu>
                 }

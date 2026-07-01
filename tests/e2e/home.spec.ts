@@ -9,7 +9,13 @@ async function gotoHome(page: Page) {
 }
 
 // Mode switches inline on the main page; everything else lives in the modal.
-function selectMode(page: Page, name: "Timed" | "Words" | "Practice" | "Grams" | "Relaxed" | "Quotes", options?: { force?: boolean }) {
+// Quotes is now a text source in the language picker rather than a mode button.
+async function selectQuotesLanguage(page: Page) {
+  await page.getByTestId("typer-toolbar").getByRole("button", { name: /^Language:/ }).click();
+  await page.getByTestId("language-menu").getByRole("button", { name: "Quotes", exact: true }).click();
+}
+
+function selectMode(page: Page, name: "Timed" | "Words" | "Practice" | "Grams", options?: { force?: boolean }) {
   const button = page.getByTestId("mode-bar").getByRole("button", { name });
   if (options?.force) return button.evaluate((element: HTMLElement) => element.click());
   return button.click();
@@ -157,11 +163,11 @@ test.describe("home typing test", () => {
     const toolbar = page.getByTestId("typer-toolbar");
     const langButton = toolbar.getByRole("button", { name: /^Language:/ });
 
-    // Timed (default), Words, Relaxed use a word list → icon shown.
+    // Timed (default), Words use a word list → icon shown; ∞ (no timer) keeps it.
     await expect(langButton).toBeVisible();
     await selectMode(page, "Words", { force: true });
     await expect(langButton).toBeVisible();
-    await selectMode(page, "Relaxed");
+    await page.getByTestId("toolbar-context").getByRole("button", { name: "Infinite words" }).click();
     await expect(langButton).toBeVisible();
 
     // Grams + Practice generate from n-grams / selected keys → icon hidden.
@@ -169,16 +175,18 @@ test.describe("home typing test", () => {
     await expect(langButton).toHaveCount(0);
     await selectMode(page, "Practice");
     await expect(langButton).toHaveCount(0);
-    // Quotes carry their own text → language icon hidden.
-    await selectMode(page, "Quotes");
-    await expect(langButton).toHaveCount(0);
+
+    // Quotes is a text source in the picker, so the icon stays — now labelled Quotes.
+    await selectMode(page, "Timed");
+    await selectQuotesLanguage(page);
+    await expect(toolbar.getByRole("button", { name: "Language: Quotes" })).toBeVisible();
   });
 
-  test("Quotes mode swaps the length presets for length buckets and types verbatim", async ({ page }) => {
+  test("Quotes text source swaps the length presets for length buckets and types verbatim", async ({ page }) => {
     await gotoHome(page);
 
-    await selectMode(page, "Quotes");
-    await expect(page.getByTestId("mode-bar").getByRole("button", { name: "Quotes" })).toHaveAttribute("aria-pressed", "true");
+    await selectQuotesLanguage(page);
+    await expect(page.getByTestId("typer-toolbar").getByRole("button", { name: "Language: Quotes" })).toBeVisible();
 
     // The length buckets replace the timed/word presets.
     const bucketBar = page.getByTestId("quote-length-bar");
@@ -244,7 +252,45 @@ test.describe("home typing test", () => {
     expect(scoreCreates).toBe(0);
   });
 
-  test("settings cover language, practice, relaxed, stats, and keyboard options", async ({ page }) => {
+  test("signed-in users get a next-action pill that drills their slowest transition", async ({ page }) => {
+    await mockAuthenticatedSession(page);
+    await mockTrpc(page);
+    await gotoHome(page);
+
+    const pill = page.getByTestId("home-next-action");
+    await expect(pill).toBeVisible();
+    await expect(pill).toContainText("b→r");
+    await expect(pill).toContainText("2.2× avg");
+    await expect(pill.getByTestId("home-next-action-drill")).toHaveAttribute("href", "/drill?keys=b,r");
+
+    // Dismissible — and stays gone for the session.
+    await pill.getByRole("button", { name: "Dismiss" }).click();
+    await expect(pill).toBeHidden();
+  });
+
+  test("guests see no next-action pill", async ({ page }) => {
+    await mockTrpc(page);
+    await gotoHome(page);
+    await expect(page.getByTestId("home-next-action")).toBeHidden();
+  });
+
+  test("grams advanced thresholds stay folded behind a disclosure", async ({ page }) => {
+    await gotoHome(page);
+    await selectMode(page, "Grams");
+    const panel = page.getByTestId("grams-panel");
+    await expect(panel).toBeVisible();
+
+    // Source + Scope are the meaningful choices, shown by default.
+    await expect(panel.getByText("Source", { exact: true })).toBeVisible();
+    await expect(panel.getByText("Scope", { exact: true })).toBeVisible();
+
+    // The fiddly numeric knobs are hidden until Advanced is opened.
+    await expect(page.locator("#testGramWpmThresholdInput")).toBeHidden();
+    await panel.getByText("Advanced", { exact: true }).click();
+    await expect(page.locator("#testGramWpmThresholdInput")).toBeVisible();
+  });
+
+  test("settings cover language, practice, no-timer length, stats, and keyboard options", async ({ page }) => {
     await gotoHome(page);
 
     await page.getByTestId("typer-toolbar").getByRole("button", { name: "Language: English" }).click();
@@ -266,8 +312,23 @@ test.describe("home typing test", () => {
     await selectMode(page, "Practice");
     await expect(page.locator(".typecafe-keyboard")).toBeVisible();
 
-    await selectMode(page, "Relaxed");
-    await expect(page.getByTestId("mode-bar").getByRole("button", { name: "Relaxed" })).toHaveAttribute("aria-pressed", "true");
+    // ∞ (no timer) runs the relaxed engine while keeping the Timed sub-mode lit,
+    // and shows an elapsed count-up clock instead of a countdown.
+    await selectMode(page, "Timed");
+    await page.getByTestId("toolbar-context").getByRole("button", { name: "No timer" }).click();
+    await expect(page.getByTestId("toolbar-context").getByRole("button", { name: "No timer" })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByTestId("mode-bar").getByRole("button", { name: "Timed" })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByTestId("stat-time")).toBeVisible();
+  });
+
+  test("Timed ∞ runs a rising count-up clock", async ({ page }) => {
+    await gotoHome(page);
+    await page.getByTestId("toolbar-context").getByRole("button", { name: "No timer" }).click();
+    await expect(page.getByTestId("stat-time")).toHaveText("0");
+
+    // Typing starts the stopwatch; it must tick upward, not sit at 0.
+    await typeCurrentCharacter(page);
+    await expect(page.getByTestId("stat-time")).not.toHaveText("0", { timeout: 4000 });
   });
 
   test("keyboard toggle keeps the typing text vertically stable", async ({ page }) => {

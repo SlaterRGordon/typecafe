@@ -5,6 +5,7 @@ import { useRouter } from "next/router";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { DailyChallengePrompt } from "~/components/challenge/DailyChallengePrompt";
+import { HomeNextAction } from "~/components/home/HomeNextAction";
 import { ShareableScoreCard, type ScoreSnapshot } from "~/components/scores/ShareableScoreCard";
 import { Keyboard } from "~/components/typer/Keyboard";
 import { Typer, type TestCompletionResult } from "~/components/typer/Typer";
@@ -87,6 +88,9 @@ const Home: NextPage = () => {
     reMeasure?: { beforeWpm: number };
   }) | null>(null)
   const [shareUrl, setShareUrl] = useState<string | undefined>(undefined)
+  // True while a signed-in user's just-finished test is being saved — the card
+  // renders instantly (eagerResult) and shows a loader until the save settles.
+  const [isSavingScore, setIsSavingScore] = useState(false)
   // The pending re-measure offer. The ref is the synchronous source of truth (read
   // inside completion handling); the state drives the drill-view prompt's render.
   const reMeasureRef = useRef<ReMeasureState | null>(null)
@@ -104,6 +108,12 @@ const Home: NextPage = () => {
   const charAttemptsRef = useRef<Map<string, { attempts: number, correct: number }>>(new Map())
   const persistedAttemptsRef = useRef<Map<string, { attempts: number, correct: number }>>(new Map())
   const hasSavedPendingRef = useRef(false)
+  // True while a result card is on screen for the current attempt. Guards the
+  // async save upgrade from re-showing the card after the user already restarted.
+  const cardActiveRef = useRef(false)
+  // The re-measure offer resolved for the current attempt, kept so the eager and
+  // the persisted-upgrade reports both carry it (the offer is retired after the first).
+  const attemptReMeasureRef = useRef<{ beforeWpm: number } | undefined>(undefined)
   const { data: sessionData } = useSession()
   const router = useRouter()
   const { data: persistedStats } = api.practiceStats.get.useQuery(undefined, {
@@ -184,7 +194,17 @@ const Home: NextPage = () => {
   }
 
   const onTestComplete = (result: TestCompletionResult) => {
-    const reMeasured = matchedReMeasure(result)
+    // A persisted result is the save upgrade for the eager card; ignore it if the
+    // user already dismissed/restarted that card (its eager render set the flag).
+    if (result.persisted && !cardActiveRef.current) return
+    cardActiveRef.current = true
+    // Resolve the re-measure offer once, on the first (eager) report; the later
+    // save upgrade reuses it so the before→after strip doesn't vanish.
+    if (!result.persisted) {
+      const reMeasured = matchedReMeasure(result)
+      attemptReMeasureRef.current = reMeasured ? { beforeWpm: reMeasured.beforeWpm } : undefined
+      if (reMeasured) applyReMeasure(null)
+    }
     const score = {
       speed: result.speed,
       rawWpm: result.rawWpm,
@@ -213,11 +233,8 @@ const Home: NextPage = () => {
       options: result.levelName,
       createdAt: new Date(),
       testId: result.testId,
-      reMeasure: reMeasured ? { beforeWpm: reMeasured.beforeWpm } : undefined,
+      reMeasure: attemptReMeasureRef.current,
     }
-    // The delta has now been captured onto the result; retire the offer so it
-    // shows exactly once.
-    if (reMeasured) applyReMeasure(null)
     setCompletedScore(score)
     setShareUrl(undefined)
 
@@ -229,7 +246,10 @@ const Home: NextPage = () => {
       appendLocalProgress({ wpm: result.speed, accuracy: result.accuracy, c: consistency, t: Date.now() })
     }
 
-    if (!result.persisted && result.typeId) {
+    // Only guests stash a pending score (to save once they sign in). Signed-in
+    // users persist directly, and their eager (unpersisted) result must not leave
+    // a spurious pending-score behind.
+    if (!sessionData?.user && !result.persisted && result.typeId) {
       try {
         sessionStorage.setItem("typecafe:pendingScore", JSON.stringify({
           savedAt: Date.now(),
@@ -322,8 +342,10 @@ const Home: NextPage = () => {
   }, [sessionData?.user?.id])
 
   const clearCompletedScore = () => {
+    cardActiveRef.current = false
     setCompletedScore(null)
     setShareUrl(undefined)
+    setIsSavingScore(false)
   }
 
   const requestRestart = () => {
@@ -531,7 +553,10 @@ const Home: NextPage = () => {
     "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
   };
   const shouldShowHomeKeyboard = showKeyboard || mode === TestModes.practice
-  const shouldReserveHomeKeyboardSpace = shouldShowHomeKeyboard || mode === TestModes.normal
+  // Always hold the keyboard slot on the test view so toggling the keyboard — or
+  // switching modes/lengths (including ∞, which runs the non-normal relaxed
+  // engine) — never shifts the centered text and toolbar vertically.
+  const shouldReserveHomeKeyboardSpace = true
 
   return (
     <>
@@ -543,10 +568,11 @@ const Home: NextPage = () => {
       </Head>
       <div id="typer" className={`flex flex-col h-full overflow-auto ${completedScore ? "py-4" : "[justify-content:safe_center]"} ${fullscreen ? 'absolute top-0 left-0 w-full h-full bg-base-100 z-[500] sm:px-8' : 'md:w-10/12'}`}>
         {!completedScore && !fullscreen &&
-          <DailyChallengePrompt className={typingFocusFadeClass(typingFocused, "mx-auto mb-4 w-full max-w-screen-xl")} completedCtaLabel="Try now" />
+          <DailyChallengePrompt corner className={typingFocusFadeClass(typingFocused, "")} />
         }
         {!completedScore &&
           <div data-testid="typing-focus-home-controls" className={typingFocusFadeClass(typingFocused, "w-full")}>
+            <HomeNextAction />
             <ModeBar
               mode={mode} subMode={subMode} setMode={setMode}
               setSubMode={setSubMode}
@@ -638,6 +664,8 @@ const Home: NextPage = () => {
           restartSignal={restartSignal}
           onRestart={clearCompletedScore}
           onTestComplete={onTestComplete}
+          eagerResult
+          onSavingChange={setIsSavingScore}
           onTypingFocusChange={setTypingFocused}
           charAttemptsRef={charAttemptsRef}
           hideInterface={!!completedScore}
@@ -670,6 +698,7 @@ const Home: NextPage = () => {
                 }}
                 shareUrl={shareUrl}
                 canCreateShare={!!completedScore.testId}
+                isSaving={isSavingScore}
                 signInHtmlFor="signInModal"
                 isCreatingShare={createShare.isPending}
                 onCreateShare={createAndCopyShareLink}

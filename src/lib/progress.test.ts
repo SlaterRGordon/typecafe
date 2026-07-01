@@ -15,6 +15,7 @@ import {
     heroDelta,
     isoWeekStart,
     linearTrend,
+    longestStreak,
     mergeDailyRollups,
     periodStart,
     personalRecords,
@@ -511,6 +512,35 @@ describe("currentStreak", () => {
         const offset = -300
         const lateYesterday: ProgressRecord = { wpm: 60, accuracy: 95, createdAt: new Date("2026-06-14T04:30:00.000Z") }
         expect(currentStreak([lateYesterday], NOW, offset)).toBe(1)
+    })
+
+    it("compares persisted summary days against the user's local today", () => {
+        const offset = -420
+        const localToday = new Date("2026-06-30T17:00:00.000Z") // 10:00 at UTC-7.
+        const persistedDays: ProgressRecord[] = [
+            { wpm: 0, accuracy: 0, day: "2026-06-29", createdAt: new Date("2026-06-29T00:00:00.000Z") },
+            { wpm: 0, accuracy: 0, day: "2026-06-28", createdAt: new Date("2026-06-28T00:00:00.000Z") },
+        ]
+
+        expect(currentStreak(persistedDays, localToday, offset)).toBe(2)
+    })
+})
+
+describe("longestStreak", () => {
+    it("counts the longest consecutive run and ignores duplicate test days", () => {
+        expect(longestStreak([
+            rec(8, 60),
+            rec(7, 60),
+            rec(7, 70),
+            rec(6, 60),
+            rec(3, 60),
+            rec(1, 60),
+            rec(0, 60),
+        ])).toBe(3)
+    })
+
+    it("returns zero with no records", () => {
+        expect(longestStreak([])).toBe(0)
     })
 })
 

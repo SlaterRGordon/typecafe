@@ -1,5 +1,4 @@
 import { expect, test } from "@playwright/test";
-import { chooseReactSelectOption } from "./helpers/select";
 import { mockAuthenticatedSession, mockTrpc } from "./helpers/trpc";
 
 test.describe("authenticated profile", () => {
@@ -24,13 +23,23 @@ test.describe("authenticated profile", () => {
 
     await expect(page.getByText("testuser").first()).toBeVisible();
     await expect(page.locator("p").getByText("Typing fast, testing faster.")).toBeVisible();
-    await expect(page.getByText("Best Scores")).toBeVisible();
 
-    await chooseReactSelectOption(page, "subModeSelect", "Words");
-    await chooseReactSelectOption(page, "countSelect", "100");
-    await expect(page.locator("#list").getByText("101.25", { exact: true })).toBeVisible();
+    await expect(page.getByText("Tests this year")).toBeVisible();
+    await expect(page.getByText("minutes typed")).toBeVisible();
+    await expect(page.getByTestId("profile-delta-chip")).toContainText("+4.2 WPM this month");
+    await expect(page.getByTestId("profile-activity-surface")).toBeVisible();
+    await expect(page.getByTestId("profile-longest-streak")).toContainText("Longest streak: 5 days");
+    await expect(page.getByTestId("profile-typing-style")).toContainText("Speed");
+    await expect(page.getByTestId("profile-typing-style")).toContainText("84.6 WPM");
+    await expect(page.getByTestId("profile-typing-style")).toContainText("97.4%");
+    await expect(page.getByTestId("profile-typing-style")).toContainText("Momentum");
+    await expect(page.getByTestId("profile-typing-style")).toContainText("Speed lift");
+    await expect(page.getByTestId("profile-typing-style")).toContainText("+6.2 WPM");
+    const trainProgress = page.getByTestId("profile-train-progress");
+    await expect(trainProgress.getByTestId("profile-train-link")).toHaveAttribute("href", "/train");
+    await expect(trainProgress.getByText("32/100 levels")).toBeVisible();
 
-    await page.locator("label[for='configModal']").filter({ hasText: /^Edit Profile$/ }).click();
+    await page.getByTestId("edit-profile").click();
     await expect(page.locator("#configModal")).toBeChecked();
     await expect(page.getByRole("heading", { name: "Edit Profile" })).toBeVisible();
 
@@ -43,7 +52,7 @@ test.describe("authenticated profile", () => {
     await expect(page.getByText("updateduser").first()).toBeVisible();
     await expect(page.locator("p").getByText("Updated bio from Playwright.")).toBeVisible();
 
-    await page.locator("label[for='configModal']").filter({ hasText: /^Edit Profile$/ }).click();
+    await page.getByTestId("edit-profile").click();
     await page.getByRole("button", { name: "Delete Profile" }).click();
     await expect(page.locator("#confirmModal")).toBeChecked();
     await expect(page.getByText("Are you sure you want to delete your account?")).toBeVisible();
@@ -61,7 +70,7 @@ test.describe("authenticated profile", () => {
     const headerAvatar = page.getByTestId("profile-avatar");
     await expect(headerAvatar.getByRole("img")).toBeVisible();
 
-    await page.locator("label[for='configModal']").filter({ hasText: /^Edit Profile$/ }).click();
+    await page.getByTestId("edit-profile").click();
     await expect(page.getByRole("button", { name: "Remove" })).toBeVisible();
 
     await page.getByRole("button", { name: "Remove" }).click();
@@ -78,7 +87,7 @@ test.describe("authenticated profile", () => {
     await mockTrpc(page);
 
     await page.goto("/profile");
-    await page.locator("label[for='configModal']").filter({ hasText: /^Edit Profile$/ }).click();
+    await page.getByTestId("edit-profile").click();
     await page.setInputFiles("#avatarInput", {
       name: "avatar.txt",
       mimeType: "text/plain",
@@ -93,7 +102,7 @@ test.describe("authenticated profile", () => {
     await mockTrpc(page);
 
     await page.goto("/profile");
-    await page.locator("label[for='configModal']").filter({ hasText: /^Edit Profile$/ }).click();
+    await page.getByTestId("edit-profile").click();
     await page.setInputFiles("#avatarInput", {
       name: "avatar.png",
       mimeType: "image/png",

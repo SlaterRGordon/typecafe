@@ -587,7 +587,7 @@ export function personalRecords(records: ProgressRecord[], thresholds: number[] 
 // anti-spam bar needs per-test duration we don't store on Test yet — add that
 // filter here once duration lands. DST-safe because the offset is fixed.
 export function currentStreak(records: ProgressRecord[], now: Date, utcOffsetMinutes = 0): number {
-    const days = new Set(records.map((r) => dayKey(r.createdAt, utcOffsetMinutes)))
+    const days = new Set(records.map((r) => r.day ?? dayKey(r.createdAt, utcOffsetMinutes)))
     if (days.size === 0) return 0
 
     let cursor = now.getTime()
@@ -602,4 +602,29 @@ export function currentStreak(records: ProgressRecord[], now: Date, utcOffsetMin
         cursor -= DAY_MS
     }
     return streak
+}
+
+function dayIndex(day: string): number {
+    const [year, month, date] = day.split("-").map(Number)
+    return Date.UTC(year!, month! - 1, date!) / DAY_MS
+}
+
+export function longestStreak(records: Pick<ProgressRecord, "createdAt" | "day">[], utcOffsetMinutes = 0): number {
+    const days = Array.from(new Set(records.map((record) => record.day ?? dayKey(record.createdAt, utcOffsetMinutes))))
+        .map(dayIndex)
+        .sort((a, b) => a - b)
+    if (days.length === 0) return 0
+
+    let best = 1
+    let current = 1
+    for (let i = 1; i < days.length; i++) {
+        if (days[i]! === days[i - 1]! + 1) {
+            current += 1
+        } else {
+            current = 1
+        }
+        best = Math.max(best, current)
+    }
+
+    return best
 }
