@@ -26,6 +26,14 @@ describe("aggregateTransitions", () => {
         const evts = events([["a", 0], [" ", 100], ["b", 100], [".", 100], ["c", 100]])
         expect(aggregateTransitions(evts)).toEqual([])
     })
+
+    it("drops letter pairs that cannot be drilled with real transition words", () => {
+        const evts = events([["x", 0], ["i", 240], ["b", 120], ["r", 300]])
+        const aggs = aggregateTransitions(evts)
+
+        expect(aggs.find((a) => a.pair === "xi")).toBeUndefined()
+        expect(aggs.find((a) => a.pair === "br")).toMatchObject({ pair: "br", count: 1, totalMs: 300 })
+    })
 })
 
 describe("overallTransitionMeanMs", () => {
@@ -33,6 +41,7 @@ describe("overallTransitionMeanMs", () => {
         const aggs = [
             { pair: "th", count: 2, totalMs: 500, errors: 0 },
             { pair: "he", count: 2, totalMs: 300, errors: 0 },
+            { pair: "xi", count: 10, totalMs: 10_000, errors: 0 },
         ]
         expect(overallTransitionMeanMs(aggs)).toBe(200) // 800 / 4
     })
@@ -66,6 +75,17 @@ describe("worstTransitions", () => {
         expect(worstTransitions(aggs).find((t) => t.pair === "qz")).toBeUndefined()
     })
 
+    it("ignores stale untrackable pairs even when they are recurring and slow", () => {
+        const aggs = [
+            { pair: "xi", count: 20, totalMs: 20_000, errors: 0 },
+            { pair: "br", count: 10, totalMs: 4000, errors: 0 },
+            { pair: "th", count: 10, totalMs: 1000, errors: 0 },
+            { pair: "he", count: 10, totalMs: 1200, errors: 0 },
+        ]
+
+        expect(worstTransitions(aggs).map((t) => t.pair)).toEqual(["br"])
+    })
+
     it("returns nothing with no data", () => {
         expect(worstTransitions([])).toEqual([])
     })
@@ -74,11 +94,12 @@ describe("worstTransitions", () => {
 describe("mergeTransitions", () => {
     it("sums aggregates by pair", () => {
         const merged = mergeTransitions(
-            [{ pair: "th", count: 2, totalMs: 400, errors: 1 }],
+            [{ pair: "th", count: 2, totalMs: 400, errors: 1 }, { pair: "xi", count: 8, totalMs: 8000, errors: 0 }],
             [{ pair: "th", count: 3, totalMs: 600, errors: 0 }, { pair: "he", count: 1, totalMs: 100, errors: 0 }],
         )
         const th = merged.find((a) => a.pair === "th")!
         expect(th).toMatchObject({ count: 5, totalMs: 1000, errors: 1 })
         expect(merged.find((a) => a.pair === "he")!.count).toBe(1)
+        expect(merged.find((a) => a.pair === "xi")).toBeUndefined()
     })
 })

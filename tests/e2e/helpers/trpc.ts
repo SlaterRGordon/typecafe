@@ -10,6 +10,7 @@ interface MockTrpcOptions {
   invalidShare?: boolean;
   // Per-key practice stats for the /progress lifetime heatmap.
   keyStats?: { character: string; total: number; correct: number }[];
+  transitionStats?: { pair: string; count: number; totalMs: number; errors: number }[];
   // Make the progress history flat (a plateau) instead of rising.
   flatProgress?: boolean;
   // Mix timed and words records so /progress filter tests can prove scoping.
@@ -331,6 +332,7 @@ function responseForProcedure(procedure: string, input: ProcedureInput, options:
       return options.keyStats ?? [];
     case "transitionStats.get":
       if (options.emptyScores) return [];
+      if (options.transitionStats) return options.transitionStats;
       return [
         { pair: "br", count: 12, totalMs: 4800, errors: 3 }, // 400ms mean, 25% errors
         { pair: "th", count: 30, totalMs: 3000, errors: 0 }, // 100ms
