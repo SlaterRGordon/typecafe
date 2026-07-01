@@ -4,6 +4,7 @@
 // single test's timeline (to sync) and over a user's lifetime rows (to surface).
 
 import type { KeystrokeEvent } from "./keystrokes"
+import { isTrackableTransitionPair } from "./drillableTransitions"
 
 // A pair recurs this many times in the lifetime data before its slowness is
 // signal rather than a fluke.
@@ -35,6 +36,7 @@ export function aggregateTransitions(events: KeystrokeEvent[]): TransitionAggreg
         const to = events[i]!.key.toLowerCase()
         if (!isLetter(from) || !isLetter(to)) continue
         const pair = from + to
+        if (!isTrackableTransitionPair(pair)) continue
         const dt = Math.max(events[i]!.t - events[i - 1]!.t, 0)
         const entry = byPair.get(pair) ?? { pair, count: 0, totalMs: 0, errors: 0 }
         entry.count += 1
@@ -62,6 +64,7 @@ export function overallTransitionMeanMs(aggregates: TransitionAggregate[]): numb
     let totalMs = 0
     let count = 0
     for (const a of aggregates) {
+        if (!isTrackableTransitionPair(a.pair)) continue
         totalMs += a.totalMs
         count += a.count
     }
@@ -75,13 +78,15 @@ export function worstTransitions(aggregates: TransitionAggregate[], limit = 5): 
     if (baseline <= 0) return []
 
     return aggregates
+        .filter((a) => isTrackableTransitionPair(a.pair))
         .filter((a) => a.count >= TRANSITION_MIN_COUNT)
         .map((a) => {
+            const pair = a.pair.toLowerCase()
             const meanMs = a.totalMs / a.count
             return {
-                pair: a.pair,
-                from: a.pair[0]!,
-                to: a.pair[1]!,
+                pair,
+                from: pair[0]!,
+                to: pair[1]!,
                 meanMs,
                 count: a.count,
                 ratio: meanMs / baseline,
@@ -99,11 +104,13 @@ export function mergeTransitions(existing: TransitionAggregate[], incoming: Tran
     const byPair = new Map<string, TransitionAggregate>()
     for (const a of [...existing, ...incoming]) {
         if (a.count <= 0) continue
-        const entry = byPair.get(a.pair) ?? { pair: a.pair, count: 0, totalMs: 0, errors: 0 }
+        const pair = a.pair.toLowerCase()
+        if (!isTrackableTransitionPair(pair)) continue
+        const entry = byPair.get(pair) ?? { pair, count: 0, totalMs: 0, errors: 0 }
         entry.count += a.count
         entry.totalMs += a.totalMs
         entry.errors += a.errors
-        byPair.set(a.pair, entry)
+        byPair.set(pair, entry)
     }
     return Array.from(byPair.values())
 }

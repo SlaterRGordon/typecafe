@@ -60,6 +60,22 @@ test.describe("authenticated profile", () => {
     await expect(page.locator("#confirmModal")).not.toBeChecked();
   });
 
+  test("does not surface stale untrackable transitions in profile coach tabs", async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name.includes("mobile"), "Rail coach tabs are desktop-only off home.");
+    await mockAuthenticatedSession(page);
+    await mockTrpc(page, {
+      transitionStats: [
+        { pair: "xi", count: 30, totalMs: 18_000, errors: 0 },
+      ],
+    });
+
+    await page.goto("/profile");
+
+    await expect(page.getByTestId("profile-typing-style")).toBeVisible();
+    await expect(page.getByTestId("home-coach-tab-drill")).toHaveCount(0);
+    await expect(page.getByText("x->i")).toHaveCount(0);
+  });
+
   test("removes an existing custom profile picture", async ({ page }) => {
     await mockAuthenticatedSession(page, blobAvatarUrl);
     await mockTrpc(page, { profileImage: blobAvatarUrl });
