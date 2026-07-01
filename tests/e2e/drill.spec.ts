@@ -81,4 +81,16 @@ test.describe("drill page", () => {
     expect(words).toHaveLength(4)
     expect(words.every((word) => word.includes("br"))).toBe(true)
   })
+
+  test("rare letter transition drill avoids generated pseudo-words", async ({ page }) => {
+    await mockTrpc(page)
+    await page.goto("/drill?transitions=yl&length=8")
+
+    await expect(page.getByTestId("drill-typer")).toBeVisible()
+    const words = (await page.locator("#words").innerText()).trim().split(/\s+/)
+    const generatedFallbacks = new Set(["yl", "ylyl", "yyl", "yll"])
+
+    expect(words).toHaveLength(8)
+    expect(words.every((word) => !generatedFallbacks.has(word))).toBe(true)
+  })
 })

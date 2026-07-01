@@ -73,16 +73,17 @@ describe("compileDrillText", () => {
         expect(new Set(words).size).toBeGreaterThan(1)
     })
 
-    test("falls back to transition grams when matching words are scarce", () => {
+    test("falls back to real words when alphabetic transition matches are scarce", () => {
         const words = compileDrillText({
-            transitions: ["zx"],
-            wordList: ["alpha", "omega"],
+            transitions: ["yl"],
+            wordList: ["style", "only", "yellow", "early", "play"],
             length: 6,
             rng: cyclingRng(),
         }).split(" ")
 
         expect(words).toHaveLength(6)
-        expect(words.every((word) => word.includes("zx"))).toBe(true)
+        expect(words.every((word) => ["style", "only", "yellow", "early", "play"].includes(word))).toBe(true)
+        expect(words).not.toContain("yll")
         for (let i = 1; i < words.length; i += 1) {
             expect(words[i]).not.toBe(words[i - 1])
         }
