@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { useSession } from "next-auth/react";
+import { useRouter } from "next/router";
 import { useEffect, useMemo, useState } from "react";
 import { MaterialNavIcon } from "~/components/navigation/MaterialNavIcon";
 import { challengeDateKey } from "~/lib/challenge";
@@ -25,6 +26,12 @@ type CoachTab = {
     onDismiss?: () => void;
 };
 
+type HomeCoachTabsProps = {
+    className?: string;
+    desktop?: boolean;
+    inline?: boolean;
+};
+
 function formatNumber(value: number, digits = 1) {
     return value.toLocaleString(undefined, {
         maximumFractionDigits: digits,
@@ -44,9 +51,9 @@ function CoachTabPanel({ leftClassName, tab }: { leftClassName: string; tab: Coa
         >
             <span
                 aria-hidden="true"
-                className="pointer-events-none absolute -left-[5px] top-6 z-[47] h-2.5 w-2.5 -translate-y-1/2 rotate-45 border-b border-l border-base-content/15 bg-base-200/95"
+                className="pointer-events-none absolute -left-[5px] top-6 z-[47] h-2.5 w-2.5 -translate-y-1/2 rotate-45 border-b border-l border-base-content/15 bg-base-200/95 transition-colors duration-150 group-hover:border-base-content/15 group-focus-within:border-base-content/15 motion-reduce:transition-none"
             />
-            <div className="absolute inset-0 overflow-hidden rounded-lg border border-base-content/15 bg-base-200/95 shadow-lg shadow-base-300/20 group-focus-within:border-l">
+            <div className="absolute inset-0 overflow-hidden rounded-lg border border-base-content/15 bg-base-200/95 transition-colors duration-150 group-hover:border-base-content/15 group-hover:shadow-base-300/20 group-focus-within:border-base-content/15 group-focus-within:shadow-base-300/20 motion-reduce:transition-none">
                 <Link
                     href={tab.href}
                     className="absolute inset-0 flex items-center justify-center text-sm font-semibold text-primary transition-opacity duration-100 group-hover:pointer-events-none group-hover:opacity-0 group-focus-within:pointer-events-none group-focus-within:opacity-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-primary motion-reduce:transition-none"
@@ -113,8 +120,9 @@ function InlineCoachTab({ tab }: { tab: CoachTab }) {
     );
 }
 
-export function HomeCoachTabs({ className = "" }: { className?: string }) {
+export function HomeCoachTabs({ className = "", desktop = true, inline = true }: HomeCoachTabsProps) {
     const { data: session, status: sessionStatus } = useSession();
+    const router = useRouter();
     const signedIn = sessionStatus === "authenticated" && !!session?.user;
     const [sideNavExpanded, setSideNavExpanded] = useState(false);
     const [dismissedFinding, setDismissedFinding] = useState(() => {
@@ -188,7 +196,7 @@ export function HomeCoachTabs({ className = "" }: { className?: string }) {
                     href: `/drill?keys=${drillKeys}`,
                     cta: "Start drill",
                     testId: "home-coach-tab-drill",
-                    topClassName: "top-[8.5rem]",
+                    topClassName: "top-[12.5rem]",
                     dismissLabel: "Dismiss drill suggestion",
                     onDismiss: () => {
                         setDismissedFinding(drillKeys);
@@ -226,15 +234,20 @@ export function HomeCoachTabs({ className = "" }: { className?: string }) {
     if (tabs.length === 0) return null;
 
     const leftClassName = sideNavExpanded ? "left-64" : "left-[4.6rem]";
+    const showInline = inline && router.pathname === "/";
 
     return (
         <>
-            <div data-testid="home-coach-tabs" className={`${className} hidden md:block`}>
-                {tabs.map((tab) => <CoachTabPanel key={tab.key} leftClassName={leftClassName} tab={tab} />)}
-            </div>
-            <div data-testid="home-coach-tabs-inline" className={`${className} mx-auto mb-3 flex w-full max-w-screen-xl gap-2 px-4 md:hidden`}>
-                {tabs.map((tab) => <InlineCoachTab key={tab.key} tab={tab} />)}
-            </div>
+            {desktop &&
+                <div data-testid="home-coach-tabs" className={`${className} hidden md:block`}>
+                    {tabs.map((tab) => <CoachTabPanel key={tab.key} leftClassName={leftClassName} tab={tab} />)}
+                </div>
+            }
+            {showInline &&
+                <div data-testid="home-coach-tabs-inline" className={`${className} mx-auto mb-3 flex w-full max-w-screen-xl gap-2 px-4 md:hidden`}>
+                    {tabs.map((tab) => <InlineCoachTab key={tab.key} tab={tab} />)}
+                </div>
+            }
         </>
     );
 }

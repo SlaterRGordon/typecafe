@@ -567,7 +567,7 @@ const Home: NextPage = () => {
       </Head>
       <div id="typer" className={`flex flex-col h-full overflow-auto ${completedScore ? "py-4" : "[justify-content:safe_center]"} ${fullscreen ? 'absolute top-0 left-0 w-full h-full bg-base-100 z-[500] sm:px-8' : 'md:w-10/12'}`}>
         {!completedScore && !fullscreen &&
-          <HomeCoachTabs className={typingFocusFadeClass(typingFocused, "")} />
+          <HomeCoachTabs className={typingFocusFadeClass(typingFocused, "")} desktop={false} />
         }
         {!completedScore &&
           <div data-testid="typing-focus-home-controls" className={typingFocusFadeClass(typingFocused, "w-full")}>

@@ -121,6 +121,11 @@ const fallbackTransitionTokens = (transitions: string[]): string[] =>
         return [pair, `${pair}${pair}`, `${from}${pair}`, `${pair}${to}`]
     })
 
+const transitionKeyFallbackWords = (wordList: string[], transitions: string[], poolSize: number): string[] => {
+    const keys = transitions.flatMap((pair) => pair.split(""))
+    return buildKeyDrillPool(rankDrillWords(wordList, keys), keys, poolSize)
+}
+
 const genericWords = (wordList: string[]): string[] => {
     const seen = new Set<string>()
     const words: string[] = []
@@ -189,10 +194,16 @@ export function compileDrillText(input: CompileDrillTextInput): string {
     const keys = uniqueChars(input.keys)
 
     if (transitions.length > 0) {
+        const poolSize = Math.max(TOP_POOL_MIN, length * 2)
         const ranked = rankTransitionWords(input.wordList, transitions)
-        const top = ranked.slice(0, Math.max(TOP_POOL_MIN, length * 2)).map((candidate) => candidate.word)
-        const fallback = fallbackTransitionTokens(transitions)
-        const pool = top.length >= 4 ? top : [...top, ...fallback]
+        const top = ranked.slice(0, poolSize).map((candidate) => candidate.word)
+        const allLetterTransitions = transitions.every((pair) => /^[a-z]{2}$/.test(pair))
+        const fallback = allLetterTransitions
+            ? transitionKeyFallbackWords(input.wordList, transitions, poolSize)
+            : fallbackTransitionTokens(transitions)
+        const pool = allLetterTransitions
+            ? (top.length >= 2 ? top : Array.from(new Set([...top, ...fallback])))
+            : (top.length >= 4 ? top : Array.from(new Set([...top, ...fallback])))
         return buildText(pool, length, rng)
     }
 

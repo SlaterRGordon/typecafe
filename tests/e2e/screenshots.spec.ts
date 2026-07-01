@@ -559,6 +559,13 @@ test.describe("screenshot tour", () => {
     await expect(page.getByTestId("weak-spots")).toContainText("b→r");
     await expect(page.getByTestId("lifetime-heatmap")).toBeVisible();
     await capture(page, testInfo, "40-progress-dashboard");
+    if (!testInfo.project.name.includes("mobile")) {
+      const tab = page.getByTestId("home-coach-tab-drill");
+      await expect(tab).toBeVisible();
+      await tab.hover();
+      await expect(page.getByTestId("home-coach-tab-drill-panel")).toBeVisible();
+      await capture(page, testInfo, "62-progress-targeted-drill-tab");
+    }
     await page.getByTestId("lifetime-keyboard-card").scrollIntoViewIfNeeded();
     await capture(page, testInfo, "40-progress-lifetime-keyboard");
   });
