@@ -1,5 +1,5 @@
 // This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
+// Read more in the docs: https://pris.ly/d/prisma-schema
 
 datasource db {
     provider     = "postgresql"
@@ -59,7 +59,7 @@ model User {
     dailyUserStats      DailyUserStat[]
     practiceStats       PracticeStats[]
     transitionStats     TransitionStat[]
-    learnProgress       LearnProgress[]
+    trainProgress       TrainProgress[]
 }
 
 model VerificationToken {
@@ -197,7 +197,7 @@ model TransitionStat {
     @@index([userId])
 }
 
-model LearnProgress {
+model TrainProgress {
     id         String   @id @default(cuid())
     userId     String
     difficulty String
@@ -212,4 +212,5 @@ model LearnProgress {
 
     @@unique([userId, difficulty, options])
     @@index([userId])
+    @@map("LearnProgress")
 }

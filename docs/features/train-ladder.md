@@ -1,8 +1,8 @@
-# Learn ladder v2 — 100 levels, ramp-multiplier difficulty, paced bosses
+# Train ladder v2 — 100 levels, ramp-multiplier difficulty, paced bosses
 
-**Status:** planned · **Grilled:** 2026-06-28 · **ADR:** [0003](../adr/0003-learn-thresholds-and-kinds.md)
+**Status:** planned · **Grilled:** 2026-06-28 · **ADR:** [0003](../adr/0003-train-thresholds-and-kinds.md)
 
-Vision tie-in: Learn is the beginner→intermediate on-ramp that feeds the
+Vision tie-in: Train is the beginner→intermediate on-ramp that feeds the
 plateaued-intermediate pipeline ([vision.md](../vision.md)). This rework makes the
 climb legible and long enough to carry a user from home-row (≈22 WPM) to the
 top-1% endgame (150–200 WPM), with deltas (stars, the pacer you outrun) at every
@@ -61,8 +61,8 @@ spec, not hand-authored:
   and `noMiss` among the other 9, rest `keys`. Example block:
   `[keys, keys, keys, speed, keys, keys, noMiss, keys, keys, boss]`.
 
-The exported shape stays `Level[]` with a `kind`, so `learnProgression.ts` and
-`learn.tsx` don't care it was generated. Tuning the climb = editing the spec.
+The exported shape stays `Level[]` with a `kind`, so `trainProgression.ts` and
+`train.tsx` don't care it was generated. Tuning the climb = editing the spec.
 
 ---
 
@@ -71,7 +71,7 @@ The exported shape stays `Level[]` with a `kind`, so `learnProgression.ts` and
 - **Unlock gate** (unchanged logic, new number source): level N+1 opens once level
   N's best net WPM ≥ `targetWpm(N, difficulty, 1)` — i.e. 1★ clears the gate.
 - **Per difficulty, independent.** Each difficulty is its own 100-level journey;
-  progress is already stored per-difficulty (`useLearnProgress(difficulty)`). **No
+  progress is already stored per-difficulty (`useTrainProgress(difficulty)`). **No
   cross-difficulty unlock credit** — a fast user picks `extreme` and plays only
   `extreme`; there is nothing to "replay," so cross-credit buys nothing worth
   threading through `ladderState`.
@@ -119,16 +119,16 @@ out of your actual net WPM through the same `starMult` thresholds — bosses nee
 special star math. The only boss-specific code is the overtake check + early-fail
 trigger, which `noMiss`'s first-miss death reuses.
 
-Paced is a Typer capability, **not a new `TestMode`** — Learn drives it via the
+Paced is a Typer capability, **not a new `TestMode`** — Train drives it via the
 boss level's `pacerWpm`.
 
 ---
 
 ## 6. Out of scope
 
-- **Grams is out of Learn entirely** — no `grams` kind. The grams pipeline draws
+- **Grams is out of Train entirely** — no `grams` kind. The grams pipeline draws
   from a global frequency-ordered bigram list (not key-scoped) and runs a separate
-  open-ended progression that never reports to the Learn grade flow; bending it in
+  open-ended progression that never reports to the Train grade flow; bending it in
   was disproportionate. The standalone grams *mode* is untouched (its removal, if
   ever, is its own decision + a vision.md edit).
 - **No migration.** Pre-launch break-anything; `Level 1–27` progress is reset.
@@ -137,10 +137,10 @@ boss level's `pacerWpm`.
 
 ## 7. Build slices (each suite-green, own commit)
 
-- [x] 1. `feat(learn): formula-derived thresholds` — new `learnThresholds.ts` +
-   tests; fold in `learnStars`; rewire `learnProgression`; `DifficultyName` → 5
+- [x] 1. `feat(train): formula-derived thresholds` — new `trainThresholds.ts` +
+   tests; fold in `learnStars`; rewire `trainProgression`; `DifficultyName` → 5
    tiers; dropdown → 5. *(Levels still 27, all implicitly `keys`.)*
-- [x] 2. `feat(learn): generate the 100-level ladder from a spec` —
+- [x] 2. `feat(train): generate the 100-level ladder from a spec` —
    `buildLevels()`; `Level` gains `kind`/`subMode`, drops difficulties +
    description; boss/speed/noMiss slots marked (still behave as `keys`). e2e +
    screenshots.
@@ -151,9 +151,9 @@ boss level's `pacerWpm`.
    races ahead and the line scrolls off the top, an up-caret rides the top edge
    at the pacer's horizontal column so its position stays legible (option B).
    e2e covers overtake-death, outrun-to-clear, and the loophole.
-- [x] 4. `feat(learn): speed-round levels` — `subMode` driven by `level.subMode`;
+- [x] 4. `feat(train): speed-round levels` — `subMode` driven by `level.subMode`;
    timed text (and appends) drilled from the level's keys; net-WPM grade reused.
-- [x] 5. `feat(learn): no-miss levels` — `gradeResult`→`gradeLevel` with a
+- [x] 5. `feat(train): no-miss levels` — `gradeResult`→`gradeLevel` with a
    no-miss branch (100% accuracy or 0★, stars by WPM); first-miss death in Text;
    a no-persist accuracy gate in Typer; modal shows accuracy as a pass/fail gate.
 - [ ] 6. Tune curves/numbers; full screenshot tour; finalize ADR-0003.
@@ -165,12 +165,12 @@ Every UI-touching slice updates `tests/e2e/` and the screenshot tour
 
 ## 8. Files touched
 
-- **new** `src/lib/learnThresholds.ts` — `targetWpm`, `starsForWpm`, `starThresholds`, `DIFFICULTIES`, multipliers (+ test)
-- **removed** `src/lib/learnStars.ts` — folded into `learnThresholds`; the `1.15×/1.3×` multiplier is gone
-- `src/lib/learnProgression.ts` — `ladderState`/`gradeResult` key off `targetWpm`; adds `levelNumber`; later `gradeLevel` per kind; 5 tiers; 100 levels
-- `src/server/api/routers/learnProgress.ts` — difficulty enum derives from `DIFFICULTIES`
-- `src/components/typer/learn/levels.ts` — `Level` reshaped; `buildLevels(spec)` generator
+- **new** `src/lib/trainThresholds.ts` — `targetWpm`, `starsForWpm`, `starThresholds`, `DIFFICULTIES`, multipliers (+ test)
+- **removed** `src/lib/trainStars.ts` — folded into `trainThresholds`; the `1.15×/1.3×` multiplier is gone
+- `src/lib/trainProgression.ts` — `ladderState`/`gradeResult` key off `targetWpm`; adds `levelNumber`; later `gradeLevel` per kind; 5 tiers; 100 levels
+- `src/server/api/routers/trainProgress.ts` — difficulty enum derives from `DIFFICULTIES`
+- `src/components/typer/train/levels.ts` — `Level` reshaped; `buildLevels(spec)` generator
 - `src/components/typer/Typer.tsx` — `pacerWpm`, overtake-death, first-miss death, `subMode` from level
 - `src/components/typer/Text.tsx` — pacer marker; first-miss signal
-- `src/pages/learn.tsx` — 5 difficulties; kind-driven config; per-kind modal copy
+- `src/pages/train.tsx` — 5 difficulties; kind-driven config; per-kind modal copy
 - `tests/e2e/*`, `tests/e2e/screenshots.spec.ts` — coverage for new kinds + paced boss

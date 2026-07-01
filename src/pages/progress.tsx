@@ -7,6 +7,7 @@ import { useMemo, useState } from "react";
 import { TrendChart } from "~/components/progress/TrendChart";
 import { GoalCard } from "~/components/progress/GoalCard";
 import { KeyHeatmap, KeyHeatmapLegend } from "~/components/heatmap/KeyHeatmap";
+import { Chip } from "~/components/ui/Chip";
 import type { KeyAttempt } from "~/lib/heatmap";
 import { useGuestEvidence } from "~/hooks/useGuestEvidence";
 import { worstTransitions, type TransitionAggregate } from "~/lib/transitions";
@@ -163,11 +164,17 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
     // window-average subtraction that flips sign on a single junk test.
     const hero = useMemo(() => heroDelta(series.points), [series]);
 
-    // Best WPM per local day — a lighter ceiling line behind the WPM trend.
-    const bestPerDay = useMemo(
-        () => dailyRollups(inPeriod, -now.getTimezoneOffset()).map((d) => ({ t: new Date(`${d.day}T12:00:00.000Z`).getTime(), value: d.bestWpm })),
-        [inPeriod, now],
-    );
+    // Best WPM per local day, fit to a straight least-squares line — a lighter
+    // ceiling trend behind the WPM trend. Two endpoints (not the jagged daily
+    // points) so it reads as a direction at a glance, same as the main trend.
+    const bestPerDay = useMemo(() => {
+        const days = dailyRollups(inPeriod, -now.getTimezoneOffset())
+            .map((d) => ({ t: new Date(`${d.day}T12:00:00.000Z`).getTime(), value: d.bestWpm }));
+        if (days.length < 2) return days;
+        const fit = linearTrend(days.map((d) => d.t), days.map((d) => d.value));
+        const first = days[0]!.t, last = days[days.length - 1]!.t;
+        return [{ t: first, value: fit.at(first) }, { t: last, value: fit.at(last) }];
+    }, [inPeriod, now]);
     const plateau = useMemo(() => detectPlateau(cleanRecords, now), [cleanRecords, now]);
     const slowTransitions = useMemo(() => worstTransitions(props.transitions), [props.transitions]);
     // Top weak keys for the one-click "drill your weakest keys" CTA. Rank every
@@ -226,14 +233,23 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
                 <div className="flex flex-wrap items-center gap-2">
                     <h1 className="font-mono text-3xl font-bold tracking-tight">Progress</h1>
                     {streak > 0 && (
-                        <span data-testid="streak-chip" className="rounded-full bg-primary/15 px-3 py-1 text-sm font-semibold text-primary">
+                        <Chip
+                            testId="streak-chip"
+                            tone="primary"
+                            size="md"
+                            icon={<i className="fa-solid fa-fire" aria-hidden="true" />}
+                        >
                             {streak}-day streak
-                        </span>
+                        </Chip>
                     )}
                     {hasData && (
-                        <span data-testid="best-wpm-chip" className="rounded-full bg-base-content/10 px-3 py-1 text-sm font-semibold text-base-content/80">
+                        <Chip
+                            testId="best-wpm-chip"
+                            size="md"
+                            icon={<i className="fa-solid fa-gauge-high" aria-hidden="true" />}
+                        >
                             Best {bestWpm(inPeriod).toFixed(1)} WPM
-                        </span>
+                        </Chip>
                     )}
                 </div>
                 <div className="flex items-center gap-2">

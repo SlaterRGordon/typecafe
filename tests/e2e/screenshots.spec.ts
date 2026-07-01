@@ -293,20 +293,20 @@ test.describe("screenshot tour", () => {
     await expect(keyboardKey("R").locator("svg")).toHaveCount(1);
   });
 
-  test("learn page: difficulty and level selection", async ({ page }, testInfo) => {
-    await page.goto("/learn");
+  test("train page: difficulty and level selection", async ({ page }, testInfo) => {
+    await page.goto("/train");
     await expect(page.locator("#words .char").first()).toBeVisible({ timeout: 20_000 });
 
     await chooseReactSelectOption(page, "difficultySelect", "Hard");
     await expect(page.locator("#words .char").first()).toBeVisible();
-    await capture(page, testInfo, "33-learn-hard-difficulty");
+    await capture(page, testInfo, "33-train-hard-difficulty");
 
     // Open the level dropdown to show locked levels.
     await page.locator("#react-select-levelSelect-input")
       .locator("xpath=ancestor::*[contains(@class, 'my-react-select__control')][1]")
       .click();
     await expect(page.getByRole("option", { name: "Level 2", exact: true })).toBeVisible();
-    await capture(page, testInfo, "34-learn-level-dropdown");
+    await capture(page, testInfo, "34-train-level-dropdown");
   });
 
   test("home: keyboard enabled and live stats disabled", async ({ page }, testInfo) => {
@@ -405,71 +405,71 @@ test.describe("screenshot tour", () => {
     await capture(page, testInfo, "38-re-measure-delta");
   });
 
-  test("learn page", async ({ page }, testInfo) => {
-    await page.goto("/learn");
+  test("train page", async ({ page }, testInfo) => {
+    await page.goto("/train");
     await expect(page.locator("#words .char").first()).toBeVisible({ timeout: 20_000 });
-    await capture(page, testInfo, "14-learn-default");
+    await capture(page, testInfo, "14-train-default");
   });
 
-  test("learn level complete popover", async ({ page }, testInfo) => {
-    await page.goto("/learn");
+  test("train level complete popover", async ({ page }, testInfo) => {
+    await page.goto("/train");
     await expect(page.locator("#words .char").first()).toBeVisible({ timeout: 20_000 });
     await typeVisibleTestText(page);
-    await expect(page.getByTestId("learn-complete-popover")).toBeVisible();
-    await capture(page, testInfo, "57-learn-level-complete");
+    await expect(page.getByTestId("train-complete-popover")).toBeVisible();
+    await capture(page, testInfo, "57-train-level-complete");
   });
 
-  test("learn speed round (timed)", async ({ page }, testInfo) => {
+  test("train speed round (timed)", async ({ page }, testInfo) => {
     await page.addInitScript(() => {
       const cleared = Array.from({ length: 3 }, (_, i) => ({
         options: `Level ${i + 1}`, speed: 200, accuracy: 100, stars: 3,
       }));
-      window.localStorage.setItem("typecafe.learnProgress.easy", JSON.stringify(cleared));
+      window.localStorage.setItem("typecafe.trainProgress.easy", JSON.stringify(cleared));
     });
-    await page.goto("/learn");
+    await page.goto("/train");
     await expect(page.locator("#words .char").first()).toBeVisible({ timeout: 20_000 });
     await expect(page.getByTestId("timed-countdown")).toBeVisible();
-    await capture(page, testInfo, "59-learn-speed-round");
+    await capture(page, testInfo, "59-train-speed-round");
   });
 
-  test("learn no-miss failed popover", async ({ page }, testInfo) => {
+  test("train no-miss failed popover", async ({ page }, testInfo) => {
     await page.addInitScript(() => {
       const cleared = Array.from({ length: 6 }, (_, i) => ({
         options: `Level ${i + 1}`, speed: 200, accuracy: 100, stars: 3,
       }));
-      window.localStorage.setItem("typecafe.learnProgress.easy", JSON.stringify(cleared));
+      window.localStorage.setItem("typecafe.trainProgress.easy", JSON.stringify(cleared));
     });
-    await page.goto("/learn");
+    await page.goto("/train");
     await expect(page.locator("#words .char").first()).toBeVisible({ timeout: 20_000 });
     await typeCurrentCharacter(page, 0);
     await typeWrongCharacter(page, 1);
-    await expect(page.getByTestId("learn-complete-popover")).toBeVisible();
-    await capture(page, testInfo, "60-learn-no-miss-failed");
+    await expect(page.getByTestId("train-complete-popover")).toBeVisible();
+    await capture(page, testInfo, "60-train-no-miss-failed");
   });
 
-  test("learn boss failed popover", async ({ page }, testInfo) => {
+  test("train boss failed popover", async ({ page }, testInfo) => {
     await page.addInitScript(() => {
       const cleared = Array.from({ length: 9 }, (_, i) => ({
         options: `Level ${i + 1}`, speed: 200, accuracy: 100, stars: 3,
       }));
-      window.localStorage.setItem("typecafe.learnProgress.easy", JSON.stringify(cleared));
+      window.localStorage.setItem("typecafe.trainProgress.easy", JSON.stringify(cleared));
     });
-    await page.goto("/learn");
+    await page.goto("/train");
     await expect(page.locator("#words .char").first()).toBeVisible({ timeout: 20_000 });
     // Start the run, then stall so the pacer overtakes and the boss fails.
     await typeCurrentCharacter(page, 0);
-    await expect(page.getByTestId("learn-complete-popover")).toBeVisible({ timeout: 10_000 });
-    await capture(page, testInfo, "61-learn-boss-failed");
+    await expect(page.getByTestId("train-complete-popover")).toBeVisible({ timeout: 10_000 });
+    await capture(page, testInfo, "61-train-boss-failed");
   });
 
-  test("learn level failed popover", async ({ page }, testInfo) => {
-    await page.goto("/learn");
+  test("train level failed popover", async ({ page }, testInfo) => {
+    await page.goto("/train");
     await expect(page.locator("#words .char").first()).toBeVisible({ timeout: 20_000 });
     await typeCurrentCharacter(page);
     const remaining = await page.locator("#words .char").count();
     for (let index = 1; index < remaining; index += 1) await page.keyboard.press("q");
-    await expect(page.getByTestId("learn-complete-popover")).toBeVisible();
-    await capture(page, testInfo, "58-learn-level-failed");
+    await expect(page.getByTestId("train-complete-popover")).toBeVisible();
+    await capture(page, testInfo, "58-train-level-failed");
   });
 
   test("leaderboard page", async ({ page }, testInfo) => {
@@ -617,6 +617,7 @@ test.describe("screenshot tour", () => {
   test("navigation: More popover", async ({ page }, testInfo) => {
     test.skip(testInfo.project.name.includes("mobile"), "The side rail is desktop-only.");
     await gotoHome(page);
+    await expect(page.getByTestId("side-primary-nav").locator(".material-symbols-rounded").first()).toHaveText("home");
     // Hover expands the rail; clicking More opens the rolled-up footer links.
     await page.getByTestId("nav-more").hover();
     await page.getByTestId("nav-more").click();

@@ -10,9 +10,9 @@ export interface Level {
     subMode: TestSubModes,
 }
 
-// The 100-level Learn ladder, generated from a compact spec rather than authored
-// per level (docs/features/learn-ladder.md). Thresholds are not stored here — they
-// derive from the level number via src/lib/learnThresholds.ts. Curves below are
+// The 100-level Train ladder, generated from a compact spec rather than authored
+// per level (docs/features/train-ladder.md). Thresholds are not stored here — they
+// derive from the level number via src/lib/trainThresholds.ts. Curves below are
 // tunable knobs; the generated shape is what the rest of the app consumes.
 
 // Keys are introduced progressively over the first INTRO_LEVELS, then the full

@@ -5,7 +5,7 @@ import { typeRouter } from "./routers/type";
 import { userRouter } from "./routers/user";
 import { practiceStatsRouter } from "./routers/practiceStats";
 import { transitionStatsRouter } from "./routers/transitionStats";
-import { learnProgressRouter } from "./routers/learnProgress";
+import { trainProgressRouter } from "./routers/trainProgress";
 import { scoreShareRouter } from "./routers/scoreShare";
 
 /**
@@ -20,7 +20,7 @@ export const appRouter = createTRPCRouter({
   type: typeRouter,
   practiceStats: practiceStatsRouter,
   transitionStats: transitionStatsRouter,
-  learnProgress: learnProgressRouter,
+  trainProgress: trainProgressRouter,
   scoreShare: scoreShareRouter,
 });
 

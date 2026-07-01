@@ -2,24 +2,46 @@ import { z } from "zod";
 
 import {
   createTRPCRouter,
+  publicProcedure,
   protectedProcedure,
 } from "~/server/api/trpc";
-import { DIFFICULTIES, type DifficultyName } from "~/lib/learnThresholds";
+import { DIFFICULTIES, type DifficultyName } from "~/lib/trainThresholds";
+import { trainProfileSummary } from "~/lib/trainProfile";
 
 const difficultySchema = z.enum(DIFFICULTIES as [DifficultyName, ...DifficultyName[]]);
 
-const learnProgressInput = z.object({
+const trainProgressInput = z.object({
   options: z.string(),
   speed: z.number().min(0),
   accuracy: z.number().min(0).max(100),
   stars: z.number().int().min(0).max(3).optional(),
 });
 
-export const learnProgressRouter = createTRPCRouter({
+export const trainProgressRouter = createTRPCRouter({
+  getSummary: publicProcedure
+    .input(z.object({ userId: z.string().optional() }))
+    .query(async ({ ctx, input }) => {
+      const userId = input.userId ?? ctx.session?.user.id;
+      if (!userId) return trainProfileSummary([]);
+
+      const rows = await ctx.prisma.trainProgress.findMany({
+        where: { userId },
+        select: {
+          difficulty: true,
+          options: true,
+          speed: true,
+          accuracy: true,
+          stars: true,
+        },
+      });
+
+      return trainProfileSummary(rows);
+    }),
+
   getByDifficulty: protectedProcedure
     .input(z.object({ difficulty: difficultySchema }))
     .query(({ ctx, input }) => {
-      return ctx.prisma.learnProgress.findMany({
+      return ctx.prisma.trainProgress.findMany({
         where: {
           userId: ctx.session.user.id,
           difficulty: input.difficulty,
@@ -33,11 +55,11 @@ export const learnProgressRouter = createTRPCRouter({
   complete: protectedProcedure
     .input(z.object({
       difficulty: difficultySchema,
-      progress: learnProgressInput,
+      progress: trainProgressInput,
     }))
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.session.user.id;
-      const existing = await ctx.prisma.learnProgress.findFirst({
+      const existing = await ctx.prisma.trainProgress.findFirst({
         where: {
           userId,
           difficulty: input.difficulty,
@@ -46,7 +68,7 @@ export const learnProgressRouter = createTRPCRouter({
       });
 
       if (!existing) {
-        return ctx.prisma.learnProgress.create({
+        return ctx.prisma.trainProgress.create({
           data: {
             userId,
             difficulty: input.difficulty,
@@ -58,7 +80,7 @@ export const learnProgressRouter = createTRPCRouter({
         });
       }
 
-      return ctx.prisma.learnProgress.update({
+      return ctx.prisma.trainProgress.update({
         where: {
           id: existing.id,
         },
@@ -73,7 +95,7 @@ export const learnProgressRouter = createTRPCRouter({
   batchImport: protectedProcedure
     .input(z.object({
       difficulty: difficultySchema,
-      progress: z.array(learnProgressInput),
+      progress: z.array(trainProgressInput),
     }))
     .mutation(async ({ ctx, input }) => {
       if (input.progress.length === 0) {
@@ -81,7 +103,7 @@ export const learnProgressRouter = createTRPCRouter({
       }
 
       const userId = ctx.session.user.id;
-      const progressByOption = new Map<string, z.infer<typeof learnProgressInput>>();
+      const progressByOption = new Map<string, z.infer<typeof trainProgressInput>>();
 
       input.progress.forEach((progress) => {
         const current = progressByOption.get(progress.options);
@@ -95,7 +117,7 @@ export const learnProgressRouter = createTRPCRouter({
       });
 
       const progress = Array.from(progressByOption.values());
-      const existingProgress = await ctx.prisma.learnProgress.findMany({
+      const existingProgress = await ctx.prisma.trainProgress.findMany({
         where: {
           userId,
           difficulty: input.difficulty,
@@ -112,7 +134,7 @@ export const learnProgressRouter = createTRPCRouter({
         const existing = existingByOption.get(item.options);
 
         if (!existing) {
-          return ctx.prisma.learnProgress.create({
+          return ctx.prisma.trainProgress.create({
             data: {
               userId,
               difficulty: input.difficulty,
@@ -124,7 +146,7 @@ export const learnProgressRouter = createTRPCRouter({
           });
         }
 
-        return ctx.prisma.learnProgress.update({
+        return ctx.prisma.trainProgress.update({
           where: {
             id: existing.id,
           },

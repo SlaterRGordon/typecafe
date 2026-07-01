@@ -119,7 +119,7 @@ export function GramsPanel(props: GramsPanelProps) {
         <div
             data-testid="grams-panel"
             aria-label="Grams settings"
-            className="max-w-screen-xl rounded-lg border border-base-content/15 bg-base-200/35 p-3 shadow-[0_18px_60px_rgba(0,0,0,0.18)] backdrop-blur sm:p-4"
+            className="max-w-screen-xl rounded-lg border border-base-content/15 bg-base-200/35 p-3 backdrop-blur sm:p-4"
         >
             {/* Source + Scope on one row; on mobile every setting stacks. */}
             <div className="grid grid-cols-1 gap-x-10 gap-y-4 sm:grid-cols-2">

@@ -12,7 +12,7 @@ interface StatsProps {
     // True while the sample is too small to yield a trustworthy WPM (e.g. a
     // 2-char grams level). The WPM and its average show "—"; accuracy still shows.
     wpmPending?: boolean,
-    // "inline" (default): the legacy single-line treatment used by the learn
+    // "inline" (default): the legacy single-line treatment used by the train
     // control bar. "stacked": the Phase 2 vision treatment — small label over a
     // large value, with the timed countdown as a leading cell — shown above the
     // typing text on the main page.

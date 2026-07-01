@@ -24,9 +24,20 @@ test.describe("authenticated profile", () => {
     await expect(page.getByText("testuser").first()).toBeVisible();
     await expect(page.locator("p").getByText("Typing fast, testing faster.")).toBeVisible();
 
-    // Signature best cards replace the old filterable table.
-    await expect(page.getByRole("heading", { name: "Best Scores" })).toBeVisible();
-    await expect(page.getByTestId("signature-bests").getByText("101.2")).toBeVisible();
+    await expect(page.getByText("Tests this year")).toBeVisible();
+    await expect(page.getByText("minutes typed")).toBeVisible();
+    await expect(page.getByTestId("profile-delta-chip")).toContainText("+4.2 WPM this month");
+    await expect(page.getByTestId("profile-activity-surface")).toBeVisible();
+    await expect(page.getByTestId("profile-longest-streak")).toContainText("Longest streak: 5 days");
+    await expect(page.getByTestId("profile-typing-style")).toContainText("Speed");
+    await expect(page.getByTestId("profile-typing-style")).toContainText("84.6 WPM");
+    await expect(page.getByTestId("profile-typing-style")).toContainText("97.4%");
+    await expect(page.getByTestId("profile-typing-style")).toContainText("Momentum");
+    await expect(page.getByTestId("profile-typing-style")).toContainText("Speed lift");
+    await expect(page.getByTestId("profile-typing-style")).toContainText("+6.2 WPM");
+    const trainProgress = page.getByTestId("profile-train-progress");
+    await expect(trainProgress.getByTestId("profile-train-link")).toHaveAttribute("href", "/train");
+    await expect(trainProgress.getByText("32/100 levels")).toBeVisible();
 
     await page.getByTestId("edit-profile").click();
     await expect(page.locator("#configModal")).toBeChecked();

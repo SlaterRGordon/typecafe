@@ -74,29 +74,29 @@ Order: **#06** (pure extraction, unlocks #07) → #07 → #08 (independent) → 
 ## Round 3 (2026-06-27)
 
 A third pass after the router and `src/lib/` were emptied of trapped math. The
-remaining friction moved into the **Learn flow** and the **persistence hooks** —
+remaining friction moved into the **Train flow** and the **persistence hooks** —
 progression logic running untested inside a 611-line page, and a small piece of
 drain math copied across the guest/DB seam.
 
 | # | Candidate | Strength | Resolved scope |
 |---|-----------|----------|----------------|
-| [10](10-learn-ladder-progression.md) | Lift the Learn level-ladder progression to `src/lib/` | Strong | `learnProgression.ts` (`ladderState`/`resumeLevel`/`nextLevel`/`mergeProgress`/`gradeResult` + mappers); extract + test, behaviour untouched |
-| [11](11-learn-save-hook.md) | `useLearnProgress` hook for the dual-source save | Worth exploring | Consolidate the optimistic guest/DB save dance into one named hook; depends on #10 |
+| [10](10-train-ladder-progression.md) | Lift the Train level-ladder progression to `src/lib/` | Strong | `trainProgression.ts` (`ladderState`/`resumeLevel`/`nextLevel`/`mergeProgress`/`gradeResult` + mappers); extract + test, behaviour untouched |
+| [11](11-train-save-hook.md) | `useTrainProgress` hook for the dual-source save | Worth exploring | Consolidate the optimistic guest/DB save dance into one named hook; depends on #10 |
 | [12](12-drain-synced-attempts.md) | One pure `drainSyncedAttempts`, two callers | Worth exploring | Dedupe the verbatim subtract-synced loop in `useTestPersistence` into a tested pure function |
 | [13](13-progress-hero-derivation.md) | Extract the Progress hero delta | Speculative | Move the trend-endpoint `heroDelta` into `src/lib/progress`; marginal, surrounding math already deep |
 
 Order: **#10** (pure extraction, unlocks #11) → #11 → #12 (independent) → #13 (lowest priority).
 
-1. **#10** — ✅ done. `src/lib/learnProgression.ts` owns the unlock ladder, merge,
-   resume/next navigation, grading and the wire↔domain mappers; `learn.tsx` is now
+1. **#10** — ✅ done. `src/lib/trainProgression.ts` owns the unlock ladder, merge,
+   resume/next navigation, grading and the wire↔domain mappers; `train.tsx` is now
    wiring over it. Killed the ×2 grade + ×3 normalization duplications. 19 unit
-   tests pin current behaviour; learn e2e 8/8 desktop + mobile (unchanged). Added
-   the **Learn ladder** vocabulary (Level, Unlock) to `CONTEXT.md`.
-2. **#11** — ✅ done. `src/hooks/useLearnProgress.ts` owns the dual-source save
+   tests pin current behaviour; train e2e 8/8 desktop + mobile (unchanged). Added
+   the **Train ladder** vocabulary (Level, Unlock) to `CONTEXT.md`.
+2. **#11** — ✅ done. `src/hooks/useTrainProgress.ts` owns the dual-source save
    seam (saved query, both mutations, the merge derivation, localStorage, alerts).
    `save`/`importDevice` resolve with the outcome; the page awaits and drives the
    modal + level advance, no longer branching on session. ~90 lines left the page.
-   learn e2e 8/8 desktop + mobile.
+   train e2e 8/8 desktop + mobile.
 3. **#12** — ✅ done. `src/lib/practiceAttempts.ts` `drainSyncedAttempts` replaces
    the verbatim drain loop in both `syncCharAttempts` branches; mutates the live
    Map in place so in-flight keystrokes survive. 6 unit tests.

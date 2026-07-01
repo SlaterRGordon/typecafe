@@ -1,15 +1,15 @@
-# A `useLearnProgress` hook for the dual-source save
+# A `useTrainProgress` hook for the dual-source save
 
 **Strength:** Worth exploring · **Category:** in-process **Status:** ✅ done
 
 ## Files
 
-`src/pages/learn.tsx` — `:206–261` (`importDeviceProgress`), `:282–315`
+`src/pages/train.tsx` — `:206–261` (`importDeviceProgress`), `:282–315`
 (`onTestComplete` save path), `:323–328` (silent-import effect)
 
 ## Problem
 
-After [10](10-learn-ladder-progression.md) makes the merge pure, the page still
+After [10](10-train-ladder-progression.md) makes the merge pure, the page still
 improvises the **guest↔DB convergence** inline: three call sites each route on
 `sessionData?.user`, build the localStorage write or the `mutateAsync` +
 `refetch` + optimistic re-merge, and a silent-import `useEffect` races the manual
@@ -19,7 +19,7 @@ re-derived here, tangled into render.
 
 ## Solution
 
-A named `useLearnProgress(difficulty)` hook owning the save seam:
+A named `useTrainProgress(difficulty)` hook owning the save seam:
 
 - reads the guest mirror vs the DB query, returns merged `completedProgress`
 - `save(entry)` / `import()` route on session and own the optimistic merge + refetch
@@ -33,7 +33,7 @@ body.
 ```
 Before                                   After
 ──────                                   ─────
-learn.tsx render body                    useLearnProgress(difficulty)
+train.tsx render body                    useTrainProgress(difficulty)
   onTestComplete → guest? LS : mutate      save() / import() own the routing
   importDeviceProgress → mutate+refetch    optimistic merge + refetch inside
   useEffect silent-import (races)          one in-flight signal
@@ -68,12 +68,12 @@ learn.tsx render body                    useLearnProgress(difficulty)
 
 ## Outcome
 
-`src/hooks/useLearnProgress.ts` owns the saved query, both mutations, the
+`src/hooks/useTrainProgress.ts` owns the saved query, both mutations, the
 `localProgress`/`optimisticProgress`/`persistedProgress` derivation, the
-localStorage load and the alerts. `learn.tsx` lost ~90 lines of save/import
+localStorage load and the alerts. `train.tsx` lost ~90 lines of save/import
 orchestration and no longer branches on session in its body. Verified: `tsc`
-clean; 360 unit tests pass; learn e2e 8/8 desktop + mobile.
+clean; 360 unit tests pass; train e2e 8/8 desktop + mobile.
 
-Depends on [10](10-learn-ladder-progression.md) (the pure `mergeProgress` /
+Depends on [10](10-train-ladder-progression.md) (the pure `mergeProgress` /
 `gradeResult` underneath). In bounds of ADR-0002 — a named hook, not a
 ports/adapters seam.

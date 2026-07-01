@@ -13,7 +13,7 @@ const TermsAndConditions: NextPage = () => {
             intro="These terms explain the basic rules for using TypeCafe. By using the site, creating an account, or submitting content, you agree to these terms."
         >
             <DocumentSection title="Using TypeCafe">
-                <p>TypeCafe provides typing tests, practice tools, learn progress, public profiles, leaderboards, and related features. You may use the service for personal, educational, or non-commercial practice as long as you follow these terms.</p>
+                <p>TypeCafe provides typing tests, practice tools, train progress, public profiles, leaderboards, and related features. You may use the service for personal, educational, or non-commercial practice as long as you follow these terms.</p>
                 <p>You must be able to enter into these terms under the laws that apply to you. TypeCafe is not intended for children under 13.</p>
             </DocumentSection>
 

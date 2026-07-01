@@ -43,7 +43,7 @@ at the bottom of the side rail.
 - [x] Clicking opens a small popover listing those five links. No new dep; the
   popover fits within the rail's expanded width so the rail's mouse-leave closes
   it (no backdrop/listener needed).
-- [x] Primary rail then reads: Home, Learn, Leaderboard, Challenge, Progress,
+- [x] Primary rail then reads: Home, Train, Progress, Challenge, Leaderboard,
   Profile, + More. ~6 meaningful icons instead of 11.
 
 ---
@@ -167,7 +167,7 @@ feeling.
 
 | Tier | Width | Pages |
 |------|-------|-------|
-| **Content** | `max-w-screen-xl` (~1280px), centered | progress, profile, leaderboard, plan, daily challenge, learn, static/legal, drill |
+| **Content** | `max-w-screen-xl` (~1280px), centered | progress, profile, leaderboard, plan, daily challenge, train, static/legal, drill |
 | **Test** | `max-w-screen-xl` for the words area (already the mode bar's cap) | home typer, fullscreen exception keeps its own full-bleed |
 
 *(One cap value keeps it simple; if the typing line-length later wants more room

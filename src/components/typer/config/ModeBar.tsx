@@ -134,7 +134,7 @@ function SvgGlobe() {
 const toolbarButtonClass = "inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-md text-base-content/80 transition-colors hover:bg-base-content/10 hover:text-base-content focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
 // A bordered toolbar group: the mode+context cluster and the icon cluster are now
 // two separate groups, justified to opposite ends of the toolbar row.
-const toolbarGroupClass = "flex items-center gap-1 rounded-lg border border-base-content/15 bg-base-200/35 p-2 shadow-[0_18px_60px_rgba(0,0,0,0.18)] backdrop-blur"
+const toolbarGroupClass = "flex items-center gap-1 rounded-lg border border-base-content/15 bg-base-200/35 p-2 backdrop-blur"
 const segmentClass = (active: boolean) => `min-h-10 flex-1 basis-0 rounded-md px-3 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:flex-none ${active ? "bg-primary text-primary-content shadow-sm" : "text-base-content/70 hover:bg-base-content/5 hover:text-base-content"}`
 
 function SettingsToggle(props: { label: string, active: boolean, onChange: (active: boolean) => void }) {
@@ -376,7 +376,7 @@ export function ModeBar(props: ModeBarProps) {
                     <div
                         data-testid="custom-length-panel"
                         aria-hidden={!customOpen}
-                        className={`absolute inset-0 flex items-center gap-1 rounded-md border border-primary/35 bg-base-200 px-2 py-1 shadow-sm transition-transform duration-200 ease-out ${customOpen ? "translate-x-0" : "!border-none translate-x-full pointer-events-none"}`}
+                        className={`absolute inset-0 flex items-center gap-1 rounded-md border border-primary/35 bg-base-200 px-2 py-1 transition-transform duration-200 ease-out ${customOpen ? "translate-x-0" : "!border-none translate-x-full pointer-events-none"}`}
                     >
                         <input
                             id="customLengthInput"

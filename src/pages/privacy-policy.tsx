@@ -17,16 +17,16 @@ const PrivacyPolicy: NextPage = () => {
         <ul>
           <li><strong>Account information:</strong> email address, username, display name, hashed password for credential accounts, OAuth account identifiers, and authentication session data.</li>
           <li><strong>Profile information:</strong> profile picture URL, bio, and profile link. Username, profile picture, bio, profile link, and public score information may be visible to other users.</li>
-          <li><strong>Typing data:</strong> typing scores, speed, accuracy, selected test settings, practice statistics, learn progress, and color/theme preferences.</li>
+          <li><strong>Typing data:</strong> typing scores, speed, accuracy, selected test settings, practice statistics, train progress, and color/theme preferences.</li>
           <li><strong>Contact information:</strong> name, email address, and message content when you submit the contact form.</li>
           <li><strong>Technical and usage data:</strong> IP address, browser information, device information, pages visited, timestamps, and diagnostic data collected by hosting, analytics, and security tooling.</li>
-          <li><strong>Local device data:</strong> some settings, learn progress, and dismissed support prompts may be stored in your browser through localStorage or similar browser storage.</li>
+          <li><strong>Local device data:</strong> some settings, train progress, and dismissed support prompts may be stored in your browser through localStorage or similar browser storage.</li>
         </ul>
       </DocumentSection>
 
       <DocumentSection title="How We Use Information">
         <ul>
-          <li>Provide typing tests, learn mode, progress tracking, profiles, leaderboards, account login, and account deletion.</li>
+          <li>Provide typing tests, train mode, progress tracking, profiles, leaderboards, account login, and account deletion.</li>
           <li>Store and display profile pictures, public profile information, and leaderboard results.</li>
           <li>Respond to contact requests and support messages.</li>
           <li>Protect the service, debug issues, prevent abuse, and maintain site reliability.</li>

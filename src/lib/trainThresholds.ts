@@ -1,4 +1,4 @@
-// Learn ladder thresholds — formula-derived, never authored per level (ADR-0003).
+// Train ladder thresholds — formula-derived, never authored per level (ADR-0003).
 // The level number is the speed axis (key-set difficulty is the per-level content
 // axis); difficulty multiplies the whole climb and stars add per-level headroom.
 

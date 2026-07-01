@@ -50,5 +50,5 @@ tests pin the subtract/remove/clamp/skip cases and the in-place mutation.
 
 Verified: `tsc` clean; 371 unit tests pass; drill e2e green.
 
-Small, clear ceiling. Independent of [10](10-learn-ladder-progression.md) /
-[11](11-learn-save-hook.md).
+Small, clear ceiling. Independent of [10](10-train-ladder-progression.md) /
+[11](11-train-save-hook.md).

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { levels } from "~/components/typer/learn/levels"
+import { levels } from "~/components/typer/train/levels"
 import {
     fromLevelProgress,
     gradeLevel,
@@ -9,7 +9,7 @@ import {
     resumeLevel,
     toLevelProgress,
     type LevelProgress,
-} from "./learnProgression"
+} from "./trainProgression"
 
 const cleared = (levelName: string, netWpm: number, stars: 0 | 1 | 2 | 3 = 1): LevelProgress => ({
     levelName,

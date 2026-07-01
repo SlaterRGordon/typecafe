@@ -2,9 +2,9 @@ import { type NextPage } from "next";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Typer } from "~/components/typer/Typer";
 import { TestGramScopes, TestGramSources, TestModes } from "~/components/typer/types";
-import type { Level, LevelKind } from "~/components/typer/learn/levels";
-import { levels } from "~/components/typer/learn/levels";
-import { KIND_META } from "~/components/typer/learn/kindMeta";
+import type { Level, LevelKind } from "~/components/typer/train/levels";
+import { levels } from "~/components/typer/train/levels";
+import { KIND_META } from "~/components/typer/train/kindMeta";
 import { api } from "~/utils/api";
 import Select from 'react-select'
 import type { SingleValue } from "react-select";
@@ -12,7 +12,7 @@ import { Keyboard } from "~/components/typer/Keyboard";
 import { typingFocusFadeClass } from "~/components/typer/typingFocus";
 import { useSession } from "next-auth/react";
 import type { TestCompletionResult } from "~/components/typer/Typer";
-import { starThresholds, type StarThresholds } from "~/lib/learnThresholds";
+import { starThresholds, type StarThresholds } from "~/lib/trainThresholds";
 import {
     gradeLevel,
     ladderState,
@@ -21,11 +21,11 @@ import {
     resumeLevel,
     type DifficultyName,
     type LevelProgress,
-} from "~/lib/learnProgression";
-import { useLearnProgress } from "~/hooks/useLearnProgress";
+} from "~/lib/trainProgression";
+import { useTrainProgress } from "~/hooks/useTrainProgress";
 
 type Option = { label: string, value: number | string, isDisabled: boolean, stars?: number, kind: LevelKind }
-type LearnCompletion = {
+type TrainCompletion = {
     levelName: string,
     netWpm: number,
     accuracy: number,
@@ -39,32 +39,27 @@ type LearnCompletion = {
 }
 
 // Why a fail popup says what it does — the specific cause, not just the WPM gap.
-function failMessage(c: LearnCompletion): string {
+function failMessage(c: TrainCompletion): string {
     if (c.pacerCaught) return "The pacer caught you — reach the end before the line does to beat the boss."
     if (c.kind === "noMiss" && c.accuracy < 100) return "One miss ends a no-miss level — stay perfect."
     return `Need ${formatNumber(c.thresholds.oneStarNetWpm, 0)} net WPM to clear — you hit ${formatNumber(c.netWpm, 0)}.`
 }
 
 // The level-type chip + a "?" tooltip explaining how the active level is scored.
+// items-stretch keeps the round "?" the same height as the pill beside it. The
+// daisyUI tooltip text comes from data-tip; don't add `before:*` utilities here —
+// they reset --tw-content and blank the tooltip.
 function LevelKindBadge(props: { kind: LevelKind }) {
     const meta = KIND_META[props.kind]
     return (
-        <div className="flex items-center gap-2" data-testid="learn-level-kind">
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
+        <div className="flex items-stretch gap-2" data-testid="train-level-kind">
+            <span
+                data-tip={meta.blurb}
+                aria-label={`How ${meta.label} levels work: ${meta.blurb}`}
+                className="tooltip tooltip-bottom before:text-base-content cursor-pointer inline-flex items-center min-h-[2rem] gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary"
+            >
                 <meta.Icon className="h-3.5 w-3.5" />
                 {meta.label}
-            </span>
-            <span
-                className="tooltip tooltip-bottom before:max-w-[16rem] before:whitespace-normal before:text-left"
-                data-tip={meta.blurb}
-            >
-                <span
-                    className="inline-flex h-5 w-5 cursor-help items-center justify-center rounded-full border border-base-content/25 text-xs font-bold text-base-content/60"
-                    aria-label={`How ${meta.label} levels work: ${meta.blurb}`}
-                    role="img"
-                >
-                    ?
-                </span>
             </span>
         </div>
     )
@@ -129,7 +124,7 @@ function BestStars(props: { stars?: number, className?: string }) {
     )
 }
 
-const Learn: NextPage = () => {
+const Train: NextPage = () => {
     const { status: sessionStatus } = useSession()
     const language = "english"
     const mode = TestModes.normal
@@ -147,12 +142,12 @@ const Learn: NextPage = () => {
     const [levelChanged, setLevelChanged] = useState<boolean>(false)
     const [fullscreen, setFullscreen] = useState(false)
     const [restartSignal, setRestartSignal] = useState(0)
-    const [completion, setCompletion] = useState<LearnCompletion | null>(null)
+    const [completion, setCompletion] = useState<TrainCompletion | null>(null)
     const [typingFocused, setTypingFocused] = useState(false)
     const charAttemptsRef = useRef<Map<string, { attempts: number, correct: number }>>(new Map())
 
-    const learn = useLearnProgress(difficulty)
-    const completedProgress = learn.completedProgress
+    const train = useTrainProgress(difficulty)
+    const completedProgress = train.completedProgress
 
     // fetch types
     const { isLoading: isLoadingTestType } = api.type.get.useQuery({ mode, subMode, language: language })
@@ -205,9 +200,9 @@ const Learn: NextPage = () => {
 
     // Import the guest mirror, then advance from the current level (page state).
     const importDeviceProgress = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
-        const fresh = await learn.importDevice({ silent })
+        const fresh = await train.importDevice({ silent })
         if (fresh) advanceToNextLevel(fresh)
-    }, [learn.importDevice, advanceToNextLevel])
+    }, [train.importDevice, advanceToNextLevel])
 
     const handleChangeLevel = (value: SingleValue<Option>) => {
         if (value && !value.isDisabled) {
@@ -253,37 +248,37 @@ const Learn: NextPage = () => {
         // An overtake on a boss is a loss regardless of the WPM the typed span hit.
         const stars = result.pacerCaught ? 0 : gradedStars
 
-        window.gtag?.("event", "learn_lesson_done", { level: levelName, difficulty, stars })
+        window.gtag?.("event", "train_lesson_done", { level: levelName, difficulty, stars })
 
         if (stars === 0) {
             showCompletion(result)
             return
         }
 
-        void learn.save(entry).then(({ saved, nextProgress }) => {
+        void train.save(entry).then(({ saved, nextProgress }) => {
             showCompletion(result, saved ? { saved: true, nextProgress } : { saved: false })
         })
     }
 
-    const isLearnProgressLoading = sessionStatus === "loading" ||
+    const isTrainProgressLoading = sessionStatus === "loading" ||
         isLoadingTestType ||
-        learn.isLoading
+        train.isLoading
     const isLevelSelectionLoading = !levelChanged && level.name !== progressSelectedLevel.name
 
     useEffect(() => {
-        if (!learn.canSilentImport) return
+        if (!train.canSilentImport) return
 
         void importDeviceProgress({ silent: true })
-    }, [learn.canSilentImport, importDeviceProgress])
+    }, [train.canSilentImport, importDeviceProgress])
 
     useEffect(() => {
-        if (completion || levelChanged || isLearnProgressLoading) return
+        if (completion || levelChanged || isTrainProgressLoading) return
 
         setLevel(progressSelectedLevel)
-    }, [completion, isLearnProgressLoading, progressSelectedLevel, levelChanged])
+    }, [completion, isTrainProgressLoading, progressSelectedLevel, levelChanged])
 
     const criteria = starThresholds(levelNumber(level.name), difficulty)
-    const isLearnContentLoading = isLearnProgressLoading || isLevelSelectionLoading
+    const isTrainContentLoading = isTrainProgressLoading || isLevelSelectionLoading
     const activeLevelProgress = completedProgress.find(progress => progress.levelName === level.name)
     const activeLevelStars = activeLevelProgress?.stars ?? 0
 
@@ -304,14 +299,14 @@ const Learn: NextPage = () => {
     return (
         <div className={`flex flex-col w-full h-full items-center overflow-y-auto overflow-x-hidden px-4 pt-4 pb-4 ${fullscreen ? 'absolute top-0 left-0 w-full h-full bg-base-100 z-[500]' : "relative md:w-10/12 md:self-center md:px-0 md:pt-8 md:pb-8"}`}>
             <div className="flex w-full flex-col items-center justify-center gap-6 py-4 md:min-h-full md:gap-12 md:py-8">
-                <div data-testid="learn-controls" className={typingFocusFadeClass(typingFocused, "flex w-full max-w-screen-xl flex-col items-center gap-3 md:gap-4")}>
-                    {learn.shouldShowImportPrompt &&
+                <div data-testid="train-controls" className={typingFocusFadeClass(typingFocused, "flex w-full max-w-screen-xl flex-col items-center gap-3 md:gap-4")}>
+                    {train.shouldShowImportPrompt &&
                         <div className="flex w-full items-center justify-between gap-3 rounded bg-base-300 px-4 py-3 text-base-content">
                             <span className="text-sm font-semibold">Device progress is available for this difficulty.</span>
                             <button
                                 className="btn btn-primary btn-sm"
                                 type="button"
-                                disabled={learn.isImporting}
+                                disabled={train.isImporting}
                                 onClick={() => void importDeviceProgress()}
                             >
                                 Import progress
@@ -324,12 +319,12 @@ const Learn: NextPage = () => {
                             Sign in to save level progress
                         </label>
                     }
-                    <div className="flex w-full flex-wrap items-center gap-2">
-                        <div className="flex w-full flex-wrap align-center gap-2 md:w-8/12 lg:w-6/12">
-                            {isLearnContentLoading ?
+                    <div className="flex w-full flex-wrap items-center justify-center gap-2">
+                        <div className="flex w-full flex-wrap items-center justify-center gap-2 md:w-8/12 lg:w-6/12">
+                            {isTrainContentLoading ?
                                 <div className="flex h-10 items-center" role="status" aria-live="polite">
                                     <div className="h-8 w-8 animate-spin rounded-full border border-solid border-t-transparent text-primary"></div>
-                                    <span className="sr-only">Loading learn controls</span>
+                                    <span className="sr-only">Loading train controls</span>
                                 </div>
                                 :
                                 <>
@@ -380,17 +375,15 @@ const Learn: NextPage = () => {
                             }
                         </div>
                     </div>
-                    {!isLearnContentLoading &&
+                    {!isTrainContentLoading &&
                         <>
-                            <div className="flex w-full items-center justify-start">
+                            <div className="flex w-full flex-wrap items-center justify-center gap-2 text-xs font-semibold text-base-content/60">
+                                <StarThreshold stars={1} netWpm={criteria.oneStarNetWpm} className="inline-flex min-h-[2rem] items-center rounded-full border border-base-content/15 px-2.5 py-1 gap-2" />
+                                <StarThreshold stars={2} netWpm={criteria.twoStarNetWpm} className="inline-flex min-h-[2rem] items-center rounded-full border border-base-content/15 px-2.5 py-1 gap-2" />
+                                <StarThreshold stars={3} netWpm={criteria.threeStarNetWpm} className="inline-flex min-h-[2rem] items-center rounded-full border border-base-content/15 px-2.5 py-1 gap-2" />
                                 <LevelKindBadge kind={level.kind} />
                             </div>
-                            <div className="flex w-full flex-wrap items-center gap-2 text-xs font-semibold text-base-content/60">
-                                <StarThreshold stars={1} netWpm={criteria.oneStarNetWpm} className="rounded-full border border-base-content/15 px-2.5 py-1" />
-                                <StarThreshold stars={2} netWpm={criteria.twoStarNetWpm} className="rounded-full border border-base-content/15 px-2.5 py-1" />
-                                <StarThreshold stars={3} netWpm={criteria.threeStarNetWpm} className="rounded-full border border-base-content/15 px-2.5 py-1" />
-                            </div>
-                            <div className="hidden gap-2 basis-0 grow justify-start w-full flex-wrap md:flex">
+                            <div className="hidden gap-2 basis-0 grow justify-center items-center w-full flex-wrap md:flex">
                                 <div className="flex justify-start items-center text-base md:text-lg"><strong>Target Keys:</strong></div>
                                 <div className="flex flex-wrap justify-start items-center gap-1">{level.keys.split("").map((key, index) => {
                                     return (
@@ -402,10 +395,10 @@ const Learn: NextPage = () => {
                     }
                 </div>
                 <div className="flex flex-col w-full max-w-screen-xl items-center">
-                    {isLearnContentLoading ?
+                    {isTrainContentLoading ?
                         <div className="flex min-h-[12rem] items-center" role="status" aria-live="polite">
                             <div className="h-8 w-8 animate-spin rounded-full border border-solid border-t-transparent text-primary"></div>
-                            <span className="sr-only">Loading learn content</span>
+                            <span className="sr-only">Loading train content</span>
                         </div>
                         :
                         <Typer
@@ -436,20 +429,20 @@ const Learn: NextPage = () => {
                             charAttemptsRef={charAttemptsRef}
                         />
                     }
-                    {!isLearnContentLoading &&
-                        <div data-testid="learn-keyboard-wrap">
+                    {!isTrainContentLoading &&
+                        <div data-testid="train-keyboard-wrap">
                             <Keyboard mode={mode} currentKey={currentKey} charAttemptsRef={charAttemptsRef} highlightKeys={level.keys.split("")} />
                         </div>
                     }
                 </div>
                 {completion &&
-                    <div className="fixed inset-0 z-[600] flex items-center justify-center bg-base-300/70 px-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="learn-complete-title">
-                        <div data-testid="learn-complete-popover" className="w-full max-w-md rounded-xl border border-primary/40 bg-base-100 p-6 text-base-content shadow-2xl shadow-primary/20">
+                    <div className="fixed inset-0 z-[600] flex items-center justify-center bg-base-300/70 px-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="train-complete-title">
+                        <div data-testid="train-complete-popover" className="w-full max-w-md rounded-xl border border-primary/40 bg-base-100 p-6 text-base-content shadow-2xl shadow-primary/20">
                             <div className="flex flex-col items-center text-center">
                                 <p className="font-mono text-sm font-bold uppercase tracking-widest text-primary">
                                     {completion.stars > 0 ? "Level complete" : "Try again"}
                                 </p>
-                                <h2 id="learn-complete-title" className="mt-2 font-mono text-3xl font-bold">
+                                <h2 id="train-complete-title" className="mt-2 font-mono text-3xl font-bold">
                                     {completion.stars > 0 ? `${completion.levelName} clear!` : `${completion.levelName} not cleared yet`}
                                 </h2>
                                 {KIND_META[completion.kind].special &&
@@ -475,7 +468,7 @@ const Learn: NextPage = () => {
                                         value={formatNumber(completion.netWpm, 1)}
                                         target={`${formatNumber(completion.thresholds.oneStarNetWpm, 0)} net WPM`}
                                         passed={completion.netWpm >= completion.thresholds.oneStarNetWpm}
-                                        testId="learn-net-result"
+                                        testId="train-net-result"
                                     />
                                     {completion.isNoMiss ?
                                         <ResultMetric
@@ -483,14 +476,14 @@ const Learn: NextPage = () => {
                                             value={`${formatNumber(completion.accuracy, 1)}%`}
                                             target="100%"
                                             passed={completion.accuracy >= 100}
-                                            testId="learn-accuracy-result"
+                                            testId="train-accuracy-result"
                                         />
                                         :
                                         <NeutralMetric
                                             label="Accuracy"
                                             value={`${formatNumber(completion.accuracy, 1)}%`}
                                             note="Included in net WPM"
-                                            testId="learn-accuracy-result"
+                                            testId="train-accuracy-result"
                                         />
                                     }
                                 </div>
@@ -534,4 +527,4 @@ const Learn: NextPage = () => {
     );
 };
 
-export default Learn;
+export default Train;

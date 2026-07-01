@@ -3,8 +3,8 @@ import superjson from "superjson";
 
 type ProcedureInput = Record<string, unknown> | undefined;
 interface MockTrpcOptions {
-  savedLearnProgress?: unknown[];
-  importedLearnProgress?: unknown[];
+  savedTrainProgress?: unknown[];
+  importedTrainProgress?: unknown[];
   profileImage?: string | null;
   emptyScores?: boolean;
   invalidShare?: boolean;
@@ -187,7 +187,7 @@ function progressRollupsFromEntries(input: ProcedureInput) {
   }));
 }
 
-function responseForProcedure(procedure: string, input: ProcedureInput, options: MockTrpcOptions, state: { importedLearnProgress: boolean; syncedProgressRollups: unknown[] }) {
+function responseForProcedure(procedure: string, input: ProcedureInput, options: MockTrpcOptions, state: { importedTrainProgress: boolean; syncedProgressRollups: unknown[] }) {
   switch (procedure) {
     case "type.get":
       return {
@@ -260,6 +260,31 @@ function responseForProcedure(procedure: string, input: ProcedureInput, options:
         { key: "timed-60", eyebrow: "60 seconds", wpm: 88.5, rawWpm: 91.0, accuracy: 97.4, createdAt: new Date("2026-06-10T12:00:00.000Z") },
         { key: "words-100", eyebrow: "100 words", wpm: 101.2, rawWpm: 104.0, accuracy: 98.2, createdAt: new Date("2026-06-12T12:00:00.000Z") },
       ];
+    case "test.getProfileProof":
+      if (options.emptyScores) return {
+        bestWpm: null,
+        baselineWpm: null,
+        baselineAccuracy: null,
+        baselineConsistency: null,
+        baselineCount: 0,
+        recentWpm: null,
+        recentAccuracy: null,
+        recentConsistency: null,
+        thirtyDayDelta: null,
+        recentCount: 0,
+      };
+      return {
+        bestWpm: 101.2,
+        baselineWpm: 78.4,
+        baselineAccuracy: 96.1,
+        baselineConsistency: 77.6,
+        baselineCount: 10,
+        recentWpm: 84.6,
+        recentAccuracy: 97.4,
+        recentConsistency: 82.1,
+        thirtyDayDelta: 4.2,
+        recentCount: 10,
+      };
     case "test.getPercentile":
       return { better: 0, worse: 5, total: 5, percentile: 0 };
     case "test.getProgressRecords":
@@ -271,12 +296,36 @@ function responseForProcedure(procedure: string, input: ProcedureInput, options:
         summaryDate: new Date(Date.now() - i * 24 * 60 * 60 * 1000),
         _count: { _all: 3 },
       }));
-    case "learnProgress.getByDifficulty":
-      return state.importedLearnProgress ? (options.importedLearnProgress ?? options.savedLearnProgress ?? []) : (options.savedLearnProgress ?? []);
-    case "learnProgress.batchImport":
-      state.importedLearnProgress = true;
+    case "trainProgress.getByDifficulty":
+      return state.importedTrainProgress ? (options.importedTrainProgress ?? options.savedTrainProgress ?? []) : (options.savedTrainProgress ?? []);
+    case "trainProgress.getSummary":
+      if (options.emptyScores) return {
+        hardestClear: null,
+        difficulties: ["easy", "medium", "hard", "extreme", "insane"].map((difficulty) => ({
+          difficulty,
+          label: difficulty.charAt(0).toUpperCase() + difficulty.slice(1),
+          levelsCompleted: 0,
+          totalLevels: 100,
+          starsEarned: 0,
+          totalStars: 300,
+          percentComplete: 0,
+          highestLevel: null,
+        })),
+      };
+      return {
+        hardestClear: { difficulty: "medium", label: "Medium", level: 12 },
+        difficulties: [
+          { difficulty: "easy", label: "Easy", levelsCompleted: 32, totalLevels: 100, starsEarned: 71, totalStars: 300, percentComplete: 32, highestLevel: 32 },
+          { difficulty: "medium", label: "Medium", levelsCompleted: 12, totalLevels: 100, starsEarned: 24, totalStars: 300, percentComplete: 12, highestLevel: 12 },
+          { difficulty: "hard", label: "Hard", levelsCompleted: 0, totalLevels: 100, starsEarned: 0, totalStars: 300, percentComplete: 0, highestLevel: null },
+          { difficulty: "extreme", label: "Extreme", levelsCompleted: 0, totalLevels: 100, starsEarned: 0, totalStars: 300, percentComplete: 0, highestLevel: null },
+          { difficulty: "insane", label: "Insane", levelsCompleted: 0, totalLevels: 100, starsEarned: 0, totalStars: 300, percentComplete: 0, highestLevel: null },
+        ],
+      };
+    case "trainProgress.batchImport":
+      state.importedTrainProgress = true;
       return [];
-    case "learnProgress.complete":
+    case "trainProgress.complete":
       return [];
     case "practiceStats.get":
       return options.keyStats ?? [];
@@ -456,7 +505,7 @@ function responseForProcedure(procedure: string, input: ProcedureInput, options:
 
 export async function mockTrpc(page: Page, options: MockTrpcOptions = {}) {
   currentProfileUser = { ...profileUser, image: options.profileImage ?? profileUser.image };
-  const state = { importedLearnProgress: false, syncedProgressRollups: [] as unknown[] };
+  const state = { importedTrainProgress: false, syncedProgressRollups: [] as unknown[] };
 
   await page.route("**/api/trpc/**", async (route: Route) => {
     const url = new URL(route.request().url());

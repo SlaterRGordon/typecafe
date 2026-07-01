@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest"
 import { TestSubModes } from "~/components/typer/types"
 import { levels } from "./levels"
 
-describe("generated Learn ladder", () => {
+describe("generated Train ladder", () => {
     it("builds 100 sequentially named levels", () => {
         expect(levels).toHaveLength(100)
         expect(levels[0]!.name).toBe("Level 1")

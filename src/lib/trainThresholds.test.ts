@@ -4,7 +4,7 @@ import {
     starThresholds,
     starsForWpm,
     targetWpm,
-} from "./learnThresholds"
+} from "./trainThresholds"
 
 describe("targetWpm", () => {
     it("pins the easy-1★ spine at the ladder ends", () => {

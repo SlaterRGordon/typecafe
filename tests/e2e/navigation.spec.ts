@@ -1,12 +1,32 @@
 import { expect, test } from "@playwright/test";
 
 test.describe("app navigation", () => {
+  test("orders primary navigation around the improvement loop", async ({ page }, testInfo) => {
+    await page.goto("/");
+
+    const nav = testInfo.project.name.includes("mobile")
+      ? page.getByTestId("bottom-primary-nav")
+      : page.getByTestId("side-primary-nav");
+
+    await expect(nav).toBeVisible();
+    const labels = await nav.getByRole("button").evaluateAll((buttons) =>
+      buttons.map((button) => button.getAttribute("aria-label")).filter(Boolean)
+    );
+    const icons = await nav.locator(".material-symbols-rounded").evaluateAll((nodes) =>
+      nodes.map((node) => node.textContent?.trim()).filter(Boolean)
+    );
+
+    expect(labels.slice(0, 5)).toEqual(["Home", "Train", "Progress", "Daily Challenge", "Leaderboard"]);
+    expect(icons.slice(0, 5)).toEqual(["home", "fitness_center", "trending_up", "calendar_today", "leaderboard"]);
+    await expect(nav.locator(".fa-dumbbell")).toHaveCount(0);
+  });
+
   test("routes through primary navigation", async ({ page }) => {
     await page.goto("/");
     await expect(page.locator("#words .char").first()).toBeVisible();
 
-    await page.getByRole("button", { name: "Learn" }).click();
-    await expect(page).toHaveURL(/\/learn$/);
+    await page.getByRole("button", { name: "Train" }).click();
+    await expect(page).toHaveURL(/\/train$/);
     await expect(page.locator("#words .char").first()).toBeVisible({ timeout: 20_000 });
 
     await page.getByRole("button", { name: "Leaderboard" }).click();

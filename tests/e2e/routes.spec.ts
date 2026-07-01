@@ -8,7 +8,7 @@ type PublicRoute =
 
 const publicRoutes: PublicRoute[] = [
   { path: "/", visibleText: "TypeCafe" },
-  { path: "/learn", selector: "#words .char" },
+  { path: "/train", selector: "#words .char" },
   { path: "/drill?keys=x", heading: "x" },
   { path: "/leaderboard", visibleText: "TypeCafe" },
   { path: "/support", heading: "Support TypeCafe" },

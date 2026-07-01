@@ -1,19 +1,19 @@
-# Lift the Learn level-ladder progression to `src/lib/`
+# Lift the Train level-ladder progression to `src/lib/`
 
 **Strength:** Strong · **Category:** in-process **Status:** ✅ done
 
-> Threshold/grading model superseded by [ADR-0003](../adr/0003-learn-thresholds-and-kinds.md)
+> Threshold/grading model superseded by [ADR-0003](../adr/0003-train-thresholds-and-kinds.md)
 > (formula-derived `targetWpm`, ramp-multiplier difficulty, per-kind `gradeLevel`,
 > paced bosses). The unlock/resume/next ladder lib described below is unchanged.
 
 ## Files
 
-`src/pages/learn.tsx` (611) → `src/lib/learnProgression.ts` (new module)
+`src/pages/train.tsx` (611) → `src/lib/trainProgression.ts` (new module)
 
 The page held the ladder's progression logic inline and untested:
 
 - `:173` — `getLevelOptions` — unlock gating (prev level's net WPM ≥ prev requirement)
-- `:40` — `mergeLearnProgress` — keep-max fold of an attempt into lifetime progress
+- `:40` — `mergeTrainProgress` — keep-max fold of an attempt into lifetime progress
 - `:205` — `progressSelectedLevel` — resume level (first-locked − 1)
 - `:212` / `:276` — `advanceToNextLevel` / `nextLevelNameFromProgress` — next unlocked
 - `:289` ≡ `:307` — requirement + `starsFor` grade computed **twice**
@@ -22,7 +22,7 @@ The page held the ladder's progression logic inline and untested:
 ## Problem
 
 Every other scoring/progression rule in the app is a tested pure function in
-`src/lib/` (the standing rule). The Learn ladder is the exception: its unlock
+`src/lib/` (the standing rule). The Train ladder is the exception: its unlock
 gate, merge, resume/next navigation and per-result grading run **inside a
 611-line page**, reachable only by mounting the component and hydrating
 localStorage. The interface is the whole page — there is no **seam** to test the
@@ -32,7 +32,7 @@ how is a result graded" rule instead of moving it.
 
 ## Solution
 
-A pure `src/lib/learnProgression.ts` owning the ladder:
+A pure `src/lib/trainProgression.ts` owning the ladder:
 
 - `ladderState(progress, difficulty): LevelStatus[]` — the deep core: Level 1
   always Unlocked; every other Level opens once the prior Level's best net WPM
@@ -46,7 +46,7 @@ A pure `src/lib/learnProgression.ts` owning the ladder:
   speed}` wire shape to/from the domain `{levelName, netWpm}` at each edge.
 
 The page keeps its state, tRPC queries/mutations, the optimistic guest/DB save
-orchestration ([11](11-learn-save-hook.md)), and the completion modal — now
+orchestration ([11](11-train-save-hook.md)), and the completion modal — now
 wiring over the module.
 
 ## Before / After
@@ -54,14 +54,14 @@ wiring over the module.
 ```
 Before                                   After
 ──────                                   ─────
-learn.tsx (611, 0 tests)                 lib/learnProgression.ts (deep, tested)
+train.tsx (611, 0 tests)                 lib/trainProgression.ts (deep, tested)
   getLevelOptions  (unlock gating)         ladderState ← the unlock core
   progressSelectedLevel (resume)           resumeLevel · nextLevel
   nextLevelNameFromProgress                mergeProgress
-  mergeLearnProgress                       gradeResult (req + starsFor + entry)
+  mergeTrainProgress                       gradeResult (req + starsFor + entry)
   grade ×2 · normalize ×3                  toLevelProgress / fromLevelProgress
         all in JSX                       ──────── called by ────────
-                                         learn.tsx — state, I/O, modal only
+                                         train.tsx — state, I/O, modal only
 ```
 
 ## Benefits
@@ -75,7 +75,7 @@ learn.tsx (611, 0 tests)                 lib/learnProgression.ts (deep, tested)
 ## Decisions (grilled 2026-06-27)
 
 **Scope: extract + test only; behaviour untouched.** The optimistic/refetch save
-dance stays in the page for [11](11-learn-save-hook.md).
+dance stays in the page for [11](11-train-save-hook.md).
 
 - **Domain field names.** The lib type is `{levelName, netWpm, accuracy, stars}`;
   the persisted DB/tRPC/localStorage shape (`{options, speed, …}`) is translated
@@ -93,7 +93,7 @@ dance stays in the page for [11](11-learn-save-hook.md).
 - **`gradeResult` takes the resolved `Level`** (the page already has the
   `?? currentLevel` fallback), composing `learnStars` rather than duplicating it.
 
-`learnProgression.test.ts` pins current behaviour: the unlock gate (incl. the
+`trainProgression.test.ts` pins current behaviour: the unlock gate (incl. the
 accuracy-not-gated and per-difficulty cases), resume/next edges, keep-max merge,
 the mappers, and the 1× / 1.15× / 1.3× star boundaries — 19 tests. Added the
-**Learn ladder** vocabulary (Level, Unlock) to `CONTEXT.md`.
+**Train ladder** vocabulary (Level, Unlock) to `CONTEXT.md`.

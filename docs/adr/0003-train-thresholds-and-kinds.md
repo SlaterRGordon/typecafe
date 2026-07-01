@@ -1,8 +1,8 @@
-# Learn thresholds are formula-derived; difficulty is a ramp multiplier; bosses are paced
+# Train thresholds are formula-derived; difficulty is a ramp multiplier; bosses are paced
 
-Learn level thresholds are computed by one pure function —
+Train level thresholds are computed by one pure function —
 `targetWpm(level, difficulty, star) = base(level) · diffMult[difficulty] · starMult[star]`
-([learnThresholds.ts](../../src/lib/learnThresholds.ts)) — not stored per level. The
+([trainThresholds.ts](../../src/lib/trainThresholds.ts)) — not stored per level. The
 prior model authored `{wpm, accuracy}` on every `Level` (identical across all 27)
 and applied a `1× / 1.15× / 1.3×` star multiplier to a flat per-difficulty base.
 That model has a **fixed ceiling**: with the speed bar identical on Level 5 and
@@ -23,7 +23,7 @@ Consequences worth pinning so future reviews don't re-litigate them:
   monotonic-ordering constraint across the difficulty×star cube — the axes are
   independent and never traversed together.
 - **No cross-difficulty unlock credit.** Progress is per-difficulty
-  (`useLearnProgress(difficulty)`); each tier is an independent 100-level journey.
+  (`useTrainProgress(difficulty)`); each tier is an independent 100-level journey.
   A fast user plays only their chosen tier, so there is nothing to "replay" — do
   not add cross-difficulty crediting to `ladderState`.
 - **Accuracy is not a global threshold.** Net WPM already absorbs errors. Accuracy
@@ -41,10 +41,10 @@ typist's cursor the run ends early ("overtake = death"), which fires the existin
 completion with sub-target net WPM and grades to 0 stars for free. The pacer runs
 at the level's 1★ target, so beating it guarantees ≥1★ and 2★/3★ come from net-WPM
 margin — bosses need no special star math. Do not add a `TestModes.paced` enum
-value; Learn drives the pacer through the boss level's `pacerWpm`.
+value; Train drives the pacer through the boss level's `pacerWpm`.
 
 This updates the threshold/grading portion of
-[architecture/10-learn-ladder-progression.md](../architecture/10-learn-ladder-progression.md)
+[architecture/10-train-ladder-progression.md](../architecture/10-train-ladder-progression.md)
 (the ladder lib still owns unlock/resume/next as before). Grams is deliberately
-excluded from Learn; the standalone grams mode is untouched (see
-[features/learn-ladder.md §6](../features/learn-ladder.md)).
+excluded from Train; the standalone grams mode is untouched (see
+[features/train-ladder.md §6](../features/train-ladder.md)).

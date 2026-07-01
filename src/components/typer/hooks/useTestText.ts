@@ -1,6 +1,6 @@
 import { TestModes, TestSubModes } from "../types"
 import type { QuoteLength, TestGramScopes, TestGramSources } from "../types"
-import type { Level } from "../learn/levels"
+import type { Level } from "../train/levels"
 import { applyTextOptions, ensureLanguageLoaded, ensureQuotesLoaded, generateBetterPseudoText, generateNGram, generateQuote, generateText, isDrillDigit, isDrillMark } from "../utils"
 
 export interface TestTextConfig {

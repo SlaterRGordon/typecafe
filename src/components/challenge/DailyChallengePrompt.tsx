@@ -85,7 +85,7 @@ export function DailyChallengePrompt(props: DailyChallengePromptProps) {
         return (
             <section
                 data-testid="daily-challenge-prompt"
-                className={`${props.className ?? ""} fixed bottom-4 right-4 z-40 w-72 rounded-lg border border-primary/35 bg-base-200/95 px-4 py-3 text-base-content shadow-[0_18px_60px_rgba(0,0,0,0.35)] backdrop-blur`}
+                className={`${props.className ?? ""} fixed bottom-4 right-4 z-40 w-72 rounded-lg border border-primary/35 bg-base-200/95 px-4 py-3 text-base-content `}
                 aria-label="Daily challenge"
             >
                 <button

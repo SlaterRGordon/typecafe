@@ -10,6 +10,20 @@ export const formatValue = (value: number) => {
     }
 }
 
+export const formatTypedDuration = (seconds: number | null | undefined) => {
+    const safeSeconds = Math.max(0, seconds ?? 0);
+
+    if (safeSeconds >= 24 * 60 * 60) {
+        return { value: formatValue(safeSeconds / (24 * 60 * 60)), label: "days typed" };
+    }
+
+    if (safeSeconds >= 60 * 60) {
+        return { value: formatValue(safeSeconds / (60 * 60)), label: "hours typed" };
+    }
+
+    return { value: formatValue(safeSeconds / 60), label: "minutes typed" };
+}
+
 export const formatPercentile = (value: number, better: number, worse: number) => {
     if (better < 1000) {
         if (better + 1 < 20) {

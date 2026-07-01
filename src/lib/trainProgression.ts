@@ -1,8 +1,8 @@
-import { levels, type Level } from "~/components/typer/learn/levels"
-import { starThresholds, starsForWpm, targetWpm, type StarThresholds } from "~/lib/learnThresholds"
+import { levels, type Level } from "~/components/typer/train/levels"
+import { starThresholds, starsForWpm, targetWpm, type StarThresholds } from "~/lib/trainThresholds"
 
-export type { DifficultyName } from "~/lib/learnThresholds"
-import type { DifficultyName } from "~/lib/learnThresholds"
+export type { DifficultyName } from "~/lib/trainThresholds"
+import type { DifficultyName } from "~/lib/trainThresholds"
 
 // A Level's 1-based number on the ladder — the speed axis the thresholds key on.
 export function levelNumber(levelName: string): number {

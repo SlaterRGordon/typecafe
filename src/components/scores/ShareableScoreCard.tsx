@@ -11,6 +11,7 @@ import { diagnose, toDrillKeys } from "~/lib/diagnosis";
 import { aggregateTransitions, worstTransitions } from "~/lib/transitions";
 import { attemptsFromEvents } from "~/lib/heatmap";
 import { KeyHeatmap } from "~/components/heatmap/KeyHeatmap";
+import { Chip } from "~/components/ui/Chip";
 
 export type { TypedSegment, WpmSample as ScoreWpmSample } from "~/lib/stats";
 
@@ -199,9 +200,9 @@ function InfoIcon(props: { label: string; href?: string }) {
       <Link
         href={href}
         className="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-base-content/50 text-[10px] text-base-content/80 outline-none transition hover:border-primary hover:text-primary focus-visible:border-primary focus-visible:text-primary focus-visible:ring-2 focus-visible:ring-primary/40"
-        aria-label={`${props.label} Learn how TypeCafe measures this.`}
+        aria-label={`${props.label} Train how TypeCafe measures this.`}
         aria-describedby={tooltipId}
-        title={`${props.label} Learn how TypeCafe measures this.`}
+        title={`${props.label} Train how TypeCafe measures this.`}
       >
         ?
       </Link>
@@ -439,7 +440,6 @@ function DetailRow(props: { label: string; value: string; tone?: "success" | "er
 // re-measure result (never on a shared snapshot).
 function ReMeasureStrip(props: { beforeWpm: number; afterWpm: number }) {
   const { delta, improved } = wpmImprovement(props.beforeWpm, props.afterWpm);
-  const deltaTone = improved ? "bg-success/20 text-success" : delta < 0 ? "bg-error/20 text-error" : "bg-base-content/10 text-base-content/70";
 
   return (
     <div data-testid="re-measure-delta" className="score-reveal mt-7 rounded-lg border border-primary/40 bg-primary/10 p-4" style={{ "--reveal-delay": "40ms" } as CSSProperties}>
@@ -453,9 +453,14 @@ function ReMeasureStrip(props: { beforeWpm: number; afterWpm: number }) {
           <span className="text-base-content/40">→</span>
           <span className="text-3xl font-bold text-primary">{formatNumber(props.afterWpm, 1)}</span>
           <span className="text-sm text-base-content/70">WPM</span>
-          <span className={`rounded-full px-2.5 py-0.5 text-sm font-semibold ${deltaTone}`}>
+          <Chip
+            size="md"
+            tone={improved ? "success" : delta < 0 ? "error" : "neutral"}
+            className="font-mono"
+            icon={<i className={`fa-solid ${improved ? "fa-arrow-trend-up" : delta < 0 ? "fa-arrow-trend-down" : "fa-minus"}`} aria-hidden="true" />}
+          >
             {delta >= 0 ? "+" : ""}{formatNumber(delta, 1)}
-          </span>
+          </Chip>
         </div>
       </div>
     </div>
@@ -673,31 +678,76 @@ export function ShareableScoreCard(props: ShareableScoreCardProps) {
             <div>
               <div className="mb-2 flex flex-wrap items-center gap-2">
                 {score.dailyChallenge &&
-                  <span data-testid="score-daily-challenge-badge" className="inline-block rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-sm font-bold text-primary">Daily Challenge</span>
+                  <Chip
+                    testId="score-daily-challenge-badge"
+                    tone="primary"
+                    size="md"
+                    icon={<i className="fa-solid fa-calendar-day" aria-hidden="true" />}
+                  >
+                    Daily Challenge
+                  </Chip>
                 }
                 {score.brag &&
-                  <span className="inline-block rounded-full bg-primary/15 px-3 py-1 text-sm font-bold text-primary">{score.brag}</span>
+                  <Chip
+                    tone="primary"
+                    size="md"
+                    icon={<i className="fa-solid fa-trophy" aria-hidden="true" />}
+                  >
+                    {score.brag}
+                  </Chip>
                 }
                 {typeof score.streak === "number" && score.streak > 0 &&
-                  <span data-testid="score-streak" className="inline-block rounded-full bg-primary/15 px-3 py-1 text-sm font-semibold text-primary">{score.streak}-day streak</span>
+                  <Chip
+                    testId="score-streak"
+                    tone="primary"
+                    size="md"
+                    icon={<i className="fa-solid fa-fire" aria-hidden="true" />}
+                  >
+                    {score.streak}-day streak
+                  </Chip>
                 }
               </div>
               {typeof score.avgDelta === "number" &&
-                <p data-testid="avg-delta" className={`mb-2 text-sm font-semibold ${score.avgDelta >= 0 ? "text-success" : "text-error"}`}>
-                  {formatNumber(Math.abs(score.avgDelta), 1)} WPM {score.avgDelta >= 0 ? "over" : "under"} your 30-day average
-                </p>
+                <div className="mb-2">
+                  <Chip
+                    testId="avg-delta"
+                    tone={score.avgDelta >= 0 ? "success" : "error"}
+                    size="md"
+                    icon={<i className={`fa-solid ${score.avgDelta >= 0 ? "fa-arrow-trend-up" : "fa-arrow-trend-down"}`} aria-hidden="true" />}
+                  >
+                    {formatNumber(Math.abs(score.avgDelta), 1)} WPM {score.avgDelta >= 0 ? "over" : "under"} your 30-day average
+                  </Chip>
+                </div>
               }
               <p className="text-sm text-base-content/65">{modeText} / {formatDate(score.createdAt)}</p>
               {(score.punctuation || score.capitals || score.ranked === false) &&
                 <div className="mt-2 flex flex-wrap gap-2">
                   {score.punctuation &&
-                    <span className="rounded-full border border-primary/40 bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">Punctuation</span>
+                    <Chip
+                      tone="primary"
+                      size="xs"
+                      icon={<i className="fa-solid fa-quote-right" aria-hidden="true" />}
+                    >
+                      Punctuation
+                    </Chip>
                   }
                   {score.capitals &&
-                    <span className="rounded-full border border-primary/40 bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">Capitals</span>
+                    <Chip
+                      tone="primary"
+                      size="xs"
+                      icon={<i className="fa-solid fa-font" aria-hidden="true" />}
+                    >
+                      Capitals
+                    </Chip>
                   }
                   {score.ranked === false &&
-                    <span className="rounded-full border border-warning/40 bg-warning/10 px-2.5 py-0.5 text-xs font-semibold text-warning">Unranked</span>
+                    <Chip
+                      tone="warning"
+                      size="xs"
+                      icon={<i className="fa-solid fa-triangle-exclamation" aria-hidden="true" />}
+                    >
+                      Unranked
+                    </Chip>
                   }
                 </div>
               }

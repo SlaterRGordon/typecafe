@@ -18,6 +18,7 @@ import {
   starterPeersFromTests,
 } from "~/lib/peerPercentile";
 import { currentStreak, dayKey } from "~/lib/progress";
+import { profileProofSummary } from "~/lib/profileProof";
 import {
   globalPercentileBrag,
   personalBestBrag,
@@ -191,7 +192,7 @@ async function thirtyDayChallengeBaseline(
 }
 
 // The user's current practice-day streak, from their distinct test days.
-async function practiceStreak(prisma: PrismaClient, userId: string): Promise<number> {
+async function practiceStreak(prisma: PrismaClient, userId: string, utcOffsetMinutes = 0): Promise<number> {
   const days = await prisma.test.findMany({
     where: { userId },
     distinct: ["summaryDate"],
@@ -199,7 +200,12 @@ async function practiceStreak(prisma: PrismaClient, userId: string): Promise<num
     orderBy: { summaryDate: "desc" },
     take: 400,
   });
-  return currentStreak(days.map((d) => ({ wpm: 0, accuracy: 0, createdAt: d.summaryDate })), new Date());
+  return currentStreak(days.map((d) => ({
+    wpm: 0,
+    accuracy: 0,
+    createdAt: d.summaryDate,
+    day: d.summaryDate.toISOString().slice(0, 10),
+  })), new Date(), utcOffsetMinutes);
 }
 
 const testOrderBySchema = z.enum([
@@ -526,7 +532,7 @@ export const testRouter = createTRPCRouter({
           speed: input.speed,
           accuracy: input.accuracy,
         }),
-        practiceStreak(ctx.prisma, ctx.session.user.id),
+        practiceStreak(ctx.prisma, ctx.session.user.id, input.utcOffsetMinutes ?? 0),
       ]);
 
       return { ...test, brag, avgDelta, streak };
@@ -714,6 +720,28 @@ export const testRouter = createTRPCRouter({
           createdAt: best?.createdAt ?? null,
         };
       }));
+    }),
+  getProfileProof: publicProcedure
+    .input(z.object({
+      userId: z.string().optional(),
+    }))
+    .query(async ({ ctx, input }) => {
+      const userId = input.userId ?? ctx.session?.user.id;
+      if (!userId) return profileProofSummary([]);
+
+      const rows = await ctx.prisma.test.findMany({
+        where: { userId, ranked: true },
+        orderBy: { createdAt: "desc" },
+        take: 2000,
+        select: {
+          speed: true,
+          accuracy: true,
+          consistency: true,
+          createdAt: true,
+        },
+      });
+
+      return profileProofSummary(rows);
     }),
   getPercentile: publicProcedure
     .input(z.object({

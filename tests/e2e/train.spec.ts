@@ -3,8 +3,8 @@ import { chooseReactSelectOption } from "./helpers/select";
 import { mockAuthenticatedSession, mockTrpc } from "./helpers/trpc";
 import { typeCurrentCharacter, typeVisibleTestText, typeWrongCharacter } from "./helpers/typing";
 
-async function gotoLearn(page: Page) {
-  await page.goto("/learn");
+async function gotoTrain(page: Page) {
+  await page.goto("/train");
   await expect(page.locator("#words .char").first()).toBeVisible({ timeout: 20_000 });
 }
 
@@ -14,9 +14,9 @@ async function openReactSelect(page: Page, instanceId: string) {
   await control.click();
 }
 
-test.describe("learn page", () => {
-  test("renders the guest learning state and target keyboard", async ({ page }, testInfo) => {
-    await gotoLearn(page);
+test.describe("train page", () => {
+  test("renders the guest training state and target keyboard", async ({ page }, testInfo) => {
+    await gotoTrain(page);
 
     await expect(page.getByText("Sign in to save level progress")).toBeVisible();
     await expect(page.getByText("Required Accuracy: 90%")).toHaveCount(0);
@@ -27,21 +27,29 @@ test.describe("learn page", () => {
     }
     await expect(page.locator(".typecafe-keyboard")).toBeVisible();
 
-    // Level 1 is a plain key level — the type chip and its "?" explainer show.
-    const kind = page.getByTestId("learn-level-kind");
+    // Level 1 is a plain key level; the type chip explains the active level kind.
+    const kind = page.getByTestId("train-level-kind");
+    const kindChip = kind.getByLabel(/How Keys levels work/);
     await expect(kind).toContainText("Keys");
-    await expect(kind.getByRole("img")).toHaveAttribute("aria-label", /How Keys levels work/);
+    await expect(kindChip).toBeVisible();
+
+    const oneStar = page.getByLabel("1 star: 22 net WPM");
+    const starBox = await oneStar.boundingBox();
+    const kindBox = await kindChip.boundingBox();
+    expect(starBox).not.toBeNull();
+    expect(kindBox).not.toBeNull();
+    expect(Math.abs((starBox?.height ?? 0) - (kindBox?.height ?? 0))).toBeLessThanOrEqual(1);
   });
 
   test("uses local progress to select the next unlocked level", async ({ page }) => {
     await page.addInitScript(() => {
       window.localStorage.setItem(
-        "typecafe.learnProgress.easy",
+        "typecafe.trainProgress.easy",
         JSON.stringify([{ options: "Level 1", speed: 120, accuracy: 10 }]),
       );
     });
 
-    await gotoLearn(page);
+    await gotoTrain(page);
 
     await expect(page.getByText("Level 2").first()).toBeVisible();
   });
@@ -49,12 +57,12 @@ test.describe("learn page", () => {
   test("shows best stars in the level menu", async ({ page }) => {
     await page.addInitScript(() => {
       window.localStorage.setItem(
-        "typecafe.learnProgress.easy",
+        "typecafe.trainProgress.easy",
         JSON.stringify([{ options: "Level 1", speed: 120, accuracy: 100, stars: 3 }]),
       );
     });
 
-    await gotoLearn(page);
+    await gotoTrain(page);
     await expect(page.getByText("Level 2").first()).toBeVisible();
 
     await openReactSelect(page, "levelSelect");
@@ -64,23 +72,23 @@ test.describe("learn page", () => {
   });
 
   test("completion saves guest progress on this device", async ({ page }) => {
-    await gotoLearn(page);
+    await gotoTrain(page);
 
     await typeVisibleTestText(page);
 
-    const popover = page.getByTestId("learn-complete-popover");
+    const popover = page.getByTestId("train-complete-popover");
     await expect(popover).toBeVisible();
     await expect(popover).toContainText("Level 1 clear!");
     await expect(popover).toContainText("Best result saved.");
-    await expect(popover.getByTestId("learn-net-result")).toContainText("Passed 22 net WPM");
-    await expect(popover.getByTestId("learn-net-result")).toHaveClass(/border-success/);
-    await expect(popover.getByTestId("learn-accuracy-result")).toContainText("Accuracy");
-    await expect(popover.getByTestId("learn-accuracy-result")).toContainText("Included in net WPM");
-    await expect(popover.getByTestId("learn-accuracy-result")).not.toHaveClass(/border-success/);
-    await expect(popover.getByTestId("learn-accuracy-result")).not.toHaveClass(/border-error/);
+    await expect(popover.getByTestId("train-net-result")).toContainText("Passed 22 net WPM");
+    await expect(popover.getByTestId("train-net-result")).toHaveClass(/border-success/);
+    await expect(popover.getByTestId("train-accuracy-result")).toContainText("Accuracy");
+    await expect(popover.getByTestId("train-accuracy-result")).toContainText("Included in net WPM");
+    await expect(popover.getByTestId("train-accuracy-result")).not.toHaveClass(/border-success/);
+    await expect(popover.getByTestId("train-accuracy-result")).not.toHaveClass(/border-error/);
     await expect(popover.getByRole("button", { name: "Next level" })).toBeVisible();
 
-    const progress = await page.evaluate(() => window.localStorage.getItem("typecafe.learnProgress.easy"));
+    const progress = await page.evaluate(() => window.localStorage.getItem("typecafe.trainProgress.easy"));
     expect(progress).not.toBeNull();
     const parsed = JSON.parse(progress as string) as { options: string; speed: number; accuracy: number; stars: number }[];
     expect(parsed).toEqual([
@@ -97,7 +105,7 @@ test.describe("learn page", () => {
   });
 
   test("failed completion opens retry popover and does not save progress", async ({ page }) => {
-    await gotoLearn(page);
+    await gotoTrain(page);
 
     await typeCurrentCharacter(page);
     const remaining = await page.locator("#words .char").count();
@@ -105,30 +113,30 @@ test.describe("learn page", () => {
       await page.keyboard.press("q");
     }
 
-    const popover = page.getByTestId("learn-complete-popover");
+    const popover = page.getByTestId("train-complete-popover");
     await expect(popover).toBeVisible();
     await expect(popover).toContainText("Level 1 not cleared yet");
     await expect(popover).toContainText("Need 22 net WPM to clear — you hit 0.");
-    await expect(popover.getByTestId("learn-net-result")).toContainText("Need 22 net WPM");
-    await expect(popover.getByTestId("learn-net-result")).toHaveClass(/border-error/);
-    await expect(popover.getByTestId("learn-accuracy-result")).toContainText("Accuracy");
-    await expect(popover.getByTestId("learn-accuracy-result")).toContainText("Included in net WPM");
-    await expect(popover.getByTestId("learn-accuracy-result")).not.toHaveClass(/border-success/);
-    await expect(popover.getByTestId("learn-accuracy-result")).not.toHaveClass(/border-error/);
+    await expect(popover.getByTestId("train-net-result")).toContainText("Need 22 net WPM");
+    await expect(popover.getByTestId("train-net-result")).toHaveClass(/border-error/);
+    await expect(popover.getByTestId("train-accuracy-result")).toContainText("Accuracy");
+    await expect(popover.getByTestId("train-accuracy-result")).toContainText("Included in net WPM");
+    await expect(popover.getByTestId("train-accuracy-result")).not.toHaveClass(/border-success/);
+    await expect(popover.getByTestId("train-accuracy-result")).not.toHaveClass(/border-error/);
     await expect(popover.getByRole("button", { name: "Try again" })).toBeVisible();
     await expect(popover.getByRole("button", { name: "Pick a level" })).toHaveCount(0);
     await expect(popover.getByRole("button", { name: "Next level" })).toHaveCount(0);
-    await expect.poll(async () => page.evaluate(() => window.localStorage.getItem("typecafe.learnProgress.easy"))).toBeNull();
+    await expect.poll(async () => page.evaluate(() => window.localStorage.getItem("typecafe.trainProgress.easy"))).toBeNull();
   });
 
   test("signed-in completion unlocks the next level", async ({ page }) => {
     await mockAuthenticatedSession(page);
     await mockTrpc(page);
-    await gotoLearn(page);
+    await gotoTrain(page);
 
     await typeVisibleTestText(page);
 
-    const popover = page.getByTestId("learn-complete-popover");
+    const popover = page.getByTestId("train-complete-popover");
     await expect(popover).toBeVisible();
     await expect(popover.getByRole("button", { name: "Try again" })).toBeVisible();
     await expect(popover.getByRole("button", { name: "Next level" })).toBeVisible();
@@ -139,7 +147,7 @@ test.describe("learn page", () => {
   });
 
   test("difficulty changes update requirements", async ({ page }) => {
-    await gotoLearn(page);
+    await gotoTrain(page);
 
     await chooseReactSelectOption(page, "difficultySelect", "Medium");
 
@@ -153,18 +161,18 @@ test.describe("learn page", () => {
       const cleared = Array.from({ length: 9 }, (_, i) => ({
         options: `Level ${i + 1}`, speed: 200, accuracy: 100, stars: 3,
       }));
-      window.localStorage.setItem("typecafe.learnProgress.easy", JSON.stringify(cleared));
+      window.localStorage.setItem("typecafe.trainProgress.easy", JSON.stringify(cleared));
     });
 
-    await gotoLearn(page);
+    await gotoTrain(page);
     await expect(page.getByText("Level 10").first()).toBeVisible();
     // Boss levels carry a "Boss" type chip in the controls.
-    await expect(page.getByTestId("learn-level-kind")).toContainText("Boss");
+    await expect(page.getByTestId("train-level-kind")).toContainText("Boss");
 
     // Type one character to start the attempt, then stop — the pacer catches up.
     await typeCurrentCharacter(page);
 
-    const popover = page.getByTestId("learn-complete-popover");
+    const popover = page.getByTestId("train-complete-popover");
     await expect(popover).toBeVisible({ timeout: 10_000 });
     await expect(popover).toContainText("not cleared yet");
     // The popup spells out why: the pacer caught them.
@@ -176,10 +184,10 @@ test.describe("learn page", () => {
       const cleared = Array.from({ length: 9 }, (_, i) => ({
         options: `Level ${i + 1}`, speed: 200, accuracy: 100, stars: 3,
       }));
-      window.localStorage.setItem("typecafe.learnProgress.easy", JSON.stringify(cleared));
+      window.localStorage.setItem("typecafe.trainProgress.easy", JSON.stringify(cleared));
     });
 
-    await gotoLearn(page);
+    await gotoTrain(page);
     await expect(page.getByText("Level 10").first()).toBeVisible();
 
     // Sprint a handful of characters (banking a high net WPM over that span), then
@@ -189,7 +197,7 @@ test.describe("learn page", () => {
       await page.keyboard.press(c === " " ? "Space" : c);
     }
 
-    const popover = page.getByTestId("learn-complete-popover");
+    const popover = page.getByTestId("train-complete-popover");
     await expect(popover).toBeVisible({ timeout: 15_000 });
     await expect(popover).toContainText("not cleared yet");
     await expect(popover.getByRole("button", { name: "Next level" })).toHaveCount(0);
@@ -200,15 +208,15 @@ test.describe("learn page", () => {
       const cleared = Array.from({ length: 9 }, (_, i) => ({
         options: `Level ${i + 1}`, speed: 200, accuracy: 100, stars: 3,
       }));
-      window.localStorage.setItem("typecafe.learnProgress.easy", JSON.stringify(cleared));
+      window.localStorage.setItem("typecafe.trainProgress.easy", JSON.stringify(cleared));
     });
 
-    await gotoLearn(page);
+    await gotoTrain(page);
     await expect(page.getByText("Level 10").first()).toBeVisible();
 
     await typeVisibleTestText(page);
 
-    const popover = page.getByTestId("learn-complete-popover");
+    const popover = page.getByTestId("train-complete-popover");
     await expect(popover).toBeVisible();
     await expect(popover).toContainText("Level 10 clear!");
   });
@@ -219,15 +227,15 @@ test.describe("learn page", () => {
       const cleared = Array.from({ length: 3 }, (_, i) => ({
         options: `Level ${i + 1}`, speed: 200, accuracy: 100, stars: 3,
       }));
-      window.localStorage.setItem("typecafe.learnProgress.easy", JSON.stringify(cleared));
+      window.localStorage.setItem("typecafe.trainProgress.easy", JSON.stringify(cleared));
     });
 
-    await gotoLearn(page);
+    await gotoTrain(page);
     await expect(page.getByText("Level 4").first()).toBeVisible();
 
     // Speed rounds are timed — a countdown is shown and the chip reads "Timed".
     await expect(page.getByTestId("timed-countdown")).toBeVisible();
-    await expect(page.getByTestId("learn-level-kind")).toContainText("Timed");
+    await expect(page.getByTestId("train-level-kind")).toContainText("Timed");
 
     // ...and the drill stays on Level 4's keys (home row: asdfjkl).
     const chars = await page.locator("#words .char").allTextContents();
@@ -244,22 +252,22 @@ test.describe("learn page", () => {
       const cleared = Array.from({ length: 6 }, (_, i) => ({
         options: `Level ${i + 1}`, speed: 200, accuracy: 100, stars: 3,
       }));
-      window.localStorage.setItem("typecafe.learnProgress.easy", JSON.stringify(cleared));
+      window.localStorage.setItem("typecafe.trainProgress.easy", JSON.stringify(cleared));
     });
 
-    await gotoLearn(page);
+    await gotoTrain(page);
     await expect(page.getByText("Level 7").first()).toBeVisible();
     // No-miss levels carry a "No miss" type chip in the controls.
-    await expect(page.getByTestId("learn-level-kind")).toContainText("No miss");
+    await expect(page.getByTestId("train-level-kind")).toContainText("No miss");
 
     await typeCurrentCharacter(page, 0); // correct — starts the run
     await typeWrongCharacter(page, 1);   // one miss ends it
 
-    const popover = page.getByTestId("learn-complete-popover");
+    const popover = page.getByTestId("train-complete-popover");
     await expect(popover).toBeVisible();
     await expect(popover).toContainText("not cleared yet");
     await expect(popover).toContainText("One miss");
-    await expect(popover.getByTestId("learn-accuracy-result")).toContainText("Need 100%");
+    await expect(popover.getByTestId("train-accuracy-result")).toContainText("Need 100%");
   });
 
   test("no-miss level: a perfect run clears it", async ({ page }) => {
@@ -267,42 +275,42 @@ test.describe("learn page", () => {
       const cleared = Array.from({ length: 6 }, (_, i) => ({
         options: `Level ${i + 1}`, speed: 200, accuracy: 100, stars: 3,
       }));
-      window.localStorage.setItem("typecafe.learnProgress.easy", JSON.stringify(cleared));
+      window.localStorage.setItem("typecafe.trainProgress.easy", JSON.stringify(cleared));
     });
 
-    await gotoLearn(page);
+    await gotoTrain(page);
     await expect(page.getByText("Level 7").first()).toBeVisible();
 
     await typeVisibleTestText(page);
 
-    const popover = page.getByTestId("learn-complete-popover");
+    const popover = page.getByTestId("train-complete-popover");
     await expect(popover).toBeVisible();
     await expect(popover).toContainText("Level 7 clear!");
-    await expect(popover.getByTestId("learn-accuracy-result")).toContainText("Passed 100%");
+    await expect(popover.getByTestId("train-accuracy-result")).toContainText("Passed 100%");
   });
 
   test("signed-in users can import device progress when account progress exists", async ({ page }) => {
     await mockAuthenticatedSession(page);
     await mockTrpc(page, {
-      savedLearnProgress: [{ options: "Level 1", speed: 45, accuracy: 95 }],
-      importedLearnProgress: [
+      savedTrainProgress: [{ options: "Level 1", speed: 45, accuracy: 95 }],
+      importedTrainProgress: [
         { options: "Level 1", speed: 45, accuracy: 95 },
         { options: "Level 2", speed: 50, accuracy: 98 },
       ],
     });
     await page.addInitScript(() => {
       window.localStorage.setItem(
-        "typecafe.learnProgress.easy",
+        "typecafe.trainProgress.easy",
         JSON.stringify([{ options: "Level 2", speed: 50, accuracy: 98 }]),
       );
     });
 
-    await gotoLearn(page);
+    await gotoTrain(page);
     await expect(page.getByText("Device progress is available for this difficulty.")).toBeVisible();
 
     await page.getByRole("button", { name: "Import progress" }).click();
 
     await expect(page.getByText("Device progress imported to your account.")).toBeVisible();
-    await expect.poll(async () => page.evaluate(() => window.localStorage.getItem("typecafe.learnProgress.easy"))).toBeNull();
+    await expect.poll(async () => page.evaluate(() => window.localStorage.getItem("typecafe.trainProgress.easy"))).toBeNull();
   });
 });
