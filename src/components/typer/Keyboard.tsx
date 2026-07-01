@@ -89,11 +89,11 @@ export const Keyboard = (props: KeyboardProps) => {
             // drill targets that don't count toward the floor and remove freely.
             if (ALPHABET.includes(key)) {
                 const letters = selectedKeys.filter(k => ALPHABET.includes(k))
-                if (letters.length <= 6) {
+                if (letters.length <= 8) {
                     dispatch(addAlert({ message: "Must include at least 6 keys!", type: "error" }))
                     return
                 }
-                if (VOWELS.includes(key) && letters.filter(k => VOWELS.includes(k)).length <= 1) {
+                if (VOWELS.includes(key) && letters.filter(k => VOWELS.includes(k)).length <= 2) {
                     dispatch(addAlert({ message: "Must include at least 1 vowel!", type: "error" }))
                     return
                 }
