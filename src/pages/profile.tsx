@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import { Modal } from "~/components/Modal";
 import { Edit } from "~/components/profile/edit/Edit";
-import { ProfileView } from "~/components/profile/ProfileView";
+import { ProfileLoadingSkeleton, ProfileView } from "~/components/profile/ProfileView";
 import { api } from "~/utils/api";
 import { ConfirmModal } from "~/components/ConfirmModal";
 
@@ -56,8 +56,8 @@ const Profile: NextPage = () => {
     }
   }, [status, router])
 
-  if (status === "loading") return <div className="loading-spinner"></div>;
-  else if (status === "unauthenticated") return <div className="loading-spinner"></div>;
+  if (status === "loading") return <ProfileLoadingSkeleton />;
+  else if (status === "unauthenticated") return <ProfileLoadingSkeleton />;
 
   return (
     <>

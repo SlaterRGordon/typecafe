@@ -2,12 +2,30 @@ import { expect, test } from "@playwright/test";
 import { mockTrpc } from "./helpers/trpc";
 
 test.describe("public profile", () => {
-  test.beforeEach(async ({ page }) => {
+  test("shows a profile-shaped skeleton while loading", async ({ page }) => {
+    let releaseProfile = () => {};
+    const profileHold = new Promise<void>((resolve) => {
+      releaseProfile = resolve;
+    });
+
     await mockTrpc(page);
+    await page.route("**/api/trpc/user.getProfileByUsername**", async (route) => {
+      await profileHold;
+      await route.fallback();
+    });
     await page.goto("/profile/testuser");
+
+    await expect(page.getByTestId("profile-loading-skeleton")).toBeVisible();
+    await expect(page.getByTestId("profile-loading-skeleton")).toHaveAttribute("aria-busy", "true");
+
+    releaseProfile();
+    await expect(page.getByText("testuser").first()).toBeVisible();
   });
 
   test("renders public profile identity card, hero, stats, and training proof", async ({ page }) => {
+    await mockTrpc(page);
+    await page.goto("/profile/testuser");
+
     await expect(page.getByText("testuser").first()).toBeVisible();
     await expect(page.getByText("Typing fast, testing faster.")).toBeVisible();
     await expect(page.getByText("https://typecafe.vercel.app")).toBeVisible();

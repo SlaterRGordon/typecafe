@@ -1,5 +1,5 @@
 import { useSession } from "next-auth/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Avatar } from "../Avatar";
 import { useRouter } from "next/router";
 import { SHOW_PLAN_NAVIGATION } from "~/lib/features";
@@ -28,6 +28,10 @@ export const SideNavigation = () => {
     }
     const navLabelClass = `text-lg normal-case ml-2 whitespace-nowrap ${isExpanded ? 'block' : 'hidden'}`
     const navIconClass = "h-6 w-6 shrink-0"
+
+    useEffect(() => {
+        window.dispatchEvent(new CustomEvent("typecafe:side-nav-expanded", { detail: isExpanded }));
+    }, [isExpanded]);
 
     return (
         <div

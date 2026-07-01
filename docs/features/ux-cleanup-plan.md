@@ -102,6 +102,21 @@ in the space the banner vacated. Must feel minimal and look good.
 - [x] Coexists with #1: challenge lives in the corner, this single row is the only
   thing above the test.
 
+### 5b. Home coach tabs
+
+**Decision:** replace the one-off home pill and corner challenge card with two
+quiet rail-attached coach tabs. The tab label stays visible, while the tab
+itself expands into the details and CTA on hover/focus.
+
+- [x] Move the signed-in drill suggestion into a labeled "Fix this" tab aligned
+  with the Train row; keep the same weak-spot data and dismissal key.
+- [x] Move the undone daily challenge prompt into a labeled "Try now" tab aligned
+  with the Challenge row; keep the same local/remote status behavior and per-day
+  session dismissal.
+- [x] Keep a compact inline fallback on mobile, where the side rail does not
+  exist.
+- [x] Update e2e coverage and screenshot-tour captures for the tab interaction.
+
 ---
 
 ## 6. Mode bar consolidation: fold Relaxed + Quotes away
