@@ -275,6 +275,23 @@ test.describe("home typing test", () => {
     await expect(tab).toBeHidden();
   });
 
+  test("desktop coach tabs persist after leaving home", async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name.includes("mobile"), "Rail coach tabs are desktop-only.");
+    await mockAuthenticatedSession(page);
+    await mockTrpc(page);
+    await gotoHome(page);
+
+    await expect(page.getByTestId("home-coach-tab-drill")).toBeVisible();
+    await page.getByRole("button", { name: "Progress" }).click();
+    await expect(page).toHaveURL(/\/progress$/);
+    await expect(page.getByTestId("headline-delta")).toBeVisible();
+
+    const tab = page.getByTestId("home-coach-tab-drill");
+    await expect(tab).toBeVisible();
+    await tab.hover();
+    await expect(page.getByTestId("home-coach-tab-drill-panel")).toContainText("b->r");
+  });
+
   test("guests see no drill coach tab", async ({ page }) => {
     await mockTrpc(page);
     await gotoHome(page);
