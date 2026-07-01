@@ -177,30 +177,34 @@ export function HomeCoachTabs({ className = "", desktop = true, inline = true }:
                     ),
                 ).slice(0, 4);
 
-            let drillKeys: string | null = null;
+            let drillHref: string | null = null;
+            let findingId: string | null = null;
             let drillBody: React.ReactNode = null;
             if (slowest) {
-                drillKeys = `${slowest.from},${slowest.to}`;
+                findingId = `transition:${slowest.pair}`;
+                drillHref = `/drill?transitions=${slowest.pair}`;
                 drillBody = <>Your slowest jump is <span className="font-mono font-bold text-base-content">{slowest.from}-&gt;{slowest.to}</span> ({slowest.ratio.toFixed(1)}x avg).</>;
             } else if (weakKeys.length > 0) {
-                drillKeys = weakKeys.map((k) => k.key).join(",");
+                const keys = weakKeys.map((k) => k.key).join(",");
+                findingId = `keys:${keys}`;
+                drillHref = `/drill?keys=${keys}`;
                 drillBody = <>Your weakest keys are <span className="font-mono font-bold text-base-content">{weakKeys.map((k) => k.key).join(" ")}</span>.</>;
             }
 
-            if (drillKeys && dismissedFinding !== drillKeys) {
+            if (drillHref && findingId && dismissedFinding !== findingId) {
                 nextTabs.push({
                     key: "drill",
                     label: "Fix this",
                     eyebrow: "Targeted drill",
                     body: drillBody,
-                    href: `/drill?keys=${drillKeys}`,
+                    href: drillHref,
                     cta: "Start drill",
                     testId: "home-coach-tab-drill",
                     topClassName: "top-[12.5rem]",
                     dismissLabel: "Dismiss drill suggestion",
                     onDismiss: () => {
-                        setDismissedFinding(drillKeys);
-                        try { localStorage.setItem(NEXT_ACTION_DISMISS_KEY, drillKeys); } catch { /* localStorage unavailable */ }
+                        setDismissedFinding(findingId);
+                        try { localStorage.setItem(NEXT_ACTION_DISMISS_KEY, findingId); } catch { /* localStorage unavailable */ }
                     },
                 });
             }
