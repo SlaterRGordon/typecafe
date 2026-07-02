@@ -408,7 +408,7 @@ const Train: NextPage = () => {
     }
 
     return (
-        <div className="relative flex h-full w-full flex-col items-center overflow-y-auto overflow-x-hidden px-4 pb-4 pt-4 md:w-10/12 md:self-center md:px-0 md:pb-8 md:pt-8">
+        <div className="relative flex h-full w-full flex-col items-center overflow-y-auto overflow-x-hidden max-w-screen-xl px-4 pb-4 pt-4 md:self-center md:px-0 md:pb-8 md:pt-8">
             <div className="flex w-full flex-col items-center justify-center gap-6 py-4 md:min-h-full md:py-8">
 
                 {view === "map" &&

@@ -134,7 +134,7 @@ function ProgressLoadingSkeleton() {
             data-testid="progress-loading-skeleton"
             role="status"
             aria-busy="true"
-            className="w-full max-w-6xl space-y-4 motion-safe:animate-pulse"
+            className="w-full max-w-screen-xl space-y-4 motion-safe:animate-pulse"
         >
             <span className="sr-only">Loading your progress...</span>
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -355,7 +355,7 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
     };
 
     return (
-        <div className="w-full max-w-6xl space-y-4">
+        <div className="w-full max-w-screen-xl space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex flex-wrap items-center gap-2">
                     <h1 className="font-mono text-3xl font-bold tracking-tight">Progress</h1>
@@ -651,7 +651,7 @@ const Progress: NextPage = () => {
                     <ProgressLoadingSkeleton />
                 ) : !sessionData?.user ? (
                     guestRecords.length > 0 ? (
-                        <div className="w-full max-w-6xl space-y-4">
+                        <div className="w-full max-w-screen-xl space-y-4">
                             <div data-testid="guest-keep-banner" className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-primary/40 bg-primary/10 px-4 py-3">
                                 <span className="text-sm text-base-content/80">This progress lives on this device only.</span>
                                 <label htmlFor="signInModal" className="inline-flex cursor-pointer items-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85">

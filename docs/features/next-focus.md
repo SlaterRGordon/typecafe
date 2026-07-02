@@ -44,7 +44,7 @@ all four English lists.
 Last unchecked active item in [ux-cleanup-plan.md](ux-cleanup-plan.md);
 already decided and scoped there (two tiers, shared container, kill ad-hoc
 `w-*/12`). Sequenced last so it sweeps pages after content settled — which
-has now happened. Checkboxes live in that doc.
+has now happened. **Done** — checkboxes ticked in that doc.
 
 ## 4. Screenshot-tour hygiene
 

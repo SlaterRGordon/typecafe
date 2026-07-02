@@ -226,7 +226,7 @@ const Challenge: NextPage = () => {
                 <title>Daily Challenge - TypeCafe</title>
                 <meta name="description" content="Today's daily typing challenge - everyone types the same text. Beat your average and climb the daily rankings." />
             </Head>
-            <div id="typer" className={`flex h-full flex-col overflow-auto ${completed ? "py-4" : "[justify-content:safe_center]"} md:w-10/12`}>
+            <div id="typer" className={`flex h-full flex-col overflow-auto ${completed ? "py-4" : "[justify-content:safe_center]"} w-full max-w-screen-xl mx-auto`}>
                 {!dateKey ?
                     <div className="mx-auto w-full max-w-screen-xl px-4 text-center">
                         <h1 className="font-mono text-2xl font-bold tracking-tight">Daily Challenge</h1>
