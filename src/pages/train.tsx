@@ -332,9 +332,12 @@ const Train: NextPage = () => {
                 </div>
             }
             {sessionStatus === "unauthenticated" &&
-                <label className="btn btn-primary btn-sm mr-auto" htmlFor="signInModal">
-                    Sign in to save level progress
-                </label>
+                <div className="flex w-full items-center justify-between gap-3 rounded bg-base-300 px-4 py-3 text-base-content">
+                    <span className="text-sm font-semibold">Level progress lives on this device only.</span>
+                    <label className="btn btn-primary btn-sm" htmlFor="signInModal">
+                        Sign in to save level progress
+                    </label>
+                </div>
             }
         </>
     )

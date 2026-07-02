@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
+import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react"
 import { applyTextOptions, generateBetterPseudoText, generateText } from "./utils"
 import { TestModes, TestSubModes } from "./types"
 import { isAnyModalOpen, isModalOpen, MODAL_IDS } from "~/lib/modals"
@@ -7,6 +7,11 @@ interface TextProps {
     text: string,
     started: boolean,
     restarted: boolean,
+    // The mode's counter row (countdown / word count), rendered inside the same
+    // shrink-wrapped block as the words so it follows the text: a full line keeps
+    // it at the text's left origin, a shorter-than-one-line prompt carries it along
+    // to the center.
+    counter?: ReactNode,
     // Increments on every restart; forces the reset effect to re-run even when the
     // regenerated text is byte-identical (e.g. a grams level's deterministic gram).
     restartNonce?: number,
@@ -55,6 +60,7 @@ export const Text = memo(function Text(props: TextProps) {
         text,
         started,
         restarted,
+        counter,
         restartNonce,
         modalOpen,
         language,
@@ -416,14 +422,17 @@ export const Text = memo(function Text(props: TextProps) {
                 const right = sameLine ? b!.offsetLeft : a.offsetLeft + a.offsetWidth
                 const x = a.offsetLeft + frac * (right - a.offsetLeft)
                 const y = a.offsetTop - words.scrollTop
+                // Offsets are relative to #text; the words' own top edge (below the
+                // counter slot) is where "scrolled off the top" begins.
+                const wordsTop = words.offsetTop
                 // When the typist races ahead, the pacer's line scrolls off the top
-                // and clips. Rather than lose it, show an up-caret riding the top edge
-                // at the pacer's horizontal position, so where it is stays legible.
-                if (y < 0) {
+                // and clips. Rather than lose it, show an up-caret riding the words'
+                // top edge at the pacer's horizontal position, so where it is stays legible.
+                if (y < wordsTop) {
                     line.style.display = 'none'
                     if (above) {
                         above.style.display = 'block'
-                        above.style.transform = `translate(${x - 4}px, 0)`
+                        above.style.transform = `translate(${x - 4}px, ${wordsTop}px)`
                     }
                 } else {
                     line.style.display = 'block'
@@ -444,21 +453,27 @@ export const Text = memo(function Text(props: TextProps) {
     }, [started, pacerWpm, restartNonce, text])
 
     return (
-        <div id="text" className={`relative z-30 mb-8 flex w-full max-w-[calc(100vw-2rem)] max-h-[6.6rem] flex-col overflow-hidden sm:max-h-[9rem] md:max-w-screen-xl ${mode === TestModes.ngrams && text.length <= 8 ? "text-[40px] leading-[4.4rem] tracking-wide sm:text-[60px] sm:leading-[6rem]" : "text-[24px] leading-[2.2rem] sm:text-[34px] sm:leading-[3rem]"}`}>
+        <div id="text" className={`relative z-30 mb-8 flex w-full max-w-[calc(100vw-2rem)] flex-col md:max-w-screen-xl ${mode === TestModes.ngrams && text.length <= 8 ? "text-[40px] leading-[4.4rem] tracking-wide sm:text-[60px] sm:leading-[6rem]" : "text-[24px] leading-[2.2rem] sm:text-[34px] sm:leading-[3rem]"}`}>
             <input id="input" autoCapitalize="none" autoComplete="off" className="h-0 p-0 m-0 border-none" onKeyDown={handleKeyPress} ref={inputRef} autoFocus />
             {/* Boss pacer line — positioned and animated imperatively by the pacer effect. */}
             <div ref={pacerLineRef} aria-hidden="true" className="pointer-events-none absolute left-0 top-0 z-40 w-[3px] rounded-full bg-error/90 will-change-transform" style={{ display: 'none', height: 0, transform: 'translate(-9999px, 0)' }} />
             {/* Shown instead when the pacer has scrolled above the view: an up-caret that
-                tracks its horizontal position along the top edge, so its location stays legible. */}
+                tracks its horizontal position along the words' top edge, so its location stays legible. */}
             <div ref={pacerAboveRef} aria-hidden="true" className="pointer-events-none absolute left-0 top-0 z-40 text-[0.7rem] leading-none text-error will-change-transform" style={{ display: 'none', transform: 'translate(-9999px, 0)' }}>▲</div>
-            {/* justify-center: a shorter-than-one-line text shrinks to content width and
-                centers; longer text clamps to max-w-full and reads left-aligned as usual. */}
-            <div className="flex w-full flex-wrap justify-center overflow-y-hidden no-scrollbar scroll-smooth font-mono select-none" id="words" ref={typerRef}>
-                <div
-                    className="max-w-full"
-                    ref={textContainerRef}
-                />
-                {loadingText && <div className="w-8 h-8 rounded-full animate-spin border border-solid text-primary border-t-transparent"></div>}
+            {/* The shrink-wrapped block: a shorter-than-one-line text sizes to content
+                width and centers, carrying the counter with it; longer text clamps to
+                max-w-full and reads left-aligned with the counter at its origin. */}
+            <div className="flex w-full justify-center">
+                <div className="flex min-w-0 max-w-full flex-col">
+                    {counter}
+                    <div className="flex w-full max-h-[6.6rem] flex-wrap overflow-y-hidden no-scrollbar scroll-smooth font-mono select-none sm:max-h-[9rem]" id="words" ref={typerRef}>
+                        <div
+                            className="max-w-full"
+                            ref={textContainerRef}
+                        />
+                        {loadingText && <div className="w-8 h-8 rounded-full animate-spin border border-solid text-primary border-t-transparent"></div>}
+                    </div>
+                </div>
             </div>
         </div>
     )
