@@ -451,7 +451,9 @@ export const Text = memo(function Text(props: TextProps) {
             {/* Shown instead when the pacer has scrolled above the view: an up-caret that
                 tracks its horizontal position along the top edge, so its location stays legible. */}
             <div ref={pacerAboveRef} aria-hidden="true" className="pointer-events-none absolute left-0 top-0 z-40 text-[0.7rem] leading-none text-error will-change-transform" style={{ display: 'none', transform: 'translate(-9999px, 0)' }}>▲</div>
-            <div className="flex w-full flex-wrap justify-start overflow-y-hidden no-scrollbar scroll-smooth font-mono select-none sm:justify-start" id="words" ref={typerRef}>
+            {/* justify-center: a shorter-than-one-line text shrinks to content width and
+                centers; longer text clamps to max-w-full and reads left-aligned as usual. */}
+            <div className="flex w-full flex-wrap justify-center overflow-y-hidden no-scrollbar scroll-smooth font-mono select-none" id="words" ref={typerRef}>
                 <div
                     className="max-w-full"
                     ref={textContainerRef}
