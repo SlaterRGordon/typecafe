@@ -32,10 +32,12 @@ signup pitch.
 daily-challenge screenshot — the one shared text everyone types. Present in
 all four English lists.
 
-- [ ] Scrub a small blocklist from the language JSONs (one-time cleanup, no
-  runtime cost — free-tier friendly).
-- [ ] Unit-check that no list word hits the blocklist so regressions can't
-  sneak back in via list updates.
+- [x] Scrub a small blocklist from the language JSONs (one-time cleanup, no
+  runtime cost — free-tier friendly). Exact match only ("analysis", "canal",
+  "grape" stay); ordinary words (kill, hell, strip, drug, gay) stay. 148
+  words removed across the four English lists; other languages were clean.
+- [x] Unit-check that no list word hits the blocklist so regressions can't
+  sneak back in via list updates (`src/lib/wordBlocklist.test.ts`).
 
 ## 3. Standardize page width (ux-cleanup-plan §8)
 
