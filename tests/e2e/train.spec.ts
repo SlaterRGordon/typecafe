@@ -142,6 +142,45 @@ test.describe("train page", () => {
     await expect.poll(async () => page.evaluate(() => window.localStorage.getItem("typecafe.trainProgress.easy"))).toBeNull();
   });
 
+  test("tab+space on the clear popover advances to the next level", async ({ page }) => {
+    await gotoTrain(page);
+
+    await typeVisibleTestText(page);
+
+    const popover = page.getByTestId("train-complete-popover");
+    await expect(popover).toBeVisible();
+
+    // The chord drives Next level rather than restarting Level 1 underneath.
+    await page.keyboard.down("Tab");
+    await page.keyboard.press(" ");
+    await page.keyboard.up("Tab");
+
+    await expect(popover).toBeHidden();
+    await expect(page.getByText("Level 2").first()).toBeVisible();
+  });
+
+  test("tab+enter on the fail popover retries the level", async ({ page }) => {
+    await gotoTrain(page);
+
+    await typeCurrentCharacter(page);
+    const remaining = await page.locator("#words .char").count();
+    for (let index = 1; index < remaining; index += 1) {
+      await page.keyboard.press("q");
+    }
+
+    const popover = page.getByTestId("train-complete-popover");
+    await expect(popover).toBeVisible();
+
+    // No next level on a fail — the chord takes the Try again path.
+    await page.keyboard.down("Tab");
+    await page.keyboard.press("Enter");
+    await page.keyboard.up("Tab");
+
+    await expect(popover).toBeHidden();
+    await expect(page.getByTestId("train-rail-caption")).toContainText("Level 1");
+    await expect(page.locator("#words .char").first()).toBeVisible();
+  });
+
   test("signed-in completion unlocks the next level", async ({ page }) => {
     await mockAuthenticatedSession(page);
     await mockTrpc(page);

@@ -299,6 +299,47 @@ const Train: NextPage = () => {
         setCompletion(null)
     }
 
+    // While the completion popover is open, the Tab+Space/Enter chord drives its
+    // primary action — Next level when cleared (no-op if there's none), else Try
+    // again — instead of restarting the test underneath. Listens on window in the
+    // capture phase so it fires before (and stops) the Typer's document-level
+    // restart shortcut, which React mounts first as a child effect.
+    useEffect(() => {
+        if (!completion) return
+
+        const keys: Record<string, boolean> = {}
+        let firing = false
+        const isChord = () => keys.Tab && (keys[" "] || keys.Space || keys.Spacebar || keys.Enter)
+
+        const onKeyDown = (e: KeyboardEvent) => {
+            if (e.repeat) return
+            keys[e.key] = true
+            if (keys.Tab) {
+                e.preventDefault()
+                e.stopPropagation()
+            }
+            if (isChord() && !firing) {
+                firing = true
+                if (completion.stars > 0) goToNextLevel()
+                else retryLevel()
+            }
+        }
+        const onKeyUp = (e: KeyboardEvent) => {
+            keys[e.key] = false
+            if (!isChord()) firing = false
+        }
+
+        window.addEventListener("keydown", onKeyDown, true)
+        window.addEventListener("keyup", onKeyUp, true)
+        return () => {
+            window.removeEventListener("keydown", onKeyDown, true)
+            window.removeEventListener("keyup", onKeyUp, true)
+        }
+        // goToNextLevel/retryLevel read the current `completion` closure, so
+        // re-bind whenever it changes.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [completion])
+
     // Tier totals for the map header: levels with at least one star are done.
     const doneCount = ladder.filter((status) => status.stars > 0).length
     const starCount = ladder.reduce((sum, status) => sum + status.stars, 0)
