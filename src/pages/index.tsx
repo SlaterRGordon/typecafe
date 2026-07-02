@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
+import { useDispatch } from "react-redux";
 import { HomeCoachTabs } from "~/components/home/HomeCoachTabs";
 import { ShareableScoreCard, type ScoreSnapshot } from "~/components/scores/ShareableScoreCard";
 import { Keyboard } from "~/components/typer/Keyboard";
@@ -13,6 +14,8 @@ import { typingFocusFadeClass } from "~/components/typer/typingFocus";
 import { TestModes, TestSubModes, type QuoteLength, type TestGramScopes, type TestGramSources } from "~/components/typer/types";
 import { useTestSettings } from "~/hooks/useTestSettings";
 import { withPracticeVowel } from "~/lib/diagnosis";
+import { smartDrillSelection } from "~/lib/drillKeys";
+import { addAlert } from "~/state/alert/alertSlice";
 import { appendLocalProgress } from "~/lib/progressHistory";
 import { consistencyFromSamples } from "~/lib/stats";
 import { api } from "~/utils/api";
@@ -47,10 +50,8 @@ const Home: NextPage = () => {
   const {
     mode, subMode, language, quoteLength, count, customLength, punctuation, capitals,
     selectedKeys, gramSource, gramScope, gramCombination, gramRepetition,
-    gramWpmThreshold, gramAccuracyThreshold, showStats, showKeyboard,
+    gramWpmThreshold, gramAccuracyThreshold,
   } = settings
-  const setShowStats = (value: boolean) => updateSetting("showStats", value)
-  const setShowKeyboard = (value: boolean) => updateSetting("showKeyboard", value)
   const setLanguage = (value: string) => updateSetting("language", value)
   const setQuoteLength = (value: QuoteLength) => updateSetting("quoteLength", value)
   const setMode = (value: TestModes) => updateSetting("mode", value)
@@ -68,6 +69,10 @@ const Home: NextPage = () => {
   const setGramAccuracyThreshold = (value: number) => updateSetting("gramAccuracyThreshold", value)
   const [currentKey, setCurrentKey] = useState("")
   const [typingFocused, setTypingFocused] = useState(false)
+  // Practice: the shift-layer toggle lives in the settings line but drives the
+  // keyboard board below the test, so the page holds it.
+  const [shiftToggle, setShiftToggle] = useState(false)
+  const dispatch = useDispatch()
   const currentKeyRef = useRef("")
   const [attemptVersion, setAttemptVersion] = useState(0)
   const [restartSignal, setRestartSignal] = useState(0)
@@ -170,6 +175,27 @@ const Home: NextPage = () => {
     if (currentKeyRef.current === key) return
     currentKeyRef.current = key
     setCurrentKey(key)
+  }
+
+  // Smart drill (settings line): select the eight least-accurate keys from the
+  // folded lifetime + session attempts. Selection math lives in lib/drillKeys.
+  const handleSmartDrill = () => {
+    const merged = new Map<string, { attempts: number, correct: number }>()
+    for (const source of [persistedAttemptsRef.current, charAttemptsRef.current]) {
+      for (const [key, value] of source) {
+        const entry = merged.get(key) ?? { attempts: 0, correct: 0 }
+        entry.attempts += value.attempts
+        entry.correct += value.correct
+        merged.set(key, entry)
+      }
+    }
+    const keys = smartDrillSelection(merged)
+    if (!keys) {
+      dispatch(addAlert({ message: "Not enough typing data yet — practice a little first!", type: "warning" }))
+      return
+    }
+    setSelectedKeys(keys)
+    dispatch(addAlert({ message: `Drilling your toughest keys: ${keys.join(", ")}`, type: "success" }))
   }
 
   const onAttemptChange = () => {
@@ -551,11 +577,9 @@ const Home: NextPage = () => {
     "operatingSystem": "Any",
     "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
   };
-  const shouldShowHomeKeyboard = showKeyboard || mode === TestModes.practice
-  // Always hold the keyboard slot on the test view so toggling the keyboard — or
-  // switching modes/lengths (including ∞, which runs the non-normal relaxed
-  // engine) — never shifts the centered text and toolbar vertically.
-  const shouldReserveHomeKeyboardSpace = true
+  // The keyboard is practice-only: there it's both the key selector and the
+  // feedback surface. Other modes keep the text as the sole hero.
+  const shouldShowHomeKeyboard = mode === TestModes.practice
 
   return (
     <>
@@ -588,8 +612,9 @@ const Home: NextPage = () => {
               gramAccuracyThreshold={gramAccuracyThreshold}
               punctuation={punctuation}
               capitals={capitals}
-              showStats={showStats}
-              showKeyboard={showKeyboard}
+              shiftLayer={shiftToggle}
+              onToggleShift={() => setShiftToggle((on) => !on)}
+              onSmartDrill={handleSmartDrill}
               setCount={setCount}
               setCustomLength={setCustomLength}
               setLanguage={setLanguage}
@@ -601,8 +626,6 @@ const Home: NextPage = () => {
               setGramAccuracyThreshold={setGramAccuracyThreshold}
               setPunctuation={setPunctuation}
               setCapitals={setCapitals}
-              setShowStats={setShowStats}
-              setShowKeyboard={setShowKeyboard}
               onRestart={requestRestart}
               fullscreen={fullscreen}
               setFullscreen={setFullscreen}
@@ -653,7 +676,7 @@ const Home: NextPage = () => {
           punctuation={punctuation}
           capitals={capitals}
           customLength={customLength}
-          showStats={showStats}
+          showStats={true}
           showConfig={false}
           showControls={false}
           modalOpen={false}
@@ -707,11 +730,9 @@ const Home: NextPage = () => {
           :
           null
         }
-        {!completedScore && shouldReserveHomeKeyboardSpace &&
-          <div data-testid="typing-focus-home-keyboard" className={`min-h-[11rem] md:min-h-[15.25rem] ${shouldShowHomeKeyboard ? "" : "invisible pointer-events-none"}`}>
-            {shouldShowHomeKeyboard &&
-              <Keyboard mode={mode} currentKey={currentKey} selectedKeys={selectedKeys} setSelectedKeys={setSelectedKeys} charAttemptsRef={charAttemptsRef} baseAttemptsRef={persistedAttemptsRef} attemptVersion={attemptVersion} />
-            }
+        {!completedScore && shouldShowHomeKeyboard &&
+          <div data-testid="typing-focus-home-keyboard" className="min-h-[11rem] md:min-h-[15.25rem]">
+            <Keyboard mode={mode} currentKey={currentKey} selectedKeys={selectedKeys} setSelectedKeys={setSelectedKeys} charAttemptsRef={charAttemptsRef} baseAttemptsRef={persistedAttemptsRef} attemptVersion={attemptVersion} shiftToggle={shiftToggle} />
           </div>
         }
       </div>

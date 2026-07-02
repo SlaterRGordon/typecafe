@@ -2,6 +2,8 @@
 // Pure and in lib/ so diagnosis, the drill compiler, and the typer all agree on
 // "drillable" without a component reaching across layers.
 
+import { worstKeysFromAttempts } from "./stats"
+
 // Punctuation the drill sprinkles at word boundaries, split by where it lands in
 // a sentence (enders close a clause; mids sit between words).
 export const ENDER_MARKS = ['.', '?', '!']
@@ -16,3 +18,47 @@ export const isDrillDigit = (key: string) => /^[0-9]$/.test(key)
 // directly (the shift motion rides on the base key), so they're not their own key.
 export const isDrillableKey = (key: string) =>
     /^[a-z]$/.test(key) || isDrillDigit(key) || isDrillMark(key)
+
+const VOWELS = "aeiou"
+const ALPHABET = "abcdefghijklmnopqrstuvwxyz"
+
+// Build a practice set from the user's eight least-accurate keys across letters,
+// numbers and punctuation. The worst letters anchor word generation — padded
+// with home-row keys and balanced so generation always has two vowels and a
+// consonant; weak numbers/punctuation ride along as extra drill targets
+// sprinkled into the text. Null when there isn't enough typing data yet.
+// minAttempts 3 matches the /progress "weakest keys" list, so smart drill
+// targets exactly the keys shown as weak there.
+export function smartDrillSelection(
+    attempts: ReadonlyMap<string, { attempts: number, correct: number }>,
+): string[] | null {
+    const drillable = new Map<string, { attempts: number, correct: number }>()
+    for (const [key, value] of attempts) {
+        if (isDrillableKey(key)) drillable.set(key, value)
+    }
+
+    const worst = worstKeysFromAttempts(drillable, 8, 3)
+    if (worst.length === 0) return null
+    const worstKeys = worst.map((entry) => entry.key)
+
+    // Letters anchor word-gen: keep the weak letters, pad to eight.
+    const letters = worstKeys.filter((key) => ALPHABET.includes(key))
+    for (const key of "asdfghjkleiou") {
+        if (letters.length >= 8) break
+        if (!letters.includes(key)) letters.push(key)
+    }
+    // Word generation needs variety: guarantee at least two vowels and one
+    // consonant, swapping the trailing (least-weak) slots if short.
+    const ensureMin = (pool: string, wanted: (key: string) => boolean, min: number) => {
+        for (let i = letters.length - 1; i >= 0 && letters.filter(wanted).length < min; i--) {
+            if (wanted(letters[i]!)) continue
+            const fill = pool.split("").find((f) => !letters.includes(f))
+            if (fill) letters[i] = fill
+        }
+    }
+    ensureMin("eaiou", (key) => VOWELS.includes(key), 2)
+    ensureMin("tnshr", (key) => !VOWELS.includes(key), 1)
+
+    const extras = worstKeys.filter((key) => isDrillDigit(key) || isDrillMark(key))
+    return [...letters, ...extras]
+}

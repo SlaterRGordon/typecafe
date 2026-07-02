@@ -97,43 +97,37 @@ test.describe("home typing test", () => {
     await expect(modeBar.getByRole("button", { name: "Normal" })).toHaveCount(0);
     await expect(toolbar.getByRole("button", { name: "15" })).toHaveAttribute("aria-pressed", "true");
 
-    // Words owns its length controls directly beside the mode group.
+    // Words owns its length options in the settings line.
     await selectMode(page, "Words", { force: true });
     await expect(modeBar.getByRole("button", { name: "Words" })).toHaveAttribute("aria-pressed", "true");
     await toolbar.getByRole("button", { name: "25" }).click();
     await expect(toolbar.getByRole("button", { name: "25" })).toHaveAttribute("aria-pressed", "true");
 
     const context = page.getByTestId("toolbar-context");
-    const beforeCustomBox = await context.boundingBox();
     await context.getByRole("button", { name: "Custom" }).click();
     const customInput = page.locator("#customLengthInput");
     await expect(customInput).toBeVisible();
-    const afterCustomBox = await context.boundingBox();
-    expect(beforeCustomBox).not.toBeNull();
-    expect(afterCustomBox).not.toBeNull();
-    expect(afterCustomBox!.width).toBeCloseTo(beforeCustomBox!.width, 0);
     await customInput.fill("6000");
-    // Enter commits (clamped to the max) and collapses the editor; the Custom
-    // button stays selected because the length is non-preset.
+    // Enter commits (clamped to the max) and collapses the editor; the custom
+    // option stays selected because the length is non-preset.
     await customInput.press("Enter");
     await expect(customInput).toHaveValue("5000");
     await expect(page.getByTestId("custom-length-panel")).toHaveAttribute("aria-hidden", "true");
     await expect(context.getByRole("button", { name: "Custom" })).toHaveAttribute("aria-pressed", "true");
 
-    // Language moved to its own toolbar icon.
+    // Language is a text control in the settings line.
     await toolbar.getByRole("button", { name: "Language: English" }).click();
     await expect(page.getByTestId("language-menu")).toBeVisible();
     await toolbar.getByRole("button", { name: "Spanish" }).click();
     await expect(toolbar.getByRole("button", { name: "Language: Spanish" })).toBeVisible();
 
-    // Settings is now a compact toolbar dropdown for secondary toggles only.
+    // The gear dropdown holds only the text add-ons (no display toggles).
     await openSettingsMenu(page);
     const settingsMenu = page.getByTestId("settings-menu");
     await expect(settingsMenu.getByText("Text")).toBeVisible();
-    await expect(settingsMenu.getByText("Display")).toBeVisible();
-    await expect(settingsMenu.getByText("Language")).toHaveCount(0);
-    await expect(settingsMenu.getByText("Length")).toHaveCount(0);
-    await expect(settingsMenu.getByText("Type")).toHaveCount(0);
+    await expect(settingsMenu.getByText("Display")).toHaveCount(0);
+    await expect(settingsMenu.getByRole("button", { name: /punctuation/ })).toBeVisible();
+    await expect(settingsMenu.getByRole("button", { name: /capitals/ })).toBeVisible();
     await toolbar.getByRole("button", { name: "Open typing settings" }).click();
     await expect(settingsMenu).toBeHidden();
     await openSettingsMenu(page);
@@ -150,12 +144,11 @@ test.describe("home typing test", () => {
     await toolbar.getByRole("button", { name: "Exit fullscreen" }).click();
     await expect(toolbar.getByRole("button", { name: "Enter fullscreen" })).toBeVisible();
 
-    // Grams mode switches on the inline bar; its settings live in the subpanel
-    // below the toolbar (not in the toolbar context, which collapses).
+    // Grams: sources and scopes are settings-line text segments; the numeric
+    // knobs live on the advanced line below (grams-panel).
     await selectMode(page, "Grams");
-    const gramsPanel = page.getByTestId("grams-panel");
-    await expect(gramsPanel).toBeVisible();
-    await expect(gramsPanel.getByRole("button", { name: "Bigrams" })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByTestId("grams-panel")).toBeVisible();
+    await expect(context.getByRole("button", { name: "bigrams" })).toHaveAttribute("aria-pressed", "true");
   });
 
   test("language icon shows only on word-list modes", async ({ page }) => {
@@ -321,39 +314,46 @@ test.describe("home typing test", () => {
     await expect(page.getByTestId("home-coach-tab-drill")).toBeHidden();
   });
 
-  test("grams advanced thresholds stay folded behind a disclosure", async ({ page }) => {
+  test("grams numeric knobs edit inline on the advanced line", async ({ page }) => {
     await gotoHome(page);
     await selectMode(page, "Grams");
     const panel = page.getByTestId("grams-panel");
     await expect(panel).toBeVisible();
 
-    // Source + Scope are the meaningful choices, shown by default.
-    await expect(panel.getByText("Source", { exact: true })).toBeVisible();
-    await expect(panel.getByText("Scope", { exact: true })).toBeVisible();
+    // Source + scope are settings-line segments; the knobs render as
+    // dotted-underline values until clicked.
+    const context = page.getByTestId("toolbar-context");
+    await expect(context.getByRole("button", { name: "bigrams" })).toHaveAttribute("aria-pressed", "true");
+    await expect(context.getByRole("button", { name: "top 50" })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.locator("#testGramWpmThresholdInput")).toHaveCount(0);
 
-    // The fiddly numeric knobs are hidden until Advanced is opened.
-    await expect(page.locator("#testGramWpmThresholdInput")).toBeHidden();
-    await panel.getByText("Advanced", { exact: true }).click();
-    await expect(page.locator("#testGramWpmThresholdInput")).toBeVisible();
+    // Click-to-edit: commit on Enter, and the new value renders back as text.
+    await panel.getByRole("button", { name: "Edit WPM needed to advance" }).click();
+    const input = page.locator("#testGramWpmThresholdInput");
+    await expect(input).toBeVisible();
+    await input.fill("35");
+    await input.press("Enter");
+    await expect(panel.getByRole("button", { name: "Edit WPM needed to advance" })).toContainText("35 wpm");
   });
 
-  test("settings cover language, practice, no-timer length, stats, and keyboard options", async ({ page }) => {
+  test("settings cover language, text add-ons, practice keyboard, and no-timer length", async ({ page }) => {
     await gotoHome(page);
 
     await page.getByTestId("typer-toolbar").getByRole("button", { name: "Language: English" }).click();
     await page.getByTestId("typer-toolbar").getByRole("button", { name: "Spanish" }).click();
     await expect(page.getByTestId("typer-toolbar").getByRole("button", { name: "Language: Spanish" })).toBeVisible();
 
+    // The display toggles are gone: live stats always render under the text and
+    // the keyboard is practice-only.
     await openSettingsMenu(page);
-
     const settingsMenu = page.getByTestId("settings-menu");
-    await settingsMenu.getByRole("button", { name: /Live stats/ }).click();
-    await expect(page.getByText("0.0wpm")).toBeHidden();
-
-    await settingsMenu.getByRole("button", { name: /Keyboard/ }).click();
-    await expect(page.locator(".typecafe-keyboard")).toBeVisible();
+    await expect(settingsMenu.getByRole("button", { name: /Live stats/ })).toHaveCount(0);
+    await expect(settingsMenu.getByRole("button", { name: /Keyboard/ })).toHaveCount(0);
     await page.keyboard.press("Escape");
     await expect(settingsMenu).toBeHidden();
+
+    await expect(page.getByTestId("live-stats")).toBeVisible();
+    await expect(page.locator(".typecafe-keyboard")).toHaveCount(0);
 
     // Mode switches on the inline bar, no modal round-trip.
     await selectMode(page, "Practice");
@@ -376,22 +376,6 @@ test.describe("home typing test", () => {
     // Typing starts the stopwatch; it must tick upward, not sit at 0.
     await typeCurrentCharacter(page);
     await expect(page.getByTestId("stat-time")).not.toHaveText("0", { timeout: 4000 });
-  });
-
-  test("keyboard toggle keeps the typing text vertically stable", async ({ page }) => {
-    await gotoHome(page);
-
-    const beforeBox = await page.locator("#words").boundingBox();
-    expect(beforeBox).not.toBeNull();
-
-    await openSettingsMenu(page);
-    await page.getByTestId("settings-menu").getByRole("button", { name: /Keyboard/ }).click();
-    await page.keyboard.press("Escape");
-    await expect(page.locator(".typecafe-keyboard")).toBeVisible();
-
-    const afterBox = await page.locator("#words").boundingBox();
-    expect(afterBox).not.toBeNull();
-    expect(Math.abs(afterBox!.y - beforeBox!.y)).toBeLessThanOrEqual(8);
   });
 
   // Phase 2 regression: the toolbar moved inside #typer, where Text.tsx's
@@ -498,9 +482,7 @@ test.describe("home typing test", () => {
     await typeCurrentCharacter(page, 2);
     await typeWrongCharacter(page, 3);
 
-    // Both responsive copies of the stats render the same value; assert it is
-    // present rather than coupling to which copy is visible at this viewport.
-    await expect(page.getByText("75.00%").first()).toBeAttached();
+    await expect(page.getByTestId("stat-acc")).toHaveText("75");
   });
 
   test("an incorrect first keystroke counts against accuracy", async ({ page }) => {
@@ -508,8 +490,8 @@ test.describe("home typing test", () => {
 
     await typeWrongCharacter(page, 0);
 
-    // 0-of-1 correct = 0.00%; previously the first wrong key didn't register at all.
-    await expect(page.getByText("0.00%").first()).toBeAttached();
+    // 0-of-1 correct = 0%; previously the first wrong key didn't register at all.
+    await expect(page.getByTestId("stat-acc")).toHaveText("0");
   });
 
   // Regression guard for the grams micro-sample WPM (phase-0-trust.md 0.1): the
@@ -593,15 +575,13 @@ test.describe("home typing test", () => {
     await selectMode(page, "Practice");
     await expect(page.locator(".typecafe-keyboard")).toBeVisible();
 
-    // The large countdown number (text-4xl font-mono) must not be present.
-    await expect(page.locator("#typer .text-4xl.font-mono")).toHaveCount(0);
+    // The countdown counter must not be present.
+    await expect(page.getByTestId("timed-countdown")).toHaveCount(0);
 
     // Typing accrues live stats — proof the session is running, not instantly
     // completed (which would leave the stats pending at "—" forever).
-    // Both responsive stats copies render the same value; assert it is present
-    // rather than coupling to which copy is visible at this viewport.
     for (let i = 0; i < 6; i++) await typeCurrentCharacter(page, i);
-    await expect(page.getByText("100.00%").first()).toBeAttached({ timeout: 3000 });
+    await expect(page.getByTestId("stat-acc")).toHaveText("100", { timeout: 3000 });
   });
 
   // Regression guard: a diagnosis can surface all-consonant weak keys, and the
@@ -618,7 +598,7 @@ test.describe("home typing test", () => {
 
     // The main thread is responsive and the drill is interactive (not frozen).
     for (let i = 0; i < 4; i++) await typeCurrentCharacter(page, i);
-    await expect(page.getByText("100.00%").first()).toBeAttached({ timeout: 4000 });
+    await expect(page.getByTestId("stat-acc")).toHaveText("100", { timeout: 4000 });
   });
 
   // Phase 1.3 + Slice 5c: the loop's last mile — /drill's "Re-measure" CTA returns

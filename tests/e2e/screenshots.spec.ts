@@ -141,14 +141,14 @@ test.describe("screenshot tour", () => {
     await expect(page.locator("#customLengthInput")).toBeVisible();
     await capture(page, testInfo, "06-settings-timed-custom-length");
 
-    // Grams: switched on the inline bar; its settings live in the subpanel
-    // anchored below the toolbar.
+    // Grams: sources/scopes as settings-line segments; the numeric knobs render
+    // as dotted-underline inline edits on the advanced line.
     await selectMode(page, "Grams");
     await expect(page.getByTestId("grams-panel")).toBeVisible();
     await capture(page, testInfo, "05-settings-grams");
 
-    // The numeric thresholds fold behind an Advanced disclosure; show it open.
-    await page.getByTestId("grams-panel").getByText("Advanced", { exact: true }).click();
+    // Show one knob mid-edit.
+    await page.getByTestId("grams-panel").getByRole("button", { name: "Edit WPM needed to advance" }).click();
     await expect(page.locator("#testGramWpmThresholdInput")).toBeVisible();
     await capture(page, testInfo, "59-settings-grams-advanced");
 
@@ -307,18 +307,6 @@ test.describe("screenshot tour", () => {
       .click();
     await expect(page.getByRole("option", { name: "Level 2", exact: true })).toBeVisible();
     await capture(page, testInfo, "34-train-level-dropdown");
-  });
-
-  test("home: keyboard enabled and live stats disabled", async ({ page }, testInfo) => {
-    await gotoHome(page);
-    await openSettingsMenu(page);
-    await page.getByTestId("settings-menu").getByRole("button", { name: /Keyboard/ }).click();
-    await page.getByTestId("settings-menu").getByRole("button", { name: /Live stats/ }).click();
-    await page.keyboard.press("Escape");
-
-    await expect(page.locator(".typecafe-keyboard")).toBeVisible();
-    await expect(page.getByText("0.0wpm")).toBeHidden();
-    await capture(page, testInfo, "10-home-keyboard-no-stats");
   });
 
   test("home: color settings modal", async ({ page }, testInfo) => {

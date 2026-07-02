@@ -444,7 +444,7 @@ export const Text = memo(function Text(props: TextProps) {
     }, [started, pacerWpm, restartNonce, text])
 
     return (
-        <div id="text" className="relative z-30 mb-8 flex w-full max-w-[calc(100vw-2rem)] max-h-[6.6rem] leading-[2.2rem] flex-col overflow-hidden text-[24px] sm:max-h-[9rem] sm:text-[34px] sm:leading-[3rem] md:max-w-screen-xl">
+        <div id="text" className={`relative z-30 mb-8 flex w-full max-w-[calc(100vw-2rem)] max-h-[6.6rem] flex-col overflow-hidden sm:max-h-[9rem] md:max-w-screen-xl ${mode === TestModes.ngrams && text.length <= 8 ? "text-[40px] leading-[4.4rem] tracking-wide sm:text-[60px] sm:leading-[6rem]" : "text-[24px] leading-[2.2rem] sm:text-[34px] sm:leading-[3rem]"}`}>
             <input id="input" autoCapitalize="none" autoComplete="off" className="h-0 p-0 m-0 border-none" onKeyDown={handleKeyPress} ref={inputRef} autoFocus />
             {/* Boss pacer line — positioned and animated imperatively by the pacer effect. */}
             <div ref={pacerLineRef} aria-hidden="true" className="pointer-events-none absolute left-0 top-0 z-40 w-[3px] rounded-full bg-error/90 will-change-transform" style={{ display: 'none', height: 0, transform: 'translate(-9999px, 0)' }} />

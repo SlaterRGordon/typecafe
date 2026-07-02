@@ -545,6 +545,21 @@ export const Typer = (props: TyperProps) => {
         ? typedCount === 0 && wpm === 0 && accuracy === 0
         : typedCount === 0
 
+    // Live stats line: rounded wpm, floored accuracy (so 100% always means
+    // perfect), "—" while there's nothing measurable yet.
+    const wpmBlank = statsPending || wpmPending
+    const liveWpmText = wpmBlank ? "—" : String(Math.round(wpm))
+    const liveAccText = statsPending ? "—" : String(Math.floor(accuracy))
+    const liveAvgText = wpmBlank ? "—" : String(Math.round(gramWpm))
+
+    // Word-count modes: words completed = spaces consumed in the prompt so far.
+    const isWordCounted = mode === TestModes.normal && subMode === TestSubModes.words
+    const isInfiniteWords = mode === TestModes.relaxed && subMode === TestSubModes.words
+    const typedWords = (isWordCounted || isInfiniteWords)
+        ? (text.slice(0, typedCount).match(/ /g)?.length ?? 0)
+        : 0
+    const gramTotalLevels = Math.ceil(gramScope / Math.max(gramCombination, 1))
+
     if (props.hideInterface) {
         return null
     }
@@ -631,17 +646,29 @@ export const Typer = (props: TyperProps) => {
                 </>
                 :
                 <>
-                    {/* Phase 2.5/2.6: the typing text is the visual center, with WPM/accuracy
-                        (the timed countdown, or the grams level progress) stacked above it
-                        on the left. Stats returns null when there's nothing to show. */}
-                    <div className="mx-auto flex w-full max-w-screen-xl flex-col gap-5">
-                        {/* Reserve the stats row height so an empty/absent stat line
-                            (e.g. Words with live stats off) never shifts the text. */}
-                        <div className="flex min-h-[2.75rem] items-end">
-                            <Stats layout="stacked" mode={mode} wpm={wpm} accuracy={accuracy} pending={statsPending} wpmPending={wpmPending}
-                                averageWpm={gramWpm} levelText={getGramLevelText(gramLevel, gramCombination, gramScope)}
-                                isTimed={isTimed} countUp={isCountUp} time={time} showLiveStats={showStats}
-                            />
+                    {/* Redesign skeleton (docs/features/typecafe-redesign-reference.html):
+                        the mode's counter (countdown / word count) rides directly above the
+                        text where the eyes already are; live wpm · % renders under the
+                        text; then the mode's progress element; then the restart hint. */}
+                    <div className="mx-auto flex w-full max-w-screen-xl flex-col gap-3">
+                        {/* Reserve the counter row height so modes without one (grams,
+                            quotes, practice) never shift the text vertically. */}
+                        <div className="flex min-h-[1.75rem] items-end">
+                            {(isTimed || isCountUp) &&
+                                <span data-testid="timed-countdown" className="font-mono text-lg leading-none text-primary">
+                                    <span data-testid="stat-time">{time}</span>
+                                </span>
+                            }
+                            {isWordCounted &&
+                                <span data-testid="word-counter" className="font-mono text-[15px] leading-none text-primary">
+                                    {typedWords}<span className="text-base-content/40"> / {count}</span>
+                                </span>
+                            }
+                            {isInfiniteWords &&
+                                <span data-testid="word-counter" className="font-mono text-[15px] leading-none text-primary">
+                                    {typedWords}<span className="text-base-content/40"> words</span>
+                                </span>
+                            }
                         </div>
                         {/* Hold three lines of text height so a short prompt (e.g. a brief
                             quote) doesn't shrink the block and re-center the whole view. */}
@@ -649,6 +676,30 @@ export const Typer = (props: TyperProps) => {
                             {textNode}
                         </div>
                     </div>
+                    {showStats &&
+                        <p data-testid="live-stats" className="font-mono text-xs text-base-content/45 select-none">
+                            <span data-testid="stat-wpm">{liveWpmText}</span> wpm · <span data-testid="stat-acc">{liveAccText}</span>%
+                            {mode === TestModes.ngrams && <> · <span data-testid="stat-avg">{liveAvgText}</span> avg</>}
+                        </p>
+                    }
+                    {isWordCounted &&
+                        <div className="w-[280px] pt-3">
+                            <div className="h-0.5 overflow-hidden rounded-full bg-base-content/10">
+                                <div className="h-full bg-primary transition-[width] duration-300" style={{ width: `${Math.min((typedWords / Math.max(count, 1)) * 100, 100)}%` }} />
+                            </div>
+                        </div>
+                    }
+                    {mode === TestModes.ngrams &&
+                        <div data-testid="gram-progress" className="w-[280px] pt-3">
+                            <div className="mb-1.5 flex justify-between font-mono text-[11px] text-base-content/55">
+                                <span>level {gramLevel}</span>
+                                <span className="text-base-content/35">/ {gramTotalLevels}</span>
+                            </div>
+                            <div className="h-0.5 overflow-hidden rounded-full bg-base-content/10">
+                                <div className="h-full bg-primary transition-[width] duration-300" style={{ width: `${Math.min((gramLevel / Math.max(gramTotalLevels, 1)) * 100, 100)}%` }} />
+                            </div>
+                        </div>
+                    }
                     <p className={typingFocusFadeClass(started, "mt-6 font-mono text-xs text-base-content/40 select-none")}>
                         <kbd className="kbd kbd-xs">tab</kbd> + <kbd className="kbd kbd-xs">enter</kbd> / <kbd className="kbd kbd-xs">space</kbd> — restart
                     </p>
