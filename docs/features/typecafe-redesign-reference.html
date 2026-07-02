@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TypeCafe · UI redesign reference</title>
+<style>
+  :root {
+    --bg: #16171a;
+    --panel: #1b1c20;
+    --card: #232529;
+    --card-2: #26282c;
+    --border: #2e3036;
+    --border-dim: #26282c;
+    --text: #e8e9ec;
+    --text-mid: #8b8e98;
+    --text-dim: #565963;
+    --text-ghost: #3f4148;
+    --pink: #f472b6;
+    --pink-deep: #4b1528;
+    --pink-weak: #d4537e;
+    --pink-weak-text: #3d0f22;
+    --lavender: #c9a8e9;
+    --lavender-text: #3a2452;
+    --purple-mid: #8e6aa8;
+    --purple-mid-text: #241335;
+    --purple-dim: #5c526e;
+    --green: #5dcaa5;
+    --mono: ui-monospace, "JetBrains Mono", "Fira Code", "Cascadia Code", Menlo, Consolas, monospace;
+    --sans: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    line-height: 1.6;
+    padding: 48px 24px 96px;
+  }
+  .wrap { max-width: 960px; margin: 0 auto; }
+
+  header.doc { margin-bottom: 56px; }
+  header.doc h1 { font-size: 26px; font-weight: 600; }
+  header.doc h1 span { color: var(--pink); }
+  header.doc p { color: var(--text-mid); font-size: 14px; margin-top: 8px; max-width: 640px; }
+
+  nav.toc { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
+  nav.toc a {
+    color: var(--text-mid); font-size: 12px; text-decoration: none;
+    border: 0.5px solid var(--border); border-radius: 14px; padding: 4px 12px;
+  }
+  nav.toc a:hover { color: var(--pink); border-color: var(--pink); }
+
+  section { margin-bottom: 72px; }
+  section > h2 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
+  section > h2 .tag {
+    font-size: 11px; font-weight: 500; color: var(--pink);
+    border: 0.5px solid var(--pink); border-radius: 10px; padding: 1px 8px;
+    vertical-align: 3px; margin-left: 8px;
+  }
+  section > p.lede { color: var(--text-mid); font-size: 13.5px; margin-bottom: 20px; max-width: 680px; }
+
+  .mock {
+    background: var(--panel); border: 0.5px solid var(--border); border-radius: 12px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 40px 40px 36px; min-height: 340px; margin-bottom: 20px;
+  }
+
+  .decisions { border-left: 2px solid var(--card-2); padding: 2px 0 2px 18px; }
+  .decisions h3 { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-dim); margin-bottom: 8px; }
+  .decisions ul { list-style: none; }
+  .decisions li { font-size: 13.5px; color: var(--text-mid); padding: 3px 0; }
+  .decisions li::before { content: "—"; color: var(--pink); margin-right: 10px; }
+  .decisions li strong { color: var(--text); font-weight: 500; }
+
+  .modeline { display: flex; gap: 14px; font-size: 12px; color: var(--text-mid); margin-bottom: 10px; }
+  .modeline .on { color: var(--pink); font-weight: 500; }
+  .setline { display: flex; gap: 12px; align-items: center; font-size: 12px; color: var(--text-mid); opacity: 0.75; }
+  .setline .on { color: var(--pink); font-weight: 500; }
+  .setline .sep { color: var(--text-ghost); }
+  .setline .dim { color: var(--text-dim); }
+  .advline { display: flex; gap: 16px; font-size: 11px; color: var(--text-dim); font-family: var(--mono); margin-top: 8px; }
+  .advline .edit { color: var(--text-mid); border-bottom: 1px dotted #44464d; }
+
+  .hero { align-self: flex-start; max-width: 580px; width: 100%; margin: 0 auto; }
+  .hero .counter { color: var(--pink); font-family: var(--mono); font-size: 18px; margin-bottom: 12px; }
+  .hero .counter .of { color: var(--text-dim); }
+  .hero p.text { font-family: var(--mono); font-size: 23px; line-height: 1.75; }
+  .typed { color: var(--text); }
+  .untyped { color: var(--text-dim); }
+  .caret { display: inline-block; width: 2px; height: 21px; background: var(--pink); vertical-align: -3px; animation: blink 1.1s step-end infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { .caret { animation: none; } }
+
+  .livestat { font-family: var(--mono); font-size: 12px; color: var(--text-dim); }
+  .pbar-wrap { width: 280px; }
+  .pbar-label { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-mid); font-family: var(--mono); margin-bottom: 6px; }
+  .pbar-label .of { color: var(--text-dim); }
+  .pbar { height: 2px; background: var(--card-2); border-radius: 1px; overflow: hidden; }
+  .pbar > div { height: 100%; background: var(--pink); }
+  .restart { opacity: 0.3; font-size: 11px; color: var(--text-mid); font-family: var(--mono); }
+  .restart kbd { border: 0.5px solid #3a3c42; border-radius: 3px; padding: 1px 5px; font-family: var(--mono); font-size: 11px; }
+
+  .bigram { font-family: var(--mono); font-size: 60px; letter-spacing: 2px; line-height: 1; }
+  .bigram .caret { width: 3px; height: 48px; vertical-align: -4px; margin-left: 2px; }
+
+  .kb { display: flex; flex-direction: column; align-items: center; gap: 4px; opacity: 0.85; }
+  .kb-row { display: flex; gap: 4px; }
+  .key {
+    position: relative; width: 30px; height: 35px; border-radius: 5px; cursor: pointer;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+    font-family: var(--mono); user-select: none;
+  }
+  .key .k { font-size: 11px; line-height: 1; }
+  .key .a { font-size: 8px; line-height: 1; }
+  .key.locked { background: transparent; border: 1px dashed #34363c; }
+  .key.locked .k { color: var(--text-ghost); }
+  .key.locked .a { color: #3a3c42; }
+  .key .padlock {
+    position: absolute; top: -4px; right: -4px; width: 11px; height: 11px;
+    background: var(--panel); border-radius: 50%; padding: 1px;
+  }
+  .key .padlock svg { width: 9px; height: 9px; stroke: var(--text-dim); fill: none; stroke-width: 2; }
+  .key.acc-weak { background: var(--pink-weak); }
+  .key.acc-weak .k { color: var(--pink-weak-text); font-weight: 500; }
+  .key.acc-weak .a { color: #701e3e; }
+  .key.acc-mid { background: var(--purple-mid); }
+  .key.acc-mid .k { color: var(--purple-mid-text); }
+  .key.acc-mid .a { color: #4a3462; }
+  .key.acc-ok { background: var(--card-2); }
+  .key.acc-ok .k { color: #9a9da6; }
+  .key.acc-ok .a { color: var(--text-dim); }
+  .key.shake { animation: shake 0.28s ease; }
+  @keyframes shake { 25% { transform: translateX(-3px); } 75% { transform: translateX(3px); } }
+  .spacebar { width: 210px; height: 22px; border-radius: 5px; background: var(--card-2); margin-top: 1px; }
+  .kb-note { font-size: 10px; color: var(--text-dim); font-family: var(--mono); margin-top: 14px; text-align: center; }
+  .kb-note + .kb-note { margin-top: 6px; }
+  .sw-weak { color: var(--pink-weak); } .sw-mid { color: var(--purple-mid); } .sw-ok { color: #33353b; } .sw-locked { color: #44464d; }
+  .check { color: var(--green); }
+
+  .tiers { display: flex; justify-content: center; gap: 6px; margin-bottom: 20px; }
+  .tiers span { font-size: 12px; color: var(--text-mid); padding: 5px 14px; border-radius: 16px; border: 0.5px solid var(--border); }
+  .tiers span.on { background: var(--pink); color: var(--pink-deep); font-weight: 500; border-color: var(--pink); }
+
+  .rail { display: flex; justify-content: center; gap: 8px; margin-bottom: 8px; }
+  .rail .lvl { text-align: center; }
+  .rail .lvl .box {
+    width: 38px; height: 38px; border-radius: 9px; background: var(--card);
+    border: 0.5px solid var(--border); display: flex; align-items: center; justify-content: center;
+    color: var(--text-mid); font-size: 13px;
+  }
+  .rail .lvl.done .box { color: var(--text); font-weight: 500; }
+  .rail .lvl.now .box { background: #2c2027; border: 1.5px solid var(--pink); color: var(--pink); font-weight: 500; }
+  .rail .lvl.far .box { background: #1f2024; border-color: var(--border-dim); }
+  .rail .lvl .stars { font-size: 9px; letter-spacing: 1px; margin-top: 4px; color: var(--text-dim); }
+  .rail .lvl.done .stars { color: var(--pink); }
+  .rail .lvl.far .stars { color: #33353b; }
+  .rail .ellipsis { width: 38px; display: flex; align-items: center; justify-content: center; color: var(--text-dim); font-size: 12px; }
+  .rail-caption { text-align: center; font-size: 11px; color: var(--text-mid); margin-bottom: 30px; }
+  .rail-caption .on { color: var(--pink); }
+
+  .map-head { display: flex; justify-content: space-between; align-items: flex-end; width: 100%; max-width: 640px; }
+  .map-head h4 { font-size: 17px; font-weight: 500; }
+  .map-head p { color: var(--text-mid); font-size: 12px; margin-top: 4px; }
+  .map-head p .on { color: var(--pink); }
+  .map-head .cta { background: var(--pink); color: var(--pink-deep); font-size: 12px; font-weight: 500; padding: 7px 18px; border-radius: 16px; }
+  .map-bar { width: 100%; max-width: 640px; height: 3px; background: var(--card-2); border-radius: 2px; margin: 14px 0 24px; overflow: hidden; }
+  .map-bar > div { width: 8%; height: 100%; background: var(--pink); }
+  .map-grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 7px; width: 100%; max-width: 640px; }
+  .cell {
+    aspect-ratio: 1; border-radius: 8px; background: #1f2024; border: 0.5px solid var(--border-dim);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  }
+  .cell .n { font-size: 12px; color: var(--text-mid); }
+  .cell .s { font-size: 8px; letter-spacing: 0.5px; color: var(--text-dim); }
+  .cell.done { background: var(--card); border-color: var(--border); }
+  .cell.done .n { color: var(--text); font-weight: 500; }
+  .cell.done .s { color: var(--pink); }
+  .cell.now { background: #2c2027; border: 1.5px solid var(--pink); }
+  .cell.now .n { color: var(--pink); font-weight: 500; }
+  .cell.fade-1 { opacity: 0.7; } .cell.fade-2 { opacity: 0.4; }
+  .cell .lockglyph svg { width: 12px; height: 12px; stroke: #44464d; fill: none; stroke-width: 2; }
+  .map-caption { text-align: center; color: var(--text-ghost); font-size: 11px; margin-top: 18px; }
+
+  .tokens { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+  .token-card { background: var(--panel); border: 0.5px solid var(--border); border-radius: 12px; padding: 16px 18px; }
+  .token-card h4 { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-dim); margin-bottom: 10px; }
+  .swatch { display: flex; align-items: center; gap: 10px; padding: 3px 0; font-size: 12px; color: var(--text-mid); font-family: var(--mono); }
+  .swatch i { width: 14px; height: 14px; border-radius: 4px; display: inline-block; flex: none; }
+  .skeleton-list { list-style: none; counter-reset: zone; max-width: 680px; }
+  .skeleton-list li { counter-increment: zone; font-size: 13.5px; color: var(--text-mid); padding: 6px 0; border-bottom: 0.5px solid var(--border-dim); }
+  .skeleton-list li::before { content: counter(zone); color: var(--pink); font-family: var(--mono); margin-right: 14px; }
+  .skeleton-list li strong { color: var(--text); font-weight: 500; }
+
+  footer.doc { color: var(--text-ghost); font-size: 12px; border-top: 0.5px solid var(--border-dim); padding-top: 20px; }
+  @media (max-width: 720px) {
+    .mock { padding: 28px 14px; overflow-x: auto; }
+    .map-grid { grid-template-columns: repeat(5, 1fr); }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="doc">
+  <h1>Type<span>Cafe</span> · UI redesign reference</h1>
+  <p>Mockups and decisions for the home page (all four modes) and the training pages. Governing principle: the text is the hero; everything else is quiet, plain-text chrome that fades during a test.</p>
+  <nav class="toc">
+    <a href="#skeleton">Shared skeleton</a>
+    <a href="#timed">Timed</a>
+    <a href="#words">Words</a>
+    <a href="#practice">Practice</a>
+    <a href="#grams">Grams</a>
+    <a href="#training">Training · in level</a>
+    <a href="#map">Training · level map</a>
+    <a href="#tokens">Tokens</a>
+  </nav>
+</header>
+
+<section id="skeleton">
+  <h2>Shared skeleton</h2>
+  <p class="lede">Every mode renders the same three zones. Switching modes swaps only the settings line and the progress element — the layout never moves.</p>
+  <ul class="skeleton-list">
+    <li><strong>Header</strong> — mode line + one mode-specific settings line. Plain text segments, no boxed toolbars, ~75% opacity. Active option is pink. Advanced values are dotted-underline inline edits; a sliders icon opens the full panel.</li>
+    <li><strong>Hero</strong> — the typing text. Always mono, always the largest element on screen. Timed/words/practice cap visible text at three lines; grams renders the gram at 60px+.</li>
+    <li><strong>Footer</strong> — live <code>wpm · %</code> under the text, then the mode's progress element (countdown number, 280px thin bar, or none), then the restart hint at 30% opacity.</li>
+  </ul>
+  <div class="decisions" style="margin-top: 20px;">
+    <h3>Global decisions</h3>
+    <ul>
+      <li><strong>Focus fade</strong> — top bar, sidebar, and both header lines drop to ~25% opacity while typing; restored on mouse move or Escape.</li>
+      <li><strong>Stat headers removed</strong> — the WPM / ACC / AVG header row is gone in all modes. Live stats render under the text; averages belong to the end-of-test results moment.</li>
+      <li><strong>Keyboard is practice-only</strong> — the live stat keyboard is removed from settings in timed, words, and grams. Practice owns it because there it is both the key selector and the feedback surface.</li>
+      <li><strong>One accent</strong> — pink marks the active choice and live progress; lavender/purple is reserved for key tints. Never both jobs at once.</li>
+    </ul>
+  </div>
+</section>
+
+<section id="timed">
+  <h2>Timed</h2>
+  <p class="lede">The baseline. Countdown lives with the text, durations are text segments.</p>
+  <div class="mock">
+    <div class="modeline"><span class="on">timed</span><span>words</span><span>practice</span><span>grams</span></div>
+    <div class="setline" style="margin-bottom: 48px;">
+      <span class="on">15</span><span>30</span><span>60</span><span>120</span><span>&infin;</span><span>custom</span>
+      <span class="sep">|</span><span title="language">en</span><span class="sep">|</span><span title="advanced">&#9881;</span>
+    </div>
+    <div class="hero">
+      <div class="counter">12</div>
+      <p class="text"><span class="typed">science john bo</span><span class="caret"></span><span class="untyped">ok provide remember management double single poker benefits information port word research</span></p>
+    </div>
+    <p class="livestat" style="margin-top: 34px;">64 wpm &middot; 97%</p>
+    <p class="restart" style="margin-top: 26px;"><kbd>tab</kbd> + <kbd>enter</kbd> — restart</p>
+  </div>
+  <div class="decisions">
+    <h3>Decisions</h3>
+    <ul>
+      <li><strong>Timer above the text</strong>, left-aligned with it — where the eyes already are. No detached stat row.</li>
+      <li><strong>Durations as plain text</strong> — active one pink, rest muted. Toolbar boxes removed.</li>
+      <li><strong>Three-line cap</strong> on visible text; more words stream in as typed.</li>
+    </ul>
+  </div>
+</section>
+
+<section id="words">
+  <h2>Words</h2>
+  <p class="lede">Identical skeleton; timer slot becomes a word counter, plus the shared thin progress bar. Includes infinite mode.</p>
+  <div class="mock">
+    <div class="modeline"><span>timed</span><span class="on">words</span><span>practice</span><span>grams</span></div>
+    <div class="setline" style="margin-bottom: 48px;">
+      <span>10</span><span class="on">25</span><span>50</span><span>100</span><span>&infin;</span><span>custom</span>
+      <span class="sep">|</span><span>en</span><span class="sep">|</span><span>&#9881;</span>
+    </div>
+    <div class="hero">
+      <div class="counter" style="font-size: 15px;">8<span class="of"> / 25</span></div>
+      <p class="text"><span class="typed">florida garden onl</span><span class="caret"></span><span class="untyped">ine submit office poker update by items north must into research word port</span></p>
+    </div>
+    <p class="livestat" style="margin-top: 30px;">61 wpm &middot; 98%</p>
+    <div class="pbar-wrap" style="margin-top: 16px;"><div class="pbar"><div style="width: 32%;"></div></div></div>
+    <p class="restart" style="margin-top: 26px;"><kbd>tab</kbd> + <kbd>enter</kbd> — restart</p>
+  </div>
+  <div class="decisions">
+    <h3>Decisions</h3>
+    <ul>
+      <li><strong>&infin; added</strong> to word counts. In infinite mode the counter shows a running count ("38 words"), the progress bar is hidden, and the test ends on restart.</li>
+      <li><strong>Counter format</strong> — <code>typed / target</code> in the timer slot; same currency idea as timed (how much is left).</li>
+      <li><strong>Progress bar</strong> — same 280px / 2px bar as grams, fills toward the target.</li>
+    </ul>
+  </div>
+</section>
+
+<section id="practice">
+  <h2>Practice <span class="tag">interactive demo</span></h2>
+  <p class="lede">The only mode with a keyboard. Fill = membership (solid is in the drill pool, dashed is out), tint = accuracy. Click keys below to toggle — minimums are enforced with a shake.</p>
+  <div class="mock" style="padding-left: 20px; padding-right: 20px;">
+    <div class="modeline"><span>timed</span><span>words</span><span class="on">practice</span><span>grams</span></div>
+    <div class="setline" style="margin-bottom: 42px;">
+      <span class="on">&#10687; smart drill</span>
+      <span class="sep">|</span><span>shift off</span>
+      <span class="sep">|</span><span class="dim" id="active-count">24 keys active</span>
+    </div>
+    <div class="hero">
+      <p class="text"><span class="typed">a a tax w</span><span class="caret"></span><span class="untyped">ar a art a a tax a art war a art art tax a a at a art</span></p>
+    </div>
+    <p class="livestat" style="margin: 26px 0 24px;">— wpm &middot; — %</p>
+    <div class="kb" id="kb"></div>
+    <p class="kb-note">click a key to lock or unlock it&nbsp;&nbsp;&middot;&nbsp;&nbsp;<span class="sw-weak">&#9632;</span> &lt;88&nbsp;&nbsp;<span class="sw-mid">&#9632;</span> 88–94&nbsp;&nbsp;<span class="sw-ok">&#9632;</span> 95+&nbsp;&nbsp;<span class="sw-locked">&#11036;</span> locked</p>
+    <p class="kb-note" id="minline">minimums met <span class="check">&#10003;</span> &nbsp;2+ vowels &middot; 3+ consonants &middot; 6+ keys</p>
+    <p class="restart" style="margin-top: 20px;"><kbd>tab</kbd> + <kbd>enter</kbd> — restart</p>
+  </div>
+  <div class="decisions">
+    <h3>Decisions</h3>
+    <ul>
+      <li><strong>Locks are user choices</strong>, not progression gates. Any key toggles on click. Smart drill is a one-tap auto-select of the weakest keys — it runs the same toggles, nothing special about its result.</li>
+      <li><strong>Locked keys keep a ghosted accuracy number</strong> — that number is exactly the information needed to decide whether to unlock.</li>
+      <li><strong>Full board</strong> — numbers, brackets, punctuation all present; they simply start locked by default.</li>
+      <li><strong>Two-layer readout</strong> — tint answers "where am I weak" at a glance; the 8px number answers "how far from target" up close. Number uses a muted shade of the key's own family, so the letter stays dominant.</li>
+      <li><strong>Constraints are visible and touchable</strong> — the minimums line sits under the legend; a violating click shakes the key, flashes the broken rule pink, and doesn't apply.</li>
+      <li><strong>Keyboard at 85% opacity</strong> during a test, full on hover (which is also when toggling is expected).</li>
+      <li><strong>Per-key detail on hover</strong> — tooltip with exact accuracy, sample size, and last-drilled date; the persistent labels stay minimal.</li>
+    </ul>
+  </div>
+</section>
+
+<section id="grams">
+  <h2>Grams</h2>
+  <p class="lede">The settings card collapses into text lines; the gram becomes the largest element in any mode.</p>
+  <div class="mock">
+    <div class="modeline"><span>timed</span><span>words</span><span>practice</span><span class="on">grams</span></div>
+    <div class="setline">
+      <span class="on">bigrams</span><span>trigrams</span><span>tetragrams</span><span>words</span>
+      <span class="sep">|</span><span class="on">top 50</span><span>100</span><span>200</span>
+      <span class="sep">|</span><span>&#9881;</span>
+    </div>
+    <div class="advline" style="margin-bottom: 46px;">
+      <span>1 combo</span><span>&times;0 reps</span>
+      <span>advance at <span class="edit">20 wpm</span> &middot; <span class="edit">100%</span></span>
+    </div>
+    <p class="bigram"><span style="color: var(--pink);">h</span><span class="typed">e</span><span class="caret"></span></p>
+    <p class="livestat" style="margin-top: 26px;">— wpm &middot; — %</p>
+    <div class="pbar-wrap" style="margin-top: 20px;">
+      <div class="pbar-label"><span>level 1</span><span class="of">/ 50</span></div>
+      <div class="pbar"><div style="width: 2%;"></div></div>
+    </div>
+    <p class="restart" style="margin-top: 28px;"><kbd>tab</kbd> + <kbd>enter</kbd> — restart</p>
+  </div>
+  <div class="decisions">
+    <h3>Decisions</h3>
+    <ul>
+      <li><strong>Settings card &rarr; three text lines</strong> — source, scope, and advanced values. Dotted underlines mark click-to-edit numbers; no input boxes until clicked.</li>
+      <li><strong>Gram at 60px</strong> — two to four characters deserve presence proportional to their importance.</li>
+      <li><strong>Level counter &rarr; progress bar</strong> — "1/50" reads as a journey, not a score. If reps &gt; 0, small dots under the bar track rep progress within the current gram.</li>
+      <li><strong>Level-up moment</strong> — fade-swap on the big text plus the bar ticking forward. No modals.</li>
+    </ul>
+  </div>
+</section>
+
+<section id="training">
+  <h2>Training · in level</h2>
+  <p class="lede">One vertical spine: tier tabs &rarr; level rail &rarr; context line &rarr; text &rarr; keyboard. The two dropdowns are gone.</p>
+  <div class="mock">
+    <div class="tiers">
+      <span class="on">Easy</span><span>Medium</span><span>Hard</span><span>Extreme</span><span>Insane</span>
+    </div>
+    <div class="rail">
+      <div class="lvl done"><div class="box">1</div><div class="stars">&starf;&starf;&starf;</div></div>
+      <div class="lvl now"><div class="box">2</div><div class="stars">&star;&star;&star;</div></div>
+      <div class="lvl"><div class="box">3</div><div class="stars">&star;&star;&star;</div></div>
+      <div class="lvl far"><div class="box"><span class="lockglyph"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span></div><div class="stars">&star;&star;&star;</div></div>
+      <div class="lvl far"><div class="box"><span class="lockglyph"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span></div><div class="stars">&star;&star;&star;</div></div>
+      <div class="ellipsis">&hellip;</div>
+      <div class="lvl far"><div class="box" style="font-size: 12px;">100</div><div class="stars">&star;&star;&star;</div></div>
+    </div>
+    <p class="rail-caption">Level 2 &middot; home row &middot; next star at <span class="on">22 net wpm</span></p>
+    <div class="hero" style="text-align: center; align-self: center;">
+      <p class="text" style="font-size: 26px; text-align: center;"><span style="color: var(--pink);">a</span><span class="caret"></span><span class="untyped">ll a a all all as add add add all</span></p>
+    </div>
+    <p class="livestat" style="margin-top: 12px;">— wpm &middot; — %</p>
+    <p class="restart" style="margin-top: 26px;"><kbd>tab</kbd> + <kbd>enter</kbd> — restart</p>
+  </div>
+  <div class="decisions">
+    <h3>Decisions</h3>
+    <ul>
+      <li><strong>Tier tabs replace the difficulty dropdown</strong>; the level rail replaces the level dropdown and shows earned stars per completed level plus locks ahead.</li>
+      <li><strong>Star thresholds collapse to one contextual line</strong> — only the next milestone. All three thresholds appear on the level's hover card and the results screen.</li>
+      <li><strong>Target-keys keyboard</strong> (lavender highlights) renders below at reduced size and opacity — same demotion rule as practice. Omitted here for brevity; reuse the practice board component with toggling disabled.</li>
+      <li><strong>Navigation</strong> — sidebar training icon lands on the level map; clicking the active tier tab or a rail number zooms back out. Map is the hub, level is the leaf.</li>
+    </ul>
+  </div>
+</section>
+
+<section id="map">
+  <h2>Training · level map</h2>
+  <p class="lede">Tier overview — the landing view for training. Gives "1/100 levels, 3/300 stars" an actual home.</p>
+  <div class="mock">
+    <div class="map-head">
+      <div>
+        <h4>Easy tier</h4>
+        <p>1 of 100 levels &middot; <span class="on">3</span> of 300 stars</p>
+      </div>
+      <span class="cta">Continue level 2</span>
+    </div>
+    <div class="map-bar"><div></div></div>
+    <div class="map-grid" id="map-grid"></div>
+    <p class="map-caption">Rows fade with distance &middot; scroll for 31–100</p>
+  </div>
+  <div class="decisions">
+    <h3>Decisions</h3>
+    <ul>
+      <li><strong>Distance fade</strong> — rows step from full to 70% to 40% opacity so a hundred levels never feels like a wall.</li>
+      <li><strong>One action</strong> — a single pink "Continue level N" button; every completed/current cell is also clickable.</li>
+      <li><strong>Cells carry stars</strong> — earned stars pink, unearned ghosted, locked cells show only the padlock.</li>
+    </ul>
+  </div>
+</section>
+
+<section id="tokens">
+  <h2>Tokens</h2>
+  <p class="lede">Values used across these mockups, matching the existing app.</p>
+  <div class="tokens">
+    <div class="token-card">
+      <h4>Surfaces</h4>
+      <div class="swatch"><i style="background: #1b1c20;"></i>--panel #1b1c20</div>
+      <div class="swatch"><i style="background: #232529;"></i>--card #232529</div>
+      <div class="swatch"><i style="background: #26282c;"></i>--card-2 #26282c</div>
+      <div class="swatch"><i style="background: #2e3036;"></i>--border #2e3036</div>
+    </div>
+    <div class="token-card">
+      <h4>Text</h4>
+      <div class="swatch"><i style="background: #e8e9ec;"></i>--text #e8e9ec</div>
+      <div class="swatch"><i style="background: #8b8e98;"></i>--text-mid #8b8e98</div>
+      <div class="swatch"><i style="background: #565963;"></i>--text-dim #565963</div>
+      <div class="swatch"><i style="background: #3f4148;"></i>--text-ghost #3f4148</div>
+    </div>
+    <div class="token-card">
+      <h4>Accent &amp; tints</h4>
+      <div class="swatch"><i style="background: #f472b6;"></i>--pink #f472b6</div>
+      <div class="swatch"><i style="background: #d4537e;"></i>--pink-weak #d4537e</div>
+      <div class="swatch"><i style="background: #8e6aa8;"></i>--purple-mid #8e6aa8</div>
+      <div class="swatch"><i style="background: #c9a8e9;"></i>--lavender #c9a8e9</div>
+    </div>
+    <div class="token-card">
+      <h4>Type</h4>
+      <div class="swatch">mono: test text, stats, keys</div>
+      <div class="swatch">sans: chrome, labels</div>
+      <div class="swatch">progress bars: 2px &times; 280px</div>
+      <div class="swatch">focus fade: 25% opacity</div>
+    </div>
+  </div>
+</section>
+
+<footer class="doc">
+  TypeCafe redesign reference &middot; generated with Claude &middot; the practice keyboard demo below the fold is interactive — click keys to toggle lock state.
+</footer>
+
+</div>
+<script>
+(function () {
+  const LOCK_SVG = '<svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>';
+  const VOWELS = new Set(['a', 'e', 'i', 'o', 'u']);
+  const MIN = { vowels: 2, consonants: 3, keys: 6 };
+  const acc = {
+    '1': 100, '2': 100, '3': 100, '4': 100, '5': 100, '6': 100, '7': 100, '8': 100, '9': 100, '0': 100,
+    '-': 100, '=': 100, '\\': 100, '[': 100, ']': 100, ';': 100, "'": 100, ',': 100, '.': 100, '/': 100,
+    q: 76, w: 91, e: 94, r: 92, t: 93, y: 82, u: 88, i: 90, o: 91, p: 94,
+    a: 93, s: 92, d: 92, f: 90, g: 94, h: 93, j: 82, k: 92, l: 93,
+    z: 100, x: 71, c: 92, v: 85, b: 92, n: 94, m: 94
+  };
+  const rows = [
+    ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', '\\'],
+    ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[', ']'],
+    ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';', "'"],
+    ['z', 'x', 'c', 'v', 'b', 'n', 'm', ',', '.', '/']
+  ];
+  const locked = new Set(['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', '\\', '[', ']', ';', "'", ',', '.', '/', 'z', 'b']);
+  const kb = document.getElementById('kb');
+  if (!kb) return;
+
+  function tierClass(k) {
+    const a = acc[k];
+    if (a < 88) return 'acc-weak';
+    if (a < 95) return 'acc-mid';
+    return 'acc-ok';
+  }
+
+  function isLetter(k) { return /^[a-z]$/.test(k); }
+
+  function counts() {
+    let v = 0, c = 0, total = 0;
+    Object.keys(acc).forEach(function (k) {
+      if (locked.has(k)) return;
+      total++;
+      if (isLetter(k)) { VOWELS.has(k) ? v++ : c++; }
+    });
+    return { v: v, c: c, total: total };
+  }
+
+  function paint(el, k) {
+    el.className = 'key ' + (locked.has(k) ? 'locked' : tierClass(k));
+    el.innerHTML = '<span class="k">' + k.replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</span><span class="a">' + acc[k] + '</span>' +
+      (locked.has(k) ? '<span class="padlock">' + LOCK_SVG + '</span>' : '');
+  }
+
+  function refreshCount() {
+    const n = counts();
+    const countEl = document.getElementById('active-count');
+    if (countEl) countEl.textContent = n.total + ' keys active';
+  }
+
+  function violates(k) {
+    if (locked.has(k)) return null;
+    const n = counts();
+    if (n.total - 1 < MIN.keys) return 'keys';
+    if (isLetter(k)) {
+      if (VOWELS.has(k) && n.v - 1 < MIN.vowels) return 'vowels';
+      if (!VOWELS.has(k) && n.c - 1 < MIN.consonants) return 'consonants';
+    }
+    return null;
+  }
+
+  rows.forEach(function (r) {
+    const row = document.createElement('div');
+    row.className = 'kb-row';
+    r.forEach(function (k) {
+      const el = document.createElement('div');
+      el.setAttribute('role', 'button');
+      el.setAttribute('tabindex', '0');
+      el.setAttribute('aria-label', 'Toggle key ' + k);
+      paint(el, k);
+      function toggle() {
+        const broken = violates(k);
+        if (broken) {
+          el.classList.add('shake');
+          const line = document.getElementById('minline');
+          if (line) {
+            line.style.color = 'var(--pink-weak)';
+            setTimeout(function () { line.style.color = ''; }, 600);
+          }
+          setTimeout(function () { el.classList.remove('shake'); }, 300);
+          return;
+        }
+        locked.has(k) ? locked.delete(k) : locked.add(k);
+        paint(el, k);
+        refreshCount();
+      }
+      el.addEventListener('click', toggle);
+      el.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); }
+      });
+      row.appendChild(el);
+    });
+    kb.appendChild(row);
+  });
+  const sp = document.createElement('div');
+  sp.className = 'spacebar';
+  kb.appendChild(sp);
+  refreshCount();
+
+  const grid = document.getElementById('map-grid');
+  if (grid) {
+    for (let i = 1; i <= 30; i++) {
+      const cell = document.createElement('div');
+      let cls = 'cell';
+      if (i > 10 && i <= 20) cls += ' fade-1';
+      if (i > 20) cls += ' fade-2';
+      if (i === 1) cls += ' done';
+      if (i === 2) cls += ' now';
+      cell.className = cls;
+      if (i === 1) cell.innerHTML = '<span class="n">1</span><span class="s" style="color: var(--pink);">&starf;&starf;&starf;</span>';
+      else if (i === 2) cell.innerHTML = '<span class="n">2</span><span class="s">&star;&star;&star;</span>';
+      else if (i === 3) cell.innerHTML = '<span class="n">3</span><span class="s">&star;&star;&star;</span>';
+      else if (i % 10 === 0) cell.innerHTML = '<span class="n" style="color: #44464d;">' + i + '</span>';
+      else cell.innerHTML = '<span class="lockglyph">' + LOCK_SVG + '</span>';
+      grid.appendChild(cell);
+    }
+  }
+})();
+</script>
+</body>
+</html>

@@ -27,7 +27,8 @@ test.describe("app navigation", () => {
 
     await page.getByRole("button", { name: "Train" }).click();
     await expect(page).toHaveURL(/\/train$/);
-    await expect(page.locator("#words .char").first()).toBeVisible({ timeout: 20_000 });
+    // /train lands on the level map hub.
+    await expect(page.getByTestId("train-continue")).toBeVisible({ timeout: 20_000 });
 
     await page.getByRole("button", { name: "Leaderboard" }).click();
     await expect(page).toHaveURL(/\/leaderboard$/);

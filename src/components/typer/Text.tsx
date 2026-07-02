@@ -444,14 +444,16 @@ export const Text = memo(function Text(props: TextProps) {
     }, [started, pacerWpm, restartNonce, text])
 
     return (
-        <div id="text" className="relative z-30 mb-8 flex w-full max-w-[calc(100vw-2rem)] max-h-[6.6rem] leading-[2.2rem] flex-col overflow-hidden text-[24px] sm:max-h-[9rem] sm:text-[34px] sm:leading-[3rem] md:max-w-screen-xl">
+        <div id="text" className={`relative z-30 mb-8 flex w-full max-w-[calc(100vw-2rem)] max-h-[6.6rem] flex-col overflow-hidden sm:max-h-[9rem] md:max-w-screen-xl ${mode === TestModes.ngrams && text.length <= 8 ? "text-[40px] leading-[4.4rem] tracking-wide sm:text-[60px] sm:leading-[6rem]" : "text-[24px] leading-[2.2rem] sm:text-[34px] sm:leading-[3rem]"}`}>
             <input id="input" autoCapitalize="none" autoComplete="off" className="h-0 p-0 m-0 border-none" onKeyDown={handleKeyPress} ref={inputRef} autoFocus />
             {/* Boss pacer line — positioned and animated imperatively by the pacer effect. */}
             <div ref={pacerLineRef} aria-hidden="true" className="pointer-events-none absolute left-0 top-0 z-40 w-[3px] rounded-full bg-error/90 will-change-transform" style={{ display: 'none', height: 0, transform: 'translate(-9999px, 0)' }} />
             {/* Shown instead when the pacer has scrolled above the view: an up-caret that
                 tracks its horizontal position along the top edge, so its location stays legible. */}
             <div ref={pacerAboveRef} aria-hidden="true" className="pointer-events-none absolute left-0 top-0 z-40 text-[0.7rem] leading-none text-error will-change-transform" style={{ display: 'none', transform: 'translate(-9999px, 0)' }}>▲</div>
-            <div className="flex w-full flex-wrap justify-start overflow-y-hidden no-scrollbar scroll-smooth font-mono select-none sm:justify-start" id="words" ref={typerRef}>
+            {/* justify-center: a shorter-than-one-line text shrinks to content width and
+                centers; longer text clamps to max-w-full and reads left-aligned as usual. */}
+            <div className="flex w-full flex-wrap justify-center overflow-y-hidden no-scrollbar scroll-smooth font-mono select-none" id="words" ref={typerRef}>
                 <div
                     className="max-w-full"
                     ref={textContainerRef}

@@ -93,7 +93,6 @@ function ChallengeBoard(props: { title: string; empty: string; entries: Challeng
 
 const Challenge: NextPage = () => {
     const { data: session } = useSession();
-    const [fullscreen, setFullscreen] = useState(false);
     const [restartSignal, setRestartSignal] = useState(0);
     const [completed, setCompleted] = useState<CompletedScore | null>(null);
     const [typingFocused, setTypingFocused] = useState(false);
@@ -242,8 +241,6 @@ const Challenge: NextPage = () => {
                             </div>
                         }
                         <Typer
-                            fullscreen={fullscreen}
-                            setFullscreen={setFullscreen}
                             language="english"
                             mode={TestModes.normal}
                             subMode={TestSubModes.timed}
@@ -257,8 +254,6 @@ const Challenge: NextPage = () => {
                             gramWpmThreshold={DEFAULT_TEST_SETTINGS.gramWpmThreshold}
                             gramAccuracyThreshold={DEFAULT_TEST_SETTINGS.gramAccuracyThreshold}
                             showStats={true}
-                            showConfig={false}
-                            showControls={false}
                             modalOpen={false}
                             onKeyChange={() => undefined}
                             restartSignal={restartSignal}

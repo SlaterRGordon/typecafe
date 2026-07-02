@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { addAlert } from "~/state/alert/alertSlice";
 import { TestModes } from "./types";
 import { useDispatch } from "react-redux";
-import { worstKeysFromAttempts } from "~/lib/stats";
 import { HEATMAP_ROWS, shiftedGlyph } from "~/lib/heatmap";
 import { isDrillDigit, isDrillMark } from "./utils";
 import { KeyHeatmap } from "~/components/heatmap/KeyHeatmap";
@@ -28,19 +27,22 @@ interface KeyboardProps {
     baseAttemptsRef?: React.MutableRefObject<Map<string, { attempts: number, correct: number }>>,
     attemptVersion?: number,
     highlightKeys?: string[],
+    // Practice: the sticky shift-layer toggle now lives in the settings line above
+    // the test, so the page owns it; hold-to-peek stays internal.
+    shiftToggle?: boolean,
 }
 
 const letters = "qwertyuiopasdfghjklzxcvbnm/"
 
 export const Keyboard = (props: KeyboardProps) => {
-    const { mode, currentKey, selectedKeys, setSelectedKeys, charAttemptsRef, baseAttemptsRef, highlightKeys } = props
+    const { mode, currentKey, selectedKeys, setSelectedKeys, charAttemptsRef, baseAttemptsRef, highlightKeys, shiftToggle = false } = props
     const dispatch = useDispatch()
 
     // Shift layer flips every cell to its shifted twin (R, ?, !, :) to read those
-    // accuracies separately. Two ways in: a sticky button toggle, or holding Shift
-    // to peek (release returns to base). Hold-to-peek rather than a key toggle so
-    // typing a shifted glyph mid-test can't leave the layer stuck flipped.
-    const [shiftToggle, setShiftToggle] = useState(false)
+    // accuracies separately. Two ways in: the sticky settings-line toggle (owned by
+    // the page), or holding Shift to peek (release returns to base). Hold-to-peek
+    // rather than a key toggle so typing a shifted glyph mid-test can't leave the
+    // layer stuck flipped.
     const [shiftHeld, setShiftHeld] = useState(false)
     const shiftLayer = shiftToggle || shiftHeld
 
@@ -109,54 +111,6 @@ export const Keyboard = (props: KeyboardProps) => {
         }
     }
 
-    // Build a practice set from the user's eight least-accurate keys (folded
-    // lifetime + session attempts) across letters, numbers and punctuation. The
-    // worst letters anchor word generation — padded with home-row keys and
-    // balanced so generation always has two vowels and a consonant; any weak
-    // numbers/punctuation ride along as extra drill targets sprinkled into the text.
-    const handleSmartDrill = () => {
-        if (!setSelectedKeys || mode !== TestModes.practice) return
-
-        const drillable = new Map<string, { attempts: number, correct: number }>()
-        for (const [key, value] of buildStatsAttempts()) {
-            if (isDrillable(key)) drillable.set(key, value)
-        }
-
-        // minAttempts 3 matches the /progress "weakest keys" list, so smart drill
-        // targets exactly the keys shown as weak there (a 0%-accuracy key with only
-        // a few attempts was being skipped at the old threshold of 5).
-        const worst = worstKeysFromAttempts(drillable, 8, 3)
-        if (worst.length === 0) {
-            dispatch(addAlert({ message: "Not enough typing data yet — practice a little first!", type: "warning" }))
-            return
-        }
-        const worstKeys = worst.map((entry) => entry.key)
-
-        // Letters anchor word-gen: keep the weak letters, pad to eight.
-        const letters = worstKeys.filter((key) => ALPHABET.includes(key))
-        for (const key of "asdfghjkleiou") {
-            if (letters.length >= 8) break
-            if (!letters.includes(key)) letters.push(key)
-        }
-        // Word generation needs variety: guarantee at least two vowels and one
-        // consonant, swapping the trailing (least-weak) slots if short.
-        const ensureMin = (pool: string, wanted: (key: string) => boolean, min: number) => {
-            for (let i = letters.length - 1; i >= 0 && letters.filter(wanted).length < min; i--) {
-                if (wanted(letters[i]!)) continue
-                const fill = pool.split("").find((f) => !letters.includes(f))
-                if (fill) letters[i] = fill
-            }
-        }
-        ensureMin("eaiou", (key) => VOWELS.includes(key), 2)
-        ensureMin("tnshr", (key) => !VOWELS.includes(key), 1)
-
-        const extras = worstKeys.filter((key) => isDrillDigit(key) || isDrillMark(key))
-        const keys = [...letters, ...extras]
-
-        setSelectedKeys(keys)
-        dispatch(addAlert({ message: `Drilling your toughest keys: ${keys.join(", ")}`, type: "success" }))
-    }
-
     // Combined lifetime + live-session per-key tally that feeds the analytics
     // heatmap, kept *unfolded* (keyed by the actual char) so the base layer reads
     // r/;/1 and the shift layer reads R/:/! — each glyph its own accuracy.
@@ -179,24 +133,7 @@ export const Keyboard = (props: KeyboardProps) => {
     return (
         <div className="typecafe-keyboard flex flex-col w-full items-center justify-start py-3 pt-2 md:py-4">
             {mode === TestModes.practice ?
-                // Wrapper hugs the keyboard's width so the Smart drill toolbar can
-                // right-align flush with the keyboard's top-right corner.
                 <div className="flex flex-col">
-                    <div className="flex justify-end gap-2 pb-1">
-                        <button
-                            className={`btn btn-sm gap-1 normal-case shadow-sm focus:outline-0 ${shiftLayer ? "btn-secondary" : "btn-ghost"}`}
-                            onClick={() => setShiftToggle((on) => !on)}
-                            aria-pressed={shiftLayer}
-                            aria-label="Show shifted keys (capitals and symbols)"
-                            title="Show shifted keys (capitals & symbols) — or hold Shift"
-                        >
-                            ⇧ Shift
-                        </button>
-                        <button className="btn btn-primary btn-sm gap-1 normal-case shadow-sm focus:outline-0" onClick={handleSmartDrill} aria-label="Drill your eight least accurate keys" title="Drill your eight least accurate keys">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2Zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8Zm0-12a4 4 0 1 0 4 4 4 4 0 0 0-4-4Zm0 6a2 2 0 1 1 2-2 2 2 0 0 1-2 2Z" /></svg>
-                            Smart drill
-                        </button>
-                    </div>
                     <KeyHeatmap
                         size="full"
                         attempts={buildStatsAttempts()}
@@ -207,6 +144,9 @@ export const Keyboard = (props: KeyboardProps) => {
                         shiftLayer={shiftLayer}
                         interactiveKeys={interactiveKeys}
                     />
+                    <p className="mt-2 text-center font-mono text-[10px] text-base-content/40">
+                        click a key to lock or unlock it
+                    </p>
                 </div>
                 :
                 // Non-practice modes: a read-only keyboard that just highlights the

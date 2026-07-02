@@ -8,7 +8,8 @@ type PublicRoute =
 
 const publicRoutes: PublicRoute[] = [
   { path: "/", visibleText: "TypeCafe" },
-  { path: "/train", selector: "#words .char" },
+  // /train lands on the level map hub.
+  { path: "/train", selector: "[data-testid='train-map-grid']" },
   { path: "/drill?keys=x", heading: "x" },
   { path: "/leaderboard", visibleText: "TypeCafe" },
   { path: "/support", heading: "Support TypeCafe" },

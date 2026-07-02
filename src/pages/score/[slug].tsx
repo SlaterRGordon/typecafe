@@ -142,7 +142,6 @@ function BeatRunCta(props: { slug: string; target: BeatTarget }) {
 }
 
 function BeatRunChallenge(props: { slug: string; target: BeatTarget }) {
-  const [fullscreen, setFullscreen] = useState(false);
   const [restartSignal, setRestartSignal] = useState(0);
   const [completed, setCompleted] = useState<(ScoreSnapshot & {
     speed: number;
@@ -251,8 +250,6 @@ function BeatRunChallenge(props: { slug: string; target: BeatTarget }) {
             </p>
           </div>
           <Typer
-            fullscreen={fullscreen}
-            setFullscreen={setFullscreen}
             language={props.target.language}
             mode={props.target.mode}
             subMode={props.target.subMode}
@@ -265,8 +262,6 @@ function BeatRunChallenge(props: { slug: string; target: BeatTarget }) {
             gramWpmThreshold={DEFAULT_TEST_SETTINGS.gramWpmThreshold}
             gramAccuracyThreshold={DEFAULT_TEST_SETTINGS.gramAccuracyThreshold}
             showStats={true}
-            showConfig={false}
-            showControls={false}
             modalOpen={false}
             onKeyChange={() => undefined}
             restartSignal={restartSignal}

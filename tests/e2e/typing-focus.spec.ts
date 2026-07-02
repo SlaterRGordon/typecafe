@@ -28,6 +28,8 @@ test.describe("typing focus fade", () => {
 
   test("train fades level controls but keeps the keyboard visible while typing", async ({ page }) => {
     await page.goto("/train");
+    // /train lands on the level map; Continue zooms into the resume level.
+    await page.getByTestId("train-continue").click();
     await expect(page.locator("#words .char").first()).toBeVisible({ timeout: 20_000 });
 
     await typeCurrentCharacter(page);

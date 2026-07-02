@@ -1,44 +1,54 @@
 import { expect, test, type Page } from "@playwright/test";
-import { chooseReactSelectOption } from "./helpers/select";
 import { mockAuthenticatedSession, mockTrpc } from "./helpers/trpc";
 import { typeCurrentCharacter, typeVisibleTestText, typeWrongCharacter } from "./helpers/typing";
 
-async function gotoTrain(page: Page) {
+// /train lands on the tier level map (the hub); the Continue CTA zooms into the
+// resume level (the leaf), where the typing test lives.
+async function gotoTrainMap(page: Page) {
   await page.goto("/train");
+  await expect(page.getByTestId("train-continue")).toBeVisible({ timeout: 20_000 });
+}
+
+async function gotoTrain(page: Page) {
+  await gotoTrainMap(page);
+  await page.getByTestId("train-continue").click();
   await expect(page.locator("#words .char").first()).toBeVisible({ timeout: 20_000 });
 }
 
-async function openReactSelect(page: Page, instanceId: string) {
-  const input = page.locator(`#react-select-${instanceId}-input`);
-  const control = input.locator("xpath=ancestor::*[contains(@class, 'my-react-select__control')][1]");
-  await control.click();
-}
-
 test.describe("train page", () => {
-  test("renders the guest training state and target keyboard", async ({ page }, testInfo) => {
+  test("lands on the level map with progress totals and a continue CTA", async ({ page }) => {
+    await gotoTrainMap(page);
+
+    await expect(page.getByText("Sign in to save level progress")).toBeVisible();
+    await expect(page.getByText("Easy tier")).toBeVisible();
+    await expect(page.getByText("0 of 100 levels")).toBeVisible();
+    await expect(page.getByTestId("train-continue")).toContainText("Continue Level 1");
+
+    // Level 1 is unlocked; later levels show locked cells.
+    const grid = page.getByTestId("train-map-grid");
+    await expect(grid.getByRole("button", { name: "Level 1", exact: true })).toBeEnabled();
+    await expect(grid.getByRole("button", { name: "Level 2 (locked)" })).toBeDisabled();
+  });
+
+  test("renders the guest training state, rail caption, and target keyboard", async ({ page }) => {
     await gotoTrain(page);
 
     await expect(page.getByText("Sign in to save level progress")).toBeVisible();
-    await expect(page.getByText("Required Accuracy: 90%")).toHaveCount(0);
-    await expect(page.getByLabel("1 star: 22 net WPM")).toBeVisible();
-    await expect(page.getByText("1 star:", { exact: false })).toHaveCount(0);
-    if (!testInfo.project.name.includes("mobile")) {
-      await expect(page.getByText("Target Keys:")).toBeVisible();
-    }
     await expect(page.locator(".typecafe-keyboard")).toBeVisible();
 
-    // Level 1 is a plain key level; the type chip explains the active level kind.
+    // The caption carries the level, its kind, and only the next milestone.
+    const caption = page.getByTestId("train-rail-caption");
+    await expect(caption).toContainText("Level 1");
+    await expect(caption).toContainText("next star at 22 net wpm");
     const kind = page.getByTestId("train-level-kind");
-    const kindChip = kind.getByLabel(/How Keys levels work/);
     await expect(kind).toContainText("Keys");
-    await expect(kindChip).toBeVisible();
+    await expect(page.getByLabel(/How Keys levels work/)).toBeVisible();
 
-    const oneStar = page.getByLabel("1 star: 22 net WPM");
-    const starBox = await oneStar.boundingBox();
-    const kindBox = await kindChip.boundingBox();
-    expect(starBox).not.toBeNull();
-    expect(kindBox).not.toBeNull();
-    expect(Math.abs((starBox?.height ?? 0) - (kindBox?.height ?? 0))).toBeLessThanOrEqual(1);
+    // Tier tabs replace the difficulty dropdown; clicking the active tier zooms
+    // back out to the map.
+    await expect(page.getByTestId("train-tiers").getByRole("button", { name: "easy" })).toHaveAttribute("aria-pressed", "true");
+    await page.getByTestId("train-tiers").getByRole("button", { name: "easy" }).click();
+    await expect(page.getByTestId("train-map")).toBeVisible();
   });
 
   test("uses local progress to select the next unlocked level", async ({ page }) => {
@@ -54,7 +64,7 @@ test.describe("train page", () => {
     await expect(page.getByText("Level 2").first()).toBeVisible();
   });
 
-  test("shows best stars in the level menu", async ({ page }) => {
+  test("shows earned stars on the level map", async ({ page }) => {
     await page.addInitScript(() => {
       window.localStorage.setItem(
         "typecafe.trainProgress.easy",
@@ -62,13 +72,16 @@ test.describe("train page", () => {
       );
     });
 
-    await gotoTrain(page);
-    await expect(page.getByText("Level 2").first()).toBeVisible();
+    await gotoTrainMap(page);
 
-    await openReactSelect(page, "levelSelect");
-    const levelOne = page.getByRole("option", { name: /^Level 1\b/ });
-    await expect(levelOne).toBeVisible();
-    await expect(page.getByLabel("Best 3 stars").first()).toBeVisible();
+    await expect(page.getByText("1 of 100 levels")).toBeVisible();
+    await expect(page.getByText("of 300 stars")).toBeVisible();
+    const levelOneCell = page.getByTestId("train-map-grid").getByRole("button", { name: "Level 1", exact: true });
+    await expect(levelOneCell.getByLabel("3 of 3 stars")).toBeVisible();
+
+    // A cleared cell is clickable and zooms into that level.
+    await levelOneCell.click();
+    await expect(page.getByTestId("train-rail-caption")).toContainText("Level 1");
   });
 
   test("completion saves guest progress on this device", async ({ page }) => {
@@ -147,12 +160,13 @@ test.describe("train page", () => {
   });
 
   test("difficulty changes update requirements", async ({ page }) => {
-    await gotoTrain(page);
+    await gotoTrainMap(page);
 
-    await chooseReactSelectOption(page, "difficultySelect", "Medium");
-
-    await expect(page.getByLabel("1 star: 29 net WPM")).toBeVisible();
-    await expect(page.getByText("Required Accuracy: 90%")).toHaveCount(0);
+    // Tier tabs switch the whole ladder; Medium's Level 1 asks 29 net WPM.
+    await page.getByTestId("train-tiers").getByRole("button", { name: "medium" }).click();
+    await expect(page.getByText("Medium tier")).toBeVisible();
+    await page.getByTestId("train-continue").click();
+    await expect(page.getByTestId("train-rail-caption")).toContainText("next star at 29 net wpm");
   });
 
   test("boss level: the pacer overtaking the cursor ends the run as a fail", async ({ page }) => {

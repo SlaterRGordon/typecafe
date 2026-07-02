@@ -14,16 +14,16 @@ test.describe("visual QA artifacts", () => {
     await expect(page.locator("#words .char").first()).toBeVisible();
     await saveScreenshot(page, testInfo, "home-default");
 
-    // Settings is now a toolbar dropdown, not a modal.
+    // Settings is a toolbar dropdown, not a modal.
     await page.locator("[aria-label='Open typing settings']").click();
     const settingsMenu = page.getByTestId("settings-menu");
     await expect(settingsMenu).toBeVisible();
     await saveScreenshot(page, testInfo, "home-settings-modal");
-
-    // Enable the on-screen keyboard from the dropdown, then close it.
-    await settingsMenu.getByRole("button", { name: /Keyboard/ }).click();
     await page.keyboard.press("Escape");
     await expect(settingsMenu).toBeHidden();
+
+    // The keyboard is practice-only now.
+    await page.getByTestId("mode-bar").getByRole("button", { name: "Practice" }).click();
     await expect(page.locator(".typecafe-keyboard")).toBeVisible();
     await saveScreenshot(page, testInfo, "home-live-keyboard");
 
@@ -34,8 +34,11 @@ test.describe("visual QA artifacts", () => {
 
   test("train page", async ({ page }, testInfo) => {
     await page.goto("/train");
-    await expect(page.locator("#words .char").first()).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByTestId("train-continue")).toBeVisible({ timeout: 20_000 });
+    await saveScreenshot(page, testInfo, "train-map");
 
+    await page.getByTestId("train-continue").click();
+    await expect(page.locator("#words .char").first()).toBeVisible({ timeout: 20_000 });
     await saveScreenshot(page, testInfo, "train");
   });
 

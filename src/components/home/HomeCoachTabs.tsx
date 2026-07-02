@@ -47,7 +47,7 @@ function CoachTabPanel({ leftClassName, tab }: { leftClassName: string; tab: Coa
     return (
         <div
             data-testid={tab.testId}
-            className={`group fixed ${leftClassName} ${tab.topClassName} z-[46] h-12 w-[5rem] text-base-content transition-all duration-150 ease-out hover:h-[7.15rem] hover:w-72 focus-within:h-[7.15rem] focus-within:w-72 motion-reduce:transition-none`}
+            className={`group fixed ${leftClassName} ${tab.topClassName} z-[46] h-12 w-[5rem] text-base-content transition-all duration-150 ease-out hover:z-[48] hover:h-[7.15rem] hover:w-72 focus-within:z-[48] focus-within:h-[7.15rem] focus-within:w-72 motion-reduce:transition-none`}
         >
             <span
                 aria-hidden="true"

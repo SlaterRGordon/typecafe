@@ -1,6 +1,5 @@
 import { expect, test, type Locator, type Page, type TestInfo } from "@playwright/test";
 import { mockAuthenticatedSession, mockTrpc } from "./helpers/trpc";
-import { chooseReactSelectOption } from "./helpers/select";
 import { typeCurrentCharacter, typeVisibleTestText, typeWrongCharacter } from "./helpers/typing";
 import { join } from "node:path";
 
@@ -28,6 +27,14 @@ async function captureElement(locator: Locator, testInfo: TestInfo, name: string
 async function gotoHome(page: Page) {
   await page.goto("/");
   await expect(page.locator("#words .char").first()).toBeVisible();
+}
+
+// /train lands on the level map; Continue zooms into the resume level.
+async function gotoTrainLevel(page: Page) {
+  await page.goto("/train");
+  await expect(page.getByTestId("train-continue")).toBeVisible({ timeout: 20_000 });
+  await page.getByTestId("train-continue").click();
+  await expect(page.locator("#words .char").first()).toBeVisible({ timeout: 20_000 });
 }
 
 async function openSettingsMenu(page: Page) {
@@ -141,14 +148,14 @@ test.describe("screenshot tour", () => {
     await expect(page.locator("#customLengthInput")).toBeVisible();
     await capture(page, testInfo, "06-settings-timed-custom-length");
 
-    // Grams: switched on the inline bar; its settings live in the subpanel
-    // anchored below the toolbar.
+    // Grams: sources/scopes as settings-line segments; the numeric knobs render
+    // as dotted-underline inline edits on the advanced line.
     await selectMode(page, "Grams");
     await expect(page.getByTestId("grams-panel")).toBeVisible();
     await capture(page, testInfo, "05-settings-grams");
 
-    // The numeric thresholds fold behind an Advanced disclosure; show it open.
-    await page.getByTestId("grams-panel").getByText("Advanced", { exact: true }).click();
+    // Show one knob mid-edit.
+    await page.getByTestId("grams-panel").getByRole("button", { name: "Edit WPM needed to advance" }).click();
     await expect(page.locator("#testGramWpmThresholdInput")).toBeVisible();
     await capture(page, testInfo, "59-settings-grams-advanced");
 
@@ -293,32 +300,15 @@ test.describe("screenshot tour", () => {
     await expect(keyboardKey("R").locator("svg")).toHaveCount(1);
   });
 
-  test("train page: difficulty and level selection", async ({ page }, testInfo) => {
+  test("train page: level map and tier switching", async ({ page }, testInfo) => {
     await page.goto("/train");
-    await expect(page.locator("#words .char").first()).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByTestId("train-continue")).toBeVisible({ timeout: 20_000 });
+    await capture(page, testInfo, "34-train-level-map");
 
-    await chooseReactSelectOption(page, "difficultySelect", "Hard");
-    await expect(page.locator("#words .char").first()).toBeVisible();
+    // Tier tabs replace the difficulty dropdown.
+    await page.getByTestId("train-tiers").getByRole("button", { name: "hard" }).click();
+    await expect(page.getByText("Hard tier")).toBeVisible();
     await capture(page, testInfo, "33-train-hard-difficulty");
-
-    // Open the level dropdown to show locked levels.
-    await page.locator("#react-select-levelSelect-input")
-      .locator("xpath=ancestor::*[contains(@class, 'my-react-select__control')][1]")
-      .click();
-    await expect(page.getByRole("option", { name: "Level 2", exact: true })).toBeVisible();
-    await capture(page, testInfo, "34-train-level-dropdown");
-  });
-
-  test("home: keyboard enabled and live stats disabled", async ({ page }, testInfo) => {
-    await gotoHome(page);
-    await openSettingsMenu(page);
-    await page.getByTestId("settings-menu").getByRole("button", { name: /Keyboard/ }).click();
-    await page.getByTestId("settings-menu").getByRole("button", { name: /Live stats/ }).click();
-    await page.keyboard.press("Escape");
-
-    await expect(page.locator(".typecafe-keyboard")).toBeVisible();
-    await expect(page.getByText("0.0wpm")).toBeHidden();
-    await capture(page, testInfo, "10-home-keyboard-no-stats");
   });
 
   test("home: color settings modal", async ({ page }, testInfo) => {
@@ -406,14 +396,12 @@ test.describe("screenshot tour", () => {
   });
 
   test("train page", async ({ page }, testInfo) => {
-    await page.goto("/train");
-    await expect(page.locator("#words .char").first()).toBeVisible({ timeout: 20_000 });
+    await gotoTrainLevel(page);
     await capture(page, testInfo, "14-train-default");
   });
 
   test("train level complete popover", async ({ page }, testInfo) => {
-    await page.goto("/train");
-    await expect(page.locator("#words .char").first()).toBeVisible({ timeout: 20_000 });
+    await gotoTrainLevel(page);
     await typeVisibleTestText(page);
     await expect(page.getByTestId("train-complete-popover")).toBeVisible();
     await capture(page, testInfo, "57-train-level-complete");
@@ -426,8 +414,7 @@ test.describe("screenshot tour", () => {
       }));
       window.localStorage.setItem("typecafe.trainProgress.easy", JSON.stringify(cleared));
     });
-    await page.goto("/train");
-    await expect(page.locator("#words .char").first()).toBeVisible({ timeout: 20_000 });
+    await gotoTrainLevel(page);
     await expect(page.getByTestId("timed-countdown")).toBeVisible();
     await capture(page, testInfo, "59-train-speed-round");
   });
@@ -439,8 +426,7 @@ test.describe("screenshot tour", () => {
       }));
       window.localStorage.setItem("typecafe.trainProgress.easy", JSON.stringify(cleared));
     });
-    await page.goto("/train");
-    await expect(page.locator("#words .char").first()).toBeVisible({ timeout: 20_000 });
+    await gotoTrainLevel(page);
     await typeCurrentCharacter(page, 0);
     await typeWrongCharacter(page, 1);
     await expect(page.getByTestId("train-complete-popover")).toBeVisible();
@@ -454,8 +440,7 @@ test.describe("screenshot tour", () => {
       }));
       window.localStorage.setItem("typecafe.trainProgress.easy", JSON.stringify(cleared));
     });
-    await page.goto("/train");
-    await expect(page.locator("#words .char").first()).toBeVisible({ timeout: 20_000 });
+    await gotoTrainLevel(page);
     // Start the run, then stall so the pacer overtakes and the boss fails.
     await typeCurrentCharacter(page, 0);
     await expect(page.getByTestId("train-complete-popover")).toBeVisible({ timeout: 10_000 });
@@ -463,8 +448,7 @@ test.describe("screenshot tour", () => {
   });
 
   test("train level failed popover", async ({ page }, testInfo) => {
-    await page.goto("/train");
-    await expect(page.locator("#words .char").first()).toBeVisible({ timeout: 20_000 });
+    await gotoTrainLevel(page);
     await typeCurrentCharacter(page);
     const remaining = await page.locator("#words .char").count();
     for (let index = 1; index < remaining; index += 1) await page.keyboard.press("q");

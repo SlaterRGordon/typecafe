@@ -1,9 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react"
 import { TestSubModes, TestModes } from "./types"
 import type { QuoteLength, TestCompletionResult, TestGramScopes, TestGramSources } from "./types"
-import { getGramLevelText } from "./utils"
 import { Text } from "./Text"
-import { Stats } from "./Stats"
 import { useTimer } from "~/hooks/timer/useTimer"
 import { api } from "~/utils/api"
 import type { Level } from "./train/levels"
@@ -58,13 +56,9 @@ interface TyperProps {
     onTypingFocusChange?: (isTyping: boolean) => void,
     showStats: boolean,
     modalOpen: boolean,
-    showConfig: boolean,
-    fullscreen: boolean,
-    setFullscreen(fullscreen: boolean): void,
     restartSignal?: number,
     onRestart?: () => void,
     hideInterface?: boolean,
-    showControls?: boolean,
     // Fixed seeded text (daily challenge): skip generation and never append.
     fixedText?: string,
     // Stamps the saved Test row as belonging to this day's challenge (YYYY-MM-DD).
@@ -79,17 +73,15 @@ export const Typer = (props: TyperProps) => {
         mode, subMode,
         selectedKeys,
         gramSource, gramScope, gramCombination, gramRepetition,
-        count, showStats, showConfig,
+        count, showStats,
         punctuation = false, capitals = false,
         customLength = false,
         level,
         levelRequirements,
-        fullscreen,
         charAttemptsRef,
         onKeyChange,
         onAttemptChange,
         onRestart,
-        showControls = true,
     } = props
 
     const [text, setText] = useState("")
@@ -194,9 +186,6 @@ export const Typer = (props: TyperProps) => {
             resetProgression()
         }
     }, [mode, subMode, gramSource, gramScope, gramCombination, gramRepetition, resetProgression])
-
-    // ref for restart button
-    const restartRef = useRef<HTMLButtonElement>(null)
 
     const getStats = useCallback((finalCharacterCount: number, finalIncorrectCount: number) => {
         return computeStats({
@@ -536,7 +525,7 @@ export const Typer = (props: TyperProps) => {
         return () => clearInterval(intervalId)
     }, [recorder, actualStartTime, started, mode])
 
-    useRestartShortcut(restartRef, restartTest, isAnyModalOpen)
+    useRestartShortcut(null, restartTest, isAnyModalOpen)
 
     // Before any keystroke of an attempt there is nothing meaningful to show. In
     // n-grams mode the displayed numbers are the last completed gram's, so only
@@ -544,6 +533,21 @@ export const Typer = (props: TyperProps) => {
     const statsPending = mode === TestModes.ngrams
         ? typedCount === 0 && wpm === 0 && accuracy === 0
         : typedCount === 0
+
+    // Live stats line: rounded wpm, floored accuracy (so 100% always means
+    // perfect), "—" while there's nothing measurable yet.
+    const wpmBlank = statsPending || wpmPending
+    const liveWpmText = wpmBlank ? "—" : String(Math.round(wpm))
+    const liveAccText = statsPending ? "—" : String(Math.floor(accuracy))
+    const liveAvgText = wpmBlank ? "—" : String(Math.round(gramWpm))
+
+    // Word-count modes: words completed = spaces consumed in the prompt so far.
+    const isWordCounted = mode === TestModes.normal && subMode === TestSubModes.words
+    const isInfiniteWords = mode === TestModes.relaxed && subMode === TestSubModes.words
+    const typedWords = (isWordCounted || isInfiniteWords)
+        ? (text.slice(0, typedCount).match(/ /g)?.length ?? 0)
+        : 0
+    const gramTotalLevels = Math.ceil(gramScope / Math.max(gramCombination, 1))
 
     if (props.hideInterface) {
         return null
@@ -576,72 +580,30 @@ export const Typer = (props: TyperProps) => {
 
     return (
         <div className="flex w-full flex-col px-4 py-8 sm:py-0 sm:justify-center items-center space-y-2">
-            {showControls &&
-            <div className="relative w-full max-w-screen-xl flex items-center justify-center gap-2">
-                <div className={`absolute flex items-center h-full left-0 invisible ${text.length > 38 ? "md:visible" : ""}`}>
-                    {showStats &&
-                        <Stats mode={mode} wpm={wpm} accuracy={accuracy} pending={statsPending} wpmPending={wpmPending}
-                            averageWpm={gramWpm} levelText={getGramLevelText(gramLevel, gramCombination, gramScope)}
-                        />
-                    }
-                </div>
-                {/* settings button */}
-                {showConfig &&
-                    <label className={typingFocusFadeClass(started, "btn btn-ghost btn-circle")} htmlFor="configModal" aria-label="Open typing settings" title="Open typing settings">
-                        <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" className="w-7 h-7" viewBox="1.5 1.5 13 13"><path fill="currentColor" d="M8 6a2 2 0 1 0 0 4a2 2 0 0 0 0-4ZM7 8a1 1 0 1 1 2 0a1 1 0 0 1-2 0Zm3.618-3.602a.708.708 0 0 1-.824-.567l-.26-1.416a.354.354 0 0 0-.275-.282a6.072 6.072 0 0 0-2.519 0a.354.354 0 0 0-.275.282l-.259 1.416a.71.71 0 0 1-.936.538l-1.359-.484a.355.355 0 0 0-.382.095a5.99 5.99 0 0 0-1.262 2.173a.352.352 0 0 0 .108.378l1.102.931a.704.704 0 0 1 0 1.076l-1.102.931a.352.352 0 0 0-.108.378A5.986 5.986 0 0 0 3.53 12.02a.355.355 0 0 0 .382.095l1.36-.484a.708.708 0 0 1 .936.538l.258 1.416c.026.14.135.252.275.281a6.075 6.075 0 0 0 2.52 0a.353.353 0 0 0 .274-.281l.26-1.416a.71.71 0 0 1 .936-.538l1.359.484c.135.048.286.01.382-.095a5.99 5.99 0 0 0 1.262-2.173a.352.352 0 0 0-.108-.378l-1.102-.931a.703.703 0 0 1 0-1.076l1.102-.931a.352.352 0 0 0 .108-.378A5.985 5.985 0 0 0 12.47 3.98a.355.355 0 0 0-.382-.095l-1.36.484a.71.71 0 0 1-.111.03Zm-6.62.58l.937.333a1.71 1.71 0 0 0 2.255-1.3l.177-.97a5.105 5.105 0 0 1 1.265 0l.178.97a1.708 1.708 0 0 0 2.255 1.3L12 4.977c.255.334.467.698.63 1.084l-.754.637a1.704 1.704 0 0 0 0 2.604l.755.637a4.99 4.99 0 0 1-.63 1.084l-.937-.334a1.71 1.71 0 0 0-2.255 1.3l-.178.97a5.099 5.099 0 0 1-1.265 0l-.177-.97a1.708 1.708 0 0 0-2.255-1.3L4 11.023a4.987 4.987 0 0 1-.63-1.084l.754-.638a1.704 1.704 0 0 0 0-2.603l-.755-.637a5.06 5.06 0 0 1 .63-1.084Z" /></svg>
-                    </label>
-                }
-                {/* restart button */}
-                <button className={typingFocusFadeClass(started, "btn btn-ghost btn-circle focus:outline-0")} ref={restartRef} onClick={() => restartTest()} tabIndex={0} aria-label="Restart test" title="Restart test">
-                    <svg id="restart" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" className="w-7 h-7" viewBox="0.8 1 22 22"><g fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5"><path d="M12 3a9 9 0 1 1-5.657 2" /><path d="M3 4.5h4v4" /></g></svg>
-                </button>
-                {/* fullscreen button */}
-                <button className={typingFocusFadeClass(started, "btn btn-ghost btn-circle focus:outline-0")} onClick={() => props.setFullscreen(!fullscreen)} aria-label={fullscreen ? "Exit fullscreen" : "Enter fullscreen"} title={fullscreen ? "Exit fullscreen" : "Enter fullscreen"}>
-                    {fullscreen ?
-                        <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" className="w-7 h-7" viewBox="15 -940 920 920" width="24px" fill="currentColor"><path d="M240-120v-120H120v-80h200v200h-80Zm400 0v-200h200v80H720v120h-80ZM120-640v-80h120v-120h80v200H120Zm520 0v-200h80v120h120v80H640Z" /></svg>
-                        :
-                        <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" className="w-7 h-7" viewBox="15 -940 920 920" width="24px" fill="currentColor"><path d="M120-120v-200h80v120h120v80H120Zm520 0v-80h120v-120h80v200H640ZM120-640v-200h200v80H200v120h-80Zm640 0v-120H640v-80h200v200h-80Z" /></svg>
-                    }
-                </button>
-            </div>
-            }
-            {showControls ?
-                <>
-                    {textNode}
-                    <div className="flex flex-col relative items-center w-full">
-                        {/* Countdown is Normal/Timed only — see the isTimed note above. */}
-                        {isTimed &&
-                            <div className={`py-2`} data-testid="timed-countdown">
-                                <span className={`flex font-mono text-4xl gap-4`}>
-                                    <span className="flex">{time}</span>
+            <>
+                    {/* Redesign skeleton (docs/features/typecafe-redesign-reference.html):
+                        the mode's counter (countdown / word count) rides directly above the
+                        text where the eyes already are; live wpm · % renders under the
+                        text; then the mode's progress element; then the restart hint. */}
+                    <div className="mx-auto flex w-full max-w-screen-xl flex-col gap-3">
+                        {/* Reserve the counter row height so modes without one (grams,
+                            quotes, practice) never shift the text vertically. */}
+                        <div className="flex min-h-[1.75rem] items-end">
+                            {(isTimed || isCountUp) &&
+                                <span data-testid="timed-countdown" className="font-mono text-lg leading-none text-primary">
+                                    <span data-testid="stat-time">{time}</span>
                                 </span>
-                            </div>
-                        }
-                        <div className={`visible ${text.length > 38 ? "md:invisible" : ""}`} >
-                            {showStats &&
-                                <Stats mode={mode} wpm={wpm} accuracy={accuracy} pending={statsPending} wpmPending={wpmPending}
-                                    averageWpm={gramWpm} levelText={getGramLevelText(gramLevel, gramCombination, gramScope)}
-                                />
                             }
-                        </div>
-                        <p className={typingFocusFadeClass(started, "mt-2 font-mono text-xs text-base-content/40 select-none")}>
-                            <kbd className="kbd kbd-xs">tab</kbd> + <kbd className="kbd kbd-xs">enter</kbd> / <kbd className="kbd kbd-xs">space</kbd> — restart
-                        </p>
-                    </div>
-                </>
-                :
-                <>
-                    {/* Phase 2.5/2.6: the typing text is the visual center, with WPM/accuracy
-                        (the timed countdown, or the grams level progress) stacked above it
-                        on the left. Stats returns null when there's nothing to show. */}
-                    <div className="mx-auto flex w-full max-w-screen-xl flex-col gap-5">
-                        {/* Reserve the stats row height so an empty/absent stat line
-                            (e.g. Words with live stats off) never shifts the text. */}
-                        <div className="flex min-h-[2.75rem] items-end">
-                            <Stats layout="stacked" mode={mode} wpm={wpm} accuracy={accuracy} pending={statsPending} wpmPending={wpmPending}
-                                averageWpm={gramWpm} levelText={getGramLevelText(gramLevel, gramCombination, gramScope)}
-                                isTimed={isTimed} countUp={isCountUp} time={time} showLiveStats={showStats}
-                            />
+                            {isWordCounted &&
+                                <span data-testid="word-counter" className="font-mono text-[15px] leading-none text-primary">
+                                    {typedWords}<span className="text-base-content/40"> / {count}</span>
+                                </span>
+                            }
+                            {isInfiniteWords &&
+                                <span data-testid="word-counter" className="font-mono text-[15px] leading-none text-primary">
+                                    {typedWords}<span className="text-base-content/40"> words</span>
+                                </span>
+                            }
                         </div>
                         {/* Hold three lines of text height so a short prompt (e.g. a brief
                             quote) doesn't shrink the block and re-center the whole view. */}
@@ -649,11 +611,34 @@ export const Typer = (props: TyperProps) => {
                             {textNode}
                         </div>
                     </div>
-                    <p className={typingFocusFadeClass(started, "mt-6 font-mono text-xs text-base-content/40 select-none")}>
+                    {showStats &&
+                        <p data-testid="live-stats" className="font-mono text-sm text-base-content/45 select-none">
+                            <span data-testid="stat-wpm">{liveWpmText}</span> wpm · <span data-testid="stat-acc">{liveAccText}</span>%
+                            {mode === TestModes.ngrams && <> · <span data-testid="stat-avg">{liveAvgText}</span> avg</>}
+                        </p>
+                    }
+                    {isWordCounted &&
+                        <div className="w-[280px] pt-3">
+                            <div className="h-0.5 overflow-hidden rounded-full bg-base-content/10">
+                                <div className="h-full bg-primary transition-[width] duration-300" style={{ width: `${Math.min((typedWords / Math.max(count, 1)) * 100, 100)}%` }} />
+                            </div>
+                        </div>
+                    }
+                    {mode === TestModes.ngrams &&
+                        <div data-testid="gram-progress" className="w-[280px] pt-3">
+                            <div className="mb-1.5 flex justify-between font-mono text-xs text-base-content/55">
+                                <span>level {gramLevel}</span>
+                                <span className="text-base-content/35">/ {gramTotalLevels}</span>
+                            </div>
+                            <div className="h-0.5 overflow-hidden rounded-full bg-base-content/10">
+                                <div className="h-full bg-primary transition-[width] duration-300" style={{ width: `${Math.min((gramLevel / Math.max(gramTotalLevels, 1)) * 100, 100)}%` }} />
+                            </div>
+                        </div>
+                    }
+                    <p className={typingFocusFadeClass(started, "mt-6 font-mono text-sm text-base-content/40 select-none")}>
                         <kbd className="kbd kbd-xs">tab</kbd> + <kbd className="kbd kbd-xs">enter</kbd> / <kbd className="kbd kbd-xs">space</kbd> — restart
                     </p>
-                </>
-            }
+            </>
         </div>
     )
 }

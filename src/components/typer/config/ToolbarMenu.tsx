@@ -10,7 +10,7 @@ interface ToolbarMenuProps {
     testId?: string
 }
 
-export const toolbarMenuPanelClass = "absolute top-12 z-50 rounded-lg border border-base-content/15 bg-base-200 p-2 shadow-[0_20px_70px_rgba(0,0,0,0.45)]"
+export const toolbarMenuPanelClass = "absolute top-7 z-50 rounded-lg border border-base-content/15 bg-base-200 p-2 shadow-[0_20px_70px_rgba(0,0,0,0.45)]"
 
 export function ToolbarMenu(props: ToolbarMenuProps) {
     const ref = useRef<HTMLDivElement>(null)
