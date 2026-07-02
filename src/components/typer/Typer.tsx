@@ -607,12 +607,10 @@ export const Typer = (props: TyperProps) => {
                         so it follows a centered short prompt); live wpm · % renders under
                         the text; then the mode's progress element; then the restart hint. */}
                     <div className="mx-auto flex w-full max-w-screen-xl flex-col">
-                        {/* Hold counter row + three lines of text height so a short prompt
-                            (e.g. a brief quote) doesn't shrink the block and re-center the
-                            whole view: 1.75rem counter + 0.75rem gap + 6.6/9rem text. */}
-                        <div className="flex min-h-[9.1rem] sm:min-h-[11.5rem]">
-                            {textNode}
-                        </div>
+                        {/* No reserved height: the #words block (in Text) caps at three
+                            lines and scrolls, and shrinks to fit below that — so a short
+                            prompt sits right above the live stats with no gap. */}
+                        {textNode}
                     </div>
                     {showStats &&
                         <p data-testid="live-stats" className="font-mono text-sm text-base-content/45 select-none">
