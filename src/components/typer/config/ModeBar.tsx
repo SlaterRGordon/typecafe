@@ -114,7 +114,8 @@ function SvgSettings() {
 
 function SvgRestart() {
     return (
-        <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" className="h-4 w-4" viewBox="0.8 1 22 22">
+        // id="restart": Text.tsx blinks this icon as the test-over restart cue.
+        <svg id="restart" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" className="h-4 w-4" viewBox="0.8 1 22 22">
             <g fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5">
                 <path d="M12 3a9 9 0 1 1-5.657 2" />
                 <path d="M3 4.5h4v4" />
@@ -150,7 +151,7 @@ function TextOpt(props: {
             aria-label={props.ariaLabel}
             title={props.title}
             onClick={props.onClick}
-            className={`cursor-pointer text-xs transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${props.active ? "font-semibold text-primary" : "text-base-content/50 hover:text-base-content"}`}
+            className={`cursor-pointer text-sm transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${props.active ? "font-semibold text-primary" : "text-base-content/50 hover:text-base-content"}`}
         >
             {props.children}
         </button>
@@ -222,7 +223,7 @@ function InlineEdit(props: {
                     if (event.key === "Enter") event.currentTarget.blur()
                     if (event.key === "Escape") { setText(String(props.value)); setEditing(false) }
                 }}
-                className="h-5 w-14 rounded border border-primary/40 bg-base-200 px-1 text-center font-mono text-[11px] text-base-content outline-none"
+                className="h-5 w-14 rounded border border-primary/40 bg-base-200 px-1 text-center font-mono text-xs text-base-content outline-none"
                 aria-label={props.label}
             />
         )
@@ -426,10 +427,10 @@ export function ModeBar(props: ModeBarProps) {
                                 }
                                 if (event.key === "Escape") cancelCustomLength()
                             }}
-                            className="h-5 w-16 bg-transparent font-mono text-xs text-base-content outline-none"
+                            className="h-5 w-16 bg-transparent font-mono text-sm text-base-content outline-none"
                             aria-label={props.subMode === TestSubModes.timed ? "Custom timed length" : "Custom word length"}
                         />
-                        <span className="shrink-0 text-[10px] font-medium text-base-content/45">{props.subMode === TestSubModes.timed ? "sec" : "words"}</span>
+                        <span className="shrink-0 text-xs font-medium text-base-content/45">{props.subMode === TestSubModes.timed ? "sec" : "words"}</span>
                         <button
                             type="button"
                             className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded text-base-content/55 transition hover:text-base-content"
@@ -478,7 +479,7 @@ export function ModeBar(props: ModeBarProps) {
                             shift {props.shiftLayer ? "on" : "off"}
                         </TextOpt>
                         <Sep />
-                        <span data-testid="practice-active-count" className="text-xs text-base-content/40">
+                        <span data-testid="practice-active-count" className="text-sm text-base-content/40">
                             {props.selectedKeys.length} keys active
                         </span>
                     </>
@@ -627,7 +628,7 @@ export function ModeBar(props: ModeBarProps) {
 
             {/* Grams advanced line: the numeric knobs as dotted-underline inline edits. */}
             {isGrams &&
-                <div data-testid="grams-panel" aria-label="Grams settings" className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 font-mono text-[11px] text-base-content/45">
+                <div data-testid="grams-panel" aria-label="Grams settings" className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 font-mono text-xs text-base-content/45">
                     <span>
                         <InlineEdit
                             id="testGramCombinationInput"
