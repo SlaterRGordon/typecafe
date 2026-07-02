@@ -10,14 +10,16 @@ test.describe("leaderboard filters", () => {
   });
 
   test("renders mocked scores and switches timed counts", async ({ page }, testInfo) => {
-    await expect(page.getByText("72.35")).toBeVisible();
+    // Net WPM is the always-visible column; raw + accuracy are hidden below sm.
+    await expect(page.getByText("67.29")).toBeVisible();
     if (!testInfo.project.name.includes("mobile")) {
+      await expect(page.getByText("72.35")).toBeVisible();
       await expect(page.getByText("96.50 %")).toBeVisible();
     }
 
     await chooseReactSelectOption(page, "countSelect", "120");
 
-    await expect(page.getByText("101.25")).toBeVisible();
+    await expect(page.getByText("97.71")).toBeVisible();
   });
 
   test("switches words mode and exposes word-count options", async ({ page }) => {
@@ -26,7 +28,7 @@ test.describe("leaderboard filters", () => {
     await expect(page.getByText("10").first()).toBeVisible();
     await chooseReactSelectOption(page, "countSelect", "25");
 
-    await expect(page.getByText("88.50")).toBeVisible();
+    await expect(page.getByText("82.30")).toBeVisible();
   });
 
   test("supports language and date-range filters without losing results", async ({ page }) => {

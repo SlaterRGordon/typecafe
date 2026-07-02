@@ -240,7 +240,7 @@ function BeatRunChallenge(props: { slug: string; target: BeatTarget }) {
   const challengerAttempts = completed ? attemptsFromPromptSegments(props.target.promptText, completed.typedSegments) : new Map<string, { attempts: number; correct: number }>();
 
   return (
-    <div id="typer" className={`flex h-full w-full flex-col overflow-auto ${completed ? "py-4" : "[justify-content:safe_center]"} md:w-10/12`}>
+    <div id="typer" className={`flex h-full w-full flex-col overflow-auto ${completed ? "py-4" : "[justify-content:safe_center]"} max-w-screen-xl mx-auto`}>
       {!completed &&
         <>
           <div data-testid="beat-run-header" className={typingFocusFadeClass(typingFocused, "mx-auto mb-4 w-full max-w-screen-xl text-center")}>

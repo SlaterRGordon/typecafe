@@ -7,6 +7,7 @@ import { challengeDateKey } from "~/lib/challenge";
 import { localChallengeStatus, readLocalChallengeHistory, type ChallengeStatus } from "~/lib/challengeHistory";
 import { composeWeakKeys, worstKeysFromAttempts } from "~/lib/stats";
 import { worstTransitions } from "~/lib/transitions";
+import { useGuestEvidence } from "~/hooks/useGuestEvidence";
 import { api } from "~/utils/api";
 
 const NEXT_ACTION_DISMISS_KEY = "typecafe:nextActionDismissed";
@@ -158,6 +159,7 @@ export function HomeCoachTabs({ className = "", desktop = true, inline = true }:
 
     const transitionsQuery = api.transitionStats.get.useQuery(undefined, { enabled: signedIn });
     const practiceStatsQuery = api.practiceStats.get.useQuery(undefined, { enabled: signedIn });
+    const guestEvidence = useGuestEvidence();
     const remoteChallenge = api.test.getDailyChallengeStatus.useQuery(
         { dateKey: dateKey ?? "1970-01-01" },
         { enabled: !!dateKey && signedIn },
@@ -166,48 +168,48 @@ export function HomeCoachTabs({ className = "", desktop = true, inline = true }:
     const tabs = useMemo(() => {
         const nextTabs: CoachTab[] = [];
 
-        if (signedIn) {
-            const slowest = worstTransitions(transitionsQuery.data ?? [])[0];
-            const weakKeys = slowest
-                ? []
-                : composeWeakKeys(
-                    worstKeysFromAttempts(
-                        new Map((practiceStatsQuery.data ?? []).map((s) => [s.character, { attempts: s.total, correct: s.correct }])),
-                        Infinity,
-                    ),
-                ).slice(0, 4);
+        // Same finding priority for both sources: signed-in reads the DB,
+        // guests read their local-first evidence (ADR-0001). No history → no tab.
+        const transitions = signedIn ? transitionsQuery.data ?? [] : guestEvidence?.transitions ?? [];
+        const attempts = signedIn
+            ? new Map((practiceStatsQuery.data ?? []).map((s) => [s.character, { attempts: s.total, correct: s.correct }]))
+            : new Map((guestEvidence?.keyStats ?? []).map((s) => [s.key, { attempts: s.attempts, correct: s.correct }]));
 
-            let drillHref: string | null = null;
-            let findingId: string | null = null;
-            let drillBody: React.ReactNode = null;
-            if (slowest) {
-                findingId = `transition:${slowest.pair}`;
-                drillHref = `/drill?transitions=${slowest.pair}`;
-                drillBody = <>Your slowest jump is <span className="font-mono font-bold text-base-content">{slowest.from}-&gt;{slowest.to}</span> ({slowest.ratio.toFixed(1)}x avg).</>;
-            } else if (weakKeys.length > 0) {
-                const keys = weakKeys.map((k) => k.key).join(",");
-                findingId = `keys:${keys}`;
-                drillHref = `/drill?keys=${keys}`;
-                drillBody = <>Your weakest keys are <span className="font-mono font-bold text-base-content">{weakKeys.map((k) => k.key).join(" ")}</span>.</>;
-            }
+        const slowest = worstTransitions(transitions)[0];
+        const weakKeys = slowest
+            ? []
+            : composeWeakKeys(worstKeysFromAttempts(attempts, Infinity)).slice(0, 4);
 
-            if (drillHref && findingId && dismissedFinding !== findingId) {
-                nextTabs.push({
-                    key: "drill",
-                    label: "Fix this",
-                    eyebrow: "Targeted drill",
-                    body: drillBody,
-                    href: drillHref,
-                    cta: "Start drill",
-                    testId: "home-coach-tab-drill",
-                    topClassName: "top-[12.5rem]",
-                    dismissLabel: "Dismiss drill suggestion",
-                    onDismiss: () => {
-                        setDismissedFinding(findingId);
-                        try { localStorage.setItem(NEXT_ACTION_DISMISS_KEY, findingId); } catch { /* localStorage unavailable */ }
-                    },
-                });
-            }
+        let drillHref: string | null = null;
+        let findingId: string | null = null;
+        let drillBody: React.ReactNode = null;
+        if (slowest) {
+            findingId = `transition:${slowest.pair}`;
+            drillHref = `/drill?transitions=${slowest.pair}`;
+            drillBody = <>Your slowest jump is <span className="font-mono font-bold text-base-content">{slowest.from}-&gt;{slowest.to}</span> ({slowest.ratio.toFixed(1)}x avg).</>;
+        } else if (weakKeys.length > 0) {
+            const keys = weakKeys.map((k) => k.key).join(",");
+            findingId = `keys:${keys}`;
+            drillHref = `/drill?keys=${keys}`;
+            drillBody = <>Your weakest keys are <span className="font-mono font-bold text-base-content">{weakKeys.map((k) => k.key).join(" ")}</span>.</>;
+        }
+
+        if (drillHref && findingId && dismissedFinding !== findingId) {
+            nextTabs.push({
+                key: "drill",
+                label: "Fix this",
+                eyebrow: "Targeted drill",
+                body: drillBody,
+                href: drillHref,
+                cta: "Start drill",
+                testId: "home-coach-tab-drill",
+                topClassName: "top-[12.5rem]",
+                dismissLabel: "Dismiss drill suggestion",
+                onDismiss: () => {
+                    setDismissedFinding(findingId);
+                    try { localStorage.setItem(NEXT_ACTION_DISMISS_KEY, findingId); } catch { /* localStorage unavailable */ }
+                },
+            });
         }
 
         const challengeStatusLoaded = signedIn ? remoteChallenge.data !== undefined : sessionStatus === "unauthenticated" && localChallenge !== null;
@@ -233,7 +235,7 @@ export function HomeCoachTabs({ className = "", desktop = true, inline = true }:
         }
 
         return nextTabs;
-    }, [challengeDismissed, dateKey, dismissedFinding, localChallenge, practiceStatsQuery.data, remoteChallenge.data, sessionStatus, signedIn, transitionsQuery.data]);
+    }, [challengeDismissed, dateKey, dismissedFinding, guestEvidence, localChallenge, practiceStatsQuery.data, remoteChallenge.data, sessionStatus, signedIn, transitionsQuery.data]);
 
     if (tabs.length === 0) return null;
 

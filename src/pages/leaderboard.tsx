@@ -92,7 +92,7 @@ const Leaderboard: NextPage = () => {
     return (
         <>
             <div id="leaderboard" className="flex w-full h-full justify-center">
-                <div className="flex flex-col overflow-x-auto overflow-y-hidden w-11/12 mx-4 py-8 gap-2">
+                <div className="flex w-full max-w-screen-xl flex-col overflow-x-auto overflow-y-hidden px-4 py-8 gap-2">
                     <div className="flex gap-2">
                         <Select
                             instanceId="languageSeelect"

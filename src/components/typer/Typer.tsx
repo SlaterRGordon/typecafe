@@ -549,9 +549,33 @@ export const Typer = (props: TyperProps) => {
         return null
     }
 
+    // The mode's counter rides inside Text's shrink-wrapped block so it follows
+    // the text when a short prompt centers. The min-h reserves the row so modes
+    // without one (grams, quotes, practice) never shift the text vertically.
+    const counterNode = (
+        <div className="mb-3 flex min-h-[1.75rem] items-end">
+            {(isTimed || isCountUp) &&
+                <span data-testid="timed-countdown" className="font-mono text-lg leading-none text-primary">
+                    <span data-testid="stat-time">{time}</span>
+                </span>
+            }
+            {isWordCounted &&
+                <span data-testid="word-counter" className="font-mono text-[15px] leading-none text-primary">
+                    {typedWords}<span className="text-base-content/40"> / {count}</span>
+                </span>
+            }
+            {isInfiniteWords &&
+                <span data-testid="word-counter" className="font-mono text-[15px] leading-none text-primary">
+                    {typedWords}<span className="text-base-content/40"> words</span>
+                </span>
+            }
+        </div>
+    )
+
     const textNode = (
         <Text
             text={text}
+            counter={counterNode}
             language={language}
             mode={mode}
             subMode={subMode}
@@ -579,31 +603,14 @@ export const Typer = (props: TyperProps) => {
             <>
                     {/* Redesign skeleton (docs/features/typecafe-redesign-reference.html):
                         the mode's counter (countdown / word count) rides directly above the
-                        text where the eyes already are; live wpm · % renders under the
-                        text; then the mode's progress element; then the restart hint. */}
-                    <div className="mx-auto flex w-full max-w-screen-xl flex-col gap-3">
-                        {/* Reserve the counter row height so modes without one (grams,
-                            quotes, practice) never shift the text vertically. */}
-                        <div className="flex min-h-[1.75rem] items-end">
-                            {(isTimed || isCountUp) &&
-                                <span data-testid="timed-countdown" className="font-mono text-lg leading-none text-primary">
-                                    <span data-testid="stat-time">{time}</span>
-                                </span>
-                            }
-                            {isWordCounted &&
-                                <span data-testid="word-counter" className="font-mono text-[15px] leading-none text-primary">
-                                    {typedWords}<span className="text-base-content/40"> / {count}</span>
-                                </span>
-                            }
-                            {isInfiniteWords &&
-                                <span data-testid="word-counter" className="font-mono text-[15px] leading-none text-primary">
-                                    {typedWords}<span className="text-base-content/40"> words</span>
-                                </span>
-                            }
-                        </div>
-                        {/* Hold three lines of text height so a short prompt (e.g. a brief
-                            quote) doesn't shrink the block and re-center the whole view. */}
-                        <div className="flex min-h-[6.6rem] sm:min-h-[9rem]">
+                        text where the eyes already are (inside Text's shrink-wrapped block,
+                        so it follows a centered short prompt); live wpm · % renders under
+                        the text; then the mode's progress element; then the restart hint. */}
+                    <div className="mx-auto flex w-full max-w-screen-xl flex-col">
+                        {/* Hold counter row + three lines of text height so a short prompt
+                            (e.g. a brief quote) doesn't shrink the block and re-center the
+                            whole view: 1.75rem counter + 0.75rem gap + 6.6/9rem text. */}
+                        <div className="flex min-h-[9.1rem] sm:min-h-[11.5rem]">
                             {textNode}
                         </div>
                     </div>

@@ -319,7 +319,7 @@ const Train: NextPage = () => {
     const banners = (
         <>
             {train.shouldShowImportPrompt &&
-                <div className="flex w-full items-center justify-between gap-3 rounded bg-base-300 px-4 py-3 text-base-content">
+                <div className="mb-3 flex w-full max-w-2xl items-center justify-between gap-3 rounded bg-base-300 px-4 py-3 text-base-content">
                     <span className="text-sm font-semibold">Device progress is available for this difficulty.</span>
                     <button
                         className="btn btn-primary btn-sm"
@@ -332,9 +332,12 @@ const Train: NextPage = () => {
                 </div>
             }
             {sessionStatus === "unauthenticated" &&
-                <label className="btn btn-primary btn-sm mr-auto" htmlFor="signInModal">
-                    Sign in to save level progress
-                </label>
+                <div className="mb-3 flex w-full max-w-2xl flex-wrap items-center justify-between gap-3 rounded-lg border border-primary/40 bg-primary/10 px-4 py-3">
+                    <span className="text-sm text-base-content/80">Level progress lives on this device only.</span>
+                    <label htmlFor="signInModal" className="inline-flex cursor-pointer items-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85">
+                        Sign in to save level progress
+                    </label>
+                </div>
             }
         </>
     )
@@ -408,7 +411,7 @@ const Train: NextPage = () => {
     }
 
     return (
-        <div className="relative flex h-full w-full flex-col items-center overflow-y-auto overflow-x-hidden px-4 pb-4 pt-4 md:w-10/12 md:self-center md:px-0 md:pb-8 md:pt-8">
+        <div className="relative flex h-full w-full flex-col items-center overflow-y-auto overflow-x-hidden max-w-screen-xl px-4 pb-4 pt-4 md:self-center md:px-0 md:pb-8 md:pt-8">
             <div className="flex w-full flex-col items-center justify-center gap-6 py-4 md:min-h-full md:py-8">
 
                 {view === "map" &&

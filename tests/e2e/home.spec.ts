@@ -308,10 +308,40 @@ test.describe("home typing test", () => {
     await expect(page.getByTestId("home-coach-tab-drill-panel")).toContainText("b->r");
   });
 
-  test("guests see no drill coach tab", async ({ page }) => {
+  test("guests without history see no drill coach tab", async ({ page }) => {
     await mockTrpc(page);
     await gotoHome(page);
     await expect(page.getByTestId("home-coach-tab-drill")).toBeHidden();
+    await expect(page.getByTestId("home-coach-tab-drill-inline")).toBeHidden();
+  });
+
+  test("guests with local history get the drill coach tab", async ({ page }, testInfo) => {
+    // Local-first: same transitions the signed-in mock serves, seeded as guest evidence.
+    await page.addInitScript(() => {
+      window.localStorage.setItem("typecafe:transitionStats", JSON.stringify([
+        { pair: "br", count: 12, totalMs: 4800, errors: 3 },
+        { pair: "th", count: 30, totalMs: 3000, errors: 0 },
+        { pair: "he", count: 25, totalMs: 3000, errors: 0 },
+        { pair: "io", count: 10, totalMs: 3000, errors: 1 },
+      ]));
+    });
+    await mockTrpc(page);
+    await gotoHome(page);
+
+    if (testInfo.project.name.includes("mobile")) {
+      const inlineTab = page.getByTestId("home-coach-tab-drill-inline");
+      await expect(inlineTab).toBeVisible();
+      await expect(inlineTab).toContainText("b->r");
+      await expect(inlineTab.getByRole("link", { name: "Start drill" })).toHaveAttribute("href", "/drill?transitions=br");
+      return;
+    }
+
+    const tab = page.getByTestId("home-coach-tab-drill");
+    await expect(tab).toBeVisible();
+    await tab.hover();
+    const panel = page.getByTestId("home-coach-tab-drill-panel");
+    await expect(panel).toContainText("b->r");
+    await expect(panel.getByRole("link", { name: "Start drill" })).toHaveAttribute("href", "/drill?transitions=br");
   });
 
   test("grams numeric knobs edit inline on the advanced line", async ({ page }) => {

@@ -688,6 +688,25 @@ test.describe("screenshot tour", () => {
     await capture(page, testInfo, "57-home-targeted-drill-tab");
   });
 
+  test("home: guest targeted drill coach tab", async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name.includes("mobile"), "The rail coach tabs are desktop-only.");
+    await page.addInitScript(() => {
+      window.localStorage.setItem("typecafe:transitionStats", JSON.stringify([
+        { pair: "br", count: 12, totalMs: 4800, errors: 3 },
+        { pair: "th", count: 30, totalMs: 3000, errors: 0 },
+        { pair: "he", count: 25, totalMs: 3000, errors: 0 },
+        { pair: "io", count: 10, totalMs: 3000, errors: 1 },
+      ]));
+    });
+    await mockTrpc(page);
+    await gotoHome(page);
+    const tab = page.getByTestId("home-coach-tab-drill");
+    await expect(tab).toBeVisible();
+    await tab.hover();
+    await expect(page.getByTestId("home-coach-tab-drill-panel")).toBeVisible();
+    await capture(page, testInfo, "63-home-guest-drill-tab");
+  });
+
   test("practice plan (targeted)", async ({ page }, testInfo) => {
     await mockAuthenticatedSession(page);
     await mockTrpc(page, { keyStats: [{ character: "r", total: 100, correct: 70 }, { character: "t", total: 80, correct: 62 }] });

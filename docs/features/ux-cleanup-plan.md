@@ -188,16 +188,17 @@ feeling.
 *(One cap value keeps it simple; if the typing line-length later wants more room
 than dashboards, bump only the test tier — a named second value, never accidental.)*
 
-- [ ] Add a shared centered wrapper — either a small `PageContainer` or a class
-  applied in [Layout.tsx](../../src/components/Layout.tsx) around `{children}` for
-  non-home pages. Home already has its own typer container; align it to the same cap.
-- [ ] Replace unbounded fractional widths:
-  - typer `md:w-10/12` → `w-full max-w-screen-xl mx-auto`
-    ([index.tsx:544](../../src/pages/index.tsx#L544));
-  - profile `w-11/12` → the shared container
-    ([profile.tsx:176,209](../../src/pages/profile.tsx#L176)).
-- [ ] Audit each page in the table; remove ad-hoc `w-*/12` and let the wrapper own
-  width. Inner cards keep their own grid/`max-w` as today.
-- [ ] **Fullscreen test mode stays the intentional exception** (full-bleed by design).
-- [ ] Re-run the screenshot tour after; the wide-monitor captures should show a
+- [x] Shared cap applied per page rather than a Layout wrapper — each page owns
+  its own scroll container, so a `PageContainer` would have been a wrapper with a
+  divergent consumer per page. Home's typer container aligned to the same cap.
+- [x] Replace unbounded fractional widths: typer `md:w-10/12` →
+  `w-full max-w-screen-xl mx-auto` on home, challenge, beat-run and train;
+  leaderboard `w-11/12` → the cap. (Profile's `w-11/12` had already become
+  `max-w-screen-xl` in the ProfileView redesign.)
+- [x] Audit each page in the table; progress dropped its second accidental cap
+  value (`max-w-6xl` → `max-w-screen-xl`). Pages already bounded below the cap
+  (plan, drill, legal, contact/support prose) keep their deliberate narrower
+  columns. Inner cards keep their own grid/`max-w` as today.
+- [x] **Fullscreen test mode stays the intentional exception** (full-bleed by design).
+- [x] Re-run the screenshot tour after; the wide-monitor captures should show a
   consistent centered column across pages.
