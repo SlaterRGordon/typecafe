@@ -172,11 +172,7 @@ const Drill: NextPage = () => {
                                         customLength
                                         fixedText={config.kind === "timed" ? undefined : config.text}
                                         showStats
-                                        showConfig={false}
-                                        showControls={false}
                                         modalOpen={false}
-                                        fullscreen={false}
-                                        setFullscreen={() => undefined}
                                         onKeyChange={() => undefined}
                                         restartSignal={restartSignal}
                                         onRestart={() => setCompleted(null)}

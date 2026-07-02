@@ -34,8 +34,11 @@ test.describe("visual QA artifacts", () => {
 
   test("train page", async ({ page }, testInfo) => {
     await page.goto("/train");
-    await expect(page.locator("#words .char").first()).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByTestId("train-continue")).toBeVisible({ timeout: 20_000 });
+    await saveScreenshot(page, testInfo, "train-map");
 
+    await page.getByTestId("train-continue").click();
+    await expect(page.locator("#words .char").first()).toBeVisible({ timeout: 20_000 });
     await saveScreenshot(page, testInfo, "train");
   });
 

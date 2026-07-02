@@ -658,8 +658,6 @@ const Home: NextPage = () => {
           </div>
         ) : (
         <Typer
-          fullscreen={fullscreen}
-          setFullscreen={(full) => setFullscreen(full)}
           language={language}
           quoteLength={quoteLength}
           mode={mode}
@@ -677,8 +675,6 @@ const Home: NextPage = () => {
           capitals={capitals}
           customLength={customLength}
           showStats={true}
-          showConfig={false}
-          showControls={false}
           modalOpen={false}
           onKeyChange={onKeyChange}
           onAttemptChange={onAttemptChange}

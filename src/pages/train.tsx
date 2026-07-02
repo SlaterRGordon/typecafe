@@ -2,17 +2,15 @@ import { type NextPage } from "next";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Typer } from "~/components/typer/Typer";
 import { TestGramScopes, TestGramSources, TestModes } from "~/components/typer/types";
-import type { Level, LevelKind } from "~/components/typer/train/levels";
+import type { Level } from "~/components/typer/train/levels";
 import { levels } from "~/components/typer/train/levels";
 import { KIND_META } from "~/components/typer/train/kindMeta";
 import { api } from "~/utils/api";
-import Select from 'react-select'
-import type { SingleValue } from "react-select";
 import { Keyboard } from "~/components/typer/Keyboard";
 import { typingFocusFadeClass } from "~/components/typer/typingFocus";
 import { useSession } from "next-auth/react";
 import type { TestCompletionResult } from "~/components/typer/Typer";
-import { starThresholds, type StarThresholds } from "~/lib/trainThresholds";
+import { DIFFICULTIES, starThresholds, type StarThresholds } from "~/lib/trainThresholds";
 import {
     gradeLevel,
     ladderState,
@@ -21,17 +19,20 @@ import {
     resumeLevel,
     type DifficultyName,
     type LevelProgress,
+    type LevelStatus,
 } from "~/lib/trainProgression";
 import { useTrainProgress } from "~/hooks/useTrainProgress";
 
-type Option = { label: string, value: number | string, isDisabled: boolean, stars?: number, kind: LevelKind }
+// The map is the hub (the landing view); a level is the leaf you zoom into.
+type TrainView = "map" | "level"
+
 type TrainCompletion = {
     levelName: string,
     netWpm: number,
     accuracy: number,
     stars: 0 | 1 | 2 | 3,
     thresholds: StarThresholds,
-    kind: LevelKind,
+    kind: Level["kind"],
     pacerCaught: boolean,
     isNoMiss: boolean,
     nextLevelName: string | null,
@@ -43,26 +44,6 @@ function failMessage(c: TrainCompletion): string {
     if (c.pacerCaught) return "The pacer caught you — reach the end before the line does to beat the boss."
     if (c.kind === "noMiss" && c.accuracy < 100) return "One miss ends a no-miss level — stay perfect."
     return `Need ${formatNumber(c.thresholds.oneStarNetWpm, 0)} net WPM to clear — you hit ${formatNumber(c.netWpm, 0)}.`
-}
-
-// The level-type chip + a "?" tooltip explaining how the active level is scored.
-// items-stretch keeps the round "?" the same height as the pill beside it. The
-// daisyUI tooltip text comes from data-tip; don't add `before:*` utilities here —
-// they reset --tw-content and blank the tooltip.
-function LevelKindBadge(props: { kind: LevelKind }) {
-    const meta = KIND_META[props.kind]
-    return (
-        <div className="flex items-stretch gap-2" data-testid="train-level-kind">
-            <span
-                data-tip={meta.blurb}
-                aria-label={`How ${meta.label} levels work: ${meta.blurb}`}
-                className="tooltip tooltip-bottom before:text-base-content cursor-pointer inline-flex items-center min-h-[2rem] gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary"
-            >
-                <meta.Icon className="h-3.5 w-3.5" />
-                {meta.label}
-            </span>
-        </div>
-    )
 }
 
 function formatNumber(value: number, digits = 1) {
@@ -113,14 +94,47 @@ function StarThreshold(props: { stars: 1 | 2 | 3, netWpm: number, className?: st
     )
 }
 
-function BestStars(props: { stars?: number, className?: string }) {
-    if (!props.stars) return null
-    const label = `Best ${props.stars} ${props.stars === 1 ? "star" : "stars"}`
-
+function LockIcon(props: { className?: string }) {
     return (
-        <span className={props.className} aria-label={label}>
-            <span className="text-primary" aria-hidden="true">{"★".repeat(props.stars)}</span>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className={props.className ?? "h-3 w-3"}>
+            <rect x="5" y="11" width="14" height="10" rx="2" />
+            <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+        </svg>
+    )
+}
+
+// Three stars: earned ones accent-colored, the rest ghosted.
+function Stars(props: { earned: number, ghostClass?: string, className?: string }) {
+    return (
+        <span className={props.className} aria-label={`${props.earned} of 3 stars`}>
+            {[1, 2, 3].map((star) => (
+                <span key={star} aria-hidden="true" className={star <= props.earned ? "text-primary" : props.ghostClass ?? "text-base-content/20"}>★</span>
+            ))}
         </span>
+    )
+}
+
+// All three thresholds on hover — the caption line only carries the next one.
+function thresholdsTitle(levelNum: number, difficulty: DifficultyName): string {
+    const t = starThresholds(levelNum, difficulty)
+    return `★ ${t.oneStarNetWpm} · ★★ ${t.twoStarNetWpm} · ★★★ ${t.threeStarNetWpm} net WPM`
+}
+
+function TierTabs(props: { difficulty: DifficultyName, onSelect: (difficulty: DifficultyName) => void }) {
+    return (
+        <div data-testid="train-tiers" aria-label="Difficulty tier" className="flex flex-wrap justify-center gap-1.5">
+            {DIFFICULTIES.map((tier) => (
+                <button
+                    key={tier}
+                    type="button"
+                    aria-pressed={tier === props.difficulty}
+                    onClick={() => props.onSelect(tier)}
+                    className={`rounded-full border px-3.5 py-1 text-sm capitalize transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${tier === props.difficulty ? "border-primary bg-primary font-medium text-primary-content" : "border-base-content/15 text-base-content/60 hover:text-base-content"}`}
+                >
+                    {tier}
+                </button>
+            ))}
+        </div>
     )
 }
 
@@ -135,12 +149,12 @@ const Train: NextPage = () => {
     const gramWpmThreshold = 20
     const gramAccuracyThreshold = 100
     const [difficulty, setDifficulty] = useState<DifficultyName>("easy")
+    const [view, setView] = useState<TrainView>("map")
     const [level, setLevel] = useState<Level>(levels[0] as Level)
     // Speed-round levels run as short timed tests; every other kind is a words run.
     const subMode = level.subMode
     const [currentKey, setCurrentKey] = useState<string>("")
     const [levelChanged, setLevelChanged] = useState<boolean>(false)
-    const [fullscreen, setFullscreen] = useState(false)
     const [restartSignal, setRestartSignal] = useState(0)
     const [completion, setCompletion] = useState<TrainCompletion | null>(null)
     const [typingFocused, setTypingFocused] = useState(false)
@@ -157,28 +171,8 @@ const Train: NextPage = () => {
         setCompletion(null)
     }, [difficulty])
 
-    const difficultyOptions = [
-        { value: "easy", label: 'Easy' },
-        { value: "medium", label: 'Medium' },
-        { value: "hard", label: 'Hard' },
-        { value: "extreme", label: 'Extreme' },
-        { value: "insane", label: 'Insane' },
-    ]
-    const handleChangeDifficulty = (value: SingleValue<{ value: string, label: string }>) => {
-        if (value) {
-            setDifficulty(value.value as DifficultyName)
-            setLevelChanged(false)
-        }
-    }
-
-    const levelOptions: Option[] = useMemo(
-        () => ladderState(completedProgress, difficulty).map((status) => ({
-            value: status.level.name,
-            label: status.level.name,
-            isDisabled: !status.unlocked,
-            stars: status.stars,
-            kind: status.level.kind,
-        })),
+    const ladder: LevelStatus[] = useMemo(
+        () => ladderState(completedProgress, difficulty),
         [completedProgress, difficulty],
     )
     const progressSelectedLevel = useMemo(
@@ -204,13 +198,22 @@ const Train: NextPage = () => {
         if (fresh) advanceToNextLevel(fresh)
     }, [train.importDevice, advanceToNextLevel])
 
-    const handleChangeLevel = (value: SingleValue<Option>) => {
-        if (value && !value.isDisabled) {
-            const level = levels.find(level => level.name == value.value)
-            if (level) setLevel(level)
-            setCompletion(null)
-            setLevelChanged(true)
+    const enterLevel = (next: Level) => {
+        setLevel(next)
+        setLevelChanged(true)
+        setCompletion(null)
+        setView("level")
+    }
+
+    // Same tier again zooms back out to the map; a new tier lands on its map.
+    const handleTierSelect = (tier: DifficultyName) => {
+        if (tier === difficulty) {
+            setView("map")
+            return
         }
+        setDifficulty(tier)
+        setLevelChanged(false)
+        setView("map")
     }
 
     const onKeyChange = (key: string) => {
@@ -296,31 +299,158 @@ const Train: NextPage = () => {
         setCompletion(null)
     }
 
-    return (
-        <div className={`flex flex-col w-full h-full items-center overflow-y-auto overflow-x-hidden px-4 pt-4 pb-4 ${fullscreen ? 'absolute top-0 left-0 w-full h-full bg-base-100 z-[500]' : "relative md:w-10/12 md:self-center md:px-0 md:pt-8 md:pb-8"}`}>
-            <div className="flex w-full flex-col items-center justify-center gap-6 py-4 md:min-h-full md:gap-12 md:py-8">
-                <div data-testid="train-controls" className={typingFocusFadeClass(typingFocused, "flex w-full max-w-screen-xl flex-col items-center gap-3 md:gap-4")}>
-                    {train.shouldShowImportPrompt &&
-                        <div className="flex w-full items-center justify-between gap-3 rounded bg-base-300 px-4 py-3 text-base-content">
-                            <span className="text-sm font-semibold">Device progress is available for this difficulty.</span>
-                            <button
-                                className="btn btn-primary btn-sm"
-                                type="button"
-                                disabled={train.isImporting}
-                                onClick={() => void importDeviceProgress()}
-                            >
-                                Import progress
-                            </button>
-                        </div>
-                    }
+    // Tier totals for the map header: levels with at least one star are done.
+    const doneCount = ladder.filter((status) => status.stars > 0).length
+    const starCount = ladder.reduce((sum, status) => sum + status.stars, 0)
+    const resumeNum = levelNumber(progressSelectedLevel.name)
+    const currentNum = levelNumber(level.name)
 
-                    {sessionStatus === "unauthenticated" &&
-                        <label className="btn btn-primary btn-sm mr-auto" htmlFor="signInModal">
-                            Sign in to save level progress
-                        </label>
-                    }
-                    <div className="flex w-full flex-wrap items-center justify-center gap-2">
-                        <div className="flex w-full flex-wrap items-center justify-center gap-2 md:w-8/12 lg:w-6/12">
+    // Level rail: a five-wide window around the current level, then the summit.
+    const railStart = Math.min(Math.max(currentNum - 1, 1), levels.length - 4)
+    const railItems = ladder.slice(railStart - 1, railStart + 4)
+    const railShowsTail = railStart + 4 < levels.length
+
+    // The caption line carries only the next milestone; all three thresholds live
+    // on the hover title and the results popover.
+    const nextStarTarget = activeLevelStars >= 3
+        ? null
+        : [criteria.oneStarNetWpm, criteria.twoStarNetWpm, criteria.threeStarNetWpm][activeLevelStars]
+
+    const banners = (
+        <>
+            {train.shouldShowImportPrompt &&
+                <div className="flex w-full items-center justify-between gap-3 rounded bg-base-300 px-4 py-3 text-base-content">
+                    <span className="text-sm font-semibold">Device progress is available for this difficulty.</span>
+                    <button
+                        className="btn btn-primary btn-sm"
+                        type="button"
+                        disabled={train.isImporting}
+                        onClick={() => void importDeviceProgress()}
+                    >
+                        Import progress
+                    </button>
+                </div>
+            }
+            {sessionStatus === "unauthenticated" &&
+                <label className="btn btn-primary btn-sm mr-auto" htmlFor="signInModal">
+                    Sign in to save level progress
+                </label>
+            }
+        </>
+    )
+
+    const spinner = (label: string) => (
+        <div className="flex min-h-[12rem] items-center" role="status" aria-live="polite">
+            <div className="h-8 w-8 animate-spin rounded-full border border-solid border-t-transparent text-primary"></div>
+            <span className="sr-only">{label}</span>
+        </div>
+    )
+
+    // A map cell. Rows fade with distance past the current row so a hundred
+    // levels never reads as a wall. Locked cells show a padlock, except the
+    // block-of-ten milestones which keep a dim number for orientation.
+    const mapCell = (status: LevelStatus, index: number) => {
+        const num = index + 1
+        const row = Math.floor(index / 10)
+        const resumeRow = Math.floor((resumeNum - 1) / 10)
+        const fade = row <= resumeRow ? "" : row === resumeRow + 1 ? "opacity-70" : "opacity-40"
+        const isNow = num === resumeNum
+        const done = status.stars > 0
+
+        const surface = isNow
+            ? "border-[1.5px] border-primary bg-primary/10"
+            : done
+                ? "border-base-content/15 bg-base-200"
+                : status.unlocked
+                    ? "border-base-content/10 bg-base-200/60"
+                    : "border-base-content/5 bg-base-200/40"
+
+        return (
+            <button
+                key={num}
+                type="button"
+                disabled={!status.unlocked}
+                onClick={() => enterLevel(status.level)}
+                title={thresholdsTitle(num, difficulty)}
+                aria-label={`${status.level.name}${status.unlocked ? "" : " (locked)"}`}
+                className={`flex aspect-square flex-col items-center justify-center gap-0.5 rounded-lg border ${surface} ${fade} ${status.unlocked ? "cursor-pointer transition-colors hover:border-primary/50" : "cursor-not-allowed"} focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary`}
+            >
+                {status.unlocked || num % 10 === 0
+                    ? <span className={`text-sm ${isNow ? "font-semibold text-primary" : done ? "font-medium text-base-content" : status.unlocked ? "text-base-content/70" : "text-base-content/25"}`}>{num}</span>
+                    : <LockIcon className="h-3 w-3 text-base-content/30" />
+                }
+                {status.unlocked && <Stars earned={status.stars} className="text-[10px] leading-none tracking-wider" />}
+            </button>
+        )
+    }
+
+    // A level-rail box: the current one zooms back out to the map; any other
+    // unlocked one switches to that level.
+    const railBox = (status: LevelStatus) => {
+        const num = levelNumber(status.level.name)
+        const isNow = num === currentNum
+
+        return (
+            <div key={num} className="flex flex-col items-center gap-1">
+                <button
+                    type="button"
+                    disabled={!status.unlocked}
+                    onClick={() => isNow ? setView("map") : enterLevel(status.level)}
+                    title={isNow ? `${thresholdsTitle(num, difficulty)} — click to open the level map` : thresholdsTitle(num, difficulty)}
+                    aria-label={isNow ? `${status.level.name} — open level map` : `${status.level.name}${status.unlocked ? "" : " (locked)"}`}
+                    className={`flex h-9 w-9 items-center justify-center rounded-lg border text-sm transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary ${isNow ? "border-[1.5px] border-primary bg-primary/10 font-semibold text-primary" : status.unlocked ? "cursor-pointer border-base-content/15 bg-base-200 text-base-content/80 hover:border-primary/50" : "cursor-not-allowed border-base-content/5 bg-base-200/40 text-base-content/30"} ${num > 99 ? "text-xs" : ""}`}
+                >
+                    {status.unlocked ? num : <LockIcon className="h-3 w-3 text-base-content/30" />}
+                </button>
+                <Stars earned={status.stars} ghostClass={status.unlocked ? "text-base-content/20" : "text-base-content/10"} className="text-[10px] leading-none tracking-wider" />
+            </div>
+        )
+    }
+
+    return (
+        <div className="relative flex h-full w-full flex-col items-center overflow-y-auto overflow-x-hidden px-4 pb-4 pt-4 md:w-10/12 md:self-center md:px-0 md:pb-8 md:pt-8">
+            <div className="flex w-full flex-col items-center justify-center gap-6 py-4 md:min-h-full md:py-8">
+
+                {view === "map" &&
+                    <div data-testid="train-map" className="flex w-full max-w-2xl flex-col gap-4">
+                        {banners}
+                        <TierTabs difficulty={difficulty} onSelect={handleTierSelect} />
+                        {isTrainProgressLoading ?
+                            <div className="flex justify-center">{spinner("Loading level map")}</div>
+                            :
+                            <>
+                                <div className="mt-2 flex items-end justify-between gap-3">
+                                    <div>
+                                        <h1 className="text-lg font-medium capitalize">{difficulty} tier</h1>
+                                        <p className="mt-0.5 text-sm text-base-content/60">
+                                            {doneCount} of {levels.length} levels · <span className="text-primary">{starCount}</span> of {levels.length * 3} stars
+                                        </p>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        data-testid="train-continue"
+                                        onClick={() => enterLevel(progressSelectedLevel)}
+                                        className="shrink-0 cursor-pointer rounded-full bg-primary px-4 py-1.5 text-sm font-semibold text-primary-content transition hover:opacity-85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                                    >
+                                        Continue {progressSelectedLevel.name}
+                                    </button>
+                                </div>
+                                <div className="h-[3px] overflow-hidden rounded-sm bg-base-content/10">
+                                    <div className="h-full bg-primary" style={{ width: `${(doneCount / levels.length) * 100}%` }} />
+                                </div>
+                                <div data-testid="train-map-grid" className="grid grid-cols-5 gap-1.5 sm:grid-cols-10">
+                                    {ladder.map(mapCell)}
+                                </div>
+                            </>
+                        }
+                    </div>
+                }
+
+                {view === "level" &&
+                    <>
+                        <div data-testid="train-controls" className={typingFocusFadeClass(typingFocused, "flex w-full max-w-screen-xl flex-col items-center gap-3 md:gap-4")}>
+                            {banners}
+                            <TierTabs difficulty={difficulty} onSelect={handleTierSelect} />
                             {isTrainContentLoading ?
                                 <div className="flex h-10 items-center" role="status" aria-live="polite">
                                     <div className="h-8 w-8 animate-spin rounded-full border border-solid border-t-transparent text-primary"></div>
@@ -328,113 +458,72 @@ const Train: NextPage = () => {
                                 </div>
                                 :
                                 <>
-                                    <Select
-                                        instanceId="difficultySelect"
-                                        defaultValue={difficultyOptions[0]}
-                                        options={difficultyOptions}
-                                        value={difficultyOptions.find(option => option.value == difficulty)}
-                                        onChange={handleChangeDifficulty}
-                                        isSearchable={false}
-                                        className="my-react-select-container min-w-[8rem]"
-                                        classNamePrefix="my-react-select"
-                                    />
-                                    <Select
-                                        instanceId="levelSelect"
-                                        defaultValue={levelOptions[0]}
-                                        options={levelOptions}
-                                        value={levelOptions.find(option => option.value == level.name)}
-                                        onChange={handleChangeLevel}
-                                        formatOptionLabel={(option: Option) => {
-                                            const meta = KIND_META[option.kind]
-                                            if (option.isDisabled) {
-                                                return (
-                                                    <div className="flex items-center justify-between gap-3">
-                                                        <div className="flex min-w-0 items-center gap-2">
-                                                            <meta.Icon className="h-4 w-4 shrink-0 opacity-50" />
-                                                            <span className="truncate">{option.label}</span>
-                                                        </div>
-                                                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="currentColor" d="M6 22q-.825 0-1.413-.588T4 20V10q0-.825.588-1.413T6 8h1V6q0-2.075 1.463-3.538T12 1q2.075 0 3.538 1.463T17 6v2h1q.825 0 1.413.588T20 10v10q0 .825-.588 1.413T18 22H6Zm0-2h12V10H6v10Zm6-3q.825 0 1.413-.588T14 15q0-.825-.588-1.413T12 13q-.825 0-1.413.588T10 15q0 .825.588 1.413T12 17ZM9 8h6V6q0-1.25-.875-2.125T12 3q-1.25 0-2.125.875T9 6v2ZM6 20V10v10Z" /></svg>
-                                                    </div>
-                                                )
-                                            }
-                                            return (
-                                                <div className="flex items-center justify-between gap-3">
-                                                    <div className="flex min-w-0 items-center gap-2">
-                                                        <meta.Icon className={`h-4 w-4 shrink-0 ${meta.special ? "text-primary" : "opacity-50"}`} />
-                                                        <span className="truncate">{option.label}</span>
-                                                    </div>
-                                                    <BestStars stars={option.stars} className="shrink-0 font-mono text-sm" />
-                                                </div>
-                                            )
-                                        }}
-                                        isSearchable={false}
-                                        className="my-react-select-container min-w-[10rem]"
-                                        classNamePrefix="my-react-select"
-                                    />
+                                    <div data-testid="train-rail" className="flex items-start justify-center gap-2">
+                                        {railItems.map(railBox)}
+                                        {railShowsTail &&
+                                            <>
+                                                <div className="flex h-9 w-4 items-center justify-center text-xs text-base-content/40" aria-hidden="true">…</div>
+                                                {railBox(ladder[levels.length - 1]!)}
+                                            </>
+                                        }
+                                    </div>
+                                    <p data-testid="train-rail-caption" className="text-center text-sm text-base-content/60">
+                                        {level.name} ·{" "}
+                                        <span
+                                            data-testid="train-level-kind"
+                                            data-tip={KIND_META[level.kind].blurb}
+                                            aria-label={`How ${KIND_META[level.kind].label} levels work: ${KIND_META[level.kind].blurb}`}
+                                            className="tooltip tooltip-bottom cursor-help border-b border-dotted border-base-content/30 before:text-base-content"
+                                        >
+                                            {KIND_META[level.kind].label}
+                                        </span>
+                                        {" "}·{" "}
+                                        {nextStarTarget != null
+                                            ? <>next star at <span className="text-primary">{formatNumber(nextStarTarget, 0)} net wpm</span></>
+                                            : <span className="text-primary">all stars earned ★★★</span>
+                                        }
+                                    </p>
                                 </>
                             }
                         </div>
-                    </div>
-                    {!isTrainContentLoading &&
-                        <>
-                            <div className="flex w-full flex-wrap items-center justify-center gap-2 text-xs font-semibold text-base-content/60">
-                                <StarThreshold stars={1} netWpm={criteria.oneStarNetWpm} className="inline-flex min-h-[2rem] items-center rounded-full border border-base-content/15 px-2.5 py-1 gap-2" />
-                                <StarThreshold stars={2} netWpm={criteria.twoStarNetWpm} className="inline-flex min-h-[2rem] items-center rounded-full border border-base-content/15 px-2.5 py-1 gap-2" />
-                                <StarThreshold stars={3} netWpm={criteria.threeStarNetWpm} className="inline-flex min-h-[2rem] items-center rounded-full border border-base-content/15 px-2.5 py-1 gap-2" />
-                                <LevelKindBadge kind={level.kind} />
-                            </div>
-                            <div className="hidden gap-2 basis-0 grow justify-center items-center w-full flex-wrap md:flex">
-                                <div className="flex justify-start items-center text-base md:text-lg"><strong>Target Keys:</strong></div>
-                                <div className="flex flex-wrap justify-start items-center gap-1">{level.keys.split("").map((key, index) => {
-                                    return (
-                                        <kbd key={index} className="kbd kbd-md sm:kbd-lg">{key}</kbd>
-                                    )
-                                })}</div>
-                            </div>
-                        </>
-                    }
-                </div>
-                <div className="flex flex-col w-full max-w-screen-xl items-center">
-                    {isTrainContentLoading ?
-                        <div className="flex min-h-[12rem] items-center" role="status" aria-live="polite">
-                            <div className="h-8 w-8 animate-spin rounded-full border border-solid border-t-transparent text-primary"></div>
-                            <span className="sr-only">Loading train content</span>
+                        <div className="flex w-full max-w-screen-xl flex-col items-center">
+                            {isTrainContentLoading ?
+                                spinner("Loading train content")
+                                :
+                                <Typer
+                                    key={`${difficulty}-${level.name}`}
+                                    language={language}
+                                    modalOpen={false}
+                                    mode={mode}
+                                    subMode={subMode}
+                                    gramSource={gramSource}
+                                    gramScope={gramScope}
+                                    gramCombination={gramCombination}
+                                    gramRepetition={gramRepetition}
+                                    gramWpmThreshold={gramWpmThreshold}
+                                    gramAccuracyThreshold={gramAccuracyThreshold}
+                                    count={level.count}
+                                    level={level}
+                                    levelRequirements={{ wpm: criteria.oneStarNetWpm, accuracy: 0 }}
+                                    pacerWpm={level.kind === "boss" ? criteria.oneStarNetWpm : undefined}
+                                    failOnMiss={level.kind === "noMiss"}
+                                    onKeyChange={onKeyChange}
+                                    onTestComplete={onTestComplete}
+                                    onTypingFocusChange={setTypingFocused}
+                                    restartSignal={restartSignal}
+                                    showStats={true}
+                                    charAttemptsRef={charAttemptsRef}
+                                />
+                            }
+                            {!isTrainContentLoading &&
+                                <div data-testid="train-keyboard-wrap">
+                                    <Keyboard mode={mode} currentKey={currentKey} charAttemptsRef={charAttemptsRef} highlightKeys={level.keys.split("")} />
+                                </div>
+                            }
                         </div>
-                        :
-                        <Typer
-                            key={`${difficulty}-${level.name}`}
-                            fullscreen={fullscreen}
-                            setFullscreen={(full) => setFullscreen(full)}
-                            language={language}
-                            modalOpen={false}
-                            mode={mode}
-                            subMode={subMode}
-                            gramSource={gramSource}
-                            gramScope={gramScope}
-                            gramCombination={gramCombination}
-                            gramRepetition={gramRepetition}
-                            gramWpmThreshold={gramWpmThreshold}
-                            gramAccuracyThreshold={gramAccuracyThreshold}
-                            count={level.count}
-                            level={level}
-                            levelRequirements={{ wpm: criteria.oneStarNetWpm, accuracy: 0 }}
-                            pacerWpm={level.kind === "boss" ? criteria.oneStarNetWpm : undefined}
-                            failOnMiss={level.kind === "noMiss"}
-                            onKeyChange={onKeyChange}
-                            onTestComplete={onTestComplete}
-                            onTypingFocusChange={setTypingFocused}
-                            restartSignal={restartSignal}
-                            showStats={true}
-                            showConfig={false}
-                            charAttemptsRef={charAttemptsRef}
-                        />
-                    }
-                    {!isTrainContentLoading &&
-                        <div data-testid="train-keyboard-wrap">
-                            <Keyboard mode={mode} currentKey={currentKey} charAttemptsRef={charAttemptsRef} highlightKeys={level.keys.split("")} />
-                        </div>
-                    }
-                </div>
+                    </>
+                }
+
                 {completion &&
                     <div className="fixed inset-0 z-[600] flex items-center justify-center bg-base-300/70 px-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="train-complete-title">
                         <div data-testid="train-complete-popover" className="w-full max-w-md rounded-xl border border-primary/40 bg-base-100 p-6 text-base-content shadow-2xl shadow-primary/20">
