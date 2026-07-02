@@ -497,7 +497,7 @@
 
   function paint(el, k) {
     el.className = 'key ' + (locked.has(k) ? 'locked' : tierClass(k));
-    el.innerHTML = '<span class="k">' + k.replace('&', '&amp;').replace('<', '&lt;') + '</span><span class="a">' + acc[k] + '</span>' +
+    el.innerHTML = '<span class="k">' + k.replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</span><span class="a">' + acc[k] + '</span>' +
       (locked.has(k) ? '<span class="padlock">' + LOCK_SVG + '</span>' : '');
   }
 
