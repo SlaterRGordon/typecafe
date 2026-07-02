@@ -151,7 +151,7 @@ function TextOpt(props: {
             aria-label={props.ariaLabel}
             title={props.title}
             onClick={props.onClick}
-            className={`cursor-pointer text-sm transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${props.active ? "font-semibold text-primary" : "text-base-content/50 hover:text-base-content"}`}
+            className={`cursor-pointer text-md transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${props.active ? "font-semibold text-primary" : "text-base-content/50 hover:text-base-content"}`}
         >
             {props.children}
         </button>
@@ -170,7 +170,7 @@ function SettingsToggle(props: { label: string, active: boolean, onChange: (acti
             type="button"
             aria-pressed={props.active}
             onClick={() => props.onChange(!props.active)}
-            className={`flex min-h-10 w-full items-center justify-between rounded-md border px-3 text-left text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${props.active ? "border-primary/45 bg-primary/15 text-base-content" : "border-base-content/10 bg-base-100/25 text-base-content/65 hover:bg-base-content/5 hover:text-base-content"}`}
+            className={`flex min-h-10 w-full items-center justify-between rounded-md border px-3 text-left text-md font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${props.active ? "border-primary/45 bg-primary/15 text-base-content" : "border-base-content/10 bg-base-100/25 text-base-content/65 hover:bg-base-content/5 hover:text-base-content"}`}
         >
             <span>{props.label}</span>
             <span className={`ml-3 rounded px-1.5 py-0.5 text-[0.65rem] uppercase tracking-wide ${props.active ? "bg-primary text-primary-content" : "bg-base-content/10 text-base-content/55"}`}>
@@ -427,7 +427,7 @@ export function ModeBar(props: ModeBarProps) {
                                 }
                                 if (event.key === "Escape") cancelCustomLength()
                             }}
-                            className="h-5 w-16 bg-transparent font-mono text-sm text-base-content outline-none"
+                            className="h-5 w-16 bg-transparent font-mono text-md text-base-content outline-none"
                             aria-label={props.subMode === TestSubModes.timed ? "Custom timed length" : "Custom word length"}
                         />
                         <span className="shrink-0 text-xs font-medium text-base-content/45">{props.subMode === TestSubModes.timed ? "sec" : "words"}</span>
@@ -479,7 +479,7 @@ export function ModeBar(props: ModeBarProps) {
                             shift {props.shiftLayer ? "on" : "off"}
                         </TextOpt>
                         <Sep />
-                        <span data-testid="practice-active-count" className="text-sm text-base-content/40">
+                        <span data-testid="practice-active-count" className="text-xs text-base-content/40">
                             {props.selectedKeys.length} keys active
                         </span>
                     </>
@@ -525,7 +525,7 @@ export function ModeBar(props: ModeBarProps) {
                                     word language is only "active" outside the quote engine. */}
                                 <div className={`rounded-md px-3 py-2 ${ENGLISH_VALUES.has(props.language) && !isQuotes ? "bg-primary/10" : ""}`}>
                                     <div className="flex items-center justify-between">
-                                        <span className={`text-sm ${ENGLISH_VALUES.has(props.language) && !isQuotes ? "text-primary" : "text-base-content/75"}`}>English</span>
+                                        <span className={`text-md ${ENGLISH_VALUES.has(props.language) && !isQuotes ? "text-primary" : "text-base-content/75"}`}>English</span>
                                         {ENGLISH_VALUES.has(props.language) && !isQuotes &&
                                             <span className="text-xs font-semibold uppercase tracking-wide text-primary">Active</span>
                                         }
@@ -549,7 +549,7 @@ export function ModeBar(props: ModeBarProps) {
                                     <button
                                         key={option.value}
                                         type="button"
-                                        className={`flex min-h-10 w-full cursor-pointer items-center justify-between rounded-md px-3 text-left text-sm transition-colors hover:bg-base-content/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${props.language === option.value && !isQuotes ? "bg-primary/10 text-primary" : "text-base-content/75"}`}
+                                        className={`flex min-h-10 w-full cursor-pointer items-center justify-between rounded-md px-3 text-left text-md transition-colors hover:bg-base-content/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${props.language === option.value && !isQuotes ? "bg-primary/10 text-primary" : "text-base-content/75"}`}
                                         aria-pressed={props.language === option.value && !isQuotes}
                                         onClick={() => selectWordLanguage(option.value)}
                                     >
@@ -562,7 +562,7 @@ export function ModeBar(props: ModeBarProps) {
                                 {/* Quotes: a verbatim-prose text source, not a word language. */}
                                 <button
                                     type="button"
-                                    className={`flex min-h-10 w-full cursor-pointer items-center justify-between rounded-md px-3 text-left text-sm transition-colors hover:bg-base-content/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${isQuotes ? "bg-primary/10 text-primary" : "text-base-content/75"}`}
+                                    className={`flex min-h-10 w-full cursor-pointer items-center justify-between rounded-md px-3 text-left text-md transition-colors hover:bg-base-content/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${isQuotes ? "bg-primary/10 text-primary" : "text-base-content/75"}`}
                                     aria-pressed={isQuotes}
                                     onClick={selectQuotes}
                                 >
@@ -628,7 +628,7 @@ export function ModeBar(props: ModeBarProps) {
 
             {/* Grams advanced line: the numeric knobs as dotted-underline inline edits. */}
             {isGrams &&
-                <div data-testid="grams-panel" aria-label="Grams settings" className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 font-mono text-xs text-base-content/45">
+                <div data-testid="grams-panel" aria-label="Grams settings" className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 font-mono text-[11px] text-base-content/45">
                     <span>
                         <InlineEdit
                             id="testGramCombinationInput"
