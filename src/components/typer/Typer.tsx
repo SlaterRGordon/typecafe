@@ -249,17 +249,13 @@ export const Typer = (props: TyperProps) => {
         handleRestart()
     }, [handleRestart])
 
-    // A user-initiated restart (button or tab+enter). In grams this restarts the
-    // whole drill from level 1 — otherwise restart regenerates the same
-    // deterministic gram for the current level and appears to do nothing.
+    // A user-initiated restart (button or tab+enter) re-runs the current test. In
+    // grams this restarts the current level (regenerating its deterministic gram
+    // and clearing the attempt), keeping the drill progression — switching
+    // scope/source is what resets back to level 1.
     const restartTest = useCallback(() => {
-        if (mode === TestModes.ngrams) {
-            resetProgression()
-            handleRestart(1)
-        } else {
-            handleRestart()
-        }
-    }, [mode, resetProgression, handleRestart])
+        handleRestart()
+    }, [handleRestart])
 
     // Read the latest restartTest without depending on it: it's recreated whenever
     // gramLevel changes (advancement), and depending on it here would re-fire this
