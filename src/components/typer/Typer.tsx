@@ -292,9 +292,11 @@ export const Typer = (props: TyperProps) => {
             : finalStats.durationSeconds
         const wpmSamples = buildWpmSamples(recorder.timeline)
         const timeline = encodeTimeline(recorder.events)
-        // Quotes vary in length/difficulty, so they never post to a leaderboard
-        // (they still persist a timeline and feed diagnosis). Always unranked.
-        const ranked = mode !== TestModes.quotes && !customLength && isRankableTimeline(timeline)
+        // Quotes vary in length/difficulty, and train levels are short/targeted
+        // (a single key set, a boss pacer), so neither posts to a leaderboard or
+        // counts toward best WPM — they still persist a timeline and feed
+        // diagnosis, streak, and activity, just unranked. `level` marks a train run.
+        const ranked = mode !== TestModes.quotes && !customLength && !level && isRankableTimeline(timeline)
 
         return {
             speed: finalStats.rawWpm,
