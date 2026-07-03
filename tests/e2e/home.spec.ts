@@ -327,6 +327,33 @@ test.describe("home typing test", () => {
     await expect(page.getByTestId("home-coach-tab-drill-panel")).toContainText("b->r");
   });
 
+  // Honest-review #1 (honest-review-2026-07.md): a zero-history visitor must
+  // see the promise before the first keystroke — and never again once any
+  // evidence exists.
+  test("zero-history guests see the promise line", async ({ page }) => {
+    await mockTrpc(page);
+    await gotoHome(page);
+    await expect(page.getByTestId("first-visit-promise")).toContainText("what's slowing you down");
+  });
+
+  test("the promise line is gone once local history or an account exists", async ({ page }) => {
+    await page.addInitScript(() => {
+      window.localStorage.setItem("typecafe:keyStats", JSON.stringify([
+        { key: "a", attempts: 10, correct: 9 },
+      ]));
+    });
+    await mockTrpc(page);
+    await gotoHome(page);
+    await expect(page.getByTestId("first-visit-promise")).toHaveCount(0);
+
+    // Signed in (even with no local history) → also gone.
+    await page.evaluate(() => window.localStorage.clear());
+    await mockAuthenticatedSession(page);
+    await page.reload();
+    await expect(page.locator("#words .char").first()).toBeVisible();
+    await expect(page.getByTestId("first-visit-promise")).toHaveCount(0);
+  });
+
   test("guests without history see no drill coach tab", async ({ page }) => {
     await mockTrpc(page);
     await gotoHome(page);
@@ -507,6 +534,31 @@ test.describe("home typing test", () => {
     await expect(page.getByTestId("toolbar-context").getByRole("button", { name: "25", exact: true })).toHaveAttribute("aria-pressed", "true");
   });
 
+  // Honest-review 2026-07 §2: flattery shares the ranking quality bar. A 3s
+  // custom test is unranked, and the mocked save still returns a brag, delta,
+  // and streak — none of them may render on an unranked card.
+  test("an unranked test wears no flattery chips", async ({ page }) => {
+    await mockAuthenticatedSession(page);
+    await mockTrpc(page);
+    await gotoHome(page);
+
+    await setToolbarCustomLength(page, "3");
+    await page.locator("#text").click();
+    // The commit's restart can drop the first keystroke; wait for readiness,
+    // then press until it lands.
+    await expect(page.locator("#c0")).toHaveClass(/active-char/);
+    await expect(async () => {
+      await typeCurrentCharacter(page);
+      await expect(page.locator("#c0")).not.toHaveClass(/active-char/, { timeout: 500 });
+    }).toPass({ timeout: 5_000 });
+
+    await expect(page.getByRole("button", { name: "Test Again" })).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText("Unranked")).toBeVisible();
+    await expect(page.getByTestId("avg-delta")).toHaveCount(0);
+    await expect(page.getByTestId("score-streak")).toHaveCount(0);
+    await expect(page.getByText("similar starters")).toHaveCount(0);
+  });
+
   test("timed test completes when the timer expires", async ({ page }) => {
     await gotoHome(page);
 
@@ -570,7 +622,14 @@ test.describe("home typing test", () => {
     // Shorten to a 3s timed test so the timer expiry triggers the (failing) save.
     await setToolbarCustomLength(page, "3");
 
-    await typeCurrentCharacter(page);
+    // The commit triggers a restart that can drop the first keystroke; wait
+    // for readiness, then press until the active char advances.
+    await page.locator("#text").click();
+    await expect(page.locator("#c0")).toHaveClass(/active-char/);
+    await expect(async () => {
+      await typeCurrentCharacter(page);
+      await expect(page.locator("#c0")).not.toHaveClass(/active-char/, { timeout: 500 });
+    }).toPass({ timeout: 5_000 });
 
     // The toast (auto-dismisses after 5s) is the time-sensitive assertion; check it
     // first, then the results card that should render despite the failed save.

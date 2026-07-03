@@ -9,6 +9,10 @@ const config = {
   reactStrictMode: false,
   distDir: process.env.NEXT_DIST_DIR ?? ".next",
 
+  // The dev-tools indicator renders bottom-left over the side rail's More
+  // button and swallows its clicks (breaks e2e; annoying for humans too).
+  devIndicators: false,
+
   // Ensure the Roboto Mono TTFs the OG image route reads at runtime are bundled
   // into its serverless function (they are read from disk, not imported).
   outputFileTracingIncludes: {

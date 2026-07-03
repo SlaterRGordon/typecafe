@@ -54,15 +54,15 @@ numbered 17 and 28, and `57-home-next-action.png` still shows the
 pre-redesign pill mode bar. The tour is the UX-review instrument; stale
 captures mislead reviews.
 
-- [ ] Make the tour clean its output directory before capturing.
-- [ ] Delete the orphaned captures once.
+- [x] Make the tour clean its output directory before capturing.
+- [x] Delete the orphaned captures once.
 
 ## 5. Docs drift in CLAUDE.md
 
 CLAUDE.md points agents at `docs/phases/` and `docs/roadmap.md`; neither
 exists. The real ledgers are `docs/architecture/` and `docs/features/`.
 
-- [ ] Fix the references so future sessions don't start confused.
+- [x] Fix the references so future sessions don't start confused.
 
 ## Not now
 

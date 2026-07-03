@@ -461,7 +461,10 @@ export const testRouter = createTRPCRouter({
       punctuation: z.boolean().optional(),
       capitals: z.boolean().optional(),
       ranked: z.boolean().optional(),
-      timeline: z.array(encodedKeystrokeSchema),
+      // Persisted whole (locked constraint #2). Capped well above the longest
+      // legitimate run (a 5000-word custom test ≈ 30k keystrokes) so a hostile
+      // payload can't balloon a row.
+      timeline: z.array(encodedKeystrokeSchema).max(50000),
       utcOffsetMinutes: utcOffsetMinutesSchema,
       // YYYY-MM-DD when this is a daily-challenge run.
       challengeDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
@@ -490,6 +493,9 @@ export const testRouter = createTRPCRouter({
             punctuation: input.punctuation ?? false,
             capitals: input.capitals ?? false,
             ranked,
+            // Persist the full timeline (locked constraint #2) — evidence for
+            // replay and re-diagnosis under future heuristics; no reads yet.
+            timeline,
             summaryDate,
           },
         });
@@ -516,6 +522,9 @@ export const testRouter = createTRPCRouter({
       //   3. a global percentile while the peer pool is still cold, else
       //   4. nothing (the card just shows the clean WPM).
       const netWpm = netFromRaw(input.speed, input.accuracy);
+      // Every flattering element shares the ranking quality bar (honest-review
+      // 2026-07 §2): an unranked run — tiny sample or machine-like timeline —
+      // gets no brag, no 30-day delta, no streak chip. buildBrag gates itself.
       const [brag, avgDelta, streak] = await Promise.all([
         buildBrag(ctx.prisma, {
           ranked,
@@ -526,13 +535,17 @@ export const testRouter = createTRPCRouter({
           score: input.score,
           netWpm,
         }),
-        thirtyDayDelta(ctx.prisma, {
-          userId: ctx.session.user.id,
-          testId: test.id,
-          speed: input.speed,
-          accuracy: input.accuracy,
-        }),
-        practiceStreak(ctx.prisma, ctx.session.user.id, input.utcOffsetMinutes ?? 0),
+        ranked
+          ? thirtyDayDelta(ctx.prisma, {
+            userId: ctx.session.user.id,
+            testId: test.id,
+            speed: input.speed,
+            accuracy: input.accuracy,
+          })
+          : Promise.resolve(null),
+        ranked
+          ? practiceStreak(ctx.prisma, ctx.session.user.id, input.utcOffsetMinutes ?? 0)
+          : Promise.resolve(null),
       ]);
 
       return { ...test, brag, avgDelta, streak };

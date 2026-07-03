@@ -1,12 +1,37 @@
 import { expect, test, type Locator, type Page, type TestInfo } from "@playwright/test";
 import { mockAuthenticatedSession, mockTrpc } from "./helpers/trpc";
 import { typeCurrentCharacter, typeVisibleTestText, typeWrongCharacter } from "./helpers/typing";
+import { readdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { runStartFile } from "./globalSetup";
 
 // Captures every page and menu state into docs/screenshots/<project>/ so the
 // UI can be reviewed from artifacts alone. Each test is independent so a
 // single broken state never blocks the rest of the captures.
 const screenshotRoot = join(__dirname, "../../docs/screenshots");
+
+// Prune captures left behind by renamed/removed tests: anything older than
+// this run's start (stamped once in globalSetup) can't have been written by
+// the captures below, so it's an orphan. Per-worker but race-free — fresh
+// captures are always newer than runStart, so no worker deletes another's.
+test.beforeAll(({}, testInfo) => {
+  // A filtered run (-g) captures only a subset, so pruning would delete every
+  // other capture. Only prune on a full tour run.
+  // ponytail: doesn't detect line-number filters, only grep — full runs are the norm.
+  if (String(testInfo.config.grep) !== String(/.*/)) return;
+  const dir = join(screenshotRoot, testInfo.project.name);
+  const runStart = Number(readFileSync(runStartFile, "utf8"));
+  let files: string[];
+  try {
+    files = readdirSync(dir);
+  } catch {
+    return; // first run for this project — nothing to prune
+  }
+  for (const file of files) {
+    const path = join(dir, file);
+    if (statSync(path).mtimeMs < runStart) rmSync(path);
+  }
+});
 
 async function capture(page: Page, testInfo: TestInfo, name: string) {
   // Modals and the score card fade in; without settling, captures land
@@ -346,10 +371,12 @@ test.describe("screenshot tour", () => {
     await typeCurrentCharacter(page);
     await expect(page.getByRole("button", { name: "Test Again" })).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText("WPM Over Time")).toBeVisible();
-    // Delta-first sharing (§3.3): the card shows WPM vs the 30-day average.
-    await expect(page.getByTestId("avg-delta")).toContainText("over your 30-day average");
-    // Streak chip on the result card (§3.2).
-    await expect(page.getByTestId("score-streak")).toContainText("day streak");
+    // Honest-review 2026-07 §2: a 3s custom test is unranked, so the card wears
+    // the Unranked badge and no flattery — the save's brag/delta/streak must not
+    // render. (The ranked chips are pinned in shared-score.spec.ts.)
+    await expect(page.getByText("Unranked")).toBeVisible();
+    await expect(page.getByTestId("avg-delta")).toHaveCount(0);
+    await expect(page.getByTestId("score-streak")).toHaveCount(0);
     await capture(page, testInfo, "13-score-card-after-test");
   });
 

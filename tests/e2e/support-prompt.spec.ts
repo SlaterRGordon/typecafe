@@ -8,7 +8,9 @@ async function gotoHome(page: Page) {
   await expect(page.locator("#typer")).toBeVisible();
 }
 
-test.describe("global support prompt", () => {
+// GlobalSupportPrompt is commented out of Layout.tsx (3644528 "hide support me
+// popup"), so the prompt can't render. Unskip when it returns.
+test.describe.skip("global support prompt", () => {
   test.skip(({ isMobile }) => isMobile, "The global support prompt is desktop-only.");
 
   test("appears on non-support routes, dismisses for reloads, and stores the dismissal time", async ({ page }) => {

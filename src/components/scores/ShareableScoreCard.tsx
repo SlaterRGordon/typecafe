@@ -655,6 +655,11 @@ export function ShareableScoreCard(props: ShareableScoreCardProps) {
       .join(", ");
   }, [score.worstKeys]);
 
+  // Flattery shares the ranking quality bar (honest-review 2026-07 §2): an
+  // unranked card never wears a brag, streak, or 30-day-delta chip, whatever a
+  // stale snapshot carries. Undefined ranked (legacy shares) keeps them.
+  const showFlattery = score.ranked !== false;
+
   const metricItems = useMemo(() => [
     // Net WPM is the canonical headline "WPM": speed after errors. Raw stays
     // visible as a secondary stat (and in Performance Details) but never headlines.
@@ -687,7 +692,7 @@ export function ShareableScoreCard(props: ShareableScoreCardProps) {
                     Daily Challenge
                   </Chip>
                 }
-                {score.brag &&
+                {showFlattery && score.brag &&
                   <Chip
                     tone="primary"
                     size="md"
@@ -696,7 +701,7 @@ export function ShareableScoreCard(props: ShareableScoreCardProps) {
                     {score.brag}
                   </Chip>
                 }
-                {typeof score.streak === "number" && score.streak > 0 &&
+                {showFlattery && typeof score.streak === "number" && score.streak > 0 &&
                   <Chip
                     testId="score-streak"
                     tone="primary"
@@ -707,7 +712,7 @@ export function ShareableScoreCard(props: ShareableScoreCardProps) {
                   </Chip>
                 }
               </div>
-              {typeof score.avgDelta === "number" &&
+              {showFlattery && typeof score.avgDelta === "number" &&
                 <div className="mb-2">
                   <Chip
                     testId="avg-delta"

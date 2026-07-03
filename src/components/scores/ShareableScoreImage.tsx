@@ -86,7 +86,10 @@ export const ShareableScoreImage = forwardRef<HTMLDivElement, { score: Shareable
   function ShareableScoreImage({ score }, ref) {
     const username = score.user?.username ? `@${score.user.username}` : "Guest";
     const modeText = formatModeText(score);
-    const showChips = score.dailyChallenge || score.brag;
+    // Unranked runs share no flattery (honest-review 2026-07 §2), matching the
+    // live card's gate in ShareableScoreCard.
+    const brag = score.ranked !== false ? score.brag : null;
+    const showChips = score.dailyChallenge || brag;
 
     return (
       <div
@@ -108,8 +111,8 @@ export const ShareableScoreImage = forwardRef<HTMLDivElement, { score: Shareable
                 {score.dailyChallenge &&
                   <span className="rounded-full border border-primary/40 bg-primary/10 px-4 py-1.5 font-mono text-lg font-bold text-primary">Daily Challenge</span>
                 }
-                {score.brag &&
-                  <span className="rounded-full bg-primary/15 px-4 py-1.5 font-mono text-lg font-bold text-primary">{score.brag}</span>
+                {brag &&
+                  <span className="rounded-full bg-primary/15 px-4 py-1.5 font-mono text-lg font-bold text-primary">{brag}</span>
                 }
               </div>
             }
