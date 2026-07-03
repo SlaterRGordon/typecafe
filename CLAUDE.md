@@ -7,7 +7,7 @@
 > **Monkeytype tells you how fast you are. TypeCafe makes you faster.**
 > Every screen either proves that promise or gets out of the way.
 
-Before any product work, read [docs/vision.md](docs/vision.md). Before implementing a feature, read its phase doc in [docs/phases/](docs/phases/README.md) — the README holds seven **locked constraints** (decided 2026-06-12, do not relitigate): free-tier infra only (no cron/email/LLM spend — prefer derived-on-read/write), full keystroke timelines + additive aggregates, local-first guest data (sync on signup), heuristics before LLM, free forever (no premium gating), pre-launch break-anything, owner + AI agents capacity.
+Before any product work, read [docs/vision.md](docs/vision.md). Before implementing a feature, check the active ledgers — [docs/features/](docs/features/) for product work and [docs/architecture/](docs/architecture/README.md) for refactors. Seven **locked constraints** (decided 2026-06-12, do not relitigate): free-tier infra only (no cron/email/LLM spend — prefer derived-on-read/write), full keystroke timelines + additive aggregates, local-first guest data (sync on signup), heuristics before LLM, free forever (no premium gating), pre-launch break-anything, owner + AI agents capacity.
 
 The vision filter for any change: *does it make someone faster, or prove they're getting faster?* If no — flag it instead of building it.
 
@@ -17,7 +17,7 @@ The vision filter for any change: *does it make someone faster, or prove they're
 - Every UI change updates the e2e suite **and** the screenshot tour (`tests/e2e/screenshots.spec.ts`, captures to `docs/screenshots/<project>/`).
 - Every diagnosis shown to a user ends in an action button. Deltas over absolutes wherever a delta exists.
 - Never build: realtime multiplayer racing, theme marketplace, classroom tooling, decorative gamification (XP/badges without deltas or streaks).
-- Tick the relevant checkbox in the phase doc in the same change that completes it.
+- Tick the relevant checkbox in the active ledger (`docs/features/` or `docs/architecture/`) in the same change that completes it.
 - Always use the ponytail skill: laziest solution that works — stdlib/native before deps, shortest diff, no speculative abstraction.
 - One focused task at a time; do not refactor unrelated code you pass by.
 - Record load-bearing architecture decisions as ADRs in [docs/adr/](docs/adr/) (see `0001-local-first-guest-data.md`): a settled cross-cutting constraint, or an approach rejected for a reason a future review would otherwise re-suggest. Skip routine module extractions and reversible code choices — don't ADR what the code and its tests already document. Update the relevant ADR rather than committing a contradicting one, and don't relitigate an existing ADR without a load-bearing reason.
@@ -27,8 +27,8 @@ The vision filter for any change: *does it make someone faster, or prove they're
 - Commit straight to the `development` branch (the integration/dev branch). **No pull requests, no feature branches** — this is a solo owner + AI workflow. Don't push to `main` or `prod`.
 - Commit after each completed, verified slice (suite green) — not one giant commit at the end, and never commit with the test suite red or types failing.
 - Use **Conventional Commits**: `type(scope): summary` in the imperative mood, e.g. `feat(diagnosis): add post-test slow-key findings`. Types: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`, `cleanup`; scope optional.
-- Add a body when the change isn't self-evident: what changed and why, the phase/roadmap item it advances (e.g. `phase-1-loop.md §1.3`), and how you verified it (tests run + result).
-- Tick the phase-doc/roadmap checkbox in the same commit that completes the work.
+- Add a body when the change isn't self-evident: what changed and why, the ledger item it advances (e.g. `features/next-focus.md §1`), and how you verified it (tests run + result).
+- Tick the ledger checkbox in the same commit that completes the work.
 
 ## Commands
 

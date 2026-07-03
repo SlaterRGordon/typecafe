@@ -1,12 +1,33 @@
 import { expect, test, type Locator, type Page, type TestInfo } from "@playwright/test";
 import { mockAuthenticatedSession, mockTrpc } from "./helpers/trpc";
 import { typeCurrentCharacter, typeVisibleTestText, typeWrongCharacter } from "./helpers/typing";
+import { readdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { runStartFile } from "./globalSetup";
 
 // Captures every page and menu state into docs/screenshots/<project>/ so the
 // UI can be reviewed from artifacts alone. Each test is independent so a
 // single broken state never blocks the rest of the captures.
 const screenshotRoot = join(__dirname, "../../docs/screenshots");
+
+// Prune captures left behind by renamed/removed tests: anything older than
+// this run's start (stamped once in globalSetup) can't have been written by
+// the captures below, so it's an orphan. Per-worker but race-free — fresh
+// captures are always newer than runStart, so no worker deletes another's.
+test.beforeAll(({}, testInfo) => {
+  const dir = join(screenshotRoot, testInfo.project.name);
+  const runStart = Number(readFileSync(runStartFile, "utf8"));
+  let files: string[];
+  try {
+    files = readdirSync(dir);
+  } catch {
+    return; // first run for this project — nothing to prune
+  }
+  for (const file of files) {
+    const path = join(dir, file);
+    if (statSync(path).mtimeMs < runStart) rmSync(path);
+  }
+});
 
 async function capture(page: Page, testInfo: TestInfo, name: string) {
   // Modals and the score card fade in; without settling, captures land
