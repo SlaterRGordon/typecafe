@@ -5,6 +5,7 @@ import { useRouter } from "next/router";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useDispatch } from "react-redux";
+import { FirstVisitPromise } from "~/components/home/FirstVisitPromise";
 import { HomeCoachTabs } from "~/components/home/HomeCoachTabs";
 import { ShareableScoreCard, type ScoreSnapshot } from "~/components/scores/ShareableScoreCard";
 import { Keyboard } from "~/components/typer/Keyboard";
@@ -614,6 +615,7 @@ const Home: NextPage = () => {
         }
         {!completedScore &&
           <div data-testid="typing-focus-home-controls" className={typingFocusFadeClass(typingFocused, "w-full")}>
+            {!fullscreen && <FirstVisitPromise />}
             <ModeBar
               mode={mode} subMode={subMode} setMode={setMode}
               setSubMode={setSubMode}

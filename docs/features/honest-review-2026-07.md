@@ -19,9 +19,10 @@ Home for a zero-history visitor is a minimal test clone (vision §5 failure).
 The coach tabs need history; the diagnosis needs a finished test; nothing
 upstream makes the promise.
 
-- [ ] One line of promise copy above the test, zero-history visitors only,
-  gone once there's any local or account history.
-- [ ] E2e + screenshot-tour coverage.
+- [x] One line of promise copy above the test, zero-history visitors only,
+  gone once there's any local or account history
+  (`src/components/home/FirstVisitPromise.tsx`).
+- [x] E2e + screenshot-tour coverage (01-home-default shows it).
 
 ### 2. Bad tests get praise — ACTIVE
 Tour captures show a 3s / 4 WPM *unranked* test wearing "Faster than 72% of
@@ -30,14 +31,24 @@ run with per-key "you lost ~45 WPM" findings. The diagnosis has a quality
 bar ("too short to diagnose — try a 30s+ test"); brags and per-key findings
 don't share it.
 
-- [ ] One shared test-quality gate (lib, unit-tested) applied to every
-  flattering/diagnostic element on the score card: brag badges and per-key
-  findings hidden below the bar.
-- [ ] Regression coverage for the degenerate-test card.
+- [x] One shared test-quality gate: `ranked` (already lib + unit-tested via
+  `isRankableSample`) now gates *every* flattering element — server stops
+  computing the 30-day delta and streak for unranked runs (brag already was),
+  and the card + share image hide brag/streak/delta chips when
+  `ranked === false`, whatever a stale snapshot carries.
+- [x] Regression coverage: home.spec "an unranked test wears no flattery
+  chips"; tour capture 13 now pins the honest unranked card (positive path
+  stays pinned in shared-score.spec).
 
 ### 3. Typing feel is an unexamined bet — not started
 No sound, no latency work anywhere in the ledgers; the daily-driver choice
 is made on feel. Side-by-side someone against Monkeytype before launch.
+
+Concrete lead (found 2026-07-03 while deflaking e2e): the typer drops
+keystrokes for a window while a restart regenerates the text — a fast typist
+hitting tab+enter and typing immediately loses their first keystroke(s).
+The e2e helpers now press-until-registered to work around it; the product
+should buffer or shrink that window instead.
 
 ### 4. Leaderboard is off-vision — not started
 Bare speed table, absolutes only, empty at launch. Give it the Most
@@ -48,10 +59,14 @@ Locked constraint #2 says full keystroke timelines; `Test` rows store only
 aggregates. Every real test typed before this lands is evidence lost
 forever (no replay, no re-diagnosis under better heuristics).
 
-- [ ] Persist the recorder's event log with each saved test (one nullable
-  JSON column; no reads yet — this is evidence for the future).
-- [ ] Decide what the guest→DB import does about timelines local history
-  holds (scope during the slice).
+- [x] Persist the recorder's event log with each saved test: `Test.timeline
+  Json?` (migration `20260703063225_test_timeline`), written from the
+  already-validated `input.timeline` the anti-cheat check consumes; input
+  capped at 50k keystrokes. No reads yet — evidence for the future.
+- [x] Guest→DB decision: the pending-score path already carries the
+  just-finished test's timeline through sign-in; historical guest tests only
+  mirror aggregates locally (no stored timelines), so there is nothing else
+  to import. Guests' older timelines are accepted as unrecoverable.
 
 ### 6. No daily ritual — not started
 "15 min a day" has no scaffolding: one coach tab, plan feature flagged off,

@@ -98,6 +98,10 @@ model Test {
     punctuation Boolean @default(false)
     capitals    Boolean @default(false)
     ranked      Boolean @default(true)
+    // Full keystroke timeline (locked constraint #2): compact
+    // [charCode, correct, dtMs] triples from src/lib/keystrokes.ts. Evidence
+    // for replay/re-diagnosis under future heuristics; null on legacy rows.
+    timeline    Json?
     summaryDate DateTime  @db.Date
     // The daily-challenge day this test belongs to (null = not a challenge run).
     challengeDate DateTime? @db.Date
