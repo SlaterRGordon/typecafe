@@ -10,7 +10,7 @@ import { typingFocusFadeClass } from "~/components/typer/typingFocus";
 import { TestModes, TestSubModes } from "~/components/typer/types";
 import { getWords } from "~/components/typer/utils";
 import { DEFAULT_TEST_SETTINGS } from "~/hooks/useTestSettings";
-import { challengeDateKey, challengeShareBrag, challengeText } from "~/lib/challenge";
+import { challengeDateKey, challengeShareBrag, challengeText, formatCountdown, msUntilNextChallenge } from "~/lib/challenge";
 import { recordLocalChallenge } from "~/lib/challengeHistory";
 import { isAnyModalOpen } from "~/lib/modals";
 import { api } from "~/utils/api";
@@ -99,6 +99,9 @@ const Challenge: NextPage = () => {
     const [shareUrl, setShareUrl] = useState<string | undefined>(undefined);
     const [isSavingScore, setIsSavingScore] = useState(false);
     const [dateKey, setDateKey] = useState<string | null>(null);
+    // Ticks once a second to drive the "new challenge in …" countdown. Null until
+    // mounted so the server/first-client render agree (no hydration mismatch).
+    const [nowTs, setNowTs] = useState<number | null>(null);
     const charAttemptsRef = useRef<Map<string, { attempts: number; correct: number }>>(new Map());
     // True while the result card is on screen for the current attempt — guards the
     // async save upgrade from re-showing the card after the user already restarted.
@@ -107,8 +110,18 @@ const Challenge: NextPage = () => {
     const createShare = api.scoreShare.create.useMutation();
 
     useEffect(() => {
-        setDateKey(challengeDateKey(new Date(), -new Date().getTimezoneOffset()));
+        // Synced UTC: one text, one leaderboard, one countdown for everyone. The day
+        // rolls over at UTC midnight worldwide (not local midnight), so "everyone
+        // types the same text today" is literally true.
+        setDateKey(challengeDateKey(new Date()));
     }, []);
+
+    useEffect(() => {
+        setNowTs(Date.now());
+        const id = setInterval(() => setNowTs(Date.now()), 1000);
+        return () => clearInterval(id);
+    }, []);
+    const resetsIn = nowTs !== null ? formatCountdown(msUntilNextChallenge(new Date(nowTs))) : null;
 
     // Today's challenge is deterministic seeded text from the local calendar day.
     // Every client gets the same 30s text with no network or scheduled job.
@@ -125,10 +138,15 @@ const Challenge: NextPage = () => {
         cardActiveRef.current = true;
         // Record the challenge and refresh the boards once — on the first (eager)
         // report — not again when the save settles.
-        if (!result.persisted && dateKey) {
+        if (dateKey) {
             // Store net (the canonical WPM) so the guest challenge status/board
-            // matches the signed-in path.
-            recordLocalChallenge({ dateKey, wpm: result.netWpm, accuracy: result.accuracy, t: Date.now() });
+            // matches the signed-in path — guests only ever report eagerly.
+            if (!result.persisted) {
+                recordLocalChallenge({ dateKey, wpm: result.netWpm, accuracy: result.accuracy, t: Date.now() });
+            }
+            // Refresh on every report: a signed-in user's score only lands in the DB
+            // on the persisted upgrade, so the boards must refetch then too —
+            // otherwise a replay's new score never shows until a full reload.
             void utils.test.getDailyChallengeStatus.invalidate({ dateKey });
             void utils.test.getDailyChallengeBoards.invalidate({ dateKey, limit: 10 });
         }
@@ -238,6 +256,11 @@ const Challenge: NextPage = () => {
                             <div data-testid="challenge-header" className={typingFocusFadeClass(typingFocused, "mx-auto mb-4 w-full max-w-screen-xl text-center")}>
                                 <h1 className="font-mono text-2xl font-bold tracking-tight">Daily Challenge</h1>
                                 <p className="text-sm text-base-content/60">{dateKey} / 30s / everyone types the same text today</p>
+                                {resetsIn &&
+                                    <p data-testid="challenge-countdown" className="mt-1 font-mono text-xs text-base-content/45">
+                                        new challenge in {resetsIn}
+                                    </p>
+                                }
                             </div>
                         }
                         <Typer

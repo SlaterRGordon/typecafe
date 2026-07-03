@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { CHALLENGE_WORD_COUNT, challengeDateKey, challengeShareBrag, challengeStreakFromDateKeys, challengeText, shiftChallengeDateKey } from "./challenge"
+import { CHALLENGE_WORD_COUNT, challengeDateKey, challengeShareBrag, challengeStreakFromDateKeys, challengeText, formatCountdown, msUntilNextChallenge, shiftChallengeDateKey } from "./challenge"
 
 const WORDS = "the quick brown fox jumps over a lazy dog and then runs far away home".split(" ")
 
@@ -28,6 +28,21 @@ describe("challengeText", () => {
 
     it("returns empty for an empty corpus", () => {
         expect(challengeText([], "2026-06-16")).toBe("")
+    })
+})
+
+describe("challenge countdown", () => {
+    it("counts down to the next UTC midnight", () => {
+        // 21:00 UTC → 3h to the next 00:00 UTC.
+        expect(msUntilNextChallenge(new Date("2026-06-16T21:00:00.000Z"))).toBe(3 * 3600 * 1000)
+        // One second before rollover.
+        expect(msUntilNextChallenge(new Date("2026-06-16T23:59:59.000Z"))).toBe(1000)
+    })
+
+    it("formats as Hh MMm SSs, zero-padded and clamped", () => {
+        expect(formatCountdown(5 * 3600_000 + 7 * 60_000 + 3_000)).toBe("5h 07m 03s")
+        expect(formatCountdown(0)).toBe("0h 00m 00s")
+        expect(formatCountdown(-1000)).toBe("0h 00m 00s")
     })
 })
 

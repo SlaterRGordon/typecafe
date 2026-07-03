@@ -134,7 +134,8 @@ export function HomeCoachTabs({ className = "", desktop = true, inline = true }:
     const [challengeDismissed, setChallengeDismissed] = useState(false);
 
     useEffect(() => {
-        setDateKey(challengeDateKey(new Date(), -new Date().getTimezoneOffset()));
+        // Synced UTC day boundary — must match the challenge page (src/pages/challenge.tsx).
+        setDateKey(challengeDateKey(new Date()));
     }, []);
 
     useEffect(() => {

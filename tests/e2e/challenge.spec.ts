@@ -106,6 +106,7 @@ test.describe("daily challenge", () => {
 
     await expect(page.getByTestId("challenge-header")).toBeVisible();
     await expect(page.getByText(/everyone types the same text today/)).toBeVisible();
+    await expect(page.getByTestId("challenge-countdown")).toContainText(/new challenge in \d+h \d\dm \d\ds/);
     await expect(page.locator("#words .char").first()).toBeVisible();
     await expect(page.getByTestId("daily-challenge-boards")).toBeVisible();
     await expect(page.getByText("Fastest Today")).toBeVisible();

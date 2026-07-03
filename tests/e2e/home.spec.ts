@@ -71,6 +71,25 @@ test.describe("home typing test", () => {
     await expect(page.locator("#c0")).not.toHaveClass(/text-base-300/);
   });
 
+  test("returning to a persisted grams mode loads grams text, not normal words", async ({ page }) => {
+    // Regression: settings load in an effect after mount, so the typer first mounts
+    // in the default (normal) mode and must switch. The restart coalescing has to
+    // keep the *latest* (grams) config — the old first-fired-wins flag loaded the
+    // 500-char normal buffer over the returning grams drill (mode 2 = ngrams).
+    await page.addInitScript(() => {
+      window.localStorage.setItem("typecafe:testSettings", JSON.stringify({ mode: 2 }));
+    });
+    await page.goto("/");
+    await expect(page.locator("#typer")).toBeVisible();
+    await expect(page.locator("#words .char").first()).toBeVisible();
+    // Grams renders its own progress bar + running-average stat; normal never does.
+    await expect(page.getByTestId("gram-progress")).toBeVisible();
+    await expect(page.getByTestId("stat-avg")).toBeVisible();
+    // A gram is a couple of characters; the normal buffer would be ~500.
+    const text = (await page.locator("#words").innerText()).trim();
+    expect(text.length).toBeLessThan(20);
+  });
+
   test("Tab+Space restarts the test (Tab swallows the chord key)", async ({ page }) => {
     await gotoHome(page);
 

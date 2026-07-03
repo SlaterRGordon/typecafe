@@ -274,12 +274,17 @@ test.describe("screenshot tour", () => {
     await capture(page, testInfo, "32-practice-keyboard-analytics");
 
     // Shift layer: holding Shift peeks the shifted twins (; → :, / → ?); releasing
-    // returns to base. The layout never moves.
+    // returns to base. The layout never moves. The settings-line label tracks the
+    // peek too, not just the board.
+    const shiftLabel = page.getByRole("button", { name: "Show shifted keys (capitals and symbols)" });
+    await expect(shiftLabel).toContainText("shift off");
     await page.keyboard.down("Shift");
     await expect(keyboardKey(":")).toHaveCount(1);
     await expect(keyboardKey(";")).toHaveCount(0);
+    await expect(shiftLabel).toContainText("shift on");
     await page.keyboard.up("Shift");
     await expect(keyboardKey(";")).toHaveCount(1);
+    await expect(shiftLabel).toContainText("shift off");
 
     // The sticky toggle button does the same, but stays put (touch / lingering).
     await page.getByRole("button", { name: "Show shifted keys (capitals and symbols)" }).click();
@@ -608,6 +613,7 @@ test.describe("screenshot tour", () => {
     await mockTrpc(page);
     await page.goto("/challenge");
     await expect(page.getByTestId("challenge-header")).toBeVisible();
+    await expect(page.getByTestId("challenge-countdown")).toContainText(/new challenge in/);
     await expect(page.locator("#words .char").first()).toBeVisible();
     const boards = page.getByTestId("daily-challenge-boards");
     await expect(boards).toBeVisible();

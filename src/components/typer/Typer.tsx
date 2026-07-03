@@ -198,14 +198,18 @@ export const Typer = (props: TyperProps) => {
         })
     }, [recorder, actualStartTime, subMode, mode, count])
 
-    const cancelRestartRef = useRef(false)
+    // Coalesces the rapid double-restart that fires when settings load right after
+    // mount (default `normal` config → then the persisted mode). Only the *latest*
+    // scheduled restart runs, so its fresh mode/config wins — the old boolean flag
+    // let the first-fired (stale) closure win, which loaded normal text over the
+    // returning grams/practice mode.
+    const restartSeqRef = useRef(0)
     const textRequestRef = useRef(0)
 
     const handleRestart = useCallback((targetLevel?: number) => {
-        cancelRestartRef.current = true;
+        const seq = ++restartSeqRef.current
         setTimeout(() => {
-            if (cancelRestartRef.current) {
-                cancelRestartRef.current = false; // Reset the cancel flag
+            if (seq === restartSeqRef.current) {
                 if (mode !== TestModes.ngrams) syncCharAttempts()
 
                 // A daily challenge uses fixed seeded text — same for every client,
