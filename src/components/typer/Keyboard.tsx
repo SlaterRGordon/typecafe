@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import { addAlert } from "~/state/alert/alertSlice";
 import { TestModes } from "./types";
 import { useDispatch } from "react-redux";
@@ -27,8 +26,8 @@ interface KeyboardProps {
     baseAttemptsRef?: React.MutableRefObject<Map<string, { attempts: number, correct: number }>>,
     attemptVersion?: number,
     highlightKeys?: string[],
-    // Practice: the sticky shift-layer toggle now lives in the settings line above
-    // the test, so the page owns it; hold-to-peek stays internal.
+    // Practice: the combined shift-layer state (sticky settings-line toggle OR a
+    // held-Shift peek) — both owned by the page so the label and board stay in sync.
     shiftToggle?: boolean,
 }
 
@@ -39,30 +38,9 @@ export const Keyboard = (props: KeyboardProps) => {
     const dispatch = useDispatch()
 
     // Shift layer flips every cell to its shifted twin (R, ?, !, :) to read those
-    // accuracies separately. Two ways in: the sticky settings-line toggle (owned by
-    // the page), or holding Shift to peek (release returns to base). Hold-to-peek
-    // rather than a key toggle so typing a shifted glyph mid-test can't leave the
-    // layer stuck flipped.
-    const [shiftHeld, setShiftHeld] = useState(false)
-    const shiftLayer = shiftToggle || shiftHeld
-
-    useEffect(() => {
-        if (mode !== TestModes.practice) return
-        const onDown = (e: KeyboardEvent) => {
-            if (e.key !== "Shift" || e.repeat) return
-            setShiftHeld(true)
-        }
-        const onUp = (e: KeyboardEvent) => { if (e.key === "Shift") setShiftHeld(false) }
-        const clear = () => setShiftHeld(false)
-        window.addEventListener("keydown", onDown)
-        window.addEventListener("keyup", onUp)
-        window.addEventListener("blur", clear)
-        return () => {
-            window.removeEventListener("keydown", onDown)
-            window.removeEventListener("keyup", onUp)
-            window.removeEventListener("blur", clear)
-        }
-    }, [mode])
+    // accuracies separately. The page owns the combined state (sticky toggle OR a
+    // held-Shift peek), passed in as `shiftToggle`.
+    const shiftLayer = shiftToggle
 
     // Lock badges read off the active layer, so every not-enabled cell shows locked.
     // Base layer: any physical key not in the drill set (display-only filler always

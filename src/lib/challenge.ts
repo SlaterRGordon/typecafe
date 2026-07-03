@@ -38,6 +38,23 @@ export function challengeDateKey(now: Date, utcOffsetMinutes = 0): string {
     return dayKey(now, utcOffsetMinutes)
 }
 
+// Milliseconds until the challenge rolls over. The day boundary is UTC midnight
+// (synced: same countdown for everyone, matching the UTC dateKey), so this is the
+// gap to the next 00:00 UTC.
+export function msUntilNextChallenge(now: Date): number {
+    const next = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1)
+    return next - now.getTime()
+}
+
+// A countdown as "Hh MMm SSs" (e.g. "5h 07m 03s"), clamped at zero.
+export function formatCountdown(ms: number): string {
+    const total = Math.max(0, Math.floor(ms / 1000))
+    const h = Math.floor(total / 3600)
+    const m = Math.floor((total % 3600) / 60)
+    const s = total % 60
+    return `${h}h ${String(m).padStart(2, "0")}m ${String(s).padStart(2, "0")}s`
+}
+
 export function shiftChallengeDateKey(dateKey: string, days: number): string {
     const date = new Date(`${dateKey}T00:00:00.000Z`)
     if (Number.isNaN(date.getTime())) return dateKey

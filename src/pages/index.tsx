@@ -70,8 +70,11 @@ const Home: NextPage = () => {
   const [currentKey, setCurrentKey] = useState("")
   const [typingFocused, setTypingFocused] = useState(false)
   // Practice: the shift-layer toggle lives in the settings line but drives the
-  // keyboard board below the test, so the page holds it.
+  // keyboard board below the test, so the page holds it. Holding physical Shift
+  // peeks the layer (release returns to the sticky toggle) — lifted here so the
+  // settings-line "shift on/off" label reflects the peek too, not just the board.
   const [shiftToggle, setShiftToggle] = useState(false)
+  const [shiftHeld, setShiftHeld] = useState(false)
   const dispatch = useDispatch()
   const currentKeyRef = useRef("")
   const [attemptVersion, setAttemptVersion] = useState(0)
@@ -170,6 +173,22 @@ const Home: NextPage = () => {
       // Corrupt entry — ignore.
     }
   }, [])
+
+  useEffect(() => {
+    if (mode !== TestModes.practice) return
+    const onDown = (e: KeyboardEvent) => { if (e.key === "Shift" && !e.repeat) setShiftHeld(true) }
+    const onUp = (e: KeyboardEvent) => { if (e.key === "Shift") setShiftHeld(false) }
+    const clear = () => setShiftHeld(false)
+    window.addEventListener("keydown", onDown)
+    window.addEventListener("keyup", onUp)
+    window.addEventListener("blur", clear)
+    return () => {
+      window.removeEventListener("keydown", onDown)
+      window.removeEventListener("keyup", onUp)
+      window.removeEventListener("blur", clear)
+    }
+  }, [mode])
+  const shiftLayer = shiftToggle || shiftHeld
 
   const onKeyChange = (key: string) => {
     if (currentKeyRef.current === key) return
@@ -612,7 +631,7 @@ const Home: NextPage = () => {
               gramAccuracyThreshold={gramAccuracyThreshold}
               punctuation={punctuation}
               capitals={capitals}
-              shiftLayer={shiftToggle}
+              shiftLayer={shiftLayer}
               onToggleShift={() => setShiftToggle((on) => !on)}
               onSmartDrill={handleSmartDrill}
               setCount={setCount}
@@ -728,7 +747,7 @@ const Home: NextPage = () => {
         }
         {!completedScore && shouldShowHomeKeyboard &&
           <div data-testid="typing-focus-home-keyboard" className="min-h-[11rem] md:min-h-[15.25rem]">
-            <Keyboard mode={mode} currentKey={currentKey} selectedKeys={selectedKeys} setSelectedKeys={setSelectedKeys} charAttemptsRef={charAttemptsRef} baseAttemptsRef={persistedAttemptsRef} attemptVersion={attemptVersion} shiftToggle={shiftToggle} />
+            <Keyboard mode={mode} currentKey={currentKey} selectedKeys={selectedKeys} setSelectedKeys={setSelectedKeys} charAttemptsRef={charAttemptsRef} baseAttemptsRef={persistedAttemptsRef} attemptVersion={attemptVersion} shiftToggle={shiftLayer} />
           </div>
         }
       </div>
