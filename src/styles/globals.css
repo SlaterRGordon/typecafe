@@ -228,10 +228,10 @@ button:disabled,
 .incorrect-char {
     color: var(--error-color);
     text-decoration: underline;
-    /* Descenders (y, g, p…) otherwise break the underline via skip-ink and, at
-       the default baseline position, the line cuts through the tail; drop it
-       just under the glyph and keep it continuous. */
-    text-underline-position: under;
+    /* Keep the underline whole under descenders (y, g, p…) — the default
+       skip-ink cuts it where the tail crosses. Stay at the baseline (not
+       "under"): an "under" underline hangs into the next line and lingers in
+       view after its glyph has scrolled off the top. */
     text-decoration-skip-ink: none;
 }
 
