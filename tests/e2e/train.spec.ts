@@ -101,6 +101,26 @@ test.describe("train page", () => {
     await expect(page.getByTestId("train-rail-caption")).toContainText("Level 1");
   });
 
+  // typing-feel §3: the popover never waits for the save round-trips — it
+  // renders instantly from local grading (stars, next-level unlock), then the
+  // background save patches the status line.
+  test("signed-in clear shows the popover before the slow save settles", async ({ page }) => {
+    await mockAuthenticatedSession(page);
+    await mockTrpc(page, { delayProcedures: { "test.create": 4000, "trainProgress.complete": 4000 } });
+    await gotoTrain(page);
+
+    await typeVisibleTestText(page);
+
+    const popover = page.getByTestId("train-complete-popover");
+    // Well before the 4s save delay could resolve.
+    await expect(popover).toBeVisible({ timeout: 2500 });
+    await expect(popover.getByTestId("train-save-status")).toContainText("Saving progress");
+    // The next-level unlock comes from the local merge — usable immediately.
+    await expect(popover.getByRole("button", { name: "Next level" })).toBeEnabled();
+    // The background save settles and patches the status.
+    await expect(popover.getByTestId("train-save-status")).toContainText("Best result saved.", { timeout: 15_000 });
+  });
+
   test("completion saves guest progress on this device", async ({ page }) => {
     await gotoTrain(page);
 

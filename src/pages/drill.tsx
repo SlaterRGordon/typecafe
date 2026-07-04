@@ -316,6 +316,9 @@ const Drill: NextPage = () => {
                                         restartSignal={restartSignal}
                                         onRestart={() => setCompleted(null)}
                                         onTestComplete={setCompleted}
+                                        // setCompleted is idempotent under the eager double-report:
+                                        // the persisted upgrade just re-sets the same card.
+                                        eagerResult
                                         onTypingFocusChange={setTypingFocused}
                                         charAttemptsRef={charAttemptsRef}
                                     />

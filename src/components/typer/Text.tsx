@@ -2,6 +2,7 @@ import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState, type R
 import { applyTextOptions, generateBetterPseudoText, generateText } from "./utils"
 import { TestModes, TestSubModes } from "./types"
 import { isAnyModalOpen, isModalOpen, MODAL_IDS } from "~/lib/modals"
+import { runWhenIdle } from "~/lib/idle"
 
 interface TextProps {
     text: string,
@@ -271,8 +272,7 @@ export const Text = memo(function Text(props: TextProps) {
             appendNewText(" " + newText)
             currentTextRef.current += " " + newText
         }
-        if (typeof requestIdleCallback === "function") requestIdleCallback(run, { timeout: 1000 })
-        else setTimeout(run, 0)
+        runWhenIdle(run)
     }
 
     useEffect(() => {

@@ -18,6 +18,9 @@ interface MockTrpcOptions {
   // Procedures listed here resolve to a tRPC error instead of data, so tests can
   // exercise client-side failure handling (e.g. a save that fails on the network).
   errorProcedures?: string[];
+  // Per-procedure response delay in ms (a slow save); a batch waits for the
+  // slowest listed procedure it contains.
+  delayProcedures?: Record<string, number>;
   onProcedure?: (procedure: string, input: ProcedureInput) => void;
 }
 
@@ -514,6 +517,9 @@ export async function mockTrpc(page: Page, options: MockTrpcOptions = {}) {
     const procedurePath = decodeURIComponent(url.pathname.split("/api/trpc/")[1] ?? "");
     const procedures = procedurePath.split(",");
     const rawInput = getRawInputForRequest(route);
+
+    const delay = Math.max(0, ...procedures.map((procedure) => options.delayProcedures?.[procedure] ?? 0));
+    if (delay > 0) await new Promise((resolve) => setTimeout(resolve, delay));
 
     const body = procedures.map((procedure, index) => {
       const input = deserializeInput(rawInput, index);

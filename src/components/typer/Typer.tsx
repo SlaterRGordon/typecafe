@@ -12,6 +12,7 @@ import { createKeystrokeRecorder } from "~/lib/keystrokeRecorder"
 import type { KeystrokeRecorder } from "~/lib/keystrokeRecorder"
 import { isAnyModalOpen } from "~/lib/modals"
 import { isRankableTimeline } from "~/lib/antiCheat"
+import { runWhenIdle } from "~/lib/idle"
 import { publishActiveKey } from "./keySignal"
 import { generateTestText } from "./hooks/useTestText"
 import { useGramProgression } from "./hooks/useGramProgression"
@@ -210,7 +211,9 @@ export const Typer = (props: TyperProps) => {
         const seq = ++restartSeqRef.current
         setTimeout(() => {
             if (seq === restartSeqRef.current) {
-                if (mode !== TestModes.ngrams) syncCharAttempts()
+                // Off the restart frame: the sync round-trip/localStorage write
+                // must not delay the fresh text paint (typing-feel §3).
+                if (mode !== TestModes.ngrams) runWhenIdle(syncCharAttempts)
 
                 // A daily challenge uses fixed seeded text — same for every client,
                 // never regenerated or appended.
@@ -440,11 +443,19 @@ export const Typer = (props: TyperProps) => {
             }
         }
 
-        if (mode !== TestModes.ngrams) syncCharAttempts()
-        // Transition analytics come from normal-mode tests, where the text is real
-        // language (grams/practice text would skew the bigram picture — as would
-        // a drill's target-saturated text, hence skipTransitionSync).
-        if (mode === TestModes.normal && !props.skipTransitionSync) syncTransitions(recorder.events)
+        // Analytics ride an idle callback, not the completion paint (typing-feel
+        // §3): aggregation + sync round-trips would otherwise stutter the result
+        // render. `events` is captured by reference — reset() replaces the array,
+        // so a restart can't mutate what the deferred aggregation reads.
+        const events = recorder.events
+        const skipTransitionSync = props.skipTransitionSync
+        runWhenIdle(() => {
+            if (mode !== TestModes.ngrams) syncCharAttempts()
+            // Transition analytics come from normal-mode tests, where the text is
+            // real language (grams/practice text would skew the bigram picture — as
+            // would a drill's target-saturated text, hence skipTransitionSync).
+            if (mode === TestModes.normal && !skipTransitionSync) syncTransitions(events)
+        })
 
         pacerCaughtRef.current = false
     }, [

@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test"
-import { mockTrpc } from "./helpers/trpc"
+import { mockAuthenticatedSession, mockTrpc } from "./helpers/trpc"
 import { typeCurrentCharacter, typeVisibleTestText, typeWrongCharacter } from "./helpers/typing"
 
 async function pressRestartShortcut(page: Parameters<typeof mockTrpc>[0], key: "Enter" | "Space") {
@@ -9,6 +9,20 @@ async function pressRestartShortcut(page: Parameters<typeof mockTrpc>[0], key: "
 }
 
 test.describe("drill page", () => {
+  // typing-feel §3: the result card renders eagerly from local numbers instead
+  // of waiting on the signed-in save round-trip.
+  test("signed-in drill shows the result before the slow save settles", async ({ page }) => {
+    await mockAuthenticatedSession(page)
+    await mockTrpc(page, { delayProcedures: { "test.create": 4000 } })
+    await page.goto("/drill?keys=x&length=4")
+    await expect(page.getByTestId("drill-typer")).toBeVisible()
+
+    await typeVisibleTestText(page)
+
+    // Well before the 4s save delay could resolve.
+    await expect(page.getByTestId("drill-result")).toBeVisible({ timeout: 2500 })
+  })
+
   test("key drill renders real target-key words and completes", async ({ page }) => {
     await mockTrpc(page)
     await page.goto("/drill?keys=x&length=4")

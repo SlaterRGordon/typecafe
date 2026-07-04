@@ -109,12 +109,28 @@ cost, hence the imperative marker + pause-only shading.
 
 ## 3. Seamless saving
 
-- [ ] Extend `eagerResult` to every completion surface (train, daily
-  challenge): the result renders instantly from local numbers, server fields
-  (share link, brag, delta, streak) patch in when the save settles. Callers'
-  `onTestComplete` made idempotent under the double-call where needed.
-- [ ] Post-completion analytics (transition aggregation, char-attempt sync,
-  localStorage writes) move off the completion frame (idle callback) so the
-  result paint never stutters.
-- [ ] E2e: result card visible immediately on a slow network (route-delayed
-  save), fields patch in without layout jump.
+Root-cause find (2026-07-04): saving wasn't just slow, it was **failing** —
+the dev app reads `DATABASE_URL` from `.env.local` (ep-billowing-bar Neon
+endpoint) while the Prisma CLI reads `.env` (ep-lucky-pine), so the
+`test_timeline` migration had only been applied to the CLI's database and
+every signed-in save threw "column `timeline` does not exist". Applied the
+migration to the `.env.local` DB (strip `-pooler` from the host — Prisma
+migrate needs the direct endpoint). When adding migrations, deploy to both
+or unify the env files. Beyond the failure, a real `test.create` round trip
+measured 5.2s against Neon — which the changes below take off the critical
+path entirely.
+
+- [x] `eagerResult` on every completion surface (challenge already had it):
+  **train** shows the stars popover instantly — grading and the next-level
+  unlock are computed locally (`mergeProgress`, the same merge `save()`
+  uses), a `saving → saved/failed` status line tracks the background save,
+  and the upgrade report is deduped (`completionHandledRef`). **drill**'s
+  `setCompleted` is idempotent, so it just took the flag.
+- [x] Post-completion analytics (char-attempt sync, transition aggregation +
+  sync, guest localStorage writes) run via `runWhenIdle` (`src/lib/idle.ts`)
+  — never on the completion or restart paint. Text's append refill shares
+  the helper.
+- [x] E2e: with `test.create`/`trainProgress.complete` delayed 4s
+  (`mockTrpc delayProcedures`), the train popover and drill result render
+  within 2.5s of completion; the train status line then settles to
+  "Best result saved."
