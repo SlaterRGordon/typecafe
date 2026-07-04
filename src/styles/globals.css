@@ -228,6 +228,11 @@ button:disabled,
 .incorrect-char {
     color: var(--error-color);
     text-decoration: underline;
+    /* Descenders (y, g, p…) otherwise break the underline via skip-ink and, at
+       the default baseline position, the line cuts through the tail; drop it
+       just under the glyph and keep it continuous. */
+    text-underline-position: under;
+    text-decoration-skip-ink: none;
 }
 
 .typing-focus-global-fade {
