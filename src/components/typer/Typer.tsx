@@ -61,9 +61,6 @@ interface TyperProps {
     hideInterface?: boolean,
     // Fixed seeded text (daily challenge): skip generation and never append.
     fixedText?: string,
-    // Drills set this: their target-saturated text would skew the lifetime
-    // bigram picture, same reason grams/practice text is excluded below.
-    skipTransitionSync?: boolean,
     // Stamps the saved Test row as belonging to this day's challenge (YYYY-MM-DD).
     challengeDate?: string,
     charAttemptsRef: React.MutableRefObject<Map<string, { attempts: number, correct: number }>>
@@ -448,13 +445,12 @@ export const Typer = (props: TyperProps) => {
         // render. `events` is captured by reference — reset() replaces the array,
         // so a restart can't mutate what the deferred aggregation reads.
         const events = recorder.events
-        const skipTransitionSync = props.skipTransitionSync
         runWhenIdle(() => {
             if (mode !== TestModes.ngrams) syncCharAttempts()
-            // Transition analytics come from normal-mode tests, where the text is
-            // real language (grams/practice text would skew the bigram picture — as
-            // would a drill's target-saturated text, hence skipTransitionSync).
-            if (mode === TestModes.normal && !skipTransitionSync) syncTransitions(events)
+            // Transition analytics come from normal-mode tests — including drills
+            // (owner decision, ADR-0004 reversal): every rep counts toward the
+            // lifetime pair data. Grams/practice text stays excluded.
+            if (mode === TestModes.normal) syncTransitions(events)
         })
 
         pacerCaughtRef.current = false
@@ -462,7 +458,7 @@ export const Typer = (props: TyperProps) => {
         recorder, isCompletionValid, isTimed, pause, getStats, buildCompletion, mode, levelRequirements,
         sessionData, testType, persistCompletion, count, level, punctuation,
         capitals, props.gramWpmThreshold, props.gramAccuracyThreshold,
-        props.challengeDate, props.failOnMiss, props.skipTransitionSync, recordPassedLevel, syncCharAttempts, syncTransitions,
+        props.challengeDate, props.failOnMiss, recordPassedLevel, syncCharAttempts, syncTransitions,
     ])
 
     // The pacer caught the typist: flag the loss, then run completion (which reads

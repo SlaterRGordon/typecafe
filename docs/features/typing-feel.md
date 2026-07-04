@@ -148,4 +148,6 @@ tracking"):
   lifetime transition aggregates), not a §3 break — but nothing showed
   progress across reps. The drill header now carries a session trail
   ("This session: best · last · n reps") built locally from each rep's delta;
-  lifetime data stays clean, nothing added to the typing hot path.
+  nothing added to the typing hot path. Later the same day the owner reversed
+  the exclusion itself (see ADR-0004): drill reps now sync into lifetime
+  transitions like any normal test, so the header baseline moves per rep too.

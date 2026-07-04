@@ -16,7 +16,7 @@ import { decodeTimeline } from "~/lib/keystrokes"
 import { readLocalKeyStats, type LocalKeyStat } from "~/lib/localSync"
 import { readLocalTransitions } from "~/lib/localTransitions"
 import { isAnyModalOpen } from "~/lib/modals"
-import { type TransitionAggregate } from "~/lib/transitions"
+import { aggregateTransitions, mergeTransitions, type TransitionAggregate } from "~/lib/transitions"
 import { api } from "~/utils/api"
 
 type DrillKind = "keys" | "transitions" | "timed"
@@ -200,11 +200,9 @@ const Drill: NextPage = () => {
     }, [config, baseline])
 
     // What the rep proved (delta vs lifetime) and what to drill next — the next
-    // finding folds in this rep's per-key attempts (accuracy is honest signal in
-    // any text) but NOT its transitions: target-saturated drill text would skew
-    // the bigram picture (the same reason the Typer skips syncing them). It
-    // excludes the just-drilled target so it never re-suggests the drill just
-    // finished.
+    // finding recomputes from baseline + this rep's keystrokes (reps count toward
+    // lifetime data — ADR-0004 reversal), excluding the just-drilled target so it
+    // never re-suggests the drill just finished.
     const outcome = useMemo(() => {
         if (!completed || !config || config.kind === "timed") return null
         const repEvents = decodeTimeline(completed.timeline)
@@ -220,7 +218,7 @@ const Drill: NextPage = () => {
         }
 
         const next = nextDrillFinding(
-            baseline.transitions,
+            mergeTransitions(baseline.transitions, aggregateTransitions(repEvents)),
             mergeAttempts(baseline.keyStats, attemptsFromEvents(repEvents)),
             config.kind === "transitions" ? { pairs: config.targets } : { keys: config.targets },
         )
@@ -228,9 +226,8 @@ const Drill: NextPage = () => {
     }, [completed, config, baseline])
 
     // This session's reps on the drilled target (delta.after per completed rep).
-    // Lifetime aggregates deliberately exclude drill-text transitions (ADR-0004),
-    // so this local trail is what shows the reps moving the needle — without it
-    // the header baseline reads as frozen no matter how many reps land.
+    // The lifetime baseline moves too (reps sync into it — ADR-0004 reversal),
+    // but slowly once the pair has history; the trail shows each rep landing.
     const [sessionReps, setSessionReps] = useState<number[]>([])
     const recordedRepRef = useRef<TestCompletionResult["timeline"] | null>(null)
     useEffect(() => {
@@ -340,7 +337,6 @@ const Drill: NextPage = () => {
                                         count={config.kind === "timed" ? config.seconds! : wordCount}
                                         customLength
                                         fixedText={config.kind === "timed" ? undefined : config.text}
-                                        skipTransitionSync={config.kind !== "timed"}
                                         showStats
                                         modalOpen={false}
                                         restartSignal={restartSignal}

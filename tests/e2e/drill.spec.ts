@@ -208,22 +208,30 @@ test.describe("drill page", () => {
     // Next pick skips the just-drilled br and lands on the next-slowest pair, io.
     await expect(page.getByTestId("drill-next")).toHaveAttribute("href", "/drill?transitions=io")
 
-    // The session trail carries the rep's ms on the drilled pair — the number
-    // that moves per rep, since the lifetime baseline deliberately doesn't
-    // (ADR-0004).
+    // The session trail carries the rep's ms on the drilled pair.
     const session = page.getByTestId("drill-session")
     await expect(session).toContainText("This session:")
     await expect(session).toContainText("ms — 1 rep")
 
-    // The rep's target-saturated text must NOT rewrite the lifetime bigram
-    // picture: the coach tab (desktop only — the inline mobile variant renders
-    // on the home page) still recommends br from the untouched lifetime data.
+    // Drill again: the baseline re-snapshots from lifetime data that now
+    // includes the rep's fast samples — the header's number visibly moves
+    // (ADR-0004 reversal; this is the loop the owner wanted).
+    await pressRestartShortcut(page, "Enter")
+    await expect(page.getByTestId("drill-typer")).toBeVisible()
+    const restatedStat = page.getByTestId("drill-header-stat")
+    await expect(restatedStat).toContainText("ms on this jump")
+    await expect(restatedStat).not.toContainText("400ms")
+
+    // The rep syncs into the lifetime bigram data (ADR-0004 reversal): br's
+    // mean drops below io's, so the coach tab (desktop only — the inline
+    // mobile variant renders on the home page) live-updates to the next-worst
+    // pair instead of re-recommending the drill just finished.
     if (!testInfo.project.name.includes("mobile")) {
       const tab = page.getByTestId("home-coach-tab-drill")
       await tab.hover()
       const panel = page.getByTestId("home-coach-tab-drill-panel")
-      await expect(panel).toContainText("b->r")
-      await expect(panel.getByRole("link", { name: "Start drill" })).toHaveAttribute("href", "/drill?transitions=br")
+      await expect(panel).toContainText("i->o")
+      await expect(panel.getByRole("link", { name: "Start drill" })).toHaveAttribute("href", "/drill?transitions=io")
     }
   })
 
