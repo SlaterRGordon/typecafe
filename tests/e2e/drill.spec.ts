@@ -15,6 +15,9 @@ test.describe("drill page", () => {
 
     await expect(page.getByRole("heading", { name: "x" })).toBeVisible()
     await expect(page.getByTestId("drill-typer")).toBeVisible()
+    // No lifetime evidence → the header has no baseline stat and no next pick.
+    await expect(page.getByTestId("drill-header-stat")).toHaveCount(0)
+    await expect(page.getByTestId("drill-header-next")).toHaveCount(0)
     const words = (await page.locator("#words").innerText()).trim().split(/\s+/)
     expect(words).toHaveLength(4)
     expect(words.every((word) => word.includes("x"))).toBe(true)
@@ -36,6 +39,11 @@ test.describe("drill page", () => {
   })
 
   test("forwards a diagnosis re-measure token into the Re-measure CTA", async ({ page }) => {
+    await page.addInitScript(() => {
+      window.localStorage.setItem("typecafe:keyStats", JSON.stringify([
+        { key: "q", attempts: 10, correct: 4 },
+      ]))
+    })
     await mockTrpc(page)
     // A diagnosis hands off the just-completed test's config as an opaque rm token.
     const payload = JSON.stringify({
@@ -44,6 +52,10 @@ test.describe("drill page", () => {
     })
     await page.goto(`/drill?keys=x&length=4&rm=${encodeURIComponent(payload)}`)
     await expect(page.getByTestId("drill-typer")).toBeVisible()
+
+    // Hopping to the next drill keeps the token so Re-measure still works there.
+    await expect(page.getByTestId("drill-header-next"))
+      .toHaveAttribute("href", `/drill?keys=q&rm=${encodeURIComponent(payload)}`)
 
     await typeVisibleTestText(page)
 
@@ -87,16 +99,29 @@ test.describe("drill page", () => {
     await page.goto("/drill?keys=x&length=4")
     await expect(page.getByTestId("drill-typer")).toBeVisible()
 
+    // The header states the baseline to beat and offers the next pick up front
+    // (from lifetime evidence, x excluded) — no completed rep required.
+    await expect(page.getByTestId("drill-header-stat")).toHaveText("50.0% lifetime accuracy on this key. Beat it below.")
+    await expect(page.getByTestId("drill-header-next")).toHaveAttribute("href", "/drill?keys=q")
+
     await typeVisibleTestText(page)
 
     // A clean rep on x beats the 50% lifetime baseline.
     const delta = page.getByTestId("drill-delta")
     await expect(delta).toContainText("x")
     await expect(delta).toContainText("above your lifetime average")
-    // The next pick excludes the just-drilled x and lands on q.
+    // The next pick excludes the just-drilled x and lands on q; the result card
+    // owns it now, so the header copy disappears.
     const next = page.getByTestId("drill-next")
     await expect(next).toHaveText("Next drill: q →")
     await expect(next).toHaveAttribute("href", "/drill?keys=q")
+    await expect(page.getByTestId("drill-header-next")).toHaveCount(0)
+
+    // A restart (tab+enter) brings the header pick back — the user is never
+    // forced through another full rep to reach the next drill.
+    await pressRestartShortcut(page, "Enter")
+    await expect(page.getByTestId("drill-typer")).toBeVisible()
+    await expect(page.getByTestId("drill-header-next")).toHaveAttribute("href", "/drill?keys=q")
   })
 
   test("transition drill result computes the delta and refreshes the coach tab", async ({ page }, testInfo) => {
@@ -113,6 +138,12 @@ test.describe("drill page", () => {
     await mockTrpc(page)
     await page.goto("/drill?transitions=br&length=8")
     await expect(page.getByTestId("drill-typer")).toBeVisible()
+
+    // Header states the pair's lifetime baseline and the next-worst pick.
+    const headerStat = page.getByTestId("drill-header-stat")
+    await expect(headerStat).toContainText("400ms on this jump")
+    await expect(headerStat).toContainText("your typical transition")
+    await expect(page.getByTestId("drill-header-next")).toHaveAttribute("href", "/drill?transitions=io")
 
     await typeVisibleTestText(page)
 

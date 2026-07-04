@@ -15,12 +15,11 @@ const screenshotRoot = join(__dirname, "../../docs/screenshots");
 // the captures below, so it's an orphan. Per-worker but race-free — fresh
 // captures are always newer than runStart, so no worker deletes another's.
 test.beforeAll(({}, testInfo) => {
-  // A filtered run (-g) captures only a subset, so pruning would delete every
-  // other capture. Only prune on a full tour run.
-  // ponytail: doesn't detect line-number filters, only grep — full runs are the norm.
-  if (String(testInfo.config.grep) !== String(/.*/)) return;
   const dir = join(screenshotRoot, testInfo.project.name);
+  // globalSetup stamps "skip" for a filtered (-g) run — pruning there would
+  // delete every capture the filter didn't regenerate.
   const runStart = Number(readFileSync(runStartFile, "utf8"));
+  if (!Number.isFinite(runStart)) return;
   let files: string[];
   try {
     files = readdirSync(dir);
@@ -29,7 +28,10 @@ test.beforeAll(({}, testInfo) => {
   }
   for (const file of files) {
     const path = join(dir, file);
-    if (statSync(path).mtimeMs < runStart) rmSync(path);
+    // Workers prune in parallel; a sibling may have deleted this orphan first.
+    try {
+      if (statSync(path).mtimeMs < runStart) rmSync(path);
+    } catch { /* already pruned */ }
   }
 });
 
@@ -766,10 +768,20 @@ test.describe("screenshot tour", () => {
   });
 
   test("drill surface", async ({ page }, testInfo) => {
+    // Lifetime evidence so the header shows its full state: baseline stat +
+    // next-drill pick.
+    await page.addInitScript(() => {
+      window.localStorage.setItem("typecafe:keyStats", JSON.stringify([
+        { key: "x", attempts: 20, correct: 10 },
+        { key: "q", attempts: 10, correct: 4 },
+      ]));
+    });
     await mockTrpc(page);
     await page.goto("/drill?keys=x&length=8");
     await expect(page.getByTestId("drill-typer")).toBeVisible();
     await expect(page.getByRole("heading", { name: "x" })).toBeVisible();
+    await expect(page.getByTestId("drill-header-stat")).toBeVisible();
+    await expect(page.getByTestId("drill-header-next")).toBeVisible();
     await capture(page, testInfo, "56-drill-surface");
   });
 

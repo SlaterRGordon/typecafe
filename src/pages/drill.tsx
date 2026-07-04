@@ -11,7 +11,7 @@ import { TestGramScopes, TestGramSources, TestModes, TestSubModes } from "~/comp
 import { applyTextOptions, getWords } from "~/components/typer/utils"
 import { compileDrillText } from "~/lib/drill"
 import { isDrillMark, isDrillDigit, isDrillableKey } from "~/lib/drillKeys"
-import { attemptsFromEvents, keyDrillDelta, mergeAttempts, nextDrillFinding, transitionDrillDelta, type DrillDelta } from "~/lib/drillProgress"
+import { attemptsFromEvents, keyDrillDelta, keysBaseline, mergeAttempts, nextDrillFinding, transitionBaseline, transitionDrillDelta, type DrillDelta, type DrillFinding } from "~/lib/drillProgress"
 import { decodeTimeline } from "~/lib/keystrokes"
 import { readLocalKeyStats, type LocalKeyStat } from "~/lib/localSync"
 import { readLocalTransitions } from "~/lib/localTransitions"
@@ -160,23 +160,50 @@ const Drill: NextPage = () => {
     // Lifetime evidence snapshotted while the rep runs and frozen at completion,
     // so the result's before→after delta compares against the data as it stood
     // *before* this rep (completion syncs the rep into the lifetime data).
-    const baselineRef = useRef<LifetimeEvidence>({ transitions: [], keyStats: [] })
+    const [baseline, setBaseline] = useState<LifetimeEvidence>({ transitions: [], keyStats: [] })
     useEffect(() => {
         if (completed) return
-        baselineRef.current = signedIn
+        setBaseline(signedIn
             ? {
                 transitions: transitionsQuery.data ?? [],
                 keyStats: (practiceStatsQuery.data ?? []).map((s) => ({ key: s.character, attempts: s.total, correct: s.correct })),
             }
-            : { transitions: readLocalTransitions(), keyStats: readLocalKeyStats() }
+            : { transitions: readLocalTransitions(), keyStats: readLocalKeyStats() })
     }, [completed, restartSignal, signedIn, transitionsQuery.data, practiceStatsQuery.data])
+
+    // The header states the baseline being drilled against (the number to beat)
+    // and offers the next pick straight from lifetime evidence — no completed
+    // rep required, so a restart never strands the user without a way forward.
+    const headerStat = useMemo(() => {
+        if (!config) return null
+        if (config.kind === "transitions") {
+            for (const pair of config.targets) {
+                const base = transitionBaseline(pair, baseline.transitions)
+                if (base) return `${Math.round(base.meanMs)}ms on this jump — ${base.ratio.toFixed(1)}× your typical transition. Beat it below.`
+            }
+            return null
+        }
+        if (config.kind === "keys") {
+            const base = keysBaseline(config.targets, baseline.keyStats)
+            if (base) return `${base.accuracy.toFixed(1)}% lifetime accuracy on ${config.targets.length > 1 ? "these keys" : "this key"}. Beat it below.`
+        }
+        return null
+    }, [config, baseline])
+
+    const headerNext = useMemo<DrillFinding | null>(() => {
+        if (!config || config.kind === "timed") return null
+        return nextDrillFinding(
+            baseline.transitions,
+            mergeAttempts(baseline.keyStats, new Map()),
+            config.kind === "transitions" ? { pairs: config.targets } : { keys: config.targets },
+        )
+    }, [config, baseline])
 
     // What the rep proved (delta vs lifetime) and what to drill next — the next
     // finding recomputes from baseline + this rep's keystrokes, excluding the
     // just-drilled target so it never re-suggests the drill just finished.
     const outcome = useMemo(() => {
         if (!completed || !config || config.kind === "timed") return null
-        const baseline = baselineRef.current
         const repEvents = decodeTimeline(completed.timeline)
 
         let delta: DrillDelta | null = null
@@ -195,7 +222,7 @@ const Drill: NextPage = () => {
             config.kind === "transitions" ? { pairs: config.targets } : { keys: config.targets },
         )
         return { delta, next }
-    }, [completed, config])
+    }, [completed, config, baseline])
 
     const wordCount = config?.text.split(" ").filter(Boolean).length ?? DEFAULT_DRILL_WORDS
 
@@ -207,6 +234,11 @@ const Drill: NextPage = () => {
     // A drill launched from a plan step returns to the guided player, which
     // advances to the next step (Phase 4 §4.4).
     const returnToPlan = router.query.return === "plan"
+
+    // Full-page navigation, like Re-measure: the drill page must remount so the
+    // new target compiles fresh text and the baseline re-snapshots.
+    const nextDrillHref = (finding: DrillFinding) => `${finding.href}${rmToken ? `&rm=${encodeURIComponent(rmToken)}` : ""}`
+    const nextDrillLabel = (finding: DrillFinding) => finding.kind === "transition" ? transitionLabel(finding.pair) : finding.keys.join(" ")
 
     return (
         <>
@@ -220,21 +252,43 @@ const Drill: NextPage = () => {
                         <>
                             <section data-testid="drill-header" className={typingFocusFadeClass(typingFocused, "rounded-lg border border-base-content/10 bg-base-100/45 p-4 sm:p-5")}>
                                 <div className="flex flex-col gap-3">
-                                    <div>
-                                        <p className="text-xs font-semibold uppercase tracking-wide text-primary">
-                                            {config.kind === "transitions" ? "Transition drill" : config.kind === "timed" ? "Timed warm-up" : "Key drill"}
-                                        </p>
-                                        <h1 className="mt-1 font-mono text-2xl font-bold text-base-content">
-                                            {config.labels.join(", ")}
-                                        </h1>
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div>
+                                            <p className="text-xs font-semibold uppercase tracking-wide text-primary">
+                                                {config.kind === "transitions" ? "Transition drill" : config.kind === "timed" ? "Timed warm-up" : "Key drill"}
+                                            </p>
+                                            <h1 className="mt-1 font-mono text-2xl font-bold text-base-content">
+                                                {config.labels.join(", ")}
+                                            </h1>
+                                            {headerStat && (
+                                                <p data-testid="drill-header-stat" className="mt-2 text-sm text-base-content/70">
+                                                    {headerStat}
+                                                </p>
+                                            )}
+                                        </div>
+                                        {/* Hidden once the rep completes — the result card offers a
+                                            fresher pick recomputed with this rep included. */}
+                                        {!completed && headerNext && (
+                                            <a
+                                                href={nextDrillHref(headerNext)}
+                                                data-testid="drill-header-next"
+                                                className="shrink-0 whitespace-nowrap text-sm font-semibold text-primary transition hover:opacity-80"
+                                            >
+                                                Next drill: {nextDrillLabel(headerNext)}
+                                            </a>
+                                        )}
                                     </div>
-                                    <div className="flex flex-wrap gap-2">
-                                        {config.labels.map((label) => (
-                                            <span key={label} className="min-w-10 rounded-md border border-primary/30 bg-primary/10 px-3 py-1 text-center text-sm font-semibold text-primary">
-                                                {label}
-                                            </span>
-                                        ))}
-                                    </div>
+                                    {/* Chips only earn their space when there's more than one target;
+                                        for a single target they'd repeat the heading. */}
+                                    {config.labels.length > 1 && (
+                                        <div className="flex flex-wrap gap-2">
+                                            {config.labels.map((label) => (
+                                                <span key={label} className="min-w-10 rounded-md border border-primary/30 bg-primary/10 px-3 py-1 text-center text-sm font-semibold text-primary">
+                                                    {label}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
                             </section>
 
@@ -295,15 +349,12 @@ const Drill: NextPage = () => {
                                             </a>
                                         )}
                                         {!returnToPlan && outcome?.next && (
-                                            // Full-page navigation, like Re-measure: the drill page must
-                                            // remount so the new target compiles fresh text and the
-                                            // baseline re-snapshots.
                                             <a
-                                                href={`${outcome.next.href}${rmToken ? `&rm=${encodeURIComponent(rmToken)}` : ""}`}
+                                                href={nextDrillHref(outcome.next)}
                                                 data-testid="drill-next"
                                                 className="inline-flex items-center justify-center rounded-md border border-primary/40 px-4 py-2 text-sm font-semibold text-primary transition hover:bg-primary/10"
                                             >
-                                                Next drill: {outcome.next.kind === "transition" ? transitionLabel(outcome.next.pair) : outcome.next.keys.join(" ")} →
+                                                Next drill: {nextDrillLabel(outcome.next)} →
                                             </a>
                                         )}
                                         <button ref={resultRestartRef} type="button" onClick={restartDrill} className="inline-flex items-center justify-center rounded-md border border-base-content/15 px-4 py-2 text-sm font-semibold text-base-content transition hover:bg-base-content/5">

@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest"
 import {
     attemptsFromEvents,
     keyDrillDelta,
+    keysBaseline,
     mergeAttempts,
     nextDrillFinding,
+    transitionBaseline,
     transitionDrillDelta,
     type KeyAttempts,
 } from "./drillProgress"
@@ -74,6 +76,35 @@ describe("mergeAttempts", () => {
         )
         expect(merged.get("a")).toEqual({ attempts: 12, correct: 10 })
         expect(merged.get("b")).toEqual({ attempts: 1, correct: 0 })
+    })
+})
+
+describe("transitionBaseline", () => {
+    it("returns the pair's lifetime mean and ratio vs overall pace", () => {
+        const base = transitionBaseline("br", [agg("br", 10, 400), agg("th", 30, 100)])
+        // Overall mean = (4000 + 3000) / 40 = 175.
+        expect(base?.meanMs).toBe(400)
+        expect(base?.ratio).toBeCloseTo(400 / 175)
+    })
+
+    it("null when the pair lacks lifetime samples", () => {
+        expect(transitionBaseline("br", [agg("br", 3, 400)])).toBeNull()
+        expect(transitionBaseline("br", [])).toBeNull()
+    })
+})
+
+describe("keysBaseline", () => {
+    it("sums accuracy across the drilled keys only", () => {
+        const base = keysBaseline(["q", "z"], [
+            { key: "q", attempts: 10, correct: 5 },
+            { key: "z", attempts: 10, correct: 7 },
+            { key: "e", attempts: 100, correct: 100 },
+        ])
+        expect(base?.accuracy).toBe(60)
+    })
+
+    it("null below the minimum lifetime attempts", () => {
+        expect(keysBaseline(["q"], [{ key: "q", attempts: 9, correct: 9 }])).toBeNull()
     })
 })
 

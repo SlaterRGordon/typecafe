@@ -5,7 +5,7 @@
 import type { KeystrokeEvent } from "./keystrokes"
 import type { LocalKeyStat } from "./localSync"
 import { composeWeakKeys, worstKeysFromAttempts } from "./stats"
-import { aggregateTransitions, worstTransitions, TRANSITION_MIN_COUNT, type TransitionAggregate } from "./transitions"
+import { aggregateTransitions, overallTransitionMeanMs, worstTransitions, TRANSITION_MIN_COUNT, type TransitionAggregate } from "./transitions"
 
 export type KeyAttempts = Map<string, { attempts: number, correct: number }>
 
@@ -84,6 +84,32 @@ export interface DrillDelta {
     improved: boolean
 }
 
+// The lifetime baseline the drill header states up front — what the user is
+// trying to beat. Null when the pair lacks enough lifetime samples.
+export function transitionBaseline(pair: string, lifetime: TransitionAggregate[]): { meanMs: number, ratio: number } | null {
+    const agg = lifetime.find((a) => a.pair === pair)
+    if (!agg || agg.count < TRANSITION_MIN_COUNT) return null
+    const overall = overallTransitionMeanMs(lifetime)
+    if (overall <= 0) return null
+    const meanMs = agg.totalMs / agg.count
+    return { meanMs, ratio: meanMs / overall }
+}
+
+// Lifetime accuracy summed across the drilled keys — the header's baseline and
+// the "before" side of keyDrillDelta.
+export function keysBaseline(keys: string[], lifetime: LocalKeyStat[]): { accuracy: number } | null {
+    const targets = new Set(keys)
+    let attempts = 0
+    let correct = 0
+    for (const stat of lifetime) {
+        if (!targets.has(stat.key)) continue
+        attempts += stat.attempts
+        correct += stat.correct
+    }
+    if (attempts < DELTA_MIN_KEY_ATTEMPTS) return null
+    return { accuracy: (correct / attempts) * 100 }
+}
+
 // Mean inter-key latency on one drilled pair: lifetime vs this rep. Null when
 // either side is too thin to be signal.
 export function transitionDrillDelta(pair: string, lifetime: TransitionAggregate[], repEvents: KeystrokeEvent[]): DrillDelta | null {
@@ -99,16 +125,10 @@ export function transitionDrillDelta(pair: string, lifetime: TransitionAggregate
 // Accuracy across the drilled keys (summed, not per-key — one honest headline
 // number): lifetime vs this rep.
 export function keyDrillDelta(keys: string[], lifetime: LocalKeyStat[], repEvents: KeystrokeEvent[]): DrillDelta | null {
-    const targets = new Set(keys)
-    let baseAttempts = 0
-    let baseCorrect = 0
-    for (const stat of lifetime) {
-        if (!targets.has(stat.key)) continue
-        baseAttempts += stat.attempts
-        baseCorrect += stat.correct
-    }
-    if (baseAttempts < DELTA_MIN_KEY_ATTEMPTS) return null
+    const base = keysBaseline(keys, lifetime)
+    if (!base) return null
 
+    const targets = new Set(keys)
     let repAttempts = 0
     let repCorrect = 0
     for (const [key, value] of attemptsFromEvents(repEvents)) {
@@ -118,7 +138,6 @@ export function keyDrillDelta(keys: string[], lifetime: LocalKeyStat[], repEvent
     }
     if (repAttempts < DELTA_MIN_REP_SAMPLES) return null
 
-    const before = (baseCorrect / baseAttempts) * 100
     const after = (repCorrect / repAttempts) * 100
-    return { label: keys.join(" "), before, after, unit: "%", improved: after > before }
+    return { label: keys.join(" "), before: base.accuracy, after, unit: "%", improved: after > base.accuracy }
 }

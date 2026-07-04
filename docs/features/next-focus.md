@@ -82,6 +82,12 @@ recommendation frozen at first page load.
   the lifetime queries.
 - [x] E2e coverage (drill.spec) + tour capture 37 now shows the full result
   card.
+- [x] Header redesign (owner feedback on the first cut): the chip row
+  duplicated the heading for single-target drills (dropped; multi-target
+  only), and the header now states the baseline to beat ("412ms on this jump
+  — 1.8× your typical transition") plus a "Next drill: …" link computed from
+  lifetime evidence at load — reachable before/after restarts, no completed
+  rep required. Result card keeps its own fresher pick post-rep.
 
 ## Not now
 
