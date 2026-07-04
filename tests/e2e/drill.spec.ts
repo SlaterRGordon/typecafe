@@ -23,6 +23,9 @@ test.describe("drill page", () => {
 
     await expect(page.getByTestId("drill-result")).toBeVisible()
     await expect(page.getByRole("link", { name: "Re-measure" })).toHaveAttribute("href", "/?mode=timed&count=30")
+    // No lifetime evidence → no delta line and nothing left to suggest next.
+    await expect(page.getByTestId("drill-delta")).toHaveCount(0)
+    await expect(page.getByTestId("drill-next")).toHaveCount(0)
     await pressRestartShortcut(page, "Enter")
     await expect(page.getByTestId("drill-typer")).toBeVisible()
 
@@ -70,6 +73,66 @@ test.describe("drill page", () => {
     await expect(page.getByTestId("drill-result")).toBeVisible({ timeout: 8000 })
     await expect(page.getByTestId("drill-continue-plan")).toHaveText("Next step →")
     await expect(page.getByRole("button", { name: "Restart" })).toBeVisible()
+  })
+
+  test("key drill result shows a lifetime delta and the next-worst drill", async ({ page }) => {
+    // Guest lifetime evidence: x is the drilled target, q is the next-worst key.
+    await page.addInitScript(() => {
+      window.localStorage.setItem("typecafe:keyStats", JSON.stringify([
+        { key: "x", attempts: 20, correct: 10 },
+        { key: "q", attempts: 10, correct: 4 },
+      ]))
+    })
+    await mockTrpc(page)
+    await page.goto("/drill?keys=x&length=4")
+    await expect(page.getByTestId("drill-typer")).toBeVisible()
+
+    await typeVisibleTestText(page)
+
+    // A clean rep on x beats the 50% lifetime baseline.
+    const delta = page.getByTestId("drill-delta")
+    await expect(delta).toContainText("x")
+    await expect(delta).toContainText("above your lifetime average")
+    // The next pick excludes the just-drilled x and lands on q.
+    const next = page.getByTestId("drill-next")
+    await expect(next).toHaveText("Next drill: q →")
+    await expect(next).toHaveAttribute("href", "/drill?keys=q")
+  })
+
+  test("transition drill result computes the delta and refreshes the coach tab", async ({ page }, testInfo) => {
+    // br is the drilled pair (400ms mean, minimum-count baseline so a fast rep
+    // decisively drags its merged mean below io's); io (300ms) is the next-worst.
+    await page.addInitScript(() => {
+      window.localStorage.setItem("typecafe:transitionStats", JSON.stringify([
+        { pair: "br", count: 4, totalMs: 1600, errors: 1 },
+        { pair: "io", count: 10, totalMs: 3000, errors: 1 },
+        { pair: "th", count: 30, totalMs: 3000, errors: 0 },
+        { pair: "he", count: 25, totalMs: 3000, errors: 0 },
+      ]))
+    })
+    await mockTrpc(page)
+    await page.goto("/drill?transitions=br&length=8")
+    await expect(page.getByTestId("drill-typer")).toBeVisible()
+
+    await typeVisibleTestText(page)
+
+    // Synthetic keystrokes land far faster than the 400ms lifetime mean.
+    const delta = page.getByTestId("drill-delta")
+    await expect(delta).toContainText("b→r")
+    await expect(delta).toContainText("faster than your lifetime average")
+    // Next pick skips the just-drilled br and lands on the next-slowest pair, io.
+    await expect(page.getByTestId("drill-next")).toHaveAttribute("href", "/drill?transitions=io")
+
+    // The always-mounted coach tab recomputed from the synced rep: it now
+    // recommends io too, not the stale br it was mounted with (desktop only —
+    // the inline mobile variant renders on the home page).
+    if (!testInfo.project.name.includes("mobile")) {
+      const tab = page.getByTestId("home-coach-tab-drill")
+      await tab.hover()
+      const panel = page.getByTestId("home-coach-tab-drill-panel")
+      await expect(panel).toContainText("i->o")
+      await expect(panel.getByRole("link", { name: "Start drill" })).toHaveAttribute("href", "/drill?transitions=io")
+    }
   })
 
   test("transition drill biases text toward the requested pair", async ({ page }) => {

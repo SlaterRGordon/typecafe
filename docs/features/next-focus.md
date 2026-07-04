@@ -64,6 +64,25 @@ exists. The real ledgers are `docs/architecture/` and `docs/features/`.
 
 - [x] Fix the references so future sessions don't start confused.
 
+## 6. Close the drill loop: post-drill delta, next drill, live coach tab
+
+Owner request 2026-07-03. The drill result card showed absolute WPM/accuracy
+only (violating deltas-over-absolutes where a delta exists), dead-ended after
+Re-measure/Drill again, and the always-mounted coach tab served a
+recommendation frozen at first page load.
+
+- [x] `src/lib/drillProgress.ts` (pure, unit-tested): lifetime-vs-this-rep
+  delta on the drilled target (pair latency / key accuracy) and a shared
+  `nextDrillFinding` picker that excludes the just-drilled target.
+- [x] Drill result card: delta line + "Next drill: …" CTA (Re-measure stays
+  primary — drilling proves nothing without a re-measure; plan flow keeps its
+  own sequencing).
+- [x] Coach tab recomputes after every synced test: guests re-read local
+  evidence on a `typecafe:evidence-synced` event; signed-in syncs invalidate
+  the lifetime queries.
+- [x] E2e coverage (drill.spec) + tour capture 37 now shows the full result
+  card.
+
 ## Not now
 
 - **Performance** — no findings: language JSONs dynamic-imported, quotes

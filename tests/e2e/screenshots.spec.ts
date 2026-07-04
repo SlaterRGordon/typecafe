@@ -403,6 +403,14 @@ test.describe("screenshot tour", () => {
   });
 
   test("re-measure: drill result CTA and home before/after delta", async ({ page }, testInfo) => {
+    // Guest lifetime evidence so the result card shows its full state: the
+    // lifetime-vs-rep delta line and the next-drill pick.
+    await page.addInitScript(() => {
+      window.localStorage.setItem("typecafe:keyStats", JSON.stringify([
+        { key: "x", attempts: 20, correct: 10 },
+        { key: "q", attempts: 10, correct: 4 },
+      ]));
+    });
     await mockTrpc(page);
 
     // The token a diagnosis forwards: the diagnosed test's before-WPM + config.
@@ -417,6 +425,8 @@ test.describe("screenshot tour", () => {
     await expect(page.getByTestId("drill-typer")).toBeVisible();
     await typeVisibleTestText(page);
     await expect(page.getByTestId("drill-result")).toBeVisible();
+    await expect(page.getByTestId("drill-delta")).toBeVisible();
+    await expect(page.getByTestId("drill-next")).toBeVisible();
     await capture(page, testInfo, "37-re-measure-prompt");
 
     // Landing home with the token re-runs the diagnosed test → before→after delta.

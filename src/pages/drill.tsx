@@ -2,7 +2,8 @@ import { type NextPage } from "next"
 import Head from "next/head"
 import Link from "next/link"
 import { useRouter } from "next/router"
-import { useMemo, useRef, useState } from "react"
+import { useSession } from "next-auth/react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { Typer, type TestCompletionResult } from "~/components/typer/Typer"
 import { useRestartShortcut } from "~/components/typer/hooks/useRestartShortcut"
 import { typingFocusFadeClass } from "~/components/typer/typingFocus"
@@ -10,16 +11,29 @@ import { TestGramScopes, TestGramSources, TestModes, TestSubModes } from "~/comp
 import { applyTextOptions, getWords } from "~/components/typer/utils"
 import { compileDrillText } from "~/lib/drill"
 import { isDrillMark, isDrillDigit, isDrillableKey } from "~/lib/drillKeys"
+import { attemptsFromEvents, keyDrillDelta, mergeAttempts, nextDrillFinding, transitionDrillDelta, type DrillDelta } from "~/lib/drillProgress"
+import { decodeTimeline } from "~/lib/keystrokes"
+import { readLocalKeyStats, type LocalKeyStat } from "~/lib/localSync"
+import { readLocalTransitions } from "~/lib/localTransitions"
 import { isAnyModalOpen } from "~/lib/modals"
+import { aggregateTransitions, mergeTransitions, type TransitionAggregate } from "~/lib/transitions"
+import { api } from "~/utils/api"
 
 type DrillKind = "keys" | "transitions" | "timed"
 
 interface DrillConfig {
     kind: DrillKind,
     labels: string[],
+    // The raw drilled targets (pairs or keys); empty for a timed warm-up.
+    targets: string[],
     text: string,
     // Duration for a timed drill (warm-up); absent for word drills.
     seconds?: number,
+}
+
+interface LifetimeEvidence {
+    transitions: TransitionAggregate[],
+    keyStats: LocalKeyStat[],
 }
 
 // A drill is a quick, clearly-ending rep — short enough that finishing it and
@@ -61,6 +75,27 @@ function transitionLabel(pair: string) {
     return `${pair[0]}→${pair[1]}`
 }
 
+// Delta over absolutes: lead with how this rep moved against the lifetime
+// baseline on the drilled target.
+function DeltaLine({ delta }: { delta: DrillDelta }) {
+    const diff = delta.unit === "ms" ? Math.round(Math.abs(delta.after - delta.before)) : Math.abs(delta.after - delta.before)
+    const flat = delta.unit === "ms" ? diff === 0 : diff < 0.05
+    const change = flat
+        ? "even with"
+        : delta.unit === "ms"
+            ? `${diff}ms ${delta.improved ? "faster" : "slower"} than`
+            : `${diff.toFixed(1)} pts ${delta.improved ? "above" : "below"}`
+    const rep = delta.unit === "ms" ? `${Math.round(delta.after)}ms` : `${delta.after.toFixed(1)}%`
+    const lifetime = delta.unit === "ms" ? `${Math.round(delta.before)}ms` : `${delta.before.toFixed(1)}%`
+    return (
+        <p data-testid="drill-delta" className="mt-4 text-sm text-base-content/75">
+            <span className="font-mono font-bold text-base-content">{delta.label}</span>{": "}
+            <span className={flat ? "" : delta.improved ? "font-semibold text-success" : "font-semibold text-warning"}>{change}</span>
+            {" "}your lifetime average — {rep} this rep vs {lifetime}.
+        </p>
+    )
+}
+
 const Drill: NextPage = () => {
     const router = useRouter()
     const [completed, setCompleted] = useState<TestCompletionResult | null>(null)
@@ -82,6 +117,7 @@ const Drill: NextPage = () => {
             return {
                 kind: "transitions",
                 labels: transitions.map(transitionLabel),
+                targets: transitions,
                 text: compileDrillText({ transitions, wordList, length }),
             }
         }
@@ -96,13 +132,14 @@ const Drill: NextPage = () => {
             return {
                 kind: "keys",
                 labels: keys,
+                targets: keys,
                 text: applyTextOptions(compileDrillText({ keys: letters, wordList, length }), false, false, { marks, digits }),
             }
         }
 
         // A timed warm-up: a generic timed test, no target keys.
         if (seconds > 0) {
-            return { kind: "timed", labels: [`${seconds}s`], text: "", seconds }
+            return { kind: "timed", labels: [`${seconds}s`], targets: [], text: "", seconds }
         }
 
         return null
@@ -114,6 +151,51 @@ const Drill: NextPage = () => {
     }
 
     useRestartShortcut(resultRestartRef, restartDrill, isAnyModalOpen, { enabled: !!completed })
+
+    const { data: sessionData } = useSession()
+    const signedIn = !!sessionData?.user
+    const transitionsQuery = api.transitionStats.get.useQuery(undefined, { enabled: signedIn })
+    const practiceStatsQuery = api.practiceStats.get.useQuery(undefined, { enabled: signedIn })
+
+    // Lifetime evidence snapshotted while the rep runs and frozen at completion,
+    // so the result's before→after delta compares against the data as it stood
+    // *before* this rep (completion syncs the rep into the lifetime data).
+    const baselineRef = useRef<LifetimeEvidence>({ transitions: [], keyStats: [] })
+    useEffect(() => {
+        if (completed) return
+        baselineRef.current = signedIn
+            ? {
+                transitions: transitionsQuery.data ?? [],
+                keyStats: (practiceStatsQuery.data ?? []).map((s) => ({ key: s.character, attempts: s.total, correct: s.correct })),
+            }
+            : { transitions: readLocalTransitions(), keyStats: readLocalKeyStats() }
+    }, [completed, restartSignal, signedIn, transitionsQuery.data, practiceStatsQuery.data])
+
+    // What the rep proved (delta vs lifetime) and what to drill next — the next
+    // finding recomputes from baseline + this rep's keystrokes, excluding the
+    // just-drilled target so it never re-suggests the drill just finished.
+    const outcome = useMemo(() => {
+        if (!completed || !config || config.kind === "timed") return null
+        const baseline = baselineRef.current
+        const repEvents = decodeTimeline(completed.timeline)
+
+        let delta: DrillDelta | null = null
+        if (config.kind === "transitions") {
+            for (const pair of config.targets) {
+                delta = transitionDrillDelta(pair, baseline.transitions, repEvents)
+                if (delta) break
+            }
+        } else {
+            delta = keyDrillDelta(config.targets, baseline.keyStats, repEvents)
+        }
+
+        const next = nextDrillFinding(
+            mergeTransitions(baseline.transitions, aggregateTransitions(repEvents)),
+            mergeAttempts(baseline.keyStats, attemptsFromEvents(repEvents)),
+            config.kind === "transitions" ? { pairs: config.targets } : { keys: config.targets },
+        )
+        return { delta, next }
+    }, [completed, config])
 
     const wordCount = config?.text.split(" ").filter(Boolean).length ?? DEFAULT_DRILL_WORDS
 
@@ -198,6 +280,7 @@ const Drill: NextPage = () => {
                                             <p className="mt-1 font-mono text-3xl font-bold text-base-content">{config.kind === "timed" ? `${config.seconds}s` : wordCount}</p>
                                         </div>
                                     </div>
+                                    {outcome?.delta && <DeltaLine delta={outcome.delta} />}
                                     <div className="mt-5 flex flex-col gap-2 sm:flex-row">
                                         {returnToPlan ? (
                                             <Link href="/plan?step=done" data-testid="drill-continue-plan" className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85">
@@ -209,6 +292,18 @@ const Drill: NextPage = () => {
                                             // the typer's first text generation, avoiding a restart race.
                                             <a href={reMeasureHref} className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85">
                                                 Re-measure
+                                            </a>
+                                        )}
+                                        {!returnToPlan && outcome?.next && (
+                                            // Full-page navigation, like Re-measure: the drill page must
+                                            // remount so the new target compiles fresh text and the
+                                            // baseline re-snapshots.
+                                            <a
+                                                href={`${outcome.next.href}${rmToken ? `&rm=${encodeURIComponent(rmToken)}` : ""}`}
+                                                data-testid="drill-next"
+                                                className="inline-flex items-center justify-center rounded-md border border-primary/40 px-4 py-2 text-sm font-semibold text-primary transition hover:bg-primary/10"
+                                            >
+                                                Next drill: {outcome.next.kind === "transition" ? transitionLabel(outcome.next.pair) : outcome.next.keys.join(" ")} →
                                             </a>
                                         )}
                                         <button ref={resultRestartRef} type="button" onClick={restartDrill} className="inline-flex items-center justify-center rounded-md border border-base-content/15 px-4 py-2 text-sm font-semibold text-base-content transition hover:bg-base-content/5">

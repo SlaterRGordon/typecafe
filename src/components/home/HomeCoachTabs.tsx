@@ -5,8 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { MaterialNavIcon } from "~/components/navigation/MaterialNavIcon";
 import { challengeDateKey } from "~/lib/challenge";
 import { localChallengeStatus, readLocalChallengeHistory, type ChallengeStatus } from "~/lib/challengeHistory";
-import { composeWeakKeys, worstKeysFromAttempts } from "~/lib/stats";
-import { worstTransitions } from "~/lib/transitions";
+import { nextDrillFinding } from "~/lib/drillProgress";
 import { useGuestEvidence } from "~/hooks/useGuestEvidence";
 import { api } from "~/utils/api";
 
@@ -176,32 +175,21 @@ export function HomeCoachTabs({ className = "", desktop = true, inline = true }:
             ? new Map((practiceStatsQuery.data ?? []).map((s) => [s.character, { attempts: s.total, correct: s.correct }]))
             : new Map((guestEvidence?.keyStats ?? []).map((s) => [s.key, { attempts: s.attempts, correct: s.correct }]));
 
-        const slowest = worstTransitions(transitions)[0];
-        const weakKeys = slowest
-            ? []
-            : composeWeakKeys(worstKeysFromAttempts(attempts, Infinity)).slice(0, 4);
+        const finding = nextDrillFinding(transitions, attempts);
+        const drillBody: React.ReactNode = finding?.kind === "transition"
+            ? <>Your slowest jump is <span className="font-mono font-bold text-base-content">{finding.from}-&gt;{finding.to}</span> ({finding.ratio.toFixed(1)}x avg).</>
+            : finding
+                ? <>Your weakest keys are <span className="font-mono font-bold text-base-content">{finding.keys.join(" ")}</span>.</>
+                : null;
 
-        let drillHref: string | null = null;
-        let findingId: string | null = null;
-        let drillBody: React.ReactNode = null;
-        if (slowest) {
-            findingId = `transition:${slowest.pair}`;
-            drillHref = `/drill?transitions=${slowest.pair}`;
-            drillBody = <>Your slowest jump is <span className="font-mono font-bold text-base-content">{slowest.from}-&gt;{slowest.to}</span> ({slowest.ratio.toFixed(1)}x avg).</>;
-        } else if (weakKeys.length > 0) {
-            const keys = weakKeys.map((k) => k.key).join(",");
-            findingId = `keys:${keys}`;
-            drillHref = `/drill?keys=${keys}`;
-            drillBody = <>Your weakest keys are <span className="font-mono font-bold text-base-content">{weakKeys.map((k) => k.key).join(" ")}</span>.</>;
-        }
-
-        if (drillHref && findingId && dismissedFinding !== findingId) {
+        if (finding && dismissedFinding !== finding.id) {
+            const findingId = finding.id;
             nextTabs.push({
                 key: "drill",
                 label: "Fix this",
                 eyebrow: "Targeted drill",
                 body: drillBody,
-                href: drillHref,
+                href: finding.href,
                 cta: "Start drill",
                 testId: "home-coach-tab-drill",
                 topClassName: "top-[12.5rem]",
