@@ -16,7 +16,7 @@ import { decodeTimeline } from "~/lib/keystrokes"
 import { readLocalKeyStats, type LocalKeyStat } from "~/lib/localSync"
 import { readLocalTransitions } from "~/lib/localTransitions"
 import { isAnyModalOpen } from "~/lib/modals"
-import { aggregateTransitions, mergeTransitions, type TransitionAggregate } from "~/lib/transitions"
+import { type TransitionAggregate } from "~/lib/transitions"
 import { api } from "~/utils/api"
 
 type DrillKind = "keys" | "transitions" | "timed"
@@ -200,8 +200,11 @@ const Drill: NextPage = () => {
     }, [config, baseline])
 
     // What the rep proved (delta vs lifetime) and what to drill next — the next
-    // finding recomputes from baseline + this rep's keystrokes, excluding the
-    // just-drilled target so it never re-suggests the drill just finished.
+    // finding folds in this rep's per-key attempts (accuracy is honest signal in
+    // any text) but NOT its transitions: target-saturated drill text would skew
+    // the bigram picture (the same reason the Typer skips syncing them). It
+    // excludes the just-drilled target so it never re-suggests the drill just
+    // finished.
     const outcome = useMemo(() => {
         if (!completed || !config || config.kind === "timed") return null
         const repEvents = decodeTimeline(completed.timeline)
@@ -217,7 +220,7 @@ const Drill: NextPage = () => {
         }
 
         const next = nextDrillFinding(
-            mergeTransitions(baseline.transitions, aggregateTransitions(repEvents)),
+            baseline.transitions,
             mergeAttempts(baseline.keyStats, attemptsFromEvents(repEvents)),
             config.kind === "transitions" ? { pairs: config.targets } : { keys: config.targets },
         )
@@ -272,7 +275,7 @@ const Drill: NextPage = () => {
                                             <a
                                                 href={nextDrillHref(headerNext)}
                                                 data-testid="drill-header-next"
-                                                className="shrink-0 whitespace-nowrap text-sm font-semibold text-primary transition hover:opacity-80"
+                                                className="inline-flex shrink-0 items-center justify-center whitespace-nowrap rounded-md border border-primary/40 bg-primary/10 px-3 py-1.5 text-sm font-semibold text-primary transition hover:bg-primary/20"
                                             >
                                                 Next drill: {nextDrillLabel(headerNext)}
                                             </a>
@@ -307,6 +310,7 @@ const Drill: NextPage = () => {
                                         count={config.kind === "timed" ? config.seconds! : wordCount}
                                         customLength
                                         fixedText={config.kind === "timed" ? undefined : config.text}
+                                        skipTransitionSync={config.kind !== "timed"}
                                         showStats
                                         modalOpen={false}
                                         onKeyChange={() => undefined}
@@ -354,7 +358,7 @@ const Drill: NextPage = () => {
                                                 data-testid="drill-next"
                                                 className="inline-flex items-center justify-center rounded-md border border-primary/40 px-4 py-2 text-sm font-semibold text-primary transition hover:bg-primary/10"
                                             >
-                                                Next drill: {nextDrillLabel(outcome.next)} →
+                                                Next drill: {nextDrillLabel(outcome.next)}
                                             </a>
                                         )}
                                         <button ref={resultRestartRef} type="button" onClick={restartDrill} className="inline-flex items-center justify-center rounded-md border border-base-content/15 px-4 py-2 text-sm font-semibold text-base-content transition hover:bg-base-content/5">

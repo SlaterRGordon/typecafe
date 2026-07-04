@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test"
 import { mockTrpc } from "./helpers/trpc"
-import { typeCurrentCharacter, typeVisibleTestText } from "./helpers/typing"
+import { typeCurrentCharacter, typeVisibleTestText, typeWrongCharacter } from "./helpers/typing"
 
 async function pressRestartShortcut(page: Parameters<typeof mockTrpc>[0], key: "Enter" | "Space") {
   await page.keyboard.down("Tab")
@@ -113,7 +113,7 @@ test.describe("drill page", () => {
     // The next pick excludes the just-drilled x and lands on q; the result card
     // owns it now, so the header copy disappears.
     const next = page.getByTestId("drill-next")
-    await expect(next).toHaveText("Next drill: q →")
+    await expect(next).toHaveText("Next drill: q")
     await expect(next).toHaveAttribute("href", "/drill?keys=q")
     await expect(page.getByTestId("drill-header-next")).toHaveCount(0)
 
@@ -124,9 +124,8 @@ test.describe("drill page", () => {
     await expect(page.getByTestId("drill-header-next")).toHaveAttribute("href", "/drill?keys=q")
   })
 
-  test("transition drill result computes the delta and refreshes the coach tab", async ({ page }, testInfo) => {
-    // br is the drilled pair (400ms mean, minimum-count baseline so a fast rep
-    // decisively drags its merged mean below io's); io (300ms) is the next-worst.
+  test("transition drill result computes the delta and picks the next-worst pair", async ({ page }, testInfo) => {
+    // br is the drilled pair (400ms mean); io (300ms) is the next-worst.
     await page.addInitScript(() => {
       window.localStorage.setItem("typecafe:transitionStats", JSON.stringify([
         { pair: "br", count: 4, totalMs: 1600, errors: 1 },
@@ -154,16 +153,49 @@ test.describe("drill page", () => {
     // Next pick skips the just-drilled br and lands on the next-slowest pair, io.
     await expect(page.getByTestId("drill-next")).toHaveAttribute("href", "/drill?transitions=io")
 
-    // The always-mounted coach tab recomputed from the synced rep: it now
-    // recommends io too, not the stale br it was mounted with (desktop only —
-    // the inline mobile variant renders on the home page).
+    // The rep's target-saturated text must NOT rewrite the lifetime bigram
+    // picture: the coach tab (desktop only — the inline mobile variant renders
+    // on the home page) still recommends br from the untouched lifetime data.
     if (!testInfo.project.name.includes("mobile")) {
       const tab = page.getByTestId("home-coach-tab-drill")
       await tab.hover()
       const panel = page.getByTestId("home-coach-tab-drill-panel")
-      await expect(panel).toContainText("i->o")
-      await expect(panel.getByRole("link", { name: "Start drill" })).toHaveAttribute("href", "/drill?transitions=io")
+      await expect(panel).toContainText("b->r")
+      await expect(panel.getByRole("link", { name: "Start drill" })).toHaveAttribute("href", "/drill?transitions=br")
     }
+  })
+
+  test("a completed drill surfaces fresh evidence in the coach tab without a reload", async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name.includes("mobile"), "coach tabs are desktop-only outside the home page")
+    // A guest with no history: no coach tab exists until this drill's synced
+    // key stats create the first weak-key evidence.
+    await mockTrpc(page)
+    await page.goto("/drill?keys=x&length=4")
+    await expect(page.getByTestId("drill-typer")).toBeVisible()
+    await expect(page.getByTestId("home-coach-tab-drill")).toBeHidden()
+
+    // Miss every x, hit everything else — x becomes the only weak key.
+    await expect(page.locator("#c0")).toHaveClass(/active-char/)
+    const characters = await page.locator("#words .char").allTextContents()
+    // The typer drops keystrokes for a brief window after load; land the first.
+    await expect(async () => {
+      if (characters[0] === "x") await typeWrongCharacter(page, 0)
+      else await typeCurrentCharacter(page, 0)
+      await expect(page.locator("#c0")).not.toHaveClass(/active-char/, { timeout: 500 })
+    }).toPass({ timeout: 5_000 })
+    for (let i = 1; i < characters.length; i++) {
+      if (characters[i] === "x") await typeWrongCharacter(page, i)
+      else await typeCurrentCharacter(page, i)
+    }
+    await expect(page.getByTestId("drill-result")).toBeVisible()
+
+    // The always-mounted coach tab picked up the synced evidence live.
+    const tab = page.getByTestId("home-coach-tab-drill")
+    await expect(tab).toBeVisible()
+    await tab.hover()
+    const panel = page.getByTestId("home-coach-tab-drill-panel")
+    await expect(panel).toContainText("Your weakest keys are x")
+    await expect(panel.getByRole("link", { name: "Start drill" })).toHaveAttribute("href", "/drill?keys=x")
   })
 
   test("transition drill biases text toward the requested pair", async ({ page }) => {

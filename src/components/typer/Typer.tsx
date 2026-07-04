@@ -61,6 +61,9 @@ interface TyperProps {
     hideInterface?: boolean,
     // Fixed seeded text (daily challenge): skip generation and never append.
     fixedText?: string,
+    // Drills set this: their target-saturated text would skew the lifetime
+    // bigram picture, same reason grams/practice text is excluded below.
+    skipTransitionSync?: boolean,
     // Stamps the saved Test row as belonging to this day's challenge (YYYY-MM-DD).
     challengeDate?: string,
     charAttemptsRef: React.MutableRefObject<Map<string, { attempts: number, correct: number }>>
@@ -442,15 +445,16 @@ export const Typer = (props: TyperProps) => {
 
         if (mode !== TestModes.ngrams) syncCharAttempts()
         // Transition analytics come from normal-mode tests, where the text is real
-        // language (grams/practice text would skew the bigram picture).
-        if (mode === TestModes.normal) syncTransitions(recorder.events)
+        // language (grams/practice text would skew the bigram picture — as would
+        // a drill's target-saturated text, hence skipTransitionSync).
+        if (mode === TestModes.normal && !props.skipTransitionSync) syncTransitions(recorder.events)
 
         pacerCaughtRef.current = false
     }, [
         recorder, isCompletionValid, isTimed, pause, getStats, buildCompletion, mode, levelRequirements,
         sessionData, testType, persistCompletion, count, level, punctuation,
         capitals, props.gramWpmThreshold, props.gramAccuracyThreshold,
-        props.challengeDate, props.failOnMiss, recordPassedLevel, syncCharAttempts, syncTransitions,
+        props.challengeDate, props.failOnMiss, props.skipTransitionSync, recordPassedLevel, syncCharAttempts, syncTransitions,
     ])
 
     // Stable identities for parent-provided callbacks (parents recreate them every
