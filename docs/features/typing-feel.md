@@ -89,16 +89,23 @@ cost, hence the imperative marker + pause-only shading.
 
 ## 2. Vertical caret
 
-- [ ] Absolutely positioned caret element moved with `transform: translate`,
+- [x] Absolutely positioned caret element moved with `transform: translate`,
   updated imperatively per keystroke — same pattern as the boss pacer line.
-  Height/position from the active char's box; handles line wraps and the
-  words-container scroll.
-- [ ] Smooth glide: ~70–90ms ease-out transform transition; blink only when
-  idle (no keystroke for ~500ms+); replaces `.active-char` underline blink.
-- [ ] Works in all modes (normal/quotes/practice/grams/relaxed, drill pages,
-  daily challenge) and both text sizes; coexists with the pacer line.
-- [ ] E2e + screenshot tour updated (tour shows the caret mid-test).
-- [ ] Perf spec stays green with the caret enabled.
+  Height/position from the active char's box; a scroll listener keeps it
+  riding the smooth line-change scroll, a resize listener re-anchors it.
+- [x] Smooth glide: 80ms ease-out transform transition (none under
+  prefers-reduced-motion); blinks only when idle (600ms after the last
+  keystroke); replaces the `.active-char` underline blink. The active char
+  keeps its `active-char text-primary` classes (tests + key signal rely on
+  them) — only the underline animation is gone.
+- [x] Works in all modes and both text sizes (shared Text component; height
+  reads the active char's box per position); coexists with the pacer line.
+- [x] E2e guard in home.spec (visible, glides forward, idles back to blink);
+  the tour's `02-home-mid-test-with-error` capture shows it mid-test.
+- [x] Perf spec green — and *better* than post-§1: timed p50 22.0→16.7ms
+  (0 long frames), practice p50 23.2→20.8ms (handler p95 ~8ms). The old
+  underline blink was an infinite CSS animation forcing continuous style
+  recalc on the text; the caret only animates while idle.
 
 ## 3. Seamless saving
 

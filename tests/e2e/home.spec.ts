@@ -692,6 +692,32 @@ test.describe("home typing test", () => {
     await expect(page.getByTestId("stat-acc")).toHaveText("100", { timeout: 3000 });
   });
 
+  // The vertical caret is positioned imperatively (no React render per
+  // keystroke — typing-feel §2); guard that it shows, glides forward with a
+  // typed character, and blinks only when typing pauses.
+  test("vertical caret tracks typing and blinks when idle", async ({ page }) => {
+    await gotoHome(page);
+
+    const caret = page.getByTestId("typing-caret");
+    await expect(caret).toBeVisible();
+    await expect(caret).toHaveClass(/caret-idle/);
+
+    // translate x from the computed transform matrix(a, b, c, d, tx, ty).
+    const caretX = async () => caret.evaluate((el) => {
+      const transform = getComputedStyle(el).transform;
+      return Number(/matrix\(([^)]+)\)/.exec(transform)?.[1]?.split(",")[4] ?? NaN);
+    });
+
+    const startX = await caretX();
+    expect(startX).not.toBeNaN();
+    await typeCurrentCharacter(page, 0);
+    await expect(caret).not.toHaveClass(/caret-idle/);
+    await expect.poll(caretX).toBeGreaterThan(startX);
+
+    // The blink returns shortly after the last keystroke.
+    await expect(caret).toHaveClass(/caret-idle/, { timeout: 2000 });
+  });
+
   // The next-key ring on the practice board is applied imperatively (no React
   // render per keystroke — typing-feel §1); guard that it actually follows.
   test("practice keyboard rings the next expected key as you type", async ({ page }) => {

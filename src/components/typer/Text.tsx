@@ -98,6 +98,13 @@ export const Text = memo(function Text(props: TextProps) {
     // ref div to scroll text
     const typerRef = useRef<HTMLDivElement>(null)
 
+    // The vertical caret (typing-feel §2): an absolutely positioned line moved
+    // with transform, same imperative pattern as the pacer. A short CSS
+    // transform transition makes it glide between letters; the caret-idle
+    // class (re-added after a typing pause) makes it blink.
+    const caretRef = useRef<HTMLDivElement>(null)
+    const caretIdleTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+
     // ref input to focus
     const inputRef = useRef<HTMLInputElement>(null)
 
@@ -216,6 +223,10 @@ export const Text = memo(function Text(props: TextProps) {
         positionRef.current = 0
         activeCharRef.current = (textContainerRef.current?.firstElementChild as HTMLElement | null) ?? null
         if (typerRef.current) typerRef.current.scrollTop = 0
+        // Fresh test: caret on the first char, blinking immediately (idle).
+        positionCaret()
+        clearTimeout(caretIdleTimerRef.current)
+        caretRef.current?.classList.add('caret-idle')
         callbacksRef.current.onKeyChange(text[0] ?? '')
 
         const restartBtn = document.getElementById("restart") as HTMLButtonElement
@@ -270,8 +281,60 @@ export const Text = memo(function Text(props: TextProps) {
             const restartBtn = document.getElementById("restart") as HTMLButtonElement
             if (restartBtn) restartBtn.classList.add("blinking", "text-primary")
             if (current) current.classList.value = ""
+            // The attempt is over; the frozen text shows no cursor.
+            if (caretRef.current) caretRef.current.style.display = 'none'
+            clearTimeout(caretIdleTimerRef.current)
         }
     }, [started, restarted])
+
+    // Place the caret at the active char's left edge — or the right edge of the
+    // last char when the text is fully consumed. Coordinates mirror the pacer's:
+    // offsets are relative to #text, minus the words-container scroll.
+    const positionCaret = () => {
+        const caret = caretRef.current
+        const words = typerRef.current
+        if (!caret || !words) return
+        const active = activeCharRef.current
+        const anchor = active ?? (textContainerRef.current?.lastElementChild as HTMLElement | null)
+        if (!anchor) {
+            caret.style.display = 'none'
+            return
+        }
+        const x = (active ? anchor.offsetLeft : anchor.offsetLeft + anchor.offsetWidth) - 1
+        const y = anchor.offsetTop - words.scrollTop
+        // Mid-scroll the anchor's line can sit outside the words viewport; hide
+        // rather than paint a caret over the counter row or below the fold.
+        if (y < words.offsetTop - 2 || y > words.offsetTop + words.clientHeight) {
+            caret.style.display = 'none'
+            return
+        }
+        caret.style.display = 'block'
+        caret.style.height = `${anchor.offsetHeight}px`
+        caret.style.transform = `translate(${x}px, ${y}px)`
+    }
+
+    // Typing keeps the caret solid; a pause brings the blink back.
+    const wakeCaret = () => {
+        caretRef.current?.classList.remove('caret-idle')
+        clearTimeout(caretIdleTimerRef.current)
+        caretIdleTimerRef.current = setTimeout(() => caretRef.current?.classList.add('caret-idle'), 600)
+    }
+
+    // Follow the smooth line-change scroll (and window resizes) so the caret
+    // rides with the text instead of teleporting after it settles.
+    useEffect(() => {
+        const words = typerRef.current
+        if (!words) return
+        const reposition = () => positionCaret()
+        words.addEventListener('scroll', reposition, { passive: true })
+        window.addEventListener('resize', reposition)
+        return () => {
+            words.removeEventListener('scroll', reposition)
+            window.removeEventListener('resize', reposition)
+            clearTimeout(caretIdleTimerRef.current)
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [])
 
     // Post-keystroke cursor work, imperative (no render): follow the cursor's
     // line and report the new expected key. `activeChar` already carries the
@@ -286,6 +349,8 @@ export const Text = memo(function Text(props: TextProps) {
                 words.scrollBy(0, offset - words.scrollTop)
             }
         }
+        positionCaret()
+        wakeCaret()
         callbacksRef.current.onKeyChange(char?.textContent ?? '')
     }
 
@@ -479,6 +544,8 @@ export const Text = memo(function Text(props: TextProps) {
     return (
         <div id="text" className={`relative z-30 mb-8 flex w-full max-w-[calc(100vw-2rem)] flex-col md:max-w-screen-xl ${mode === TestModes.ngrams && text.length <= 8 ? "text-[40px] leading-[4.4rem] tracking-wide sm:text-[60px] sm:leading-[6rem]" : "text-[24px] leading-[2.2rem] sm:text-[34px] sm:leading-[3rem]"}`}>
             <input id="input" autoCapitalize="none" autoComplete="off" className="h-0 p-0 m-0 border-none" onKeyDown={handleKeyPress} ref={inputRef} autoFocus />
+            {/* The typing caret — positioned imperatively per keystroke (typing-feel §2). */}
+            <div ref={caretRef} data-testid="typing-caret" aria-hidden="true" className="typing-caret caret-idle pointer-events-none absolute left-0 top-0 z-40 w-[2.5px] rounded-full bg-primary will-change-transform" style={{ display: 'none', height: 0, transform: 'translate(-9999px, 0)' }} />
             {/* Boss pacer line — positioned and animated imperatively by the pacer effect. */}
             <div ref={pacerLineRef} aria-hidden="true" className="pointer-events-none absolute left-0 top-0 z-40 w-[3px] rounded-full bg-error/90 will-change-transform" style={{ display: 'none', height: 0, transform: 'translate(-9999px, 0)' }} />
             {/* Shown instead when the pacer has scrolled above the view: an up-caret that
