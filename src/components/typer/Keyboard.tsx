@@ -1,5 +1,7 @@
+import { useEffect, useRef, useState } from "react";
 import { addAlert } from "~/state/alert/alertSlice";
 import { TestModes } from "./types";
+import { getActiveKey, subscribeActiveKey } from "./keySignal";
 import { useDispatch } from "react-redux";
 import { HEATMAP_ROWS, shiftedGlyph } from "~/lib/heatmap";
 import { isDrillDigit, isDrillMark } from "./utils";
@@ -19,12 +21,10 @@ const SHIFT_DRILL_MARKS = ALL_KEYS.map(shiftedGlyph).filter(isDrillMark)
 
 interface KeyboardProps {
     mode: TestModes,
-    currentKey: string,
     selectedKeys?: string[],
     setSelectedKeys?: (keys: string[]) => void,
     charAttemptsRef: React.MutableRefObject<Map<string, { attempts: number, correct: number }>>,
     baseAttemptsRef?: React.MutableRefObject<Map<string, { attempts: number, correct: number }>>,
-    attemptVersion?: number,
     highlightKeys?: string[],
     // Practice: the combined shift-layer state (sticky settings-line toggle OR a
     // held-Shift peek) — both owned by the page so the label and board stay in sync.
@@ -34,8 +34,56 @@ interface KeyboardProps {
 const letters = "qwertyuiopasdfghjklzxcvbnm/"
 
 export const Keyboard = (props: KeyboardProps) => {
-    const { mode, currentKey, selectedKeys, setSelectedKeys, charAttemptsRef, baseAttemptsRef, highlightKeys, shiftToggle = false } = props
+    const { mode, selectedKeys, setSelectedKeys, charAttemptsRef, baseAttemptsRef, highlightKeys, shiftToggle = false } = props
     const dispatch = useDispatch()
+
+    // A keystroke never re-renders the board (typing-feel §1): the moving
+    // current-key marker is applied imperatively below (and inside KeyHeatmap),
+    // and the heatmap's accuracy shading refreshes only when typing pauses —
+    // a trailing debounce that re-reads charAttemptsRef. Mid-burst the numbers
+    // aren't readable anyway; a calm board while typing is the better behavior.
+    const [, setShadingTick] = useState(0)
+    useEffect(() => {
+        if (mode !== TestModes.practice) return
+        let timer: ReturnType<typeof setTimeout> | undefined
+        const unsubscribe = subscribeActiveKey(() => {
+            clearTimeout(timer)
+            timer = setTimeout(() => setShadingTick((tick) => tick + 1), 250)
+        })
+        return () => {
+            clearTimeout(timer)
+            unsubscribe()
+        }
+    }, [mode])
+
+    // Non-practice board: light the next key by swapping classes on the cell,
+    // not by re-rendering. Render applies the static highlight (level keys);
+    // this swap owns the primary marker and restores the highlight on leave.
+    const boardRef = useRef<HTMLDivElement>(null)
+    useEffect(() => {
+        if (mode === TestModes.practice) return
+        const root = boardRef.current
+        if (!root) return
+        let lit: HTMLElement | null = null
+        const apply = (key: string) => {
+            if (lit) {
+                lit.classList.remove("bg-primary", "text-primary-content")
+                const prevKey = lit.dataset.kbKey
+                if (prevKey && highlightKeys?.includes(prevKey)) lit.classList.add("bg-secondary", "text-secondary-content")
+            }
+            lit = key ? root.querySelector<HTMLElement>(`[data-kb-key="${CSS.escape(key)}"]`) : null
+            if (lit) {
+                lit.classList.remove("bg-secondary", "text-secondary-content")
+                lit.classList.add("bg-primary", "text-primary-content")
+            }
+        }
+        apply(getActiveKey())
+        const unsubscribe = subscribeActiveKey(apply)
+        return () => {
+            unsubscribe()
+            apply("")
+        }
+    }, [mode, highlightKeys])
 
     // Shift layer flips every cell to its shifted twin (R, ?, !, :) to read those
     // accuracies separately. The page owns the combined state (sticky toggle OR a
@@ -109,7 +157,7 @@ export const Keyboard = (props: KeyboardProps) => {
     }
 
     return (
-        <div className="typecafe-keyboard flex flex-col w-full items-center justify-start py-3 pt-2 md:py-4">
+        <div ref={boardRef} className="typecafe-keyboard flex flex-col w-full items-center justify-start py-3 pt-2 md:py-4">
             {mode === TestModes.practice ?
                 <div className="flex flex-col">
                     <KeyHeatmap
@@ -117,7 +165,7 @@ export const Keyboard = (props: KeyboardProps) => {
                         attempts={buildStatsAttempts()}
                         lockedKeys={lockedKeys}
                         onKeyClick={handleKeyClicked}
-                        currentKey={currentKey}
+                        followActiveKey
                         highlightKeys={highlightKeys}
                         shiftLayer={shiftLayer}
                         interactiveKeys={interactiveKeys}
@@ -135,7 +183,8 @@ export const Keyboard = (props: KeyboardProps) => {
                             {row.split("").map((key: string, index: number) => (
                                 <kbd
                                     key={index}
-                                    className={`kbd kbd-md sm:kbd-lg ${key === currentKey ? 'bg-primary text-primary-content' : highlightKeys?.includes(key) ? 'bg-secondary text-secondary-content' : ''}`}
+                                    data-kb-key={key}
+                                    className={`kbd kbd-md sm:kbd-lg ${highlightKeys?.includes(key) ? 'bg-secondary text-secondary-content' : ''}`}
                                 >
                                     {key}
                                 </kbd>
@@ -143,7 +192,7 @@ export const Keyboard = (props: KeyboardProps) => {
                         </div>
                     ))}
                     <div className="flex justify-center gap-0.5 my-0.5 w-full md:gap-1 md:my-1">
-                        <kbd className={`kbd kbd-md sm:kbd-lg !min-w-[14rem] sm:!min-w-[17.5rem] ${currentKey === " " ? 'bg-primary text-primary-content' : ''}`}>&nbsp;</kbd>
+                        <kbd data-kb-key=" " className="kbd kbd-md sm:kbd-lg !min-w-[14rem] sm:!min-w-[17.5rem]">&nbsp;</kbd>
                     </div>
                 </>
             }

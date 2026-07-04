@@ -51,6 +51,23 @@ test.describe("train page", () => {
     await expect(page.getByTestId("train-map")).toBeVisible();
   });
 
+  // The next-key marker on the train board is applied imperatively (no React
+  // render per keystroke — typing-feel §1); guard that it actually follows.
+  test("keyboard lights the next expected key as you type", async ({ page }) => {
+    await gotoTrain(page);
+    await expect(page.locator(".typecafe-keyboard")).toBeVisible();
+
+    await expect(page.locator("#c0")).toHaveClass(/active-char/);
+    const first = await page.locator("#c0").textContent();
+    const firstCell = page.locator(`.typecafe-keyboard [data-kb-key="${first}"]`);
+    await expect(firstCell).toHaveClass(/bg-primary/);
+
+    await typeCurrentCharacter(page, 0);
+    const second = await page.locator("#c1").textContent();
+    await expect(page.locator(`.typecafe-keyboard [data-kb-key="${second}"]`)).toHaveClass(/bg-primary/);
+    if (second !== first) await expect(firstCell).not.toHaveClass(/bg-primary/);
+  });
+
   test("uses local progress to select the next unlocked level", async ({ page }) => {
     await page.addInitScript(() => {
       window.localStorage.setItem(

@@ -263,7 +263,6 @@ function BeatRunChallenge(props: { slug: string; target: BeatTarget }) {
             gramAccuracyThreshold={DEFAULT_TEST_SETTINGS.gramAccuracyThreshold}
             showStats={true}
             modalOpen={false}
-            onKeyChange={() => undefined}
             restartSignal={restartSignal}
             onTestComplete={onComplete}
             onTypingFocusChange={setTypingFocused}

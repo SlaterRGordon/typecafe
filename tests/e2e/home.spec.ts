@@ -692,6 +692,25 @@ test.describe("home typing test", () => {
     await expect(page.getByTestId("stat-acc")).toHaveText("100", { timeout: 3000 });
   });
 
+  // The next-key ring on the practice board is applied imperatively (no React
+  // render per keystroke — typing-feel §1); guard that it actually follows.
+  test("practice keyboard rings the next expected key as you type", async ({ page }) => {
+    await gotoHome(page);
+
+    await selectMode(page, "Practice");
+    await expect(page.locator(".typecafe-keyboard")).toBeVisible();
+
+    await expect(page.locator("#c0")).toHaveClass(/active-char/);
+    const first = await page.locator("#c0").textContent();
+    const firstCell = page.locator(`.typecafe-key-heatmap [data-kb-key="${first}"]`);
+    await expect(firstCell).toHaveClass(/ring-primary/);
+
+    await typeCurrentCharacter(page, 0);
+    const second = await page.locator("#c1").textContent();
+    await expect(page.locator(`.typecafe-key-heatmap [data-kb-key="${second}"]`)).toHaveClass(/ring-primary/);
+    if (second !== first) await expect(firstCell).not.toHaveClass(/ring-primary/);
+  });
+
   // Regression guard: a diagnosis can surface all-consonant weak keys, and the
   // drill handoff used to hand Practice a vowel-less key set, which froze the
   // pseudo-word generator (an infinite loop) and hung the whole page. The drill
@@ -730,7 +749,13 @@ test.describe("home typing test", () => {
     await page.getByRole("link", { name: "Re-measure" }).click();
 
     // Home rebuilds the offer, switches into the diagnosed config and starts it.
-    await expect(page.locator("#words .char").first()).toBeVisible();
+    // Wait for the rm config to actually apply (its 4-word counter replaces the
+    // default timed countdown) before reading the prompt — typing against the
+    // pre-switch text loses the race when the restart regenerates it.
+    await expect(page.getByTestId("word-counter")).toContainText("/ 4");
+    // …and for the 4-word prompt itself (the long default text stays rendered
+    // until regeneration lands, so char presence alone isn't enough).
+    await expect.poll(() => page.locator("#words .char").count()).toBeLessThan(60);
     await typeVisibleTestText(page);
 
     // The result headlines the before → after delta, then the offer is retired.

@@ -58,19 +58,34 @@ zero in both — the event queue is fine; the work per key is the problem.
 
 ## 1. Kill per-keystroke React work
 
-- [ ] Position becomes ref-only in Text; scroll check, append trigger, and
+- [x] Position becomes ref-only in Text; scroll check, append trigger, and
   key-change callback fire imperatively from `nextLetter`/`prevLetter`. Text
   renders ~zero times during an attempt.
-- [ ] Drop the `querySelectorAll(".active-char")` sweep — keep a ref to the
-  active span; only touch the two spans that change.
-- [ ] Keyboard highlight stops re-rendering the page: memoize `Keyboard`, feed
-  the current key + attempt version without page-level per-keystroke state
-  (imperative/subscription or throttled — the highlight doesn't need
-  sub-frame precision).
-- [ ] Buffer refill never lands inside a keystroke: pre-generate the next
-  append chunk during idle time; the keystroke only appends the ready
-  fragment (or defers it to an idle callback).
-- [ ] Perf spec numbers recorded here after: _pending_
+- [x] Drop the `querySelectorAll(".active-char")` sweep — the cursor walks
+  sibling spans via `activeCharRef` (zero per-key queries); `handleKeyPress`
+  reads `textContent`, not layout-forcing `innerText`.
+- [x] Keyboard highlight stops re-rendering the page — or the board: pages no
+  longer hold per-keystroke state (`currentKey`/`attemptVersion` and the
+  `onKeyChange`/`onAttemptChange` chains are gone). Typer publishes the next
+  key on a module signal (`keySignal.ts`); both boards move the marker by
+  swapping classes on cells (guarded by e2e in home.spec + train.spec), and
+  the practice heatmap's shading re-renders only when typing pauses (250ms
+  trailing debounce).
+- [x] Buffer refill never lands inside a keystroke: generation + DOM append
+  run in `requestIdleCallback` (300-char threshold = seconds of margin).
+- [x] Perf spec after (2026-07-04, same protocol; budgets tightened to ~2×):
+
+| scenario | key→frame p50 | p95 | max | handler p95 | long frames >50ms |
+|---|---|---|---|---|---|
+| timed, 350 keys | 22.0ms (was 39.3) | 30.3ms (was 48.9) | 45.2ms (was 80.9) | 13.8ms (was 34.9) | 3 (was 53) |
+| practice + keyboard, 150 keys | 23.2ms (was 71.8) | 35.5ms (was 84.7) | 48.2ms (was 106.8) | 13.5ms (was 68.6) | 6 (was 216) |
+
+Both surfaces now sit at the same ~22ms floor under 4× throttle (≈ one 60Hz
+frame unthrottled). Practice-mode handler work dropped 5×; the synthetic
+typist sustains ~155 wpm dispatch where it previously choked at ~90. First
+pass moved the page-level state into a Keyboard-local subscription and only
+timed improved — the practice board's own ~50-cell render was the remaining
+cost, hence the imperative marker + pause-only shading.
 
 ## 2. Vertical caret
 

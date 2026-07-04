@@ -99,10 +99,12 @@ function percentile(values: number[], p: number): number {
 
 const fmt = (n: number) => Number.isNaN(n) ? "n/a" : `${n.toFixed(1)}ms`;
 
-// Budgets are regression tripwires, not targets: set ~2× the 2026-07-03
-// baseline (recorded in docs/features/typing-feel.md) so a reintroduced
+// Budgets are regression tripwires, not targets: set ~2× the post-phase-1
+// numbers (recorded in docs/features/typing-feel.md) so a reintroduced
 // per-keystroke render storm fails loudly without flaking on run-to-run noise.
-// Tighten after each optimization phase lands.
+// The pre-phase-1 baseline would fail all four assertions.
+// NOTE: run on a quiet machine — a parallel e2e suite on the same dev server
+// contaminates the numbers (input delay >10ms is the tell).
 async function collectAndReport(
   page: Page,
   scenario: string,
@@ -147,7 +149,7 @@ test.describe("typing perf baseline", () => {
 
     await warmUpFirstKeystroke(page);
     const typed = await typePromptChars(page, 350);
-    await collectAndReport(page, "timed (default home)", typed, { p95: 100, hitches: 120 });
+    await collectAndReport(page, "timed (default home)", typed, { p95: 60, hitches: 15 });
   });
 
   // Scenario 2: practice mode — the on-screen keyboard is visible, the page
@@ -162,6 +164,6 @@ test.describe("typing perf baseline", () => {
 
     await warmUpFirstKeystroke(page);
     const typed = await typePromptChars(page, 150);
-    await collectAndReport(page, "practice (keyboard visible)", typed, { p95: 170, hitches: 450 });
+    await collectAndReport(page, "practice (keyboard visible)", typed, { p95: 70, hitches: 20 });
   });
 });

@@ -12,6 +12,7 @@ import { createKeystrokeRecorder } from "~/lib/keystrokeRecorder"
 import type { KeystrokeRecorder } from "~/lib/keystrokeRecorder"
 import { isAnyModalOpen } from "~/lib/modals"
 import { isRankableTimeline } from "~/lib/antiCheat"
+import { publishActiveKey } from "./keySignal"
 import { generateTestText } from "./hooks/useTestText"
 import { useGramProgression } from "./hooks/useGramProgression"
 import { useRestartShortcut } from "./hooks/useRestartShortcut"
@@ -46,8 +47,6 @@ interface TyperProps {
     pacerWpm?: number,
     // No-miss levels: a single error ends the run and fails it (never persisted).
     failOnMiss?: boolean,
-    onKeyChange: (key: string) => void,
-    onAttemptChange?: () => void,
     onTestComplete?: (result: TestCompletionResult) => void,
     // Render the result instantly and patch in server fields when the save settles
     // (home only — see useTestPersistence). Pairs with onSavingChange for the loader.
@@ -82,8 +81,6 @@ export const Typer = (props: TyperProps) => {
         level,
         levelRequirements,
         charAttemptsRef,
-        onKeyChange,
-        onAttemptChange,
         onRestart,
     } = props
 
@@ -457,21 +454,6 @@ export const Typer = (props: TyperProps) => {
         props.challengeDate, props.failOnMiss, props.skipTransitionSync, recordPassedLevel, syncCharAttempts, syncTransitions,
     ])
 
-    // Stable identities for parent-provided callbacks (parents recreate them every
-    // render); without these, memo(Text) would never skip a render.
-    const onKeyChangeRef = useRef(onKeyChange)
-    const onAttemptChangeRef = useRef(onAttemptChange)
-    useEffect(() => {
-        onKeyChangeRef.current = onKeyChange
-        onAttemptChangeRef.current = onAttemptChange
-    }, [onKeyChange, onAttemptChange])
-    const stableOnKeyChange = useCallback((key: string) => {
-        onKeyChangeRef.current(key)
-    }, [])
-    const stableOnAttemptChange = useCallback(() => {
-        onAttemptChangeRef.current?.()
-    }, [])
-
     // The pacer caught the typist: flag the loss, then run completion (which reads
     // the flag, forces the fail path, and clears it).
     const handlePacerCaught = useCallback(() => {
@@ -601,10 +583,9 @@ export const Typer = (props: TyperProps) => {
             charAttempts={charAttemptsRef.current}
             onStart={handleStart}
             onComplete={handleComplete}
-            onKeyChange={stableOnKeyChange}
+            onKeyChange={publishActiveKey}
             onCharacterAttempt={handleCharacterAttempt}
             onBackspace={handleBackspace}
-            onAttemptChange={stableOnAttemptChange}
         />
     )
 

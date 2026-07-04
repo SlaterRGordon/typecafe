@@ -39,7 +39,6 @@ interface TextProps {
     onKeyChange: (key: string) => void,
     onCharacterAttempt?: (attempt: { expected: string, typed: string, correct: boolean }) => void,
     onBackspace?: () => void,
-    onAttemptChange?: () => void,
 }
 
 // True for editable form controls. The toolbar and its subpanels live inside
@@ -79,10 +78,15 @@ export const Text = memo(function Text(props: TextProps) {
         onKeyChange,
         onCharacterAttempt,
         onBackspace,
-        onAttemptChange,
     } = props
-    const [position, setPosition] = useState(0)
+    // Ref-only, no state: a keystroke must never re-render this component
+    // (typing-feel §1). All per-key work happens imperatively in
+    // nextLetter/prevLetter; React only re-renders on restart/config changes.
     const positionRef = useRef(0)
+    // The span the cursor sits on. Char spans are ordered siblings, so the
+    // cursor walks nextElementSibling/previousElementSibling — no per-keystroke
+    // querySelector over the (append-grown) container.
+    const activeCharRef = useRef<HTMLElement | null>(null)
     const textContainerRef = useRef<HTMLDivElement>(null)
     const charStatesRef = useRef<Map<number, 'correct' | 'incorrect'>>(new Map())
     const currentTextRef = useRef(text)
@@ -206,10 +210,13 @@ export const Text = memo(function Text(props: TextProps) {
         currentTextRef.current = text
         charStatesRef.current.clear()
         completedRef.current = false
+        appendEpochRef.current++
         setLoadingText(text.length === 0)
         renderInitialText(text)
         positionRef.current = 0
-        setPosition(0)
+        activeCharRef.current = (textContainerRef.current?.firstElementChild as HTMLElement | null) ?? null
+        if (typerRef.current) typerRef.current.scrollTop = 0
+        callbacksRef.current.onKeyChange(text[0] ?? '')
 
         const restartBtn = document.getElementById("restart") as HTMLButtonElement
         if (restartBtn) restartBtn.classList.remove("blinking", "text-primary")
@@ -225,46 +232,62 @@ export const Text = memo(function Text(props: TextProps) {
     // otherwise exhaust the buffer and deadlock until the timer expires.
     const appendsText = !noAppend && (mode === TestModes.relaxed ||
         (mode === TestModes.normal && subMode === TestSubModes.timed))
-    useEffect(() => {
-        if (appendsText && !isAppendingRef.current) {
-            const threshold = 300
-            if (position >= currentTextRef.current.length - threshold) {
-                isAppendingRef.current = true
-                const generated = appendKeys
-                    ? generateBetterPseudoText(100, appendKeys.split(""))
-                    : generateText(100, language)
-                const newText = applyTextOptions(generated, punctuation, capitals)
-                appendNewText(" " + newText)
-                currentTextRef.current += " " + newText
-                isAppendingRef.current = false
-            }
+    // Latest append inputs, readable from the idle callback without re-wiring
+    // it on every option change.
+    const appendConfigRef = useRef({ appendsText, appendKeys, language, punctuation, capitals })
+    appendConfigRef.current = { appendsText, appendKeys, language, punctuation, capitals }
+    // Bumped on restart so a scheduled append can't land on a regenerated test.
+    const appendEpochRef = useRef(0)
+
+    // Refill the buffer off the keystroke's critical path: generation + the DOM
+    // append of ~600 spans run in an idle callback. The 300-char threshold gives
+    // seconds of margin at any human speed, so the 1s timeout always lands in time.
+    const scheduleAppendIfNeeded = () => {
+        const config = appendConfigRef.current
+        if (!config.appendsText || isAppendingRef.current) return
+        if (positionRef.current < currentTextRef.current.length - 300) return
+        isAppendingRef.current = true
+        const epoch = appendEpochRef.current
+        const run = () => {
+            isAppendingRef.current = false
+            if (epoch !== appendEpochRef.current) return
+            const current = appendConfigRef.current
+            if (!current.appendsText) return
+            const generated = current.appendKeys
+                ? generateBetterPseudoText(100, current.appendKeys.split(""))
+                : generateText(100, current.language)
+            const newText = applyTextOptions(generated, current.punctuation, current.capitals)
+            appendNewText(" " + newText)
+            currentTextRef.current += " " + newText
         }
-    }, [appendNewText, appendsText, appendKeys, language, position, punctuation, capitals])
+        if (typeof requestIdleCallback === "function") requestIdleCallback(run, { timeout: 1000 })
+        else setTimeout(run, 0)
+    }
 
     useEffect(() => {
         if (!started && !restarted) {
-            const current = typerRef.current?.querySelector("#c" + position.toString()) as HTMLDivElement
+            const current = typerRef.current?.querySelector("#c" + positionRef.current.toString()) as HTMLDivElement
             const restartBtn = document.getElementById("restart") as HTMLButtonElement
             if (restartBtn) restartBtn.classList.add("blinking", "text-primary")
             if (current) current.classList.value = ""
         }
-    }, [started, restarted, position])
+    }, [started, restarted])
 
-    useEffect(() => {
-        const current = typerRef.current?.querySelector("#c" + position.toString()) as HTMLDivElement
-        if (current && typerRef.current) {
-            typerRef.current.querySelectorAll(".active-char").forEach((char) => {
-                if (char !== current) char.classList.remove("active-char", "text-primary")
-            })
-            current.classList.add("active-char", "text-primary")
-
+    // Post-keystroke cursor work, imperative (no render): follow the cursor's
+    // line and report the new expected key. `activeChar` already carries the
+    // active-char class; this only scrolls and notifies.
+    const afterCursorMove = (activeChar: Element | null) => {
+        const words = typerRef.current
+        const char = activeChar as HTMLElement | null
+        if (char && words) {
             // scroll typer if new line
-            const offset = current.offsetTop - typerRef.current.offsetTop
-            if (offset !== typerRef.current.scrollTop) {
-                typerRef.current.scrollBy(0, offset - typerRef.current.scrollTop)
+            const offset = char.offsetTop - words.offsetTop
+            if (offset !== words.scrollTop) {
+                words.scrollBy(0, offset - words.scrollTop)
             }
         }
-    }, [position, typerRef])
+        callbacksRef.current.onKeyChange(char?.textContent ?? '')
+    }
 
     // First keystroke: start the clock the pacer races against, then the timer.
     const startAttempt = () => {
@@ -276,11 +299,14 @@ export const Text = memo(function Text(props: TextProps) {
         if (completedRef.current) return
 
         const currentPosition = positionRef.current
-        const current = typerRef.current?.querySelector("#c" + currentPosition.toString()) as HTMLDivElement
+        const current = activeCharRef.current
 
         if (current && restarted) {
+            // textContent, never innerText: innerText is layout-aware and forces
+            // a synchronous reflow on the hottest path in the app.
+            const expected = (current.textContent ?? '').trim()
             // check for correct key or incorrect
-            if ((current.innerText.trim() === '' && e.key === ' ') || current.innerText.trim() === e.key) {
+            if ((expected === '' && e.key === ' ') || expected === e.key) {
                 nextLetter(true, e.key)
                 // start timer
                 if (currentPosition === 0 && !started) startAttempt()
@@ -298,7 +324,7 @@ export const Text = memo(function Text(props: TextProps) {
 
     const nextLetter = (correct: boolean, typed: string) => {
         const currentIndex = positionRef.current
-        const currentChar = textContainerRef.current?.querySelector(`#c${currentIndex}`)
+        const currentChar = activeCharRef.current
 
         if (currentChar) {
             const char = currentChar.textContent || '';
@@ -317,12 +343,8 @@ export const Text = memo(function Text(props: TextProps) {
             attempts.attempts += 1;
             if (correct) attempts.correct += 1;
             charAttempts.set(char, attempts);
-            onAttemptChange?.();
 
-            // Update React state for position and incorrect count
-            const nextPosition = currentIndex + 1
-            positionRef.current = nextPosition
-            setPosition(nextPosition)
+            positionRef.current = currentIndex + 1
 
             // No-miss levels end on the first error — the recorded miss makes the
             // completion grade as a fail (accuracy < 100).
@@ -339,10 +361,13 @@ export const Text = memo(function Text(props: TextProps) {
             }
 
             // Update active character styling for new position
-            const nextChar = textContainerRef.current?.querySelector(`#c${currentIndex + 1}`)
+            const nextChar = currentChar.nextElementSibling as HTMLElement | null
+            activeCharRef.current = nextChar
             if (nextChar) {
                 nextChar.classList.add('active-char', 'text-primary')
             }
+            afterCursorMove(nextChar)
+            scheduleAppendIfNeeded()
         }
     }
 
@@ -351,8 +376,11 @@ export const Text = memo(function Text(props: TextProps) {
         if (currentPosition === 0) return
 
         const prevIndex = currentPosition - 1
-        const prevChar = textContainerRef.current?.querySelector(`#c${prevIndex}`)
-        const currentChar = textContainerRef.current?.querySelector(`#c${currentPosition}`)
+        const currentChar = activeCharRef.current
+        // At the end of the text there is no active span; step back from the last one.
+        const prevChar = (currentChar
+            ? currentChar.previousElementSibling
+            : textContainerRef.current?.lastElementChild) as HTMLElement | null
         currentChar?.classList.remove('active-char', 'text-primary')
 
         if (prevChar) {
@@ -362,21 +390,17 @@ export const Text = memo(function Text(props: TextProps) {
             // Update state tracking
             charStatesRef.current.delete(prevIndex)
 
-            // Update React states
             positionRef.current = prevIndex
-            setPosition(prevIndex)
             // The recorder owns the net character/incorrect counts; tell it a
             // committed key was walked back.
             onBackspace?.()
 
             // Update active character styling
+            activeCharRef.current = prevChar
             prevChar.classList.add('active-char', 'text-primary')
+            afterCursorMove(prevChar)
         }
     }
-
-    useEffect(() => {
-        callbacksRef.current.onKeyChange(textContainerRef.current?.querySelector(`#c${position}`)?.textContent || '')
-    }, [position])
 
     // Boss pacer: a vertical line glides across the text at pacerWpm. It advances
     // on a continuous clock (rAF), interpolating between character boxes so it

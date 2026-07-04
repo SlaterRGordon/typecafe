@@ -432,8 +432,14 @@ test.describe("screenshot tour", () => {
     await capture(page, testInfo, "37-re-measure-prompt");
 
     // Landing home with the token re-runs the diagnosed test → before→after delta.
+    // Wait for the rm config to actually apply (its 4-word counter replaces the
+    // default timed countdown) before reading the prompt — typing against the
+    // pre-switch text loses the race when the restart regenerates it.
     await page.goto(`/?rm=${encodeURIComponent(rm)}`);
-    await expect(page.locator("#words .char").first()).toBeVisible();
+    await expect(page.getByTestId("word-counter")).toContainText("/ 4");
+    // …and for the 4-word prompt itself (the long default text stays rendered
+    // until regeneration lands, so char presence alone isn't enough).
+    await expect.poll(() => page.locator("#words .char").count()).toBeLessThan(60);
     await typeVisibleTestText(page);
     await expect(page.getByTestId("re-measure-delta")).toBeVisible({ timeout: 15_000 });
     await capture(page, testInfo, "38-re-measure-delta");

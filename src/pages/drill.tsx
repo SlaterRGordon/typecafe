@@ -313,7 +313,6 @@ const Drill: NextPage = () => {
                                         skipTransitionSync={config.kind !== "timed"}
                                         showStats
                                         modalOpen={false}
-                                        onKeyChange={() => undefined}
                                         restartSignal={restartSignal}
                                         onRestart={() => setCompleted(null)}
                                         onTestComplete={setCompleted}

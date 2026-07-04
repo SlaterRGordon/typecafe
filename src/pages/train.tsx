@@ -153,7 +153,6 @@ const Train: NextPage = () => {
     const [level, setLevel] = useState<Level>(levels[0] as Level)
     // Speed-round levels run as short timed tests; every other kind is a words run.
     const subMode = level.subMode
-    const [currentKey, setCurrentKey] = useState<string>("")
     const [levelChanged, setLevelChanged] = useState<boolean>(false)
     const [restartSignal, setRestartSignal] = useState(0)
     const [completion, setCompletion] = useState<TrainCompletion | null>(null)
@@ -214,10 +213,6 @@ const Train: NextPage = () => {
         setDifficulty(tier)
         setLevelChanged(false)
         setView("map")
-    }
-
-    const onKeyChange = (key: string) => {
-        setCurrentKey(key)
     }
 
     const showCompletion = useCallback((
@@ -551,7 +546,6 @@ const Train: NextPage = () => {
                                     levelRequirements={{ wpm: criteria.oneStarNetWpm, accuracy: 0 }}
                                     pacerWpm={level.kind === "boss" ? criteria.oneStarNetWpm : undefined}
                                     failOnMiss={level.kind === "noMiss"}
-                                    onKeyChange={onKeyChange}
                                     onTestComplete={onTestComplete}
                                     onTypingFocusChange={setTypingFocused}
                                     restartSignal={restartSignal}
@@ -561,7 +555,7 @@ const Train: NextPage = () => {
                             }
                             {!isTrainContentLoading &&
                                 <div data-testid="train-keyboard-wrap">
-                                    <Keyboard mode={mode} currentKey={currentKey} charAttemptsRef={charAttemptsRef} highlightKeys={level.keys.split("")} />
+                                    <Keyboard mode={mode} charAttemptsRef={charAttemptsRef} highlightKeys={level.keys.split("")} />
                                 </div>
                             }
                         </div>
