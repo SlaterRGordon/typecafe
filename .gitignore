@@ -60,3 +60,4 @@ yarn-error.log*
 # Goodreads quotes dump — build input for gen-quotes.mjs, never committed
 /quotes.zip
 /quotes.csv
+worktrees/
