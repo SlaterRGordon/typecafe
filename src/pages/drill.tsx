@@ -227,6 +227,22 @@ const Drill: NextPage = () => {
         return { delta, next }
     }, [completed, config, baseline])
 
+    // This session's reps on the drilled target (delta.after per completed rep).
+    // Lifetime aggregates deliberately exclude drill-text transitions (ADR-0004),
+    // so this local trail is what shows the reps moving the needle — without it
+    // the header baseline reads as frozen no matter how many reps land.
+    const [sessionReps, setSessionReps] = useState<number[]>([])
+    const recordedRepRef = useRef<TestCompletionResult["timeline"] | null>(null)
+    useEffect(() => {
+        if (!completed || !outcome?.delta) return
+        // The eager completion is re-reported once the save settles with the same
+        // timeline array (spread copy) — reference equality dedupes the rep.
+        if (recordedRepRef.current === completed.timeline) return
+        recordedRepRef.current = completed.timeline
+        const after = outcome.delta.after
+        setSessionReps((reps) => [...reps, after])
+    }, [completed, outcome])
+
     const wordCount = config?.text.split(" ").filter(Boolean).length ?? DEFAULT_DRILL_WORDS
 
     // A diagnosis hands off the just-completed test's config as an opaque `rm`
@@ -268,6 +284,20 @@ const Drill: NextPage = () => {
                                                     {headerStat}
                                                 </p>
                                             )}
+                                            {sessionReps.length > 0 && (() => {
+                                                const fmt = (v: number) => config.kind === "transitions" ? `${Math.round(v)}ms` : `${v.toFixed(1)}%`
+                                                const best = config.kind === "transitions" ? Math.min(...sessionReps) : Math.max(...sessionReps)
+                                                const last = sessionReps[sessionReps.length - 1]!
+                                                return (
+                                                    <p data-testid="drill-session" className="mt-1 text-sm text-base-content/70">
+                                                        This session:{" "}
+                                                        <span className="font-semibold text-base-content">{fmt(best)}</span>
+                                                        {sessionReps.length === 1
+                                                            ? " — 1 rep"
+                                                            : ` best · ${fmt(last)} last · ${sessionReps.length} reps`}
+                                                    </p>
+                                                )
+                                            })()}
                                         </div>
                                         {/* Hidden once the rep completes — the result card offers a
                                             fresher pick recomputed with this rep included. */}

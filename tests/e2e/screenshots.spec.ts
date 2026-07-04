@@ -429,6 +429,8 @@ test.describe("screenshot tour", () => {
     await expect(page.getByTestId("drill-result")).toBeVisible();
     await expect(page.getByTestId("drill-delta")).toBeVisible();
     await expect(page.getByTestId("drill-next")).toBeVisible();
+    // The header's session trail (per-rep progress) rides in this capture.
+    await expect(page.getByTestId("drill-session")).toBeVisible();
     await capture(page, testInfo, "37-re-measure-prompt");
 
     // Landing home with the token re-runs the diagnosed test → before→after delta.

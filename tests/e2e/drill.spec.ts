@@ -23,6 +23,38 @@ test.describe("drill page", () => {
     await expect(page.getByTestId("drill-result")).toBeVisible({ timeout: 2500 })
   })
 
+  // Regression guard: the eager result unmounts the Typer before the idle-time
+  // practiceStats sync settles; the drain must still run (hook-level callback)
+  // or the next rep re-sends the previous rep's attempts and the server
+  // double-counts them.
+  test("signed-in reps each sync their own attempts exactly once", async ({ page }) => {
+    const syncedTotals: number[] = []
+    await mockAuthenticatedSession(page)
+    await mockTrpc(page, {
+      onProcedure: (procedure, input) => {
+        if (procedure === "practiceStats.batchSync" && Array.isArray(input?.stats)) {
+          syncedTotals.push((input.stats as { total: number }[]).reduce((sum, s) => sum + s.total, 0))
+        }
+      },
+    })
+    await page.goto("/drill?keys=x&length=4")
+    await expect(page.getByTestId("drill-typer")).toBeVisible()
+
+    await typeVisibleTestText(page)
+    await expect(page.getByTestId("drill-result")).toBeVisible()
+    await expect.poll(() => syncedTotals.length).toBe(1)
+
+    await pressRestartShortcut(page, "Enter")
+    await expect(page.getByTestId("drill-typer")).toBeVisible()
+    await typeVisibleTestText(page)
+    await expect(page.getByTestId("drill-result")).toBeVisible()
+    await expect.poll(() => syncedTotals.length).toBe(2)
+
+    // Both reps type the same fixed drill text; an undrained map would fold
+    // rep 1's attempts into rep 2's payload (double the total).
+    expect(syncedTotals[1]).toBe(syncedTotals[0])
+  })
+
   test("key drill renders real target-key words and completes", async ({ page }) => {
     await mockTrpc(page)
     await page.goto("/drill?keys=x&length=4")
@@ -131,11 +163,20 @@ test.describe("drill page", () => {
     await expect(next).toHaveAttribute("href", "/drill?keys=q")
     await expect(page.getByTestId("drill-header-next")).toHaveCount(0)
 
+    // The header's session trail proves the rep landed (a clean rep on x is 100%).
+    await expect(page.getByTestId("drill-session")).toHaveText("This session: 100.0% — 1 rep")
+
     // A restart (tab+enter) brings the header pick back — the user is never
     // forced through another full rep to reach the next drill.
     await pressRestartShortcut(page, "Enter")
     await expect(page.getByTestId("drill-typer")).toBeVisible()
     await expect(page.getByTestId("drill-header-next")).toHaveAttribute("href", "/drill?keys=q")
+
+    // A second rep accumulates on the trail — the header visibly moves with
+    // every rep even though the lifetime baseline barely does (ADR-0004).
+    await typeVisibleTestText(page)
+    await expect(page.getByTestId("drill-result")).toBeVisible()
+    await expect(page.getByTestId("drill-session")).toContainText("2 reps")
   })
 
   test("transition drill result computes the delta and picks the next-worst pair", async ({ page }, testInfo) => {
@@ -166,6 +207,13 @@ test.describe("drill page", () => {
     await expect(delta).toContainText("faster than your lifetime average")
     // Next pick skips the just-drilled br and lands on the next-slowest pair, io.
     await expect(page.getByTestId("drill-next")).toHaveAttribute("href", "/drill?transitions=io")
+
+    // The session trail carries the rep's ms on the drilled pair — the number
+    // that moves per rep, since the lifetime baseline deliberately doesn't
+    // (ADR-0004).
+    const session = page.getByTestId("drill-session")
+    await expect(session).toContainText("This session:")
+    await expect(session).toContainText("ms — 1 rep")
 
     // The rep's target-saturated text must NOT rewrite the lifetime bigram
     // picture: the coach tab (desktop only — the inline mobile variant renders
