@@ -68,7 +68,6 @@ const Home: NextPage = () => {
   const setGramRepetition = (value: number) => updateSetting("gramRepetition", value)
   const setGramWpmThreshold = (value: number) => updateSetting("gramWpmThreshold", value)
   const setGramAccuracyThreshold = (value: number) => updateSetting("gramAccuracyThreshold", value)
-  const [currentKey, setCurrentKey] = useState("")
   const [typingFocused, setTypingFocused] = useState(false)
   // Practice: the shift-layer toggle lives in the settings line but drives the
   // keyboard board below the test, so the page holds it. Holding physical Shift
@@ -77,8 +76,6 @@ const Home: NextPage = () => {
   const [shiftToggle, setShiftToggle] = useState(false)
   const [shiftHeld, setShiftHeld] = useState(false)
   const dispatch = useDispatch()
-  const currentKeyRef = useRef("")
-  const [attemptVersion, setAttemptVersion] = useState(0)
   const [restartSignal, setRestartSignal] = useState(0)
   const [completedScore, setCompletedScore] = useState<(ScoreSnapshot & {
     speed: number;
@@ -130,6 +127,10 @@ const Home: NextPage = () => {
   const createShare = api.scoreShare.create.useMutation()
   const saveAfterSignIn = api.test.create.useMutation()
 
+  // Rendered nowhere: bumping it just re-renders the Keyboard once when the
+  // lifetime stats land, so the heatmap re-reads the freshly filled ref.
+  // (Per-keystroke refreshes ride the key signal inside Keyboard instead.)
+  const [, bumpPersistedStats] = useState(0)
   useEffect(() => {
     if (mode !== TestModes.practice || !persistedStats) return
 
@@ -140,7 +141,7 @@ const Home: NextPage = () => {
         correct: stat.correct,
       })
     })
-    setAttemptVersion((version) => version + 1)
+    bumpPersistedStats((version) => version + 1)
   }, [mode, persistedStats])
 
   // Keep the ref, the render state, and sessionStorage in lock-step so the offer
@@ -191,12 +192,6 @@ const Home: NextPage = () => {
   }, [mode])
   const shiftLayer = shiftToggle || shiftHeld
 
-  const onKeyChange = (key: string) => {
-    if (currentKeyRef.current === key) return
-    currentKeyRef.current = key
-    setCurrentKey(key)
-  }
-
   // Smart drill (settings line): select the eight least-accurate keys from the
   // folded lifetime + session attempts. Selection math lives in lib/drillKeys.
   const handleSmartDrill = () => {
@@ -216,10 +211,6 @@ const Home: NextPage = () => {
     }
     setSelectedKeys(keys)
     dispatch(addAlert({ message: `Drilling your toughest keys: ${keys.join(", ")}`, type: "success" }))
-  }
-
-  const onAttemptChange = () => {
-    setAttemptVersion((version) => version + 1)
   }
 
   // True when this completion is the re-run of a diagnosed test (same config),
@@ -697,8 +688,6 @@ const Home: NextPage = () => {
           customLength={customLength}
           showStats={true}
           modalOpen={false}
-          onKeyChange={onKeyChange}
-          onAttemptChange={onAttemptChange}
           restartSignal={restartSignal}
           onRestart={clearCompletedScore}
           onTestComplete={onTestComplete}
@@ -749,7 +738,7 @@ const Home: NextPage = () => {
         }
         {!completedScore && shouldShowHomeKeyboard &&
           <div data-testid="typing-focus-home-keyboard" className="min-h-[11rem] md:min-h-[15.25rem]">
-            <Keyboard mode={mode} currentKey={currentKey} selectedKeys={selectedKeys} setSelectedKeys={setSelectedKeys} charAttemptsRef={charAttemptsRef} baseAttemptsRef={persistedAttemptsRef} attemptVersion={attemptVersion} shiftToggle={shiftLayer} />
+            <Keyboard mode={mode} selectedKeys={selectedKeys} setSelectedKeys={setSelectedKeys} charAttemptsRef={charAttemptsRef} baseAttemptsRef={persistedAttemptsRef} shiftToggle={shiftLayer} />
           </div>
         }
       </div>

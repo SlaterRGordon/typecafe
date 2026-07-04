@@ -12,6 +12,8 @@ import { createKeystrokeRecorder } from "~/lib/keystrokeRecorder"
 import type { KeystrokeRecorder } from "~/lib/keystrokeRecorder"
 import { isAnyModalOpen } from "~/lib/modals"
 import { isRankableTimeline } from "~/lib/antiCheat"
+import { runWhenIdle } from "~/lib/idle"
+import { publishActiveKey } from "./keySignal"
 import { generateTestText } from "./hooks/useTestText"
 import { useGramProgression } from "./hooks/useGramProgression"
 import { useRestartShortcut } from "./hooks/useRestartShortcut"
@@ -46,8 +48,6 @@ interface TyperProps {
     pacerWpm?: number,
     // No-miss levels: a single error ends the run and fails it (never persisted).
     failOnMiss?: boolean,
-    onKeyChange: (key: string) => void,
-    onAttemptChange?: () => void,
     onTestComplete?: (result: TestCompletionResult) => void,
     // Render the result instantly and patch in server fields when the save settles
     // (home only — see useTestPersistence). Pairs with onSavingChange for the loader.
@@ -61,6 +61,9 @@ interface TyperProps {
     hideInterface?: boolean,
     // Fixed seeded text (daily challenge): skip generation and never append.
     fixedText?: string,
+    // Drills set this: their target-saturated text would skew the lifetime
+    // bigram picture, same reason grams/practice text is excluded below.
+    skipTransitionSync?: boolean,
     // Stamps the saved Test row as belonging to this day's challenge (YYYY-MM-DD).
     challengeDate?: string,
     charAttemptsRef: React.MutableRefObject<Map<string, { attempts: number, correct: number }>>
@@ -79,8 +82,6 @@ export const Typer = (props: TyperProps) => {
         level,
         levelRequirements,
         charAttemptsRef,
-        onKeyChange,
-        onAttemptChange,
         onRestart,
     } = props
 
@@ -210,7 +211,9 @@ export const Typer = (props: TyperProps) => {
         const seq = ++restartSeqRef.current
         setTimeout(() => {
             if (seq === restartSeqRef.current) {
-                if (mode !== TestModes.ngrams) syncCharAttempts()
+                // Off the restart frame: the sync round-trip/localStorage write
+                // must not delay the fresh text paint (typing-feel §3).
+                if (mode !== TestModes.ngrams) runWhenIdle(syncCharAttempts)
 
                 // A daily challenge uses fixed seeded text — same for every client,
                 // never regenerated or appended.
@@ -440,33 +443,27 @@ export const Typer = (props: TyperProps) => {
             }
         }
 
-        if (mode !== TestModes.ngrams) syncCharAttempts()
-        // Transition analytics come from normal-mode tests, where the text is real
-        // language (grams/practice text would skew the bigram picture).
-        if (mode === TestModes.normal) syncTransitions(recorder.events)
+        // Analytics ride an idle callback, not the completion paint (typing-feel
+        // §3): aggregation + sync round-trips would otherwise stutter the result
+        // render. `events` is captured by reference — reset() replaces the array,
+        // so a restart can't mutate what the deferred aggregation reads.
+        const events = recorder.events
+        const skipTransitionSync = props.skipTransitionSync
+        runWhenIdle(() => {
+            if (mode !== TestModes.ngrams) syncCharAttempts()
+            // Transition analytics come from normal-mode tests, where the text is
+            // real language (grams/practice text would skew the bigram picture — as
+            // would a drill's target-saturated text, hence skipTransitionSync).
+            if (mode === TestModes.normal && !skipTransitionSync) syncTransitions(events)
+        })
 
         pacerCaughtRef.current = false
     }, [
         recorder, isCompletionValid, isTimed, pause, getStats, buildCompletion, mode, levelRequirements,
         sessionData, testType, persistCompletion, count, level, punctuation,
         capitals, props.gramWpmThreshold, props.gramAccuracyThreshold,
-        props.challengeDate, props.failOnMiss, recordPassedLevel, syncCharAttempts, syncTransitions,
+        props.challengeDate, props.failOnMiss, props.skipTransitionSync, recordPassedLevel, syncCharAttempts, syncTransitions,
     ])
-
-    // Stable identities for parent-provided callbacks (parents recreate them every
-    // render); without these, memo(Text) would never skip a render.
-    const onKeyChangeRef = useRef(onKeyChange)
-    const onAttemptChangeRef = useRef(onAttemptChange)
-    useEffect(() => {
-        onKeyChangeRef.current = onKeyChange
-        onAttemptChangeRef.current = onAttemptChange
-    }, [onKeyChange, onAttemptChange])
-    const stableOnKeyChange = useCallback((key: string) => {
-        onKeyChangeRef.current(key)
-    }, [])
-    const stableOnAttemptChange = useCallback(() => {
-        onAttemptChangeRef.current?.()
-    }, [])
 
     // The pacer caught the typist: flag the loss, then run completion (which reads
     // the flag, forces the fail path, and clears it).
@@ -597,10 +594,9 @@ export const Typer = (props: TyperProps) => {
             charAttempts={charAttemptsRef.current}
             onStart={handleStart}
             onComplete={handleComplete}
-            onKeyChange={stableOnKeyChange}
+            onKeyChange={publishActiveKey}
             onCharacterAttempt={handleCharacterAttempt}
             onBackspace={handleBackspace}
-            onAttemptChange={stableOnAttemptChange}
         />
     )
 

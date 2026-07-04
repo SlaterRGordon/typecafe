@@ -15,6 +15,7 @@ import {
     gradeLevel,
     ladderState,
     levelNumber,
+    mergeProgress,
     nextLevel,
     resumeLevel,
     type DifficultyName,
@@ -36,7 +37,9 @@ type TrainCompletion = {
     pacerCaught: boolean,
     isNoMiss: boolean,
     nextLevelName: string | null,
-    saved: boolean,
+    // The popover renders instantly (eager result); the background progress
+    // save patches this from "saving" when it settles.
+    saved: "saving" | "saved" | "failed",
 }
 
 // Why a fail popup says what it does — the specific cause, not just the WPM gap.
@@ -153,7 +156,6 @@ const Train: NextPage = () => {
     const [level, setLevel] = useState<Level>(levels[0] as Level)
     // Speed-round levels run as short timed tests; every other kind is a words run.
     const subMode = level.subMode
-    const [currentKey, setCurrentKey] = useState<string>("")
     const [levelChanged, setLevelChanged] = useState<boolean>(false)
     const [restartSignal, setRestartSignal] = useState(0)
     const [completion, setCompletion] = useState<TrainCompletion | null>(null)
@@ -169,6 +171,7 @@ const Train: NextPage = () => {
     // The modal belongs to the page; clear it when the ladder changes.
     useEffect(() => {
         setCompletion(null)
+        completionHandledRef.current = false
     }, [difficulty])
 
     const ladder: LevelStatus[] = useMemo(
@@ -202,6 +205,7 @@ const Train: NextPage = () => {
         setLevel(next)
         setLevelChanged(true)
         setCompletion(null)
+        completionHandledRef.current = false
         setView("level")
     }
 
@@ -216,13 +220,9 @@ const Train: NextPage = () => {
         setView("map")
     }
 
-    const onKeyChange = (key: string) => {
-        setCurrentKey(key)
-    }
-
     const showCompletion = useCallback((
         result: TestCompletionResult,
-        options: { saved: boolean, nextProgress?: LevelProgress[] } = { saved: false },
+        options: { saved: TrainCompletion["saved"], nextProgress?: LevelProgress[] } = { saved: "failed" },
     ) => {
         const levelName = result.levelName ?? level.name
         const completedLevel = levels.find(item => item.name == levelName) ?? level
@@ -244,7 +244,15 @@ const Train: NextPage = () => {
         })
     }, [difficulty, level])
 
+    // With eagerResult, a signed-in completion reports twice (instant, then the
+    // save upgrade). The popover shows nothing server-derived, so only the first
+    // report counts; the ref clears when the popover closes for a new attempt.
+    const completionHandledRef = useRef(false)
+
     const onTestComplete = (result: TestCompletionResult) => {
+        if (completionHandledRef.current) return
+        completionHandledRef.current = true
+
         const levelName = result.levelName ?? level.name
         const completedLevel = levels.find(item => item.name == levelName) ?? level
         const { stars: gradedStars, entry } = gradeLevel(completedLevel, difficulty, { netWpm: result.netWpm, accuracy: result.accuracy })
@@ -258,8 +266,22 @@ const Train: NextPage = () => {
             return
         }
 
+        // Show the popover now: stars and the next-level unlock are computable
+        // locally (the same merge save() uses). The save settles in the
+        // background and patches the status line — and the unlock, should the
+        // refreshed server progress ever disagree with the local merge.
+        showCompletion(result, { saved: "saving", nextProgress: mergeProgress(completedProgress, entry) })
         void train.save(entry).then(({ saved, nextProgress }) => {
-            showCompletion(result, saved ? { saved: true, nextProgress } : { saved: false })
+            setCompletion((current) => {
+                if (!current || current.levelName !== levelName) return current
+                return {
+                    ...current,
+                    saved: saved ? "saved" : "failed",
+                    nextLevelName: current.stars > 0
+                        ? (nextLevel(nextProgress, levelName, difficulty)?.name ?? current.nextLevelName)
+                        : null,
+                }
+            })
         })
     }
 
@@ -287,6 +309,7 @@ const Train: NextPage = () => {
 
     const retryLevel = () => {
         setCompletion(null)
+        completionHandledRef.current = false
         setRestartSignal(signal => signal + 1)
     }
 
@@ -297,6 +320,7 @@ const Train: NextPage = () => {
         setLevel(nextLevel)
         setLevelChanged(true)
         setCompletion(null)
+        completionHandledRef.current = false
     }
 
     // While the completion popover is open, the Tab+Space/Enter chord drives its
@@ -551,8 +575,8 @@ const Train: NextPage = () => {
                                     levelRequirements={{ wpm: criteria.oneStarNetWpm, accuracy: 0 }}
                                     pacerWpm={level.kind === "boss" ? criteria.oneStarNetWpm : undefined}
                                     failOnMiss={level.kind === "noMiss"}
-                                    onKeyChange={onKeyChange}
                                     onTestComplete={onTestComplete}
+                                    eagerResult
                                     onTypingFocusChange={setTypingFocused}
                                     restartSignal={restartSignal}
                                     showStats={true}
@@ -561,7 +585,7 @@ const Train: NextPage = () => {
                             }
                             {!isTrainContentLoading &&
                                 <div data-testid="train-keyboard-wrap">
-                                    <Keyboard mode={mode} currentKey={currentKey} charAttemptsRef={charAttemptsRef} highlightKeys={level.keys.split("")} />
+                                    <Keyboard mode={mode} charAttemptsRef={charAttemptsRef} highlightKeys={level.keys.split("")} />
                                 </div>
                             }
                         </div>
@@ -620,11 +644,13 @@ const Train: NextPage = () => {
                                         />
                                     }
                                 </div>
-                                <p className="mt-4 text-sm text-base-content/65">
+                                <p className="mt-4 text-sm text-base-content/65" data-testid="train-save-status">
                                     {completion.stars > 0
-                                        ? completion.saved
+                                        ? completion.saved === "saved"
                                             ? "Best result saved."
-                                            : "Clear earned, but saving failed."
+                                            : completion.saved === "failed"
+                                                ? "Clear earned, but saving failed."
+                                                : "Saving progress…"
                                         : failMessage(completion)}
                                 </p>
                                 <div className="mt-4 grid w-full gap-2 rounded-lg border border-base-content/10 bg-base-200/35 p-3 text-left text-xs font-semibold text-base-content/60">

@@ -51,6 +51,23 @@ test.describe("train page", () => {
     await expect(page.getByTestId("train-map")).toBeVisible();
   });
 
+  // The next-key marker on the train board is applied imperatively (no React
+  // render per keystroke — typing-feel §1); guard that it actually follows.
+  test("keyboard lights the next expected key as you type", async ({ page }) => {
+    await gotoTrain(page);
+    await expect(page.locator(".typecafe-keyboard")).toBeVisible();
+
+    await expect(page.locator("#c0")).toHaveClass(/active-char/);
+    const first = await page.locator("#c0").textContent();
+    const firstCell = page.locator(`.typecafe-keyboard [data-kb-key="${first}"]`);
+    await expect(firstCell).toHaveClass(/bg-primary/);
+
+    await typeCurrentCharacter(page, 0);
+    const second = await page.locator("#c1").textContent();
+    await expect(page.locator(`.typecafe-keyboard [data-kb-key="${second}"]`)).toHaveClass(/bg-primary/);
+    if (second !== first) await expect(firstCell).not.toHaveClass(/bg-primary/);
+  });
+
   test("uses local progress to select the next unlocked level", async ({ page }) => {
     await page.addInitScript(() => {
       window.localStorage.setItem(
@@ -82,6 +99,26 @@ test.describe("train page", () => {
     // A cleared cell is clickable and zooms into that level.
     await levelOneCell.click();
     await expect(page.getByTestId("train-rail-caption")).toContainText("Level 1");
+  });
+
+  // typing-feel §3: the popover never waits for the save round-trips — it
+  // renders instantly from local grading (stars, next-level unlock), then the
+  // background save patches the status line.
+  test("signed-in clear shows the popover before the slow save settles", async ({ page }) => {
+    await mockAuthenticatedSession(page);
+    await mockTrpc(page, { delayProcedures: { "test.create": 4000, "trainProgress.complete": 4000 } });
+    await gotoTrain(page);
+
+    await typeVisibleTestText(page);
+
+    const popover = page.getByTestId("train-complete-popover");
+    // Well before the 4s save delay could resolve.
+    await expect(popover).toBeVisible({ timeout: 2500 });
+    await expect(popover.getByTestId("train-save-status")).toContainText("Saving progress");
+    // The next-level unlock comes from the local merge — usable immediately.
+    await expect(popover.getByRole("button", { name: "Next level" })).toBeEnabled();
+    // The background save settles and patches the status.
+    await expect(popover.getByTestId("train-save-status")).toContainText("Best result saved.", { timeout: 15_000 });
   });
 
   test("completion saves guest progress on this device", async ({ page }) => {

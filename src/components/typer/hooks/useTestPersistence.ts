@@ -4,6 +4,7 @@ import { useDispatch } from "react-redux"
 import { addAlert } from "~/state/alert/alertSlice"
 import { addLocalKeyStats } from "~/lib/localSync"
 import { addLocalTransitions } from "~/lib/localTransitions"
+import { EVIDENCE_SYNCED_EVENT } from "~/hooks/useGuestEvidence"
 import { aggregateTransitions } from "~/lib/transitions"
 import { drainSyncedAttempts } from "~/lib/practiceAttempts"
 import type { EncodedKeystroke, KeystrokeEvent } from "~/lib/keystrokes"
@@ -44,6 +45,7 @@ interface UseTestPersistenceArgs {
 export function useTestPersistence({ charAttemptsRef, onTestComplete, eagerResult = false }: UseTestPersistenceArgs) {
     const { data: sessionData } = useSession()
     const dispatch = useDispatch()
+    const utils = api.useUtils()
     const pendingCompletionRef = useRef<TestCompletionResult | null>(null)
 
     const createTest = api.test.create.useMutation({
@@ -81,13 +83,17 @@ export function useTestPersistence({ charAttemptsRef, onTestComplete, eagerResul
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [createTest.mutate, eagerResult, onTestComplete])
 
+    // Both sync mutations invalidate their lifetime read so always-mounted
+    // surfaces (the coach tab) recompute from data that includes this test.
     const { mutate: syncPracticeStats } = api.practiceStats.batchSync.useMutation({
+        onSuccess: () => void utils.practiceStats.get.invalidate(),
         onError: (error) => {
             console.error(error)
         },
     })
 
     const { mutate: syncTransitionStats } = api.transitionStats.batchSync.useMutation({
+        onSuccess: () => void utils.transitionStats.get.invalidate(),
         onError: (error) => {
             console.error(error)
         },
@@ -101,6 +107,7 @@ export function useTestPersistence({ charAttemptsRef, onTestComplete, eagerResul
         if (aggregates.length === 0) return
         if (!sessionData?.user) {
             addLocalTransitions(aggregates)
+            window.dispatchEvent(new Event(EVIDENCE_SYNCED_EVENT))
             return
         }
         syncTransitionStats({ stats: aggregates })
@@ -128,7 +135,10 @@ export function useTestPersistence({ charAttemptsRef, onTestComplete, eagerResul
                 correct: stat.correct,
             })))
 
-            if (saved) drainSyncedAttempts(charAttemptsRef.current, stats)
+            if (saved) {
+                drainSyncedAttempts(charAttemptsRef.current, stats)
+                window.dispatchEvent(new Event(EVIDENCE_SYNCED_EVENT))
+            }
             return
         }
 

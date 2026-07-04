@@ -278,7 +278,6 @@ const Challenge: NextPage = () => {
                             gramAccuracyThreshold={DEFAULT_TEST_SETTINGS.gramAccuracyThreshold}
                             showStats={true}
                             modalOpen={false}
-                            onKeyChange={() => undefined}
                             restartSignal={restartSignal}
                             onTestComplete={onComplete}
                             eagerResult

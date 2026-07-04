@@ -1,4 +1,6 @@
+import { useEffect, useRef } from "react"
 import { hslToHex } from "~/utils/convertColor"
+import { getActiveKey, subscribeActiveKey } from "~/components/typer/keySignal"
 import { useSecondaryStyle, useStyle } from "~/utils/hooks/useMutationObserver"
 import {
     HEATMAP_ROWS,
@@ -30,6 +32,11 @@ interface KeyHeatmapProps {
     lockedKeys?: ReadonlySet<string>,
     onKeyClick?: (key: string) => void,
     currentKey?: string,
+    // Live boards (Practice): ring the typer's next key by moving classes on
+    // the cells instead of re-rendering ~50 of them per keystroke
+    // (typing-feel §1). Don't combine with highlightKeys — the mover owns the
+    // ring classes and would strip a static highlight ring it lands on.
+    followActiveKey?: boolean,
     // Shift layer: render each cell's shifted twin (R, ?, !, :) with its own raw
     // accuracy instead of the base glyph. Callers pass *unfolded* attempts so each
     // layer resolves its own glyph.
@@ -105,10 +112,30 @@ export function KeyHeatmapLegend() {
 // A reusable per-key accuracy heatmap. The rendering is intentionally the same
 // primitive for Practice, score-card diagnosis, beat-run compare, and /progress.
 export function KeyHeatmap(props: KeyHeatmapProps) {
-    const { attempts, size = "full", includeSpace = true, highlightKeys, lockedKeys, onKeyClick, currentKey, shiftLayer, interactiveKeys } = props
+    const { attempts, size = "full", includeSpace = true, highlightKeys, lockedKeys, onKeyClick, currentKey, followActiveKey, shiftLayer, interactiveKeys } = props
     const showPercent = props.showPercent ?? size === "full"
     const { lowColor, highColor } = useHeatmapColors()
     const highlight = new Set(highlightKeys)
+
+    const rootRef = useRef<HTMLDivElement>(null)
+    useEffect(() => {
+        if (!followActiveKey) return
+        const root = rootRef.current
+        if (!root) return
+        const RING = ["ring-2", "ring-primary", "ring-offset-1", "ring-offset-base-200"]
+        let ringed: HTMLElement | null = null
+        const apply = (key: string) => {
+            ringed?.classList.remove(...RING)
+            ringed = key ? root.querySelector<HTMLElement>(`[data-kb-key="${CSS.escape(key)}"]`) : null
+            ringed?.classList.add(...RING)
+        }
+        apply(getActiveKey())
+        const unsubscribe = subscribeActiveKey(apply)
+        return () => {
+            unsubscribe()
+            ringed?.classList.remove(...RING)
+        }
+    }, [followActiveKey])
 
     const rowClass = ROW_CLASS_BY_SIZE[size]
     const keyClass = KEY_CLASS_BY_SIZE[size]
@@ -132,6 +159,7 @@ export function KeyHeatmap(props: KeyHeatmapProps) {
         return (
             <kbd
                 key={key}
+                data-kb-key={followActiveKey ? glyph : undefined}
                 onClick={interactive ? () => onKeyClick!(glyph) : undefined}
                 role={interactive ? "button" : undefined}
                 className={`${keyClass} ${isSpace ? spaceClass : ""} ${ringed ? "ring-2 ring-primary ring-offset-1 ring-offset-base-200" : ""} ${interactive ? "cursor-pointer select-none" : ""} ${isLocked ? "opacity-60" : ""}`}
@@ -153,6 +181,7 @@ export function KeyHeatmap(props: KeyHeatmapProps) {
 
     return (
         <div
+            ref={rootRef}
             className={`typecafe-key-heatmap flex flex-col items-center gap-[0.25rem] ${props.className ?? ""}`}
             data-testid={props.testId}
         >

@@ -2,6 +2,7 @@ import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState, type R
 import { applyTextOptions, generateBetterPseudoText, generateText } from "./utils"
 import { TestModes, TestSubModes } from "./types"
 import { isAnyModalOpen, isModalOpen, MODAL_IDS } from "~/lib/modals"
+import { runWhenIdle } from "~/lib/idle"
 
 interface TextProps {
     text: string,
@@ -39,7 +40,6 @@ interface TextProps {
     onKeyChange: (key: string) => void,
     onCharacterAttempt?: (attempt: { expected: string, typed: string, correct: boolean }) => void,
     onBackspace?: () => void,
-    onAttemptChange?: () => void,
 }
 
 // True for editable form controls. The toolbar and its subpanels live inside
@@ -79,10 +79,15 @@ export const Text = memo(function Text(props: TextProps) {
         onKeyChange,
         onCharacterAttempt,
         onBackspace,
-        onAttemptChange,
     } = props
-    const [position, setPosition] = useState(0)
+    // Ref-only, no state: a keystroke must never re-render this component
+    // (typing-feel §1). All per-key work happens imperatively in
+    // nextLetter/prevLetter; React only re-renders on restart/config changes.
     const positionRef = useRef(0)
+    // The span the cursor sits on. Char spans are ordered siblings, so the
+    // cursor walks nextElementSibling/previousElementSibling — no per-keystroke
+    // querySelector over the (append-grown) container.
+    const activeCharRef = useRef<HTMLElement | null>(null)
     const textContainerRef = useRef<HTMLDivElement>(null)
     const charStatesRef = useRef<Map<number, 'correct' | 'incorrect'>>(new Map())
     const currentTextRef = useRef(text)
@@ -93,6 +98,13 @@ export const Text = memo(function Text(props: TextProps) {
 
     // ref div to scroll text
     const typerRef = useRef<HTMLDivElement>(null)
+
+    // The vertical caret (typing-feel §2): an absolutely positioned line moved
+    // with transform, same imperative pattern as the pacer. A short CSS
+    // transform transition makes it glide between letters; the caret-idle
+    // class (re-added after a typing pause) makes it blink.
+    const caretRef = useRef<HTMLDivElement>(null)
+    const caretIdleTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
     // ref input to focus
     const inputRef = useRef<HTMLInputElement>(null)
@@ -206,10 +218,17 @@ export const Text = memo(function Text(props: TextProps) {
         currentTextRef.current = text
         charStatesRef.current.clear()
         completedRef.current = false
+        appendEpochRef.current++
         setLoadingText(text.length === 0)
         renderInitialText(text)
         positionRef.current = 0
-        setPosition(0)
+        activeCharRef.current = (textContainerRef.current?.firstElementChild as HTMLElement | null) ?? null
+        if (typerRef.current) typerRef.current.scrollTop = 0
+        // Fresh test: caret on the first char, blinking immediately (idle).
+        positionCaret()
+        clearTimeout(caretIdleTimerRef.current)
+        caretRef.current?.classList.add('caret-idle')
+        callbacksRef.current.onKeyChange(text[0] ?? '')
 
         const restartBtn = document.getElementById("restart") as HTMLButtonElement
         if (restartBtn) restartBtn.classList.remove("blinking", "text-primary")
@@ -225,46 +244,115 @@ export const Text = memo(function Text(props: TextProps) {
     // otherwise exhaust the buffer and deadlock until the timer expires.
     const appendsText = !noAppend && (mode === TestModes.relaxed ||
         (mode === TestModes.normal && subMode === TestSubModes.timed))
-    useEffect(() => {
-        if (appendsText && !isAppendingRef.current) {
-            const threshold = 300
-            if (position >= currentTextRef.current.length - threshold) {
-                isAppendingRef.current = true
-                const generated = appendKeys
-                    ? generateBetterPseudoText(100, appendKeys.split(""))
-                    : generateText(100, language)
-                const newText = applyTextOptions(generated, punctuation, capitals)
-                appendNewText(" " + newText)
-                currentTextRef.current += " " + newText
-                isAppendingRef.current = false
-            }
+    // Latest append inputs, readable from the idle callback without re-wiring
+    // it on every option change.
+    const appendConfigRef = useRef({ appendsText, appendKeys, language, punctuation, capitals })
+    appendConfigRef.current = { appendsText, appendKeys, language, punctuation, capitals }
+    // Bumped on restart so a scheduled append can't land on a regenerated test.
+    const appendEpochRef = useRef(0)
+
+    // Refill the buffer off the keystroke's critical path: generation + the DOM
+    // append of ~600 spans run in an idle callback. The 300-char threshold gives
+    // seconds of margin at any human speed, so the 1s timeout always lands in time.
+    const scheduleAppendIfNeeded = () => {
+        const config = appendConfigRef.current
+        if (!config.appendsText || isAppendingRef.current) return
+        if (positionRef.current < currentTextRef.current.length - 300) return
+        isAppendingRef.current = true
+        const epoch = appendEpochRef.current
+        const run = () => {
+            isAppendingRef.current = false
+            if (epoch !== appendEpochRef.current) return
+            const current = appendConfigRef.current
+            if (!current.appendsText) return
+            const generated = current.appendKeys
+                ? generateBetterPseudoText(100, current.appendKeys.split(""))
+                : generateText(100, current.language)
+            const newText = applyTextOptions(generated, current.punctuation, current.capitals)
+            appendNewText(" " + newText)
+            currentTextRef.current += " " + newText
         }
-    }, [appendNewText, appendsText, appendKeys, language, position, punctuation, capitals])
+        runWhenIdle(run)
+    }
 
     useEffect(() => {
         if (!started && !restarted) {
-            const current = typerRef.current?.querySelector("#c" + position.toString()) as HTMLDivElement
+            const current = typerRef.current?.querySelector("#c" + positionRef.current.toString()) as HTMLDivElement
             const restartBtn = document.getElementById("restart") as HTMLButtonElement
             if (restartBtn) restartBtn.classList.add("blinking", "text-primary")
             if (current) current.classList.value = ""
+            // The attempt is over; the frozen text shows no cursor.
+            if (caretRef.current) caretRef.current.style.display = 'none'
+            clearTimeout(caretIdleTimerRef.current)
         }
-    }, [started, restarted, position])
+    }, [started, restarted])
 
+    // Place the caret at the active char's left edge — or the right edge of the
+    // last char when the text is fully consumed. Coordinates mirror the pacer's:
+    // offsets are relative to #text, minus the words-container scroll.
+    const positionCaret = () => {
+        const caret = caretRef.current
+        const words = typerRef.current
+        if (!caret || !words) return
+        const active = activeCharRef.current
+        const anchor = active ?? (textContainerRef.current?.lastElementChild as HTMLElement | null)
+        if (!anchor) {
+            caret.style.display = 'none'
+            return
+        }
+        const x = (active ? anchor.offsetLeft : anchor.offsetLeft + anchor.offsetWidth) - 1
+        const y = anchor.offsetTop - words.scrollTop
+        // Mid-scroll the anchor's line can sit outside the words viewport; hide
+        // rather than paint a caret over the counter row or below the fold.
+        if (y < words.offsetTop - 2 || y > words.offsetTop + words.clientHeight) {
+            caret.style.display = 'none'
+            return
+        }
+        caret.style.display = 'block'
+        caret.style.height = `${anchor.offsetHeight}px`
+        caret.style.transform = `translate(${x}px, ${y}px)`
+    }
+
+    // Typing keeps the caret solid; a pause brings the blink back.
+    const wakeCaret = () => {
+        caretRef.current?.classList.remove('caret-idle')
+        clearTimeout(caretIdleTimerRef.current)
+        caretIdleTimerRef.current = setTimeout(() => caretRef.current?.classList.add('caret-idle'), 600)
+    }
+
+    // Follow the smooth line-change scroll (and window resizes) so the caret
+    // rides with the text instead of teleporting after it settles.
     useEffect(() => {
-        const current = typerRef.current?.querySelector("#c" + position.toString()) as HTMLDivElement
-        if (current && typerRef.current) {
-            typerRef.current.querySelectorAll(".active-char").forEach((char) => {
-                if (char !== current) char.classList.remove("active-char", "text-primary")
-            })
-            current.classList.add("active-char", "text-primary")
+        const words = typerRef.current
+        if (!words) return
+        const reposition = () => positionCaret()
+        words.addEventListener('scroll', reposition, { passive: true })
+        window.addEventListener('resize', reposition)
+        return () => {
+            words.removeEventListener('scroll', reposition)
+            window.removeEventListener('resize', reposition)
+            clearTimeout(caretIdleTimerRef.current)
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [])
 
+    // Post-keystroke cursor work, imperative (no render): follow the cursor's
+    // line and report the new expected key. `activeChar` already carries the
+    // active-char class; this only scrolls and notifies.
+    const afterCursorMove = (activeChar: Element | null) => {
+        const words = typerRef.current
+        const char = activeChar as HTMLElement | null
+        if (char && words) {
             // scroll typer if new line
-            const offset = current.offsetTop - typerRef.current.offsetTop
-            if (offset !== typerRef.current.scrollTop) {
-                typerRef.current.scrollBy(0, offset - typerRef.current.scrollTop)
+            const offset = char.offsetTop - words.offsetTop
+            if (offset !== words.scrollTop) {
+                words.scrollBy(0, offset - words.scrollTop)
             }
         }
-    }, [position, typerRef])
+        positionCaret()
+        wakeCaret()
+        callbacksRef.current.onKeyChange(char?.textContent ?? '')
+    }
 
     // First keystroke: start the clock the pacer races against, then the timer.
     const startAttempt = () => {
@@ -276,11 +364,14 @@ export const Text = memo(function Text(props: TextProps) {
         if (completedRef.current) return
 
         const currentPosition = positionRef.current
-        const current = typerRef.current?.querySelector("#c" + currentPosition.toString()) as HTMLDivElement
+        const current = activeCharRef.current
 
         if (current && restarted) {
+            // textContent, never innerText: innerText is layout-aware and forces
+            // a synchronous reflow on the hottest path in the app.
+            const expected = (current.textContent ?? '').trim()
             // check for correct key or incorrect
-            if ((current.innerText.trim() === '' && e.key === ' ') || current.innerText.trim() === e.key) {
+            if ((expected === '' && e.key === ' ') || expected === e.key) {
                 nextLetter(true, e.key)
                 // start timer
                 if (currentPosition === 0 && !started) startAttempt()
@@ -298,7 +389,7 @@ export const Text = memo(function Text(props: TextProps) {
 
     const nextLetter = (correct: boolean, typed: string) => {
         const currentIndex = positionRef.current
-        const currentChar = textContainerRef.current?.querySelector(`#c${currentIndex}`)
+        const currentChar = activeCharRef.current
 
         if (currentChar) {
             const char = currentChar.textContent || '';
@@ -317,12 +408,8 @@ export const Text = memo(function Text(props: TextProps) {
             attempts.attempts += 1;
             if (correct) attempts.correct += 1;
             charAttempts.set(char, attempts);
-            onAttemptChange?.();
 
-            // Update React state for position and incorrect count
-            const nextPosition = currentIndex + 1
-            positionRef.current = nextPosition
-            setPosition(nextPosition)
+            positionRef.current = currentIndex + 1
 
             // No-miss levels end on the first error — the recorded miss makes the
             // completion grade as a fail (accuracy < 100).
@@ -339,10 +426,13 @@ export const Text = memo(function Text(props: TextProps) {
             }
 
             // Update active character styling for new position
-            const nextChar = textContainerRef.current?.querySelector(`#c${currentIndex + 1}`)
+            const nextChar = currentChar.nextElementSibling as HTMLElement | null
+            activeCharRef.current = nextChar
             if (nextChar) {
                 nextChar.classList.add('active-char', 'text-primary')
             }
+            afterCursorMove(nextChar)
+            scheduleAppendIfNeeded()
         }
     }
 
@@ -351,8 +441,11 @@ export const Text = memo(function Text(props: TextProps) {
         if (currentPosition === 0) return
 
         const prevIndex = currentPosition - 1
-        const prevChar = textContainerRef.current?.querySelector(`#c${prevIndex}`)
-        const currentChar = textContainerRef.current?.querySelector(`#c${currentPosition}`)
+        const currentChar = activeCharRef.current
+        // At the end of the text there is no active span; step back from the last one.
+        const prevChar = (currentChar
+            ? currentChar.previousElementSibling
+            : textContainerRef.current?.lastElementChild) as HTMLElement | null
         currentChar?.classList.remove('active-char', 'text-primary')
 
         if (prevChar) {
@@ -362,21 +455,17 @@ export const Text = memo(function Text(props: TextProps) {
             // Update state tracking
             charStatesRef.current.delete(prevIndex)
 
-            // Update React states
             positionRef.current = prevIndex
-            setPosition(prevIndex)
             // The recorder owns the net character/incorrect counts; tell it a
             // committed key was walked back.
             onBackspace?.()
 
             // Update active character styling
+            activeCharRef.current = prevChar
             prevChar.classList.add('active-char', 'text-primary')
+            afterCursorMove(prevChar)
         }
     }
-
-    useEffect(() => {
-        callbacksRef.current.onKeyChange(textContainerRef.current?.querySelector(`#c${position}`)?.textContent || '')
-    }, [position])
 
     // Boss pacer: a vertical line glides across the text at pacerWpm. It advances
     // on a continuous clock (rAF), interpolating between character boxes so it
@@ -455,6 +544,8 @@ export const Text = memo(function Text(props: TextProps) {
     return (
         <div id="text" className={`relative z-30 mb-8 flex w-full max-w-[calc(100vw-2rem)] flex-col md:max-w-screen-xl ${mode === TestModes.ngrams && text.length <= 8 ? "text-[40px] leading-[4.4rem] tracking-wide sm:text-[60px] sm:leading-[6rem]" : "text-[24px] leading-[2.2rem] sm:text-[34px] sm:leading-[3rem]"}`}>
             <input id="input" autoCapitalize="none" autoComplete="off" className="h-0 p-0 m-0 border-none" onKeyDown={handleKeyPress} ref={inputRef} autoFocus />
+            {/* The typing caret — positioned imperatively per keystroke (typing-feel §2). */}
+            <div ref={caretRef} data-testid="typing-caret" aria-hidden="true" className="typing-caret caret-idle pointer-events-none absolute left-0 top-0 z-40 w-[2.5px] rounded-full bg-primary will-change-transform" style={{ display: 'none', height: 0, transform: 'translate(-9999px, 0)' }} />
             {/* Boss pacer line — positioned and animated imperatively by the pacer effect. */}
             <div ref={pacerLineRef} aria-hidden="true" className="pointer-events-none absolute left-0 top-0 z-40 w-[3px] rounded-full bg-error/90 will-change-transform" style={{ display: 'none', height: 0, transform: 'translate(-9999px, 0)' }} />
             {/* Shown instead when the pacer has scrolled above the view: an up-caret that
