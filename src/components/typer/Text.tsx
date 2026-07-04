@@ -557,10 +557,7 @@ export const Text = memo(function Text(props: TextProps) {
             <div className="flex w-full justify-center">
                 <div className="flex min-w-0 max-w-full flex-col">
                     {counter}
-                    {/* max-h is 3 line-heights + a sliver: the extra clears the bottom
-                        line's descenders (which dip past the line box) while staying
-                        inside the next line's blank half-leading, so no 4th line peeks. */}
-                    <div className="flex w-full max-h-[6.85rem] flex-wrap overflow-y-hidden no-scrollbar scroll-smooth font-mono select-none sm:max-h-[9.3rem]" id="words" ref={typerRef}>
+                    <div className="flex w-full max-h-[6.6rem] flex-wrap overflow-y-hidden no-scrollbar scroll-smooth font-mono select-none sm:max-h-[9rem]" id="words" ref={typerRef}>
                         <div
                             className="max-w-full"
                             ref={textContainerRef}
