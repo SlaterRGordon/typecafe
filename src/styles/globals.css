@@ -225,13 +225,14 @@ button:disabled,
     color: var(--secondary-text-color);
 }
 
-.incorrect-char {
-    color: var(--error-color);
-    text-decoration: underline;
-    /* Descenders (y, g, p…) otherwise break the underline via skip-ink and, at
-       the default baseline position, the line cuts through the tail; drop it
-       just under the glyph and keep it continuous. */
-    text-underline-position: under;
+/* Typer error underlines. Two overrides, both load-bearing:
+   - baseline position (not the global "under" from html/body): an "under"
+     underline paints at the line box's bottom edge, so it clips on the last
+     visible row and lingers at the top after its glyphs scroll away;
+   - skip-ink none: the default breaks the line where descenders (y, g, p…)
+     cross it, leaving gaps. */
+#words .char {
+    text-underline-position: auto;
     text-decoration-skip-ink: none;
 }
 
