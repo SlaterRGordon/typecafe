@@ -309,6 +309,9 @@ test.describe("shared scores", () => {
     expect(html).toContain('property="og:image"');
     expect(html).toContain("/api/og/score/share-test-score");
     expect(html).toContain('name="twitter:card" content="summary_large_image"');
+    // Social card, not a search landing page: crawlable for unfurls, out of the
+    // index (growth-seo §C).
+    expect(html).toContain('name="robots" content="noindex,follow"');
 
     // The image endpoint renders a PNG (falls back to a brand card without a DB).
     const image = await page.request.get("/api/og/score/share-test-score");

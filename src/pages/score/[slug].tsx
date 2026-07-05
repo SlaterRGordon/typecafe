@@ -508,6 +508,10 @@ const SharedScorePage: NextPage<SharedScorePageProps> = ({ slug, meta }) => {
     <>
       <Head>
         <title>{meta.title}</title>
+        {/* Share pages are social cards, not search landing pages: keep them
+            crawlable (OG/unfurls still work) but out of the index so thousands
+            of thin per-score pages don't dilute the domain (growth-seo §C). */}
+        <meta key="robots" name="robots" content="noindex,follow" />
         <link key="canonical" rel="canonical" href={meta.pageUrl} />
         <meta key="description" name="description" content={meta.description} />
         <meta key="og:type" property="og:type" content="website" />

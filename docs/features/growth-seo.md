@@ -45,9 +45,10 @@ Copy-link/copy-image only today — no native share sheet, no pre-filled targets
 
 ## C. Index hygiene
 
-- [ ] `noindex,follow` on score/beat/progress share pages.
-- [ ] Drop score-share entries from `sitemap.xml.ts` (keep static pages +
-  profiles).
+- [x] `noindex,follow` on the share page (`/score/[slug]`, covers score/beat/
+  progress). Keeps unfurls working; keeps thin pages out of the index.
+- [x] Dropped score-share entries + their DB query from `sitemap.xml.ts` (keeps
+  static pages + profiles). E2e asserts the noindex meta.
 
 ## D. Structured data
 
