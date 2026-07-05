@@ -125,6 +125,7 @@ const Home: NextPage = () => {
     enabled: mode === TestModes.practice && !!sessionData?.user,
   })
   const createShare = api.scoreShare.create.useMutation()
+  const createGuestScore = api.scoreShare.createGuestScore.useMutation()
   const saveAfterSignIn = api.test.create.useMutation()
 
   // Rendered nowhere: bumping it just re-renders the Keyboard once when the
@@ -528,7 +529,7 @@ const Home: NextPage = () => {
   }, [router.isReady, router.query.mode, router.query.count])
 
   const createAndCopyShareLink = async () => {
-    if (!completedScore?.testId) return undefined
+    if (!completedScore) return undefined
 
     const {
       durationSeconds,
@@ -549,28 +550,42 @@ const Home: NextPage = () => {
       capitals,
       ranked,
     } = completedScore
-    const share = await createShare.mutateAsync({
-      testId: completedScore.testId,
-      snapshot: {
-        durationSeconds,
-        rawWpm,
-        netWpm,
-        accuracy,
-        totalKeystrokes,
-        correctKeystrokes,
-        incorrectKeystrokes,
-        promptText,
-        typedText,
-        typedSegments,
-        worstKeys,
-        brag,
-        avgDelta,
-        punctuation,
-        capitals,
-        ranked,
-        wpmSamples,
-      },
-    })
+    const baseSnapshot = {
+      durationSeconds,
+      rawWpm,
+      netWpm,
+      accuracy,
+      totalKeystrokes,
+      correctKeystrokes,
+      incorrectKeystrokes,
+      promptText,
+      typedText,
+      typedSegments,
+      worstKeys,
+      brag,
+      avgDelta,
+      punctuation,
+      capitals,
+      ranked,
+      wpmSamples,
+    }
+    // Signed-in: link the share to the saved Test. Guest: mint a snapshot-only
+    // share that carries its own render fields (mode/language/count).
+    const share = completedScore.testId
+      ? await createShare.mutateAsync({ testId: completedScore.testId, snapshot: baseSnapshot })
+      : await createGuestScore.mutateAsync({
+          snapshot: {
+            ...baseSnapshot,
+            count: completedScore.count,
+            mode: completedScore.mode,
+            subMode: completedScore.subMode,
+            language: completedScore.language,
+            options: completedScore.options,
+            speed: completedScore.speed,
+            score: completedScore.speed * completedScore.accuracy,
+            createdAt: completedScore.createdAt.getTime(),
+          },
+        })
     const origin = window.location.origin
     const nextShareUrl = `${origin}/score/${share.slug}`
     setShareUrl(nextShareUrl)
@@ -601,6 +616,9 @@ const Home: NextPage = () => {
         />
       </Head>
       <div id="typer" className={`flex flex-col h-full overflow-auto ${completedScore ? "py-4" : "[justify-content:safe_center]"} ${fullscreen ? 'absolute top-0 left-0 w-full h-full bg-base-100 z-[500] sm:px-8' : 'w-full max-w-screen-xl mx-auto'}`}>
+        {/* A real page heading for crawlers + screen readers without disturbing
+            the minimal test-first hero (growth-seo §E). */}
+        <h1 className="sr-only">TypeCafe — the typing test that makes you faster</h1>
         {!completedScore && !fullscreen &&
           <HomeCoachTabs className={typingFocusFadeClass(typingFocused, "")} desktop={false} />
         }
@@ -724,10 +742,9 @@ const Home: NextPage = () => {
                   },
                 }}
                 shareUrl={shareUrl}
-                canCreateShare={!!completedScore.testId}
+                canCreateShare
                 isSaving={isSavingScore}
-                signInHtmlFor="signInModal"
-                isCreatingShare={createShare.isPending}
+                isCreatingShare={createShare.isPending || createGuestScore.isPending}
                 onCreateShare={createAndCopyShareLink}
                 onTestAgain={requestRestart}
               />

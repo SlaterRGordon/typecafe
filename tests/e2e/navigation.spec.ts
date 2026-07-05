@@ -9,8 +9,8 @@ test.describe("app navigation", () => {
       : page.getByTestId("side-primary-nav");
 
     await expect(nav).toBeVisible();
-    const labels = await nav.getByRole("button").evaluateAll((buttons) =>
-      buttons.map((button) => button.getAttribute("aria-label")).filter(Boolean)
+    const labels = await nav.getByRole("link").evaluateAll((links) =>
+      links.map((link) => link.getAttribute("aria-label")).filter(Boolean)
     );
     const icons = await nav.locator(".material-symbols-rounded").evaluateAll((nodes) =>
       nodes.map((node) => node.textContent?.trim()).filter(Boolean)
@@ -25,16 +25,16 @@ test.describe("app navigation", () => {
     await page.goto("/");
     await expect(page.locator("#words .char").first()).toBeVisible();
 
-    await page.getByRole("button", { name: "Train" }).click();
+    await page.getByRole("link", { name: "Train" }).click();
     await expect(page).toHaveURL(/\/train$/);
     // /train lands on the level map hub.
     await expect(page.getByTestId("train-continue")).toBeVisible({ timeout: 20_000 });
 
-    await page.getByRole("button", { name: "Leaderboard" }).click();
+    await page.getByRole("link", { name: "Leaderboard" }).click();
     await expect(page).toHaveURL(/\/leaderboard$/);
     await expect(page.locator("#leaderboard").first()).toBeVisible();
 
-    await page.getByRole("button", { name: "Home" }).click();
+    await page.getByRole("link", { name: "Home" }).click();
     await expect(page).toHaveURL(/\/$/);
     await expect(page.locator("#words .char").first()).toBeVisible();
   });
@@ -52,24 +52,24 @@ test.describe("app navigation", () => {
 
     // The five footer links now live behind one "More" popover.
     await openMore();
-    await menu.getByRole("button", { name: "Support Me" }).click();
+    await menu.getByRole("link", { name: "Support Me" }).click();
     await expect(page.getByRole("heading", { name: "Support TypeCafe" })).toBeVisible();
     await expect(menu).toBeHidden();
 
     await openMore();
-    await menu.getByRole("button", { name: "Contact Us" }).click();
+    await menu.getByRole("link", { name: "Contact Us" }).click();
     await expect(page.getByRole("heading", { name: "Contact TypeCafe" })).toBeVisible();
 
     await openMore();
-    await menu.getByRole("button", { name: "Privacy Policy" }).click();
+    await menu.getByRole("link", { name: "Privacy Policy" }).click();
     await expect(page.getByRole("heading", { name: "Privacy Policy for TypeCafe" })).toBeVisible();
 
     await openMore();
-    await menu.getByRole("button", { name: "Terms" }).click();
+    await menu.getByRole("link", { name: "Terms" }).click();
     await expect(page.getByRole("heading", { name: "Terms and Conditions", exact: true })).toBeVisible();
 
     await openMore();
-    await menu.getByRole("button", { name: "How we measure" }).click();
+    await menu.getByRole("link", { name: "How we measure" }).click();
     await expect(page).toHaveURL(/\/how-we-measure$/);
   });
 });

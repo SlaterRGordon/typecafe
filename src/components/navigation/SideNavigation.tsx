@@ -1,5 +1,6 @@
 import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { Avatar } from "../Avatar";
 import { useRouter } from "next/router";
 import { SHOW_PLAN_NAVIGATION } from "~/lib/features";
@@ -13,6 +14,7 @@ const MORE_LINKS = [
     { href: "/privacy-policy", label: "Privacy Policy" },
     { href: "/terms-and-conditions", label: "Terms" },
     { href: "/how-we-measure", label: "How we measure" },
+    { href: "/how-to-type-faster", label: "How to type faster" },
 ];
 
 export const SideNavigation = () => {
@@ -40,44 +42,47 @@ export const SideNavigation = () => {
             onMouseLeave={() => { setIsExpanded(false); setMoreOpen(false); }}
         >
             <div className="flex flex-col" data-testid="side-primary-nav">
+                {/* Real <a href> links (via next/link) so Googlebot can crawl the
+                    internal pages and pass link equity — onClick nav is invisible
+                    to it (growth-seo §E). SPA behaviour is unchanged. */}
                 {/* Home */}
-                <button onClick={() => router.push('/')} className={getNavButtonClass('/')} aria-label="Home" title="Home">
+                <Link href="/" className={getNavButtonClass('/')} aria-label="Home" title="Home">
                     <MaterialNavIcon name="home" className={navIconClass} />
                     <div className={navLabelClass}>Home</div>
-                </button>
+                </Link>
                 {/* Practise */}
-                <button onClick={() => router.push('/train')} className={getNavButtonClass('/train')} aria-label="Train" title="Train">
+                <Link href="/train" className={getNavButtonClass('/train')} aria-label="Train" title="Train">
                     <MaterialNavIcon name="fitness_center" className={navIconClass} />
                     <div className={navLabelClass}>Train</div>
-                </button>
+                </Link>
                 {/* Progress */}
-                <button onClick={() => router.push('/progress')} className={getNavButtonClass('/progress')} aria-label="Progress" title="Progress">
+                <Link href="/progress" className={getNavButtonClass('/progress')} aria-label="Progress" title="Progress">
                     <MaterialNavIcon name="trending_up" className={navIconClass} />
                     <div className={navLabelClass}>Progress</div>
-                </button>
+                </Link>
                 {/* Daily Challenge */}
-                <button onClick={() => router.push('/challenge')} className={getNavButtonClass('/challenge')} aria-label="Daily Challenge" title="Daily Challenge">
+                <Link href="/challenge" className={getNavButtonClass('/challenge')} aria-label="Daily Challenge" title="Daily Challenge">
                     <MaterialNavIcon name="calendar_today" className={navIconClass} />
                     <div className={navLabelClass}>Challenge</div>
-                </button>
+                </Link>
                 {/* Leaderboard */}
-                <button onClick={() => router.push('/leaderboard')} className={getNavButtonClass('/leaderboard')} aria-label="Leaderboard" title="Leaderboard">
+                <Link href="/leaderboard" className={getNavButtonClass('/leaderboard')} aria-label="Leaderboard" title="Leaderboard">
                     <MaterialNavIcon name="leaderboard" className={navIconClass} />
                     <div className={navLabelClass}>Leaderboard</div>
-                </button>
+                </Link>
                 {/* Plan, if signed in */}
                 {SHOW_PLAN_NAVIGATION && sessionData?.user &&
-                    <button onClick={() => router.push('/plan')} className={getNavButtonClass('/plan')} aria-label="Plan" title="Plan">
+                    <Link href="/plan" className={getNavButtonClass('/plan')} aria-label="Plan" title="Plan">
                         <MaterialNavIcon name="assignment_turned_in" className={navIconClass} />
                         <div className={navLabelClass}>Plan</div>
-                    </button>
+                    </Link>
                 }
                 {/* Profile, if signed in */}
                 {sessionData?.user &&
-                    <button onClick={() => router.push('/profile')} className={getNavButtonClass('/profile')} aria-label="Profile" title="Profile">
+                    <Link href="/profile" className={getNavButtonClass('/profile')} aria-label="Profile" title="Profile">
                         <Avatar size={25} image={sessionData.user.image} name={sessionData.user.username ?? sessionData.user.name} />
                         <div className={navLabelClass}>Profile</div>
-                    </button>
+                    </Link>
                 }
             </div>
             <div className="relative flex flex-col">
@@ -87,13 +92,14 @@ export const SideNavigation = () => {
                 {moreOpen &&
                     <div data-testid="nav-more-menu" className="absolute bottom-full left-2 z-[46] mb-1 w-52 rounded-lg border border-base-content/10 bg-base-200 p-1 shadow-lg">
                         {MORE_LINKS.map((link) => (
-                            <button
+                            <Link
                                 key={link.href}
-                                onClick={() => { setMoreOpen(false); void router.push(link.href); }}
+                                href={link.href}
+                                onClick={() => setMoreOpen(false)}
                                 className={`flex w-full items-center rounded-md px-3 py-2 text-left text-sm transition-colors hover:bg-base-content/10 ${router.pathname.startsWith(link.href) ? "bg-base-300 text-base-content" : "text-base-content/80 hover:text-base-content"}`}
                             >
                                 {link.label}
-                            </button>
+                            </Link>
                         ))}
                     </div>
                 }

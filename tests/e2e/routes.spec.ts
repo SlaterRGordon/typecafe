@@ -16,6 +16,7 @@ const publicRoutes: PublicRoute[] = [
   { path: "/contact", heading: "Contact TypeCafe" },
   { path: "/privacy-policy", heading: "Privacy Policy for TypeCafe" },
   { path: "/terms-and-conditions", heading: "Terms and Conditions" },
+  { path: "/how-to-type-faster", heading: "How to Type Faster" },
 ];
 
 test.describe("public routes", () => {
@@ -37,17 +38,17 @@ test.describe("public routes", () => {
     await mockAuthenticatedSession(page);
     await page.goto("/");
 
-    await expect(page.getByRole("button", { name: "Progress" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Profile" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Plan" })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Progress" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Profile" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Plan" })).toHaveCount(0);
   });
 
   test("guests see Progress in the nav and reach the sign-in pitch", async ({ page }) => {
     await page.goto("/");
 
-    const progress = page.getByRole("button", { name: "Progress" }).first();
+    const progress = page.getByRole("link", { name: "Progress" }).first();
     await expect(progress).toBeVisible();
-    await expect(page.getByRole("button", { name: "Profile" })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Profile" })).toHaveCount(0);
 
     await progress.click();
     await expect(page.getByTestId("progress-signed-out")).toBeVisible();

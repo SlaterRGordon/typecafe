@@ -712,7 +712,7 @@ test.describe("screenshot tour", () => {
   test("navigation: expanded side rail", async ({ page }, testInfo) => {
     test.skip(testInfo.project.name.includes("mobile"), "The side rail is desktop-only.");
     await gotoHome(page);
-    const homeButton = page.getByTestId("side-primary-nav").getByRole("button", { name: "Home" });
+    const homeButton = page.getByTestId("side-primary-nav").getByRole("link", { name: "Home" });
     await homeButton.hover();
     await expect(homeButton.locator("div").getByText("Home", { exact: true })).toBeVisible();
     await capture(page, testInfo, "58-nav-expanded");
@@ -810,6 +810,15 @@ test.describe("screenshot tour", () => {
     await capture(page, testInfo, "18-shared-score");
   });
 
+  test("shared score page (guest, no account)", async ({ page }, testInfo) => {
+    // A snapshot-only share minted by a signed-out guest — no Test row backs it.
+    await mockTrpc(page);
+    await page.goto("/score/guest-score-share");
+    await expect(page.getByTestId("score-screenshot-card")).toBeVisible();
+    await expect(page.getByText("WPM Over Time")).toBeVisible();
+    await capture(page, testInfo, "64-shared-score-guest");
+  });
+
   test("beat-my-run compare view", async ({ page }, testInfo) => {
     await mockTrpc(page);
     await page.goto("/score/beat-source-score?type=1");
@@ -833,6 +842,10 @@ test.describe("screenshot tour", () => {
     await page.goto("/how-we-measure");
     await expect(page.getByRole("heading", { name: "How TypeCafe Measures Typing" })).toBeVisible();
     await capture(page, testInfo, "55-how-we-measure");
+
+    await page.goto("/how-to-type-faster");
+    await expect(page.getByRole("heading", { name: "How to Type Faster", exact: true })).toBeVisible();
+    await capture(page, testInfo, "65-how-to-type-faster");
 
     await page.goto("/privacy-policy");
     await expect(page.getByRole("heading", { name: "Privacy Policy for TypeCafe" })).toBeVisible();

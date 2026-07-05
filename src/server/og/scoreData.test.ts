@@ -112,6 +112,34 @@ describe("getShareForOg", () => {
     expect(netFromRaw(72, 97)).not.toBe(72 * (97 / 100))
   })
 
+  it("builds OG data for a guest score share that has no Test row", async () => {
+    // Guests mint snapshot-only shares (testId null). Before the snapshot
+    // fallback these returned null → generic meta and a broken card.
+    findUnique.mockResolvedValueOnce(scoreShare({
+      test: null,
+      snapshot: {
+        rawWpm: 88,
+        netWpm: 85.1,
+        accuracy: 96,
+        durationSeconds: 30,
+        mode: 0,
+        subMode: 1,
+        language: "english",
+        wpmSamples: [{ elapsedSeconds: 30, wpm: 88 }],
+      },
+    }))
+
+    const data = await getShareForOg("guest-score")
+
+    expect(data).toMatchObject({
+      kind: "score",
+      rawWpm: 88,
+      netWpm: 85.1,
+      accuracy: 96,
+      username: "testuser",
+    })
+  })
+
   it("leaves ordinary score shares unbadged", async () => {
     findUnique.mockResolvedValueOnce(scoreShare())
 

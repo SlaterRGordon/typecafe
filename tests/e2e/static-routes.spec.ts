@@ -32,4 +32,21 @@ test.describe("secondary static routes", () => {
     expect(response?.ok()).toBe(true);
     await expect(page.locator("body")).toContainText("<urlset");
   });
+
+  test("ships site-wide Organization and WebSite structured data", async ({ page }) => {
+    const response = await page.goto("/");
+    const html = (await response?.text()) ?? "";
+    expect(html).toContain('"@type":"WebSite"');
+    expect(html).toContain('"@type":"Organization"');
+    expect(html).toContain('"url":"https://typecafe.app"');
+  });
+
+  test("content pages self-canonicalize instead of pointing at the homepage", async ({ page }) => {
+    const response = await page.goto("/how-to-type-faster");
+    const html = (await response?.text()) ?? "";
+    // Regression guard: a hardcoded root canonical made every page look like a
+    // duplicate of home, so content pages couldn't rank (growth-seo §E).
+    expect(html).toContain('rel="canonical" href="https://typecafe.app/how-to-type-faster"');
+    await expect(page.getByRole("heading", { name: "How to Type Faster", exact: true })).toBeVisible();
+  });
 });

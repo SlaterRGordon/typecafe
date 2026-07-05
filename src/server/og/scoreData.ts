@@ -87,7 +87,9 @@ export async function getShareForOg(slug: string): Promise<OgShareData | null> {
     };
   }
 
-  if (share.kind === "beat") {
+  // Beat runs and guest score shares both carry no Test row — their numbers live
+  // entirely in the snapshot.
+  if (share.kind === "beat" || !share.test) {
     const snapshot = asObject(share.snapshot) as ScoreSnapshotShape;
     if (
       typeof snapshot.rawWpm !== "number" ||

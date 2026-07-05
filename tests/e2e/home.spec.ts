@@ -307,8 +307,8 @@ test.describe("home typing test", () => {
     await expect(page.getByTestId("home-coach-tab-drill")).toBeVisible();
     const nav = page.getByTestId("side-primary-nav");
     const tabBox = await page.getByTestId("home-coach-tab-drill").boundingBox();
-    const trainBox = await nav.getByRole("button", { name: "Train" }).boundingBox();
-    const progressBox = await nav.getByRole("button", { name: "Progress" }).boundingBox();
+    const trainBox = await nav.getByRole("link", { name: "Train" }).boundingBox();
+    const progressBox = await nav.getByRole("link", { name: "Progress" }).boundingBox();
     expect(tabBox).not.toBeNull();
     expect(trainBox).not.toBeNull();
     expect(progressBox).not.toBeNull();
@@ -317,7 +317,7 @@ test.describe("home typing test", () => {
     const progressCenterY = progressBox!.y + progressBox!.height / 2;
     expect(Math.abs(tabCenterY - progressCenterY)).toBeLessThanOrEqual(2);
     expect(Math.abs(tabCenterY - trainCenterY)).toBeGreaterThan(16);
-    await page.getByRole("button", { name: "Progress" }).click();
+    await page.getByRole("link", { name: "Progress" }).click();
     await expect(page).toHaveURL(/\/progress$/);
     await expect(page.getByTestId("headline-delta")).toBeVisible();
 

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { type CSSProperties, useId, useMemo, useRef, useState } from "react";
+import { type CSSProperties, useEffect, useId, useMemo, useRef, useState } from "react";
 
 import { TestModes, TestSubModes } from "~/components/typer/types";
 import { ShareableScoreImage } from "./ShareableScoreImage";
@@ -189,6 +189,25 @@ async function copyOrDownloadScoreImage(scoreCard: HTMLElement | null): Promise<
 
   downloadBlob(blob, "typecafe-score.png");
   return "downloaded";
+}
+
+// Delta-forward when a delta exists (vision §7): "getting faster" shares better
+// than a bare number. Falls back to the plain headline WPM.
+function buildShareText(score: ShareableScore) {
+  const wpm = formatNumber(score.netWpm, 1);
+  if (score.ranked !== false && typeof score.avgDelta === "number" && score.avgDelta !== 0) {
+    const sign = score.avgDelta >= 0 ? "+" : "";
+    return `I just typed ${wpm} WPM (${sign}${formatNumber(score.avgDelta, 1)} vs my 30-day average) on TypeCafe.`;
+  }
+  return `I just typed ${wpm} WPM on TypeCafe.`;
+}
+
+function tweetHref(text: string, url: string) {
+  return `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`;
+}
+
+function redditHref(text: string, url: string) {
+  return `https://www.reddit.com/submit?url=${encodeURIComponent(url)}&title=${encodeURIComponent(text)}`;
 }
 
 function InfoIcon(props: { label: string; href?: string }) {
@@ -595,6 +614,14 @@ export function ShareableScoreCard(props: ShareableScoreCardProps) {
   const showSignInCta = !readonly && !shareUrl && !canCreateShare && !isSaving && !!signInHtmlFor;
   const [linkState, setLinkState] = useState<ActionState>("idle");
   const [imageState, setImageState] = useState<ActionState>("idle");
+  // Detected client-side to avoid a hydration mismatch (the server has no
+  // navigator). Gates the native-share button so tests without Web Share stay
+  // deterministic (the X/Reddit links always render).
+  const [canNativeShare, setCanNativeShare] = useState(false);
+  useEffect(() => {
+    setCanNativeShare(typeof navigator !== "undefined" && typeof navigator.share === "function");
+  }, []);
+  const shareText = buildShareText(score);
   const resetTimerRef = useRef<number | null>(null);
   const scoreCardRef = useRef<HTMLDivElement | null>(null);
   const shareImageRef = useRef<HTMLDivElement | null>(null);
@@ -626,6 +653,17 @@ export function ShareableScoreCard(props: ShareableScoreCardProps) {
       setLinkState("error");
     } finally {
       scheduleReset();
+    }
+  };
+
+  const handleNativeShare = async () => {
+    const nextUrl = shareUrl ?? await onCreateShare?.();
+    if (!nextUrl) return;
+    try {
+      await navigator.share({ title: "TypeCafe", text: shareText, url: nextUrl });
+    } catch {
+      // Cancelled by the user or unsupported mid-flight — nothing to do; the
+      // X/Reddit links and copy button remain as fallbacks.
     }
   };
 
@@ -865,6 +903,43 @@ export function ShareableScoreCard(props: ShareableScoreCardProps) {
           </div>
         </div>
       </div>
+
+      {shareUrl &&
+        <div data-testid="share-targets" className="flex flex-wrap items-center gap-2 pt-3">
+          <span className="text-sm text-base-content/60">Share to</span>
+          {canNativeShare &&
+            <button
+              type="button"
+              onClick={handleNativeShare}
+              className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-md border border-base-content/15 bg-base-100/50 px-3 py-1.5 text-sm font-semibold text-base-content transition hover:bg-base-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+              aria-label="Share via your device"
+            >
+              <ShareIcon />
+              <span>Share</span>
+            </button>
+          }
+          <a
+            href={tweetHref(shareText, shareUrl)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-md border border-base-content/15 bg-base-100/50 px-3 py-1.5 text-sm font-semibold text-base-content transition hover:bg-base-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            aria-label="Share on X"
+          >
+            <i className="fa-brands fa-x-twitter" aria-hidden="true" />
+            <span>X</span>
+          </a>
+          <a
+            href={redditHref(shareText, shareUrl)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-md border border-base-content/15 bg-base-100/50 px-3 py-1.5 text-sm font-semibold text-base-content transition hover:bg-base-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            aria-label="Share on Reddit"
+          >
+            <i className="fa-brands fa-reddit-alien" aria-hidden="true" />
+            <span>Reddit</span>
+          </a>
+        </div>
+      }
 
       <div aria-live="polite" role="status" className="min-h-8 pt-3 text-sm">
         {linkState === "unsupported" ?

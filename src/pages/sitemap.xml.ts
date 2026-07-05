@@ -8,15 +8,9 @@ interface User {
     username: string;
 }
 
-interface ScoreShare {
-    slug: string;
-    createdAt: Date;
-}
-
 function priorityFor(route: string): { priority: string; changefreq: string } {
     if (route === "") return { priority: "1.0", changefreq: "daily" };
     if (route.startsWith("/profile/")) return { priority: "0.6", changefreq: "weekly" };
-    if (route.startsWith("/score/")) return { priority: "0.4", changefreq: "never" };
     return { priority: "0.3", changefreq: "monthly" };
 }
 
@@ -30,7 +24,7 @@ function urlEntry(loc: string, lastmod: string, priority: string, changefreq: st
     </url>`;
 }
 
-function generateSiteMap(staticPages: string[], users: User[], shares: ScoreShare[]) {
+function generateSiteMap(staticPages: string[], users: User[]) {
     const now = new Date().toISOString();
 
     const staticEntries = staticPages.map((page) => {
@@ -47,13 +41,11 @@ function generateSiteMap(staticPages: string[], users: User[], shares: ScoreShar
         urlEntry(`${EXTERNAL_DATA_URL}/profile/${username}`, now, "0.6", "weekly")
     );
 
-    const scoreEntries = shares.map(({ slug, createdAt }) =>
-        urlEntry(`${EXTERNAL_DATA_URL}/score/${slug}`, createdAt.toISOString(), "0.4", "never")
-    );
-
+    // Per-score share pages are noindex,follow (growth-seo §C) — social cards,
+    // not search landing pages — so they're deliberately absent here.
     return `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  ${[...staticEntries, ...profileEntries, ...scoreEntries].join('')}
+  ${[...staticEntries, ...profileEntries].join('')}
 </urlset>`;
 }
 
@@ -69,21 +61,13 @@ export async function getServerSideProps({ res }: GetServerSidePropsContext) {
         '!src/pages/**/[*.{js,jsx,ts,tsx}',
     ]);
 
-    const [users, shares] = await Promise.all([
-        prisma.user.findMany({ select: { username: true } }),
-        prisma.scoreShare.findMany({
-            where: { deletedAt: null, expiresAt: null },
-            select: { slug: true, createdAt: true },
-            orderBy: { createdAt: "desc" },
-            take: 5000,
-        }),
-    ]);
+    const users = await prisma.user.findMany({ select: { username: true } });
 
     const sanitizedUsers: User[] = users.map((user) => ({
         username: user.username ?? 'unknown',
     }));
 
-    const sitemap = generateSiteMap(staticPages, sanitizedUsers, shares);
+    const sitemap = generateSiteMap(staticPages, sanitizedUsers);
 
     res.setHeader('Content-Type', 'text/xml');
     res.write(sitemap);

@@ -108,6 +108,7 @@ const Challenge: NextPage = () => {
     const cardActiveRef = useRef(false);
     const utils = api.useUtils();
     const createShare = api.scoreShare.create.useMutation();
+    const createGuestScore = api.scoreShare.createGuestScore.useMutation();
 
     useEffect(() => {
         // Synced UTC: one text, one leaderboard, one countdown for everyone. The day
@@ -191,7 +192,7 @@ const Challenge: NextPage = () => {
     useRestartShortcut(null, playAgain, isAnyModalOpen, { enabled: !!completed });
 
     const createAndCopyShareLink = async () => {
-        if (!completed?.testId) return undefined;
+        if (!completed) return undefined;
 
         const {
             durationSeconds,
@@ -211,27 +212,40 @@ const Challenge: NextPage = () => {
             ranked,
         } = completed;
 
-        const share = await createShare.mutateAsync({
-            testId: completed.testId,
-            snapshot: {
-                durationSeconds,
-                rawWpm,
-                netWpm,
-                accuracy,
-                totalKeystrokes,
-                correctKeystrokes,
-                incorrectKeystrokes,
-                promptText,
-                typedText,
-                typedSegments,
-                worstKeys,
-                brag,
-                avgDelta,
-                dailyChallenge: true,
-                ranked,
-                wpmSamples,
-            },
-        });
+        const baseSnapshot = {
+            durationSeconds,
+            rawWpm,
+            netWpm,
+            accuracy,
+            totalKeystrokes,
+            correctKeystrokes,
+            incorrectKeystrokes,
+            promptText,
+            typedText,
+            typedSegments,
+            worstKeys,
+            brag,
+            avgDelta,
+            dailyChallenge: true,
+            ranked,
+            wpmSamples,
+        };
+        // Signed-in shares link to the saved Test; guests mint a snapshot-only
+        // share carrying the daily-challenge render fields.
+        const share = completed.testId
+            ? await createShare.mutateAsync({ testId: completed.testId, snapshot: baseSnapshot })
+            : await createGuestScore.mutateAsync({
+                snapshot: {
+                    ...baseSnapshot,
+                    count: CHALLENGE_SECONDS,
+                    mode: completed.mode,
+                    subMode: completed.subMode,
+                    language: completed.language,
+                    speed: completed.speed,
+                    score: completed.speed * completed.accuracy,
+                    createdAt: completed.createdAt.getTime(),
+                },
+            });
         const nextShareUrl = `${window.location.origin}/score/${share.slug}`;
         setShareUrl(nextShareUrl);
 
@@ -298,10 +312,9 @@ const Challenge: NextPage = () => {
                                         },
                                     }}
                                     shareUrl={shareUrl}
-                                    canCreateShare={!!completed.testId}
+                                    canCreateShare
                                     isSaving={isSavingScore}
-                                    signInHtmlFor="signInModal"
-                                    isCreatingShare={createShare.isPending}
+                                    isCreatingShare={createShare.isPending || createGuestScore.isPending}
                                     onCreateShare={createAndCopyShareLink}
                                     onTestAgain={playAgain}
                                 />

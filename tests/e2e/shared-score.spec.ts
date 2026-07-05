@@ -172,6 +172,60 @@ test.describe("shared scores", () => {
     expect(procedures).toContain("scoreShare.create");
   });
 
+  test("lets a guest share a completed score without signing in", async ({ page }) => {
+    const procedures: string[] = [];
+
+    await installClipboardMock(page);
+    // No mockAuthenticatedSession: this is a signed-out guest.
+    await mockTrpc(page, {
+      onProcedure: (procedure) => procedures.push(procedure),
+    });
+
+    await completeWordTest(page);
+
+    // The guest sees a real Share button, not a "Sign in to save & share" wall.
+    await expect(page.getByRole("button", { name: "Sign in to save & share" })).toHaveCount(0);
+    await page.getByRole("button", { name: "Share Score" }).click({ force: true });
+
+    await expect(page.getByRole("button", { name: "Link copied" })).toBeVisible();
+    await expect.poll(async () => page.evaluate(() => window.localStorage.getItem("clipboard:text"))).toBe("http://127.0.0.1:3000/score/guest-score-share");
+    // Guests take the snapshot-only mint, never the account-linked create.
+    expect(procedures).toContain("scoreShare.createGuestScore");
+    expect(procedures).not.toContain("scoreShare.create");
+  });
+
+  test("offers pre-filled X and Reddit share targets on a shared score", async ({ page }) => {
+    await mockTrpc(page);
+
+    await page.goto("/score/share-test-score");
+    await expect(page.getByTestId("score-screenshot-card")).toBeVisible();
+
+    const targets = page.getByTestId("share-targets");
+    await expect(targets).toBeVisible();
+
+    const x = targets.getByRole("link", { name: "Share on X" });
+    await expect(x).toHaveAttribute("href", /twitter\.com\/intent\/tweet/);
+    // The share URL is carried through as the `url` param.
+    await expect(x).toHaveAttribute("href", /score%2Fshare-test-score/);
+    // Delta-forward text: "(+4.1 vs my 30-day average)" → the + encodes to %2B.
+    await expect(x).toHaveAttribute("href", /%2B4\.1/);
+
+    const reddit = targets.getByRole("link", { name: "Share on Reddit" });
+    await expect(reddit).toHaveAttribute("href", /reddit\.com\/submit/);
+    await expect(reddit).toHaveAttribute("href", /score%2Fshare-test-score/);
+  });
+
+  test("renders a test-less guest score share read-only", async ({ page }) => {
+    await mockTrpc(page);
+
+    await page.goto("/score/guest-score-share");
+
+    await expect(page.getByTestId("score-screenshot-card")).toBeVisible();
+    await expect(page.getByText("WPM Over Time")).toBeVisible();
+    await expect(page.getByText("Performance Details")).toBeVisible();
+    await expect(page.getByRole("link", { name: "Try TypeCafe" })).toBeVisible();
+  });
+
   test("restarts from the completion dashboard with button and key combos", async ({ page }) => {
     // Completes three full word tests; allow extra time when many workers saturate
     // the dev server in parallel local runs (CI runs single-worker).
@@ -255,6 +309,9 @@ test.describe("shared scores", () => {
     expect(html).toContain('property="og:image"');
     expect(html).toContain("/api/og/score/share-test-score");
     expect(html).toContain('name="twitter:card" content="summary_large_image"');
+    // Social card, not a search landing page: crawlable for unfurls, out of the
+    // index (growth-seo §C).
+    expect(html).toContain('name="robots" content="noindex,follow"');
 
     // The image endpoint renders a PNG (falls back to a brand card without a DB).
     const image = await page.request.get("/api/og/score/share-test-score");
