@@ -3,6 +3,9 @@ import { isDrillableKey } from "./drillKeys"
 export interface CompileDrillTextInput {
     keys?: string[],
     transitions?: string[],
+    // Specific words to drill verbatim (e.g. the words a test stumbled on). When
+    // present, the drill is built purely from these — no keyword ranking.
+    words?: string[],
     wordList: string[],
     length?: number,
     rng?: () => number,
@@ -190,6 +193,14 @@ export function compileDrillText(input: CompileDrillTextInput): string {
     if (length === 0) return ""
 
     const rng = input.rng ?? Math.random
+
+    // Verbatim word drill: cycle the given words (deduped, letters-only) to fill
+    // the length. buildText already avoids immediate repeats.
+    const words = Array.from(new Set((input.words ?? [])
+        .map(normalizeWord)
+        .filter((word): word is string => word !== null)))
+    if (words.length > 0) return buildText(words, length, rng)
+
     const transitions = normalizeTransitions(input.transitions)
     const keys = uniqueChars(input.keys)
 

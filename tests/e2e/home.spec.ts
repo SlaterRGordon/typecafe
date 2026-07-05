@@ -660,6 +660,12 @@ test.describe("home typing test", () => {
     // Phase 1.5: the reusable per-key heatmap renders inside the diagnosis panel.
     await expect(page.getByTestId("diagnosis-heatmap")).toBeVisible();
 
+    // Toughest-words row: same one-click handoff, but drills those exact words
+    // verbatim via /drill?words= (checked by href so we don't navigate away yet).
+    const wordsDrill = page.getByRole("link", { name: /Drill these words/ });
+    await expect(wordsDrill).toBeVisible();
+    await expect(wordsDrill).toHaveAttribute("href", /\/drill\?words=/);
+
     const drillButton = page.getByRole("link", { name: /Drill these keys/ }).first();
     await expect(drillButton).toBeVisible();
     await drillButton.click();
