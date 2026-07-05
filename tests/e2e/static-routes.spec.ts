@@ -32,4 +32,12 @@ test.describe("secondary static routes", () => {
     expect(response?.ok()).toBe(true);
     await expect(page.locator("body")).toContainText("<urlset");
   });
+
+  test("ships site-wide Organization and WebSite structured data", async ({ page }) => {
+    const response = await page.goto("/");
+    const html = (await response?.text()) ?? "";
+    expect(html).toContain('"@type":"WebSite"');
+    expect(html).toContain('"@type":"Organization"');
+    expect(html).toContain('"url":"https://typecafe.app"');
+  });
 });

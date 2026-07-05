@@ -54,8 +54,8 @@ Copy-link/copy-image only today — no native share sheet, no pre-filled targets
 
 Home already ships `WebApplication` JSON-LD (`index.tsx`).
 
-- [ ] Add `Organization` + `WebSite` JSON-LD site-wide (`_document`). Skip
-  `SearchAction` (no site-search page to back it — flag, don't fake).
+- [x] Added `Organization` + `WebSite` JSON-LD site-wide (`_document`). Skipped
+  `SearchAction` — no site-search endpoint to back it. E2e asserts both blocks.
 
 ## E. Content pages (separate, slow)
 
