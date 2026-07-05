@@ -168,8 +168,10 @@ test.describe("daily challenge", () => {
     await expect(page.getByTestId("avg-delta")).toContainText("3.2 WPM over your 30-day average");
 
     await page.getByRole("button", { name: "Share Score" }).click({ force: true });
+    // Copy link is inert until the share URL is minted; the click auto-waits for it.
+    await page.getByTestId("share-menu").getByRole("menuitem", { name: "Copy link" }).click();
 
-    await expect(page.getByRole("button", { name: "Link copied" })).toBeVisible();
+    await expect(page.getByTestId("share-menu").getByRole("menuitem", { name: "Link copied" })).toBeVisible();
     await expect.poll(async () => page.evaluate(() => window.localStorage.getItem("clipboard:text"))).toBe("http://127.0.0.1:3000/score/share-test-score");
     expect(procedures.map(({ procedure }) => procedure)).toContain("test.create");
     expect(procedures.map(({ procedure }) => procedure)).toContain("scoreShare.create");

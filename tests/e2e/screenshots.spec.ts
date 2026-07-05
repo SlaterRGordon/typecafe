@@ -808,6 +808,11 @@ test.describe("screenshot tour", () => {
     // The persisted delta line rides the shared snapshot (§3.3 slice 2).
     await expect(page.getByTestId("avg-delta")).toContainText("over your 30-day average");
     await capture(page, testInfo, "18-shared-score");
+
+    // The share menu: one entry point, all targets revealed together in place.
+    await page.getByRole("button", { name: "Share Score" }).click({ force: true });
+    await expect(page.getByTestId("share-menu").getByRole("menuitem", { name: "Share on X" })).toBeVisible();
+    await capture(page, testInfo, "18b-shared-score-share-menu");
   });
 
   test("shared score page (guest, no account)", async ({ page }, testInfo) => {

@@ -130,8 +130,9 @@ test.describe("shared scores", () => {
     await expect(page.getByTestId("beat-heatmap-comparison")).toBeVisible();
 
     await page.getByRole("button", { name: "Share Score" }).click({ force: true });
+    await page.getByTestId("share-menu").getByRole("menuitem", { name: "Copy link" }).click();
 
-    await expect(page.getByRole("button", { name: "Link copied" })).toBeVisible();
+    await expect(page.getByTestId("share-menu").getByRole("menuitem", { name: "Link copied" })).toBeVisible();
     await expect.poll(async () => page.evaluate(() => window.localStorage.getItem("clipboard:text"))).toBe("http://127.0.0.1:3000/score/beat-run-share");
 
     const createBeatRun = procedures.find(({ procedure }) => procedure === "scoreShare.createBeatRun");
@@ -165,8 +166,9 @@ test.describe("shared scores", () => {
     await expect(page.getByTestId("score-screenshot-card").getByText("Faster than 72% of similar starters")).toBeVisible();
     await expect(page.locator("#words")).toBeHidden();
     await page.getByRole("button", { name: "Share Score" }).click({ force: true });
+    await page.getByTestId("share-menu").getByRole("menuitem", { name: "Copy link" }).click();
 
-    await expect(page.getByRole("button", { name: "Link copied" })).toBeVisible();
+    await expect(page.getByTestId("share-menu").getByRole("menuitem", { name: "Link copied" })).toBeVisible();
     await expect.poll(async () => page.evaluate(() => window.localStorage.getItem("clipboard:text"))).toBe("http://127.0.0.1:3000/score/share-test-score");
     expect(procedures).toContain("test.create");
     expect(procedures).toContain("scoreShare.create");
@@ -186,8 +188,9 @@ test.describe("shared scores", () => {
     // The guest sees a real Share button, not a "Sign in to save & share" wall.
     await expect(page.getByRole("button", { name: "Sign in to save & share" })).toHaveCount(0);
     await page.getByRole("button", { name: "Share Score" }).click({ force: true });
+    await page.getByTestId("share-menu").getByRole("menuitem", { name: "Copy link" }).click();
 
-    await expect(page.getByRole("button", { name: "Link copied" })).toBeVisible();
+    await expect(page.getByTestId("share-menu").getByRole("menuitem", { name: "Link copied" })).toBeVisible();
     await expect.poll(async () => page.evaluate(() => window.localStorage.getItem("clipboard:text"))).toBe("http://127.0.0.1:3000/score/guest-score-share");
     // Guests take the snapshot-only mint, never the account-linked create.
     expect(procedures).toContain("scoreShare.createGuestScore");
@@ -200,17 +203,20 @@ test.describe("shared scores", () => {
     await page.goto("/score/share-test-score");
     await expect(page.getByTestId("score-screenshot-card")).toBeVisible();
 
-    const targets = page.getByTestId("share-targets");
-    await expect(targets).toBeVisible();
+    // On a shared page the URL already exists, so opening the menu shows the X and
+    // Reddit targets as live anchors immediately (no minting round-trip).
+    await page.getByRole("button", { name: "Share Score" }).click({ force: true });
+    const menu = page.getByTestId("share-menu");
+    await expect(menu).toBeVisible();
 
-    const x = targets.getByRole("link", { name: "Share on X" });
+    const x = menu.getByRole("menuitem", { name: "Share on X" });
     await expect(x).toHaveAttribute("href", /twitter\.com\/intent\/tweet/);
     // The share URL is carried through as the `url` param.
     await expect(x).toHaveAttribute("href", /score%2Fshare-test-score/);
     // Delta-forward text: "(+4.1 vs my 30-day average)" → the + encodes to %2B.
     await expect(x).toHaveAttribute("href", /%2B4\.1/);
 
-    const reddit = targets.getByRole("link", { name: "Share on Reddit" });
+    const reddit = menu.getByRole("menuitem", { name: "Share on Reddit" });
     await expect(reddit).toHaveAttribute("href", /reddit\.com\/submit/);
     await expect(reddit).toHaveAttribute("href", /score%2Fshare-test-score/);
   });
@@ -270,9 +276,10 @@ test.describe("shared scores", () => {
     // full results dashboard.
     const deviceScaleFactor = await page.evaluate(() => window.devicePixelRatio || 1);
 
-    await page.getByRole("button", { name: "Copy Screenshot" }).click({ force: true });
+    await page.getByRole("button", { name: "Share Score" }).click({ force: true });
+    await page.getByTestId("share-menu-screenshot").click();
 
-    await expect(page.getByRole("button", { name: "Screenshot copied" })).toBeVisible();
+    await expect(page.getByTestId("share-menu-screenshot")).toContainText("Screenshot copied");
     await expect.poll(async () => page.evaluate(() => window.localStorage.getItem("clipboard:item-count"))).toBe("1");
     await expect.poll(async () => page.evaluate(() => window.localStorage.getItem("clipboard:item-types"))).toBe("image/png");
     const imageWidth = Number(await page.evaluate(() => window.localStorage.getItem("clipboard:image-width")));
@@ -293,11 +300,12 @@ test.describe("shared scores", () => {
     await expect(page.getByTestId("score-screenshot-card")).toBeVisible();
 
     const downloadPromise = page.waitForEvent("download");
-    await page.getByRole("button", { name: "Copy Screenshot" }).click({ force: true });
+    await page.getByRole("button", { name: "Share Score" }).click({ force: true });
+    await page.getByTestId("share-menu-screenshot").click();
 
     const download = await downloadPromise;
     expect(download.suggestedFilename()).toBe("typecafe-score.png");
-    await expect(page.getByRole("button", { name: "Image downloaded" })).toBeVisible();
+    await expect(page.getByTestId("share-menu-screenshot")).toContainText("Image downloaded");
   });
 
   test("exposes an OG image and per-score meta tags for unfurls", async ({ page }) => {

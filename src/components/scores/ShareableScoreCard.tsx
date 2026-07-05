@@ -1,5 +1,7 @@
 import Link from "next/link";
-import { type CSSProperties, useEffect, useId, useMemo, useRef, useState } from "react";
+import { type CSSProperties, type ReactNode, useEffect, useId, useMemo, useRef, useState } from "react";
+
+import { ToolbarMenu } from "~/components/typer/config/ToolbarMenu";
 
 import { TestModes, TestSubModes } from "~/components/typer/types";
 import { ShareableScoreImage } from "./ShareableScoreImage";
@@ -264,13 +266,60 @@ function ShareIcon() {
   );
 }
 
-function ScreenshotIcon() {
+function ChevronDownIcon() {
   return (
-    <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M7 7h.01M17 7h.01M7 17h.01M17 17h.01" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M9 3H5a2 2 0 0 0-2 2v4M15 3h4a2 2 0 0 1 2 2v4M9 21H5a2 2 0 0 1-2-2v-4M15 21h4a2 2 0 0 0 2-2v-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M9 12h6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    <svg className="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="m6 9 6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
+  );
+}
+
+const shareMenuItemClass =
+  "flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary";
+
+// A link-out share target (X, Reddit). Rendered as an inert row with a trailing
+// spinner until the share URL is minted, then swapped for a real anchor — so the
+// click that opens the tab is a fresh user gesture (no popup-blocker fight).
+function ShareMenuLink(props: { href?: string; loading: boolean; icon: ReactNode; label: string; onSelect: () => void }) {
+  if (!props.href) {
+    return (
+      <span role="menuitem" aria-disabled="true" className={`${shareMenuItemClass} cursor-default text-base-content/45`}>
+        {props.icon}
+        <span>{props.label}</span>
+        {props.loading && <span className="ml-auto"><Spinner /></span>}
+      </span>
+    );
+  }
+
+  return (
+    <a
+      role="menuitem"
+      href={props.href}
+      target="_blank"
+      rel="noopener noreferrer"
+      onClick={props.onSelect}
+      className={`${shareMenuItemClass} text-base-content hover:bg-base-300`}
+    >
+      {props.icon}
+      <span>{props.label}</span>
+    </a>
+  );
+}
+
+function ShareMenuButton(props: { onClick: () => void; disabled?: boolean; loading?: boolean; icon: ReactNode; label: string; testId?: string }) {
+  return (
+    <button
+      role="menuitem"
+      type="button"
+      data-testid={props.testId}
+      onClick={props.onClick}
+      disabled={props.disabled}
+      className={`${shareMenuItemClass} ${props.disabled ? "cursor-default text-base-content/45" : "text-base-content hover:bg-base-300"}`}
+    >
+      {props.icon}
+      <span>{props.label}</span>
+      {props.loading && <span className="ml-auto"><Spinner /></span>}
+    </button>
   );
 }
 
@@ -614,6 +663,11 @@ export function ShareableScoreCard(props: ShareableScoreCardProps) {
   const showSignInCta = !readonly && !shareUrl && !canCreateShare && !isSaving && !!signInHtmlFor;
   const [linkState, setLinkState] = useState<ActionState>("idle");
   const [imageState, setImageState] = useState<ActionState>("idle");
+  // The share menu mints the link as soon as it opens; the link-out targets stay
+  // inert (spinners) until the URL exists, then become live anchors. Failed mints
+  // surface a retry rather than spinning forever.
+  const [shareMenuOpen, setShareMenuOpen] = useState(false);
+  const [shareFailed, setShareFailed] = useState(false);
   // Detected client-side to avoid a hydration mismatch (the server has no
   // navigator). Gates the native-share button so tests without Web Share stay
   // deterministic (the X/Reddit links always render).
@@ -626,8 +680,6 @@ export function ShareableScoreCard(props: ShareableScoreCardProps) {
   const scoreCardRef = useRef<HTMLDivElement | null>(null);
   const shareImageRef = useRef<HTMLDivElement | null>(null);
   const modeText = formatModeText(score);
-  const shareLoading = isCreatingShare || isSaving;
-  const shareButtonLabel = isSaving ? "Saving..." : isCreatingShare ? "Creating..." : linkState === "copied" ? "Link copied" : "Share Score";
   const screenshotButtonLabel = imageState === "copied" ? "Screenshot copied" : imageState === "downloaded" ? "Image downloaded" : "Copy Screenshot";
 
   const scheduleReset = () => {
@@ -654,6 +706,24 @@ export function ShareableScoreCard(props: ShareableScoreCardProps) {
     } finally {
       scheduleReset();
     }
+  };
+
+  // Mint the share URL in the background the moment the menu opens. Guarded so a
+  // reopen (or the already-minted readonly case) never creates a duplicate row.
+  const startMint = async () => {
+    if (shareUrl || isCreatingShare) return;
+    setShareFailed(false);
+    try {
+      const url = await onCreateShare?.();
+      if (!url) setShareFailed(true);
+    } catch {
+      setShareFailed(true);
+    }
+  };
+
+  const openShareMenu = () => {
+    setShareMenuOpen(true);
+    void startMint();
   };
 
   const handleNativeShare = async () => {
@@ -716,7 +786,10 @@ export function ShareableScoreCard(props: ShareableScoreCardProps) {
         aria-label="Typing test results"
         className="rounded-xl border border-base-content/15 bg-base-200 p-5 text-base-content shadow-2xl shadow-base-300/40 sm:p-6"
       >
-        <div className="score-reveal flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+        {/* relative z-30: each .score-reveal is its own stacking context (opacity/
+            transform), so without this the share dropdown would paint behind the
+            metric cards below it. */}
+        <div className="score-reveal relative z-30 flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-4">
             <div>
               <div className="mb-2 flex flex-wrap items-center gap-2">
@@ -833,30 +906,78 @@ export function ShareableScoreCard(props: ShareableScoreCardProps) {
                 <span>Sign in to save &amp; share</span>
               </label>
               : (!readonly || shareUrl) ?
-              <button
-                className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50"
-                type="button"
-                disabled={shareLoading || (!shareUrl && !canCreateShare)}
-                onClick={handleCopyLink}
-                aria-label={shareButtonLabel}
-                title={isSaving ? "Saving your score" : isCreatingShare ? "Creating share link" : linkState === "copied" ? "Share link copied" : "Copy share score link"}
+              <ToolbarMenu
+                open={shareMenuOpen}
+                onClose={() => setShareMenuOpen(false)}
+                testId="share-menu"
+                widthClassName="min-w-56"
+                trigger={
+                  <button
+                    className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50"
+                    type="button"
+                    disabled={isSaving || (!shareUrl && !canCreateShare)}
+                    onClick={() => (shareMenuOpen ? setShareMenuOpen(false) : openShareMenu())}
+                    aria-haspopup="menu"
+                    aria-expanded={shareMenuOpen}
+                    aria-label="Share Score"
+                    title={isSaving ? "Saving your score" : "Share your score"}
+                  >
+                    {isSaving ? <Spinner /> : <ShareIcon />}
+                    <span>{isSaving ? "Saving..." : "Share Score"}</span>
+                    <ChevronDownIcon />
+                  </button>
+                }
               >
-                {shareLoading ? <Spinner /> : <ShareIcon />}
-                <span>{shareButtonLabel}</span>
-              </button>
+                <div role="menu" className="flex flex-col gap-1">
+                  <ShareMenuButton
+                    icon={<i className="fa-solid fa-link w-4 text-center" aria-hidden="true" />}
+                    label={linkState === "copied" ? "Link copied" : "Copy link"}
+                    onClick={handleCopyLink}
+                    disabled={!shareUrl}
+                    loading={!shareUrl && !shareFailed}
+                  />
+                  <ShareMenuLink
+                    icon={<i className="fa-brands fa-x-twitter w-4 text-center" aria-hidden="true" />}
+                    label="Share on X"
+                    href={shareUrl ? tweetHref(shareText, shareUrl) : undefined}
+                    loading={!shareUrl && !shareFailed}
+                    onSelect={() => setShareMenuOpen(false)}
+                  />
+                  <ShareMenuLink
+                    icon={<i className="fa-brands fa-reddit-alien w-4 text-center" aria-hidden="true" />}
+                    label="Share on Reddit"
+                    href={shareUrl ? redditHref(shareText, shareUrl) : undefined}
+                    loading={!shareUrl && !shareFailed}
+                    onSelect={() => setShareMenuOpen(false)}
+                  />
+                  {canNativeShare &&
+                    <ShareMenuButton
+                      icon={<i className="fa-solid fa-share-nodes w-4 text-center" aria-hidden="true" />}
+                      label="Share via device"
+                      onClick={() => { void handleNativeShare(); setShareMenuOpen(false); }}
+                      disabled={!shareUrl}
+                      loading={!shareUrl && !shareFailed}
+                    />
+                  }
+                  {shareFailed &&
+                    <ShareMenuButton
+                      icon={<i className="fa-solid fa-rotate-right w-4 text-center" aria-hidden="true" />}
+                      label="Couldn't create link — Retry"
+                      onClick={() => void startMint()}
+                    />
+                  }
+                  <div className="my-1 border-t border-base-content/10" />
+                  <ShareMenuButton
+                    testId="share-menu-screenshot"
+                    icon={<i className="fa-solid fa-image w-4 text-center" aria-hidden="true" />}
+                    label={screenshotButtonLabel}
+                    onClick={handleCopyImage}
+                  />
+                </div>
+              </ToolbarMenu>
               :
               null
             }
-            <button
-              className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-md bg-secondary px-4 py-2 text-sm font-semibold text-secondary-content transition hover:opacity-85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-secondary"
-              type="button"
-              onClick={handleCopyImage}
-              aria-label={screenshotButtonLabel}
-              title={imageState === "copied" ? "Score screenshot copied" : imageState === "downloaded" ? "Score image downloaded" : "Copy score screenshot image"}
-            >
-              <ScreenshotIcon />
-              <span>{screenshotButtonLabel}</span>
-            </button>
           </div>
         </div>
 
@@ -903,43 +1024,6 @@ export function ShareableScoreCard(props: ShareableScoreCardProps) {
           </div>
         </div>
       </div>
-
-      {shareUrl &&
-        <div data-testid="share-targets" className="flex flex-wrap items-center gap-2 pt-3">
-          <span className="text-sm text-base-content/60">Share to</span>
-          {canNativeShare &&
-            <button
-              type="button"
-              onClick={handleNativeShare}
-              className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-md border border-base-content/15 bg-base-100/50 px-3 py-1.5 text-sm font-semibold text-base-content transition hover:bg-base-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-              aria-label="Share via your device"
-            >
-              <ShareIcon />
-              <span>Share</span>
-            </button>
-          }
-          <a
-            href={tweetHref(shareText, shareUrl)}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-md border border-base-content/15 bg-base-100/50 px-3 py-1.5 text-sm font-semibold text-base-content transition hover:bg-base-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-            aria-label="Share on X"
-          >
-            <i className="fa-brands fa-x-twitter" aria-hidden="true" />
-            <span>X</span>
-          </a>
-          <a
-            href={redditHref(shareText, shareUrl)}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-md border border-base-content/15 bg-base-100/50 px-3 py-1.5 text-sm font-semibold text-base-content transition hover:bg-base-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-            aria-label="Share on Reddit"
-          >
-            <i className="fa-brands fa-reddit-alien" aria-hidden="true" />
-            <span>Reddit</span>
-          </a>
-        </div>
-      }
 
       <div aria-live="polite" role="status" className="min-h-8 pt-3 text-sm">
         {linkState === "unsupported" ?
