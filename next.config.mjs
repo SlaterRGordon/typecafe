@@ -19,6 +19,19 @@ const config = {
     "/api/og/score/[slug]": ["./src/server/og/fonts/**"],
   },
 
+  // Force Google to consolidate on the custom domain: a 308 beats the canonical
+  // hint. Vercel serves prod on both typecafe.app and <project>.vercel.app.
+  async redirects() {
+    return [
+      {
+        source: "/:path*",
+        has: [{ type: "host", value: "(.*)\\.vercel\\.app" }],
+        destination: "https://typecafe.app/:path*",
+        permanent: true,
+      },
+    ];
+  },
+
   images: {
     remotePatterns: [{
         protocol: 'https',
