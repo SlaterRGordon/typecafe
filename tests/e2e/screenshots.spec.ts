@@ -712,7 +712,7 @@ test.describe("screenshot tour", () => {
   test("navigation: expanded side rail", async ({ page }, testInfo) => {
     test.skip(testInfo.project.name.includes("mobile"), "The side rail is desktop-only.");
     await gotoHome(page);
-    const homeButton = page.getByTestId("side-primary-nav").getByRole("button", { name: "Home" });
+    const homeButton = page.getByTestId("side-primary-nav").getByRole("link", { name: "Home" });
     await homeButton.hover();
     await expect(homeButton.locator("div").getByText("Home", { exact: true })).toBeVisible();
     await capture(page, testInfo, "58-nav-expanded");

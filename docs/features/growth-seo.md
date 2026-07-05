@@ -64,10 +64,10 @@ The only durable organic-search play; own slice when A–D land.
 - [x] Keyword-bearing `sr-only` H1 on the home ("the typing test that makes you
   faster") — a real page heading for crawlers/screen readers without touching
   the minimal test-first hero.
-- [ ] Crawlable nav: the primary nav is `<button onClick={router.push}>` —
-  Googlebot can't follow it, so internal pages have no crawlable links or link
-  equity (only the sitemap). Convert to Next `<Link href>`. Note: changes the
-  ARIA role button→link, so `getByRole("button", {name})` selectors across
-  navigation/screenshots specs need updating — real churn, not a drive-by.
+- [x] Crawlable nav: converted Side + Bottom navigation from
+  `<button onClick={router.push}>` to Next `<Link href>` (the "More" toggle
+  stays a button). Googlebot can now follow internal links + pass equity. Role
+  changed button→link, so nav selectors across navigation/routes/home/screenshots
+  specs were updated; all green on desktop + mobile.
 - [ ] Content: a "how to type faster" angle / beef up how-we-measure to rank for
   improvement-intent queries. Separate content-authoring effort.
