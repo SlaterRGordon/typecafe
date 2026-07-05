@@ -61,5 +61,13 @@ Home already ships `WebApplication` JSON-LD (`index.tsx`).
 
 The only durable organic-search play; own slice when A–D land.
 
-- [ ] Crawlable descriptive nav links; keyword-bearing H1/intro on home.
-- [ ] Lean into how-we-measure / a "how to type faster" angle.
+- [x] Keyword-bearing `sr-only` H1 on the home ("the typing test that makes you
+  faster") — a real page heading for crawlers/screen readers without touching
+  the minimal test-first hero.
+- [ ] Crawlable nav: the primary nav is `<button onClick={router.push}>` —
+  Googlebot can't follow it, so internal pages have no crawlable links or link
+  equity (only the sitemap). Convert to Next `<Link href>`. Note: changes the
+  ARIA role button→link, so `getByRole("button", {name})` selectors across
+  navigation/screenshots specs need updating — real churn, not a drive-by.
+- [ ] Content: a "how to type faster" angle / beef up how-we-measure to rank for
+  improvement-intent queries. Separate content-authoring effort.

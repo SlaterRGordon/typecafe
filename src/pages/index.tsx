@@ -616,6 +616,9 @@ const Home: NextPage = () => {
         />
       </Head>
       <div id="typer" className={`flex flex-col h-full overflow-auto ${completedScore ? "py-4" : "[justify-content:safe_center]"} ${fullscreen ? 'absolute top-0 left-0 w-full h-full bg-base-100 z-[500] sm:px-8' : 'w-full max-w-screen-xl mx-auto'}`}>
+        {/* A real page heading for crawlers + screen readers without disturbing
+            the minimal test-first hero (growth-seo §E). */}
+        <h1 className="sr-only">TypeCafe — the typing test that makes you faster</h1>
         {!completedScore && !fullscreen &&
           <HomeCoachTabs className={typingFocusFadeClass(typingFocused, "")} desktop={false} />
         }
