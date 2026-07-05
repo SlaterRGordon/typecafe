@@ -12,7 +12,8 @@ import {
 } from "~/lib/stats";
 import { STANCE_THRESHOLDS } from "~/lib/stance";
 import { PLATEAU_CONFIG } from "~/lib/trajectory";
-import { TRANSITION_MIN_COUNT, TRANSITION_SLOW_RATIO } from "~/lib/transitions";
+import { TRANSITION_MIN_COUNT, TRANSITION_SLOW_RATIO, TRANSITION_SAMPLE_CAP } from "~/lib/transitions";
+import { KEY_ATTEMPT_CAP } from "~/lib/practiceAttempts";
 
 const HowWeMeasure: NextPage = () => {
   return (
@@ -83,6 +84,7 @@ const HowWeMeasure: NextPage = () => {
           <p>Diagnosis only speaks when there is enough evidence. Short tests and one-off slips should not become fake coaching.</p>
           <ul>
             <li><strong>Slow transitions:</strong> a letter pair must appear at least {TRANSITION_MIN_COUNT} times and be at least {TRANSITION_SLOW_RATIO}x slower than your overall transition pace.</li>
+            <li><strong>Recent, not lifetime:</strong> per-key accuracy and per-pair speed are rolling windows — roughly your last {KEY_ATTEMPT_CAP} attempts on a key and {TRANSITION_SAMPLE_CAP} occurrences of a pair. Older samples fade out proportionally, so the coach reflects how you type <em>now</em>, and a weakness you fix stops being flagged once recent typing proves it.</li>
           </ul>
         </DocumentSection>
 

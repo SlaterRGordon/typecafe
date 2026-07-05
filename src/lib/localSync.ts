@@ -1,4 +1,5 @@
 import { createKeyedStore } from "./keyedStore"
+import { KEY_ATTEMPT_CAP } from "./practiceAttempts"
 
 export const LOCAL_KEY_STATS_KEY = "typecafe:keyStats"
 
@@ -21,6 +22,18 @@ function sanitizeStat(raw: unknown): LocalKeyStat | null {
     }
 }
 
+// Scale an over-cap stat back down to the rolling window (ADR-0005), preserving
+// its accuracy. `correct` ≤ `attempts` survives the rounding: correct·f ≤ cap.
+function capKeyStat(stat: LocalKeyStat): LocalKeyStat {
+    if (stat.attempts <= KEY_ATTEMPT_CAP) return stat
+    const factor = KEY_ATTEMPT_CAP / stat.attempts
+    return {
+        key: stat.key,
+        attempts: KEY_ATTEMPT_CAP,
+        correct: Math.round(stat.correct * factor),
+    }
+}
+
 export function mergeKeyStats(existing: LocalKeyStat[], incoming: LocalKeyStat[]): LocalKeyStat[] {
     const byKey = new Map<string, LocalKeyStat>()
 
@@ -36,7 +49,7 @@ export function mergeKeyStats(existing: LocalKeyStat[], incoming: LocalKeyStat[]
         })
     }
 
-    return Array.from(byKey.values()).sort((a, b) => a.key.localeCompare(b.key))
+    return Array.from(byKey.values(), capKeyStat).sort((a, b) => a.key.localeCompare(b.key))
 }
 
 const store = createKeyedStore(LOCAL_KEY_STATS_KEY, sanitizeStat, mergeKeyStats)

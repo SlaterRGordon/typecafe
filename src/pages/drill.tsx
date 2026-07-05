@@ -91,7 +91,7 @@ function DeltaLine({ delta }: { delta: DrillDelta }) {
         <p data-testid="drill-delta" className="mt-4 text-sm text-base-content/75">
             <span className="font-mono font-bold text-base-content">{delta.label}</span>{": "}
             <span className={flat ? "" : delta.improved ? "font-semibold text-success" : "font-semibold text-warning"}>{change}</span>
-            {" "}your lifetime average — {rep} this rep vs {lifetime}.
+            {" "}your recent average — {rep} this rep vs {lifetime}.
         </p>
     )
 }
@@ -185,7 +185,7 @@ const Drill: NextPage = () => {
         }
         if (config.kind === "keys") {
             const base = keysBaseline(config.targets, baseline.keyStats)
-            if (base) return `${base.accuracy.toFixed(1)}% lifetime accuracy on ${config.targets.length > 1 ? "these keys" : "this key"}. Beat it below.`
+            if (base) return `${base.accuracy.toFixed(1)}% recent accuracy on ${config.targets.length > 1 ? "these keys" : "this key"}. Beat it below.`
         }
         return null
     }, [config, baseline])

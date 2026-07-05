@@ -188,8 +188,8 @@ model TransitionStat {
     userId    String
     pair      String   @db.VarChar(2)
     count     Int
-    // ponytail: Int, not BigInt — ceiling ~2.1e9 ms (~24 days) of cumulative
-    // latency on a single pair; upgrade to BigInt if a heavy user ever nears it.
+    // Int is plenty: rows are rolling windows (ADR-0005) capped at
+    // TRANSITION_SAMPLE_CAP samples, so totalMs is bounded, not cumulative.
     totalMs   Int
     errors    Int
     createdAt DateTime @default(now())

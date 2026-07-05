@@ -3,6 +3,7 @@ import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { Prisma } from "~/generated/prisma/client";
 import { isTrackableTransitionPair } from "~/lib/drillableTransitions";
+import { TRANSITION_SAMPLE_CAP } from "~/lib/transitions";
 
 const transitionInput = z.object({
   pair: z.string().length(2),
@@ -36,13 +37,26 @@ export const transitionStatsRouter = createTRPCRouter({
       const rows = stats.map(
         (s) => Prisma.sql`(gen_random_uuid()::text, ${userId}, ${s.pair}, ${s.count}, ${s.totalMs}, ${s.errors}, NOW())`,
       );
+      // Rolling window (ADR-0005), same arithmetic as lib/transitions
+      // mergeTransitions: sum, then if the pair overflows the sample cap, scale
+      // count/totalMs/errors down proportionally (mean + error rate preserved).
+      // All SET expressions read the pre-update row, so the three columns share
+      // one consistent scale factor.
       await ctx.prisma.$executeRaw`
         INSERT INTO "TransitionStat" ("id", "userId", "pair", "count", "totalMs", "errors", "updatedAt")
         VALUES ${Prisma.join(rows)}
         ON CONFLICT ("userId", "pair") DO UPDATE SET
-          "count" = "TransitionStat"."count" + EXCLUDED."count",
-          "totalMs" = "TransitionStat"."totalMs" + EXCLUDED."totalMs",
-          "errors" = "TransitionStat"."errors" + EXCLUDED."errors",
+          "count" = LEAST("TransitionStat"."count" + EXCLUDED."count", ${TRANSITION_SAMPLE_CAP}),
+          "totalMs" = CASE
+            WHEN "TransitionStat"."count" + EXCLUDED."count" > ${TRANSITION_SAMPLE_CAP}
+            THEN ROUND(("TransitionStat"."totalMs" + EXCLUDED."totalMs")::numeric * ${TRANSITION_SAMPLE_CAP} / ("TransitionStat"."count" + EXCLUDED."count"))::int
+            ELSE "TransitionStat"."totalMs" + EXCLUDED."totalMs"
+          END,
+          "errors" = CASE
+            WHEN "TransitionStat"."count" + EXCLUDED."count" > ${TRANSITION_SAMPLE_CAP}
+            THEN ROUND(("TransitionStat"."errors" + EXCLUDED."errors")::numeric * ${TRANSITION_SAMPLE_CAP} / ("TransitionStat"."count" + EXCLUDED."count"))::int
+            ELSE "TransitionStat"."errors" + EXCLUDED."errors"
+          END,
           "updatedAt" = NOW()
       `;
 

@@ -7,6 +7,7 @@ import {
     readLocalKeyStats,
     writeLocalKeyStats,
 } from "./localSync"
+import { KEY_ATTEMPT_CAP } from "./practiceAttempts"
 
 function storage() {
     const data = new Map<string, string>()
@@ -38,6 +39,15 @@ describe("local key stats sync", () => {
             { key: "r", attempts: 5, correct: 3 },
             { key: "t", attempts: 1, correct: 1 },
         ])
+    })
+
+    it("caps a key at the rolling window, preserving accuracy (ADR-0005)", () => {
+        const merged = mergeKeyStats(
+            [{ key: "x", attempts: 480, correct: 384 }], // 80% accuracy
+            [{ key: "x", attempts: 120, correct: 96 }],
+        )
+        // Uncapped sum would be 600/480; the 500/600 scale keeps 80% intact.
+        expect(merged).toEqual([{ key: "x", attempts: KEY_ATTEMPT_CAP, correct: 400 }])
     })
 
     it("clamps impossible correct counts while reading", () => {

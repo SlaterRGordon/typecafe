@@ -543,7 +543,9 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
             <div className="grid gap-4 lg:grid-cols-3">
                 <div data-testid="lifetime-keyboard-card" className="rounded-lg border border-base-content/10 bg-base-100/45 p-3 sm:p-5 lg:col-span-2">
                     <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        <div className="text-base font-semibold text-base-content">Lifetime keyboard</div>
+                        {/* "Your keyboard", not "Lifetime": per-key accuracy is a rolling
+                            window of recent attempts (ADR-0005), not an all-time sum. */}
+                        <div className="text-base font-semibold text-base-content">Your keyboard</div>
                         <KeyHeatmapLegend />
                     </div>
                     <div className="flex w-full justify-center overflow-x-auto pb-1">

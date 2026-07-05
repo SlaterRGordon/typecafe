@@ -147,7 +147,7 @@ test.describe("drill page", () => {
 
     // The header states the baseline to beat and offers the next pick up front
     // (from lifetime evidence, x excluded) — no completed rep required.
-    await expect(page.getByTestId("drill-header-stat")).toHaveText("50.0% lifetime accuracy on this key. Beat it below.")
+    await expect(page.getByTestId("drill-header-stat")).toHaveText("50.0% recent accuracy on this key. Beat it below.")
     await expect(page.getByTestId("drill-header-next")).toHaveAttribute("href", "/drill?keys=q")
 
     await typeVisibleTestText(page)
@@ -155,7 +155,7 @@ test.describe("drill page", () => {
     // A clean rep on x beats the 50% lifetime baseline.
     const delta = page.getByTestId("drill-delta")
     await expect(delta).toContainText("x")
-    await expect(delta).toContainText("above your lifetime average")
+    await expect(delta).toContainText("above your recent average")
     // The next pick excludes the just-drilled x and lands on q; the result card
     // owns it now, so the header copy disappears.
     const next = page.getByTestId("drill-next")
@@ -204,7 +204,7 @@ test.describe("drill page", () => {
     // Synthetic keystrokes land far faster than the 400ms lifetime mean.
     const delta = page.getByTestId("drill-delta")
     await expect(delta).toContainText("b→r")
-    await expect(delta).toContainText("faster than your lifetime average")
+    await expect(delta).toContainText("faster than your recent average")
     // Next pick skips the just-drilled br and lands on the next-slowest pair, io.
     await expect(page.getByTestId("drill-next")).toHaveAttribute("href", "/drill?transitions=io")
 
