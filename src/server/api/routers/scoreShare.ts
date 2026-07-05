@@ -41,6 +41,20 @@ const scoreSnapshotSchema = z.object({
   })),
 });
 
+// A guest's finished test, shareable without an account: the snapshot carries
+// the render fields (mode/language/count) that a signed-in share reads off the
+// Test row instead.
+const guestScoreSnapshotSchema = scoreSnapshotSchema.extend({
+  count: z.number().int().nonnegative(),
+  mode: z.number().int().nonnegative(),
+  subMode: z.number().int().nonnegative(),
+  language: z.string().min(1).max(40),
+  options: z.string().optional(),
+  speed: z.number().nonnegative().optional(),
+  score: z.number().optional(),
+  createdAt: z.number().int().nonnegative(),
+});
+
 const beatRunSnapshotSchema = scoreSnapshotSchema.extend({
   promptText: z.string().min(1).max(20000),
   count: z.number().int().nonnegative(),
@@ -163,6 +177,28 @@ export const scoreShareRouter = createTRPCRouter({
               kind: "progress",
               testId: null,
               userId: ctx.session.user.id,
+              snapshot: input.snapshot,
+            },
+            select: { slug: true },
+          });
+        } catch (error) {
+          if (attempt === 3) throw error;
+        }
+      }
+      throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Could not create a share link." });
+    }),
+
+  createGuestScore: publicProcedure
+    .input(z.object({ snapshot: guestScoreSnapshotSchema }))
+    .mutation(async ({ ctx, input }) => {
+      for (let attempt = 0; attempt < 4; attempt += 1) {
+        try {
+          return await ctx.prisma.scoreShare.create({
+            data: {
+              slug: createShareSlug(),
+              kind: "score",
+              testId: null,
+              userId: ctx.session?.user?.id ?? null,
               snapshot: input.snapshot,
             },
             select: { slug: true },

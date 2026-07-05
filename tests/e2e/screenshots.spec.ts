@@ -810,6 +810,15 @@ test.describe("screenshot tour", () => {
     await capture(page, testInfo, "18-shared-score");
   });
 
+  test("shared score page (guest, no account)", async ({ page }, testInfo) => {
+    // A snapshot-only share minted by a signed-out guest — no Test row backs it.
+    await mockTrpc(page);
+    await page.goto("/score/guest-score-share");
+    await expect(page.getByTestId("score-screenshot-card")).toBeVisible();
+    await expect(page.getByText("WPM Over Time")).toBeVisible();
+    await capture(page, testInfo, "64-shared-score-guest");
+  });
+
   test("beat-my-run compare view", async ({ page }, testInfo) => {
     await mockTrpc(page);
     await page.goto("/score/beat-source-score?type=1");

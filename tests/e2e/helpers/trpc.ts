@@ -375,6 +375,8 @@ function responseForProcedure(procedure: string, input: ProcedureInput, options:
       return null;
     case "scoreShare.create":
       return { slug: "share-test-score" };
+    case "scoreShare.createGuestScore":
+      return { slug: "guest-score-share" };
     case "scoreShare.createBeatRun":
       return { slug: "beat-run-share" };
     case "scoreShare.createProgress":
@@ -455,6 +457,29 @@ function responseForProcedure(procedure: string, input: ProcedureInput, options:
             sourceShareSlug: "beat-source-score",
             attemptNumber: 1,
             createdAt: Date.parse("2026-06-01T12:05:00.000Z"),
+          },
+          user: null,
+        };
+      }
+      if (input?.slug === "guest-score-share") {
+        // A guest score share: no Test row (score null), all render fields live
+        // in the snapshot. Exercises the snapshot-only render + OG fallback.
+        return {
+          kind: "score",
+          id: "share-guest-score",
+          slug: input.slug,
+          createdAt: new Date("2026-06-02T12:00:00.000Z"),
+          expiresAt: null,
+          score: null,
+          snapshot: {
+            ...makeScoreSnapshot(),
+            count: 15,
+            mode: 0,
+            subMode: 1,
+            language: "english",
+            speed: 72.35,
+            score: 6982,
+            createdAt: Date.parse("2026-06-02T12:00:00.000Z"),
           },
           user: null,
         };

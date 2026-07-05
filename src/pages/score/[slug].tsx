@@ -463,6 +463,35 @@ const SharedScorePage: NextPage<SharedScorePageProps> = ({ slug, meta }) => {
         </div>
       </div>
     );
+  } else if (isScoreSnapshot(data.snapshot)) {
+    // A guest score share: no Test row, so every render field comes off the
+    // snapshot the client saved when it minted the link.
+    const s = data.snapshot as ScoreSnapshot & {
+      speed?: number; count?: number; mode?: number; subMode?: number;
+      language?: string; options?: string; score?: number; createdAt?: number;
+    };
+    body = (
+      <div className="flex h-full w-full overflow-auto px-4 py-8">
+        <div className="m-auto flex w-full flex-col items-center gap-4">
+          <ShareableScoreCard
+            readonly
+            shareUrl={shareUrl}
+            score={{
+              ...s,
+              speed: s.speed ?? s.rawWpm,
+              score: s.score ?? s.rawWpm * s.accuracy,
+              count: s.count ?? s.durationSeconds,
+              mode: (s.mode ?? 0) as TestModes,
+              subMode: (s.subMode ?? 0) as TestSubModes,
+              language: s.language ?? "english",
+              options: s.options,
+              createdAt: s.createdAt ? new Date(s.createdAt) : undefined,
+              user: data.user ?? undefined,
+            }}
+          />
+        </div>
+      </div>
+    );
   } else {
     body = (
       <div className="flex h-full w-full items-center justify-center overflow-auto px-4 py-8">
