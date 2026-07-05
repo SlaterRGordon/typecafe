@@ -134,3 +134,20 @@ path entirely.
   (`mockTrpc delayProcedures`), the train popover and drill result render
   within 2.5s of completion; the train status line then settles to
   "Best result saved."
+
+§3 fallout, fixed 2026-07-04 (reported as "transitions/key accuracy no longer
+tracking"):
+
+- [x] Signed-in attempt drain survives the eager unmount: drill/train unmount
+  the Typer the instant the eager result shows, and react-query skips
+  *mutate-level* callbacks on an unmounted observer — `drainSyncedAttempts`
+  never ran, so every later rep re-sent (double-counted) already-persisted
+  attempts. Drain moved to the hook-level `onSuccess` (rides the mutation,
+  fires regardless of mount); e2e guard asserts two reps sync equal totals.
+- [x] The frozen drill header was ADR-0004 behavior (drill reps never feed
+  lifetime transition aggregates), not a §3 break — but nothing showed
+  progress across reps. The drill header now carries a session trail
+  ("This session: best · last · n reps") built locally from each rep's delta;
+  nothing added to the typing hot path. Later the same day the owner reversed
+  the exclusion itself (see ADR-0004): drill reps now sync into lifetime
+  transitions like any normal test, so the header baseline moves per rep too.

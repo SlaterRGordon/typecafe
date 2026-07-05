@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { aggregateTransitions, mergeTransitions, overallTransitionMeanMs, worstTransitions } from "./transitions"
+import { aggregateTransitions, mergeTransitions, overallTransitionMeanMs, worstTransitions, TRANSITION_SAMPLE_CAP } from "./transitions"
 import type { KeystrokeEvent } from "./keystrokes"
 
 // Build a timeline from (key, gap-since-previous, correct?) tuples.
@@ -101,5 +101,29 @@ describe("mergeTransitions", () => {
         expect(th).toMatchObject({ count: 5, totalMs: 1000, errors: 1 })
         expect(merged.find((a) => a.pair === "he")!.count).toBe(1)
         expect(merged.find((a) => a.pair === "xi")).toBeUndefined()
+    })
+
+    it("caps a pair at the rolling window, preserving mean and error rate (ADR-0005)", () => {
+        const merged = mergeTransitions(
+            [{ pair: "th", count: 180, totalMs: 72000, errors: 18 }], // 400ms mean, 10% errors
+            [{ pair: "th", count: 40, totalMs: 16000, errors: 4 }],
+        )
+        const th = merged.find((a) => a.pair === "th")!
+        expect(th.count).toBe(TRANSITION_SAMPLE_CAP)
+        // Uncapped sum would be 220 count / 88000ms / 22 errors; the scale
+        // factor 200/220 keeps the 400ms mean and 10% error rate intact.
+        expect(th.totalMs / th.count).toBeCloseTo(400, 0)
+        expect(th.errors / th.count).toBeCloseTo(0.1, 2)
+        expect(th.errors).toBeLessThanOrEqual(th.count)
+    })
+
+    it("leaves under-cap pairs as exact sums", () => {
+        const merged = mergeTransitions(
+            [{ pair: "th", count: TRANSITION_SAMPLE_CAP - 10, totalMs: 38000, errors: 2 }],
+            [{ pair: "th", count: 10, totalMs: 2000, errors: 1 }],
+        )
+        expect(merged.find((a) => a.pair === "th")).toMatchObject({
+            count: TRANSITION_SAMPLE_CAP, totalMs: 40000, errors: 3,
+        })
     })
 })

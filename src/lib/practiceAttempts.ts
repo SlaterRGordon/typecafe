@@ -3,6 +3,13 @@ export interface CharAttempt {
     correct: number
 }
 
+// Per-key accuracy is a rolling window, not a true lifetime sum (ADR-0005): a
+// key's effective attempt count caps here, and over-cap merges scale attempts /
+// correct down proportionally. Accuracy is preserved; old history stops
+// anchoring the ratio, so a fixed weak key reads as fixed within ~a window of
+// real typing instead of months. Shared by the local merge and the DB upsert.
+export const KEY_ATTEMPT_CAP = 500
+
 export interface SyncedStat {
     character: string
     total: number

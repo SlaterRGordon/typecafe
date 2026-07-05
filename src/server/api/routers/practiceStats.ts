@@ -4,6 +4,8 @@ import {
   createTRPCRouter,
   protectedProcedure,
 } from "~/server/api/trpc";
+import { Prisma } from "~/generated/prisma/client";
+import { KEY_ATTEMPT_CAP } from "~/lib/practiceAttempts";
 
 const practiceStatInput = z
   .object({
@@ -92,28 +94,25 @@ export const practiceStatsRouter = createTRPCRouter({
 
       const userId = ctx.session.user.id;
 
-      await ctx.prisma.$transaction(
-        input.stats.map((stat) =>
-          ctx.prisma.practiceStats.upsert({
-            where: {
-              userId_character: {
-                userId,
-                character: stat.character,
-              },
-            },
-            create: {
-              userId,
-              character: stat.character,
-              total: stat.total,
-              correct: stat.correct,
-            },
-            update: {
-              total: { increment: stat.total },
-              correct: { increment: stat.correct },
-            },
-          }),
-        ),
+      // One bulk upsert (same pattern as transitionStats.batchSync) applying
+      // the rolling window (ADR-0005): sum, then if a key overflows the attempt
+      // cap, scale total/correct down proportionally — accuracy preserved, old
+      // history stops anchoring the ratio. Mirrors lib/localSync mergeKeyStats.
+      const rows = input.stats.map(
+        (s) => Prisma.sql`(gen_random_uuid()::text, ${userId}, ${s.character}, ${s.total}, ${s.correct}, NOW())`,
       );
+      await ctx.prisma.$executeRaw`
+        INSERT INTO "PracticeStats" ("id", "userId", "character", "total", "correct", "updatedAt")
+        VALUES ${Prisma.join(rows)}
+        ON CONFLICT ("userId", "character") DO UPDATE SET
+          "total" = LEAST("PracticeStats"."total" + EXCLUDED."total", ${KEY_ATTEMPT_CAP}),
+          "correct" = CASE
+            WHEN "PracticeStats"."total" + EXCLUDED."total" > ${KEY_ATTEMPT_CAP}
+            THEN ROUND(("PracticeStats"."correct" + EXCLUDED."correct")::numeric * ${KEY_ATTEMPT_CAP} / ("PracticeStats"."total" + EXCLUDED."total"))::int
+            ELSE "PracticeStats"."correct" + EXCLUDED."correct"
+          END,
+          "updatedAt" = NOW()
+      `;
 
       return { count: input.stats.length };
     }),

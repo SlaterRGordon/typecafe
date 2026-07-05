@@ -11,6 +11,13 @@ import { isTrackableTransitionPair } from "./drillableTransitions"
 export const TRANSITION_MIN_COUNT = 4
 // Slower than this multiple of the user's overall transition pace = worth drilling.
 export const TRANSITION_SLOW_RATIO = 1.3
+// Aggregates are a rolling window, not a true lifetime sum (ADR-0005): a pair's
+// effective sample count caps here. When a merge pushes past the cap, count /
+// totalMs / errors scale down proportionally — the mean and error rate are
+// preserved, but each new sample then carries at least 1/cap of the weight, so
+// the coach tracks *current* ability instead of being anchored by months-old
+// history. History stays recoverable from the stored keystroke timelines.
+export const TRANSITION_SAMPLE_CAP = 200
 
 function isLetter(ch: string): boolean {
     return /^[a-z]$/.test(ch)
@@ -98,8 +105,22 @@ export function worstTransitions(aggregates: TransitionAggregate[], limit = 5): 
         .slice(0, limit)
 }
 
+// Scale an over-cap aggregate back down to the cap, preserving its mean and
+// error rate. `count` ≥ `errors` survives the rounding: errors·f ≤ count·f = cap.
+function capTransitionAggregate(a: TransitionAggregate): TransitionAggregate {
+    if (a.count <= TRANSITION_SAMPLE_CAP) return a
+    const factor = TRANSITION_SAMPLE_CAP / a.count
+    return {
+        pair: a.pair,
+        count: TRANSITION_SAMPLE_CAP,
+        totalMs: Math.round(a.totalMs * factor),
+        errors: Math.round(a.errors * factor),
+    }
+}
+
 // Merge two sets of aggregates (lifetime + a new test, or local + incoming) by
-// summing — the same shape the DB upsert increments by.
+// summing, then capping each pair to the rolling window — the same arithmetic
+// the DB upsert applies (transitionStats.batchSync).
 export function mergeTransitions(existing: TransitionAggregate[], incoming: TransitionAggregate[]): TransitionAggregate[] {
     const byPair = new Map<string, TransitionAggregate>()
     for (const a of [...existing, ...incoming]) {
@@ -112,5 +133,5 @@ export function mergeTransitions(existing: TransitionAggregate[], incoming: Tran
         entry.errors += a.errors
         byPair.set(pair, entry)
     }
-    return Array.from(byPair.values())
+    return Array.from(byPair.values(), capTransitionAggregate)
 }

@@ -90,7 +90,7 @@ test.describe("progress dashboard", () => {
     const drillWeak = weak.getByRole("link", { name: /Drill weakest keys/ });
     await expect(drillWeak).toBeVisible();
     await expect(drillWeak).toHaveAttribute("href", /keys=r,e/);
-    await expect(page.getByTestId("lifetime-keyboard-card")).toContainText("Lifetime keyboard");
+    await expect(page.getByTestId("lifetime-keyboard-card")).toContainText("Your keyboard");
     await expect(page.getByTestId("lifetime-keyboard-card")).toContainText("Lower accuracy");
     await expect(page.getByTestId("lifetime-heatmap")).toBeVisible();
     await expect(page.getByTestId("lifetime-heatmap")).toContainText("80%");

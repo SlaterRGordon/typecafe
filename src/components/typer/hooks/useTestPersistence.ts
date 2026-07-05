@@ -85,8 +85,17 @@ export function useTestPersistence({ charAttemptsRef, onTestComplete, eagerResul
 
     // Both sync mutations invalidate their lifetime read so always-mounted
     // surfaces (the coach tab) recompute from data that includes this test.
+    // The drain must live here (hook-level), not as a mutate-level callback:
+    // drill/train unmount the Typer the moment the eager result shows, and
+    // react-query skips mutate-level callbacks once the observer has no
+    // listeners — the synced attempts would never drain and the next sync
+    // would re-send (double-count) them. Hook-level callbacks ride the
+    // mutation itself and fire regardless of mount.
     const { mutate: syncPracticeStats } = api.practiceStats.batchSync.useMutation({
-        onSuccess: () => void utils.practiceStats.get.invalidate(),
+        onSuccess: (_data, variables) => {
+            drainSyncedAttempts(charAttemptsRef.current, variables.stats)
+            void utils.practiceStats.get.invalidate()
+        },
         onError: (error) => {
             console.error(error)
         },
@@ -142,9 +151,7 @@ export function useTestPersistence({ charAttemptsRef, onTestComplete, eagerResul
             return
         }
 
-        syncPracticeStats({ stats }, {
-            onSuccess: () => drainSyncedAttempts(charAttemptsRef.current, stats),
-        })
+        syncPracticeStats({ stats })
     }, [charAttemptsRef, sessionData?.user, syncPracticeStats])
 
     return { sessionData, persistCompletion, syncCharAttempts, syncTransitions, isSaving: createTest.isPending }

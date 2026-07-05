@@ -23,6 +23,38 @@ test.describe("drill page", () => {
     await expect(page.getByTestId("drill-result")).toBeVisible({ timeout: 2500 })
   })
 
+  // Regression guard: the eager result unmounts the Typer before the idle-time
+  // practiceStats sync settles; the drain must still run (hook-level callback)
+  // or the next rep re-sends the previous rep's attempts and the server
+  // double-counts them.
+  test("signed-in reps each sync their own attempts exactly once", async ({ page }) => {
+    const syncedTotals: number[] = []
+    await mockAuthenticatedSession(page)
+    await mockTrpc(page, {
+      onProcedure: (procedure, input) => {
+        if (procedure === "practiceStats.batchSync" && Array.isArray(input?.stats)) {
+          syncedTotals.push((input.stats as { total: number }[]).reduce((sum, s) => sum + s.total, 0))
+        }
+      },
+    })
+    await page.goto("/drill?keys=x&length=4")
+    await expect(page.getByTestId("drill-typer")).toBeVisible()
+
+    await typeVisibleTestText(page)
+    await expect(page.getByTestId("drill-result")).toBeVisible()
+    await expect.poll(() => syncedTotals.length).toBe(1)
+
+    await pressRestartShortcut(page, "Enter")
+    await expect(page.getByTestId("drill-typer")).toBeVisible()
+    await typeVisibleTestText(page)
+    await expect(page.getByTestId("drill-result")).toBeVisible()
+    await expect.poll(() => syncedTotals.length).toBe(2)
+
+    // Both reps type the same fixed drill text; an undrained map would fold
+    // rep 1's attempts into rep 2's payload (double the total).
+    expect(syncedTotals[1]).toBe(syncedTotals[0])
+  })
+
   test("key drill renders real target-key words and completes", async ({ page }) => {
     await mockTrpc(page)
     await page.goto("/drill?keys=x&length=4")
@@ -115,7 +147,7 @@ test.describe("drill page", () => {
 
     // The header states the baseline to beat and offers the next pick up front
     // (from lifetime evidence, x excluded) — no completed rep required.
-    await expect(page.getByTestId("drill-header-stat")).toHaveText("50.0% lifetime accuracy on this key. Beat it below.")
+    await expect(page.getByTestId("drill-header-stat")).toHaveText("50.0% recent accuracy on this key. Beat it below.")
     await expect(page.getByTestId("drill-header-next")).toHaveAttribute("href", "/drill?keys=q")
 
     await typeVisibleTestText(page)
@@ -123,7 +155,7 @@ test.describe("drill page", () => {
     // A clean rep on x beats the 50% lifetime baseline.
     const delta = page.getByTestId("drill-delta")
     await expect(delta).toContainText("x")
-    await expect(delta).toContainText("above your lifetime average")
+    await expect(delta).toContainText("above your recent average")
     // The next pick excludes the just-drilled x and lands on q; the result card
     // owns it now, so the header copy disappears.
     const next = page.getByTestId("drill-next")
@@ -131,11 +163,20 @@ test.describe("drill page", () => {
     await expect(next).toHaveAttribute("href", "/drill?keys=q")
     await expect(page.getByTestId("drill-header-next")).toHaveCount(0)
 
+    // The header's session trail proves the rep landed (a clean rep on x is 100%).
+    await expect(page.getByTestId("drill-session")).toHaveText("This session: 100.0% — 1 rep")
+
     // A restart (tab+enter) brings the header pick back — the user is never
     // forced through another full rep to reach the next drill.
     await pressRestartShortcut(page, "Enter")
     await expect(page.getByTestId("drill-typer")).toBeVisible()
     await expect(page.getByTestId("drill-header-next")).toHaveAttribute("href", "/drill?keys=q")
+
+    // A second rep accumulates on the trail — the header visibly moves with
+    // every rep even though the lifetime baseline barely does (ADR-0004).
+    await typeVisibleTestText(page)
+    await expect(page.getByTestId("drill-result")).toBeVisible()
+    await expect(page.getByTestId("drill-session")).toContainText("2 reps")
   })
 
   test("transition drill result computes the delta and picks the next-worst pair", async ({ page }, testInfo) => {
@@ -163,19 +204,34 @@ test.describe("drill page", () => {
     // Synthetic keystrokes land far faster than the 400ms lifetime mean.
     const delta = page.getByTestId("drill-delta")
     await expect(delta).toContainText("b→r")
-    await expect(delta).toContainText("faster than your lifetime average")
+    await expect(delta).toContainText("faster than your recent average")
     // Next pick skips the just-drilled br and lands on the next-slowest pair, io.
     await expect(page.getByTestId("drill-next")).toHaveAttribute("href", "/drill?transitions=io")
 
-    // The rep's target-saturated text must NOT rewrite the lifetime bigram
-    // picture: the coach tab (desktop only — the inline mobile variant renders
-    // on the home page) still recommends br from the untouched lifetime data.
+    // The session trail carries the rep's ms on the drilled pair.
+    const session = page.getByTestId("drill-session")
+    await expect(session).toContainText("This session:")
+    await expect(session).toContainText("ms — 1 rep")
+
+    // Drill again: the baseline re-snapshots from lifetime data that now
+    // includes the rep's fast samples — the header's number visibly moves
+    // (ADR-0004 reversal; this is the loop the owner wanted).
+    await pressRestartShortcut(page, "Enter")
+    await expect(page.getByTestId("drill-typer")).toBeVisible()
+    const restatedStat = page.getByTestId("drill-header-stat")
+    await expect(restatedStat).toContainText("ms on this jump")
+    await expect(restatedStat).not.toContainText("400ms")
+
+    // The rep syncs into the lifetime bigram data (ADR-0004 reversal): br's
+    // mean drops below io's, so the coach tab (desktop only — the inline
+    // mobile variant renders on the home page) live-updates to the next-worst
+    // pair instead of re-recommending the drill just finished.
     if (!testInfo.project.name.includes("mobile")) {
       const tab = page.getByTestId("home-coach-tab-drill")
       await tab.hover()
       const panel = page.getByTestId("home-coach-tab-drill-panel")
-      await expect(panel).toContainText("b->r")
-      await expect(panel.getByRole("link", { name: "Start drill" })).toHaveAttribute("href", "/drill?transitions=br")
+      await expect(panel).toContainText("i->o")
+      await expect(panel.getByRole("link", { name: "Start drill" })).toHaveAttribute("href", "/drill?transitions=io")
     }
   })
 
