@@ -35,10 +35,13 @@ end-to-end (OG builder returned null, page rendered "Score unavailable").
 
 Copy-link/copy-image only today — no native share sheet, no pre-filled targets.
 
-- [ ] `navigator.share()` where available (mobile sheet, attach the PNG),
-  falling back to pre-filled X + Reddit links + copy on desktop.
-- [ ] Delta-forward share text when a delta exists.
-- [ ] E2e + screenshot-tour coverage.
+- [x] Native `navigator.share()` button where supported (client-detected to
+  avoid a hydration mismatch), plus always-present pre-filled X + Reddit links;
+  the existing "Share Score" copy button is unchanged.
+- [x] Delta-forward share text: "+N vs my 30-day average" when a ranked delta
+  exists, else the plain headline WPM (`buildShareText`).
+- [x] E2e: X/Reddit target hrefs (URL + delta text encoded). Screenshot tour
+  `18-shared-score` refreshed with the targets row.
 
 ## C. Index hygiene
 

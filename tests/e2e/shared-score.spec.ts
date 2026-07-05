@@ -194,6 +194,27 @@ test.describe("shared scores", () => {
     expect(procedures).not.toContain("scoreShare.create");
   });
 
+  test("offers pre-filled X and Reddit share targets on a shared score", async ({ page }) => {
+    await mockTrpc(page);
+
+    await page.goto("/score/share-test-score");
+    await expect(page.getByTestId("score-screenshot-card")).toBeVisible();
+
+    const targets = page.getByTestId("share-targets");
+    await expect(targets).toBeVisible();
+
+    const x = targets.getByRole("link", { name: "Share on X" });
+    await expect(x).toHaveAttribute("href", /twitter\.com\/intent\/tweet/);
+    // The share URL is carried through as the `url` param.
+    await expect(x).toHaveAttribute("href", /score%2Fshare-test-score/);
+    // Delta-forward text: "(+4.1 vs my 30-day average)" → the + encodes to %2B.
+    await expect(x).toHaveAttribute("href", /%2B4\.1/);
+
+    const reddit = targets.getByRole("link", { name: "Share on Reddit" });
+    await expect(reddit).toHaveAttribute("href", /reddit\.com\/submit/);
+    await expect(reddit).toHaveAttribute("href", /score%2Fshare-test-score/);
+  });
+
   test("renders a test-less guest score share read-only", async ({ page }) => {
     await mockTrpc(page);
 
