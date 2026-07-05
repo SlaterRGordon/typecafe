@@ -7,6 +7,7 @@ import {
     keyLabel,
     slowestKeys,
     toDrillKeys,
+    toughestWords,
     withPracticeVowel,
 } from "./diagnosis"
 import type { KeystrokeEvent } from "./keystrokes"
@@ -72,6 +73,26 @@ describe("withPracticeVowel", () => {
 
     it("leaves an empty set untouched", () => {
         expect(withPracticeVowel([])).toEqual([])
+    })
+})
+
+describe("toughestWords", () => {
+    it("ranks error words first, then the slowest, and rebuilds the intended word", () => {
+        // "cat" typed cleanly at baseline, "dog" with a wrong keystroke, "fly" slow.
+        const evts = events([
+            ["c", 100], ["a", 100], ["t", 100], [" ", 100],
+            ["d", 100], ["o", 100], ["g", 100, false], [" ", 100],
+            ["f", 300], ["l", 300], ["y", 300],
+        ])
+        const tough = toughestWords(evts, 100)
+        // "cat" is clean and on-pace → excluded; error word leads, slow word follows.
+        expect(tough.map((w) => w.word)).toEqual(["dog", "fly"])
+        expect(tough[0]!.errors).toBe(1)
+    })
+
+    it("skips single-character runs as noise", () => {
+        const evts = events([["a", 100], [" ", 100], ["b", 100, false]])
+        expect(toughestWords(evts, 100)).toEqual([])
     })
 })
 

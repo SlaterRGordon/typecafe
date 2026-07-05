@@ -17,6 +17,20 @@ describe("rankDrillWords", () => {
 })
 
 describe("compileDrillText", () => {
+    test("builds a verbatim word drill from the given words, ignoring the word list", () => {
+        const text = compileDrillText({
+            words: ["Question", "rhythm", "42", "fly"],
+            wordList: ["alpha", "beta"],
+            length: 6,
+            rng: cyclingRng(),
+        })
+        const words = text.split(" ")
+
+        expect(words).toHaveLength(6)
+        // Only the letters-only words survive; "42" is dropped. Case folded.
+        expect(new Set(words)).toEqual(new Set(["question", "rhythm", "fly"]))
+    })
+
     test("generates key drills from real words that all contain a target key", () => {
         const text = compileDrillText({
             keys: ["x"],

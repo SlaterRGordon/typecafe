@@ -599,21 +599,27 @@ function DiagnosisPanel(props: { score: ShareableScore }) {
                   {keyFindings.length > 0 &&
                     <ul className="flex flex-col gap-3">
                       {keyFindings.map((finding) => {
-                        const drillKeys = toDrillKeys(finding.keys);
+                        // Toughest-words drills those exact words verbatim; every
+                        // other finding drills its keys.
+                        const words = finding.kind === "tough-words" ? finding.detail.map((w) => w.word) : [];
+                        const drillKeys = finding.kind === "tough-words" ? [] : toDrillKeys(finding.keys);
+                        const targets = words.length > 0 ? words : drillKeys;
+                        const href = words.length > 0 ? `/drill?words=${words.join(",")}` : `/drill?keys=${drillKeys.join(",")}`;
+                        const noun = words.length > 0 ? "words" : "keys";
                         return (
                           <li
                             key={finding.kind}
                             className="flex flex-col gap-3 border-b border-base-content/10 pb-3 last:border-b-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between"
                           >
                             <span className="text-base-content/90">{finding.summary}</span>
-                            {drillKeys.length > 0 ?
+                            {targets.length > 0 ?
                               <Link
                                 className="inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-                                href={withReMeasure(`/drill?keys=${drillKeys.join(",")}`)}
-                                aria-label={`Drill these keys: ${drillKeys.join(", ")}`}
-                                title={`Drill ${drillKeys.join(", ")}`}
+                                href={withReMeasure(href)}
+                                aria-label={`Drill these ${noun}: ${targets.join(", ")}`}
+                                title={`Drill ${targets.join(", ")}`}
                               >
-                                Drill these keys
+                                Drill these {noun}
                               </Link>
                               :
                               null

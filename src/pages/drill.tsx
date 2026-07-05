@@ -19,7 +19,7 @@ import { isAnyModalOpen } from "~/lib/modals"
 import { aggregateTransitions, mergeTransitions, type TransitionAggregate } from "~/lib/transitions"
 import { api } from "~/utils/api"
 
-type DrillKind = "keys" | "transitions" | "timed"
+type DrillKind = "keys" | "transitions" | "words" | "timed"
 
 interface DrillConfig {
     kind: DrillKind,
@@ -60,6 +60,16 @@ const parseKeys = (value: string | string[] | undefined): string[] => {
         .split(",")
         .map((key) => key.trim().toLowerCase())
         .filter(isDrillableKey)))
+}
+
+// Words to drill verbatim (letters-only, lowercased, deduped) — the toughest-words
+// handoff from a diagnosis. Non-letter tokens are dropped (can't form drill text).
+const parseWords = (value: string | string[] | undefined): string[] => {
+    const raw = Array.isArray(value) ? value.join(",") : value ?? ""
+    return Array.from(new Set(raw
+        .split(",")
+        .map((word) => word.trim().toLowerCase())
+        .filter((word) => /^[a-z]+$/.test(word))))
 }
 
 const parseTransitions = (value: string | string[] | undefined): string[] => {
@@ -110,8 +120,18 @@ const Drill: NextPage = () => {
         const length = parseLength(router.query.length)
         const keys = parseKeys(router.query.keys)
         const transitions = parseTransitions(router.query.transitions)
+        const words = parseWords(router.query.words)
         const seconds = parseSeconds(router.query.seconds)
         const wordList = getWords("english")
+
+        if (words.length > 0) {
+            return {
+                kind: "words",
+                labels: words,
+                targets: words,
+                text: compileDrillText({ words, wordList, length }),
+            }
+        }
 
         if (transitions.length > 0) {
             return {
@@ -143,7 +163,7 @@ const Drill: NextPage = () => {
         }
 
         return null
-    }, [router.isReady, router.query.keys, router.query.length, router.query.transitions, router.query.seconds])
+    }, [router.isReady, router.query.keys, router.query.length, router.query.transitions, router.query.words, router.query.seconds])
 
     const restartDrill = () => {
         setCompleted(null)
@@ -191,7 +211,8 @@ const Drill: NextPage = () => {
     }, [config, baseline])
 
     const headerNext = useMemo<DrillFinding | null>(() => {
-        if (!config || config.kind === "timed") return null
+        // Words drills have no per-word lifetime baseline to suggest a next pick from.
+        if (!config || config.kind === "timed" || config.kind === "words") return null
         return nextDrillFinding(
             baseline.transitions,
             mergeAttempts(baseline.keyStats, new Map()),
@@ -204,7 +225,7 @@ const Drill: NextPage = () => {
     // lifetime data — ADR-0004 reversal), excluding the just-drilled target so it
     // never re-suggests the drill just finished.
     const outcome = useMemo(() => {
-        if (!completed || !config || config.kind === "timed") return null
+        if (!completed || !config || config.kind === "timed" || config.kind === "words") return null
         const repEvents = decodeTimeline(completed.timeline)
 
         let delta: DrillDelta | null = null
@@ -271,7 +292,7 @@ const Drill: NextPage = () => {
                                     <div className="flex items-start justify-between gap-3">
                                         <div>
                                             <p className="text-xs font-semibold uppercase tracking-wide text-primary">
-                                                {config.kind === "transitions" ? "Transition drill" : config.kind === "timed" ? "Timed warm-up" : "Key drill"}
+                                                {config.kind === "transitions" ? "Transition drill" : config.kind === "words" ? "Word drill" : config.kind === "timed" ? "Timed warm-up" : "Key drill"}
                                             </p>
                                             <h1 className="mt-1 font-mono text-2xl font-bold text-base-content">
                                                 {config.labels.join(", ")}

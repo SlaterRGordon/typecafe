@@ -84,6 +84,24 @@ test.describe("drill page", () => {
     await expect(page.getByTestId("drill-typer")).toBeVisible()
   })
 
+  test("word drill types the exact toughest words and completes", async ({ page }) => {
+    await mockTrpc(page)
+    await page.goto("/drill?words=rhythm,syzygy&length=4")
+
+    await expect(page.getByText("Word drill")).toBeVisible()
+    await expect(page.getByTestId("drill-typer")).toBeVisible()
+    // Every drill word is one of the two verbatim targets — no keyword ranking.
+    const words = (await page.locator("#words").innerText()).trim().split(/\s+/)
+    expect(words).toHaveLength(4)
+    expect(words.every((word) => word === "rhythm" || word === "syzygy")).toBe(true)
+
+    await typeVisibleTestText(page)
+    await expect(page.getByTestId("drill-result")).toBeVisible()
+    // No per-word lifetime baseline exists → no delta line, no next-pick.
+    await expect(page.getByTestId("drill-delta")).toHaveCount(0)
+    await expect(page.getByTestId("drill-next")).toHaveCount(0)
+  })
+
   test("forwards a diagnosis re-measure token into the Re-measure CTA", async ({ page }) => {
     await page.addInitScript(() => {
       window.localStorage.setItem("typecafe:keyStats", JSON.stringify([
