@@ -69,5 +69,12 @@ The only durable organic-search play; own slice when A–D land.
   stays a button). Googlebot can now follow internal links + pass equity. Role
   changed button→link, so nav selectors across navigation/routes/home/screenshots
   specs were updated; all green on desktop + mobile.
-- [ ] Content: a "how to type faster" angle / beef up how-we-measure to rank for
-  improvement-intent queries. Separate content-authoring effort.
+- [x] Content: authored `/how-to-type-faster` — a search-intent guide whose
+  advice *is* the TypeCafe loop (accuracy-first → diagnose → drill → re-measure →
+  track delta), each section linking the surface that does it. Linked from the
+  nav "More" menu (crawlable) and auto-listed in the sitemap. Route-render +
+  canonical e2e; screenshot `65-how-to-type-faster`.
+
+Also fixed en route: `_app.tsx` hardcoded canonical/og:url to the site root, so
+every page self-declared as a duplicate of home — pages couldn't rank. Now
+self-canonicalize by path (score pages still override).

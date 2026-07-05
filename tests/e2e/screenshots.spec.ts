@@ -843,6 +843,10 @@ test.describe("screenshot tour", () => {
     await expect(page.getByRole("heading", { name: "How TypeCafe Measures Typing" })).toBeVisible();
     await capture(page, testInfo, "55-how-we-measure");
 
+    await page.goto("/how-to-type-faster");
+    await expect(page.getByRole("heading", { name: "How to Type Faster", exact: true })).toBeVisible();
+    await capture(page, testInfo, "65-how-to-type-faster");
+
     await page.goto("/privacy-policy");
     await expect(page.getByRole("heading", { name: "Privacy Policy for TypeCafe" })).toBeVisible();
     await capture(page, testInfo, "21-privacy-policy");
