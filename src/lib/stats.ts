@@ -100,6 +100,42 @@ export function buildWpmSamples(timeline: Keystroke[]): WpmSample[] {
     return samples
 }
 
+export interface CumulativeWpm {
+    rawWpm: number,
+    netWpm: number,
+}
+
+// Cumulative (running-average) raw and net WPM at each of the given elapsed times
+// (seconds, ascending), from the per-keystroke correctness timeline. Unlike the
+// burst samples (a trailing window), each point is the average speed from the
+// first keystroke through that moment — so the curve smooths the burst line out
+// and converges toward the headline raw/net WPM. Times at or before 0 report 0/0.
+// Both `events` (t in ms) and `elapsedSecondsAt` must be ascending; the walk is a
+// single two-pointer pass that relies on it.
+export function cumulativeWpmAtTimes(
+    events: { correct: boolean, t: number }[],
+    elapsedSecondsAt: number[],
+): CumulativeWpm[] {
+    let idx = 0
+    let total = 0
+    let correct = 0
+    return elapsedSecondsAt.map((elapsed) => {
+        const tMs = elapsed * 1000
+        while (idx < events.length && events[idx]!.t <= tMs + 1e-9) {
+            total += 1
+            if (events[idx]!.correct) correct += 1
+            idx += 1
+        }
+        const minutes = elapsed / 60
+        if (minutes <= 0) return { rawWpm: 0, netWpm: 0 }
+        const incorrect = total - correct
+        return {
+            rawWpm: (total / 5) / minutes,
+            netWpm: Math.max(((correct - incorrect) / 5) / minutes, 0),
+        }
+    })
+}
+
 export interface TestStats {
     speed: number,
     rawWpm: number,

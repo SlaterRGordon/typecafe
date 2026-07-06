@@ -3,6 +3,7 @@ import {
     buildWpmSamples,
     charsAtElapsed,
     computeStats,
+    cumulativeWpmAtTimes,
     consistencyFromSamples,
     instantaneousWpm,
     isRankableSample,
@@ -388,6 +389,43 @@ describe("consistencyFromSamples", () => {
         const value = consistencyFromSamples(wild)
         expect(value).toBeGreaterThanOrEqual(0)
         expect(value).toBeLessThanOrEqual(100)
+    })
+})
+
+describe("cumulativeWpmAtTimes", () => {
+    // 5 keystrokes, one every 100ms (t = 0..400ms), i.e. 1 word over 0.4s → 150 wpm.
+    const events = Array.from({ length: 5 }, (_, i) => ({ correct: true, t: i * 100 }))
+
+    it("reports 0/0 before any time has elapsed", () => {
+        expect(cumulativeWpmAtTimes(events, [0])).toEqual([{ rawWpm: 0, netWpm: 0 }])
+    })
+
+    it("computes the running average speed, converging to the headline figure", () => {
+        const [end] = cumulativeWpmAtTimes(events, [0.4])
+        expect(end!.rawWpm).toBeCloseTo(150, 6)
+        expect(end!.netWpm).toBeCloseTo(150, 6)
+    })
+
+    it("subtracts errors from net but not raw", () => {
+        const withMiss = [
+            { correct: true, t: 0 },
+            { correct: false, t: 100 },
+            { correct: true, t: 200 },
+            { correct: true, t: 300 },
+            { correct: true, t: 400 },
+        ]
+        const [end] = cumulativeWpmAtTimes(withMiss, [0.4])
+        // 5 chars over 0.4s → raw 150; net = (4−1)/5 / (0.4/60) = 90.
+        expect(end!.rawWpm).toBeCloseTo(150, 6)
+        expect(end!.netWpm).toBeCloseTo(90, 6)
+    })
+
+    it("accumulates monotonically across ascending query times", () => {
+        const samples = cumulativeWpmAtTimes(events, [0.1, 0.2, 0.4])
+        expect(samples).toHaveLength(3)
+        // 2 chars by 0.1s, 3 by 0.2s, 5 by 0.4s — each divided by its own elapsed.
+        expect(samples[0]!.rawWpm).toBeCloseTo((2 / 5) / (0.1 / 60), 6)
+        expect(samples[2]!.rawWpm).toBeCloseTo(150, 6)
     })
 })
 
