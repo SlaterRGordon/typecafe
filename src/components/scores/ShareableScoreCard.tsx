@@ -433,15 +433,15 @@ function WpmChart(props: { samples: ScoreWpmSample[]; durationSeconds: number; r
   // Which sample the pointer is nearest, for the hover readout. Null = no hover.
   const [hover, setHover] = useState<number | null>(null);
   const { maxSecond, hoverPoints, lines, areaPath, legend, hasCumulative, mistakeBars, mistakeCount, yTicks, renderedXTicks, maxWpm, xSpan, chartStartSecond, width, height, padding, chartWidth, chartHeight } = useMemo(() => {
-    const chartStartSecond = 0;
     const accuracy = props.accuracy;
-    const recordedSamples = props.samples
-      .filter((sample) => sample.elapsedSeconds >= chartStartSecond)
-      .sort((a, b) => a.elapsedSeconds - b.elapsedSeconds);
-    const maxSecond = Math.round(Math.max(props.durationSeconds, ...recordedSamples.map((sample) => sample.elapsedSeconds), chartStartSecond));
-    // See the note by pointsFor: the cumulative lines skip their noisy sub-second
-    // start on tests long enough to spare it.
-    const cumulativeFloor = maxSecond > 2 ? 1 : 0;
+    const sortedSamples = props.samples.slice().sort((a, b) => a.elapsedSeconds - b.elapsedSeconds);
+    const maxSecond = Math.round(Math.max(props.durationSeconds, ...sortedSamples.map((sample) => sample.elapsedSeconds), 0));
+    // Start the x-axis at 1s on tests long enough to spare it. The first second is
+    // where a running average is noisiest (over a tiny window it extrapolates to a
+    // spike), so the lines begin cleanly at the left edge at 1s instead of ramping
+    // up through that noise.
+    const chartStartSecond = maxSecond > 2 ? 1 : 0;
+    const recordedSamples = sortedSamples.filter((sample) => sample.elapsedSeconds >= chartStartSecond);
     const samples = recordedSamples.length > 0
       ? recordedSamples[0]!.elapsedSeconds === chartStartSecond
         ? recordedSamples
@@ -458,11 +458,8 @@ function WpmChart(props: { samples: ScoreWpmSample[]; durationSeconds: number; r
       : [];
 
     // Scale the y-axis to whatever lines we actually draw so nothing is squished.
-    // For cumulative, only count points past the floor — the trimmed early spike
-    // must not blow up the axis.
-    const cumulativeShown = cumulative.filter((_, i) => samples[i]!.elapsedSeconds > cumulativeFloor);
     const drawnValues = hasCumulative
-      ? [...cumulativeShown.map((c) => c.rawWpm), ...cumulativeShown.map((c) => c.netWpm), ...burstNet]
+      ? [...cumulative.map((c) => c.rawWpm), ...cumulative.map((c) => c.netWpm), ...burstNet]
       : [...samples.map((s) => s.wpm), ...burstNet];
     const maxRecordedWpm = Math.max(...drawnValues, props.rawWpm, 100);
     const yTickInterval = chooseWpmTickInterval(maxRecordedWpm);
@@ -475,16 +472,13 @@ function WpmChart(props: { samples: ScoreWpmSample[]; durationSeconds: number; r
     const xSpan = Math.max(maxSecond - chartStartSecond, 1);
     const xAt = (second: number) => padding.left + ((Math.min(second, maxSecond) - chartStartSecond) / xSpan) * chartWidth;
     const yAt = (wpm: number) => padding.top + chartHeight - (wpm / maxWpm) * chartHeight;
-    // A running average over a tiny early window extrapolates to a spike (one key
-    // at 0.1s reads as 120+ wpm), so the cumulative lines start after cumulativeFloor
-    // (see above). Burst keeps every point (its trailing window already tames it).
-    const pointsFor = (values: number[], minSecond: number) =>
-      samples
-        .map((sample, i) => ({ second: sample.elapsedSeconds, x: xAt(sample.elapsedSeconds), y: yAt(values[i]!) }))
-        .filter((p) => p.second > minSecond);
+    // Every sample already starts at chartStartSecond, so no per-line floor is
+    // needed — the axis itself begins where the running average settles.
+    const pointsFor = (values: number[]) =>
+      samples.map((sample, i) => ({ second: sample.elapsedSeconds, x: xAt(sample.elapsedSeconds), y: yAt(values[i]!) }));
 
-    const burstNetPoints = pointsFor(burstNet, -1);
-    const headlinePoints = hasCumulative ? pointsFor(cumulative.map((c) => c.netWpm), cumulativeFloor) : burstNetPoints;
+    const burstNetPoints = pointsFor(burstNet);
+    const headlinePoints = hasCumulative ? pointsFor(cumulative.map((c) => c.netWpm)) : burstNetPoints;
     const areaPath = headlinePoints.length > 0
       ? `M ${headlinePoints[0]!.x} ${padding.top + chartHeight} L ${headlinePoints[0]!.x} ${headlinePoints[0]!.y} ${buildSmoothPath(headlinePoints).replace(/^M [^C]+/, "")} L ${headlinePoints[headlinePoints.length - 1]!.x} ${padding.top + chartHeight} Z`
       : "";
@@ -493,12 +487,12 @@ function WpmChart(props: { samples: ScoreWpmSample[]; durationSeconds: number; r
     // (on top). The headline is always the last entry so its dot anchors the hover.
     const lines: ChartLine[] = hasCumulative
       ? [
-          { path: buildSmoothPath(pointsFor(cumulative.map((c) => c.rawWpm), cumulativeFloor)), width: 2.5, dashed: true },
+          { path: buildSmoothPath(pointsFor(cumulative.map((c) => c.rawWpm))), width: 2.5, dashed: true },
           { path: buildSmoothPath(burstNetPoints), width: 2, neutral: true },
           { path: buildSmoothPath(headlinePoints), width: 4, animate: true },
         ]
       : [
-          { path: buildSmoothPath(pointsFor(samples.map((s) => s.wpm), -1)), width: 2.5, dashed: true, neutral: true },
+          { path: buildSmoothPath(pointsFor(samples.map((s) => s.wpm))), width: 2.5, dashed: true, neutral: true },
           { path: buildSmoothPath(burstNetPoints), width: 4, animate: true },
         ];
 
@@ -535,7 +529,7 @@ function WpmChart(props: { samples: ScoreWpmSample[]; durationSeconds: number; r
     // per-key errors collapse into one bar per time slice, taller where a burst
     // clustered. Reads the same whether there are 3 mistakes or 300, so nothing
     // overlaps into an unreadable smear.
-    const mistakeSeconds = events.filter((event) => !event.correct).map((event) => Math.min(event.t / 1000, maxSecond));
+    const mistakeSeconds = events.filter((event) => !event.correct).map((event) => Math.min(Math.max(event.t / 1000, chartStartSecond), maxSecond));
     const mistakeBinCount = 40;
     const mistakeBinCounts = new Array<number>(mistakeBinCount).fill(0);
     for (const second of mistakeSeconds) {
