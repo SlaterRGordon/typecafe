@@ -432,7 +432,7 @@ function WpmChart(props: { samples: ScoreWpmSample[]; durationSeconds: number; r
   const chartDescriptionId = useId();
   // Which sample the pointer is nearest, for the hover readout. Null = no hover.
   const [hover, setHover] = useState<number | null>(null);
-  const { maxSecond, hoverPoints, lines, areaPath, legend, hasCumulative, mistakes, yTicks, renderedXTicks, maxWpm, xSpan, chartStartSecond, width, height, padding, chartWidth, chartHeight, mistakeRowY } = useMemo(() => {
+  const { maxSecond, hoverPoints, lines, areaPath, legend, hasCumulative, mistakeBars, mistakeCount, yTicks, renderedXTicks, maxWpm, xSpan, chartStartSecond, width, height, padding, chartWidth, chartHeight } = useMemo(() => {
     const chartStartSecond = 0;
     const accuracy = props.accuracy;
     const recordedSamples = props.samples
@@ -531,9 +531,33 @@ function WpmChart(props: { samples: ScoreWpmSample[]; durationSeconds: number; r
       return { second, x: xAt(second), headlineY: yAt(headlineWpm), readouts };
     });
 
-    // One red × per incorrect keystroke, laid along a rug just above the axis.
-    const mistakeRowY = padding.top + chartHeight - 5;
-    const mistakes = events.filter((event) => !event.correct).map((event) => xAt(event.t / 1000));
+    // Mistakes as a binned density strip along the bottom axis: overlapping
+    // per-key errors collapse into one bar per time slice, taller where a burst
+    // clustered. Reads the same whether there are 3 mistakes or 300, so nothing
+    // overlaps into an unreadable smear.
+    const mistakeSeconds = events.filter((event) => !event.correct).map((event) => Math.min(event.t / 1000, maxSecond));
+    const mistakeBinCount = 40;
+    const mistakeBinCounts = new Array<number>(mistakeBinCount).fill(0);
+    for (const second of mistakeSeconds) {
+      const bin = Math.min(mistakeBinCount - 1, Math.max(0, Math.floor(((second - chartStartSecond) / xSpan) * mistakeBinCount)));
+      mistakeBinCounts[bin] = (mistakeBinCounts[bin] ?? 0) + 1;
+    }
+    const maxMistakeBin = Math.max(1, ...mistakeBinCounts);
+    const mistakeBarMaxHeight = 22;
+    const mistakeBars = mistakeBinCounts
+      .map((count, i) => {
+        if (count === 0) return null;
+        const barHeight = Math.max(4, (count / maxMistakeBin) * mistakeBarMaxHeight);
+        return {
+          x: padding.left + (i / mistakeBinCount) * chartWidth,
+          w: chartWidth / mistakeBinCount,
+          y: padding.top + chartHeight - barHeight,
+          height: barHeight,
+          count,
+        };
+      })
+      .filter((bar): bar is NonNullable<typeof bar> => bar !== null);
+    const mistakeCount = mistakeSeconds.length;
     const yTicks = Array.from({ length: Math.floor(maxWpm / yTickInterval) + 1 }, (_, index) => index * yTickInterval);
     const xTickInterval = chooseSecondTickInterval(xSpan);
     const xTicks = Array.from(
@@ -541,7 +565,7 @@ function WpmChart(props: { samples: ScoreWpmSample[]; durationSeconds: number; r
       (_, index) => chartStartSecond + index * xTickInterval,
     ).filter((tick) => tick <= maxSecond);
     const renderedXTicks = xTicks.includes(maxSecond) ? xTicks : [...xTicks, maxSecond];
-    return { maxSecond, hoverPoints, lines, areaPath, legend, hasCumulative, mistakes, yTicks, renderedXTicks, maxWpm, xSpan, chartStartSecond, width, height, padding, chartWidth, chartHeight, mistakeRowY };
+    return { maxSecond, hoverPoints, lines, areaPath, legend, hasCumulative, mistakeBars, mistakeCount, yTicks, renderedXTicks, maxWpm, xSpan, chartStartSecond, width, height, padding, chartWidth, chartHeight };
   }, [props.samples, props.durationSeconds, props.rawWpm, props.accuracy, props.timeline]);
 
   // Map the pointer's x onto the nearest sample. The overlay rect spans exactly
@@ -565,8 +589,8 @@ function WpmChart(props: { samples: ScoreWpmSample[]; durationSeconds: number; r
       <div className="mb-1 flex items-center gap-2 text-lg font-semibold text-base-content">
         <span id={chartTitleId}>WPM Over Time</span>
         <InfoIcon label={hasCumulative
-          ? "Cumulative net and raw WPM (your running average, converging to your final scores) plus the burst net line (instantaneous pace). Red × marks each wrong keystroke. Hover to read exact values."
-          : "Your net and raw WPM through the test. Red × marks each wrong keystroke. Hover to read exact values."} />
+          ? "Cumulative net and raw WPM (your running average, converging to your final scores) plus the burst net line (instantaneous pace). Red bars along the bottom show where mistakes clustered. Hover to read exact values."
+          : "Your net and raw WPM through the test. Red bars along the bottom show where mistakes clustered. Hover to read exact values."} />
       </div>
       <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-base-content/70">
         {legend.map((item) => (
@@ -577,12 +601,12 @@ function WpmChart(props: { samples: ScoreWpmSample[]; durationSeconds: number; r
             {item.label}
           </span>
         ))}
-        <span className="inline-flex items-center gap-1.5 text-error"><span className="font-bold">×</span>Mistake</span>
+        <span className="inline-flex items-center gap-1.5 text-error"><span className="inline-block h-2.5 w-1.5 rounded-sm bg-error" />Mistakes</span>
       </div>
       <div className="relative">
         <svg className="h-auto w-full overflow-visible text-primary" viewBox={`0 0 ${width} ${height}`} role="img" aria-labelledby={`${chartTitleId} ${chartDescriptionId}`}>
           <desc id={chartDescriptionId}>
-            {hasCumulative ? "Cumulative and burst" : "Net and raw"} WPM over {maxSecond} seconds with {mistakes.length} mistakes. Final net WPM is {formatNumber(netFromRaw(props.rawWpm, props.accuracy), 1)}, raw WPM {formatNumber(props.rawWpm, 1)}.
+            {hasCumulative ? "Cumulative and burst" : "Net and raw"} WPM over {maxSecond} seconds with {mistakeCount} mistakes. Final net WPM is {formatNumber(netFromRaw(props.rawWpm, props.accuracy), 1)}, raw WPM {formatNumber(props.rawWpm, 1)}.
           </desc>
           {yTicks.map((tick) => {
             const y = padding.top + chartHeight - (tick / maxWpm) * chartHeight;
@@ -598,6 +622,11 @@ function WpmChart(props: { samples: ScoreWpmSample[]; durationSeconds: number; r
             return <text key={tick} x={x} y={height - 8} textAnchor="middle" className="fill-base-content text-sm" opacity="0.75">{tick}s</text>;
           })}
           {areaPath ? <path d={areaPath} fill="currentColor" opacity="0.13" /> : null}
+          {mistakeBars.map((bar, index) => (
+            <rect key={index} x={bar.x + 0.75} y={bar.y} width={Math.max(1, bar.w - 1.5)} height={bar.height} rx="1" fill="var(--color-error)" opacity="0.6">
+              <title>{bar.count} mistake{bar.count > 1 ? "s" : ""}</title>
+            </rect>
+          ))}
           {lines.map((line, index) =>
             line.path ? (
               <path
@@ -614,12 +643,6 @@ function WpmChart(props: { samples: ScoreWpmSample[]; durationSeconds: number; r
               />
             ) : null,
           )}
-          {mistakes.map((x, index) => (
-            <g key={`${x}-${index}`} stroke="var(--color-error)" strokeWidth="2" strokeLinecap="round" opacity="0.85">
-              <line x1={x - 3.5} y1={mistakeRowY - 3.5} x2={x + 3.5} y2={mistakeRowY + 3.5} />
-              <line x1={x - 3.5} y1={mistakeRowY + 3.5} x2={x + 3.5} y2={mistakeRowY - 3.5} />
-            </g>
-          ))}
           {active &&
             <g>
               <line x1={active.x} x2={active.x} y1={padding.top} y2={padding.top + chartHeight} stroke="currentColor" opacity="0.3" strokeDasharray="4 4" />
