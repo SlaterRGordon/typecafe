@@ -5,7 +5,7 @@ import { ToolbarMenu } from "~/components/typer/config/ToolbarMenu";
 
 import { TestModes, TestSubModes } from "~/components/typer/types";
 import { ShareableScoreImage } from "./ShareableScoreImage";
-import { consistencyFromSamples, wpmImprovement } from "~/lib/stats";
+import { consistencyFromSamples, netFromRaw, wpmImprovement } from "~/lib/stats";
 import type { KeyAccuracy, TypedSegment, WpmSample as ScoreWpmSample } from "~/lib/stats";
 import { decodeTimeline } from "~/lib/keystrokes";
 import type { EncodedKeystroke } from "~/lib/keystrokes";
@@ -416,11 +416,14 @@ function chooseWpmTickInterval(maxWpm: number) {
   return 200;
 }
 
-function WpmChart(props: { samples: ScoreWpmSample[]; durationSeconds: number; rawWpm: number }) {
+function WpmChart(props: { samples: ScoreWpmSample[]; durationSeconds: number; rawWpm: number; accuracy: number; timeline?: EncodedKeystroke[] }) {
   const chartTitleId = useId();
   const chartDescriptionId = useId();
-  const { maxSecond, samples, points, linePath, areaPath, yTicks, renderedXTicks, maxWpm, xSpan, chartStartSecond, width, height, padding, chartWidth, chartHeight } = useMemo(() => {
+  // Which sample the pointer is nearest, for the hover readout. Null = no hover.
+  const [hover, setHover] = useState<number | null>(null);
+  const { maxSecond, hoverPoints, netPath, netAreaPath, rawPath, mistakes, yTicks, renderedXTicks, maxWpm, xSpan, chartStartSecond, width, height, padding, chartWidth, chartHeight, mistakeRowY } = useMemo(() => {
     const chartStartSecond = 0;
+    const accuracy = props.accuracy;
     const recordedSamples = props.samples
       .filter((sample) => sample.elapsedSeconds >= chartStartSecond)
       .sort((a, b) => a.elapsedSeconds - b.elapsedSeconds);
@@ -430,6 +433,7 @@ function WpmChart(props: { samples: ScoreWpmSample[]; durationSeconds: number; r
         ? recordedSamples
         : [{ elapsedSeconds: chartStartSecond, wpm: recordedSamples[0]!.wpm }, ...recordedSamples]
       : [{ elapsedSeconds: chartStartSecond, wpm: props.rawWpm }, { elapsedSeconds: maxSecond, wpm: props.rawWpm }];
+    // Raw is the ceiling of the two lines, so the y-axis is scaled to it.
     const maxRecordedWpm = Math.max(...samples.map((sample) => sample.wpm), props.rawWpm, 100);
     const yTickInterval = chooseWpmTickInterval(maxRecordedWpm);
     const maxWpm = Math.ceil(maxRecordedWpm / yTickInterval) * yTickInterval;
@@ -439,16 +443,32 @@ function WpmChart(props: { samples: ScoreWpmSample[]; durationSeconds: number; r
     const chartWidth = width - padding.left - padding.right;
     const chartHeight = height - padding.top - padding.bottom;
     const xSpan = Math.max(maxSecond - chartStartSecond, 1);
-    const points = samples.map((sample) => {
-      const second = Math.min(sample.elapsedSeconds, maxSecond);
-      const x = padding.left + ((second - chartStartSecond) / xSpan) * chartWidth;
-      const y = padding.top + chartHeight - (sample.wpm / maxWpm) * chartHeight;
-      return { x, y };
-    });
-    const linePath = buildSmoothPath(points);
-    const areaPath = points.length > 0
-      ? `M ${points[0]!.x} ${padding.top + chartHeight} L ${points[0]!.x} ${points[0]!.y} ${linePath.replace(/^M [^C]+/, "")} L ${points[points.length - 1]!.x} ${padding.top + chartHeight} Z`
+    const xAt = (second: number) => padding.left + ((Math.min(second, maxSecond) - chartStartSecond) / xSpan) * chartWidth;
+    const yAt = (wpm: number) => padding.top + chartHeight - (wpm / maxWpm) * chartHeight;
+    // Per-sample net WPM is the canonical raw·(2·acc−1) applied to each raw
+    // sample (netFromRaw), so the net line is raw scaled by this test's accuracy
+    // — the same factor that produces the headline net WPM.
+    const rawPoints = samples.map((sample) => ({ x: xAt(sample.elapsedSeconds), y: yAt(sample.wpm) }));
+    const netPoints = samples.map((sample) => ({ x: xAt(sample.elapsedSeconds), y: yAt(netFromRaw(sample.wpm, accuracy)) }));
+    const hoverPoints = samples.map((sample, i) => ({
+      second: Math.min(sample.elapsedSeconds, maxSecond),
+      raw: sample.wpm,
+      net: netFromRaw(sample.wpm, accuracy),
+      x: rawPoints[i]!.x,
+      rawY: rawPoints[i]!.y,
+      netY: netPoints[i]!.y,
+    }));
+    const rawPath = buildSmoothPath(rawPoints);
+    const netPath = buildSmoothPath(netPoints);
+    const netAreaPath = netPoints.length > 0
+      ? `M ${netPoints[0]!.x} ${padding.top + chartHeight} L ${netPoints[0]!.x} ${netPoints[0]!.y} ${netPath.replace(/^M [^C]+/, "")} L ${netPoints[netPoints.length - 1]!.x} ${padding.top + chartHeight} Z`
       : "";
+    // One red × per incorrect keystroke, laid along a rug just above the axis.
+    // Only fresh normal tests carry a timeline; shared/legacy cards show none.
+    const mistakeRowY = padding.top + chartHeight - 5;
+    const mistakes = (props.timeline ? decodeTimeline(props.timeline) : [])
+      .filter((event) => !event.correct)
+      .map((event) => xAt(event.t / 1000));
     const yTicks = Array.from({ length: Math.floor(maxWpm / yTickInterval) + 1 }, (_, index) => index * yTickInterval);
     const xTickInterval = chooseSecondTickInterval(xSpan);
     const xTicks = Array.from(
@@ -456,38 +476,91 @@ function WpmChart(props: { samples: ScoreWpmSample[]; durationSeconds: number; r
       (_, index) => chartStartSecond + index * xTickInterval,
     ).filter((tick) => tick <= maxSecond);
     const renderedXTicks = xTicks.includes(maxSecond) ? xTicks : [...xTicks, maxSecond];
-    return { maxSecond, samples, points, linePath, areaPath, yTicks, renderedXTicks, maxWpm, xSpan, chartStartSecond, width, height, padding, chartWidth, chartHeight };
-  }, [props.samples, props.durationSeconds, props.rawWpm]);
+    return { maxSecond, hoverPoints, netPath, netAreaPath, rawPath, mistakes, yTicks, renderedXTicks, maxWpm, xSpan, chartStartSecond, width, height, padding, chartWidth, chartHeight, mistakeRowY };
+  }, [props.samples, props.durationSeconds, props.rawWpm, props.accuracy, props.timeline]);
+
+  // Map the pointer's x onto the nearest sample. The overlay rect spans exactly
+  // the plot area, so its rendered width maps linearly onto [0, xSpan].
+  const handleMove = (event: React.MouseEvent<SVGRectElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const ratio = rect.width > 0 ? (event.clientX - rect.left) / rect.width : 0;
+    const second = chartStartSecond + Math.max(0, Math.min(1, ratio)) * xSpan;
+    let nearest = 0;
+    for (let i = 1; i < hoverPoints.length; i += 1) {
+      if (Math.abs(hoverPoints[i]!.second - second) < Math.abs(hoverPoints[nearest]!.second - second)) nearest = i;
+    }
+    setHover(nearest);
+  };
+
+  const active = hover != null ? hoverPoints[hover] : null;
 
   return (
     <div className="rounded-lg border border-base-content/10 bg-base-100/45 p-4" aria-labelledby={chartTitleId}>
-      <div className="mb-3 flex items-center gap-2 text-lg font-semibold text-base-content">
+      <div className="mb-1 flex items-center gap-2 text-lg font-semibold text-base-content">
         <span id={chartTitleId}>WPM Over Time</span>
-        <InfoIcon label="Shows your raw WPM trend from the start of the test through completion." />
+        <InfoIcon label="Your net WPM (after errors) and raw WPM through the test. Red × marks where a keystroke was wrong. Hover to read the exact values." />
       </div>
-      <svg className="h-auto w-full overflow-visible text-primary" viewBox={`0 0 ${width} ${height}`} role="img" aria-labelledby={`${chartTitleId} ${chartDescriptionId}`}>
-        <desc id={chartDescriptionId}>
-          WPM chart with {samples.length} samples over {maxSecond} seconds. Final raw WPM is {formatNumber(props.rawWpm, 1)}.
-        </desc>
-        {yTicks.map((tick) => {
-          const y = padding.top + chartHeight - (tick / maxWpm) * chartHeight;
-          return (
-            <g key={tick}>
-              <line x1={padding.left} x2={padding.left + chartWidth} y1={y} y2={y} stroke="currentColor" opacity="0.14" />
-              <text x={padding.left - 14} y={y + 5} textAnchor="end" className="fill-base-content text-sm" opacity="0.75">{tick}</text>
+      <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-base-content/70">
+        <span className="inline-flex items-center gap-1.5"><span className="inline-block h-0.5 w-4 rounded-full bg-primary" />Net</span>
+        <span className="inline-flex items-center gap-1.5"><span className="inline-block h-0.5 w-4 rounded-full bg-base-content/45" style={{ borderTop: "2px dashed currentColor", background: "none" }} />Raw</span>
+        <span className="inline-flex items-center gap-1.5 text-error"><span className="font-bold">×</span>Mistake</span>
+      </div>
+      <div className="relative">
+        <svg className="h-auto w-full overflow-visible text-primary" viewBox={`0 0 ${width} ${height}`} role="img" aria-labelledby={`${chartTitleId} ${chartDescriptionId}`}>
+          <desc id={chartDescriptionId}>
+            Net and raw WPM over {maxSecond} seconds with {mistakes.length} mistakes. Final net WPM is {formatNumber(netFromRaw(props.rawWpm, props.accuracy), 1)}, raw WPM {formatNumber(props.rawWpm, 1)}.
+          </desc>
+          {yTicks.map((tick) => {
+            const y = padding.top + chartHeight - (tick / maxWpm) * chartHeight;
+            return (
+              <g key={tick}>
+                <line x1={padding.left} x2={padding.left + chartWidth} y1={y} y2={y} stroke="currentColor" opacity="0.14" />
+                <text x={padding.left - 14} y={y + 5} textAnchor="end" className="fill-base-content text-sm" opacity="0.75">{tick}</text>
+              </g>
+            );
+          })}
+          {renderedXTicks.map((tick) => {
+            const x = padding.left + ((tick - chartStartSecond) / xSpan) * chartWidth;
+            return <text key={tick} x={x} y={height - 8} textAnchor="middle" className="fill-base-content text-sm" opacity="0.75">{tick}s</text>;
+          })}
+          {netAreaPath ? <path d={netAreaPath} fill="currentColor" opacity="0.13" /> : null}
+          {rawPath ? <path d={rawPath} fill="none" stroke="currentColor" opacity="0.4" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" strokeDasharray="6 6" /> : null}
+          {netPath ? <path className="score-draw-line" d={netPath} fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" /> : null}
+          {mistakes.map((x, index) => (
+            <g key={`${x}-${index}`} stroke="var(--color-error)" strokeWidth="2" strokeLinecap="round" opacity="0.85">
+              <line x1={x - 3.5} y1={mistakeRowY - 3.5} x2={x + 3.5} y2={mistakeRowY + 3.5} />
+              <line x1={x - 3.5} y1={mistakeRowY + 3.5} x2={x + 3.5} y2={mistakeRowY - 3.5} />
             </g>
-          );
-        })}
-        {renderedXTicks.map((tick) => {
-          const x = padding.left + ((tick - chartStartSecond) / xSpan) * chartWidth;
-          return <text key={tick} x={x} y={height - 8} textAnchor="middle" className="fill-base-content text-sm" opacity="0.75">{tick}s</text>;
-        })}
-        {areaPath ? <path d={areaPath} fill="currentColor" opacity="0.13" /> : null}
-        {linePath ? <path className="score-draw-line" d={linePath} fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" /> : null}
-        {points.map((point, index) => (
-          <circle key={`${point.x}-${point.y}-${index}`} cx={point.x} cy={point.y} r="6" fill="currentColor" stroke="var(--color-base-100)" strokeWidth="2" />
-        ))}
-      </svg>
+          ))}
+          {active &&
+            <g>
+              <line x1={active.x} x2={active.x} y1={padding.top} y2={padding.top + chartHeight} stroke="currentColor" opacity="0.3" strokeDasharray="4 4" />
+              <circle cx={active.x} cy={active.rawY} r="4" fill="currentColor" opacity="0.4" />
+              <circle cx={active.x} cy={active.netY} r="4.5" fill="currentColor" stroke="var(--color-base-100)" strokeWidth="2" />
+            </g>
+          }
+          {/* Transparent hit area over the plot for the hover readout. */}
+          <rect
+            x={padding.left}
+            y={padding.top}
+            width={chartWidth}
+            height={chartHeight}
+            fill="transparent"
+            onMouseMove={handleMove}
+            onMouseLeave={() => setHover(null)}
+          />
+        </svg>
+        {active &&
+          <div
+            className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full rounded-md border border-base-content/10 bg-base-100 px-2.5 py-1.5 font-mono text-xs shadow-lg shadow-base-300/40"
+            style={{ left: `${(active.x / width) * 100}%`, top: `${(active.netY / height) * 100}%` }}
+          >
+            <div className="mb-0.5 text-base-content/55">{Math.round(active.second)}s</div>
+            <div className="text-primary">{formatNumber(active.net, 0)} net</div>
+            <div className="text-base-content/70">{formatNumber(active.raw, 0)} raw</div>
+          </div>
+        }
+      </div>
     </div>
   );
 }
@@ -996,7 +1069,7 @@ export function ShareableScoreCard(props: ShareableScoreCardProps) {
         </div>
 
         <div className="score-reveal mt-5 grid gap-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(320px,1fr)]" style={{ "--reveal-delay": "160ms" } as CSSProperties}>
-          <WpmChart samples={score.wpmSamples} durationSeconds={score.durationSeconds} rawWpm={score.rawWpm} />
+          <WpmChart samples={score.wpmSamples} durationSeconds={score.durationSeconds} rawWpm={score.rawWpm} accuracy={score.accuracy} timeline={score.timeline} />
           <div className="rounded-lg border border-base-content/10 bg-base-100/45 p-5">
             <h2 className="mb-3 text-lg font-semibold text-base-content">Performance Details</h2>
             <DetailRow label="Accuracy" value={`${formatNumber(score.accuracy, 2)}%`} tone="accent" />
