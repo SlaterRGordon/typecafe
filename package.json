@@ -33,14 +33,14 @@
     "@trpc/server": "^11.17.0",
     "@vercel/analytics": "^2.0.1",
     "@vercel/blob": "^2.4.0",
-    "bcrypt": "^5.1.1",
+    "bcrypt": "^6.0.0",
     "daisyui": "^5.5.20",
     "dotenv": "^17.4.2",
     "globby": "^14.0.2",
     "modern-screenshot": "^4.7.0",
     "next": "^16.2.6",
     "next-auth": "^4.24.14",
-    "nodemailer": "^7.0.13",
+    "nodemailer": "^9.0.3",
     "pg": "^8.21.0",
     "react": "^19.2.6",
     "react-activity-calendar": "^3.2.0",
@@ -56,7 +56,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",
-    "@types/bcrypt": "^5.0.2",
+    "@types/bcrypt": "^6.0.0",
     "@types/eslint": "^8.21.3",
     "@types/node": "^24.12.4",
     "@types/nodemailer": "^6.4.17",
@@ -67,7 +67,7 @@
     "@typescript-eslint/parser": "^8.59.4",
     "eslint": "^9.39.4",
     "eslint-config-next": "^16.2.6",
-    "postcss": "^8.4.21",
+    "postcss": "^8.5.16",
     "prettier": "^3.8.3",
     "prettier-plugin-tailwindcss": "^0.8.0",
     "prisma": "^7.8.0",
@@ -78,5 +78,12 @@
   },
   "ct3aMetadata": {
     "initVersion": "7.11.0"
+  },
+  "overrides": {
+    "postcss": "^8.5.16",
+    "@hono/node-server": "^1.19.14",
+    "next-auth": {
+      "nodemailer": "^9.0.3"
+    }
   }
 }
