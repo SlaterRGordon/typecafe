@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { applyTextOptions, generateBetterPseudoText, generateNGram } from "./utils"
+import { applyTextOptions, generateBetterPseudoText, generateNGram, generateText } from "./utils"
 import { TestGramScopes, TestGramSources } from "./types"
 
 const SENTENCE_ENDERS = [".", "?", "!"]
@@ -107,6 +107,18 @@ describe("generateBetterPseudoText", () => {
         const text = generateBetterPseudoText(30, ["a", "s", "d", "f"])
         expect(text.length).toBeGreaterThan(0)
         expect(text.trim().split(/\s+/).length).toBeLessThanOrEqual(30)
+    })
+})
+
+describe("generateText", () => {
+    it("never repeats a word back-to-back", () => {
+        // Run many times: a doubled word reads as a typo and breaks flow.
+        for (let i = 0; i < 50; i++) {
+            const words = generateText(80, "english").split(" ")
+            for (let j = 1; j < words.length; j++) {
+                expect(words[j]).not.toBe(words[j - 1])
+            }
+        }
     })
 })
 
