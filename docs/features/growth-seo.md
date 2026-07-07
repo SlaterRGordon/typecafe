@@ -74,6 +74,11 @@ The only durable organic-search play; own slice when A–D land.
   track delta), each section linking the surface that does it. Linked from the
   nav "More" menu (crawlable) and auto-listed in the sitemap. Route-render +
   canonical e2e; screenshot `65-how-to-type-faster`.
+- [x] Content: authored `/how-ngrams-work` — an explainer for the "n-grams"
+  search intent (what a bigram/trigram is, why chunking common sequences makes
+  you faster) that doubles as a Grams-mode demo. Cross-links how-to-type-faster,
+  how-we-measure, progress. Nav "More" + auto-sitemap; route-render e2e;
+  screenshot `66-how-ngrams-work`.
 
 Also fixed en route: `_app.tsx` hardcoded canonical/og:url to the site root, so
 every page self-declared as a duplicate of home — pages couldn't rank. Now

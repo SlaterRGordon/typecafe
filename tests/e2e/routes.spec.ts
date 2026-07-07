@@ -17,6 +17,7 @@ const publicRoutes: PublicRoute[] = [
   { path: "/privacy-policy", heading: "Privacy Policy for TypeCafe" },
   { path: "/terms-and-conditions", heading: "Terms and Conditions" },
   { path: "/how-to-type-faster", heading: "How to Type Faster" },
+  { path: "/how-ngrams-work", heading: "How N-grams Work" },
 ];
 
 test.describe("public routes", () => {
