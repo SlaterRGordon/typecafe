@@ -1,7 +1,4 @@
 # TypeCafe
-
-**Monkeytype tells you how fast you are. TypeCafe makes you faster.**
-
 A free, open-source typing *coach* — not just a typing test. It measures your typing, diagnoses your weak keys, transitions, and words, then builds targeted drills to fix them so you can watch your speed actually climb.
 
 👉 **Try it live: [typecafe.app](https://www.typecafe.app/)**
