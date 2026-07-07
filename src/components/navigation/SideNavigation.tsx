@@ -15,6 +15,7 @@ const MORE_LINKS = [
     { href: "/terms-and-conditions", label: "Terms" },
     { href: "/how-we-measure", label: "How we measure" },
     { href: "/how-to-type-faster", label: "How to type faster" },
+    { href: "/how-ngrams-work", label: "How n-grams work" },
 ];
 
 export const SideNavigation = () => {
