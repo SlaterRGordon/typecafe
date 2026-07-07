@@ -49,6 +49,11 @@ const ENGLISH_VALUES = new Set(ENGLISH_SIZES.map((size) => size.value))
 const OTHER_LANGUAGES = [
     { value: "french", label: "French", short: "fr" },
     { value: "spanish", label: "Spanish", short: "es" },
+    { value: "german", label: "German", short: "de" },
+    { value: "italian", label: "Italian", short: "it" },
+    { value: "portuguese", label: "Portuguese", short: "pt" },
+    { value: "dutch", label: "Dutch", short: "nl" },
+    { value: "polish", label: "Polish", short: "pl" },
 ]
 
 function languageLabelFor(language: string): string {

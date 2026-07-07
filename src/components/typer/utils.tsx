@@ -47,6 +47,11 @@ const languages: Record<string, WordList> = {
 const languageLoaders: Record<string, () => Promise<WordList>> = {
     french: async () => (await import('./languages/french10k.json')).default,
     spanish: async () => (await import('./languages/spanish10k.json')).default,
+    german: async () => (await import('./languages/german10k.json')).default,
+    italian: async () => (await import('./languages/italian10k.json')).default,
+    portuguese: async () => (await import('./languages/portuguese10k.json')).default,
+    dutch: async () => (await import('./languages/dutch10k.json')).default,
+    polish: async () => (await import('./languages/polish10k.json')).default,
     chinese: async () => (await import('./languages/chinese10k.json')).default,
     hindi: async () => (await import('./languages/hindi1k.json')).default,
     // English vocabulary sizes: frequency-ranked, then filtered against SCOWL so
