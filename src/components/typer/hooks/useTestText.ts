@@ -56,12 +56,13 @@ export async function generateTestText(config: TestTextConfig, gramLevel: number
         // numbers/punctuation are sprinkled in as drill targets. The min-keys rule
         // (>=6 letters incl. a vowel + consonant) guarantees text is always buildable.
         const letters = selectedKeys.filter((key) => /^[a-z]$/.test(key))
-        const marks = selectedKeys.filter(isDrillMark)
+        // The punctuation toggle gates the locked mark keys: off → no marks
+        // sprinkled even if locked; on → sprinkle *only* the locked marks (never the
+        // full natural pool, so Practice stays scoped to unlocked keys). Digits are
+        // numbers, not punctuation, so they ride the locks regardless. `capitals`
+        // stays as the one Capitalize add-on.
+        const marks = punctuation ? selectedKeys.filter(isDrillMark) : []
         const digits = selectedKeys.filter(isDrillDigit)
-        // Locks are authoritative in Practice: punctuation comes *only* from the
-        // locked marks, never the global toggle (which would force the full natural
-        // pool past the locks). Lock no marks → no punctuation. `capitals` stays as
-        // the one Capitalize add-on (today's caps sprinkle).
         return applyTextOptions(generateBetterPseudoText(500, letters), false, capitals, { marks, digits })
     }
 

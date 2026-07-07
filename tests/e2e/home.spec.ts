@@ -435,6 +435,18 @@ test.describe("home typing test", () => {
     await selectMode(page, "Practice");
     await expect(page.locator(".typecafe-keyboard")).toBeVisible();
 
+    // Practice exposes both text add-ons — the punctuation toggle gates the
+    // locked mark keys, so it must be reachable (not just capitals).
+    await openSettingsMenu(page);
+    const practiceSettings = page.getByTestId("settings-menu");
+    const practicePunct = practiceSettings.getByRole("button", { name: /punctuation/ });
+    await expect(practicePunct).toBeVisible();
+    await expect(practicePunct).toHaveAttribute("aria-pressed", "false");
+    await practicePunct.click();
+    await expect(practicePunct).toHaveAttribute("aria-pressed", "true");
+    await page.keyboard.press("Escape");
+    await expect(practiceSettings).toBeHidden();
+
     // ∞ (no timer) runs the relaxed engine while keeping the Timed sub-mode lit,
     // and shows an elapsed count-up clock instead of a countdown.
     await selectMode(page, "Timed");
