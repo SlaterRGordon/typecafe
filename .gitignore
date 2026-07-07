@@ -61,3 +61,9 @@ yarn-error.log*
 /quotes.zip
 /quotes.csv
 worktrees/
+
+/docs
+
+# local AI agent tooling (skills, configs) — not part of the product
+/.claude
+/.codex

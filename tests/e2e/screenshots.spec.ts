@@ -186,10 +186,13 @@ test.describe("screenshot tour", () => {
     await expect(page.locator("#testGramWpmThresholdInput")).toBeVisible();
     await capture(page, testInfo, "59-settings-grams-advanced");
 
-    // Practice switches inline with no modal round-trip.
+    // Practice switches inline with no modal round-trip; the gear now carries the
+    // punctuation toggle (gates the locked mark keys) alongside capitals.
     await selectMode(page, "Practice");
     await expect(page.locator(".typecafe-keyboard")).toBeVisible();
+    await openSettingsMenu(page);
     await capture(page, testInfo, "07-settings-practice-mode");
+    await page.keyboard.press("Escape");
 
     // ∞ (no timer) — the relaxed engine, now a length option on Timed.
     await selectMode(page, "Timed");

@@ -600,12 +600,9 @@ export function ModeBar(props: ModeBarProps) {
                     >
                         <div id="settings-menu" className="space-y-2">
                             <p className="px-1 text-xs font-semibold uppercase tracking-wide text-base-content/45">Text</p>
-                            {/* Practice punctuation is driven by which mark keys are locked, not
-                                a global toggle — so the toggle is hidden there. capitals stays
-                                as the single Capitalize add-on. */}
-                            {!isPractice &&
-                                <SettingsToggle label="punctuation" active={props.punctuation} onChange={props.setPunctuation} />
-                            }
+                            {/* In Practice the toggle gates the locked mark keys: off strips
+                                punctuation, on sprinkles the locked marks. */}
+                            <SettingsToggle label="punctuation" active={props.punctuation} onChange={props.setPunctuation} />
                             <SettingsToggle label="capitals" active={props.capitals} onChange={props.setCapitals} />
                         </div>
                     </ToolbarMenu>
