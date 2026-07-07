@@ -301,10 +301,17 @@ export const generateText = (count: number, language: string) => {
 
     // Generate random text
     const words = getWords(language)
+    let prev = ''
     for (let i = 0; i < count; i++) {
-        const randomIndex = Math.floor(Math.random() * words.length)
-        const randomWord = String(words[randomIndex])
-        text = text += randomWord + ' '
+        // Re-roll so no word repeats back-to-back — a doubled word reads as a typo
+        // and breaks flow. ponytail: word lists have hundreds of entries so this
+        // terminates in ~1 roll; a single-word list simply can't avoid the repeat.
+        let randomWord = prev
+        while (randomWord === prev && words.length > 1) {
+            randomWord = String(words[Math.floor(Math.random() * words.length)])
+        }
+        text += randomWord + ' '
+        prev = randomWord
     }
 
     // Remove last space
