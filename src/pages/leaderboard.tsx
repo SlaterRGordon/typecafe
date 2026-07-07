@@ -18,6 +18,11 @@ const Leaderboard: NextPage = () => {
         { value: "english", label: 'English' },
         { value: "french", label: 'French' },
         { value: "spanish", label: 'Spanish' },
+        { value: "german", label: 'German' },
+        { value: "italian", label: 'Italian' },
+        { value: "portuguese", label: 'Portuguese' },
+        { value: "dutch", label: 'Dutch' },
+        { value: "polish", label: 'Polish' },
       ]
       const handleChangeLanguage = (value: SingleValue<Option>) => {
         if (value) {
