@@ -67,3 +67,7 @@ worktrees/
 # local AI agent tooling (skills, configs) — not part of the product
 /.claude
 /.codex
+# local agent instructions / domain context — not part of the product
+/CLAUDE.md
+/AGENTS.md
+/CONTEXT.md
