@@ -531,12 +531,15 @@ const SharedScorePage: NextPage<SharedScorePageProps> = ({ slug, meta }) => {
   );
 };
 
-export const getServerSideProps: GetServerSideProps<SharedScorePageProps> = async ({ params, req }) => {
+export const getServerSideProps: GetServerSideProps<SharedScorePageProps> = async ({ params }) => {
   const slug = typeof params?.slug === "string" ? params.slug : "";
-  const forwardedProto = (req.headers["x-forwarded-proto"] as string | undefined)?.split(",")[0];
-  const proto = forwardedProto ?? (req.headers.host?.startsWith("localhost") ? "http" : "https");
-  const host = req.headers.host ?? "typecafe.app";
-  const origin = `${proto}://${host}`;
+  // Trusted origin only — never from req.headers.host / x-forwarded-proto (both
+  // attacker-controlled → Host-header injection into the canonical/OG URLs).
+  // ponytail: hardcoded apex; swap to a NEXT_PUBLIC_SITE_URL env var if the domain changes.
+  const origin =
+    process.env.NODE_ENV === "production"
+      ? "https://typecafe.app"
+      : `http://localhost:${process.env.PORT ?? 3000}`;
 
   const encodedSlug = encodeURIComponent(slug);
   const imageUrl = `${origin}/api/og/score/${encodedSlug}`;
