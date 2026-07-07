@@ -26,6 +26,21 @@ test.describe("typing focus fade", () => {
     await expect(page.getByTestId("typing-focus-home-controls")).toHaveCSS("opacity", "1");
   });
 
+  test("Tab then Enter restarts sequentially, not just as a held chord", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.locator("#words .char").first()).toBeVisible();
+
+    await typeCurrentCharacter(page);
+    await expectTypingFocus(page, page.getByTestId("typing-focus-home-controls"));
+
+    // Tab released *before* Enter — the shortcut must still fire.
+    await page.keyboard.press("Tab");
+    await page.keyboard.press("Enter");
+
+    await expect(page.locator("html")).not.toHaveAttribute("data-typing-focus", "active");
+    await expect(page.getByTestId("typing-focus-home-controls")).toHaveCSS("opacity", "1");
+  });
+
   test("train fades level controls but keeps the keyboard visible while typing", async ({ page }) => {
     await page.goto("/train");
     // /train lands on the level map; Continue zooms into the resume level.
