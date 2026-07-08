@@ -20,6 +20,7 @@ import {
     periodStart,
     personalRecords,
     rankImprovementLeague,
+    recordsForLanguage,
     rejectOutliers,
     rollingAverage,
     selfLeagueSummary,
@@ -56,10 +57,18 @@ describe("rejectOutliers", () => {
         expect(rejectOutliers(records)).toHaveLength(3)
     })
 
-    it("passes imported rollup days through untouched", () => {
-        const imported: ProgressRecord = { wpm: 1, accuracy: 95, createdAt: new Date(NOW.getTime() - 6 * DAY_MS), day: "2026-06-08" }
+    it("passes rollup day-averages through untouched", () => {
+        const imported: ProgressRecord = { wpm: 1, accuracy: 95, createdAt: new Date(NOW.getTime() - 6 * DAY_MS), day: "2026-06-08", rollup: true }
         const records = [imported, rec(5, 50), rec(4, 52), rec(3, 48), rec(2, 51)]
         expect(rejectOutliers(records).some((r) => r.day === "2026-06-08")).toBe(true)
+    })
+
+    it("still rejects outliers among raw DB tests, which carry their summary day", () => {
+        // Regression: every signed-in Test row has `day` set, which used to be
+        // misread as "rollup — pass through", disabling rejection entirely.
+        const records = [rec(5, 50), rec(4, 52), rec(3, 48), rec(2, 51), rec(1, 1)]
+            .map((r, i) => ({ ...r, day: `2026-06-0${i + 1}` }))
+        expect(rejectOutliers(records).map((r) => r.wpm)).not.toContain(1)
     })
 })
 
@@ -86,6 +95,30 @@ describe("periodStart", () => {
     it("subtracts the period's days from now", () => {
         expect(periodStart(30, NOW)!.getTime()).toBe(NOW.getTime() - 30 * DAY_MS)
         expect(periodStart(7, NOW)!.getTime()).toBe(NOW.getTime() - 7 * DAY_MS)
+    })
+})
+
+describe("recordsForLanguage", () => {
+    const records: ProgressRecord[] = [
+        { wpm: 90, accuracy: 97, createdAt: NOW, language: "english" },
+        { wpm: 88, accuracy: 96, createdAt: NOW, language: "english5k" }, // sizes share the base
+        { wpm: 70, accuracy: 95, createdAt: NOW, language: "french" },
+        { wpm: 72, accuracy: 95, createdAt: NOW, language: "french10k" },
+        { wpm: 80, accuracy: 96, createdAt: NOW }, // no language → English default
+    ]
+
+    it("keeps English records including size variants and language-less entries", () => {
+        const english = recordsForLanguage(records, "english")
+        expect(english.map((r) => r.wpm)).toEqual([90, 88, 80])
+    })
+
+    it("collapses a language's sizes to its base", () => {
+        const french = recordsForLanguage(records, "french")
+        expect(french.map((r) => r.wpm)).toEqual([70, 72])
+    })
+
+    it("returns nothing for a language with no records", () => {
+        expect(recordsForLanguage(records, "german")).toEqual([])
     })
 })
 
@@ -445,7 +478,7 @@ describe("mergeDailyRollups", () => {
         expect(merged.map((record) => record.day ?? dayKey(record.createdAt))).toEqual(["2026-06-13", "2026-06-14"])
         // Rollup-only day: wpm is net derived from the day's raw avg + accuracy
         // (65 · (2·0.94 − 1) = 57.2). Raw per-test records pass through untouched.
-        expect(merged[0]).toMatchObject({ accuracy: 94, consistency: 80 })
+        expect(merged[0]).toMatchObject({ accuracy: 94, consistency: 80, day: "2026-06-13", rollup: true })
         expect(merged[0]!.wpm).toBeCloseTo(57.2, 6)
         expect(merged[1]).toMatchObject({ wpm: 70, count: 30, mode: 0, subMode: 0 })
     })

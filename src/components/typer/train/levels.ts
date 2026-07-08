@@ -78,3 +78,13 @@ function buildLevels(): Level[] {
 }
 
 export const levels: Level[] = buildLevels()
+
+// Once every a–z key is introduced, the ladder types the language's *real*
+// alphabet: the active language's accent letters (é, ü, ł …) join the key set so
+// accented words survive the word filter. Intro stages stay pure a–z — accents
+// aren't ladder keys, they ride the mastery levels. Progress/thresholds key off
+// the level name, so this never touches them.
+export function withLanguageAccents(level: Level, accents: string[]): Level {
+    if (accents.length === 0 || level.keys.length < 26) return level
+    return { ...level, keys: level.keys + accents.join("") }
+}

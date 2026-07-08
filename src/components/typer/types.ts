@@ -46,6 +46,11 @@ export enum TestModes {
 // Quote length buckets shown in the toolbar; "all" draws from every bucket.
 export type QuoteLength = "all" | "short" | "medium" | "long"
 
+// Vocabulary size for a word test, applied on top of the global language.
+// English ships size-specific SCOWL files; other languages slice their single
+// frequency-ranked list. "25k" is English-only (see docs/features/global-language.md).
+export type WordSize = "1k" | "5k" | "10k" | "25k"
+
 export enum TestSubModes {
     timed,
     words

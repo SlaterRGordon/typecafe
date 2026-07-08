@@ -1,4 +1,5 @@
 import { signOut, useSession } from "next-auth/react";
+import { LanguageMenu } from "./LanguageMenu";
 export const TopNavigation = () => {
     const { data: sessionData } = useSession();
 
@@ -8,6 +9,7 @@ export const TopNavigation = () => {
                 <a className="btn btn-ghost normal-case !text-xl font-mono font-bold tracking-tight">TypeCafe</a>
             </div>
             <div className="flex flex-none items-center gap-2 px-4">
+                <LanguageMenu />
                 {/* Color Button */}
                 <label
                     className="btn btn-primary btn-sm gap-2 normal-case"

@@ -3,9 +3,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Typer } from "~/components/typer/Typer";
 import { TestGramScopes, TestGramSources, TestModes } from "~/components/typer/types";
 import type { Level } from "~/components/typer/train/levels";
-import { levels } from "~/components/typer/train/levels";
+import { levels, withLanguageAccents } from "~/components/typer/train/levels";
+import { accentsFor, ensureLanguageLoaded } from "~/components/typer/utils";
 import { KIND_META } from "~/components/typer/train/kindMeta";
 import { api } from "~/utils/api";
+import { useLanguage } from "~/hooks/useLanguage";
 import { Keyboard } from "~/components/typer/Keyboard";
 import { typingFocusFadeClass } from "~/components/typer/typingFocus";
 import { useSession } from "next-auth/react";
@@ -143,7 +145,19 @@ function TierTabs(props: { difficulty: DifficultyName, onSelect: (difficulty: Di
 
 const Train: NextPage = () => {
     const { status: sessionStatus } = useSession()
-    const language = "english"
+    // Training text follows the global language; the ladder progress stays global
+    // (TrainProgress is keyed by difficulty/options, not language).
+    const [language] = useLanguage()
+    // The language's accent letters (derived from its word list once it loads)
+    // extend the key set on full-alphabet levels, so the mastery stretch types
+    // the real alphabet. [] for English and while loading.
+    const [accents, setAccents] = useState<string[]>([])
+    useEffect(() => {
+        let active = true
+        setAccents([])
+        void ensureLanguageLoaded(language).then(() => { if (active) setAccents(accentsFor(language)) })
+        return () => { active = false }
+    }, [language])
     const mode = TestModes.normal
     const gramSource = TestGramSources.bigrams
     const gramScope = TestGramScopes.fifty
@@ -302,6 +316,10 @@ const Train: NextPage = () => {
         setLevel(progressSelectedLevel)
     }, [completion, isTrainProgressLoading, progressSelectedLevel, levelChanged])
 
+    // What the Typer runs: the selected level, keys extended with the language's
+    // accents on the full-alphabet stretch. Name/count/kind are untouched, so
+    // grading, saves and the map all keep working off `level`.
+    const typerLevel = useMemo(() => withLanguageAccents(level, accents), [level, accents])
     const criteria = starThresholds(levelNumber(level.name), difficulty)
     const isTrainContentLoading = isTrainProgressLoading || isLevelSelectionLoading
     const activeLevelProgress = completedProgress.find(progress => progress.levelName === level.name)
@@ -571,7 +589,7 @@ const Train: NextPage = () => {
                                     gramWpmThreshold={gramWpmThreshold}
                                     gramAccuracyThreshold={gramAccuracyThreshold}
                                     count={level.count}
-                                    level={level}
+                                    level={typerLevel}
                                     levelRequirements={{ wpm: criteria.oneStarNetWpm, accuracy: 0 }}
                                     pacerWpm={level.kind === "boss" ? criteria.oneStarNetWpm : undefined}
                                     failOnMiss={level.kind === "noMiss"}

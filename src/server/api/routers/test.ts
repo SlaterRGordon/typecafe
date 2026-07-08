@@ -610,7 +610,9 @@ export const testRouter = createTRPCRouter({
           userId: ctx.session.user.id,
           ranked: true,
         },
-        orderBy: { createdAt: "asc" },
+        // Newest first so the cap drops the *oldest* tests — a progress
+        // dashboard can lose distant history to rollups, never recent trend.
+        orderBy: { createdAt: "desc" },
         take: input?.limit ?? 2000,
         select: {
           speed: true,
@@ -623,7 +625,7 @@ export const testRouter = createTRPCRouter({
         },
       });
 
-      return rows.map((row) => ({
+      return rows.reverse().map((row) => ({
         wpm: row.speed,
         accuracy: row.accuracy,
         consistency: row.consistency ?? undefined,

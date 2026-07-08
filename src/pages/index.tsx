@@ -14,6 +14,8 @@ import { ModeBar } from "~/components/typer/config/ModeBar";
 import { typingFocusFadeClass } from "~/components/typer/typingFocus";
 import { TestModes, TestSubModes, type QuoteLength, type TestGramScopes, type TestGramSources } from "~/components/typer/types";
 import { useTestSettings } from "~/hooks/useTestSettings";
+import { useLanguage } from "~/hooks/useLanguage";
+import { clampSize, composeLanguage, parseLanguage } from "~/components/typer/utils";
 import { withPracticeVowel } from "~/lib/diagnosis";
 import { smartDrillSelection } from "~/lib/drillKeys";
 import { addAlert } from "~/state/alert/alertSlice";
@@ -68,6 +70,19 @@ const Home: NextPage = () => {
   const setGramRepetition = (value: number) => updateSetting("gramRepetition", value)
   const setGramWpmThreshold = (value: number) => updateSetting("gramWpmThreshold", value)
   const setGramAccuracyThreshold = (value: number) => updateSetting("gramAccuracyThreshold", value)
+  // The global (nav-chosen) base language is the source of truth for which language
+  // the test uses; the bar picks the size on top. Keep the composed test language's
+  // base in step with it, preserving the current size (clamped to what the new
+  // language offers). One-way: nav → test settings.
+  const [globalLanguage] = useLanguage()
+  useEffect(() => {
+    const { size } = parseLanguage(language)
+    const composed = composeLanguage(globalLanguage, clampSize(globalLanguage, size))
+    if (composed !== language) setLanguage(composed)
+    // Quotes are English-only; leaving English exits the quote engine.
+    if (globalLanguage !== "english" && mode === TestModes.quotes) setMode(TestModes.normal)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [globalLanguage, language])
   const [typingFocused, setTypingFocused] = useState(false)
   // Practice: the shift-layer toggle lives in the settings line but drives the
   // keyboard board below the test, so the page holds it. Holding physical Shift
@@ -280,7 +295,7 @@ const Home: NextPage = () => {
     // Mirror guest results locally so /progress is real from the first test
     // (local-first; signed-in users' trends come from the DB instead).
     if (!sessionData?.user) {
-      appendLocalProgress({ wpm: result.speed, accuracy: result.accuracy, c: consistency, t: Date.now() })
+      appendLocalProgress({ wpm: result.speed, accuracy: result.accuracy, c: consistency, t: Date.now(), lang: parseLanguage(language).base })
     }
 
     // Only guests stash a pending score (to save once they sign in). Signed-in

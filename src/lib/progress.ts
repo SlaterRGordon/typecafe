@@ -6,6 +6,7 @@
 // of src/lib/stats.ts.
 
 import { netFromRaw } from "./stats"
+import { baseTypeLanguage } from "./typeLanguage"
 
 // The period the dashboard's headline delta and trends are scoped to. Numeric
 // values are day counts; "all" means the user's entire history.
@@ -28,6 +29,10 @@ export interface ProgressRecord {
     mode?: number
     subMode?: number
     language?: string
+    // True for records synthesized from a daily rollup (day-averages with no
+    // per-test signal) rather than a real test. `day` can't discriminate — raw
+    // DB rows carry their summary day too.
+    rollup?: boolean
 }
 
 export type ProgressModeFilter = "all" | "timed" | "words" | "practice" | "grams" | "relaxed"
@@ -51,6 +56,15 @@ export function filterProgressRecords(records: ProgressRecord[], filters: Progre
         if (filters.count !== "all" && record.count !== filters.count) return false
         return true
     })
+}
+
+// Progress is shown one language at a time (the global, nav-chosen language), so a
+// language switch cleanly rescopes the trend instead of mixing e.g. English and
+// German WPM into one noisy line. Every vocabulary size shares its base language.
+// Records without a language — older guest entries — count as English, the
+// historical default.
+export function recordsForLanguage(records: ProgressRecord[], language: string): ProgressRecord[] {
+    return records.filter((record) => baseTypeLanguage(record.language ?? "english") === language)
 }
 
 // ---------------------------------------------------------------------------
@@ -393,13 +407,13 @@ export function trendSeries(
 // abandoned mid-way (stopped typing → near-zero WPM) or a key-mash restart
 // (accuracy in the floor). The WPM cut is low-side only and robust (median ±
 // MAD, not mean ± stdev, so a couple of garbage points can't move the
-// threshold): a freakishly *high* test is a real PB and stays. Imported rollup
-// days (record.day set) are already day-averages with no per-test signal, so
-// they pass through untouched. Pure — apply once and every number downstream
+// threshold): a freakishly *high* test is a real PB and stays. Rollup records
+// (record.rollup) are already day-averages with no per-test signal, so they
+// pass through untouched. Pure — apply once and every number downstream
 // (delta, trend, records, best) inherits the cleanup.
 export function rejectOutliers(records: ProgressRecord[]): ProgressRecord[] {
-    const perTest = records.filter((r) => r.day === undefined)
-    const imported = records.filter((r) => r.day !== undefined)
+    const perTest = records.filter((r) => !r.rollup)
+    const imported = records.filter((r) => r.rollup)
     // Too few per-test points to call anything an outlier honestly.
     if (perTest.length < 4) return records
 
@@ -542,6 +556,8 @@ export function mergeDailyRollups(records: ProgressRecord[], rollups: DailyRollu
             accuracy: rollup.avgAccuracy,
             consistency: rollup.avgConsistency ?? undefined,
             createdAt: new Date(`${rollup.day}T12:00:00.000Z`),
+            day: rollup.day,
+            rollup: true,
         }))
 
     return [...records, ...rollupRecords]

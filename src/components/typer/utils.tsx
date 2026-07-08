@@ -4,7 +4,7 @@ import tetraGrams from './languages/nGrams/tetraGrams.json'
 
 import english1k from './languages/english1k.json'
 
-import { TestGramScopes, TestGramSources, type QuoteLength } from './types'
+import { TestGramScopes, TestGramSources, type QuoteLength, type WordSize } from './types'
 // Drillable-key definitions live in lib (single source shared with diagnosis and
 // the drill page); re-exported here for the typer modules that import from utils.
 import { DRILL_MARKS, ENDER_MARKS, MID_MARKS, isDrillMark, isDrillDigit } from '~/lib/drillKeys'
@@ -47,6 +47,11 @@ const languages: Record<string, WordList> = {
 const languageLoaders: Record<string, () => Promise<WordList>> = {
     french: async () => (await import('./languages/french10k.json')).default,
     spanish: async () => (await import('./languages/spanish10k.json')).default,
+    german: async () => (await import('./languages/german10k.json')).default,
+    italian: async () => (await import('./languages/italian10k.json')).default,
+    portuguese: async () => (await import('./languages/portuguese10k.json')).default,
+    dutch: async () => (await import('./languages/dutch10k.json')).default,
+    polish: async () => (await import('./languages/polish10k.json')).default,
     chinese: async () => (await import('./languages/chinese10k.json')).default,
     hindi: async () => (await import('./languages/hindi1k.json')).default,
     // English vocabulary sizes: frequency-ranked, then filtered against SCOWL so
@@ -74,6 +79,54 @@ export const ensureLanguageLoaded = (language: string): Promise<void> => {
 export const getWords = (language: string): string[] =>
     (languages[language] ?? languages.english!).words
 
+const SIZE_COUNTS: Record<WordSize, number> = { "1k": 1000, "5k": 5000, "10k": 10000, "25k": 25000 }
+const WORD_SIZES: WordSize[] = ["1k", "5k", "10k", "25k"]
+
+// Base languages the app knows. A stored test language is a base optionally
+// suffixed with a size ("french5k"); "1k" is the bare base ("french", "english").
+export const BASE_LANGUAGES = [
+    "english", "french", "spanish", "german", "italian", "portuguese", "dutch", "polish", "chinese", "hindi",
+]
+
+// A stored/composed test language ("english5k", "french", "french10k") splits into
+// a base language (global, nav-chosen) and a vocabulary size (per-test, bar-chosen).
+export const parseLanguage = (language: string): { base: string, size: WordSize } => {
+    for (const base of BASE_LANGUAGES) {
+        if (language === base) return { base, size: "1k" }
+        if (language.startsWith(base)) {
+            const suffix = language.slice(base.length) as WordSize
+            if (WORD_SIZES.includes(suffix)) return { base, size: suffix }
+        }
+    }
+    return { base: "english", size: "1k" }
+}
+
+export const composeLanguage = (base: string, size: WordSize): string =>
+    size === "1k" ? base : `${base}${size}`
+
+// 25k is English-only (subtitle frequency past ~10k is noisy); a size carried
+// over from English collapses to the largest the new language supports.
+export const clampSize = (base: string, size: WordSize): WordSize =>
+    base !== "english" && size === "25k" ? "10k" : size
+
+// A word test is (global language) × (per-test size). English resolves to its
+// size-specific SCOWL file; every other language loads one frequency-ranked list
+// and slices the top-N — so sizes cost no extra files (derived-on-read). English
+// "1k" is the base `english` key that ships in the main bundle.
+export const resolveWordKey = (language: string, size: WordSize): string => {
+    if (language === "english") return size === "1k" ? "english" : `english${size}`
+    return language
+}
+
+export const ensureSizedLoaded = (language: string, size: WordSize): Promise<void> =>
+    ensureLanguageLoaded(resolveWordKey(language, size))
+
+export const getSizedWords = (language: string, size: WordSize): string[] => {
+    const words = getWords(resolveWordKey(language, size))
+    // English files are already the requested size; other languages slice by rank.
+    return language === "english" ? words : words.slice(0, SIZE_COUNTS[size])
+}
+
 interface NGrams {
     biGrams: string[],
     triGrams: string[],
@@ -100,7 +153,77 @@ const requestPentaGrams = () => {
     })
 }
 
-export const generateBetterPseudoText = (count: number, characters: string[]) => {
+// Frequency-ranked character n-grams across a word list (most common first).
+// Ties keep first-seen order (Map insertion), so results are deterministic.
+export const rankNGrams = (words: string[], n: number, limit: number): string[] => {
+    const freq = new Map<string, number>()
+    for (const word of words) {
+        for (let i = 0; i + n <= word.length; i++) {
+            const gram = word.slice(i, i + n)
+            freq.set(gram, (freq.get(gram) ?? 0) + 1)
+        }
+    }
+    return [...freq.entries()].sort((a, b) => b[1] - a[1]).slice(0, limit).map(([gram]) => gram)
+}
+
+// Non-English Grams derive their n-grams from the language's word list on first use
+// (no gram data files — derived-on-read), memoized per base. English keeps its
+// curated static arrays. generateNGram slices to its scope before the level walk,
+// so the deepest scope the bar offers (200) is all the depth ever read.
+const NGRAM_DEPTH = 200
+const derivedNGrams = new Map<string, NGrams>()
+
+const gramsFor = (base: string): NGrams => {
+    if (base === "english") return ngrams
+    // List not loaded yet (callers ensureSizedLoaded first) — fall back to the
+    // English grams *without* memoizing them under this base.
+    if (!languages[base]) return ngrams
+    const cached = derivedNGrams.get(base)
+    if (cached) return cached
+    const words = getWords(base)
+    const derived: NGrams = {
+        biGrams: rankNGrams(words, 2, NGRAM_DEPTH),
+        triGrams: rankNGrams(words, 3, NGRAM_DEPTH),
+        tetraGrams: rankNGrams(words, 4, NGRAM_DEPTH),
+        pentaGrams: [],
+    }
+    derivedNGrams.set(base, derived)
+    return derived
+}
+
+// The extra letters a language uses beyond a–z (é, ü, ł …), most frequent across
+// its word list first. Pure; ties keep first-seen order so results are stable.
+export const accentChars = (words: string[]): string[] => {
+    const freq = new Map<string, number>()
+    for (const word of words) {
+        for (const char of word) {
+            if (/[a-z]/.test(char) || !/\p{L}/u.test(char)) continue
+            freq.set(char, (freq.get(char) ?? 0) + 1)
+        }
+    }
+    return [...freq.entries()].sort((a, b) => b[1] - a[1]).map(([char]) => char)
+}
+
+// Derived-on-read per base, memoized like gramsFor. English (and a list that
+// hasn't loaded yet — callers ensureLanguageLoaded first) yields none.
+const derivedAccents = new Map<string, string[]>()
+
+export const accentsFor = (base: string): string[] => {
+    if (base === "english" || !languages[base]) return []
+    let cached = derivedAccents.get(base)
+    if (!cached) {
+        cached = accentChars(getWords(base))
+        derivedAccents.set(base, cached)
+    }
+    return cached
+}
+
+// Training/Practice key-drill text: real words from `language` restricted to the
+// unlocked `characters`, with an English-ngram pseudo-word fallback for early key
+// stages where few real words fit. Accented words never survive the a–z filter —
+// unless the caller extends `characters` with the language's accents (the train
+// ladder's full-alphabet stretch does; see levels.withLanguageAccents).
+export const generateBetterPseudoText = (count: number, characters: string[], language = "english") => {
     requestPentaGrams()
     let text = ''
 
@@ -127,8 +250,8 @@ export const generateBetterPseudoText = (count: number, characters: string[]) =>
     const availableVowels = characters.filter((char: string) => vowels.includes(char))
     const availableConsonants = characters.filter((char: string) => consonants.includes(char))
 
-    const englishWords = getWords("english")
-    const filteredWords = englishWords.filter((word: string) => {
+    const sourceWords = getWords(language)
+    const filteredWords = sourceWords.filter((word: string) => {
         for (let i = 0; i < word.length; i++) {
             if (!characters.includes(word[i] as string)) return false
         }
@@ -299,8 +422,9 @@ export const applyTextOptions = (
 export const generateText = (count: number, language: string) => {
     let text = ''
 
-    // Generate random text
-    const words = getWords(language)
+    // Generate random text. `language` is a composed base+size — slice accordingly.
+    const { base, size } = parseLanguage(language)
+    const words = getSizedWords(base, size)
     let prev = ''
     for (let i = 0; i < count; i++) {
         // Re-roll so no word repeats back-to-back — a doubled word reads as a typo
@@ -320,18 +444,22 @@ export const generateText = (count: number, language: string) => {
 
 const MAX_NGRAM_COPIES = 20
 
-export const generateNGram = (source: TestGramSources, scope: TestGramScopes, combination: number, repetition: number, level: number) => {
+export const generateNGram = (source: TestGramSources, scope: TestGramScopes, combination: number, repetition: number, level: number, language = "english") => {
     let ngram = ''
     let words: string[] = []
 
+    // Grams follow the active language: whole-word source and derived character
+    // n-grams both come from the language's list (English uses its curated grams).
+    const { base } = parseLanguage(language)
+    const grams = gramsFor(base)
     if (source === TestGramSources.words) {
-        words = getWords("english")
+        words = getWords(base)
     } else if (source === TestGramSources.bigrams) {
-        words = ngrams.biGrams
+        words = grams.biGrams
     } else if (source === TestGramSources.trigrams) {
-        words = ngrams.triGrams
+        words = grams.triGrams
     } else if (source === TestGramSources.tetragrams) {
-        words = ngrams.tetraGrams
+        words = grams.tetraGrams
     }
 
     if (scope === TestGramScopes.fifty) words = words.slice(0, 50)

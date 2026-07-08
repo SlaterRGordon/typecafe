@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { applyTextOptions, generateBetterPseudoText, generateNGram, generateText } from "./utils"
+import { accentChars, applyTextOptions, ensureSizedLoaded, generateBetterPseudoText, generateNGram, generateText, rankNGrams } from "./utils"
 import { TestGramScopes, TestGramSources } from "./types"
 
 const SENTENCE_ENDERS = [".", "?", "!"]
@@ -108,6 +108,14 @@ describe("generateBetterPseudoText", () => {
         expect(text.length).toBeGreaterThan(0)
         expect(text.trim().split(/\s+/).length).toBeLessThanOrEqual(30)
     })
+
+    it("draws real words from the requested language", async () => {
+        await ensureSizedLoaded("french", "1k")
+        // "oui" (o, u, i) is a common French word and absent from the English list,
+        // so it can only appear if the generator pulled from the French words.
+        const text = generateBetterPseudoText(40, ["o", "u", "i"], "french")
+        expect(text.split(" ")).toContain("oui")
+    })
 })
 
 describe("generateText", () => {
@@ -144,5 +152,37 @@ describe("generateNGram", () => {
             const text = generateNGram(TestGramSources.bigrams, TestGramScopes.fifty, combination, 0, level)
             expect(text).not.toContain("undefined")
         }
+    })
+
+    it("derives its grams from the requested language", async () => {
+        await ensureSizedLoaded("french", "1k")
+        const topBigrams = (lang: string) => Array.from({ length: 10 }, (_, level) =>
+            generateNGram(TestGramSources.bigrams, TestGramScopes.twoHundred, 1, 0, level, lang).trim())
+        for (const gram of topBigrams("french")) expect(gram).toHaveLength(2)
+        // Two languages don't share the same top-10 bigram ranking — proves French
+        // grams are derived from the French words, not the English static list.
+        expect(topBigrams("french")).not.toEqual(topBigrams("english"))
+    })
+})
+
+describe("rankNGrams", () => {
+    it("ranks character n-grams by frequency, most common first", () => {
+        // "ou"/"ui" appear twice each; "no"/"on" once. Ties keep first-seen order.
+        expect(rankNGrams(["oui", "oui", "non"], 2, 10)).toEqual(["ou", "ui", "no", "on"])
+    })
+
+    it("respects the limit and skips words shorter than n", () => {
+        expect(rankNGrams(["ab", "abc", "a"], 3, 5)).toEqual(["abc"])
+    })
+})
+
+describe("accentChars", () => {
+    it("collects non-a-z letters ranked by frequency", () => {
+        // é appears three times; ê and ł once each (ties keep first-seen order).
+        expect(accentChars(["été", "école", "être", "łatwe"])).toEqual(["é", "ê", "ł"])
+    })
+
+    it("yields nothing for a plain-ascii (English) list", () => {
+        expect(accentChars(["plain", "words", "only"])).toEqual([])
     })
 })

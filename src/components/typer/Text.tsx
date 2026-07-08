@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react"
-import { applyTextOptions, generateBetterPseudoText, generateText } from "./utils"
+import { applyTextOptions, generateBetterPseudoText, generateText, parseLanguage } from "./utils"
 import { TestModes, TestSubModes } from "./types"
 import { isAnyModalOpen, isModalOpen, MODAL_IDS } from "~/lib/modals"
 import { runWhenIdle } from "~/lib/idle"
@@ -266,7 +266,7 @@ export const Text = memo(function Text(props: TextProps) {
             const current = appendConfigRef.current
             if (!current.appendsText) return
             const generated = current.appendKeys
-                ? generateBetterPseudoText(100, current.appendKeys.split(""))
+                ? generateBetterPseudoText(100, current.appendKeys.split(""), parseLanguage(current.language).base)
                 : generateText(100, current.language)
             const newText = applyTextOptions(generated, current.punctuation, current.capitals)
             appendNewText(" " + newText)

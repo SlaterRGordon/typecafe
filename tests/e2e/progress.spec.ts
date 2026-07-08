@@ -39,6 +39,23 @@ test.describe("progress dashboard", () => {
     await expect(page.getByTestId("headline-delta")).toBeVisible();
   });
 
+  test("progress rescopes to the global language", async ({ page }) => {
+    await mockAuthenticatedSession(page);
+    await mockTrpc(page);
+    await page.addInitScript(() => window.localStorage.setItem("typecafe:lastRecapAt", String(Date.now())));
+    await gotoProgress(page);
+
+    // Default English view: the mocked records are English, so there is history.
+    await expect(page.getByTestId("progress-language-chip")).toHaveText("English");
+    await expect(page.getByTestId("headline-delta")).toBeVisible();
+
+    // Switching language in the nav rescopes progress — no French records → empty.
+    await page.getByTestId("nav-language-trigger").click();
+    await page.getByTestId("nav-language-menu").getByRole("button", { name: "French" }).click();
+    await expect(page.getByTestId("progress-language-chip")).toHaveText("French");
+    await expect(page.getByText("No tests yet")).toBeVisible();
+  });
+
   test("a signed-in user with history sees their delta, trends, and weak spots", async ({ page }) => {
     await mockAuthenticatedSession(page);
     await mockTrpc(page, { keyStats: [{ character: "r", total: 120, correct: 96 }, { character: "e", total: 300, correct: 290 }] });

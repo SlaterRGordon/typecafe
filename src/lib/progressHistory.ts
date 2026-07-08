@@ -10,6 +10,7 @@ export interface LocalProgressEntry {
     accuracy: number
     c?: number // consistency 0-100, optional (older entries lack it)
     t: number // epoch ms
+    lang?: string // base language; older entries lack it → treated as English on read
 }
 
 function storage(): Storage | undefined {
@@ -22,7 +23,8 @@ function sanitize(raw: unknown): LocalProgressEntry | null {
     const ok = [v.wpm, v.accuracy, v.t].every((n) => typeof n === "number" && Number.isFinite(n))
     if (!ok) return null
     const c = typeof v.c === "number" && Number.isFinite(v.c) ? v.c : undefined
-    return { wpm: v.wpm as number, accuracy: v.accuracy as number, c, t: v.t as number }
+    const lang = typeof v.lang === "string" ? v.lang : undefined
+    return { wpm: v.wpm as number, accuracy: v.accuracy as number, c, t: v.t as number, lang }
 }
 
 export function readLocalProgress(s = storage()): LocalProgressEntry[] {

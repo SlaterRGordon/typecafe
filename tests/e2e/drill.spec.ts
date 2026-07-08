@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test"
 import { mockAuthenticatedSession, mockTrpc } from "./helpers/trpc"
 import { typeCurrentCharacter, typeVisibleTestText, typeWrongCharacter } from "./helpers/typing"
+import french10k from "../../src/components/typer/languages/french10k.json"
 
 async function pressRestartShortcut(page: Parameters<typeof mockTrpc>[0], key: "Enter" | "Space") {
   await page.keyboard.down("Tab")
@@ -82,6 +83,25 @@ test.describe("drill page", () => {
     await expect(page.getByTestId("drill-result")).toBeVisible()
     await pressRestartShortcut(page, "Space")
     await expect(page.getByTestId("drill-typer")).toBeVisible()
+  })
+
+  test("key drill words follow the global language", async ({ page }) => {
+    await mockTrpc(page)
+    // A guest whose global language is French.
+    await page.addInitScript(() => {
+      window.localStorage.setItem("typecafe:language", JSON.stringify("french"))
+    })
+    await page.goto("/drill?keys=e&length=6")
+
+    await expect(page.getByTestId("drill-typer")).toBeVisible()
+    const words = (await page.locator("#words").innerText()).trim().split(/\s+/)
+    expect(words.length).toBeGreaterThan(0)
+    // 'e' is common, so the drill uses real ranked words (not the pseudo fallback).
+    // Every word must come from the French list — English sourcing would emit words
+    // absent from it (the, here, week...).
+    const french = new Set(french10k.words)
+    expect(words.every((word) => french.has(word))).toBe(true)
+    expect(words.every((word) => word.includes("e"))).toBe(true)
   })
 
   test("word drill types the exact toughest words and completes", async ({ page }) => {

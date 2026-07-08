@@ -20,9 +20,12 @@ export interface DrillWordCandidate {
 const DEFAULT_LENGTH = 80
 const TOP_POOL_MIN = 24
 
+// Any-letter words (not just [a-z]): non-English word lists carry accented
+// words (é, ü, ł …) and dropping them would gut the pool — nearly half of the
+// top-1k Polish words carry diacritics. Target keys stay a–z (uniqueChars).
 const normalizeWord = (word: string): string | null => {
     const normalized = word.trim().toLowerCase()
-    if (!/^[a-z]+$/.test(normalized)) return null
+    if (!/^\p{L}+$/u.test(normalized)) return null
     return normalized
 }
 

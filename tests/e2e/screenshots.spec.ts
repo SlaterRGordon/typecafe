@@ -154,7 +154,8 @@ test.describe("screenshot tour", () => {
   test("home: toolbar menus and mode contexts", async ({ page }, testInfo) => {
     await gotoHome(page);
 
-    // Timed: the toolbar owns mode, length, language, and action icons.
+    // Timed: the toolbar owns mode, length, and the vocabulary size/source; the
+    // language itself is a global setting in the nav.
     await expect(page.getByTestId("toolbar-context").getByRole("button", { name: "15" })).toHaveAttribute("aria-pressed", "true");
     await openSettingsMenu(page);
     await capture(page, testInfo, "03-settings-timed");
@@ -162,7 +163,13 @@ test.describe("screenshot tour", () => {
     await page.keyboard.press("Escape");
     await page.getByTestId("typer-toolbar").getByRole("button", { name: "Language: English" }).click();
     await expect(page.getByTestId("language-menu")).toBeVisible();
-    await capture(page, testInfo, "39-language-dropdown");
+    await capture(page, testInfo, "39-size-source-menu");
+    await page.keyboard.press("Escape");
+
+    // The global language lives in the nav globe menu.
+    await page.getByTestId("nav-language-trigger").click();
+    await expect(page.getByTestId("nav-language-menu")).toBeVisible();
+    await capture(page, testInfo, "39b-nav-language-menu");
     await page.keyboard.press("Escape");
 
     // Words is top-level and swaps the context controls beside the mode group.

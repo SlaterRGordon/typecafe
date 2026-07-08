@@ -1,7 +1,7 @@
 import { TestModes, TestSubModes } from "../types"
 import type { QuoteLength, TestGramScopes, TestGramSources } from "../types"
 import type { Level } from "../train/levels"
-import { applyTextOptions, ensureLanguageLoaded, ensureQuotesLoaded, generateBetterPseudoText, generateNGram, generateQuote, generateText, isDrillDigit, isDrillMark } from "../utils"
+import { applyTextOptions, ensureQuotesLoaded, ensureSizedLoaded, generateBetterPseudoText, generateNGram, generateQuote, generateText, isDrillDigit, isDrillMark, parseLanguage } from "../utils"
 
 export interface TestTextConfig {
     mode: TestModes,
@@ -33,17 +33,18 @@ export async function generateTestText(config: TestTextConfig, gramLevel: number
         return generateQuote(config.quoteLength)
     }
 
-    await ensureLanguageLoaded(language)
+    const { base, size } = parseLanguage(language)
+    await ensureSizedLoaded(base, size)
 
     if (mode === TestModes.normal) {
         if (subMode === TestSubModes.timed) {
             // A speed-round level drills its own keys at speed; the buffer is large
             // so a 30s run never exhausts it (Text appends more from the same keys).
-            if (level) return applyTextOptions(generateBetterPseudoText(500, level.keys.split("")), punctuation, capitals)
+            if (level) return applyTextOptions(generateBetterPseudoText(500, level.keys.split(""), base), punctuation, capitals)
             return applyTextOptions(generateText(500, language), punctuation, capitals)
         }
         if (subMode === TestSubModes.words) {
-            if (level) return applyTextOptions(generateBetterPseudoText(count, level.keys.split("")), punctuation, capitals)
+            if (level) return applyTextOptions(generateBetterPseudoText(count, level.keys.split(""), base), punctuation, capitals)
             return applyTextOptions(generateText(count, language), punctuation, capitals)
         }
         return ""
@@ -63,11 +64,11 @@ export async function generateTestText(config: TestTextConfig, gramLevel: number
         // stays as the one Capitalize add-on.
         const marks = punctuation ? selectedKeys.filter(isDrillMark) : []
         const digits = selectedKeys.filter(isDrillDigit)
-        return applyTextOptions(generateBetterPseudoText(500, letters), false, capitals, { marks, digits })
+        return applyTextOptions(generateBetterPseudoText(500, letters, base), false, capitals, { marks, digits })
     }
 
     if (mode === TestModes.ngrams) {
-        return generateNGram(config.gramSource, config.gramScope, config.gramCombination, config.gramRepetition, gramLevel)
+        return generateNGram(config.gramSource, config.gramScope, config.gramCombination, config.gramRepetition, gramLevel, base)
     }
 
     if (mode === TestModes.relaxed) {

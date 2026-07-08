@@ -21,11 +21,14 @@ import {
     linearTrend,
     mergeDailyRollups,
     personalRecords,
+    recordsForLanguage,
     rejectOutliers,
     trendSeries,
     type ProgressPeriod,
     type ProgressRecord,
 } from "~/lib/progress";
+import { useLanguage } from "~/hooks/useLanguage";
+import { languageMeta } from "~/lib/languageMeta";
 import { composeWeakKeys, netFromRaw, worstKeysFromAttempts } from "~/lib/stats";
 import { detectPlateau } from "~/lib/trajectory";
 import { api } from "~/utils/api";
@@ -244,7 +247,7 @@ function ProgressLoadingSkeleton() {
     );
 }
 
-const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Record<string, KeyAttempt>; transitions: TransitionAggregate[]; canShare?: boolean; username?: string | null }) => {
+const ProgressDashboard = (props: { language: string; records: ProgressRecord[]; keyAttempts: Record<string, KeyAttempt>; transitions: TransitionAggregate[]; canShare?: boolean; username?: string | null }) => {
     const [period, setPeriod] = useState<ProgressPeriod>(30);
     const [trendMetric, setTrendMetric] = useState<TrendMetric>("wpm");
     const [shareState, setShareState] = useState<"idle" | "sharing" | "copied">("idle");
@@ -359,6 +362,9 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex flex-wrap items-center gap-2">
                     <h1 className="font-mono text-3xl font-bold tracking-tight">Progress</h1>
+                    <Chip testId="progress-language-chip" size="md" icon={<i className="fa-solid fa-globe" aria-hidden="true" />}>
+                        {languageMeta(props.language).label}
+                    </Chip>
                     {streak > 0 && (
                         <Chip
                             testId="streak-chip"
@@ -586,6 +592,12 @@ const ProgressDashboard = (props: { records: ProgressRecord[]; keyAttempts: Reco
 const Progress: NextPage = () => {
     const { data: sessionData, status } = useSession();
     const router = useRouter();
+    // Progress is scoped to the global language. Daily rollups (DailyUserStat, incl.
+    // imported guest history) carry no language, so recordsForLanguage counts them as
+    // English — the historical default: the English view keeps the old/imported tail,
+    // other languages show only their own raw records (derived-on-read, no schema
+    // change; ADR-0005: rollups are re-aggregatable from timelines if ever split).
+    const [language] = useLanguage();
     const recordsQuery = api.test.getProgressRecords.useQuery(undefined, {
         enabled: !!sessionData?.user,
     });
@@ -611,8 +623,8 @@ const Progress: NextPage = () => {
         [recordsQuery.data],
     );
     const records = useMemo(
-        () => mergeDailyRollups(rawRecords, rollupsQuery.data ?? []),
-        [rawRecords, rollupsQuery.data],
+        () => recordsForLanguage(mergeDailyRollups(rawRecords, rollupsQuery.data ?? []), language),
+        [rawRecords, rollupsQuery.data, language],
     );
 
     // Lifetime per-key accuracy for the heatmap: DB practice stats when signed
@@ -632,8 +644,11 @@ const Progress: NextPage = () => {
     // banner; a guest with none gets the signup pitch.
     const guest = useGuestEvidence();
     const guestRecords: ProgressRecord[] = useMemo(
-        () => (guest?.progress ?? []).map((e) => ({ wpm: netFromRaw(e.wpm, e.accuracy), accuracy: e.accuracy, consistency: e.c, createdAt: new Date(e.t) })),
-        [guest],
+        () => recordsForLanguage(
+            (guest?.progress ?? []).map((e) => ({ wpm: netFromRaw(e.wpm, e.accuracy), accuracy: e.accuracy, consistency: e.c, createdAt: new Date(e.t), language: e.lang })),
+            language,
+        ),
+        [guest, language],
     );
     const guestKeyAttempts = useMemo(() => {
         const attempts: Record<string, KeyAttempt> = {};
@@ -641,6 +656,10 @@ const Progress: NextPage = () => {
         return attempts;
     }, [guest]);
     const guestTransitions: TransitionAggregate[] = guest?.transitions ?? [];
+    // Dashboard-vs-signup-pitch keys off having ANY progress, not the language-
+    // filtered slice — otherwise a guest with English history sees the signup pitch
+    // the moment they switch to a language they haven't typed.
+    const hasAnyGuestProgress = (guest?.progress ?? []).length > 0;
 
     return (
         <>
@@ -652,7 +671,7 @@ const Progress: NextPage = () => {
                 {status === "loading" || (sessionData?.user && (recordsQuery.isLoading || rollupsQuery.isLoading)) ? (
                     <ProgressLoadingSkeleton />
                 ) : !sessionData?.user ? (
-                    guestRecords.length > 0 ? (
+                    hasAnyGuestProgress ? (
                         <div className="w-full max-w-screen-xl space-y-4">
                             <div data-testid="guest-keep-banner" className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-primary/40 bg-primary/10 px-4 py-3">
                                 <span className="text-sm text-base-content/80">This progress lives on this device only.</span>
@@ -660,7 +679,7 @@ const Progress: NextPage = () => {
                                     Sign in to keep it forever
                                 </label>
                             </div>
-                            <ProgressDashboard records={guestRecords} keyAttempts={guestKeyAttempts} transitions={guestTransitions} />
+                            <ProgressDashboard language={language} records={guestRecords} keyAttempts={guestKeyAttempts} transitions={guestTransitions} />
                         </div>
                     ) : (
                         // No local history yet — the page is the signup pitch.
@@ -680,7 +699,7 @@ const Progress: NextPage = () => {
                         </div>
                     )
                 ) : (
-                    <ProgressDashboard records={records} keyAttempts={dbKeyAttempts} transitions={dbTransitions} canShare username={sessionData.user.username ?? sessionData.user.name} />
+                    <ProgressDashboard language={language} records={records} keyAttempts={dbKeyAttempts} transitions={dbTransitions} canShare username={sessionData.user.username ?? sessionData.user.name} />
                 )}
             </div>
         </>

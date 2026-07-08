@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { TestSubModes } from "~/components/typer/types"
-import { levels } from "./levels"
+import { levels, withLanguageAccents } from "./levels"
 
 describe("generated Train ladder", () => {
     it("builds 100 sequentially named levels", () => {
@@ -45,5 +45,25 @@ describe("generated Train ladder", () => {
         const keysLevels = levels.filter((l) => l.kind === "keys")
         const last = keysLevels[keysLevels.length - 1]!
         expect(last.count).toBeGreaterThan(levels[0]!.count)
+    })
+})
+
+describe("withLanguageAccents", () => {
+    const accents = ["é", "è", "ç"]
+
+    it("extends full-alphabet levels with the language's accent letters", () => {
+        const extended = withLanguageAccents(levels[99]!, accents)
+        expect(extended.keys).toBe("qwertyuiopasdfghjklzxcvbnméèç")
+        // Everything else (name, count, kind) is untouched — progress and
+        // thresholds key off the name.
+        expect(extended).toMatchObject({ name: "Level 100", count: levels[99]!.count, kind: levels[99]!.kind })
+    })
+
+    it("leaves key-intro stages pure a-z", () => {
+        expect(withLanguageAccents(levels[0]!, accents)).toBe(levels[0]!)
+    })
+
+    it("is a no-op for English (no accents)", () => {
+        expect(withLanguageAccents(levels[99]!, [])).toBe(levels[99]!)
     })
 })
