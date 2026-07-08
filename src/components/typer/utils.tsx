@@ -4,7 +4,7 @@ import tetraGrams from './languages/nGrams/tetraGrams.json'
 
 import english1k from './languages/english1k.json'
 
-import { TestGramScopes, TestGramSources, type QuoteLength } from './types'
+import { TestGramScopes, TestGramSources, type QuoteLength, type WordSize } from './types'
 // Drillable-key definitions live in lib (single source shared with diagnosis and
 // the drill page); re-exported here for the typer modules that import from utils.
 import { DRILL_MARKS, ENDER_MARKS, MID_MARKS, isDrillMark, isDrillDigit } from '~/lib/drillKeys'
@@ -78,6 +78,26 @@ export const ensureLanguageLoaded = (language: string): Promise<void> => {
 // guarantee should await ensureLanguageLoaded first.
 export const getWords = (language: string): string[] =>
     (languages[language] ?? languages.english!).words
+
+const SIZE_COUNTS: Record<WordSize, number> = { "1k": 1000, "5k": 5000, "10k": 10000, "25k": 25000 }
+
+// A word test is (global language) × (per-test size). English resolves to its
+// size-specific SCOWL file; every other language loads one frequency-ranked list
+// and slices the top-N — so sizes cost no extra files (derived-on-read). English
+// "1k" is the base `english` key that ships in the main bundle.
+export const resolveWordKey = (language: string, size: WordSize): string => {
+    if (language === "english") return size === "1k" ? "english" : `english${size}`
+    return language
+}
+
+export const ensureSizedLoaded = (language: string, size: WordSize): Promise<void> =>
+    ensureLanguageLoaded(resolveWordKey(language, size))
+
+export const getSizedWords = (language: string, size: WordSize): string[] => {
+    const words = getWords(resolveWordKey(language, size))
+    // English files are already the requested size; other languages slice by rank.
+    return language === "english" ? words : words.slice(0, SIZE_COUNTS[size])
+}
 
 interface NGrams {
     biGrams: string[],

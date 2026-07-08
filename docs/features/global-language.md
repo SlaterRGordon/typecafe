@@ -1,0 +1,61 @@
+# Global language setting
+
+**Status:** 🚧 in progress · **Decided:** 2026-07-07 with the owner
+
+Make language a global, local-first setting chosen in the nav, applied
+everywhere the app generates text — not a per-mode control limited to
+timed/word tests.
+
+## Decision
+
+Split the single conflated `language` string (`"english5k"`) into two axes:
+
+| Axis | Lives in | Set from | Values |
+|---|---|---|---|
+| **Language** (global) | `useLanguage()` → `localStorage "typecafe:language"` | **nav** globe menu | english, french, german, italian, portuguese, dutch, polish |
+| **Size / source** (per-test) | `wordSize` in `testSettings` | **typer bar** menu | 1k / 5k / 10k / Quotes |
+
+They compose at generation time (`french` + `5k` → first 5000 words of the
+French list). Locked-in choices:
+
+- **Sizes are runtime slices** of the frequency-ranked lists — no new data
+  files. English keeps its separate SCOWL files; other languages slice
+  `words[0..N]`. Sizes offered for non-English: 1k / 5k / 10k (no 25k — subtitle
+  frequency past ~10k is noisy). Derived-on-read per the locked constraints.
+- **Training**: one a–z key ladder, content drawn from the active language's
+  words (accented chars never appear — not in the ladder). Progress stays
+  global (`TrainProgress` keys unchanged).
+- **Quotes**: hidden when language ≠ english (English-only prose; no per-language
+  quote corpora).
+- **Nav trigger**: globe icon + language names (flag emoji don't render on
+  Windows browsers), reachable from top + mobile nav.
+- **Competitive**: unaffected — sizes collapse to the base language via
+  `baseTypeLanguage` (generalized to strip any size suffix); base rows already
+  seeded.
+
+**Scope call:** on `/progress`, the WPM/PB trend follows the language; the coach
+weak-key card stays global (consistent with "training progress global", ADR
+0005). Coach-per-language is explicitly out of scope.
+
+## Slices
+
+- [x] 1 — Size-aware word resolution in `utils.tsx` (English → size file; others
+      → slice), unit-tested. No UI change.
+- [ ] 2 — `useLanguage` global hook + nav globe menu (top + mobile); one-time
+      migration of legacy `testSettings.language` → language + `wordSize`.
+- [ ] 3 — Typer bar menu becomes size/source only (1k/5k/10k + Quotes); Quotes
+      hidden when non-English; drop the language list.
+- [ ] 4 — Training uses the active language (`train.tsx`,
+      `generateBetterPseudoText`); progress stays global.
+- [ ] 5 — Drills use the active language (`drill.tsx`, refactor
+      `drillableTransitions.ts` off its module-level `english1k` import).
+- [ ] 6 — Profile signature bests follow the active language.
+- [ ] 7 — Progress WPM/PB trend filters to the active language, derived-on-read
+      from raw `Test` rows (no `DailyUserStat` schema change). Coach stays global.
+- [ ] 8 — e2e + screenshot tour updated (language in nav, size in bar);
+      `baseTypeLanguage` + resolver unit tests.
+
+## Out of scope / deferred
+
+- 25k for non-English languages · per-language quotes · per-language coach/
+  transitions · native accented-key training ladders.
