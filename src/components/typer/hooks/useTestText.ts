@@ -40,11 +40,11 @@ export async function generateTestText(config: TestTextConfig, gramLevel: number
         if (subMode === TestSubModes.timed) {
             // A speed-round level drills its own keys at speed; the buffer is large
             // so a 30s run never exhausts it (Text appends more from the same keys).
-            if (level) return applyTextOptions(generateBetterPseudoText(500, level.keys.split("")), punctuation, capitals)
+            if (level) return applyTextOptions(generateBetterPseudoText(500, level.keys.split(""), base), punctuation, capitals)
             return applyTextOptions(generateText(500, language), punctuation, capitals)
         }
         if (subMode === TestSubModes.words) {
-            if (level) return applyTextOptions(generateBetterPseudoText(count, level.keys.split("")), punctuation, capitals)
+            if (level) return applyTextOptions(generateBetterPseudoText(count, level.keys.split(""), base), punctuation, capitals)
             return applyTextOptions(generateText(count, language), punctuation, capitals)
         }
         return ""
@@ -64,7 +64,7 @@ export async function generateTestText(config: TestTextConfig, gramLevel: number
         // stays as the one Capitalize add-on.
         const marks = punctuation ? selectedKeys.filter(isDrillMark) : []
         const digits = selectedKeys.filter(isDrillDigit)
-        return applyTextOptions(generateBetterPseudoText(500, letters), false, capitals, { marks, digits })
+        return applyTextOptions(generateBetterPseudoText(500, letters, base), false, capitals, { marks, digits })
     }
 
     if (mode === TestModes.ngrams) {

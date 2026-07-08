@@ -49,8 +49,10 @@ weak-key card stays global (consistent with "training progress global", ADR
       size composes into `testSettings.language`; `baseTypeLanguage` generalized to
       strip any size suffix. Size axis kept in the composed string (no `wordSize`
       field) to keep Typer/type.get/save signatures unchanged.
-- [ ] 4 — Training uses the active language (`train.tsx`,
-      `generateBetterPseudoText`); progress stays global.
+- [x] 4 — Training **and Practice** use the active language: thread language into
+      `generateBetterPseudoText` (shared by both). Real-word source follows the
+      language; the English n-gram fallback (early key stages) stays. Progress stays
+      global. Accented chars never appear (not in the a–z key ladder).
 - [ ] 5 — Drills use the active language (`drill.tsx`, refactor
       `drillableTransitions.ts` off its module-level `english1k` import).
 - [ ] 6 — Profile signature bests follow the active language.
@@ -58,6 +60,11 @@ weak-key card stays global (consistent with "training progress global", ADR
       from raw `Test` rows (no `DailyUserStat` schema change). Coach stays global.
 - [ ] 8 — e2e + screenshot tour updated (language in nav, size in bar);
       `baseTypeLanguage` + resolver unit tests.
+- [ ] 9 — Per-language Grams: derive bi/tri/tetragrams from the language word list
+      (frequency-ranked pairs, memoized per base — derived-on-read, no new files);
+      English keeps its curated static n-gram JSON. `generateNGram` gains a language
+      path; its "words" source and the Grams call site follow the active language.
+      Grams already follows the nav language (no bar change). Not competitive.
 
 ## Out of scope / deferred
 

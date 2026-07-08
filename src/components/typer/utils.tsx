@@ -148,7 +148,10 @@ const requestPentaGrams = () => {
     })
 }
 
-export const generateBetterPseudoText = (count: number, characters: string[]) => {
+// Training/Practice key-drill text: real words from `language` restricted to the
+// unlocked `characters`, with an English-ngram pseudo-word fallback for early key
+// stages where few real words fit. Accented words never survive the a–z filter.
+export const generateBetterPseudoText = (count: number, characters: string[], language = "english") => {
     requestPentaGrams()
     let text = ''
 
@@ -175,8 +178,8 @@ export const generateBetterPseudoText = (count: number, characters: string[]) =>
     const availableVowels = characters.filter((char: string) => vowels.includes(char))
     const availableConsonants = characters.filter((char: string) => consonants.includes(char))
 
-    const englishWords = getWords("english")
-    const filteredWords = englishWords.filter((word: string) => {
+    const sourceWords = getWords(language)
+    const filteredWords = sourceWords.filter((word: string) => {
         for (let i = 0; i < word.length; i++) {
             if (!characters.includes(word[i] as string)) return false
         }

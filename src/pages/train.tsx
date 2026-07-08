@@ -6,6 +6,7 @@ import type { Level } from "~/components/typer/train/levels";
 import { levels } from "~/components/typer/train/levels";
 import { KIND_META } from "~/components/typer/train/kindMeta";
 import { api } from "~/utils/api";
+import { useLanguage } from "~/hooks/useLanguage";
 import { Keyboard } from "~/components/typer/Keyboard";
 import { typingFocusFadeClass } from "~/components/typer/typingFocus";
 import { useSession } from "next-auth/react";
@@ -143,7 +144,9 @@ function TierTabs(props: { difficulty: DifficultyName, onSelect: (difficulty: Di
 
 const Train: NextPage = () => {
     const { status: sessionStatus } = useSession()
-    const language = "english"
+    // Training text follows the global language; the ladder progress stays global
+    // (TrainProgress is keyed by difficulty/options, not language).
+    const [language] = useLanguage()
     const mode = TestModes.normal
     const gramSource = TestGramSources.bigrams
     const gramScope = TestGramScopes.fifty

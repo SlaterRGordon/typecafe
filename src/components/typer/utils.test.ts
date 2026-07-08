@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { applyTextOptions, generateBetterPseudoText, generateNGram, generateText } from "./utils"
+import { applyTextOptions, ensureSizedLoaded, generateBetterPseudoText, generateNGram, generateText } from "./utils"
 import { TestGramScopes, TestGramSources } from "./types"
 
 const SENTENCE_ENDERS = [".", "?", "!"]
@@ -107,6 +107,14 @@ describe("generateBetterPseudoText", () => {
         const text = generateBetterPseudoText(30, ["a", "s", "d", "f"])
         expect(text.length).toBeGreaterThan(0)
         expect(text.trim().split(/\s+/).length).toBeLessThanOrEqual(30)
+    })
+
+    it("draws real words from the requested language", async () => {
+        await ensureSizedLoaded("french", "1k")
+        // "oui" (o, u, i) is a common French word and absent from the English list,
+        // so it can only appear if the generator pulled from the French words.
+        const text = generateBetterPseudoText(40, ["o", "u", "i"], "french")
+        expect(text.split(" ")).toContain("oui")
     })
 })
 
