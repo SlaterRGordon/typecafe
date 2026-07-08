@@ -105,6 +105,28 @@ weak-key card stays global (consistent with "training progress global", ADR
   ladder can't show accent key positions, so they join only the mastery levels) ·
   per-language profile (profile is a cross-language lifetime showcase by decision).
 
+### Deferred: token-weighted per-language grams (decided 2026-07-07)
+
+Non-English Grams derive from the word list at runtime (`rankNGrams` via
+`gramsFor`), which weights by word *type* (each word counts once). English's
+static gram files are ranked by real corpus *token* frequency (`th he in er…`),
+which is better signal — grams from very common short words (`de`, `le`, `że`)
+should rank higher than type-counting gives them.
+
+**The upgrade, when wanted:** the pipeline already has the data. `buildLanguages.mjs`
+fetches Hermit Dave FrequencyWords lines as `word count` pairs and discards the
+count (`line.split(" ")[0]`). Keep the counts, weight each word's grams by its
+count, and emit per-language gram JSONs (top ~200 bi/tri/tetra, a few KB each)
+**in the same script run** that builds the word lists — same-run generation kills
+the drift risk of a separate gram pipeline. `gramsFor` then drops its derivation
+branch and every language is corpus-ranked JSON, like English.
+
+**Why not yet:** the current derivation is type-weighted over an already
+frequency-ranked top-10k — a reasonable proxy — and no one has reported the gram
+ladder feeling unrepresentative. Do it on that signal (a non-English user
+complaint, or noticing it firsthand), not speculatively. ~1 hour with data
+already fetched.
+
 ## Known dead code (found while building, not touched)
 
 - `src/components/scores/SignatureBests.tsx` + `test.getSignatureBests` procedure:
