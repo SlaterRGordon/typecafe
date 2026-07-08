@@ -1,7 +1,7 @@
 import { TestModes, TestSubModes } from "../types"
 import type { QuoteLength, TestGramScopes, TestGramSources } from "../types"
 import type { Level } from "../train/levels"
-import { applyTextOptions, ensureLanguageLoaded, ensureQuotesLoaded, generateBetterPseudoText, generateNGram, generateQuote, generateText, isDrillDigit, isDrillMark } from "../utils"
+import { applyTextOptions, ensureQuotesLoaded, ensureSizedLoaded, generateBetterPseudoText, generateNGram, generateQuote, generateText, isDrillDigit, isDrillMark, parseLanguage } from "../utils"
 
 export interface TestTextConfig {
     mode: TestModes,
@@ -33,7 +33,8 @@ export async function generateTestText(config: TestTextConfig, gramLevel: number
         return generateQuote(config.quoteLength)
     }
 
-    await ensureLanguageLoaded(language)
+    const { base, size } = parseLanguage(language)
+    await ensureSizedLoaded(base, size)
 
     if (mode === TestModes.normal) {
         if (subMode === TestSubModes.timed) {

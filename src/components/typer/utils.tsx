@@ -80,6 +80,29 @@ export const getWords = (language: string): string[] =>
     (languages[language] ?? languages.english!).words
 
 const SIZE_COUNTS: Record<WordSize, number> = { "1k": 1000, "5k": 5000, "10k": 10000, "25k": 25000 }
+const WORD_SIZES: WordSize[] = ["1k", "5k", "10k", "25k"]
+
+// Base languages the app knows. A stored test language is a base optionally
+// suffixed with a size ("french5k"); "1k" is the bare base ("french", "english").
+export const BASE_LANGUAGES = [
+    "english", "french", "spanish", "german", "italian", "portuguese", "dutch", "polish", "chinese", "hindi",
+]
+
+// A stored/composed test language ("english5k", "french", "french10k") splits into
+// a base language (global, nav-chosen) and a vocabulary size (per-test, bar-chosen).
+export const parseLanguage = (language: string): { base: string, size: WordSize } => {
+    for (const base of BASE_LANGUAGES) {
+        if (language === base) return { base, size: "1k" }
+        if (language.startsWith(base)) {
+            const suffix = language.slice(base.length) as WordSize
+            if (WORD_SIZES.includes(suffix)) return { base, size: suffix }
+        }
+    }
+    return { base: "english", size: "1k" }
+}
+
+export const composeLanguage = (base: string, size: WordSize): string =>
+    size === "1k" ? base : `${base}${size}`
 
 // A word test is (global language) × (per-test size). English resolves to its
 // size-specific SCOWL file; every other language loads one frequency-ranked list
@@ -324,8 +347,9 @@ export const applyTextOptions = (
 export const generateText = (count: number, language: string) => {
     let text = ''
 
-    // Generate random text
-    const words = getWords(language)
+    // Generate random text. `language` is a composed base+size — slice accordingly.
+    const { base, size } = parseLanguage(language)
+    const words = getSizedWords(base, size)
     let prev = ''
     for (let i = 0; i < count; i++) {
         // Re-roll so no word repeats back-to-back — a doubled word reads as a typo

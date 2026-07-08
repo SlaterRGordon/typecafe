@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type ReactNode } from "react"
-import { TestGramScopes, TestGramSources, TestModes, TestSubModes, type QuoteLength } from "../types"
+import { TestGramScopes, TestGramSources, TestModes, TestSubModes, type QuoteLength, type WordSize } from "../types"
 import { ToolbarMenu } from "./ToolbarMenu"
+import { composeLanguage, parseLanguage } from "../utils"
+import { languageMeta } from "~/lib/languageMeta"
 
 type ToolbarMode = {
     label: string
@@ -35,38 +37,27 @@ const GRAM_SOURCES: { value: TestGramSources, label: string }[] = [
 ]
 const GRAM_SCOPES: TestGramScopes[] = [TestGramScopes.fifty, TestGramScopes.oneHundred, TestGramScopes.twoHundred]
 
-// English ships as vocabulary-size slices of the unigram frequency corpus. "1k"
-// is the curated default and maps to the base `english` key; the rest load on
-// demand. They're grouped under one English row in the picker.
-const ENGLISH_SIZES = [
-    { value: "english", label: "1k" },
-    { value: "english5k", label: "5k" },
-    { value: "english10k", label: "10k" },
-    { value: "english25k", label: "25k" },
+// The base language is chosen in the nav; the bar picks a vocabulary size on top.
+// English ships a curated 25k; other languages slice their frequency list and stop
+// at 10k (see docs/features/global-language.md).
+const SIZES: { value: WordSize, label: string }[] = [
+    { value: "1k", label: "1k" },
+    { value: "5k", label: "5k" },
+    { value: "10k", label: "10k" },
+    { value: "25k", label: "25k" },
 ]
-const ENGLISH_VALUES = new Set(ENGLISH_SIZES.map((size) => size.value))
-
-const OTHER_LANGUAGES = [
-    { value: "french", label: "French", short: "fr" },
-    { value: "spanish", label: "Spanish", short: "es" },
-    { value: "german", label: "German", short: "de" },
-    { value: "italian", label: "Italian", short: "it" },
-    { value: "portuguese", label: "Portuguese", short: "pt" },
-    { value: "dutch", label: "Dutch", short: "nl" },
-    { value: "polish", label: "Polish", short: "pl" },
-]
+const sizesFor = (base: string): { value: WordSize, label: string }[] =>
+    base === "english" ? SIZES : SIZES.filter((size) => size.value !== "25k")
 
 function languageLabelFor(language: string): string {
-    const size = ENGLISH_SIZES.find((option) => option.value === language)
-    if (size) return `English ${size.label}`
-    return OTHER_LANGUAGES.find((option) => option.value === language)?.label ?? language
+    const { base, size } = parseLanguage(language)
+    return `${languageMeta(base).label} ${size}`
 }
 
-// The short form shown in the settings line ("en 1k", "es", "quotes").
+// The short form shown in the settings line ("en 1k", "fr 5k", "quotes").
 function languageShortLabelFor(language: string): string {
-    const size = ENGLISH_SIZES.find((option) => option.value === language)
-    if (size) return `en ${size.label}`
-    return OTHER_LANGUAGES.find((option) => option.value === language)?.short ?? language
+    const { base, size } = parseLanguage(language)
+    return `${languageMeta(base).short} ${size}`
 }
 
 interface ModeBarProps {
@@ -266,6 +257,7 @@ export function ModeBar(props: ModeBarProps) {
     const showLengths = isNormal || isRelaxed
     const lengthPresets = props.subMode === TestSubModes.timed ? TIMED_LENGTHS : WORD_LENGTHS
     const lengthMax = props.subMode === TestSubModes.timed ? 3600 : 5000
+    const { base: languageBase, size: wordSize } = parseLanguage(props.language)
     const languageLabel = isQuotes ? "Quotes" : languageLabelFor(props.language)
     const languageShort = isQuotes ? "quotes" : languageShortLabelFor(props.language)
     // The picker drives the text source for word-list modes (incl. the ∞ relaxed
@@ -326,11 +318,12 @@ export function ModeBar(props: ModeBarProps) {
         setCustomOpen(false)
     }
 
-    // The language picker doubles as a text-source picker: a word-list language
-    // leaves the quote engine for Normal; "Quotes" enters it.
-    const selectWordLanguage = (value: string) => {
+    // The bar picks the vocabulary size for the active (nav-chosen) language, and
+    // doubles as a text-source picker: choosing a size leaves the quote engine for
+    // Normal; "Quotes" enters it. Size composes onto the base language string.
+    const selectSize = (size: WordSize) => {
         if (isQuotes) props.setMode(TestModes.normal)
-        props.setLanguage(value)
+        props.setLanguage(composeLanguage(languageBase, size))
         setOpenMenu(null)
     }
 
@@ -526,56 +519,44 @@ export function ModeBar(props: ModeBarProps) {
                             }
                         >
                             <div id="language-menu" className="space-y-1">
-                                {/* English groups its vocabulary sizes onto one row of chips. A
-                                    word language is only "active" outside the quote engine. */}
-                                <div className={`rounded-md px-3 py-2 ${ENGLISH_VALUES.has(props.language) && !isQuotes ? "bg-primary/10" : ""}`}>
+                                {/* Vocabulary size for the active language (chosen in the nav globe
+                                    menu). The size row is "active" outside the quote engine. */}
+                                <div className={`rounded-md px-3 py-2 ${!isQuotes ? "bg-primary/10" : ""}`}>
                                     <div className="flex items-center justify-between">
-                                        <span className={`text-md ${ENGLISH_VALUES.has(props.language) && !isQuotes ? "text-primary" : "text-base-content/75"}`}>English</span>
-                                        {ENGLISH_VALUES.has(props.language) && !isQuotes &&
+                                        <span className={`text-md ${!isQuotes ? "text-primary" : "text-base-content/75"}`}>{languageMeta(languageBase).label}</span>
+                                        {!isQuotes &&
                                             <span className="text-xs font-semibold uppercase tracking-wide text-primary">Active</span>
                                         }
                                     </div>
                                     <div className="mt-2 flex flex-wrap gap-1">
-                                        {ENGLISH_SIZES.map((size) => (
+                                        {sizesFor(languageBase).map((size) => (
                                             <button
                                                 key={size.value}
                                                 type="button"
-                                                className={`min-h-8 rounded-md px-2.5 text-xs font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${props.language === size.value && !isQuotes ? "bg-primary text-primary-content" : "bg-base-content/10 text-base-content/75 hover:bg-base-content/20"}`}
-                                                aria-label={`English ${size.label}`}
-                                                aria-pressed={props.language === size.value && !isQuotes}
-                                                onClick={() => selectWordLanguage(size.value)}
+                                                className={`min-h-8 rounded-md px-2.5 text-xs font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${wordSize === size.value && !isQuotes ? "bg-primary text-primary-content" : "bg-base-content/10 text-base-content/75 hover:bg-base-content/20"}`}
+                                                aria-label={`${languageMeta(languageBase).label} ${size.label}`}
+                                                aria-pressed={wordSize === size.value && !isQuotes}
+                                                onClick={() => selectSize(size.value)}
                                             >
                                                 {size.label}
                                             </button>
                                         ))}
                                     </div>
                                 </div>
-                                {OTHER_LANGUAGES.map((option) => (
+                                {/* Quotes: English-only verbatim prose — hidden for other languages. */}
+                                {languageBase === "english" &&
                                     <button
-                                        key={option.value}
                                         type="button"
-                                        className={`flex min-h-10 w-full cursor-pointer items-center justify-between rounded-md px-3 text-left text-md transition-colors hover:bg-base-content/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${props.language === option.value && !isQuotes ? "bg-primary/10 text-primary" : "text-base-content/75"}`}
-                                        aria-pressed={props.language === option.value && !isQuotes}
-                                        onClick={() => selectWordLanguage(option.value)}
+                                        className={`flex min-h-10 w-full cursor-pointer items-center justify-between rounded-md px-3 text-left text-md transition-colors hover:bg-base-content/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${isQuotes ? "bg-primary/10 text-primary" : "text-base-content/75"}`}
+                                        aria-pressed={isQuotes}
+                                        onClick={selectQuotes}
                                     >
-                                        <span>{option.label}</span>
-                                        {props.language === option.value && !isQuotes &&
+                                        <span>Quotes</span>
+                                        {isQuotes &&
                                             <span className="text-xs font-semibold uppercase tracking-wide">Active</span>
                                         }
                                     </button>
-                                ))}
-                                {/* Quotes: a verbatim-prose text source, not a word language. */}
-                                <button
-                                    type="button"
-                                    className={`flex min-h-10 w-full cursor-pointer items-center justify-between rounded-md px-3 text-left text-md transition-colors hover:bg-base-content/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${isQuotes ? "bg-primary/10 text-primary" : "text-base-content/75"}`}
-                                    aria-pressed={isQuotes}
-                                    onClick={selectQuotes}
-                                >
-                                    <span>Quotes</span>
-                                    {isQuotes &&
-                                        <span className="text-xs font-semibold uppercase tracking-wide">Active</span>
-                                    }
-                                </button>
+                                }
                             </div>
                         </ToolbarMenu>
                     </>

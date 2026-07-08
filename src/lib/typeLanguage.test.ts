@@ -11,8 +11,10 @@ describe("baseTypeLanguage", () => {
         }
     });
 
-    it("leaves other languages unchanged", () => {
+    it("collapses other languages' sizes to their base", () => {
         expect(baseTypeLanguage("french")).toBe("french");
+        expect(baseTypeLanguage("french5k")).toBe("french");
+        expect(baseTypeLanguage("german10k")).toBe("german");
         expect(baseTypeLanguage("spanish")).toBe("spanish");
     });
 

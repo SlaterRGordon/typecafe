@@ -41,10 +41,14 @@ weak-key card stays global (consistent with "training progress global", ADR
 
 - [x] 1 — Size-aware word resolution in `utils.tsx` (English → size file; others
       → slice), unit-tested. No UI change.
-- [ ] 2 — `useLanguage` global hook + nav globe menu (top + mobile); one-time
-      migration of legacy `testSettings.language` → language + `wordSize`.
-- [ ] 3 — Typer bar menu becomes size/source only (1k/5k/10k + Quotes); Quotes
-      hidden when non-English; drop the language list.
+- [x] 2 — `useLanguage` global hook + nav globe menu (top + mobile); migration of
+      the legacy `testSettings.language` base via the hook. *(Merged with slice 3 —
+      coupled: nav can't own base without the typer consuming it.)*
+- [x] 3 — Typer bar menu becomes size/source only (1k/5k/10k + Quotes); Quotes
+      hidden when non-English; language list dropped. Base lives in `useLanguage`,
+      size composes into `testSettings.language`; `baseTypeLanguage` generalized to
+      strip any size suffix. Size axis kept in the composed string (no `wordSize`
+      field) to keep Typer/type.get/save signatures unchanged.
 - [ ] 4 — Training uses the active language (`train.tsx`,
       `generateBetterPseudoText`); progress stays global.
 - [ ] 5 — Drills use the active language (`drill.tsx`, refactor

@@ -134,10 +134,9 @@ test.describe("home typing test", () => {
     await expect(page.getByTestId("custom-length-panel")).toHaveAttribute("aria-hidden", "true");
     await expect(context.getByRole("button", { name: "Custom" })).toHaveAttribute("aria-pressed", "true");
 
-    // Language is a text control in the settings line.
-    await toolbar.getByRole("button", { name: "Language: English" }).click();
-    await expect(page.getByTestId("language-menu")).toBeVisible();
-    await toolbar.getByRole("button", { name: "Spanish" }).click();
+    // Language is chosen globally in the nav; the settings-line control picks size.
+    await page.getByTestId("nav-language-trigger").click();
+    await page.getByTestId("nav-language-menu").getByRole("button", { name: "Spanish" }).click();
     await expect(toolbar.getByRole("button", { name: "Language: Spanish" })).toBeVisible();
 
     // The gear dropdown holds only the text add-ons (no display toggles).
@@ -415,8 +414,8 @@ test.describe("home typing test", () => {
   test("settings cover language, text add-ons, practice keyboard, and no-timer length", async ({ page }) => {
     await gotoHome(page);
 
-    await page.getByTestId("typer-toolbar").getByRole("button", { name: "Language: English" }).click();
-    await page.getByTestId("typer-toolbar").getByRole("button", { name: "Spanish" }).click();
+    await page.getByTestId("nav-language-trigger").click();
+    await page.getByTestId("nav-language-menu").getByRole("button", { name: "Spanish" }).click();
     await expect(page.getByTestId("typer-toolbar").getByRole("button", { name: "Language: Spanish" })).toBeVisible();
 
     // The display toggles are gone: live stats always render under the text and
