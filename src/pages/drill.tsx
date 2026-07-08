@@ -8,7 +8,8 @@ import { Typer, type TestCompletionResult } from "~/components/typer/Typer"
 import { useRestartShortcut } from "~/components/typer/hooks/useRestartShortcut"
 import { typingFocusFadeClass } from "~/components/typer/typingFocus"
 import { TestGramScopes, TestGramSources, TestModes, TestSubModes } from "~/components/typer/types"
-import { applyTextOptions, getWords } from "~/components/typer/utils"
+import { applyTextOptions, ensureSizedLoaded, getWords } from "~/components/typer/utils"
+import { useLanguage } from "~/hooks/useLanguage"
 import { compileDrillText } from "~/lib/drill"
 import { isDrillMark, isDrillDigit, isDrillableKey } from "~/lib/drillKeys"
 import { attemptsFromEvents, keyDrillDelta, keysBaseline, mergeAttempts, nextDrillFinding, transitionBaseline, transitionDrillDelta, type DrillDelta, type DrillFinding } from "~/lib/drillProgress"
@@ -114,15 +115,27 @@ const Drill: NextPage = () => {
     const charAttemptsRef = useRef<Map<string, { attempts: number, correct: number }>>(new Map())
     const resultRestartRef = useRef<HTMLButtonElement>(null)
 
+    // Drill words follow the global language. Load its list before compiling text,
+    // so the drill is built once from the right words (getWords falls back to
+    // English until loaded). English is bundled, so this resolves immediately.
+    const [language] = useLanguage()
+    const [langReady, setLangReady] = useState(false)
+    useEffect(() => {
+        let active = true
+        setLangReady(false)
+        void ensureSizedLoaded(language, "1k").then(() => { if (active) setLangReady(true) })
+        return () => { active = false }
+    }, [language])
+
     const config = useMemo<DrillConfig | null>(() => {
-        if (!router.isReady) return null
+        if (!router.isReady || !langReady) return null
 
         const length = parseLength(router.query.length)
         const keys = parseKeys(router.query.keys)
         const transitions = parseTransitions(router.query.transitions)
         const words = parseWords(router.query.words)
         const seconds = parseSeconds(router.query.seconds)
-        const wordList = getWords("english")
+        const wordList = getWords(language)
 
         if (words.length > 0) {
             return {
@@ -163,7 +176,7 @@ const Drill: NextPage = () => {
         }
 
         return null
-    }, [router.isReady, router.query.keys, router.query.length, router.query.transitions, router.query.words, router.query.seconds])
+    }, [router.isReady, langReady, language, router.query.keys, router.query.length, router.query.transitions, router.query.words, router.query.seconds])
 
     const restartDrill = () => {
         setCompleted(null)
@@ -346,7 +359,7 @@ const Drill: NextPage = () => {
                             {!completed ? (
                                 <section data-testid="drill-typer" className={`px-2 py-10 transition-colors duration-300 motion-reduce:transition-none sm:px-4 ${typingFocused ? "border border-transparent bg-transparent" : "rounded-lg border border-base-content/10 bg-base-100/30"}`}>
                                     <Typer
-                                        language="english"
+                                        language={language}
                                         mode={TestModes.normal}
                                         subMode={config.kind === "timed" ? TestSubModes.timed : TestSubModes.words}
                                         gramSource={TestGramSources.bigrams}

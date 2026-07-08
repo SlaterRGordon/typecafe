@@ -53,8 +53,11 @@ weak-key card stays global (consistent with "training progress global", ADR
       `generateBetterPseudoText` (shared by both). Real-word source follows the
       language; the English n-gram fallback (early key stages) stays. Progress stays
       global. Accented chars never appear (not in the a–z key ladder).
-- [ ] 5 — Drills use the active language (`drill.tsx`, refactor
-      `drillableTransitions.ts` off its module-level `english1k` import).
+- [x] 5 — Drills use the active language: `drill.tsx` sources drill words from
+      `getWords(activeLanguage)` (loaded before compiling) and passes it to the
+      Typer. `drillableTransitions.ts` stays English — it only gates which pairs the
+      **coach** deems trackable (transitions.ts / transitionStats.ts), which is the
+      coach, kept global per the scope call. Not the refactor I first guessed.
 - [ ] 6 — Profile signature bests follow the active language.
 - [ ] 7 — Progress WPM/PB trend filters to the active language, derived-on-read
       from raw `Test` rows (no `DailyUserStat` schema change). Coach stays global.
