@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { applyTextOptions, ensureSizedLoaded, generateBetterPseudoText, generateNGram, generateText } from "./utils"
+import { applyTextOptions, ensureSizedLoaded, generateBetterPseudoText, generateNGram, generateText, rankNGrams } from "./utils"
 import { TestGramScopes, TestGramSources } from "./types"
 
 const SENTENCE_ENDERS = [".", "?", "!"]
@@ -152,5 +152,26 @@ describe("generateNGram", () => {
             const text = generateNGram(TestGramSources.bigrams, TestGramScopes.fifty, combination, 0, level)
             expect(text).not.toContain("undefined")
         }
+    })
+
+    it("derives its grams from the requested language", async () => {
+        await ensureSizedLoaded("french", "1k")
+        const topBigrams = (lang: string) => Array.from({ length: 10 }, (_, level) =>
+            generateNGram(TestGramSources.bigrams, TestGramScopes.twoHundred, 1, 0, level, lang).trim())
+        for (const gram of topBigrams("french")) expect(gram).toHaveLength(2)
+        // Two languages don't share the same top-10 bigram ranking — proves French
+        // grams are derived from the French words, not the English static list.
+        expect(topBigrams("french")).not.toEqual(topBigrams("english"))
+    })
+})
+
+describe("rankNGrams", () => {
+    it("ranks character n-grams by frequency, most common first", () => {
+        // "ou"/"ui" appear twice each; "no"/"on" once. Ties keep first-seen order.
+        expect(rankNGrams(["oui", "oui", "non"], 2, 10)).toEqual(["ou", "ui", "no", "on"])
+    })
+
+    it("respects the limit and skips words shorter than n", () => {
+        expect(rankNGrams(["ab", "abc", "a"], 3, 5)).toEqual(["abc"])
     })
 })

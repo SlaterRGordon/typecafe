@@ -68,7 +68,7 @@ export async function generateTestText(config: TestTextConfig, gramLevel: number
     }
 
     if (mode === TestModes.ngrams) {
-        return generateNGram(config.gramSource, config.gramScope, config.gramCombination, config.gramRepetition, gramLevel)
+        return generateNGram(config.gramSource, config.gramScope, config.gramCombination, config.gramRepetition, gramLevel, base)
     }
 
     if (mode === TestModes.relaxed) {

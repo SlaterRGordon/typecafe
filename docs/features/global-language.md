@@ -75,11 +75,12 @@ weak-key card stays global (consistent with "training progress global", ADR
       view doesn't read as broken.
 - [ ] 8 — e2e + screenshot tour updated (language in nav, size in bar);
       `baseTypeLanguage` + resolver unit tests.
-- [ ] 9 — Per-language Grams: derive bi/tri/tetragrams from the language word list
-      (frequency-ranked pairs, memoized per base — derived-on-read, no new files);
-      English keeps its curated static n-gram JSON. `generateNGram` gains a language
-      path; its "words" source and the Grams call site follow the active language.
-      Grams already follows the nav language (no bar change). Not competitive.
+- [x] 9 — Per-language Grams: `rankNGrams` derives bi/tri/tetragrams from the
+      language word list (frequency-ranked, memoized per base via `gramsFor` —
+      derived-on-read, no new files, 400 deep). English keeps its curated static
+      JSON. `generateNGram` takes a language; its "words" source and char-grams both
+      follow it, and useTestText passes the active base. Follows the nav language (no
+      bar change). Not competitive.
 
 ## Out of scope / deferred
 

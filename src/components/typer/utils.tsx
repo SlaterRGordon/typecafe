@@ -148,6 +148,40 @@ const requestPentaGrams = () => {
     })
 }
 
+// Frequency-ranked character n-grams across a word list (most common first).
+// Ties keep first-seen order (Map insertion), so results are deterministic.
+export const rankNGrams = (words: string[], n: number, limit: number): string[] => {
+    const freq = new Map<string, number>()
+    for (const word of words) {
+        for (let i = 0; i + n <= word.length; i++) {
+            const gram = word.slice(i, i + n)
+            freq.set(gram, (freq.get(gram) ?? 0) + 1)
+        }
+    }
+    return [...freq.entries()].sort((a, b) => b[1] - a[1]).slice(0, limit).map(([gram]) => gram)
+}
+
+// Non-English Grams derive their n-grams from the language's word list on first use
+// (no gram data files — derived-on-read), memoized per base. English keeps its
+// curated static arrays. 400 deep covers the deepest scope (200) plus level walk.
+const NGRAM_DEPTH = 400
+const derivedNGrams = new Map<string, NGrams>()
+
+const gramsFor = (base: string): NGrams => {
+    if (base === "english") return ngrams
+    const cached = derivedNGrams.get(base)
+    if (cached) return cached
+    const words = getWords(base)
+    const derived: NGrams = {
+        biGrams: rankNGrams(words, 2, NGRAM_DEPTH),
+        triGrams: rankNGrams(words, 3, NGRAM_DEPTH),
+        tetraGrams: rankNGrams(words, 4, NGRAM_DEPTH),
+        pentaGrams: [],
+    }
+    derivedNGrams.set(base, derived)
+    return derived
+}
+
 // Training/Practice key-drill text: real words from `language` restricted to the
 // unlocked `characters`, with an English-ngram pseudo-word fallback for early key
 // stages where few real words fit. Accented words never survive the a–z filter.
@@ -372,18 +406,22 @@ export const generateText = (count: number, language: string) => {
 
 const MAX_NGRAM_COPIES = 20
 
-export const generateNGram = (source: TestGramSources, scope: TestGramScopes, combination: number, repetition: number, level: number) => {
+export const generateNGram = (source: TestGramSources, scope: TestGramScopes, combination: number, repetition: number, level: number, language = "english") => {
     let ngram = ''
     let words: string[] = []
 
+    // Grams follow the active language: whole-word source and derived character
+    // n-grams both come from the language's list (English uses its curated grams).
+    const { base } = parseLanguage(language)
+    const grams = gramsFor(base)
     if (source === TestGramSources.words) {
-        words = getWords("english")
+        words = getWords(base)
     } else if (source === TestGramSources.bigrams) {
-        words = ngrams.biGrams
+        words = grams.biGrams
     } else if (source === TestGramSources.trigrams) {
-        words = ngrams.triGrams
+        words = grams.triGrams
     } else if (source === TestGramSources.tetragrams) {
-        words = ngrams.tetraGrams
+        words = grams.tetraGrams
     }
 
     if (scope === TestGramScopes.fifty) words = words.slice(0, 50)
