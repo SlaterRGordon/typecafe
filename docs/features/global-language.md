@@ -88,11 +88,22 @@ weak-key card stays global (consistent with "training progress global", ADR
       follow it, and useTestText passes the active base. Follows the nav language (no
       bar change). Not competitive.
 
+- [x] 10 — **Accents coherence (decided 2026-07-07).** Accented letters are part
+      of a language, not noise to strip; every mode that types *words* now keeps
+      them. Tests and Grams already did; drills stopped dropping accented words
+      (`normalizeWord` → any-letter); Train's full-alphabet stretch (L45+) extends
+      the key set with the language's accent letters, derived on read from its word
+      list (`accentChars`/`accentsFor`, memoized per base) via
+      `withLanguageAccents` — intro stages stay pure a–z (key positions are
+      layout-dependent), and progress/thresholds are untouched (keyed by level
+      name). Practice stays a–z: its whole UI is the QWERTY key board.
+
 ## Out of scope / deferred
 
 - 25k for non-English languages · per-language quotes · per-language coach/
-  transitions · native accented-key training ladders · per-language profile
-  (profile is a cross-language lifetime showcase by decision).
+  transitions · per-national-layout keyboards (where é/ü/ł physically live — the
+  ladder can't show accent key positions, so they join only the mastery levels) ·
+  per-language profile (profile is a cross-language lifetime showcase by decision).
 
 ## Known dead code (found while building, not touched)
 

@@ -336,6 +336,24 @@ test.describe("train page", () => {
     }
   });
 
+  test("full-alphabet levels type the language's real alphabet (Polish diacritics)", async ({ page }) => {
+    // Level 45 is past the key intro (full a–z), so with Polish active its key
+    // set gains the derived diacritics and real accented words appear. Nearly
+    // half the common Polish vocabulary carries diacritics — a 28-word level
+    // without a single one means the accent extension is broken.
+    await page.addInitScript(() => {
+      window.localStorage.setItem("typecafe:language", JSON.stringify("polish"));
+      const cleared = Array.from({ length: 44 }, (_, i) => ({
+        options: `Level ${i + 1}`, speed: 200, accuracy: 100, stars: 3,
+      }));
+      window.localStorage.setItem("typecafe.trainProgress.easy", JSON.stringify(cleared));
+    });
+
+    await gotoTrain(page);
+    await expect(page.getByTestId("train-rail-caption")).toContainText("Level 45");
+    await expect(page.locator("#words")).toContainText(/[ąćęłńóśźż]/, { timeout: 15_000 });
+  });
+
   test("no-miss level: the first mistake ends the run as a fail", async ({ page }) => {
     // Clear Levels 1–6 so Level 7 (a no-miss round) is unlocked and auto-resumed.
     await page.addInitScript(() => {

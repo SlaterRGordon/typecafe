@@ -191,9 +191,38 @@ const gramsFor = (base: string): NGrams => {
     return derived
 }
 
+// The extra letters a language uses beyond a–z (é, ü, ł …), most frequent across
+// its word list first. Pure; ties keep first-seen order so results are stable.
+export const accentChars = (words: string[]): string[] => {
+    const freq = new Map<string, number>()
+    for (const word of words) {
+        for (const char of word) {
+            if (/[a-z]/.test(char) || !/\p{L}/u.test(char)) continue
+            freq.set(char, (freq.get(char) ?? 0) + 1)
+        }
+    }
+    return [...freq.entries()].sort((a, b) => b[1] - a[1]).map(([char]) => char)
+}
+
+// Derived-on-read per base, memoized like gramsFor. English (and a list that
+// hasn't loaded yet — callers ensureLanguageLoaded first) yields none.
+const derivedAccents = new Map<string, string[]>()
+
+export const accentsFor = (base: string): string[] => {
+    if (base === "english" || !languages[base]) return []
+    let cached = derivedAccents.get(base)
+    if (!cached) {
+        cached = accentChars(getWords(base))
+        derivedAccents.set(base, cached)
+    }
+    return cached
+}
+
 // Training/Practice key-drill text: real words from `language` restricted to the
 // unlocked `characters`, with an English-ngram pseudo-word fallback for early key
-// stages where few real words fit. Accented words never survive the a–z filter.
+// stages where few real words fit. Accented words never survive the a–z filter —
+// unless the caller extends `characters` with the language's accents (the train
+// ladder's full-alphabet stretch does; see levels.withLanguageAccents).
 export const generateBetterPseudoText = (count: number, characters: string[], language = "english") => {
     requestPentaGrams()
     let text = ''

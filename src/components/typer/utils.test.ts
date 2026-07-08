@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { applyTextOptions, ensureSizedLoaded, generateBetterPseudoText, generateNGram, generateText, rankNGrams } from "./utils"
+import { accentChars, applyTextOptions, ensureSizedLoaded, generateBetterPseudoText, generateNGram, generateText, rankNGrams } from "./utils"
 import { TestGramScopes, TestGramSources } from "./types"
 
 const SENTENCE_ENDERS = [".", "?", "!"]
@@ -173,5 +173,16 @@ describe("rankNGrams", () => {
 
     it("respects the limit and skips words shorter than n", () => {
         expect(rankNGrams(["ab", "abc", "a"], 3, 5)).toEqual(["abc"])
+    })
+})
+
+describe("accentChars", () => {
+    it("collects non-a-z letters ranked by frequency", () => {
+        // é appears three times; ê and ł once each (ties keep first-seen order).
+        expect(accentChars(["été", "école", "être", "łatwe"])).toEqual(["é", "ê", "ł"])
+    })
+
+    it("yields nothing for a plain-ascii (English) list", () => {
+        expect(accentChars(["plain", "words", "only"])).toEqual([])
     })
 })
