@@ -8,7 +8,7 @@ import { Typer, type TestCompletionResult } from "~/components/typer/Typer"
 import { useRestartShortcut } from "~/components/typer/hooks/useRestartShortcut"
 import { typingFocusFadeClass } from "~/components/typer/typingFocus"
 import { TestGramScopes, TestGramSources, TestModes, TestSubModes } from "~/components/typer/types"
-import { applyTextOptions, ensureSizedLoaded, getWords } from "~/components/typer/utils"
+import { applyTextOptions, ensureLanguageLoaded, getWords } from "~/components/typer/utils"
 import { useLanguage } from "~/hooks/useLanguage"
 import { compileDrillText } from "~/lib/drill"
 import { isDrillMark, isDrillDigit, isDrillableKey } from "~/lib/drillKeys"
@@ -123,7 +123,7 @@ const Drill: NextPage = () => {
     useEffect(() => {
         let active = true
         setLangReady(false)
-        void ensureSizedLoaded(language, "1k").then(() => { if (active) setLangReady(true) })
+        void ensureLanguageLoaded(language).then(() => { if (active) setLangReady(true) })
         return () => { active = false }
     }, [language])
 

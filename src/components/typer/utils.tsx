@@ -168,12 +168,16 @@ export const rankNGrams = (words: string[], n: number, limit: number): string[] 
 
 // Non-English Grams derive their n-grams from the language's word list on first use
 // (no gram data files — derived-on-read), memoized per base. English keeps its
-// curated static arrays. 400 deep covers the deepest scope (200) plus level walk.
-const NGRAM_DEPTH = 400
+// curated static arrays. generateNGram slices to its scope before the level walk,
+// so the deepest scope the bar offers (200) is all the depth ever read.
+const NGRAM_DEPTH = 200
 const derivedNGrams = new Map<string, NGrams>()
 
 const gramsFor = (base: string): NGrams => {
     if (base === "english") return ngrams
+    // List not loaded yet (callers ensureSizedLoaded first) — fall back to the
+    // English grams *without* memoizing them under this base.
+    if (!languages[base]) return ngrams
     const cached = derivedNGrams.get(base)
     if (cached) return cached
     const words = getWords(base)
