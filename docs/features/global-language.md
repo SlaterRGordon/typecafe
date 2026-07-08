@@ -58,7 +58,12 @@ weak-key card stays global (consistent with "training progress global", ADR
       Typer. `drillableTransitions.ts` stays English — it only gates which pairs the
       **coach** deems trackable (transitions.ts / transitionStats.ts), which is the
       coach, kept global per the scope call. Not the refactor I first guessed.
-- [ ] 6 — Profile signature bests follow the active language.
+- [~] 6 — **Skipped (decided 2026-07-07).** The profile stays a lifetime,
+      all-languages identity showcase; only Progress goes per-language. Premise was
+      wrong: `getBestScore`/`getProfileProof` are already cross-language, and the
+      per-language `SignatureBests` component + `getSignatureBests` procedure are
+      **dead code** (nothing renders them). Left in place — cleanup/wiring is a
+      separate call, not this feature.
 - [ ] 7 — Progress WPM/PB trend filters to the active language, derived-on-read
       from raw `Test` rows (no `DailyUserStat` schema change). Coach stays global.
 - [ ] 8 — e2e + screenshot tour updated (language in nav, size in bar);
@@ -72,4 +77,11 @@ weak-key card stays global (consistent with "training progress global", ADR
 ## Out of scope / deferred
 
 - 25k for non-English languages · per-language quotes · per-language coach/
-  transitions · native accented-key training ladders.
+  transitions · native accented-key training ladders · per-language profile
+  (profile is a cross-language lifetime showcase by decision).
+
+## Known dead code (found while building, not touched)
+
+- `src/components/scores/SignatureBests.tsx` + `test.getSignatureBests` procedure:
+  a per-language bests showcase that is never rendered. Wire up or delete as a
+  separate task.
