@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest"
-import { resolveWordKey, ensureSizedLoaded, getSizedWords } from "./utils"
+import { clampSize, resolveWordKey, ensureSizedLoaded, getSizedWords } from "./utils"
+
+describe("clampSize", () => {
+    it("collapses the English-only 25k to 10k for other languages", () => {
+        expect(clampSize("french", "25k")).toBe("10k")
+        expect(clampSize("english", "25k")).toBe("25k")
+        expect(clampSize("french", "5k")).toBe("5k")
+    })
+})
 
 describe("resolveWordKey", () => {
     it("maps English sizes to their SCOWL file keys (1k is the base key)", () => {

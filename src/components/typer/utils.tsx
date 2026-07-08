@@ -104,6 +104,11 @@ export const parseLanguage = (language: string): { base: string, size: WordSize 
 export const composeLanguage = (base: string, size: WordSize): string =>
     size === "1k" ? base : `${base}${size}`
 
+// 25k is English-only (subtitle frequency past ~10k is noisy); a size carried
+// over from English collapses to the largest the new language supports.
+export const clampSize = (base: string, size: WordSize): WordSize =>
+    base !== "english" && size === "25k" ? "10k" : size
+
 // A word test is (global language) × (per-test size). English resolves to its
 // size-specific SCOWL file; every other language loads one frequency-ranked list
 // and slices the top-N — so sizes cost no extra files (derived-on-read). English
