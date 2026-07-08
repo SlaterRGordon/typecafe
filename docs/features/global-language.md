@@ -127,6 +127,26 @@ ladder feeling unrepresentative. Do it on that signal (a non-English user
 complaint, or noticing it firsthand), not speculatively. ~1 hour with data
 already fetched.
 
+### Deferred: per-language train threshold calibration (noted 2026-07-07)
+
+Train thresholds are a pure function of level × difficulty
+(`trainThresholds.ts`), identical across languages — but languages aren't
+equally fast to type. Below L45 the effect is noise (intro levels filter to
+a–z words everywhere). At L45+ the language's accent letters join the key set
+(`withLanguageAccents`), and on the keyboards most users have, é/ü/ł go through
+dead keys or AltGr chords several times slower than a plain keystroke — so top
+levels are mechanically harder in accented languages, right where thresholds
+are least forgiving (maybe 5–15% at the top given typical accent density, not
+2×). Global progress is the escape valve: anyone walled can pass the level in
+English.
+
+**The knob, when wanted:** a per-language multiplier alongside `DIFF_MULT`
+(english 1.0, others slightly under), applied in `targetWpm`. One record, no
+structural change. **Why not yet:** zero data for the constants — guessing
+them invents numbers and silently changes what stored `TrainProgress` stars
+mean. Trigger: a non-English user reporting the L45+ wall, or pass-rate data
+diverging by language.
+
 ## Known dead code (found while building, not touched)
 
 - `src/components/scores/SignatureBests.tsx` + `test.getSignatureBests` procedure:
