@@ -73,10 +73,15 @@ letters by `INTRO_LEVELS`, home row first.
 
 ## Slices
 
-- [ ] 1 — `src/lib/keyboardLayout.ts`: five layouts as row data; derived rows,
-      shift pairs, `foldToPhysicalKey`, `shiftedGlyph`, `keyStagesFor`.
-      `heatmap.ts` delegates to it for qwerty with zero behavior change.
-      Unit-tested (including the all-26-letters ladder invariant). No UI.
+- [x] 1 — `src/lib/keyboardLayout.ts`: five layouts as row data; derived rows +
+      `keyStagesFor`. Found while building: all five layouts permute the *same*
+      ANSI glyph set, so heatmap.ts's shift pairs, `shiftedGlyph`, and
+      `foldToPhysicalKey` are layout-independent and stay put (unit test pins
+      the glyph-set invariant); only `HEATMAP_ROWS` delegates (qwerty, zero
+      behavior change). Per-char tallies therefore need no folding changes in
+      slice 5 — the layout dimension is purely a storage key. Ladder invariants
+      tested: qwerty stages set-match the hand-authored `KEY_STAGES`; every
+      layout climbs home-row-out to exactly 26 letters. No UI.
 - [ ] 2 — `useLayout()` hook + nav keyboard menu (top + mobile), mirroring
       `useLanguage`/`LanguageMenu`.
 - [ ] 3 — Boards render the active layout: `Keyboard.tsx` read-only board,

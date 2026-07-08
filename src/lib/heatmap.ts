@@ -6,6 +6,7 @@
 
 import { interpolateColor } from "~/utils/convertColor"
 import type { KeystrokeEvent } from "./keystrokes"
+import { DEFAULT_LAYOUT, rowsFor } from "./keyboardLayout"
 
 // The physical keyboard rows the heatmap renders, in visual order: the full ANSI
 // shape — number row, three letter rows extended with the punctuation/bracket
@@ -14,7 +15,9 @@ import type { KeystrokeEvent } from "./keystrokes"
 // map reads as one cell per real key. The bracket/equals keys ([ ] \ = ) are
 // display-only filler for keyboard fidelity: nothing generates text for them, so
 // they read as neutral "no data" until a user actually hits one.
-export const HEATMAP_ROWS = ["1234567890-=\\", "qwertyuiop[]", "asdfghjkl;'", "zxcvbnm,./"] as const
+// Rows live in keyboardLayout.ts (every layout permutes the same glyph set, so
+// everything else in this file — shift pairs, folding — is layout-independent).
+export const HEATMAP_ROWS = rowsFor(DEFAULT_LAYOUT)
 export const HEATMAP_SPACE = " "
 
 // Shifted glyphs fold onto the physical key that produces them (Shift is a
