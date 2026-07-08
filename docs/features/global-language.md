@@ -1,6 +1,8 @@
 # Global language setting
 
-**Status:** 🚧 in progress · **Decided:** 2026-07-07 with the owner
+**Status:** ✅ done (2026-07-07) · one ops step left: run the prod TestType seed
+(`node --env-file=.env scripts/seedCompetitiveTypes.mjs`) so new languages rank in
+production. · **Decided:** 2026-07-07 with the owner
 
 Make language a global, local-first setting chosen in the nav, applied
 everywhere the app generates text — not a per-mode control limited to
@@ -73,8 +75,12 @@ weak-key card stays global (consistent with "training progress global", ADR
       the English view keeps that tail, other languages show only their raw records.
       A globe chip in the header names the active language so an empty per-language
       view doesn't read as broken.
-- [ ] 8 — e2e + screenshot tour updated (language in nav, size in bar);
-      `baseTypeLanguage` + resolver unit tests.
+- [x] 8 — Screenshot tour updated (bar menu → size/source capture + new nav globe
+      capture); French-grams e2e proves derivation renders in-browser; per-language
+      home/drill/progress e2e added across earlier slices. `baseTypeLanguage`
+      (typeLanguage.test.ts) + resolver (wordSize.test.ts) unit tests already landed.
+      Final gate: unit 463/463, full e2e green (2 load-sensitive perf flakes pass
+      isolated).
 - [x] 9 — Per-language Grams: `rankNGrams` derives bi/tri/tetragrams from the
       language word list (frequency-ranked, memoized per base via `gramsFor` —
       derived-on-read, no new files, 400 deep). English keeps its curated static

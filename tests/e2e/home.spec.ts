@@ -90,6 +90,24 @@ test.describe("home typing test", () => {
     expect(text.length).toBeLessThan(20);
   });
 
+  test("grams mode derives grams in the active language", async ({ page }) => {
+    // A French guest returning to a persisted grams drill. The grams must derive
+    // from the French list (no static French gram files) and render — an under-deep
+    // derivation would index past its list and print "undefined".
+    await page.addInitScript(() => {
+      window.localStorage.setItem("typecafe:language", JSON.stringify("french"));
+      window.localStorage.setItem("typecafe:testSettings", JSON.stringify({ mode: 2 }));
+    });
+    await page.goto("/");
+    await expect(page.locator("#typer")).toBeVisible();
+    await expect(page.locator("#words .char").first()).toBeVisible();
+    await expect(page.getByTestId("gram-progress")).toBeVisible();
+    const text = (await page.locator("#words").innerText()).trim();
+    expect(text.length).toBeGreaterThan(0);
+    expect(text.length).toBeLessThan(20); // a gram, not the ~500-char normal buffer
+    expect(text).not.toContain("undefined");
+  });
+
   test("Tab+Space restarts the test (Tab swallows the chord key)", async ({ page }) => {
     await gotoHome(page);
 
