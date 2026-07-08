@@ -20,6 +20,7 @@ import {
     periodStart,
     personalRecords,
     rankImprovementLeague,
+    recordsForLanguage,
     rejectOutliers,
     rollingAverage,
     selfLeagueSummary,
@@ -86,6 +87,30 @@ describe("periodStart", () => {
     it("subtracts the period's days from now", () => {
         expect(periodStart(30, NOW)!.getTime()).toBe(NOW.getTime() - 30 * DAY_MS)
         expect(periodStart(7, NOW)!.getTime()).toBe(NOW.getTime() - 7 * DAY_MS)
+    })
+})
+
+describe("recordsForLanguage", () => {
+    const records: ProgressRecord[] = [
+        { wpm: 90, accuracy: 97, createdAt: NOW, language: "english" },
+        { wpm: 88, accuracy: 96, createdAt: NOW, language: "english5k" }, // sizes share the base
+        { wpm: 70, accuracy: 95, createdAt: NOW, language: "french" },
+        { wpm: 72, accuracy: 95, createdAt: NOW, language: "french10k" },
+        { wpm: 80, accuracy: 96, createdAt: NOW }, // no language → English default
+    ]
+
+    it("keeps English records including size variants and language-less entries", () => {
+        const english = recordsForLanguage(records, "english")
+        expect(english.map((r) => r.wpm)).toEqual([90, 88, 80])
+    })
+
+    it("collapses a language's sizes to its base", () => {
+        const french = recordsForLanguage(records, "french")
+        expect(french.map((r) => r.wpm)).toEqual([70, 72])
+    })
+
+    it("returns nothing for a language with no records", () => {
+        expect(recordsForLanguage(records, "german")).toEqual([])
     })
 })
 

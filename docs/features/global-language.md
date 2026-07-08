@@ -64,8 +64,15 @@ weak-key card stays global (consistent with "training progress global", ADR
       per-language `SignatureBests` component + `getSignatureBests` procedure are
       **dead code** (nothing renders them). Left in place — cleanup/wiring is a
       separate call, not this feature.
-- [ ] 7 — Progress WPM/PB trend filters to the active language, derived-on-read
-      from raw `Test` rows (no `DailyUserStat` schema change). Coach stays global.
+- [x] 7 — Progress rescopes to the active language, derived-on-read: `recordsForLanguage`
+      filters records by base language (page-level, both signed-in and guest); the
+      whole dashboard (trend/hero/records/streak/goal) follows. Coach (heatmap +
+      transitions) stays **global** — passed unfiltered. Guests now store `lang` on
+      each local progress entry (old entries → English). Daily rollups + imported
+      guest history carry no language, so they count as English (historical default):
+      the English view keeps that tail, other languages show only their raw records.
+      A globe chip in the header names the active language so an empty per-language
+      view doesn't read as broken.
 - [ ] 8 — e2e + screenshot tour updated (language in nav, size in bar);
       `baseTypeLanguage` + resolver unit tests.
 - [ ] 9 — Per-language Grams: derive bi/tri/tetragrams from the language word list

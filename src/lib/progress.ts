@@ -6,6 +6,7 @@
 // of src/lib/stats.ts.
 
 import { netFromRaw } from "./stats"
+import { baseTypeLanguage } from "./typeLanguage"
 
 // The period the dashboard's headline delta and trends are scoped to. Numeric
 // values are day counts; "all" means the user's entire history.
@@ -51,6 +52,15 @@ export function filterProgressRecords(records: ProgressRecord[], filters: Progre
         if (filters.count !== "all" && record.count !== filters.count) return false
         return true
     })
+}
+
+// Progress is shown one language at a time (the global, nav-chosen language), so a
+// language switch cleanly rescopes the trend instead of mixing e.g. English and
+// German WPM into one noisy line. Every vocabulary size shares its base language.
+// Records without a language — older guest entries — count as English, the
+// historical default.
+export function recordsForLanguage(records: ProgressRecord[], language: string): ProgressRecord[] {
+    return records.filter((record) => baseTypeLanguage(record.language ?? "english") === language)
 }
 
 // ---------------------------------------------------------------------------
