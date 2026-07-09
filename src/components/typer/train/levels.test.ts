@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { TestSubModes } from "~/components/typer/types"
-import { levels, levelsFor, withLanguageAccents } from "./levels"
+import { levels, levelsFor, reachableAccentsFor, withLanguageAccents } from "./levels"
 
 const sorted = (s: string) => s.split("").sort().join("")
 
@@ -69,6 +69,15 @@ describe("withLanguageAccents", () => {
 
     it("is a no-op for English (no accents)", () => {
         expect(withLanguageAccents(levels[99]!, [])).toBe(levels[99]!)
+    })
+})
+
+describe("reachableAccentsFor", () => {
+    it("keeps German umlauts on QWERTZ but excludes them from a pinned QWERTY board", () => {
+        const germanUmlaut = ["ü"]
+
+        expect(reachableAccentsFor(germanUmlaut, "qwertz-de")).toEqual(germanUmlaut)
+        expect(reachableAccentsFor(germanUmlaut, "qwerty")).toEqual([])
     })
 })
 

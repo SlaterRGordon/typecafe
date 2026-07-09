@@ -499,6 +499,27 @@ test.describe("screenshot tour", () => {
     await capture(page, testInfo, "14-train-default");
   });
 
+  test("train full alphabet: German on pinned QWERTY excludes umlauts", async ({ page }, testInfo) => {
+    // L45 is the first full-alphabet rung. Pin the board before navigation so
+    // the Train page never briefly resolves German's automatic QWERTZ layout.
+    await page.addInitScript(() => {
+      Math.random = () => 0; // first reachable German word is "ich"
+      window.localStorage.setItem("typecafe:language", JSON.stringify("german"));
+      window.localStorage.setItem("typecafe:layout", JSON.stringify("qwerty"));
+      const cleared = Array.from({ length: 44 }, (_, i) => ({
+        options: `Level ${i + 1}`, speed: 200, accuracy: 100, stars: 3,
+      }));
+      window.localStorage.setItem("typecafe.trainProgress.easy", JSON.stringify(cleared));
+    });
+
+    await gotoTrainLevel(page);
+    await expect(page.getByTestId("train-rail-caption")).toContainText("Level 45");
+    await expect(page.getByTestId("nav-layout-trigger")).toHaveAttribute("aria-label", "Keyboard layout: QWERTY");
+    await expect(page.locator("#words")).toContainText("ich");
+    await expect(page.locator("#words")).not.toContainText(/[äöü]/);
+    await capture(page, testInfo, "67-train-german-pinned-qwerty");
+  });
+
   test("train level complete popover", async ({ page }, testInfo) => {
     await gotoTrainLevel(page);
     await typeVisibleTestText(page);

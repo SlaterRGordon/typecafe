@@ -1,5 +1,5 @@
 import { TestSubModes } from "~/components/typer/types";
-import { DEFAULT_LAYOUT, keyStagesFor } from "~/lib/keyboardLayout";
+import { DEFAULT_LAYOUT, keyStagesFor, sequenceFor } from "~/lib/keyboardLayout";
 
 export type LevelKind = "keys" | "speed" | "noMiss" | "boss"
 
@@ -90,3 +90,7 @@ export function withLanguageAccents(level: Level, accents: string[]): Level {
     if (accents.length === 0 || level.keys.length < 26) return level
     return { ...level, keys: level.keys + accents.join("") }
 }
+
+// Train can only introduce characters the active board can show and teach.
+export const reachableAccentsFor = (accents: readonly string[], layout: string): string[] =>
+    accents.filter((accent) => sequenceFor(accent, layout).length > 0)

@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Typer } from "~/components/typer/Typer";
 import { TestGramScopes, TestGramSources, TestModes } from "~/components/typer/types";
 import type { Level } from "~/components/typer/train/levels";
-import { levelsFor, withLanguageAccents } from "~/components/typer/train/levels";
+import { levelsFor, reachableAccentsFor, withLanguageAccents } from "~/components/typer/train/levels";
 import { accentsFor, ensureLanguageLoaded } from "~/components/typer/utils";
 import { KIND_META } from "~/components/typer/train/kindMeta";
 import { api } from "~/utils/api";
@@ -150,16 +150,16 @@ const Train: NextPage = () => {
     // Training text follows the global language; the ladder progress stays global
     // (TrainProgress is keyed by difficulty/options, not language).
     const [language] = useLanguage()
-    // The language's accent letters (derived from its word list once it loads)
-    // extend the key set on full-alphabet levels, so the mastery stretch types
-    // the real alphabet. [] for English and while loading.
+    const [activeLayout] = useLayout()
+    // The language's accent letters that the active layout can type extend the
+    // full-alphabet stretch, so Train never generates a char absent from its board.
     const [accents, setAccents] = useState<string[]>([])
     useEffect(() => {
         let active = true
         setAccents([])
-        void ensureLanguageLoaded(language).then(() => { if (active) setAccents(accentsFor(language)) })
+        void ensureLanguageLoaded(language).then(() => { if (active) setAccents(reachableAccentsFor(accentsFor(language), activeLayout)) })
         return () => { active = false }
-    }, [language])
+    }, [language, activeLayout])
     const mode = TestModes.normal
     const gramSource = TestGramSources.bigrams
     const gramScope = TestGramScopes.fifty
@@ -171,7 +171,6 @@ const Train: NextPage = () => {
     const [view, setView] = useState<TrainView>("map")
     // The ladder follows the active layout (docs/features/keyboard-layouts.md
     // slice 7): same names/counts/kinds everywhere, keys from keyStagesFor.
-    const [activeLayout] = useLayout()
     const trainLevels = useMemo(() => levelsFor(activeLayout), [activeLayout])
     const [level, setLevel] = useState<Level>(trainLevels[0] as Level)
     // A layout switch re-points the selected level at the same rung of the new
