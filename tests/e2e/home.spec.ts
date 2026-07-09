@@ -893,6 +893,66 @@ test.describe("home typing test", () => {
     expect(["rgb(0, 0, 0)", "rgb(255, 255, 255)"]).toContain(color);
   });
 
+  test("practice remaps a selected cap and keeps text viable after a language layout change", async ({ page }) => {
+    // `a` is the only source vowel. Its AZERTY counterpart at the same physical
+    // cap is `q`, so the language/layout transition must both move the selection
+    // and restore a vowel before Practice regenerates its prompt.
+    await page.addInitScript(() => {
+      window.localStorage.setItem("typecafe:testSettings", JSON.stringify({ selectedKeys: "asdfghjk".split("") }));
+    });
+    await gotoHome(page);
+    await selectMode(page, "Practice");
+
+    const board = page.locator(".typecafe-keyboard");
+    const sourceCap = board.locator('[data-kb-cell="a"]');
+    await expect(sourceCap).toHaveAttribute("data-kb-key", "a");
+    await expect(sourceCap.locator("svg")).toHaveCount(0);
+
+    await page.getByTestId("nav-language-trigger").click();
+    await page.getByTestId("nav-language-menu").getByRole("button", { name: "French" }).click();
+    await expect(page.getByTestId("nav-layout-trigger")).toHaveText(/Auto — AZERTY \(FR\)/);
+
+    // The source cap's AZERTY physical position is named `q`, not old glyph `a`.
+    const remappedCap = board.locator('[data-kb-cell="q"]');
+    await expect(remappedCap).toHaveAttribute("data-kb-key", "q");
+    await expect(remappedCap.locator("svg")).toHaveCount(0);
+    // Remapping must not leave the pseudo-word pool vowel-less / empty.
+    await expect(page.locator("#words .char").nth(5)).toBeVisible();
+  });
+
+  test("practice sticky layers exclude each other and AZERTY shifted digits unlock", async ({ page }) => {
+    await page.addInitScript(() => {
+      window.localStorage.setItem("typecafe:testSettings", JSON.stringify({ selectedKeys: "aeiousdf".split("") }));
+    });
+    await gotoHome(page);
+    await page.getByTestId("nav-language-trigger").click();
+    await page.getByTestId("nav-language-menu").getByRole("button", { name: "French" }).click();
+    await selectMode(page, "Practice");
+
+    const board = page.locator(".typecafe-keyboard");
+    const shift = page.getByRole("button", { name: "Show shifted keys (capitals and symbols)" });
+    const altgr = page.getByRole("button", { name: "Show AltGr keys (accents and symbols)" });
+
+    await shift.click();
+    await expect(shift).toContainText("shift on");
+    await expect(altgr).toContainText("altgr off");
+    await expect(board.locator('[data-kb-key="2"]')).toBeVisible();
+
+    await altgr.click();
+    await expect(shift).toContainText("shift off");
+    await expect(altgr).toContainText("altgr on");
+    await expect(board.locator('[data-kb-key="€"]')).toBeVisible();
+
+    await shift.click();
+    await expect(shift).toContainText("shift on");
+    await expect(altgr).toContainText("altgr off");
+    const digit = board.locator('[data-kb-key="2"]');
+    await expect(digit).toHaveAttribute("role", "button");
+    await expect(digit.locator("svg")).toHaveCount(1);
+    await digit.click();
+    await expect(digit.locator("svg")).toHaveCount(0);
+  });
+
   // Regression guard: a diagnosis can surface all-consonant weak keys, and the
   // drill handoff used to hand Practice a vowel-less key set, which froze the
   // pseudo-word generator (an infinite loop) and hung the whole page. The drill

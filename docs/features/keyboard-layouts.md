@@ -371,9 +371,16 @@ Until tags land, they render the viewer's active layout.
       a dead-composed level char highlights its dead key's cell. /progress:
       the lifetime heatmap gained ⇧ shift / AltGr layer switches (AltGr only
       when the board has the layer); attempts are stored unfolded so each
-      layer reads each glyph's own tally. Known quirks (accepted): a
-      selectedKeys accent survives a language/layout switch harmlessly (its
-      words never generate); diagnosis drillKeys stay a–z.
+      layer reads each glyph's own tally. **Practice selection repair
+      (2026-07-09):** switching a layout rebases each selected cap by its
+      ANSI/ISO-aware physical position, preserving its letter/digit/mark kind
+      where the destination cap offers it; off-board targets drop, then the
+      selection is minimally repaired to eight typeable letters, two vowels,
+      and a consonant. Thus accent-only German cannot return to English with
+      no word pool. Sticky Shift and AltGr toggles exclude each other (held
+      modifiers may still show their physical combined layer); every typeable
+      non-base glyph is clickable, including AZERTY Shift+digits. Diagnosis
+      drillKeys stay a–z.
 
 ## Upgrade paths (deliberate v1 cuts, with their triggers)
 

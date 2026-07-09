@@ -17,9 +17,9 @@ import { useTestSettings } from "~/hooks/useTestSettings";
 import { useLanguage } from "~/hooks/useLanguage";
 import { useLayout } from "~/hooks/useLayout";
 import { boardFor, sequenceFor, statsPoolFor } from "~/lib/keyboardLayout";
-import { accentsFor, clampSize, composeLanguage, parseLanguage } from "~/components/typer/utils";
+import { accentsFor, clampSize, composeLanguage, ensureLanguageLoaded, parseLanguage } from "~/components/typer/utils";
 import { withPracticeVowel } from "~/lib/diagnosis";
-import { smartDrillSelection } from "~/lib/drillKeys";
+import { remapPracticeSelectionByPosition, repairPracticeSelection, smartDrillSelection } from "~/lib/drillKeys";
 import { addAlert } from "~/state/alert/alertSlice";
 import { appendLocalProgress } from "~/lib/progressHistory";
 import { consistencyFromSamples } from "~/lib/stats";
@@ -143,6 +143,26 @@ const Home: NextPage = () => {
   const { data: sessionData } = useSession()
   const router = useRouter()
   const [activeLayout] = useLayout()
+  const priorPracticeLayout = useRef(activeLayout)
+  useEffect(() => {
+    const fromLayout = priorPracticeLayout.current
+    if (mode !== TestModes.practice) {
+      priorPracticeLayout.current = activeLayout
+      return
+    }
+    let alive = true
+    void ensureLanguageLoaded(globalLanguage).then(() => {
+      if (!alive) return
+      const accents = accentsFor(globalLanguage)
+      const carried = fromLayout === activeLayout
+        ? selectedKeys
+        : remapPracticeSelectionByPosition(selectedKeys, fromLayout, activeLayout, accents)
+      const repaired = repairPracticeSelection(carried, activeLayout, accents)
+      if (repaired.length !== selectedKeys.length || repaired.some((key, index) => key !== selectedKeys[index])) setSelectedKeys(repaired)
+      priorPracticeLayout.current = activeLayout
+    })
+    return () => { alive = false }
+  }, [activeLayout, globalLanguage, mode, selectedKeys])
   const { data: persistedStats } = api.practiceStats.get.useQuery({ pool: statsPoolFor(activeLayout) }, {
     enabled: mode === TestModes.practice && !!sessionData?.user,
   })
@@ -683,9 +703,15 @@ const Home: NextPage = () => {
               punctuation={punctuation}
               capitals={capitals}
               shiftLayer={shiftLayer}
-              onToggleShift={() => setShiftToggle((on) => !on)}
+              onToggleShift={() => {
+                setShiftToggle((on) => !on)
+                setAltgrToggle(false)
+              }}
               altgrLayer={altgrLayer}
-              onToggleAltgr={() => setAltgrToggle((on) => !on)}
+              onToggleAltgr={() => {
+                setAltgrToggle((on) => !on)
+                setShiftToggle(false)
+              }}
               hasAltGr={hasAltGr}
               onSmartDrill={handleSmartDrill}
               setCount={setCount}

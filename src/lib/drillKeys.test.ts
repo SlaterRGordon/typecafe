@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { isPracticeLetter, isPracticeVowel, smartDrillSelection } from "./drillKeys"
+import { isPracticeLetter, isPracticeVowel, remapPracticeSelectionByPosition, repairPracticeSelection, smartDrillSelection } from "./drillKeys"
 
 const entry = (attempts: number, correct: number) => ({ attempts, correct })
 
@@ -72,5 +72,35 @@ describe("practice letter classification", () => {
         for (const key of ["7", "^", "éé", "É"]) {
             expect(isPracticeLetter(key)).toBe(false)
         }
+    })
+})
+
+describe("remapPracticeSelectionByPosition", () => {
+    it("keeps selection on the same caps and preserves digit/mark categories", () => {
+        // QWERTY a→AZERTY q and z→w are same physical caps. QWERTY `2`
+        // becomes the target cap's shifted `1`; shifted `/` becomes the `!` mark.
+        const remapped = remapPracticeSelectionByPosition(
+            ["a", "s", "d", "f", "g", "h", "j", "k", "z", "2", "?"],
+            "qwerty",
+            "azerty-fr",
+            [],
+        )
+
+        expect(remapped).toEqual(expect.arrayContaining(["q", "w", "1", "!"]))
+    })
+
+    it("repairs an otherwise vowel-less remap into a typeable Practice pool", () => {
+        const remapped = remapPracticeSelectionByPosition(
+            ["a", "s", "d", "f", "g", "h", "j", "k"],
+            "qwerty",
+            "azerty-fr",
+            [],
+        )
+        const keys = repairPracticeSelection(remapped, "azerty-fr", [])
+        const letters = keys.filter(isPracticeLetter)
+
+        expect(letters.length).toBeGreaterThanOrEqual(8)
+        expect(letters.filter(isPracticeVowel).length).toBeGreaterThanOrEqual(2)
+        expect(letters.some((key) => !isPracticeVowel(key))).toBe(true)
     })
 })

@@ -179,14 +179,10 @@ export const Keyboard = (props: KeyboardProps) => {
     const shiftLayer = shiftToggle
     const altgrLayer = altgrToggle
 
-    // Lock badges read off the active layer, so every not-enabled cell shows
-    // locked. Base layer: any physical key not in the drill set (display-only
-    // filler always reads locked). Shift layer: a shifted mark (! ? :) is locked
-    // when it isn't its own selected drill key; every other shifted glyph follows
-    // its base key — a capital is locked exactly when its lowercase letter is.
-    // Accent glyphs lock/unlock on whichever layer they live (ü base, ą AltGr),
-    // and a dead key reads unlocked when any of its composed chars is selected.
-    // Everything else on the AltGr layers is display-only.
+    // Lock badges read off the active layer. A typeable drill glyph owns its
+    // selection on every layer (French Shift+1, AltGr accents, marks); shifted
+    // letters still mirror their lowercase base key. Dead keys unlock when any
+    // character in their composed set is selected.
     const lockedKeys = new Set<string>()
     if (selectedKeys) {
         const layer = activeLayer(shiftLayer, altgrLayer)
@@ -198,15 +194,14 @@ export const Keyboard = (props: KeyboardProps) => {
                     accents.byDead.has(glyph) ? accents.byDead.get(glyph)!.some((ch) => selectedKeys.includes(ch))
                     : accents.direct.has(glyph) ? selectedKeys.includes(glyph)
                     : layer === "base" ? selectedKeys.includes(glyph)
-                    : layer === "shift" ? selectedKeys.includes(isDrillMark(glyph) ? glyph : cap.base)
-                    : false
+                    : layer === "shift" ? selectedKeys.includes(isUnlockable(glyph) ? glyph : cap.base)
+                    : isUnlockable(glyph) && selectedKeys.includes(glyph)
                 if (!unlocked) lockedKeys.add(glyph)
             }
         }
     }
-    // Clickable cells per layer: everything on base (the handler filters), and
-    // on the other layers exactly the drillable residents — shift marks (! ? :),
-    // accent glyphs, and dead keys with a composable accent set.
+    // Base cells remain broadly clickable (the handler filters). Every
+    // typeable glyph on a shifted/AltGr layer is directly unlockable.
     const interactiveKeys = useMemo(() => {
         const layer = activeLayer(shiftLayer, altgrLayer)
         if (layer === "base") return undefined
@@ -215,8 +210,7 @@ export const Keyboard = (props: KeyboardProps) => {
             for (const cap of row) {
                 const glyph = cap[layer] ?? (layer === "shiftAltgr" ? cap.altgr : undefined)
                 if (!glyph) continue
-                if (layer === "shift" && isDrillMark(glyph)) allow.add(glyph)
-                if (accents.direct.has(glyph) || accents.byDead.has(glyph)) allow.add(glyph)
+                if (isUnlockable(glyph)) allow.add(glyph)
             }
         }
         return allow

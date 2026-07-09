@@ -403,6 +403,25 @@ test.describe("screenshot tour", () => {
     await capture(page, testInfo, "63-practice-qwertz-umlaut-unlocked");
   });
 
+  test("national layout: French shifted digit selected in Practice", async ({ page }, testInfo) => {
+    await page.addInitScript(() => {
+      window.localStorage.setItem("typecafe:testSettings", JSON.stringify({ selectedKeys: "aeiousdf".split("") }));
+    });
+    await gotoHome(page);
+    await page.getByTestId("nav-language-trigger").click();
+    await page.getByTestId("nav-language-menu").getByRole("button", { name: "French" }).click();
+    await selectMode(page, "Practice");
+
+    const board = page.locator(".typecafe-keyboard");
+    await page.getByRole("button", { name: "Show shifted keys (capitals and symbols)" }).click();
+    const digit = board.locator('[data-kb-key="2"]');
+    await expect(digit).toHaveAttribute("role", "button");
+    await expect(digit.locator("svg")).toHaveCount(1);
+    await digit.click();
+    await expect(digit.locator("svg")).toHaveCount(0);
+    await capture(page, testInfo, "62-practice-azerty-shift-digit-selected");
+  });
+
   test("train page: level map and tier switching", async ({ page }, testInfo) => {
     await page.goto("/train");
     await expect(page.getByTestId("train-continue")).toBeVisible({ timeout: 20_000 });

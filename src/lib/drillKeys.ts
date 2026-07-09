@@ -3,6 +3,7 @@
 // "drillable" without a component reaching across layers.
 
 import { worstKeysFromAttempts } from "./stats"
+import { boardFor, composedFor, keyFor, sequenceFor, type KeyCap, type Layer } from "./keyboardLayout"
 
 // Punctuation the drill sprinkles at word boundaries, split by where it lands in
 // a sentence (enders close a clause; mids sit between words).
@@ -28,6 +29,82 @@ export const isPracticeLetter = (key: string) => /^\p{Ll}$/u.test(key)
 export const isPracticeVowel = (key: string) =>
     isPracticeLetter(key) && VOWELS.includes(key.normalize("NFD")[0] ?? "")
 
+
+const LAYERS: readonly Layer[] = ["base", "shift", "altgr", "shiftAltgr"]
+const isAsciiLetter = (key: string) => /^[a-z]$/.test(key)
+const tokenKind = (key: string, accents: ReadonlySet<string>) =>
+    isDrillDigit(key) ? "digit" : isDrillMark(key) ? "mark" : (isAsciiLetter(key) || accents.has(key)) && isPracticeLetter(key) ? "letter" : null
+const glyphOn = (cap: KeyCap, layer: Layer) => cap[layer] ?? (layer === "shiftAltgr" ? cap.altgr : undefined)
+const physicalOffset = (shape: "ansi" | "iso", row: number) => shape === "iso" && row === 3 ? 1 : 0
+
+// Rebase a Practice selection when its board changes. Characters name output;
+// practice trains physical caps, so each selected cap carries to the matching
+// ANSI/ISO-adjusted position and keeps its kind (letter, digit, or mark) where
+// the target cap offers one. Dead target caps select their language's whole
+// composed set. Off-board targets drop; repairPracticeSelection restores a
+// text-generating floor afterwards.
+export function remapPracticeSelectionByPosition(
+    selected: readonly string[],
+    fromLayout: string,
+    toLayout: string,
+    accents: readonly string[],
+): string[] {
+    const from = boardFor(fromLayout)
+    const to = boardFor(toLayout)
+    const accentSet = new Set(accents)
+    const out: string[] = []
+    const add = (key: string) => { if (!out.includes(key)) out.push(key) }
+    for (const selectedKey of selected) {
+        const source = keyFor(selectedKey, fromLayout)
+        if (!source) continue
+        let position: readonly [number, number] | undefined
+        for (let row = 0; row < from.rows.length && !position; row++) {
+            const col = from.rows[row]!.findIndex((cap) => cap.base === source)
+            if (col >= 0) position = [row, col - physicalOffset(from.shape, row)]
+        }
+        if (!position) continue
+        const [row, physicalCol] = position
+        const target = to.rows[row]?.[physicalCol + physicalOffset(to.shape, row)]
+        if (!target) continue
+        const sourceStep = sequenceFor(selectedKey, fromLayout)[0]
+        const preferred: Layer = sourceStep?.shift && sourceStep.altgr ? "shiftAltgr" : sourceStep?.altgr ? "altgr" : sourceStep?.shift ? "shift" : "base"
+        const wanted = isPracticeLetter(selectedKey) ? "letter" : isDrillDigit(selectedKey) ? "digit" : isDrillMark(selectedKey) ? "mark" : null
+        for (const layer of [preferred, ...LAYERS.filter((candidate) => candidate !== preferred)]) {
+            const glyph = glyphOn(target, layer)
+            if (!glyph) continue
+            if (tokenKind(glyph, accentSet) === wanted) { add(glyph); break }
+            if (wanted === "letter") {
+                const composed = composedFor(glyph, toLayout).filter((char) => accentSet.has(char))
+                if (composed.length > 0) { composed.forEach(add); break }
+            }
+        }
+    }
+    return out
+}
+
+// Persisted settings can predate a language/layout switch. Keep every typeable
+// selected token, then minimally repair the letter floor so Practice always has
+// words to build — especially after an accent-only set returns to English.
+export function repairPracticeSelection(selected: readonly string[], layout: string, accents: readonly string[]): string[] {
+    const accentSet = new Set(accents)
+    const out = [...new Set(selected.filter((key) => tokenKind(key, accentSet) !== null && sequenceFor(key, layout).length > 0))]
+    const letters = () => out.filter((key) => tokenKind(key, accentSet) === "letter")
+    const add = (key: string) => { if (!out.includes(key)) out.push(key) }
+    const available = (key: string) => sequenceFor(key, layout).length > 0
+    for (const vowel of "aeiou") {
+        if (letters().filter(isPracticeVowel).length >= 2) break
+        if (available(vowel)) add(vowel)
+    }
+    for (const consonant of "tnshr") {
+        if (letters().some((key) => !isPracticeVowel(key))) break
+        if (available(consonant)) add(consonant)
+    }
+    for (const letter of "asdfghjklqwertyuiopzxcvbnm") {
+        if (letters().length >= 8) break
+        if (available(letter)) add(letter)
+    }
+    return out
+}
 // Build a practice set from the user's eight least-accurate keys across letters,
 // numbers, punctuation, and the language's accent chars. Weak letters —
 // including accents — anchor word generation, padded with home-row keys and
