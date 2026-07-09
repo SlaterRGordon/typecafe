@@ -429,6 +429,51 @@ test.describe("home typing test", () => {
     await expect(panel.getByRole("button", { name: "Edit WPM needed to advance" })).toContainText("35 wpm");
   });
 
+  test("keyboard layout is chosen globally in the nav and persists", async ({ page }) => {
+    await gotoHome(page);
+
+    // Default trigger names the layout; picking another updates it app-wide.
+    const trigger = page.getByTestId("nav-layout-trigger");
+    await expect(trigger).toHaveText(/QWERTY/);
+    await trigger.click();
+    await page.getByTestId("nav-layout-menu").getByRole("button", { name: "Colemak", exact: true }).click();
+    await expect(trigger).toHaveText(/Colemak/);
+
+    // Local-first: the choice survives a reload.
+    await page.reload();
+    await expect(page.getByTestId("nav-layout-trigger")).toHaveText(/Colemak/);
+  });
+
+  test("auto layout follows the language; an explicit pick stays pinned", async ({ page }) => {
+    await gotoHome(page);
+
+    // Fresh visitor: layout is Auto, resolving to QWERTY for English.
+    const trigger = page.getByTestId("nav-layout-trigger");
+    await expect(trigger).toHaveText(/Auto — QWERTY/);
+
+    // Switching the language to German flips the auto board to QWERTZ …
+    await page.getByTestId("nav-language-trigger").click();
+    await page.getByTestId("nav-language-menu").getByRole("button", { name: "German" }).click();
+    await expect(trigger).toHaveText(/Auto — QWERTZ \(DE\)/);
+
+    // … and the practice board grows real umlaut keys (with an AltGr layer).
+    await selectMode(page, "Practice");
+    const board = page.locator(".typecafe-keyboard");
+    await expect(board.locator('[data-kb-key="ü"]')).toBeVisible();
+    await expect(board.locator('[data-kb-key="ö"]')).toBeVisible();
+    await expect(page.getByRole("button", { name: "Show AltGr keys (accents and symbols)" })).toContainText("altgr off");
+
+    // An explicit pick pins: QWERTY stays through a language change (no AZERTY),
+    // and the umlaut keys leave the board.
+    await trigger.click();
+    await page.getByTestId("nav-layout-menu").getByRole("button", { name: "QWERTY", exact: true }).click();
+    await expect(trigger).toHaveText(/^QWERTY$/);
+    await page.getByTestId("nav-language-trigger").click();
+    await page.getByTestId("nav-language-menu").getByRole("button", { name: "French" }).click();
+    await expect(trigger).toHaveText(/^QWERTY$/);
+    await expect(board.locator('[data-kb-key="ü"]')).toHaveCount(0);
+  });
+
   test("settings cover language, text add-ons, practice keyboard, and no-timer length", async ({ page }) => {
     await gotoHome(page);
 

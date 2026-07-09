@@ -172,6 +172,12 @@ test.describe("screenshot tour", () => {
     await capture(page, testInfo, "39b-nav-language-menu");
     await page.keyboard.press("Escape");
 
+    // The global keyboard layout lives beside it.
+    await page.getByTestId("nav-layout-trigger").click();
+    await expect(page.getByTestId("nav-layout-menu")).toBeVisible();
+    await capture(page, testInfo, "39c-nav-layout-menu");
+    await page.keyboard.press("Escape");
+
     // Words is top-level and swaps the context controls beside the mode group.
     await selectMode(page, "Words");
     await page.getByTestId("toolbar-context").getByRole("button", { name: "25" }).click();
@@ -340,6 +346,27 @@ test.describe("screenshot tour", () => {
     // drill set so 'A' reads unlocked; 'r' is not, so 'R' reads locked.
     await expect(keyboardKey("A").locator("svg")).toHaveCount(0);
     await expect(keyboardKey("R").locator("svg")).toHaveCount(1);
+  });
+
+  test("national layout: German QWERTZ board with umlauts and AltGr layer", async ({ page }, testInfo) => {
+    await gotoHome(page);
+
+    // Auto layout follows the nav language: German resolves to QWERTZ (DE).
+    await page.getByTestId("nav-language-trigger").click();
+    await page.getByTestId("nav-language-menu").getByRole("button", { name: "German" }).click();
+    await expect(page.getByTestId("nav-layout-trigger")).toHaveText(/Auto — QWERTZ \(DE\)/);
+
+    // The practice board renders the national layout: real ü/ö/ä caps, the ISO
+    // extra key, and dead keys (´ ^) dash-marked.
+    await selectMode(page, "Practice");
+    const board = page.locator(".typecafe-keyboard");
+    await expect(board.locator('[data-kb-key="ü"]')).toBeVisible();
+    await capture(page, testInfo, "60-practice-qwertz-board");
+
+    // The AltGr layer shows the third glyphs (@ € µ) with their own accuracy.
+    await page.getByRole("button", { name: "Show AltGr keys (accents and symbols)" }).click();
+    await expect(board.locator('[data-kb-key="@"]')).toBeVisible();
+    await capture(page, testInfo, "61-practice-qwertz-altgr-layer");
   });
 
   test("train page: level map and tier switching", async ({ page }, testInfo) => {
