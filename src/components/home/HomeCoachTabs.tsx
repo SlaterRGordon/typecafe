@@ -7,6 +7,8 @@ import { challengeDateKey } from "~/lib/challenge";
 import { localChallengeStatus, readLocalChallengeHistory, type ChallengeStatus } from "~/lib/challengeHistory";
 import { nextDrillFinding } from "~/lib/drillProgress";
 import { useGuestEvidence } from "~/hooks/useGuestEvidence";
+import { useLayout } from "~/hooks/useLayout";
+import { statsPoolFor } from "~/lib/keyboardLayout";
 import { api } from "~/utils/api";
 
 const NEXT_ACTION_DISMISS_KEY = "typecafe:nextActionDismissed";
@@ -157,8 +159,11 @@ export function HomeCoachTabs({ className = "", desktop = true, inline = true }:
         setLocalChallenge(statusFromLocal(dateKey));
     }, [dateKey, sessionStatus]);
 
-    const transitionsQuery = api.transitionStats.get.useQuery(undefined, { enabled: signedIn });
-    const practiceStatsQuery = api.practiceStats.get.useQuery(undefined, { enabled: signedIn });
+    // Coach evidence follows the active layout's stats pool (ledger decision 6).
+    const [activeLayout] = useLayout();
+    const pool = statsPoolFor(activeLayout);
+    const transitionsQuery = api.transitionStats.get.useQuery({ pool }, { enabled: signedIn });
+    const practiceStatsQuery = api.practiceStats.get.useQuery({ pool }, { enabled: signedIn });
     const guestEvidence = useGuestEvidence();
     const remoteChallenge = api.test.getDailyChallengeStatus.useQuery(
         { dateKey: dateKey ?? "1970-01-01" },

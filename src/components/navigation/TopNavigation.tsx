@@ -1,5 +1,6 @@
 import { signOut, useSession } from "next-auth/react";
 import { LanguageMenu } from "./LanguageMenu";
+import { LayoutMenu } from "./LayoutMenu";
 export const TopNavigation = () => {
     const { data: sessionData } = useSession();
 
@@ -10,6 +11,7 @@ export const TopNavigation = () => {
             </div>
             <div className="flex flex-none items-center gap-2 px-4">
                 <LanguageMenu />
+                <LayoutMenu />
                 {/* Color Button */}
                 <label
                     className="btn btn-primary btn-sm gap-2 normal-case"
@@ -18,7 +20,9 @@ export const TopNavigation = () => {
                     title="Open color settings"
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" width="20" height="20" viewBox="0 0 24 24"><path fill="currentColor" d="M12 22C6.49 22 2 17.51 2 12S6.49 2 12 2s10 4.04 10 9c0 3.31-2.69 6-6 6h-1.77c-.28 0-.5.22-.5.5c0 .12.05.23.13.33c.41.47.64 1.06.64 1.67A2.5 2.5 0 0 1 12 22zm0-18c-4.41 0-8 3.59-8 8s3.59 8 8 8c.28 0 .5-.22.5-.5a.54.54 0 0 0-.14-.35c-.41-.46-.63-1.05-.63-1.65a2.5 2.5 0 0 1 2.5-2.5H16c2.21 0 4-1.79 4-4c0-3.86-3.59-7-8-7z" /><circle cx="6.5" cy="11.5" r="1.5" fill="currentColor" /><circle cx="9.5" cy="7.5" r="1.5" fill="currentColor" /><circle cx="14.5" cy="7.5" r="1.5" fill="currentColor" /><circle cx="17.5" cy="11.5" r="1.5" fill="currentColor" /></svg>
-                    Colors
+                    {/* Icon-only on phones — the labelled bar overflows once the
+                        layout menu joins it. */}
+                    <span className="hidden sm:inline">Colors</span>
                 </label>
                 {/* If the user is not signed in, display auth buttons */}
                 {!sessionData?.user ?

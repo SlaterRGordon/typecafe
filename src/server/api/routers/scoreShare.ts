@@ -35,6 +35,9 @@ const scoreSnapshotSchema = z.object({
   punctuation: z.boolean().optional(),
   capitals: z.boolean().optional(),
   ranked: z.boolean().optional(),
+  // The keyboard layout the run was typed on (ledger decision 10); score
+  // surfaces render this board, absent = qwerty.
+  layout: z.string().max(32).optional(),
   wpmSamples: z.array(z.object({
     elapsedSeconds: z.number().nonnegative(),
     wpm: z.number().nonnegative(),
@@ -291,6 +294,7 @@ export const scoreShareRouter = createTRPCRouter({
               mode: share.test.type.mode,
               subMode: share.test.type.subMode,
               language: share.test.type.language,
+              layout: share.test.layout,
             }
           : null,
         snapshot: share.snapshot,

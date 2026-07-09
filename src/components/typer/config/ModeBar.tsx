@@ -81,6 +81,11 @@ interface ModeBarProps {
     // keyboard board below the test).
     shiftLayer: boolean
     onToggleShift: () => void
+    // AltGr layer mirror — the toggle renders only for layouts that have AltGr
+    // glyphs at all (hasAltGr), so qwerty/remap boards stay uncluttered.
+    altgrLayer: boolean
+    onToggleAltgr: () => void
+    hasAltGr: boolean
     onSmartDrill: () => void
     setMode: (mode: TestModes) => void
     setSubMode: (subMode: TestSubModes) => void
@@ -476,6 +481,19 @@ export function ModeBar(props: ModeBarProps) {
                         >
                             shift {props.shiftLayer ? "on" : "off"}
                         </TextOpt>
+                        {props.hasAltGr &&
+                            <>
+                                <Sep />
+                                <TextOpt
+                                    active={props.altgrLayer}
+                                    onClick={props.onToggleAltgr}
+                                    ariaLabel="Show AltGr keys (accents and symbols)"
+                                    title="Show AltGr keys — or hold AltGr"
+                                >
+                                    altgr {props.altgrLayer ? "on" : "off"}
+                                </TextOpt>
+                            </>
+                        }
                         <Sep />
                         <span data-testid="practice-active-count" className="text-xs text-base-content/40">
                             {props.selectedKeys.length} keys active

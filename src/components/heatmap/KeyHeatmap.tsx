@@ -3,14 +3,14 @@ import { hslToHex } from "~/utils/convertColor"
 import { getActiveKey, subscribeActiveKey } from "~/components/typer/keySignal"
 import { useSecondaryStyle, useStyle } from "~/utils/hooks/useMutationObserver"
 import {
-    HEATMAP_ROWS,
     HEATMAP_SPACE,
     accuracyColor,
     heatmapCell,
     lookupAttempt,
-    shiftedGlyph,
     type KeyAttempt,
 } from "~/lib/heatmap"
+import { boardFor, type KeyCap, type Layer } from "~/lib/keyboardLayout"
+import { useLayout } from "~/hooks/useLayout"
 
 export type KeyHeatmapSize = "mini" | "full"
 
@@ -41,11 +41,19 @@ interface KeyHeatmapProps {
     // accuracy instead of the base glyph. Callers pass *unfolded* attempts so each
     // layer resolves its own glyph.
     shiftLayer?: boolean,
+    // AltGr layer (national layouts): render each cell's AltGr glyph (@ € ~ µ,
+    // all Polish accents) with its own raw accuracy. Combines with shiftLayer
+    // into the shiftAltgr layer. Cells without a glyph on the layer render
+    // inert. Only offered by pages when the layout has AltGr glyphs at all.
+    altgrLayer?: boolean,
     // When given, only these glyphs are clickable-to-lock (e.g. the shift layer
     // exposes just the drillable marks ? ! :, leaving capitals inert). When
     // omitted, every cell is interactive in the base layer and none in the shift
     // layer — preserving the read-only score-card/progress views.
     interactiveKeys?: ReadonlySet<string>,
+    // Which layout's board to render; defaults to the active global setting.
+    // Score surfaces pass a test's own layout tag here (ledger decision 10).
+    layout?: string,
     className?: string,
     testId?: string,
 }
@@ -60,8 +68,6 @@ function LockBadge() {
         </span>
     )
 }
-
-const HEATMAP_LAYOUT = HEATMAP_ROWS
 
 const ROW_CLASS_BY_SIZE: Record<KeyHeatmapSize, string> = {
     full: "flex justify-center gap-0.5 my-0.5 w-full md:gap-1 md:my-1",
@@ -112,7 +118,13 @@ export function KeyHeatmapLegend() {
 // A reusable per-key accuracy heatmap. The rendering is intentionally the same
 // primitive for Practice, score-card diagnosis, beat-run compare, and /progress.
 export function KeyHeatmap(props: KeyHeatmapProps) {
-    const { attempts, size = "full", includeSpace = true, highlightKeys, lockedKeys, onKeyClick, currentKey, followActiveKey, shiftLayer, interactiveKeys } = props
+    const { attempts, size = "full", includeSpace = true, highlightKeys, lockedKeys, onKeyClick, currentKey, followActiveKey, shiftLayer, altgrLayer, interactiveKeys } = props
+    const [activeLayout] = useLayout()
+    const boardLayout = props.layout ?? activeLayout
+    const board = boardFor(boardLayout)
+    // The active layer decides which glyph each cell renders and reads accuracy
+    // for (unfolded — each glyph its own tally, matching the shift layer).
+    const layer: Layer = altgrLayer && shiftLayer ? "shiftAltgr" : altgrLayer ? "altgr" : shiftLayer ? "shift" : "base"
     const showPercent = props.showPercent ?? size === "full"
     const { lowColor, highColor } = useHeatmapColors()
     const highlight = new Set(highlightKeys)
@@ -141,34 +153,59 @@ export function KeyHeatmap(props: KeyHeatmapProps) {
     const keyClass = KEY_CLASS_BY_SIZE[size]
     const spaceClass = SPACE_CLASS_BY_SIZE[size]
 
-    const renderKey = (key: string, isSpace = false) => {
-        // Base layer renders the physical key; shift layer renders its shifted twin
-        // and reads that glyph's own (unfolded) accuracy. Space has no twin.
-        const glyph = shiftLayer && !isSpace ? shiftedGlyph(key) : key
+    // One cell per physical cap. The active layer picks the glyph (and its own
+    // unfolded accuracy); full-size cells also show small secondary glyphs in
+    // the physical convention — the shift twin top-right (symbols only; a
+    // capital adds nothing) and the AltGr glyph bottom-left. Dead-key glyphs
+    // (cap dead on this layer) render dash-bordered: the key waits for the
+    // next press (ledger decision 7).
+    const renderCap = (cap: KeyCap | null, isSpace = false) => {
+        const glyph = isSpace ? HEATMAP_SPACE : cap?.[layer] ?? (layer === "shiftAltgr" ? cap?.altgr ?? "" : "")
+        // A cell with no glyph on this layer (AltGr on a plain key) is inert.
+        if (!glyph) {
+            return (
+                <kbd key={cap?.base ?? "space"} className={`${keyClass} opacity-30`} aria-hidden="true">
+                    <span className="leading-none">&nbsp;</span>
+                </kbd>
+            )
+        }
         // Interactive iff a click handler exists and either an explicit allow-set
         // names this glyph, or (no allow-set) we're on the base layer.
-        const interactive = !!onKeyClick && (interactiveKeys ? interactiveKeys.has(glyph) : !shiftLayer)
+        const interactive = !!onKeyClick && (interactiveKeys ? interactiveKeys.has(glyph) : layer === "base")
         const cell = heatmapCell(glyph, lookupAttempt(attempts, glyph))
         const color = accuracyColor(cell.accuracy, lowColor, highColor)
         const isCurrent = currentKey != null && glyph === currentKey
         const ringed = isCurrent || highlight.has(glyph)
         const isLocked = !!lockedKeys?.has(glyph)
-        const label = key === HEATMAP_SPACE ? "space" : glyph
-        const keyLabel = isSpace ? "space" : glyph
+        const isDead = !isSpace && !!cap?.dead?.includes(layer)
+        const label = isSpace ? "space" : glyph
+        const shiftHint = size === "full" && layer === "base" && cap && cap.shift !== cap.base.toUpperCase() ? cap.shift : ""
+        const altgrHint = size === "full" && layer === "base" && cap?.altgr ? cap.altgr : ""
 
         return (
             <kbd
-                key={key}
+                key={cap?.base ?? "space"}
                 data-kb-key={followActiveKey ? glyph : undefined}
+                data-kb-dead={isDead ? "" : undefined}
                 onClick={interactive ? () => onKeyClick!(glyph) : undefined}
                 role={interactive ? "button" : undefined}
-                className={`${keyClass} ${isSpace ? spaceClass : ""} ${ringed ? "ring-2 ring-primary ring-offset-1 ring-offset-base-200" : ""} ${interactive ? "cursor-pointer select-none" : ""} ${isLocked ? "opacity-60" : ""}`}
+                className={`${keyClass} ${isSpace ? spaceClass : ""} ${ringed ? "ring-2 ring-primary ring-offset-1 ring-offset-base-200" : ""} ${interactive ? "cursor-pointer select-none" : ""} ${isLocked ? "opacity-60" : ""} ${isDead ? "border-2 border-dashed border-base-content/40" : ""}`}
                 style={{ backgroundColor: color }}
-                title={`${label}: ${cell.hasData ? `${cell.accuracy}%` : "no data"}${isLocked ? (interactive ? " (locked \u2014 click to add)" : " (locked)") : ""}`}
+                title={`${label}: ${cell.hasData ? `${cell.accuracy}%` : "no data"}${isDead ? " \u2014 dead key (waits for the next press)" : ""}${isLocked ? (interactive ? " (locked \u2014 click to add)" : " (locked)") : ""}`}
             >
                 <span className={`leading-none ${showPercent ? "absolute left-1 top-1 text-sm sm:left-1.5 sm:top-1.5 sm:text-base" : ""}`}>
-                    {showPercent ? keyLabel : isSpace ? "\u00a0" : glyph}
+                    {isSpace && !showPercent ? "\u00a0" : label}
                 </span>
+                {shiftHint &&
+                    <span aria-hidden="true" className="pointer-events-none absolute right-1 top-0.5 text-[0.55rem] leading-none opacity-50">
+                        {shiftHint}
+                    </span>
+                }
+                {altgrHint &&
+                    <span aria-hidden="true" className="pointer-events-none absolute bottom-0.5 left-1 text-[0.55rem] leading-none opacity-50">
+                        {altgrHint}
+                    </span>
+                }
                 {showPercent &&
                     <span className="pointer-events-none absolute bottom-0.5 right-1 text-[0.6rem] leading-none text-white/95 drop-shadow-sm sm:bottom-1 sm:right-1.5 sm:text-xs">
                         {cell.accuracy}%
@@ -185,14 +222,14 @@ export function KeyHeatmap(props: KeyHeatmapProps) {
             className={`typecafe-key-heatmap flex flex-col items-center gap-[0.25rem] ${props.className ?? ""}`}
             data-testid={props.testId}
         >
-            {HEATMAP_LAYOUT.map((row) => (
-                <div key={row} className={rowClass}>
-                    {row.split("").map((key) => renderKey(key))}
+            {board.rows.map((row, rowIndex) => (
+                <div key={rowIndex} className={rowClass}>
+                    {row.map((cap) => renderCap(cap))}
                 </div>
             ))}
             {includeSpace &&
                 <div className={rowClass}>
-                    {renderKey(HEATMAP_SPACE, true)}
+                    {renderCap(null, true)}
                 </div>
             }
         </div>

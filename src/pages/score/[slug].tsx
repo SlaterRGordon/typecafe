@@ -11,6 +11,7 @@ import { Typer, type TestCompletionResult } from "~/components/typer/Typer";
 import { typingFocusFadeClass } from "~/components/typer/typingFocus";
 import type { TestModes, TestSubModes } from "~/components/typer/types";
 import { DEFAULT_TEST_SETTINGS } from "~/hooks/useTestSettings";
+import { useLayout } from "~/hooks/useLayout";
 import { beatRunAttemptLabel, beatRunBrag, firstDivergenceWord } from "~/lib/beatRun";
 import { netFromRaw } from "~/lib/stats";
 import { getShareForOg, type OgShareData } from "~/server/og/scoreData";
@@ -157,6 +158,7 @@ function BeatRunChallenge(props: { slug: string; target: BeatTarget }) {
   const [typingFocused, setTypingFocused] = useState(false);
   const [shareUrl, setShareUrl] = useState<string | undefined>(undefined);
   const charAttemptsRef = useRef<Map<string, { attempts: number; correct: number }>>(new Map());
+  const [activeLayout] = useLayout();
   const createBeatRun = api.scoreShare.createBeatRun.useMutation();
 
   const resetRun = () => {
@@ -184,6 +186,8 @@ function BeatRunChallenge(props: { slug: string; target: BeatTarget }) {
       worstKeys: result.worstKeys,
       timeline: result.timeline,
       ranked: result.ranked,
+      // The viewer's own board (their active layout) — the target keeps its tag.
+      layout: activeLayout,
       brag: beatRunBrag(deltaWpm, attemptNumber),
       wpmSamples: result.wpmSamples,
       speed: result.speed,
@@ -217,6 +221,7 @@ function BeatRunChallenge(props: { slug: string; target: BeatTarget }) {
         brag: completed.brag,
         wpmSamples: completed.wpmSamples,
         ranked: completed.ranked,
+        layout: completed.layout,
         count: props.target.count,
         mode: props.target.mode,
         subMode: props.target.subMode,
@@ -313,11 +318,11 @@ function BeatRunChallenge(props: { slug: string; target: BeatTarget }) {
             <div data-testid="beat-heatmap-comparison" className="mt-4 grid gap-4 md:grid-cols-2">
               <div>
                 <p className="mb-2 text-xs font-semibold uppercase text-base-content/55">Target key map</p>
-                <KeyHeatmap size="mini" attempts={targetAttempts} />
+                <KeyHeatmap size="mini" layout={props.target.layout ?? "qwerty"} attempts={targetAttempts} />
               </div>
               <div>
                 <p className="mb-2 text-xs font-semibold uppercase text-base-content/55">Your key map</p>
-                <KeyHeatmap size="mini" attempts={challengerAttempts} />
+                <KeyHeatmap size="mini" layout={completed.layout ?? "qwerty"} attempts={challengerAttempts} />
               </div>
             </div>
           </section>
@@ -412,6 +417,7 @@ const SharedScorePage: NextPage<SharedScorePageProps> = ({ slug, meta }) => {
       correctKeystrokes: 0,
       incorrectKeystrokes: 0,
       typedText: "",
+      layout: data.score.layout,
       wpmSamples: [
         { elapsedSeconds: 0, wpm: 0 },
         { elapsedSeconds: data.score.count, wpm: data.score.speed },
@@ -428,6 +434,7 @@ const SharedScorePage: NextPage<SharedScorePageProps> = ({ slug, meta }) => {
       mode: data.score.mode as TestModes,
       subMode: data.score.subMode as TestSubModes,
       language: data.score.language,
+      layout: snapshot.layout ?? data.score.layout,
       options: data.score.options,
       createdAt: data.score.createdAt.getTime(),
       user: data.user ?? undefined,

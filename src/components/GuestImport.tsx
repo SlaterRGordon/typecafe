@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { clearLocalKeyStats, readLocalKeyStats } from "~/lib/localSync";
 import { clearLocalTransitions, readLocalTransitions } from "~/lib/localTransitions";
+import { STATS_POOLS } from "~/lib/keyboardLayout";
 import { clearLocalProgress, readLocalProgress } from "~/lib/progressHistory";
 import { api } from "~/utils/api";
 
@@ -28,15 +29,15 @@ export function GuestImport() {
         onError: () => { progressForUserRef.current = null; },
     });
     const syncKeyStats = api.practiceStats.batchSync.useMutation({
-        onSuccess: async () => {
-            clearLocalKeyStats();
+        onSuccess: async (_data, variables) => {
+            clearLocalKeyStats(variables.pool ?? "qwerty");
             await utils.practiceStats.get.invalidate();
         },
         onError: () => { keyStatsForUserRef.current = null; },
     });
     const syncTransitions = api.transitionStats.batchSync.useMutation({
-        onSuccess: async () => {
-            clearLocalTransitions();
+        onSuccess: async (_data, variables) => {
+            clearLocalTransitions(variables.pool ?? "qwerty");
             await utils.transitionStats.get.invalidate();
         },
         onError: () => { transitionsForUserRef.current = null; },
@@ -56,21 +57,26 @@ export function GuestImport() {
             }
         }
 
+        // Key stats and transitions import per stats pool (the guest mirrors are
+        // pool-suffixed — docs/features/keyboard-layouts.md decision 6).
         if (keyStatsForUserRef.current !== userId) {
-            const keyStats = readLocalKeyStats();
-            if (keyStats.length > 0) {
-                keyStatsForUserRef.current = userId;
+            keyStatsForUserRef.current = userId;
+            for (const pool of STATS_POOLS) {
+                const keyStats = readLocalKeyStats(pool);
+                if (keyStats.length === 0) continue;
                 syncKeyStats.mutate({
                     stats: keyStats.map((s) => ({ character: s.key, total: s.attempts, correct: s.correct })),
+                    pool,
                 });
             }
         }
 
         if (transitionsForUserRef.current !== userId) {
-            const transitions = readLocalTransitions();
-            if (transitions.length > 0) {
-                transitionsForUserRef.current = userId;
-                syncTransitions.mutate({ stats: transitions });
+            transitionsForUserRef.current = userId;
+            for (const pool of STATS_POOLS) {
+                const transitions = readLocalTransitions(pool);
+                if (transitions.length === 0) continue;
+                syncTransitions.mutate({ stats: transitions, pool });
             }
         }
     }, [userId, syncProgress, syncKeyStats, syncTransitions]);

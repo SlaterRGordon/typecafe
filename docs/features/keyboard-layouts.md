@@ -1,9 +1,10 @@
 # Keyboard layouts
 
-**Status:** 🔨 in progress — slices 1–3 done; plan re-derived from first
-principles and merged with the national-layouts plan 2026-07-08 (supersedes
-both earlier versions of this ledger). **Decisions locked with the owner
-2026-07-08.**
+**Status:** ✅ done (2026-07-09) — slices 1–10 shipped; wave-3 layouts
+(qwertz-ch, azerty-be, cf, canadian-multilingual, bepo) stay on demand, and
+the deliberate v1 cuts live in Upgrade paths below. Plan re-derived from first
+principles and merged with the national-layouts plan 2026-07-08.
+**Decisions locked with the owner 2026-07-08.**
 **Trigger:** a German user on the new language support — words are German,
 board is US QWERTY.
 
@@ -283,30 +284,68 @@ Until tags land, they render the viewer's active layout.
       is tested against real German T1 data instead of synthetic; compose is
       one shared table (´+e→é on any hardware) with per-layout dead lists;
       `LAYOUT_IDS` (geometry) split from `LAYOUTS` (picker). No UI.
-- [ ] 4 — **Boards render the layout + QWERTZ lands:** qwertz-de picker entry;
+- [x] 4 — **Boards render the layout + QWERTZ lands:** qwertz-de picker entry;
       `Keyboard.tsx` + `KeyHeatmap` take the active layout (import-time consts
-      → per-layout derivations); ISO rendering; multi-glyph keycaps; AltGr
-      layer toggle; dead-key styling; shift layer per layout. Practice keeps
-      its a–z drill rules. E2e: pick German QWERTZ → ü ö ä are keys; tour.
-- [ ] 5 — **Auto mode:** stored default `"auto"`; `resolveLayout` +
-      `defaultLayoutFor` table; menu shows resolved value + grouping. E2e:
-      globe → German flips board (auto) and doesn't (pinned).
-- [ ] 6 — **Detection:** pure signature matcher + two adapters (getLayoutMap
-      probe, passive `e.code`/`e.key` listener); cached; feeds auto only at
-      mount/test boundaries. Signature table unit-tested.
-- [ ] 7 — **Teaching:** train ladder uses `keyStagesFor(layout)`; L45+ accent
-      stretch shows real positions; next-key guidance renders `sequenceFor`
-      steps (dead badges 1→2, AltGr chord highlight) in train + practice +
-      tests. E2e: German train L45+ highlights ü on QWERTZ; tour.
-- [ ] 8 — **Pools + tags** (decisions 6/10): `statsPoolFor` dimension on
-      server tables + guest storage (widened unique keys, both DBs migrated);
-      `Test.layout` + guest entries tagged with actual id; `/progress`
-      filters by active pool with a naming chip; score card + beat-run render
-      per-test tags. Untagged = qwerty.
-- [ ] 9 — **Wave 2 layouts:** eight defaults (decision 8 table), each a data
-      record + reachability test + menu entry; locale tiebreaks wired.
-- [ ] 10 — **Sweep:** per-layout e2e coverage; screenshot tour (QWERTZ board,
-      AltGr layer, auto entry in menu, colemak ladder). Wave 3 on demand.
+      → per-layout memos); ISO rendering; multi-glyph keycaps (full cells:
+      shift twin top-right for symbols, AltGr bottom-left; mini stays
+      single-glyph — the percent badge owns bottom-right); AltGr layer toggle
+      (settings-line `altgr on/off` + held-AltGr peek, rendered only when the
+      layout has AltGr glyphs); dead caps dash-bordered with a title. The
+      non-practice teaching board renders each row's letter + dead caps (qwerty
+      reproduces the old 10/9/7 letter rows exactly; AZERTY's number-row
+      accents join it). Practice keeps its a–z drill rules; AltGr layers are
+      entirely display-only. E2e + tour (see slice 10).
+- [x] 5 — **Auto mode:** stored default `"auto"`; `resolveLayout` +
+      `defaultLayoutFor` (with locale tiebreaks and an existence guard, so
+      defaults activate as layouts ship); LayoutMenu leads with
+      `Auto — <resolved>` and groups Standard/Alternative; explicit picks
+      stay pinned. Legacy stored picks keep working. E2e: globe → German
+      flips the board (auto) and doesn't (pinned).
+- [x] 6 — **Detection** (src/lib/layoutDetect.ts): pure signature matcher over
+      code→key observations (verdict only when exactly one candidate has ≥2
+      matches and zero contradictions — ties like qwerty/us-intl/polish or
+      es/latam return null and the language default decides); two adapters
+      feed it — the Chromium getLayoutMap probe (applies at mount via the
+      change event) and a passive keydown listener (writes the cache only;
+      takes effect next mount, so a board never swaps mid-test). Matcher
+      unit-tested incl. the de/ch separating probe.
+- [x] 7 — **Teaching:** `levelsFor(layout)` (memoized by stage content;
+      unknown layouts share qwerty's ladder) from `keyStagesFor`;
+      trainProgression helpers take the ladder as a param; train.tsx re-points
+      the selected level by name on layout switch (progress untouched).
+      Next-key guidance renders `sequenceFor` steps imperatively: 1→2 badges
+      for dead-key chars, ⇧/AG modifier badges, restoring level-key highlights
+      on leave. Found while building: AZERTY's home row has no vowel, and word
+      generation needs one from stage 1 — `keyStagesFor` now borrows the
+      nearest vowel position (AZERTY: e) into stage 1, and the invariant test
+      allows exactly that one off-row vowel.
+- [x] 8 — **Pools + tags** (decisions 6/10): `pool` column on PracticeStats/
+      TransitionStat/TrainProgress (uniques widened, raw-SQL conflict targets
+      updated) + `layout` tag on Test; both DBs pushed (`prisma db push`, new
+      uniques are supersets of the old — no data risk). Guest mirrors keep
+      their entry shapes and gain pool-suffixed storage keys (the legacy key
+      IS the qwerty pool — zero migration); GuestImport syncs per pool via
+      `STATS_POOLS`. All reads (coach tabs, drill baseline, plan, /progress,
+      practice board) thread `statsPoolFor(activeLayout)`; /progress gains a
+      layout chip beside the globe chip. Score card + beat-run boards render
+      each test's own tag (share snapshots + Test projection carry `layout`).
+      Found while building: practiceStats `create`/`update` procedures had
+      zero callers — deleted. `trainProgress.getSummary` (profile) stays
+      cross-pool: the profile is a lifetime showcase across pools, like
+      languages.
+- [x] 9 — **Wave 2 layouts:** azerty-fr, qwerty-es, qwerty-latam, qwerty-it,
+      qwerty-pt, qwerty-abnt2, qwerty-uk, qwerty-us-intl, qwerty-pl shipped
+      (data + picker + reachability tests + ground-truth pins). The parser
+      grew `overrides` (AZERTY digits live on the shift layer of accent
+      letters — underivable) and COMPOSE gained ' / " rows for
+      US-International's dead apostrophe/quote. œ is deliberately not
+      asserted reachable — real AZERTY can't type it.
+- [x] 10 — **Sweep:** e2e — auto-follows-language + pinned-stays test, QWERTZ
+      practice board with umlaut caps and the AltGr layer; tour captures
+      `60-practice-qwertz-board` + `61-practice-qwertz-altgr-layer`; full
+      affected-surface run green (home 39, train/progress/drill/plan/nav 54,
+      tour 48, shared-score/typing-focus 17; unit 520). Wave 3 stays
+      on demand.
 
 ## Upgrade paths (deliberate v1 cuts, with their triggers)
 

@@ -461,6 +461,9 @@ export const testRouter = createTRPCRouter({
       punctuation: z.boolean().optional(),
       capitals: z.boolean().optional(),
       ranked: z.boolean().optional(),
+      // The keyboard layout the test was typed on (actual id — honesty tag,
+      // ledger decision 10). Absent/legacy = qwerty.
+      layout: z.string().max(32).optional(),
       // Persisted whole (locked constraint #2). Capped well above the longest
       // legitimate run (a 5000-word custom test ≈ 30k keystrokes) so a hostile
       // payload can't balloon a row.
@@ -493,6 +496,7 @@ export const testRouter = createTRPCRouter({
             punctuation: input.punctuation ?? false,
             capitals: input.capitals ?? false,
             ranked,
+            layout: input.layout ?? "qwerty",
             // Persist the full timeline (locked constraint #2) — evidence for
             // replay and re-diagnosis under future heuristics; no reads yet.
             timeline,

@@ -2,7 +2,7 @@ import { type NextPage } from "next";
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useDispatch } from "react-redux";
 import { FirstVisitPromise } from "~/components/home/FirstVisitPromise";
@@ -15,6 +15,8 @@ import { typingFocusFadeClass } from "~/components/typer/typingFocus";
 import { TestModes, TestSubModes, type QuoteLength, type TestGramScopes, type TestGramSources } from "~/components/typer/types";
 import { useTestSettings } from "~/hooks/useTestSettings";
 import { useLanguage } from "~/hooks/useLanguage";
+import { useLayout } from "~/hooks/useLayout";
+import { boardFor, statsPoolFor } from "~/lib/keyboardLayout";
 import { clampSize, composeLanguage, parseLanguage } from "~/components/typer/utils";
 import { withPracticeVowel } from "~/lib/diagnosis";
 import { smartDrillSelection } from "~/lib/drillKeys";
@@ -90,6 +92,10 @@ const Home: NextPage = () => {
   // settings-line "shift on/off" label reflects the peek too, not just the board.
   const [shiftToggle, setShiftToggle] = useState(false)
   const [shiftHeld, setShiftHeld] = useState(false)
+  // AltGr mirror of the shift layer, for national layouts (@ € ~ µ, Polish
+  // accents). The toggle only renders when the active layout has AltGr glyphs.
+  const [altgrToggle, setAltgrToggle] = useState(false)
+  const [altgrHeld, setAltgrHeld] = useState(false)
   const dispatch = useDispatch()
   const [restartSignal, setRestartSignal] = useState(0)
   const [completedScore, setCompletedScore] = useState<(ScoreSnapshot & {
@@ -136,7 +142,8 @@ const Home: NextPage = () => {
   const attemptReMeasureRef = useRef<{ beforeWpm: number } | undefined>(undefined)
   const { data: sessionData } = useSession()
   const router = useRouter()
-  const { data: persistedStats } = api.practiceStats.get.useQuery(undefined, {
+  const [activeLayout] = useLayout()
+  const { data: persistedStats } = api.practiceStats.get.useQuery({ pool: statsPoolFor(activeLayout) }, {
     enabled: mode === TestModes.practice && !!sessionData?.user,
   })
   const createShare = api.scoreShare.create.useMutation()
@@ -194,9 +201,19 @@ const Home: NextPage = () => {
 
   useEffect(() => {
     if (mode !== TestModes.practice) return
-    const onDown = (e: KeyboardEvent) => { if (e.key === "Shift" && !e.repeat) setShiftHeld(true) }
-    const onUp = (e: KeyboardEvent) => { if (e.key === "Shift") setShiftHeld(false) }
-    const clear = () => setShiftHeld(false)
+    const onDown = (e: KeyboardEvent) => {
+      if (e.repeat) return
+      if (e.key === "Shift") setShiftHeld(true)
+      if (e.key === "AltGraph") setAltgrHeld(true)
+    }
+    const onUp = (e: KeyboardEvent) => {
+      if (e.key === "Shift") setShiftHeld(false)
+      if (e.key === "AltGraph") setAltgrHeld(false)
+    }
+    const clear = () => {
+      setShiftHeld(false)
+      setAltgrHeld(false)
+    }
     window.addEventListener("keydown", onDown)
     window.addEventListener("keyup", onUp)
     window.addEventListener("blur", clear)
@@ -207,6 +224,9 @@ const Home: NextPage = () => {
     }
   }, [mode])
   const shiftLayer = shiftToggle || shiftHeld
+  const altgrLayer = altgrToggle || altgrHeld
+
+  const hasAltGr = useMemo(() => boardFor(activeLayout).rows.some((row) => row.some((cap) => cap.altgr)), [activeLayout])
 
   // Smart drill (settings line): select the eight least-accurate keys from the
   // folded lifetime + session attempts. Selection math lives in lib/drillKeys.
@@ -278,6 +298,7 @@ const Home: NextPage = () => {
       punctuation: result.punctuation,
       capitals: result.capitals,
       ranked: result.ranked,
+      layout: activeLayout,
       count,
       mode,
       subMode,
@@ -295,7 +316,7 @@ const Home: NextPage = () => {
     // Mirror guest results locally so /progress is real from the first test
     // (local-first; signed-in users' trends come from the DB instead).
     if (!sessionData?.user) {
-      appendLocalProgress({ wpm: result.speed, accuracy: result.accuracy, c: consistency, t: Date.now(), lang: parseLanguage(language).base })
+      appendLocalProgress({ wpm: result.speed, accuracy: result.accuracy, c: consistency, t: Date.now(), lang: parseLanguage(language).base, layout: activeLayout })
     }
 
     // Only guests stash a pending score (to save once they sign in). Signed-in
@@ -378,7 +399,7 @@ const Home: NextPage = () => {
         const share = await createShare.mutateAsync({
           testId: test.id,
           snapshot: { durationSeconds, rawWpm, netWpm, accuracy, totalKeystrokes, correctKeystrokes,
-            incorrectKeystrokes, promptText, typedText, typedSegments, worstKeys, brag, avgDelta: test.avgDelta, wpmSamples, punctuation, capitals, ranked },
+            incorrectKeystrokes, promptText, typedText, typedSegments, worstKeys, brag, avgDelta: test.avgDelta, wpmSamples, punctuation, capitals, ranked, layout: restoredScore.layout },
         })
         const url = `${window.location.origin}/score/${share.slug}`
         setShareUrl(url)
@@ -583,6 +604,7 @@ const Home: NextPage = () => {
       capitals,
       ranked,
       wpmSamples,
+      layout: completedScore.layout,
     }
     // Signed-in: link the share to the saved Test. Guest: mint a snapshot-only
     // share that carries its own render fields (mode/language/count).
@@ -659,6 +681,9 @@ const Home: NextPage = () => {
               capitals={capitals}
               shiftLayer={shiftLayer}
               onToggleShift={() => setShiftToggle((on) => !on)}
+              altgrLayer={altgrLayer}
+              onToggleAltgr={() => setAltgrToggle((on) => !on)}
+              hasAltGr={hasAltGr}
               onSmartDrill={handleSmartDrill}
               setCount={setCount}
               setCustomLength={setCustomLength}
@@ -770,7 +795,7 @@ const Home: NextPage = () => {
         }
         {!completedScore && shouldShowHomeKeyboard &&
           <div data-testid="typing-focus-home-keyboard" className="min-h-[11rem] md:min-h-[15.25rem]">
-            <Keyboard mode={mode} selectedKeys={selectedKeys} setSelectedKeys={setSelectedKeys} charAttemptsRef={charAttemptsRef} baseAttemptsRef={persistedAttemptsRef} shiftToggle={shiftLayer} />
+            <Keyboard mode={mode} selectedKeys={selectedKeys} setSelectedKeys={setSelectedKeys} charAttemptsRef={charAttemptsRef} baseAttemptsRef={persistedAttemptsRef} shiftToggle={shiftLayer} altgrToggle={altgrLayer} />
           </div>
         }
       </div>

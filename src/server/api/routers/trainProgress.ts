@@ -10,6 +10,11 @@ import { trainProfileSummary } from "~/lib/trainProfile";
 
 const difficultySchema = z.enum(DIFFICULTIES as [DifficultyName, ...DifficultyName[]]);
 
+// Ladder progress is keyed per stats pool (docs/features/keyboard-layouts.md
+// decision 6); absent = the legacy qwerty pool. getSummary (the profile) stays
+// cross-pool — the profile is a lifetime showcase across pools, like languages.
+const poolSchema = z.string().max(32).optional();
+
 const trainProgressInput = z.object({
   options: z.string(),
   speed: z.number().min(0),
@@ -39,12 +44,13 @@ export const trainProgressRouter = createTRPCRouter({
     }),
 
   getByDifficulty: protectedProcedure
-    .input(z.object({ difficulty: difficultySchema }))
+    .input(z.object({ difficulty: difficultySchema, pool: poolSchema }))
     .query(({ ctx, input }) => {
       return ctx.prisma.trainProgress.findMany({
         where: {
           userId: ctx.session.user.id,
           difficulty: input.difficulty,
+          pool: input.pool ?? "qwerty",
         },
         orderBy: {
           updatedAt: "desc",
@@ -56,13 +62,16 @@ export const trainProgressRouter = createTRPCRouter({
     .input(z.object({
       difficulty: difficultySchema,
       progress: trainProgressInput,
+      pool: poolSchema,
     }))
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.session.user.id;
+      const pool = input.pool ?? "qwerty";
       const existing = await ctx.prisma.trainProgress.findFirst({
         where: {
           userId,
           difficulty: input.difficulty,
+          pool,
           options: input.progress.options,
         },
       });
@@ -72,6 +81,7 @@ export const trainProgressRouter = createTRPCRouter({
           data: {
             userId,
             difficulty: input.difficulty,
+            pool,
             options: input.progress.options,
             speed: input.progress.speed,
             accuracy: input.progress.accuracy,
@@ -96,6 +106,7 @@ export const trainProgressRouter = createTRPCRouter({
     .input(z.object({
       difficulty: difficultySchema,
       progress: z.array(trainProgressInput),
+      pool: poolSchema,
     }))
     .mutation(async ({ ctx, input }) => {
       if (input.progress.length === 0) {
@@ -103,6 +114,7 @@ export const trainProgressRouter = createTRPCRouter({
       }
 
       const userId = ctx.session.user.id;
+      const pool = input.pool ?? "qwerty";
       const progressByOption = new Map<string, z.infer<typeof trainProgressInput>>();
 
       input.progress.forEach((progress) => {
@@ -121,6 +133,7 @@ export const trainProgressRouter = createTRPCRouter({
         where: {
           userId,
           difficulty: input.difficulty,
+          pool,
           options: {
             in: progress.map((item) => item.options),
           },
@@ -138,6 +151,7 @@ export const trainProgressRouter = createTRPCRouter({
             data: {
               userId,
               difficulty: input.difficulty,
+              pool,
               options: item.options,
               speed: item.speed,
               accuracy: item.accuracy,

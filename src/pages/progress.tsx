@@ -28,7 +28,9 @@ import {
     type ProgressRecord,
 } from "~/lib/progress";
 import { useLanguage } from "~/hooks/useLanguage";
+import { useLayout } from "~/hooks/useLayout";
 import { languageMeta } from "~/lib/languageMeta";
+import { layoutMeta, statsPoolFor } from "~/lib/keyboardLayout";
 import { composeWeakKeys, netFromRaw, worstKeysFromAttempts } from "~/lib/stats";
 import { detectPlateau } from "~/lib/trajectory";
 import { api } from "~/utils/api";
@@ -251,6 +253,8 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
     const [period, setPeriod] = useState<ProgressPeriod>(30);
     const [trendMetric, setTrendMetric] = useState<TrendMetric>("wpm");
     const [shareState, setShareState] = useState<"idle" | "sharing" | "copied">("idle");
+    // The board the heatmap below renders (and whose stats pool feeds it).
+    const [activeBoardLayout] = useLayout();
     const now = useMemo(() => new Date(), []);
     const createProgressShare = api.scoreShare.createProgress.useMutation();
 
@@ -364,6 +368,11 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
                     <h1 className="font-mono text-3xl font-bold tracking-tight">Progress</h1>
                     <Chip testId="progress-language-chip" size="md" icon={<i className="fa-solid fa-globe" aria-hidden="true" />}>
                         {languageMeta(props.language).label}
+                    </Chip>
+                    {/* Names the active board so an empty per-pool heatmap
+                        doesn't read as broken (ledger slice 8). */}
+                    <Chip testId="progress-layout-chip" size="md" icon={<i className="fa-regular fa-keyboard" aria-hidden="true" />}>
+                        {layoutMeta(activeBoardLayout).label}
                     </Chip>
                     {streak > 0 && (
                         <Chip
@@ -628,15 +637,18 @@ const Progress: NextPage = () => {
     );
 
     // Lifetime per-key accuracy for the heatmap: DB practice stats when signed
-    // in, the localStorage key-stat mirror for guests.
-    const practiceStatsQuery = api.practiceStats.get.useQuery(undefined, { enabled: !!sessionData?.user });
+    // in, the localStorage key-stat mirror for guests (useGuestEvidence follows
+    // the pool itself). Both read the active layout's stats pool (decision 6).
+    const [activeLayout] = useLayout();
+    const pool = statsPoolFor(activeLayout);
+    const practiceStatsQuery = api.practiceStats.get.useQuery({ pool }, { enabled: !!sessionData?.user });
     const dbKeyAttempts = useMemo(() => {
         const out: Record<string, KeyAttempt> = {};
         for (const stat of practiceStatsQuery.data ?? []) out[stat.character] = { attempts: stat.total, correct: stat.correct };
         return out;
     }, [practiceStatsQuery.data]);
 
-    const transitionsQuery = api.transitionStats.get.useQuery(undefined, { enabled: !!sessionData?.user });
+    const transitionsQuery = api.transitionStats.get.useQuery({ pool }, { enabled: !!sessionData?.user });
     const dbTransitions: TransitionAggregate[] = transitionsQuery.data ?? [];
 
     // Guest evidence lives in localStorage (read client-side after mount to avoid

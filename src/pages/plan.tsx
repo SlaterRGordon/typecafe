@@ -17,6 +17,8 @@ import { worstKeysFromAttempts } from "~/lib/stats";
 import { worstTransitions } from "~/lib/transitions";
 import type { KeyAttempt } from "~/lib/heatmap";
 import { useGuestEvidence } from "~/hooks/useGuestEvidence";
+import { useLayout } from "~/hooks/useLayout";
+import { statsPoolFor } from "~/lib/keyboardLayout";
 import { api } from "~/utils/api";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -178,8 +180,11 @@ const PlanPage: NextPage = () => {
     const signedIn = !!sessionData?.user;
 
     const recordsQuery = api.test.getProgressRecords.useQuery(undefined, { enabled: signedIn });
-    const practiceStatsQuery = api.practiceStats.get.useQuery(undefined, { enabled: signedIn });
-    const transitionsQuery = api.transitionStats.get.useQuery(undefined, { enabled: signedIn });
+    // Key/transition evidence follows the active layout's stats pool (ledger decision 6).
+    const [activeLayout] = useLayout();
+    const pool = statsPoolFor(activeLayout);
+    const practiceStatsQuery = api.practiceStats.get.useQuery({ pool }, { enabled: signedIn });
+    const transitionsQuery = api.transitionStats.get.useQuery({ pool }, { enabled: signedIn });
 
     const guest = useGuestEvidence();
 

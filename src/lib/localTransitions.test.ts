@@ -16,9 +16,9 @@ function fakeStorage(): Storage {
 describe("localTransitions", () => {
     it("adds and merges aggregates by pair", () => {
         const s = fakeStorage()
-        addLocalTransitions([{ pair: "th", count: 2, totalMs: 400, errors: 1 }], s)
-        addLocalTransitions([{ pair: "th", count: 3, totalMs: 600, errors: 0 }, { pair: "br", count: 1, totalMs: 300, errors: 0 }], s)
-        const all = readLocalTransitions(s)
+        addLocalTransitions([{ pair: "th", count: 2, totalMs: 400, errors: 1 }], "qwerty", s)
+        addLocalTransitions([{ pair: "th", count: 3, totalMs: 600, errors: 0 }, { pair: "br", count: 1, totalMs: 300, errors: 0 }], "qwerty", s)
+        const all = readLocalTransitions("qwerty", s)
         expect(all.find((a) => a.pair === "th")).toMatchObject({ count: 5, totalMs: 1000, errors: 1 })
         expect(all.find((a) => a.pair === "br")!.count).toBe(1)
     })
@@ -31,10 +31,10 @@ describe("localTransitions", () => {
             { pair: "x", count: 1, totalMs: 100, errors: 0 }, // wrong length
             { pair: "ab", count: -1, totalMs: 100, errors: 0 }, // negative
         ]))
-        expect(readLocalTransitions(s)).toEqual([{ pair: "th", count: 2, totalMs: 400, errors: 0 }])
+        expect(readLocalTransitions("qwerty", s)).toEqual([{ pair: "th", count: 2, totalMs: 400, errors: 0 }])
     })
 
     it("returns [] for missing storage", () => {
-        expect(readLocalTransitions(fakeStorage())).toEqual([])
+        expect(readLocalTransitions("qwerty", fakeStorage())).toEqual([])
     })
 })

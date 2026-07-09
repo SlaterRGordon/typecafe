@@ -2,7 +2,7 @@
 // account (locked constraint), same shape the DB stores so sync-on-signup is a
 // straight batch-import. Mirrors localSync.ts for key stats.
 
-import { createKeyedStore } from "./keyedStore"
+import { createKeyedStore, type KeyedStore } from "./keyedStore"
 import { mergeTransitions, type TransitionAggregate } from "./transitions"
 
 export const LOCAL_TRANSITIONS_KEY = "typecafe:transitionStats"
@@ -16,10 +16,17 @@ function sanitize(raw: unknown): TransitionAggregate | null {
     return { pair: v.pair, count: v.count as number, totalMs: v.totalMs as number, errors: v.errors as number }
 }
 
-const store = createKeyedStore(LOCAL_TRANSITIONS_KEY, sanitize, mergeTransitions)
+// Keyed per stats pool like localSync: the legacy unsuffixed key IS the
+// qwerty pool; remap pools live under suffixed keys.
+const stores: Record<string, KeyedStore<TransitionAggregate>> = {}
 
-export const readLocalTransitions = store.read
-export const writeLocalTransitions = store.write
-export const addLocalTransitions = store.add
+function storeFor(pool: string) {
+    const key = pool === "qwerty" ? LOCAL_TRANSITIONS_KEY : `${LOCAL_TRANSITIONS_KEY}:${pool}`
+    return (stores[key] ??= createKeyedStore(key, sanitize, mergeTransitions))
+}
+
+export const readLocalTransitions = (pool = "qwerty", s?: Storage) => storeFor(pool).read(s)
+export const writeLocalTransitions = (items: TransitionAggregate[], pool = "qwerty", s?: Storage) => storeFor(pool).write(items, s)
+export const addLocalTransitions = (items: TransitionAggregate[], pool = "qwerty", s?: Storage) => storeFor(pool).add(items, s)
 // Exported for the sync-on-sign-in import (candidate #01).
-export const clearLocalTransitions = store.clear
+export const clearLocalTransitions = (pool = "qwerty", s?: Storage) => storeFor(pool).clear(s)

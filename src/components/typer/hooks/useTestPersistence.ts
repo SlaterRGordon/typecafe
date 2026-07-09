@@ -9,6 +9,8 @@ import { aggregateTransitions } from "~/lib/transitions"
 import { drainSyncedAttempts } from "~/lib/practiceAttempts"
 import type { EncodedKeystroke, KeystrokeEvent } from "~/lib/keystrokes"
 import { api } from "~/utils/api"
+import { statsPoolFor } from "~/lib/keyboardLayout"
+import { useLayout } from "~/hooks/useLayout"
 import { TestModes } from "../types"
 import type { TestCompletionResult } from "../types"
 
@@ -46,6 +48,10 @@ export function useTestPersistence({ charAttemptsRef, onTestComplete, eagerResul
     const { data: sessionData } = useSession()
     const dispatch = useDispatch()
     const utils = api.useUtils()
+    // Every save carries the active layout: tests tag the actual id (honesty,
+    // ledger decision 10), aggregates key their stats pool (decision 6).
+    const [layout] = useLayout()
+    const pool = statsPoolFor(layout)
     const pendingCompletionRef = useRef<TestCompletionResult | null>(null)
 
     const createTest = api.test.create.useMutation({
@@ -79,9 +85,9 @@ export function useTestPersistence({ charAttemptsRef, onTestComplete, eagerResul
     const persistCompletion = useCallback((completion: TestCompletionResult, input: CreateTestInput) => {
         pendingCompletionRef.current = completion
         if (eagerResult) onTestComplete?.(completion)
-        createTest.mutate(input)
+        createTest.mutate({ ...input, layout })
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [createTest.mutate, eagerResult, onTestComplete])
+    }, [createTest.mutate, eagerResult, onTestComplete, layout])
 
     // Both sync mutations invalidate their lifetime read so always-mounted
     // surfaces (the coach tab) recompute from data that includes this test.
@@ -115,12 +121,12 @@ export function useTestPersistence({ charAttemptsRef, onTestComplete, eagerResul
         const aggregates = aggregateTransitions(events)
         if (aggregates.length === 0) return
         if (!sessionData?.user) {
-            addLocalTransitions(aggregates)
+            addLocalTransitions(aggregates, pool)
             window.dispatchEvent(new Event(EVIDENCE_SYNCED_EVENT))
             return
         }
-        syncTransitionStats({ stats: aggregates })
-    }, [sessionData?.user, syncTransitionStats])
+        syncTransitionStats({ stats: aggregates, pool })
+    }, [sessionData?.user, syncTransitionStats, pool])
 
     // Per-key accuracy is tracked in every mode (Normal, Quotes, Practice, Drill),
     // not just Practice — the heatmap and smart drill want the user's real typing,
@@ -142,7 +148,7 @@ export function useTestPersistence({ charAttemptsRef, onTestComplete, eagerResul
                 key: stat.character,
                 attempts: stat.total,
                 correct: stat.correct,
-            })))
+            })), pool)
 
             if (saved) {
                 drainSyncedAttempts(charAttemptsRef.current, stats)
@@ -151,8 +157,8 @@ export function useTestPersistence({ charAttemptsRef, onTestComplete, eagerResul
             return
         }
 
-        syncPracticeStats({ stats })
-    }, [charAttemptsRef, sessionData?.user, syncPracticeStats])
+        syncPracticeStats({ stats, pool })
+    }, [charAttemptsRef, sessionData?.user, syncPracticeStats, pool])
 
     return { sessionData, persistCompletion, syncCharAttempts, syncTransitions, isSaving: createTest.isPending }
 }

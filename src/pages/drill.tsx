@@ -16,6 +16,8 @@ import { attemptsFromEvents, keyDrillDelta, keysBaseline, mergeAttempts, nextDri
 import { decodeTimeline } from "~/lib/keystrokes"
 import { readLocalKeyStats, type LocalKeyStat } from "~/lib/localSync"
 import { readLocalTransitions } from "~/lib/localTransitions"
+import { statsPoolFor } from "~/lib/keyboardLayout"
+import { useLayout } from "~/hooks/useLayout"
 import { isAnyModalOpen } from "~/lib/modals"
 import { aggregateTransitions, mergeTransitions, type TransitionAggregate } from "~/lib/transitions"
 import { api } from "~/utils/api"
@@ -187,8 +189,12 @@ const Drill: NextPage = () => {
 
     const { data: sessionData } = useSession()
     const signedIn = !!sessionData?.user
-    const transitionsQuery = api.transitionStats.get.useQuery(undefined, { enabled: signedIn })
-    const practiceStatsQuery = api.practiceStats.get.useQuery(undefined, { enabled: signedIn })
+    // Lifetime key/transition evidence follows the active layout's stats pool
+    // (docs/features/keyboard-layouts.md decision 6).
+    const [activeLayout] = useLayout()
+    const pool = statsPoolFor(activeLayout)
+    const transitionsQuery = api.transitionStats.get.useQuery({ pool }, { enabled: signedIn })
+    const practiceStatsQuery = api.practiceStats.get.useQuery({ pool }, { enabled: signedIn })
 
     // Lifetime evidence snapshotted while the rep runs and frozen at completion,
     // so the result's before→after delta compares against the data as it stood
@@ -201,8 +207,8 @@ const Drill: NextPage = () => {
                 transitions: transitionsQuery.data ?? [],
                 keyStats: (practiceStatsQuery.data ?? []).map((s) => ({ key: s.character, attempts: s.total, correct: s.correct })),
             }
-            : { transitions: readLocalTransitions(), keyStats: readLocalKeyStats() })
-    }, [completed, restartSignal, signedIn, transitionsQuery.data, practiceStatsQuery.data])
+            : { transitions: readLocalTransitions(pool), keyStats: readLocalKeyStats(pool) })
+    }, [completed, restartSignal, signedIn, pool, transitionsQuery.data, practiceStatsQuery.data])
 
     // The header states the baseline being drilled against (the number to beat)
     // and offers the next pick straight from lifetime evidence — no completed

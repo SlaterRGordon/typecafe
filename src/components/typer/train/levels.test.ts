@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest"
 import { TestSubModes } from "~/components/typer/types"
-import { levels, withLanguageAccents } from "./levels"
+import { levels, levelsFor, withLanguageAccents } from "./levels"
+
+const sorted = (s: string) => s.split("").sort().join("")
 
 describe("generated Train ladder", () => {
     it("builds 100 sequentially named levels", () => {
@@ -32,7 +34,9 @@ describe("generated Train ladder", () => {
 
     it("introduces keys progressively then holds the full alphabet", () => {
         expect(levels[0]!.keys).toBe("asdfjkl")
-        expect(levels[99]!.keys).toBe("qwertyuiopasdfghjklzxcvbnm")
+        // The final stage is the full alphabet in introduction order — the key
+        // SET is the contract (generation and highlights are set-based).
+        expect(sorted(levels[99]!.keys)).toBe("abcdefghijklmnopqrstuvwxyz")
         // never shrinks as you climb
         for (let i = 1; i < levels.length; i++) {
             expect(levels[i]!.keys.length).toBeGreaterThanOrEqual(levels[i - 1]!.keys.length)
@@ -53,7 +57,7 @@ describe("withLanguageAccents", () => {
 
     it("extends full-alphabet levels with the language's accent letters", () => {
         const extended = withLanguageAccents(levels[99]!, accents)
-        expect(extended.keys).toBe("qwertyuiopasdfghjklzxcvbnméèç")
+        expect(extended.keys).toBe(levels[99]!.keys + "éèç")
         // Everything else (name, count, kind) is untouched — progress and
         // thresholds key off the name.
         expect(extended).toMatchObject({ name: "Level 100", count: levels[99]!.count, kind: levels[99]!.kind })
@@ -65,5 +69,29 @@ describe("withLanguageAccents", () => {
 
     it("is a no-op for English (no accents)", () => {
         expect(withLanguageAccents(levels[99]!, [])).toBe(levels[99]!)
+    })
+})
+
+describe("levelsFor", () => {
+    it("swaps z/y for qwertz but keeps names, counts and the alphabet", () => {
+        const de = levelsFor("qwertz-de")
+        expect(de).toHaveLength(100)
+        de.forEach((level, i) => {
+            expect(level.name).toBe(levels[i]!.name)
+            expect(level.count).toBe(levels[i]!.count)
+            expect(level.kind).toBe(levels[i]!.kind)
+        })
+        // t/z arrive together on QWERTZ where qwerty pairs t/y (position spec).
+        const tzStage = de.find((level) => level.keys.includes("t"))!
+        expect(tzStage.keys).toContain("z")
+        expect(sorted(de[99]!.keys)).toBe("abcdefghijklmnopqrstuvwxyz")
+    })
+
+    it("returns the cached ladder on repeat calls", () => {
+        expect(levelsFor("qwertz-de")).toBe(levelsFor("qwertz-de"))
+    })
+
+    it("collapses unknown layouts to the qwerty ladder", () => {
+        expect(levelsFor("corrupt-storage-value")).toBe(levels)
     })
 })

@@ -75,9 +75,11 @@ export function mergeProgress(progress: LevelProgress[], entry: LevelProgress): 
 
 // The ladder's standing for a difficulty: Level 1 is always Unlocked; every
 // other Level unlocks once the prior Level's best net WPM meets the prior
-// Level's requirement (accuracy is not gated).
-export function ladderState(progress: LevelProgress[], difficulty: DifficultyName): LevelStatus[] {
-    return levels.map((level, index, array) => {
+// Level's requirement (accuracy is not gated). `ladder` defaults to the qwerty
+// levels; Train passes the active layout's (levelsFor) — names and thresholds
+// are layout-independent, only each Level's keys differ.
+export function ladderState(progress: LevelProgress[], difficulty: DifficultyName, ladder: Level[] = levels): LevelStatus[] {
+    return ladder.map((level, index, array) => {
         const cleared = progress.find((item) => item.levelName === level.name)
         const stars = clampStars(cleared?.stars ?? 0)
 
@@ -94,22 +96,22 @@ export function ladderState(progress: LevelProgress[], difficulty: DifficultyNam
 
 // The Level to resume at: the last Unlocked Level (i.e. one before the first
 // locked one). All cleared → the final Level; nothing cleared → Level 1.
-export function resumeLevel(progress: LevelProgress[], difficulty: DifficultyName): Level {
-    const ladder = ladderState(progress, difficulty)
-    const firstLocked = ladder.findIndex((status) => !status.unlocked)
-    const index = firstLocked === -1 ? levels.length - 1 : firstLocked <= 0 ? 0 : firstLocked - 1
+export function resumeLevel(progress: LevelProgress[], difficulty: DifficultyName, ladder: Level[] = levels): Level {
+    const state = ladderState(progress, difficulty, ladder)
+    const firstLocked = state.findIndex((status) => !status.unlocked)
+    const index = firstLocked === -1 ? ladder.length - 1 : firstLocked <= 0 ? 0 : firstLocked - 1
 
-    return levels[index] as Level
+    return ladder[index] as Level
 }
 
 // The Level to advance to after clearing `levelName`: the next one, but only if
 // it's now Unlocked. Null at the end of the ladder or if it's still locked.
-export function nextLevel(progress: LevelProgress[], levelName: string, difficulty: DifficultyName): Level | null {
-    const currentIndex = levels.findIndex((level) => level.name === levelName)
-    const next = levels[currentIndex + 1]
+export function nextLevel(progress: LevelProgress[], levelName: string, difficulty: DifficultyName, ladder: Level[] = levels): Level | null {
+    const currentIndex = ladder.findIndex((level) => level.name === levelName)
+    const next = ladder[currentIndex + 1]
     if (!next) return null
 
-    const status = ladderState(progress, difficulty).find((item) => item.level.name === next.name)
+    const status = ladderState(progress, difficulty, ladder).find((item) => item.level.name === next.name)
     return status?.unlocked ? next : null
 }
 

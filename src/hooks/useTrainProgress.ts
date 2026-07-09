@@ -12,7 +12,10 @@ import {
     type PersistedProgress,
 } from "~/lib/trainProgression"
 
-const getStorageKey = (difficulty: DifficultyName) => `typecafe.trainProgress.${difficulty}`
+// The guest mirror is keyed per stats pool like localSync: the legacy
+// unsuffixed key IS the qwerty pool; remap pools live under suffixed keys.
+const getStorageKey = (difficulty: DifficultyName, pool: string) =>
+    pool === "qwerty" ? `typecafe.trainProgress.${difficulty}` : `typecafe.trainProgress.${difficulty}:${pool}`
 
 export interface TrainProgressStore {
     // The user's ladder progress, converged from whichever source applies.
@@ -37,7 +40,9 @@ export interface TrainProgressStore {
 // completedProgress. save() and importDevice() route on session and resolve with
 // the outcome the page reacts to (the modal, the level advance), so the page
 // never branches on session itself. The pure merge lives in trainProgression.
-export function useTrainProgress(difficulty: DifficultyName): TrainProgressStore {
+// `pool` is the stats pool (statsPoolFor) — remap ladders track separately
+// (docs/features/keyboard-layouts.md decision 6).
+export function useTrainProgress(difficulty: DifficultyName, pool = "qwerty"): TrainProgressStore {
     const { data: sessionData } = useSession()
     const dispatch = useDispatch()
     const signedIn = !!sessionData?.user
@@ -50,16 +55,16 @@ export function useTrainProgress(difficulty: DifficultyName): TrainProgressStore
         data: savedProgress = [],
         refetch: refetchSavedProgress,
         isLoading: isLoadingSavedProgress,
-    } = api.trainProgress.getByDifficulty.useQuery({ difficulty }, { enabled: signedIn })
+    } = api.trainProgress.getByDifficulty.useQuery({ difficulty, pool }, { enabled: signedIn })
     const importTrainProgress = api.trainProgress.batchImport.useMutation()
     const completeTrainProgress = api.trainProgress.complete.useMutation()
 
-    // Reload the guest mirror and drop optimistic entries on difficulty change —
-    // each difficulty is its own ladder.
+    // Reload the guest mirror and drop optimistic entries on difficulty or pool
+    // change — each difficulty (and each pool's ladder) is its own ladder.
     useEffect(() => {
         setOptimisticProgress([])
         setIsLocalProgressLoaded(false)
-        const stored = window.localStorage.getItem(getStorageKey(difficulty))
+        const stored = window.localStorage.getItem(getStorageKey(difficulty, pool))
         if (!stored) {
             setLocalProgress([])
             setIsLocalProgressLoaded(true)
@@ -71,7 +76,7 @@ export function useTrainProgress(difficulty: DifficultyName): TrainProgressStore
             setLocalProgress([])
         }
         setIsLocalProgressLoaded(true)
-    }, [difficulty])
+    }, [difficulty, pool])
 
     const persistedProgress: LevelProgress[] = useMemo(
         () => savedProgress.map(toLevelProgress),
@@ -89,14 +94,14 @@ export function useTrainProgress(difficulty: DifficultyName): TrainProgressStore
     const save = useCallback(async (entry: LevelProgress) => {
         if (!signedIn) {
             const nextProgress = mergeProgress(localProgress, entry)
-            window.localStorage.setItem(getStorageKey(difficulty), JSON.stringify(nextProgress.map(fromLevelProgress)))
+            window.localStorage.setItem(getStorageKey(difficulty, pool), JSON.stringify(nextProgress.map(fromLevelProgress)))
             setLocalProgress(nextProgress)
             return { saved: true, nextProgress }
         }
 
         const optimisticNextProgress = mergeProgress(completedProgress, entry)
         try {
-            await completeTrainProgress.mutateAsync({ difficulty, progress: fromLevelProgress(entry) })
+            await completeTrainProgress.mutateAsync({ difficulty, progress: fromLevelProgress(entry), pool })
             const savedResult = await refetchSavedProgress()
             const refreshed = (savedResult.data ?? []).map(toLevelProgress)
             const nextProgress = mergeProgress(
@@ -110,13 +115,13 @@ export function useTrainProgress(difficulty: DifficultyName): TrainProgressStore
             dispatch(addAlert({ message: "Could not refresh level progress.", type: "error" }))
             return { saved: false, nextProgress: completedProgress }
         }
-    }, [signedIn, localProgress, difficulty, completedProgress, completeTrainProgress, refetchSavedProgress, dispatch])
+    }, [signedIn, localProgress, difficulty, pool, completedProgress, completeTrainProgress, refetchSavedProgress, dispatch])
 
     const importDevice = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
         if (!signedIn || localProgress.length === 0 || importTrainProgress.isPending) return null
         try {
-            await importTrainProgress.mutateAsync({ difficulty, progress: localProgress.map(fromLevelProgress) })
-            window.localStorage.removeItem(getStorageKey(difficulty))
+            await importTrainProgress.mutateAsync({ difficulty, progress: localProgress.map(fromLevelProgress), pool })
+            window.localStorage.removeItem(getStorageKey(difficulty, pool))
             setLocalProgress([])
             const savedResult = await refetchSavedProgress()
             if (!silent) {
@@ -128,7 +133,7 @@ export function useTrainProgress(difficulty: DifficultyName): TrainProgressStore
             dispatch(addAlert({ message: "Could not import device progress.", type: "error" }))
             return null
         }
-    }, [signedIn, localProgress, difficulty, importTrainProgress, refetchSavedProgress, dispatch])
+    }, [signedIn, localProgress, difficulty, pool, importTrainProgress, refetchSavedProgress, dispatch])
 
     const isLoading = !isLocalProgressLoaded ||
         importTrainProgress.isPending ||

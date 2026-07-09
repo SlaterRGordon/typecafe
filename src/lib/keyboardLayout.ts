@@ -62,6 +62,11 @@ interface LayoutSpec {
     readonly remap?: boolean
     readonly rows: readonly [string, string, string, string]
     readonly dead?: string
+    // Authored layer exceptions, keyed by base glyph: [shift, altgr?,
+    // shiftAltgr?]. For keys whose auto-derivation is wrong — AZERTY's number
+    // row puts digits on the *shift* layer of its accent letters (é → 2), which
+    // the letters-uppercase rule can't express.
+    readonly overrides?: Record<string, readonly string[]>
 }
 
 const SPECS: Record<string, LayoutSpec> = {
@@ -70,8 +75,7 @@ const SPECS: Record<string, LayoutSpec> = {
     colemak: { shape: "ansi", remap: true, rows: ["1234567890-=\\", "qwfpgjluy;[]", "arstdhneio'", "zxcvbkm,./"] },
     "colemak-dh": { shape: "ansi", remap: true, rows: ["1234567890-=\\", "qwfpbjluy;[]", "arstgmneio'", "zxcdvkh,./"] },
     workman: { shape: "ansi", remap: true, rows: ["1234567890-=\\", "qdrwbjfup;[]", "ashtgyneoi'", "zxmcvkl,./"] },
-    // German T1 (DIN 2137). In the layout table but not the picker until the
-    // boards can render layered ISO caps (ledger slice 4).
+    // German T1 (DIN 2137).
     "qwertz-de": {
         shape: "iso",
         rows: [
@@ -81,6 +85,108 @@ const SPECS: Record<string, LayoutSpec> = {
             "<>| y x c v b n mµ ,; .: -_",
         ],
         dead: "^´`",
+    },
+    // National layouts below are transcribed from the Windows/CLDR references.
+    // French AZERTY (FR). The number row puts digits on shift — the `overrides`
+    // exceptions, since accent letters can't derive that.
+    "azerty-fr": {
+        shape: "iso",
+        rows: [
+            "² &1 é \"3# '4{ (5[ -6| è _8\\ ç à )°] =+}",
+            "a z e€ r t y u i o p ^¨ $£",
+            "q s d f g h j k l m ù *µ",
+            "<> w x c v b n ,? ;. :/ !§",
+        ],
+        dead: "^¨",
+        overrides: { "é": ["2", "~"], "è": ["7", "`"], "ç": ["9"], "à": ["0", "@"], "ù": ["%"] },
+    },
+    // Spanish (Spain).
+    "qwerty-es": {
+        shape: "iso",
+        rows: [
+            "ºª\\ 1!| 2\"@ 3·# 4$~ 5% 6& 7/ 8( 9) 0= '? ¡¿",
+            "q w e€ r t y u i o p `^[ +*]",
+            "a s d f g h j k l ñ ´¨{ ç}",
+            "<> z x c v b n m ,; .: -_",
+        ],
+        dead: "`´^¨",
+    },
+    // Spanish (Latin America).
+    "qwerty-latam": {
+        shape: "iso",
+        rows: [
+            "|°¬ 1! 2\" 3# 4$ 5% 6& 7/ 8( 9) 0= '?\\ ¿¡",
+            "q w e€ r t y u i o p ´¨ +*~",
+            "a s d f g h j k l ñ {[ }]",
+            "<> z x c v b n m ,; .: -_",
+        ],
+        dead: "´¨",
+    },
+    // Italian. No dead keys — accented vowels are direct caps (é is shift+è).
+    "qwerty-it": {
+        shape: "iso",
+        rows: [
+            "\\| 1! 2\" 3£ 4$ 5% 6& 7/ 8( 9) 0= '? ì",
+            "q w e€ r t y u i o p è +*]",
+            "a s d f g h j k l ò à ù",
+            "<> z x c v b n m ,; .: -_",
+        ],
+        overrides: { "ì": ["^"], "è": ["é", "["], "ò": ["ç", "@"], "à": ["°", "#"], "ù": ["§"] },
+    },
+    // Portuguese (Portugal).
+    "qwerty-pt": {
+        shape: "iso",
+        rows: [
+            "\\| 1! 2\"@ 3#£ 4$§ 5% 6& 7/{ 8([ 9)] 0=} '? «»",
+            "q w e€ r t y u i o p +* ´`",
+            "a s d f g h j k l ç ºª ~^",
+            "<> z x c v b n m ,; .: -_",
+        ],
+        dead: "´`~^",
+    },
+    // Brazilian ABNT2. ponytail: its second extra key (/? right of shift) is
+    // out of scope — `shape` only models ansi/iso (ledger upgrade path 5), so
+    // / stays untypeable on this board until that shape ships.
+    "qwerty-abnt2": {
+        shape: "iso",
+        rows: [
+            "'\" 1! 2@ 3# 4$ 5% 6¨ 7& 8* 9( 0) -_ =+",
+            "q w e€ r t y u i o p ´` [{",
+            "a s d f g h j k l ç ~^ ]}",
+            "\\| z x c v b n m ,< .> ;:",
+        ],
+        dead: "´`~^¨",
+    },
+    // UK (BS 4822-ish Windows layout).
+    "qwerty-uk": {
+        shape: "iso",
+        rows: [
+            "`¬¦ 1! 2\" 3£ 4$€ 5% 6^ 7& 8* 9( 0) -_ =+",
+            "q w e r t y u i o p [{ ]}",
+            "a s d f g h j k l ;: '@ #~",
+            "\\| z x c v b n m ,< .> /?",
+        ],
+    },
+    // US International: qwerty plus five dead keys (the Netherlands standard).
+    "qwerty-us-intl": {
+        shape: "ansi",
+        rows: [
+            "`~ 1! 2@ 3# 4$ 5% 6^ 7& 8* 9( 0) -_ =+ \\|",
+            "q w e r t y u i o p [ ]",
+            "a s d f g h j k l ; '",
+            "z x c v b n m , . /",
+        ],
+        dead: "'\"`~^",
+    },
+    // Polish (programmers): US QWERTY plus AltGr accents.
+    "qwerty-pl": {
+        shape: "ansi",
+        rows: [
+            "1 2 3 4 5 6 7 8 9 0 - = \\",
+            "q w eę r t y u i oó p [ ]",
+            "aą sś d f g h j k lł ; '",
+            "zż xź cć v b nń m , . /",
+        ],
     },
 }
 
@@ -97,13 +203,17 @@ const ANSI_SHIFT: Record<string, string> = {
     "[": "{", "]": "}", "\\": "|",
 }
 
-// Dead-key composition, shared across layouts (´+e is é on any hardware).
-// Only chars our offered languages use — grows with the layout catalog.
+// Dead-key composition, shared across layouts (´+e is é on any hardware; a
+// glyph composes identically wherever it's dead). Only chars our offered
+// languages use — grows with the layout catalog. The ' and " rows serve
+// US-International, whose apostrophe/quote caps are dead acute/diaeresis.
 const COMPOSE: Record<string, Record<string, string>> = {
     "´": { a: "á", e: "é", i: "í", o: "ó", u: "ú", y: "ý" },
+    "'": { a: "á", e: "é", i: "í", o: "ó", u: "ú", y: "ý" },
     "`": { a: "à", e: "è", i: "ì", o: "ò", u: "ù" },
     "^": { a: "â", e: "ê", i: "î", o: "ô", u: "û" },
     "¨": { a: "ä", e: "ë", i: "ï", o: "ö", u: "ü" },
+    "\"": { a: "ä", e: "ë", i: "ï", o: "ö", u: "ü" },
     "~": { a: "ã", n: "ñ", o: "õ" },
 }
 
@@ -140,6 +250,16 @@ function buildBoard(spec: LayoutSpec): Board {
     const deadGlyphs = new Set([...(spec.dead ?? "")])
     const rows = spec.rows.map((row) =>
         parseRow(row).map((cap) => {
+            const override = spec.overrides?.[cap.base]
+            if (override) {
+                const [shift, altgr, shiftAltgr] = override
+                cap = {
+                    base: cap.base,
+                    shift: shift ?? cap.shift,
+                    ...(altgr !== undefined ? { altgr } : {}),
+                    ...(shiftAltgr !== undefined ? { shiftAltgr } : {}),
+                }
+            }
             const dead = LAYERS.filter((layer) => {
                 const glyph = cap[layer]
                 return glyph !== undefined && deadGlyphs.has(glyph)
@@ -288,19 +408,66 @@ export function statsPoolFor(layout: string): string {
     return spec.remap ? layout : DEFAULT_LAYOUT
 }
 
+// Every pool the catalog can produce ("qwerty" + one per remap) — lets the
+// sign-in import enumerate the guest mirrors without guessing storage keys.
+export const STATS_POOLS: string[] = [...new Set(LAYOUT_IDS.map(statsPoolFor))]
+
+// ---------------------------------------------------------------------------
+// Setting resolution (ledger decision 4). The stored setting is AUTO_LAYOUT or
+// an explicit layout id; resolution is pure so the auto chain is unit-testable:
+// explicit pin → detection evidence → the language's conventional layout →
+// qwerty. Language defaults name wave-2/3 ids before their data lands — the
+// existence guard falls back to qwerty until each layout ships, so defaults
+// activate automatically as the catalog grows.
+export const AUTO_LAYOUT = "auto"
+
+export function defaultLayoutFor(language: string, locale = ""): string {
+    const lc = locale.toLowerCase()
+    const pick = (id: string) => (SPECS[id] ? id : DEFAULT_LAYOUT)
+    switch (language) {
+        case "german": return pick(lc.startsWith("de-ch") ? "qwertz-ch" : "qwertz-de")
+        case "french": return pick(lc.startsWith("fr-be") ? "azerty-be" : lc.startsWith("fr-ca") ? "cf" : "azerty-fr")
+        // Latin America only when the locale names a non-Spain region (es-419,
+        // es-MX…); bare "es" and es-ES take the Spain layout.
+        case "spanish": return pick(/^es-(?!es)/.test(lc) ? "qwerty-latam" : "qwerty-es")
+        case "italian": return pick("qwerty-it")
+        case "portuguese": return pick(lc.startsWith("pt-br") ? "qwerty-abnt2" : "qwerty-pt")
+        case "dutch": return pick("qwerty-us-intl")
+        case "polish": return pick("qwerty-pl")
+        default: return pick(lc.startsWith("en-gb") ? "qwerty-uk" : DEFAULT_LAYOUT)
+    }
+}
+
+export function resolveLayout(stored: string, language: string, detected: string | null, locale = ""): string {
+    if (stored !== AUTO_LAYOUT && SPECS[stored]) return stored
+    if (detected && SPECS[detected]) return detected
+    return defaultLayoutFor(language, locale)
+}
+
 // ---------------------------------------------------------------------------
 // Picker metadata, ordered as offered in the nav menu: the default first, then
 // by adoption (the languageMeta.ts pattern — nav and any chip name layouts
-// identically). Narrower than LAYOUT_IDS: qwertz-de joins once slice 4 renders
-// layered ISO boards.
-export interface LayoutMeta { value: string, label: string }
+// identically). Narrower than LAYOUT_IDS: a layout joins the picker only once
+// the boards can render it. `kind` groups the menu: national hardware layouts
+// vs. remaps that retrain fingers.
+export interface LayoutMeta { value: string, label: string, kind: "national" | "remap" }
 
 export const PICKER_LAYOUTS: LayoutMeta[] = [
-    { value: "qwerty", label: "QWERTY" },
-    { value: "colemak", label: "Colemak" },
-    { value: "colemak-dh", label: "Colemak-DH" },
-    { value: "dvorak", label: "Dvorak" },
-    { value: "workman", label: "Workman" },
+    { value: "qwerty", label: "QWERTY", kind: "national" },
+    { value: "qwertz-de", label: "QWERTZ (DE)", kind: "national" },
+    { value: "azerty-fr", label: "AZERTY (FR)", kind: "national" },
+    { value: "qwerty-uk", label: "QWERTY (UK)", kind: "national" },
+    { value: "qwerty-us-intl", label: "US International", kind: "national" },
+    { value: "qwerty-es", label: "Spanish (ES)", kind: "national" },
+    { value: "qwerty-latam", label: "Spanish (Latam)", kind: "national" },
+    { value: "qwerty-it", label: "QWERTY (IT)", kind: "national" },
+    { value: "qwerty-pt", label: "QWERTY (PT)", kind: "national" },
+    { value: "qwerty-abnt2", label: "ABNT2 (BR)", kind: "national" },
+    { value: "qwerty-pl", label: "Polish", kind: "national" },
+    { value: "colemak", label: "Colemak", kind: "remap" },
+    { value: "colemak-dh", label: "Colemak-DH", kind: "remap" },
+    { value: "dvorak", label: "Dvorak", kind: "remap" },
+    { value: "workman", label: "Workman", kind: "remap" },
 ]
 
 export const layoutMeta = (value: string): LayoutMeta =>
@@ -344,6 +511,14 @@ function letterAt(board: Board, row: number, col: number): string {
 // (qwerty drops ";" from the resting fingers, dvorak its top-row punctuation),
 // and the final stage sweeps the remaining letter positions so every layout
 // introduces all 26 letters.
+//
+// Word generation needs a vowel from stage 1 (real words and pronounceable
+// pseudo-words are impossible without one), and some national home rows have
+// none — AZERTY's is qsdfghjklm. Stage 1 then borrows the nearest vowel in
+// position order (AZERTY: e), and the cumulative builder skips it when its
+// own group arrives.
+const STAGE_VOWELS = "aeiou"
+
 export function keyStagesFor(layout: string): string[] {
     const board = boardFor(layout)
     const stages: string[] = []
@@ -351,7 +526,18 @@ export function keyStagesFor(layout: string): string[] {
     for (const group of STAGE_POSITIONS) {
         for (const [row, col] of group) {
             const ch = letterAt(board, row, col)
-            if (isLetter(ch)) keys += ch
+            if (isLetter(ch) && !keys.includes(ch)) keys += ch
+        }
+        if (stages.length === 0 && ![...keys].some((ch) => STAGE_VOWELS.includes(ch))) {
+            outer: for (const laterGroup of STAGE_POSITIONS) {
+                for (const [row, col] of laterGroup) {
+                    const ch = letterAt(board, row, col)
+                    if (isLetter(ch) && STAGE_VOWELS.includes(ch)) {
+                        keys += ch
+                        break outer
+                    }
+                }
+            }
         }
         stages.push(keys)
     }

@@ -98,6 +98,10 @@ model Test {
     punctuation Boolean @default(false)
     capitals    Boolean @default(false)
     ranked      Boolean @default(true)
+    // The keyboard layout the test was typed on (actual id, e.g. "qwertz-de") —
+    // honesty metadata for score surfaces; aggregation uses statsPoolFor
+    // (docs/features/keyboard-layouts.md decisions 6/10). Legacy rows = qwerty.
+    layout    String   @default("qwerty")
     // Full keystroke timeline (locked constraint #2): compact
     // [charCode, correct, dtMs] triples from src/lib/keystrokes.ts. Evidence
     // for replay/re-diagnosis under future heuristics; null on legacy rows.
@@ -151,6 +155,9 @@ model TestType {
 model PracticeStats {
     id        String   @id @default(cuid())
     userId    String
+    // Stats pool (statsPoolFor): national layouts share "qwerty", remaps key
+    // their own. Legacy rows default into the qwerty pool.
+    pool      String   @default("qwerty")
     character String   @db.VarChar(1)
     total     Int
     correct   Int
@@ -159,7 +166,7 @@ model PracticeStats {
 
     user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-    @@unique([userId, character])
+    @@unique([userId, pool, character])
     @@index([userId])
 }
 
@@ -186,6 +193,8 @@ model DailyUserStat {
 model TransitionStat {
     id        String   @id @default(cuid())
     userId    String
+    // Stats pool (statsPoolFor) — see PracticeStats.pool.
+    pool      String   @default("qwerty")
     pair      String   @db.VarChar(2)
     count     Int
     // Int is plenty: rows are rolling windows (ADR-0005) capped at
@@ -197,7 +206,7 @@ model TransitionStat {
 
     user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-    @@unique([userId, pair])
+    @@unique([userId, pool, pair])
     @@index([userId])
 }
 
@@ -205,6 +214,8 @@ model TrainProgress {
     id         String   @id @default(cuid())
     userId     String
     difficulty String
+    // Stats pool (statsPoolFor) — see PracticeStats.pool.
+    pool       String   @default("qwerty")
     options    String
     speed      Float
     accuracy   Float
@@ -214,7 +225,7 @@ model TrainProgress {
 
     user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-    @@unique([userId, difficulty, options])
+    @@unique([userId, difficulty, pool, options])
     @@index([userId])
     @@map("LearnProgress")
 }

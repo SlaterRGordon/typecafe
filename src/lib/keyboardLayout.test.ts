@@ -19,11 +19,10 @@ const sorted = (s: string) => s.split("").sort().join("")
 const DE = "qwertz-de"
 
 describe("layout catalogs", () => {
-    it("the geometry knows every picker layout plus qwertz-de", () => {
+    it("every picker layout is known to the geometry", () => {
         for (const layout of LAYOUTS) expect(LAYOUT_IDS).toContain(layout)
-        expect(LAYOUT_IDS).toContain(DE)
-        // qwertz-de stays out of the picker until slice 4 renders ISO boards.
-        expect(LAYOUTS).not.toContain(DE)
+        // qwertz-de joined the picker with the layered boards (slices 4-5).
+        expect(LAYOUTS).toContain(DE)
     })
 })
 
@@ -161,6 +160,44 @@ describe("reachability", () => {
             expect(sequenceFor(ch, DE).length, `"${ch}"`).toBeGreaterThan(0)
         }
     })
+
+    it("every language's default layout reaches its accent set", () => {
+        // The honest per-layout sets: what each national layout can actually
+        // produce (œ is deliberately absent — real AZERTY can't type it).
+        const accentSets: Record<string, string> = {
+            "azerty-fr": "éèàùçâêîôûëïü",
+            "qwerty-es": "ñáéíóúü",
+            "qwerty-latam": "ñáéíóúü",
+            "qwerty-it": "àèéìòù",
+            "qwerty-pt": "ãõçáéíóúâêôà",
+            "qwerty-abnt2": "ãõçáéíóúâêôà",
+            "qwerty-pl": "ąćęłńóśźż",
+            "qwerty-us-intl": "éëïöüáíóúñàè",
+        }
+        for (const [layout, accents] of Object.entries(accentSets)) {
+            for (const ch of accents) {
+                const steps = sequenceFor(ch, layout)
+                expect(steps.length, `"${ch}" on ${layout}`).toBeGreaterThan(0)
+                expect(steps.length, `"${ch}" on ${layout}`).toBeLessThanOrEqual(2)
+            }
+        }
+    })
+
+    it("pins wave-2 ground truths", () => {
+        // AZERTY: é is a direct key whose shift layer is the digit 2.
+        expect(keyFor("é", "azerty-fr")).toBe("é")
+        expect(sequenceFor("2", "azerty-fr")).toEqual([{ key: "é", shift: true }])
+        // Polish: every accent is an AltGr chord.
+        expect(sequenceFor("ą", "qwerty-pl")).toEqual([{ key: "a", altgr: true }])
+        // UK: £ lives on shift+3.
+        expect(glyphAt("3", "shift", "qwerty-uk")).toBe("£")
+        // US-International: é composes through the dead apostrophe.
+        expect(sequenceFor("é", "qwerty-us-intl")).toEqual([{ key: "'", dead: true }, { key: "e" }])
+        // Italian: é is shift on the è cap — no dead keys at all.
+        expect(sequenceFor("é", "qwerty-it")).toEqual([{ key: "è", shift: true }])
+        // Portuguese: ã composes through the dead tilde.
+        expect(sequenceFor("ã", "qwerty-pt")).toEqual([{ key: "~", dead: true }, { key: "a" }])
+    })
 })
 
 describe("dead flags", () => {
@@ -210,10 +247,13 @@ describe("keyStagesFor", () => {
 
             expect(stages).toHaveLength(11)
             const first = stages[0]!
-            // Stage 1 is the resting fingers: home-row letters only, and enough
-            // of them to generate words (Practice's floor: 6+ keys, a vowel and
-            // a consonant).
-            expect(first.split("").every((ch) => homeLetters.has(ch))).toBe(true)
+            // Stage 1 is the resting fingers: home-row letters, plus at most one
+            // borrowed vowel when the home row has none (AZERTY) — word
+            // generation needs a vowel from the first stage. Enough keys to
+            // generate words (Practice's floor: 6+ keys, vowel + consonant).
+            const offRow = first.split("").filter((ch) => !homeLetters.has(ch))
+            expect(offRow.length).toBeLessThanOrEqual(1)
+            for (const ch of offRow) expect(VOWELS.includes(ch)).toBe(true)
             expect(first.length).toBeGreaterThanOrEqual(6)
             expect(first.split("").some((ch) => VOWELS.includes(ch))).toBe(true)
             expect(first.split("").some((ch) => !VOWELS.includes(ch))).toBe(true)
