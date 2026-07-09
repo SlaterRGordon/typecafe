@@ -4,6 +4,7 @@ import {
     LAYOUT_IDS,
     LAYOUTS,
     boardFor,
+    composedFor,
     glyphAt,
     keyFor,
     keyStagesFor,
@@ -85,11 +86,54 @@ describe("keyFor", () => {
         expect(keyFor("Ü", DE)).toBe("ü")
     })
 
-    it("returns null for dead-composed and off-board chars", () => {
-        expect(keyFor("ê", DE)).toBeNull()
+    it("folds dead-composed chars onto the dead key's cell", () => {
+        // ê has no cell of its own on qwertz-de — it rides ^ (dead circumflex).
+        expect(keyFor("ê", DE)).toBe("^")
+        // Uppercase composed folds the same way.
+        expect(keyFor("Ê", DE)).toBe("^")
+        // A direct glyph never folds through compose: ü is its own key.
+        expect(keyFor("ü", DE)).toBe("ü")
+    })
+
+    it("returns null for untypeable and off-board chars", () => {
+        // No ogonek compose row: ą is untypeable on qwertz-de.
         expect(keyFor("ą", DE)).toBeNull()
         // ü exists on qwertz-de only — qwerty still rejects it.
         expect(keyFor("ü", "qwerty")).toBeNull()
+        // qwerty has no dead keys, so composed chars stay unmapped there.
+        expect(keyFor("ê", "qwerty")).toBeNull()
+    })
+})
+
+describe("composedFor", () => {
+    it("lists exactly the chars a dead glyph composes on the layout", () => {
+        // The ^ COMPOSE row (a e i o u) — none direct on qwertz-de, all listed.
+        expect([...composedFor("^", DE)].sort()).toEqual(["â", "ê", "î", "ô", "û"])
+        // ´ composes ý too: y has its own key on qwertz-de.
+        expect([...composedFor("´", DE)].sort()).toEqual(["á", "é", "í", "ó", "ú", "ý"])
+    })
+
+    it("returns [] for non-dead glyphs, dead-free layouts, and unknown layouts", () => {
+        expect(composedFor("a", DE)).toEqual([])
+        // qwerty has no dead keys; unknown layouts fall back to it.
+        expect(composedFor("^", "qwerty")).toEqual([])
+        expect(composedFor("^", "no-such-layout")).toEqual([])
+    })
+
+    it("never lists a char that has its own cell", () => {
+        // The umlauts are direct keys on qwertz-de — no dead glyph may claim
+        // them, and ¨ (their composer elsewhere) isn't dead here at all.
+        for (const dead of ["^", "´", "`", "¨"]) {
+            for (const direct of ["ü", "ö", "ä"]) {
+                expect(composedFor(dead, DE)).not.toContain(direct)
+            }
+        }
+        // Every listed char is dead-only: two keystrokes, never a direct cap.
+        for (const dead of ["^", "´", "`"]) {
+            for (const composed of composedFor(dead, DE)) {
+                expect(sequenceFor(composed, DE)).toHaveLength(2)
+            }
+        }
     })
 })
 

@@ -474,6 +474,42 @@ test.describe("home typing test", () => {
     await expect(board.locator('[data-kb-key="ü"]')).toHaveCount(0);
   });
 
+  test("practice drills accent keys: umlauts unlock on QWERTZ, a dead key toggles its composed set", async ({ page }) => {
+    await gotoHome(page);
+
+    // German via the globe → auto layout renders QWERTZ; umlauts are real keys.
+    await page.getByTestId("nav-language-trigger").click();
+    await page.getByTestId("nav-language-menu").getByRole("button", { name: "German" }).click();
+    await selectMode(page, "Practice");
+
+    const board = page.locator(".typecafe-keyboard");
+    const uml = board.locator('[data-kb-key="ü"]');
+    await expect(uml).toBeVisible();
+    // Accent keys start locked and toggle like any drill key. The click only
+    // lands once the language's accent set has loaded — retry until the lock
+    // badge (the cell's svg) disappears.
+    await expect(uml.locator("svg")).toHaveCount(1);
+    await expect(async () => {
+      await uml.click();
+      await expect(uml.locator("svg")).toHaveCount(0, { timeout: 250 });
+    }).toPass();
+
+    // French flips the auto board to AZERTY, where the dead circumflex is one
+    // toggle for its whole composed set (ê â î ô û).
+    await page.getByTestId("nav-language-trigger").click();
+    await page.getByTestId("nav-language-menu").getByRole("button", { name: "French" }).click();
+    const dead = board.locator('[data-kb-key="^"]');
+    await expect(dead).toHaveAttribute("data-kb-dead", "");
+    await expect(dead.locator("svg")).toHaveCount(1);
+    await expect(async () => {
+      await dead.click();
+      await expect(dead.locator("svg")).toHaveCount(0, { timeout: 250 });
+    }).toPass();
+    // Locking it again drops the whole set in one click.
+    await dead.click();
+    await expect(dead.locator("svg")).toHaveCount(1);
+  });
+
   test("settings cover language, text add-ons, practice keyboard, and no-timer length", async ({ page }) => {
     await gotoHome(page);
 

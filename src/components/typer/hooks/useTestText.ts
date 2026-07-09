@@ -56,7 +56,9 @@ export async function generateTestText(config: TestTextConfig, gramLevel: number
         // words *exclusively* (a locked letter never appears), and locked-in
         // numbers/punctuation are sprinkled in as drill targets. The min-keys rule
         // (>=6 letters incl. a vowel + consonant) guarantees text is always buildable.
-        const letters = selectedKeys.filter((key) => /^[a-z]$/.test(key))
+        // \p{L} so unlocked accent chars (ü, é, dead-composed ê) join the word
+        // pool — the language's word list decides whether they actually appear.
+        const letters = selectedKeys.filter((key) => /^\p{L}$/u.test(key) && key === key.toLowerCase())
         // The punctuation toggle gates the locked mark keys: off → no marks
         // sprinkled even if locked; on → sprinkle *only* the locked marks (never the
         // full natural pool, so Practice stays scoped to unlocked keys). Digits are

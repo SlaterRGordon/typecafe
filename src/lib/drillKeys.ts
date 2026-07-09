@@ -23,25 +23,34 @@ const VOWELS = "aeiou"
 const ALPHABET = "abcdefghijklmnopqrstuvwxyz"
 
 // Build a practice set from the user's eight least-accurate keys across letters,
-// numbers and punctuation. The worst letters anchor word generation — padded
-// with home-row keys and balanced so generation always has two vowels and a
-// consonant; weak numbers/punctuation ride along as extra drill targets
-// sprinkled into the text. Null when there isn't enough typing data yet.
+// numbers, punctuation, and the language's accent chars. The worst letters
+// anchor word generation — padded with home-row keys and balanced so generation
+// always has two vowels and a consonant; weak numbers/punctuation ride along as
+// extra drill targets sprinkled into the text, and weak accent chars join the
+// word pool directly (they're letters — real words carry them; a dead-composed
+// char like ê counts as itself, its reps ride the ^ cell on the board). Null
+// when there isn't enough typing data yet.
 // minAttempts 3 matches the /progress "weakest keys" list, so smart drill
 // targets exactly the keys shown as weak there.
+// `accents`: the language's accent chars typeable on the active layout — the
+// caller owns that intersection (language and layout live above lib/).
 export function smartDrillSelection(
     attempts: ReadonlyMap<string, { attempts: number, correct: number }>,
+    accents: readonly string[] = [],
 ): string[] | null {
+    const accentSet = new Set(accents)
     const drillable = new Map<string, { attempts: number, correct: number }>()
     for (const [key, value] of attempts) {
-        if (isDrillableKey(key)) drillable.set(key, value)
+        if (isDrillableKey(key) || accentSet.has(key)) drillable.set(key, value)
     }
 
     const worst = worstKeysFromAttempts(drillable, 8, 3)
     if (worst.length === 0) return null
     const worstKeys = worst.map((entry) => entry.key)
 
-    // Letters anchor word-gen: keep the weak letters, pad to eight.
+    // Letters anchor word-gen: keep the weak letters, pad to eight. Weak accent
+    // chars are letters too, but ride as extras — they never displace the a–z
+    // vowel/consonant balance the generator depends on.
     const letters = worstKeys.filter((key) => ALPHABET.includes(key))
     for (const key of "asdfghjkleiou") {
         if (letters.length >= 8) break
@@ -59,6 +68,6 @@ export function smartDrillSelection(
     ensureMin("eaiou", (key) => VOWELS.includes(key), 2)
     ensureMin("tnshr", (key) => !VOWELS.includes(key), 1)
 
-    const extras = worstKeys.filter((key) => isDrillDigit(key) || isDrillMark(key))
+    const extras = worstKeys.filter((key) => isDrillDigit(key) || isDrillMark(key) || accentSet.has(key))
     return [...letters, ...extras]
 }

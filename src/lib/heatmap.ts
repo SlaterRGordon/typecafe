@@ -31,9 +31,10 @@ export function shiftedGlyph(key: string, layout = DEFAULT_LAYOUT): string {
 
 // Map a typed character onto the physical key that produced it: letters fold to
 // lowercase, shifted symbols to their base key, plain keys pass through, and
-// anything off this keyboard (tab, dead-key composed chars, etc.) returns null
-// so callers can skip it. Delegates to the geometry module's keyFor — the single
-// source of truth for "which cell does this char belong to".
+// dead-key composed chars fold onto their dead key's cell (ê → ^). Anything
+// off this keyboard (tab, etc.) returns null so callers can skip it. Delegates
+// to the geometry module's keyFor — the single source of truth for "which
+// cell does this char belong to".
 export function foldToPhysicalKey(char: string, layout = DEFAULT_LAYOUT): string | null {
     return keyFor(char, layout)
 }

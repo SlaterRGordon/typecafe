@@ -367,6 +367,16 @@ test.describe("screenshot tour", () => {
     await page.getByRole("button", { name: "Show AltGr keys (accents and symbols)" }).click();
     await expect(board.locator('[data-kb-key="@"]')).toBeVisible();
     await capture(page, testInfo, "61-practice-qwertz-altgr-layer");
+    await page.getByRole("button", { name: "Show AltGr keys (accents and symbols)" }).click();
+
+    // Accent keys are drill targets now: clicking ü unlocks it (the lock badge
+    // drops) once the language's accent set has loaded.
+    const uml = board.locator('[data-kb-key="ü"]');
+    await expect(async () => {
+      await uml.click();
+      await expect(uml.locator("svg")).toHaveCount(0, { timeout: 250 });
+    }).toPass();
+    await capture(page, testInfo, "63-practice-qwertz-umlaut-unlocked");
   });
 
   test("train page: level map and tier switching", async ({ page }, testInfo) => {
@@ -641,6 +651,10 @@ test.describe("screenshot tour", () => {
     }
     await page.getByTestId("lifetime-keyboard-card").scrollIntoViewIfNeeded();
     await capture(page, testInfo, "40-progress-lifetime-keyboard");
+    // The layer switch flips the lifetime heatmap to the shift layer.
+    await page.getByTestId("lifetime-heatmap-layers").getByRole("button", { name: "⇧ shift" }).click();
+    await expect(page.getByTestId("lifetime-heatmap").locator('[data-kb-key="R"]')).toBeVisible();
+    await capture(page, testInfo, "40b-progress-lifetime-keyboard-shift");
   });
 
   test("progress dashboard (plateau coach voice)", async ({ page }, testInfo) => {

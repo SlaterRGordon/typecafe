@@ -9,7 +9,7 @@ import {
     lookupAttempt,
     type KeyAttempt,
 } from "~/lib/heatmap"
-import { boardFor, type KeyCap, type Layer } from "~/lib/keyboardLayout"
+import { boardFor, composedFor, type KeyCap, type Layer } from "~/lib/keyboardLayout"
 import { useLayout } from "~/hooks/useLayout"
 
 export type KeyHeatmapSize = "mini" | "full"
@@ -24,6 +24,10 @@ interface KeyHeatmapProps {
     includeSpace?: boolean,
     // Override the per-cell percentage label; defaults on for full, off for mini.
     showPercent?: boolean,
+    // False renders a plain board: no accuracy shading, no percentages — the
+    // same geometry (layers, dead styling, corner glyphs) as a neutral teaching
+    // surface (the train board). Defaults true: every heatmap stays a heatmap.
+    showAccuracy?: boolean,
     // Keys to ring, e.g. the diagnosed keys the user is about to drill.
     highlightKeys?: string[],
     // Practice interaction (all optional — score-card/progress stay read-only):
@@ -75,7 +79,10 @@ const ROW_CLASS_BY_SIZE: Record<KeyHeatmapSize, string> = {
 }
 
 const KEY_CLASS_BY_SIZE: Record<KeyHeatmapSize, string> = {
-    full: "relative kbd kbd-md sm:kbd-lg font-mono",
+    // The after: pseudo renders the teaching step badge (1→2 / ⇧ / AG) from
+    // data-kb-step — set imperatively by the train board, absent everywhere
+    // else, so the pseudo-element resolves to empty content and shows nothing.
+    full: "relative kbd kbd-md sm:kbd-lg font-mono after:absolute after:-right-1 after:-top-1.5 after:text-[9px] after:font-bold after:text-primary after:content-[attr(data-kb-step)]",
     mini: "relative kbd kbd-sm font-mono text-xs",
 }
 
@@ -125,7 +132,8 @@ export function KeyHeatmap(props: KeyHeatmapProps) {
     // The active layer decides which glyph each cell renders and reads accuracy
     // for (unfolded — each glyph its own tally, matching the shift layer).
     const layer: Layer = altgrLayer && shiftLayer ? "shiftAltgr" : altgrLayer ? "altgr" : shiftLayer ? "shift" : "base"
-    const showPercent = props.showPercent ?? size === "full"
+    const showAccuracy = props.showAccuracy ?? true
+    const showPercent = (props.showPercent ?? size === "full") && showAccuracy
     const { lowColor, highColor } = useHeatmapColors()
     const highlight = new Set(highlightKeys)
 
@@ -153,6 +161,26 @@ export function KeyHeatmap(props: KeyHeatmapProps) {
     const keyClass = KEY_CLASS_BY_SIZE[size]
     const spaceClass = SPACE_CLASS_BY_SIZE[size]
 
+    // A dead cell's accuracy aggregates its own tally with every char composed
+    // through it (ê rides ^'s cell) — unfolded sources carry composed chars as
+    // themselves; folded sources already landed them here, so the extra lookups
+    // find nothing and never double-count.
+    const attemptFor = (glyph: string): KeyAttempt | undefined => {
+        const own = lookupAttempt(attempts, glyph)
+        const composed = composedFor(glyph, boardLayout)
+        if (composed.length === 0) return own
+        let total = own?.attempts ?? 0
+        let correct = own?.correct ?? 0
+        for (const ch of composed) {
+            const tally = lookupAttempt(attempts, ch)
+            if (tally) {
+                total += tally.attempts
+                correct += tally.correct
+            }
+        }
+        return total > 0 ? { attempts: total, correct } : undefined
+    }
+
     // One cell per physical cap. The active layer picks the glyph (and its own
     // unfolded accuracy); full-size cells also show small secondary glyphs in
     // the physical convention — the shift twin top-right (symbols only; a
@@ -164,7 +192,7 @@ export function KeyHeatmap(props: KeyHeatmapProps) {
         // A cell with no glyph on this layer (AltGr on a plain key) is inert.
         if (!glyph) {
             return (
-                <kbd key={cap?.base ?? "space"} className={`${keyClass} opacity-30`} aria-hidden="true">
+                <kbd key={cap?.base ?? "space"} data-kb-cell={cap?.base} className={`${keyClass} opacity-30`} aria-hidden="true">
                     <span className="leading-none">&nbsp;</span>
                 </kbd>
             )
@@ -172,12 +200,14 @@ export function KeyHeatmap(props: KeyHeatmapProps) {
         // Interactive iff a click handler exists and either an explicit allow-set
         // names this glyph, or (no allow-set) we're on the base layer.
         const interactive = !!onKeyClick && (interactiveKeys ? interactiveKeys.has(glyph) : layer === "base")
-        const cell = heatmapCell(glyph, lookupAttempt(attempts, glyph))
-        const color = accuracyColor(cell.accuracy, lowColor, highColor)
+        const cell = heatmapCell(glyph, attemptFor(glyph))
+        // Plain boards (train) skip the gradient entirely — the default kbd
+        // surface is the "no data" look everywhere.
+        const color = showAccuracy ? accuracyColor(cell.accuracy, lowColor, highColor) : undefined
         // The cell background sweeps the full theme gradient, so a static text
         // color loses contrast at the extremes (e.g. aqua's bright-cyan low end).
         // Derive a legible black/white foreground from the cell's own luminance.
-        const textColor = readableTextColor(color)
+        const textColor = color ? readableTextColor(color) : undefined
         const isCurrent = currentKey != null && glyph === currentKey
         const ringed = isCurrent || highlight.has(glyph)
         const isLocked = !!lockedKeys?.has(glyph)
@@ -189,13 +219,14 @@ export function KeyHeatmap(props: KeyHeatmapProps) {
         return (
             <kbd
                 key={cap?.base ?? "space"}
-                data-kb-key={followActiveKey ? glyph : undefined}
+                data-kb-key={glyph}
+                data-kb-cell={cap?.base ?? " "}
                 data-kb-dead={isDead ? "" : undefined}
                 onClick={interactive ? () => onKeyClick!(glyph) : undefined}
                 role={interactive ? "button" : undefined}
                 className={`${keyClass} ${isSpace ? spaceClass : ""} ${ringed ? "ring-2 ring-primary ring-offset-1 ring-offset-base-200" : ""} ${interactive ? "cursor-pointer select-none" : ""} ${isLocked ? "opacity-60" : ""} ${isDead ? "border-2 border-dashed border-base-content/40" : ""}`}
-                style={{ backgroundColor: color, color: textColor }}
-                title={`${label}: ${cell.hasData ? `${cell.accuracy}%` : "no data"}${isDead ? " \u2014 dead key (waits for the next press)" : ""}${isLocked ? (interactive ? " (locked \u2014 click to add)" : " (locked)") : ""}`}
+                style={color ? { backgroundColor: color, color: textColor } : undefined}
+                title={`${label}${showAccuracy ? `: ${cell.hasData ? `${cell.accuracy}%` : "no data"}` : ""}${isDead ? " \u2014 dead key (waits for the next press)" : ""}${isLocked ? (interactive ? " (locked \u2014 click to add)" : " (locked)") : ""}`}
             >
                 <span className={`leading-none ${showPercent ? "absolute left-1 top-1 text-sm sm:left-1.5 sm:top-1.5 sm:text-base" : ""}`}>
                     {isSpace && !showPercent ? "\u00a0" : label}

@@ -278,8 +278,16 @@ interface Geometry {
     readonly board: Board
     readonly capByBase: Map<string, KeyCap>
     // Direct glyphs only: which physical key (base glyph) produces this char.
-    // Dead-key composed chars are deliberately absent (ledger upgrade path 1).
     readonly charToKey: Map<string, string>
+    // Dead-key composed chars → the dead key's cell (base glyph), so the
+    // heatmap folds ê onto ^'s cell (upgrade path 1, shipped): the accent key
+    // aggregates every char composed through it. Direct glyphs never appear
+    // here — ü on qwertz-de folds to its own cell.
+    readonly composedToKey: Map<string, string>
+    // Dead glyph → the chars it composes on this layout (dead-only chars; a
+    // direct glyph is never listed). Drives the practice board's dead-cell
+    // drill toggles and the heatmap's dead-cell aggregation.
+    readonly deadToComposed: Map<string, string[]>
     // Direct and dead-composed chars → keystroke sequence.
     readonly charToSteps: Map<string, Step[]>
 }
@@ -295,6 +303,8 @@ function buildGeometry(id: string, spec: LayoutSpec): Geometry {
     const board = buildBoard(spec)
     const capByBase = new Map<string, KeyCap>()
     const charToKey = new Map<string, string>()
+    const composedToKey = new Map<string, string>()
+    const deadToComposed = new Map<string, string[]>()
     const charToSteps = new Map<string, Step[]>()
 
     for (const row of board.rows) {
@@ -316,24 +326,28 @@ function buildGeometry(id: string, spec: LayoutSpec): Geometry {
     }
 
     // Dead-key composition: every composable char gets a two-step sequence
-    // (dead press, then base). Direct keys win — ü on qwertz-de is its own key,
-    // never ¨+u — and the fold map stays direct-only (upgrade path 1).
+    // (dead press, then base) and folds onto the dead key's cell. Direct keys
+    // win — ü on qwertz-de is its own key, never ¨+u, and never folds here.
     for (const row of board.rows) {
         for (const cap of row) {
             for (const layer of cap.dead ?? []) {
-                const table = COMPOSE[cap[layer]!]
+                const deadGlyph = cap[layer]!
+                const table = COMPOSE[deadGlyph]
                 if (!table) continue
                 const deadStep: Step = { key: cap.base, ...LAYER_MODS[layer], dead: true }
                 for (const [baseChar, composed] of Object.entries(table)) {
                     if (charToSteps.has(composed)) continue
                     const baseSteps = charToSteps.get(baseChar)
-                    if (baseSteps) charToSteps.set(composed, [deadStep, ...baseSteps])
+                    if (!baseSteps) continue
+                    charToSteps.set(composed, [deadStep, ...baseSteps])
+                    composedToKey.set(composed, cap.base)
+                    deadToComposed.set(deadGlyph, [...(deadToComposed.get(deadGlyph) ?? []), composed])
                 }
             }
         }
     }
 
-    return { board, capByBase, charToKey, charToSteps }
+    return { board, capByBase, charToKey, composedToKey, deadToComposed, charToSteps }
 }
 
 const GEOMETRY: Record<string, Geometry> = Object.fromEntries(
@@ -358,18 +372,28 @@ export function rowsFor(layout: string): readonly string[] {
 }
 
 // Which physical key (named by its base glyph) produced this char: letters
-// fold to their key, shifted/AltGr glyphs to theirs, space passes through.
-// Dead-key composed chars and anything off-board return null so callers skip
-// them — the single source of truth for "which cell does this char belong to".
+// fold to their key, shifted/AltGr glyphs to theirs, space passes through,
+// and dead-key composed chars fold onto their dead key's cell (ê → ^'s key —
+// the accent key aggregates the chars composed through it). Anything
+// off-board returns null so callers skip it — the single source of truth for
+// "which cell does this char belong to".
 export function keyFor(char: string, layout: string): string | null {
     if (char === " ") return " "
-    const { charToKey } = geometryFor(layout)
-    const direct = charToKey.get(char)
+    const { charToKey, composedToKey } = geometryFor(layout)
+    const direct = charToKey.get(char) ?? composedToKey.get(char)
     if (direct !== undefined) return direct
     // Capitals fold to their letter's key even when the cap's shift glyph was
     // claimed elsewhere (matches the pre-geometry A-Z fold).
     const lower = char.toLowerCase()
-    return lower !== char ? charToKey.get(lower) ?? null : null
+    return lower !== char ? charToKey.get(lower) ?? composedToKey.get(lower) ?? null : null
+}
+
+// The chars a dead glyph composes on this layout (dead-only: a char with its
+// own key is never listed). [] for non-dead glyphs and unknown layouts'
+// fallback. Practice uses this to make a dead key one drill toggle for its
+// whole composed set; the heatmap to aggregate accuracy onto the dead cell.
+export function composedFor(deadGlyph: string, layout: string): readonly string[] {
+    return geometryFor(layout).deadToComposed.get(deadGlyph) ?? []
 }
 
 // The glyph a key shows on a given layer. Keys off the board (space) echo

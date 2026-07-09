@@ -16,8 +16,8 @@ import { TestModes, TestSubModes, type QuoteLength, type TestGramScopes, type Te
 import { useTestSettings } from "~/hooks/useTestSettings";
 import { useLanguage } from "~/hooks/useLanguage";
 import { useLayout } from "~/hooks/useLayout";
-import { boardFor, statsPoolFor } from "~/lib/keyboardLayout";
-import { clampSize, composeLanguage, parseLanguage } from "~/components/typer/utils";
+import { boardFor, sequenceFor, statsPoolFor } from "~/lib/keyboardLayout";
+import { accentsFor, clampSize, composeLanguage, parseLanguage } from "~/components/typer/utils";
 import { withPracticeVowel } from "~/lib/diagnosis";
 import { smartDrillSelection } from "~/lib/drillKeys";
 import { addAlert } from "~/state/alert/alertSlice";
@@ -229,7 +229,9 @@ const Home: NextPage = () => {
   const hasAltGr = useMemo(() => boardFor(activeLayout).rows.some((row) => row.some((cap) => cap.altgr)), [activeLayout])
 
   // Smart drill (settings line): select the eight least-accurate keys from the
-  // folded lifetime + session attempts. Selection math lives in lib/drillKeys.
+  // folded lifetime + session attempts — including the language's accent chars
+  // the active layout can type (ü on qwertz-de, dead-composed ê on azerty-fr).
+  // Selection math lives in lib/drillKeys.
   const handleSmartDrill = () => {
     const merged = new Map<string, { attempts: number, correct: number }>()
     for (const source of [persistedAttemptsRef.current, charAttemptsRef.current]) {
@@ -240,7 +242,8 @@ const Home: NextPage = () => {
         merged.set(key, entry)
       }
     }
-    const keys = smartDrillSelection(merged)
+    const accents = accentsFor(parseLanguage(language).base).filter((ch) => sequenceFor(ch, activeLayout).length > 0)
+    const keys = smartDrillSelection(merged, accents)
     if (!keys) {
       dispatch(addAlert({ message: "Not enough typing data yet — practice a little first!", type: "warning" }))
       return

@@ -1,6 +1,6 @@
 # Keyboard layouts
 
-**Status:** ✅ done (2026-07-09) — slices 1–10 shipped; wave-3 layouts
+**Status:** ✅ done (2026-07-09) — slices 1–11 shipped; wave-3 layouts
 (qwertz-ch, azerty-be, cf, canadian-multilingual, bepo) stay on demand, and
 the deliberate v1 cuts live in Upgrade paths below. Plan re-derived from first
 principles and merged with the national-layouts plan 2026-07-08.
@@ -346,29 +346,54 @@ Until tags land, they render the viewer's active layout.
       affected-surface run green (home 39, train/progress/drill/plan/nav 54,
       tour 48, shared-score/typing-focus 17; unit 520). Wave 3 stays
       on demand.
+- [x] 11 — **Accent drills + layered surfaces everywhere** (2026-07-09, owner
+      request; ships upgrade paths 1+2). Practice: the language's accent chars
+      the active layout can type are drill keys — direct glyphs (ü ö ä ß on
+      QWERTZ, é è à ç ù on AZERTY, ą ę on Polish AltGr) lock/unlock their own
+      cell on whichever layer they live; a dead key is ONE toggle for its
+      whole composed set (clicking ^ on AZERTY adds/removes ê â î ô û
+      together). Unlocked accents join word generation (`\p{L}` letters) and
+      the smart-drill pool (they ride as extras after the a–z anchors; the a–z
+      vowel/consonant floor is untouched). No accents *setting*: the per-key
+      lock is the setting — punctuation needed a global toggle because marks
+      are sprinkled between words; accent letters live inside words and each
+      has its own cell. Fold change: `keyFor` now sends dead-composed chars to
+      their dead key's cell (ê → ^), so score cards, /progress, and smart
+      drill see accent-key weakness; `composedFor` is the new geometry export
+      and KeyHeatmap aggregates a dead cell's accuracy over its composed set.
+      Train: the guide board is the same full physical board as the heatmap
+      via KeyHeatmap `showAccuracy={false}` (plain: no shading/percentages,
+      corner glyphs + dead styling + ISO shape kept); holding Shift/AltGr
+      peeks those layers; the next-key marker and level highlight address
+      cells by the new stable `data-kb-cell` (survives layer re-renders), and
+      a dead-composed level char highlights its dead key's cell. /progress:
+      the lifetime heatmap gained ⇧ shift / AltGr layer switches (AltGr only
+      when the board has the layer); attempts are stored unfolded so each
+      layer reads each glyph's own tally. Known quirks (accepted): a
+      selectedKeys accent survives a language/layout switch harmlessly (its
+      words never generate); diagnosis drillKeys stay a–z.
 
 ## Upgrade paths (deliberate v1 cuts, with their triggers)
 
-1. **Dead-key composed chars → heatmap cells.** Storage needs nothing: ê/ã
-   tallies are already recorded char-keyed. The upgrade is read-time only —
-   step 1: `keyFor("ê", layout)` resolves through the compose table's reverse
-   lookup to the base-letter key (ê → e's cell), one lookup added to the
-   geometry module, no consumer changes. Step 2 (deeper): give the dead key
-   its own cell aggregating all chars composed through it, so "your accent key
-   is slow" becomes visible — needs a board cell → multi-char mapping in
-   `foldAttempts` only. **Trigger:** Portuguese (ã/õ are dead-key chars in
-   high-frequency words — não, são) or French circumflex users reporting
-   blind spots; Portuguese likely hits first.
-2. **Accent keys drillable in Practice** (select ü/ñ/é as drill targets):
-   per-layout drillable set + generation filter already language-aware.
-   Trigger: user demand after wave 2.
+1. ~~Dead-key composed chars → heatmap cells~~ — **shipped in slice 11** as
+   step 2 directly: `keyFor` folds composed chars onto the dead key's own
+   cell (ê → ^, never e's cell — merging with the base letter would blur two
+   different motions), `composedFor` exposes the composed set, KeyHeatmap
+   aggregates the dead cell's accuracy.
+2. ~~Accent keys drillable in Practice~~ — **shipped in slice 11**: direct
+   accent glyphs and dead-key composed sets lock/unlock and smart-drill;
+   gated by language ∩ layout, not a settings toggle.
 3. **Detection nudge for pinned users** ("your keyboard looks like QWERTZ —
    switch?"): only if auto-mode adoption proves insufficient.
 4. **Per-layout leaderboard filtering:** `Test.layout` tags make it a
    read-time filter; decision 9 (one ranking pool) stands.
 5. **ABNT2/JIS extra physical keys:** `shape` enum extends beyond ansi/iso;
    qwerty-abnt2 ships wave 2 on ISO rows minus its extra keys until then.
-6. **Input emulation (`e.code` remapping):** still a non-goal — breaks
+6. **AZERTY shift-layer digits as drill targets:** AZERTY puts 1–9 on the
+   shift layer of its accent keys; digits there stay display-only for now
+   (base-layer digit drills cover every other layout). Trigger: a French
+   user asking to drill numbers.
+7. **Input emulation (`e.code` remapping):** still a non-goal — breaks
    non-ANSI hardware, dead keys, IMEs. Revisit only on sustained real demand
    from users who cannot switch their OS layout.
 

@@ -30,7 +30,7 @@ import {
 import { useLanguage } from "~/hooks/useLanguage";
 import { useLayout } from "~/hooks/useLayout";
 import { languageMeta } from "~/lib/languageMeta";
-import { layoutMeta, statsPoolFor } from "~/lib/keyboardLayout";
+import { boardFor, layoutMeta, statsPoolFor } from "~/lib/keyboardLayout";
 import { composeWeakKeys, netFromRaw, worstKeysFromAttempts } from "~/lib/stats";
 import { detectPlateau } from "~/lib/trajectory";
 import { api } from "~/utils/api";
@@ -255,6 +255,12 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
     const [shareState, setShareState] = useState<"idle" | "sharing" | "copied">("idle");
     // The board the heatmap below renders (and whose stats pool feeds it).
     const [activeBoardLayout] = useLayout();
+    // Heatmap layer switches: attempts are stored unfolded (char-keyed), so the
+    // shift/AltGr layers read each glyph's own tally — R apart from r, € apart
+    // from e. AltGr only offers itself on layouts that have the layer.
+    const [heatmapShift, setHeatmapShift] = useState(false);
+    const [heatmapAltgr, setHeatmapAltgr] = useState(false);
+    const boardHasAltGr = useMemo(() => boardFor(activeBoardLayout).rows.some((row) => row.some((cap) => cap.altgr)), [activeBoardLayout]);
     const now = useMemo(() => new Date(), []);
     const createProgressShare = api.scoreShare.createProgress.useMutation();
 
@@ -561,10 +567,32 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
                         {/* "Your keyboard", not "Lifetime": per-key accuracy is a rolling
                             window of recent attempts (ADR-0005), not an all-time sum. */}
                         <div className="text-base font-semibold text-base-content">Your keyboard</div>
-                        <KeyHeatmapLegend />
+                        <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-1" data-testid="lifetime-heatmap-layers">
+                                <button
+                                    type="button"
+                                    className={`btn btn-xs normal-case ${heatmapShift ? "btn-primary" : "btn-ghost text-base-content/60"}`}
+                                    aria-pressed={heatmapShift}
+                                    onClick={() => setHeatmapShift((on) => !on)}
+                                >
+                                    ⇧ shift
+                                </button>
+                                {boardHasAltGr && (
+                                    <button
+                                        type="button"
+                                        className={`btn btn-xs normal-case ${heatmapAltgr ? "btn-primary" : "btn-ghost text-base-content/60"}`}
+                                        aria-pressed={heatmapAltgr}
+                                        onClick={() => setHeatmapAltgr((on) => !on)}
+                                    >
+                                        AltGr
+                                    </button>
+                                )}
+                            </div>
+                            <KeyHeatmapLegend />
+                        </div>
                     </div>
                     <div className="flex w-full justify-center overflow-x-auto pb-1">
-                        <KeyHeatmap attempts={props.keyAttempts} size="full" showPercent={Object.keys(props.keyAttempts).length > 0} className="min-w-fit" testId="lifetime-heatmap" />
+                        <KeyHeatmap attempts={props.keyAttempts} size="full" showPercent={Object.keys(props.keyAttempts).length > 0} shiftLayer={heatmapShift} altgrLayer={heatmapAltgr} className="min-w-fit" testId="lifetime-heatmap" />
                     </div>
                     {Object.keys(props.keyAttempts).length === 0 && (
                         <p className="mt-4 text-center text-sm text-base-content/45">Take more tests to color in your per-key accuracy.</p>
