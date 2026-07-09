@@ -1,108 +1,347 @@
 # Keyboard layouts
 
-**Status:** 📋 planned · **Decided:** 2026-07-07 with the owner
+**Status:** 🔨 in progress — slices 1–2 shipped; plan re-derived from first
+principles and merged with the national-layouts plan 2026-07-08 (supersedes
+both earlier versions of this ledger; decisions 4–10 need owner lock).
+**Trigger:** a German user on the new language support — words are German,
+board is US QWERTY.
 
-Make keyboard layout a global, local-first setting chosen in the nav — the same
-shape as [global-language.md](global-language.md). The layout changes what the
-app *displays and teaches* (boards, heatmaps, the train ladder); it never
-remaps input.
+The keyboard layout is a global, local-first setting: it changes what the app
+*displays and teaches* — boards, heatmaps, next-key guidance, the train ladder
+— and never remaps input. It covers both **remap layouts** (Dvorak, Colemak…)
+and **national layouts** (QWERTZ, AZERTY, Spanish, …) with dead keys, AltGr
+layers, and ISO shapes. When the language changes, the board follows: German →
+QWERTZ with real ü/ö/ä keys.
 
-## Decisions (locked 2026-07-07)
+Vision filter: a diagnosis board that shows keys where they aren't is a wrong
+measurement. For every non-US user, matching the board to their hardware is
+correctness, not cosmetics.
 
-1. **Display + ladder only — no emulation.** Input already reads `e.key`
-   (`Text.tsx`), so a user whose OS is set to Dvorak types correctly today; the
-   OS does the remapping, we render and teach in that layout. No `e.code`
-   remapping toggle (breaks on non-ANSI hardware, dead keys, IMEs). Revisit
-   only on real demand.
-2. **Layouts v1:** qwerty (default), dvorak, colemak, colemak-dh, workman.
-   National layouts (AZERTY, QWERTZ) stay deferred — they're hardware layouts
-   tied to the language feature's deferred accent-position problem.
-3. **Progress is per-layout, derived-on-read.** Unlike languages (fingers don't
-   reset when the words turn French — ADR 0005 kept coach global), switching
-   layout genuinely resets motor skill: QWERTY stats say nothing about Colemak
-   fingers. Train progress, per-key accuracy, and transition stats key per
-   layout; test records carry a layout tag and `/progress` filters on read.
-   Untagged legacy data = qwerty. No reset button needed.
-4. **Nav:** a keyboard-icon menu next to the globe, mirroring `LanguageMenu`
-   (top + mobile). No consolidated settings surface until the bar actually
-   overflows.
-5. **Competitive: not segregated.** Layout doesn't change the words typed;
-   leaderboards stay one pool. The layout tag on `Test` rows is honesty
-   metadata for future filtering, not a ranking axis.
+## Prior locks, re-derived
 
-## Where QWERTY is hardcoded today
+The 2026-07-07 decisions were re-examined on merit, not inherited:
 
-- `src/lib/heatmap.ts` — `HEATMAP_ROWS`, `SHIFT_MAP`, `foldToPhysicalKey`
-- `src/components/typer/train/levels.ts` — `KEY_STAGES` (home-row-out ladder)
-- `src/components/typer/Keyboard.tsx` — the read-only next-key board rows
+| Old lock | Verdict | Why |
+|---|---|---|
+| 1. Display only, no input emulation | **Keep** | Input reads `e.key`; the OS already resolves remaps, dead keys, AltGr, IMEs. Emulation breaks on non-ANSI hardware for zero gain. |
+| 2. v1 = five remap layouts, national deferred | **Superseded** | National layouts are the actual demand (decision 8: waves). |
+| 3. Progress strictly per-layout | **Replaced** | Per *pool* (decision 6). Char-keyed storage + read-time folding means national variants share history; only true remaps reset motor skill. |
+| 4. Nav LayoutMenu mirroring LanguageMenu | **Keep + extend** | Sound shape; gains an `auto` entry and grouping (decision 4). |
+| 5. Leaderboards one pool | **Keep** | Layout doesn't change the words typed. Tag stays honesty metadata. |
 
-Everything else (scoring, transitions, drills, grams, word generation) is
-character-based and untouched.
+Also dissolved: global-language.md's "Practice stays a–z because its UI is the
+QWERTY board" — once the board renders any layout, that rationale is gone (the
+*drillable set* staying a–z v1 is a separate, deliberate cut — see upgrades).
 
-## Architecture
+## Current state (evaluated 2026-07-08)
 
-One deep module, `src/lib/keyboardLayout.ts` — pure, React-free, unit-tested,
-same shape as `heatmap.ts`. A layout is data: three letter rows (the number row
-is shared) plus its shift pairs. Everything derives from it:
+**Shipped (slices 1–2):**
 
-- rows for board rendering (Keyboard, KeyHeatmap)
-- `shiftedGlyph` / `foldToPhysicalKey` per layout (heatmap.ts delegates)
-- `keyStagesFor(layout)` — the train ladder's key stages
+- `src/lib/keyboardLayout.ts` — pure lib; 5 remap layouts as four plain strings
+  (number row + 3 letter rows), `rowsFor`, `keyStagesFor` (position-spec train
+  ladder), picker meta.
+- `useLayout()` (`typecafe:layout` + change event) and nav `LayoutMenu`.
 
-Seam: a `useLayout()` hook mirroring `useLanguage()` (localStorage
-`typecafe:layout` + same-tab change event). Consumers take derived data, never
-switch on the layout name. No registry abstraction — a plain record of five
-layouts.
+**Working in our favor:**
 
-**Ladder derivation (the tricky bit):** today's `KEY_STAGES` are QWERTY
-*positions* chosen pedagogically (home row → inner columns → outward). Keep
-that position order as the spec and map positions through the layout to get
-each layout's stages. Positions holding non-letters in a layout (Dvorak's
-`' , . ;`) are skipped, and the letters those layouts displace join at the
-stage where their position unlocks. Unit test: every layout introduces all 26
-letters by `INTRO_LEVELS`, home row first.
+- **Input is `e.key`** (`Text.tsx`): a German user's ü already arrives as
+  `"ü"`. Dead-key presses arrive as `e.key === "Dead"` and are already ignored
+  (not an error); the composed char lands on the next press, so its recorded
+  time spans both strokes — correct signal, accents genuinely cost time.
+- Scoring, drills, grams, word generation are character-based — untouched.
+- Per-char tallies (`keyStats`, timelines, `drillProgress`'s unfolded
+  `attemptsFromEvents`) are keyed by the *character*; folding onto physical
+  keys happens at read time. A German user's existing ü/ö/ä history lights up
+  the QWERTZ board the moment folding knows the key — **no data migration**.
+- `accentsFor(language)` already derives each language's accent set from its
+  word list — the exact set a layout must make reachable.
 
-**Progress keying:** qwerty rows keep their current keys/columns unchanged
-(zero migration of existing data); non-qwerty gets a layout dimension —
-- Server: `layout String @default("qwerty")` on `TrainProgress`,
-  `PracticeStats`, `TransitionStat`, `Test`; widen the unique keys to include
-  it. Migrate **both** databases (dev `.env.local` + CLI `.env`).
-- Guest: layout field on `typecafe:keyStats`, `typecafe:transitionStats`
-  entries and `progressHistory` records (absent = qwerty), filtered on read —
-  the slice-7 `lang` pattern.
+**Three shipped assumptions national layouts break:**
+
+1. **One glyph per key.** Plain-string rows can't express per-layout shift
+   glyphs (German shift+7 = `/`), AltGr glyphs (`@` on Q, `€` on E, *all*
+   Polish accents), or dead keys.
+2. **The shared-glyph-set invariant.** heatmap.ts's `SHIFT_MAP`,
+   `shiftedGlyph`, `foldToPhysicalKey` are layout-independent only because all
+   five remap layouts permute one ANSI glyph set (pinned by a unit test this
+   plan retires). QWERTZ breaks it: ü ö ä ß are base glyphs; shift pairs
+   differ per layout.
+3. **ANSI shape.** QWERTZ/AZERTY are ISO: an extra key right of left-shift,
+   12-key D and C rows. Row data becomes variable-length.
+
+## Decisions
+
+### 1. Display and teaching only — never remap input
+
+The OS types; we render, diagnose, and teach in the user's layout. Revisit
+`e.code` emulation only on real demand (see upgrades).
+
+### 2. One deep geometry module (the seam decision)
+
+Key geometry today is smeared across two files: keyboardLayout.ts owns rows
+and ladder stages, heatmap.ts owns shift pairs and char→key folding — the
+split only works because of the glyph-set invariant that national layouts
+break. Re-derived seam: **`keyboardLayout.ts` becomes the single module that
+owns "where keys live and what they produce"; heatmap.ts keeps "how accuracy
+becomes color."**
+
+The interface callers (and tests) learn — pure, React-free, memoized:
+
+```ts
+boardFor(layout): Board                 // rows of keycaps: glyphs per layer, dead flags, ansi|iso
+keyFor(char, layout): string | null     // char → physical key (absorbs foldToPhysicalKey)
+glyphAt(key, layer, layout): string     // board layer rendering (absorbs shiftedGlyph)
+sequenceFor(char, layout): Step[]       // teaching: keystrokes incl. shift/altgr/dead steps
+keyStagesFor(layout): string[]          // train ladder stages (exists)
+resolveLayout(stored, language, detected, locale): LayoutId
+defaultLayoutFor(language, locale): LayoutId
+statsPoolFor(layout): string            // the storage dimension
+// + PICKER_LAYOUTS / layoutMeta / LAYOUTS / DEFAULT_LAYOUT (exist)
+```
+
+Interface facts (part of the interface, not the implementation): every
+function is total — unknown layout falls back to qwerty, unmappable char
+returns `null`/`[]`; qwerty outputs are pinned byte-for-byte to today's
+behavior; `sequenceFor` is at most two steps (dead + base). Behind this
+surface sit all layout tables, layers, compose maps, ISO shapes, detection
+signatures, and pedagogy ordering — the deletion test passes: remove the
+module and that knowledge reappears in five consumers.
+
+heatmap.ts shrinks to the accuracy module: `KeyAttempt`, `heatmapCell`,
+`accuracyColor`, and `foldAttempts`/`attemptsFromEvents` gain a `layout`
+parameter, delegating folding to `keyFor`. `HEATMAP_ROWS` (and the
+module-scope constants derived from it in KeyHeatmap.tsx and Keyboard.tsx —
+`HEATMAP_LAYOUT`, `ALL_KEYS`, `SHIFT_DRILL_MARKS`, which bake the layout in at
+import time) are replaced by per-render derivations from `boardFor`.
+
+Internal seams, not part of the interface: layout data records (authored as
+compact aligned layer strings, parsed once), the compose table, and the
+detection signature table — each tested directly, none exported.
+
+### 3. Layered key model, dead keys as data
+
+A key is `{ base, shift?, altgr?, shiftAltgr?, dead? }`; a layout is
+`{ id, shape: "ansi" | "iso", rows, compose? }` where `compose` maps dead char
++ base → composed (`"^" + "e" → "ê"`). Letters derive shift = uppercase; only
+exceptions are authored. The five remap layouts re-express losslessly (base
+layer only). Transcribe national layouts from CLDR/XKB, eyeball against
+Windows layouts (owner's OS). Compose tables carry only chars our languages
+use (`accentsFor` ∪ a–z), not full Unicode.
+
+**The invariant that keeps 15 layouts honest:** for every offered language,
+every char in `a–z` ∪ `accentsFor(language)` is reachable on that language's
+default layout via `sequenceFor`. A layout data typo fails CI, not a user.
+
+### 4. Layout follows language via `auto` — never a silent override
+
+`typecafe:layout` stores `"auto"` (new default) or an explicit layout id:
+
+```
+resolveLayout: explicit id → itself (pinned; language changes never touch it)
+               auto        → detection result → defaultLayoutFor(language, locale) → qwerty
+```
+
+Globe to German with layout on auto → board flips to QWERTZ. An explicit
+Colemak pick survives everything. LayoutMenu's first entry shows the resolved
+value (`Auto — QWERTZ (Germany)`), then grouped explicit lists (national /
+remaps). Existing stored picks keep working; only untouched users get auto.
+
+**Per-language defaults** (locale = `navigator.language`, tiebreak only):
+
+| Language | Default | Locale tiebreaks |
+|---|---|---|
+| english | qwerty (US) | `en-GB` → qwerty-uk |
+| german | qwertz-de | `de-CH` → qwertz-ch (wave 3) |
+| french | azerty-fr | `fr-BE` → azerty-be, `fr-CA` → cf (wave 3) |
+| spanish | qwerty-es | `es-419/-MX/…` → qwerty-latam |
+| italian | qwerty-it | — |
+| portuguese | qwerty-pt | `pt-BR` → qwerty-abnt2 |
+| dutch | qwerty-us-intl (NL convention) | — |
+| polish | qwerty-pl (programmers: US + AltGr accents) | — |
+
+### 5. Detection: two adapters, one pure signature module, never a prompt
+
+- **`navigator.keyboard.getLayoutMap()`** — Chromium only (Chrome 69+/Edge
+  79+ desktop), HTTPS. **No user-facing permission prompt** (Permissions
+  Policy matters only in iframes; Chromium ignores it top-level). Firefox and
+  Safari hold negative standards positions — it will never be cross-browser.
+  Returns `code → glyph`, enough to fingerprint from ~6 probes (`KeyQ→"a"` =
+  AZERTY, `KeyZ→"y"` = QWERTZ, `Semicolon→"ñ"` = Spanish…). No dead-key info,
+  so US vs US-International are indistinguishable — the language default
+  breaks that tie.
+- **Passive inference (all browsers, zero permissions):** real typing already
+  delivers `e.code`+`e.key` pairs; a handful of letter observations matches
+  the same signature table.
+
+The signature matcher is one pure function over `code → glyph` observations —
+the real seam here, with the API probe and the passive listener as its two
+adapters feeding one cached result. Detection **only feeds `auto`**, applied
+at mount/test boundaries (never mid-test board swaps), never overrides an
+explicit pick. `navigator.language` is a variant tiebreak, never layout
+evidence.
+
+### 6. Stats pool by layout family — the storage dimension is `statsPoolFor`
+
+Two user actions look identical as a layout switch:
+
+- **qwerty → colemak** is *retraining*: same hardware, new motor map. Pool
+  per layout.
+- **qwerty → qwertz-de** is *correcting the display* to the hardware they've
+  typed on all along. Their char-keyed history is already valid for the
+  QWERTZ board; resetting it punishes the user who asked for this.
+
+So: all national/traditional layouts pool as `"qwerty"` (= the untagged-legacy
+pool — zero migration); each remap (dvorak, colemak, colemak-dh, workman,
+bepo) is its own pool. Applies uniformly to `TrainProgress`, `PracticeStats`,
+`TransitionStat`, guest `keyStats`/`transitionStats`/progress entries.
+Accepted cost: the rare user genuinely retraining between two national
+layouts shares one pool. `Test.layout` still tags the **actual** id — tags
+are precise, the pool is only the aggregation key.
+
+### 7. Rendering umlauts, dead keys, AltGr
+
+- **Keycaps**: up to 4 glyphs in physical convention — shift top-left, base
+  bottom-left, AltGr bottom-right (shift-AltGr only when it exists and
+  differs). Dead glyphs render with a combining ring (◌̂) and muted style.
+- **Layers**: the board's base/shift toggle gains an AltGr layer, shown only
+  when the active layout has AltGr glyphs. Load-bearing for Polish, where
+  every accent is an AltGr chord.
+- **Next-key guidance**: `sequenceFor` resolves any char — `ü` on qwertz-de =
+  one key; `ê` on azerty-fr = dead `^` then `e` (numbered badges 1→2); `ą` on
+  qwerty-pl = AltGr+a (AltGr highlighted like shift today). `keySignal` stays
+  char-based; the board derives the sequence. This makes the L45+ accent
+  stretch (`withLanguageAccents`) teachable at last.
+- **Heatmap folding v1**: direct-key chars (ü ö ä ß · é è à ç ù · ñ — the
+  overwhelming majority of accent usage) fold onto their real key per layout.
+  Dead-key *composed* chars (ê î ô ã …) keep folding to null — deliberate cut,
+  first entry in the upgrade paths below.
+
+### 8. Catalog in waves — data entries, not features
+
+- **Wave 1 (with the model):** qwertz-de — the user who asked.
+- **Wave 2 (defaults complete):** azerty-fr, qwerty-es, qwerty-latam,
+  qwerty-uk, qwerty-us-intl, qwerty-it, qwerty-pt, qwerty-abnt2, qwerty-pl.
+- **Wave 3 (on request):** qwertz-ch, azerty-be, cf (Canadian French),
+  canadian-multilingual, bepo, qwertz-at (alias of de, only if asked).
+- Shipped remaps (dvorak, colemak, colemak-dh, workman) cover the "English
+  Dvorak/Colemak" asks.
+
+### 9. Competitive: one pool, unchanged
+
+Layout never changes the words typed; leaderboards stay one pool. Tags enable
+future filtering, not ranking.
+
+### 10. Score surfaces render the test's own layout
+
+A shared score card or beat-run compare is viewed by people on *other*
+layouts; once `Test.layout` tags exist, the mini heatmaps on
+`ShareableScoreCard` and `score/[slug]` (where target and challenger may
+differ from each other!) render each test's tagged board, untagged → qwerty.
+Until tags land, they render the viewer's active layout.
+
+## Impact map — every mode and page
+
+| Surface | Impact | Slice |
+|---|---|---|
+| Home typer (`index.tsx`, `Keyboard.tsx`) | Next-key board renders active layout; import-time consts (`ALL_KEYS`, `SHIFT_DRILL_MARKS`) become per-layout derivations; German umlaut words highlightable | 4 |
+| Practice (same `Keyboard` + selection) | Board shows active layout incl. AltGr layer; drillable set stays a–z/digits/marks v1 (accent keys display-only — upgrade 2); `selectedKeys` storage is chars, unaffected | 4 |
+| Train (`train.tsx`, `levels.ts`) | Ladder stages from `keyStagesFor(layout)`; L45+ accents get positions + sequence badges; `highlightKeys` stays char-based; progress pooled (decision 6) | 7, 8 |
+| Drill (`drill.tsx`, `drillProgress.ts`) | Untouched math — its `attemptsFromEvents` is deliberately unfolded (char-keyed); board highlight follows layout via `Keyboard` | 4 |
+| Grams | Char-based generation untouched; board follows layout | 4 |
+| `/progress` | Lifetime heatmap renders active layout's board; coach reads the active pool; a chip names the layout (globe-chip pattern) so an empty pool view doesn't read as broken | 8 |
+| Score card (`ShareableScoreCard`) | Mini heatmap → test's tagged layout (decision 10) | 4, 8 |
+| Beat-run (`score/[slug]`) | Target and challenger boards each render their own test's tag | 8 |
+| Leaderboard | Unchanged (decision 9) | — |
+| Profile | No board surface — unaffected | — |
+| Nav (`LayoutMenu`) | Auto entry + resolved value + national/remap grouping | 5 |
+| Storage (server + guest) | `layout` tag on `Test` + guest progress entries; `statsPoolFor` dimension on `TrainProgress`/`PracticeStats`/`TransitionStat` + guest stats; migrate **both** DBs (dev `.env.local` + CLI `.env`); untagged = qwerty pool | 8 |
+| `heatmap.ts` | Shrinks to accuracy math; folding/rows/shift move behind the geometry interface | 3 |
 
 ## Slices
 
-- [x] 1 — `src/lib/keyboardLayout.ts`: five layouts as row data; derived rows +
-      `keyStagesFor`. Found while building: all five layouts permute the *same*
-      ANSI glyph set, so heatmap.ts's shift pairs, `shiftedGlyph`, and
-      `foldToPhysicalKey` are layout-independent and stay put (unit test pins
-      the glyph-set invariant); only `HEATMAP_ROWS` delegates (qwerty, zero
-      behavior change). Per-char tallies therefore need no folding changes in
-      slice 5 — the layout dimension is purely a storage key. Ladder invariants
-      tested: qwerty stages set-match the hand-authored `KEY_STAGES`; every
-      layout climbs home-row-out to exactly 26 letters. No UI.
-- [ ] 2 — `useLayout()` hook + nav keyboard menu (top + mobile), mirroring
-      `useLanguage`/`LanguageMenu`.
-- [ ] 3 — Boards render the active layout: `Keyboard.tsx` read-only board,
-      Practice board + `KeyHeatmap`, shift layer included. Practice key
-      selection keeps its letter rules; the board just shows where keys live.
-- [ ] 4 — Train ladder uses `keyStagesFor(layout)`; train progress keys per
-      layout (server column + guest storage). Language accents still join at
-      L45+ via `withLanguageAccents`.
-- [ ] 5 — Coach data per layout: `PracticeStats`, `TransitionStat`,
-      `typecafe:keyStats`, `typecafe:transitionStats` gain the layout
-      dimension; heatmap, smart drill selection, and slow-transition coach read
-      the active layout's pool. Untagged = qwerty.
-- [ ] 6 — Records tagged: `Test.layout` + guest progress entries; `/progress`
-      filters by active layout alongside language (globe chip pattern — name
-      the layout so an empty view doesn't read as broken). Leaderboard
-      unchanged.
-- [ ] 7 — E2e per-layout coverage + screenshot tour (nav menu open, a
-      non-qwerty board, train ladder in colemak).
+- [x] 1 — `src/lib/keyboardLayout.ts`: five remap layouts as row data; derived
+      rows + `keyStagesFor`. Found while building: all five permute the same
+      ANSI glyph set, so heatmap folding stayed layout-independent — an
+      invariant (and its pinning test) deliberately retired by slice 3. Ladder
+      invariants tested: qwerty stages set-match the hand-authored
+      `KEY_STAGES`; every layout climbs home-row-out to 26 letters. No UI.
+- [x] 2 — `useLayout()` hook + nav `LayoutMenu` mirroring `LanguageMenu`;
+      picker meta in keyboardLayout.ts. Mobile bar overflow fixed by
+      icon-only triggers below `sm`. E2e (pick Colemak, survives reload,
+      desktop + mobile) + tour capture `39c-nav-layout-menu`.
+- [ ] 3 — **Geometry deepening** (decision 2/3): layered `KeyDef` rows, ISO
+      shape, dead/compose data; `boardFor`/`keyFor`/`glyphAt`/`sequenceFor`/
+      `statsPoolFor`; folding + shift logic move from heatmap.ts behind the
+      interface (heatmap keeps tallies/color, gains `layout` params); five
+      remap layouts re-expressed; qwerty outputs pinned byte-for-byte by
+      tests; glyph-set invariant test replaced by per-layout data validation +
+      the accent-reachability invariant. No UI.
+- [ ] 4 — **Boards render the layout + QWERTZ lands:** qwertz-de data;
+      `Keyboard.tsx` + `KeyHeatmap` take the active layout (import-time consts
+      → per-render derivations); ISO rendering; multi-glyph keycaps; AltGr
+      layer toggle; dead-key styling; shift layer per layout. Practice keeps
+      its a–z drill rules. E2e: pick German QWERTZ → ü ö ä are keys; tour.
+- [ ] 5 — **Auto mode:** stored default `"auto"`; `resolveLayout` +
+      `defaultLayoutFor` table; menu shows resolved value + grouping. E2e:
+      globe → German flips board (auto) and doesn't (pinned).
+- [ ] 6 — **Detection:** pure signature matcher + two adapters (getLayoutMap
+      probe, passive `e.code`/`e.key` listener); cached; feeds auto only at
+      mount/test boundaries. Signature table unit-tested.
+- [ ] 7 — **Teaching:** train ladder uses `keyStagesFor(layout)`; L45+ accent
+      stretch shows real positions; next-key guidance renders `sequenceFor`
+      steps (dead badges 1→2, AltGr chord highlight) in train + practice +
+      tests. E2e: German train L45+ highlights ü on QWERTZ; tour.
+- [ ] 8 — **Pools + tags** (decisions 6/10): `statsPoolFor` dimension on
+      server tables + guest storage (widened unique keys, both DBs migrated);
+      `Test.layout` + guest entries tagged with actual id; `/progress`
+      filters by active pool with a naming chip; score card + beat-run render
+      per-test tags. Untagged = qwerty.
+- [ ] 9 — **Wave 2 layouts:** eight defaults (decision 8 table), each a data
+      record + reachability test + menu entry; locale tiebreaks wired.
+- [ ] 10 — **Sweep:** per-layout e2e coverage; screenshot tour (QWERTZ board,
+      AltGr layer, auto entry in menu, colemak ladder). Wave 3 on demand.
+
+## Upgrade paths (deliberate v1 cuts, with their triggers)
+
+1. **Dead-key composed chars → heatmap cells.** Storage needs nothing: ê/ã
+   tallies are already recorded char-keyed. The upgrade is read-time only —
+   step 1: `keyFor("ê", layout)` resolves through the compose table's reverse
+   lookup to the base-letter key (ê → e's cell), one lookup added to the
+   geometry module, no consumer changes. Step 2 (deeper): give the dead key
+   its own cell aggregating all chars composed through it, so "your accent key
+   is slow" becomes visible — needs a board cell → multi-char mapping in
+   `foldAttempts` only. **Trigger:** Portuguese (ã/õ are dead-key chars in
+   high-frequency words — não, são) or French circumflex users reporting
+   blind spots; Portuguese likely hits first.
+2. **Accent keys drillable in Practice** (select ü/ñ/é as drill targets):
+   per-layout drillable set + generation filter already language-aware.
+   Trigger: user demand after wave 2.
+3. **Detection nudge for pinned users** ("your keyboard looks like QWERTZ —
+   switch?"): only if auto-mode adoption proves insufficient.
+4. **Per-layout leaderboard filtering:** `Test.layout` tags make it a
+   read-time filter; decision 9 (one ranking pool) stands.
+5. **ABNT2/JIS extra physical keys:** `shape` enum extends beyond ansi/iso;
+   qwerty-abnt2 ships wave 2 on ISO rows minus its extra keys until then.
+6. **Input emulation (`e.code` remapping):** still a non-goal — breaks
+   non-ANSI hardware, dead keys, IMEs. Revisit only on sustained real demand
+   from users who cannot switch their OS layout.
 
 ## Out of scope
 
-Input emulation (`e.code` remapping) · national layouts (AZERTY/QWERTZ) ·
-ISO/ortho physical shapes (ANSI only) · per-layout leaderboards · a
-consolidated settings surface.
+Non-Latin scripts and IMEs (matches the language ledger) · full Unicode
+compose tables · physical Enter/key-shape fidelity beyond row layout (flat
+rows) · per-layout ranking pools · a consolidated settings surface (until the
+nav actually overflows).
+
+## Risks
+
+- **Layout data correctness is the product** — a wrong glyph teaches a wrong
+  key. Mitigations: transcribe from CLDR/XKB, reachability invariant in CI,
+  per-layout snapshot tests, and a real-user check for German (the reporter).
+- **Detection wrongness** only mis-defaults `auto`; the menu shows the
+  resolution, one click fixes it, nothing is destroyed.
+- **Board rebuild scope** (slice 4) touches Keyboard.tsx/KeyHeatmap once, for
+  everything — layered caps, ISO, AltGr. Don't split it into two passes.
+- **Remap-user ladder shift at slice 7** (colemak stages change content while
+  train progress stays global until slice 8): acceptable pre-launch
+  (break-anything constraint); slices 7→8 should land close together.

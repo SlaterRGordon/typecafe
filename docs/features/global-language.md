@@ -101,9 +101,10 @@ weak-key card stays global (consistent with "training progress global", ADR
 ## Out of scope / deferred
 
 - 25k for non-English languages · per-language quotes · per-language coach/
-  transitions · per-national-layout keyboards (where é/ü/ł physically live — the
-  ladder can't show accent key positions, so they join only the mastery levels) ·
-  per-language profile (profile is a cross-language lifetime showcase by decision).
+  transitions · per-language profile (profile is a cross-language lifetime
+  showcase by decision). Per-national-layout keyboards (where é/ü/ł physically
+  live) are **no longer deferred** — planned in
+  [keyboard-layouts.md](keyboard-layouts.md).
 
 ### Deferred: token-weighted per-language grams (decided 2026-07-07)
 
