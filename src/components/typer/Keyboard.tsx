@@ -17,7 +17,7 @@ const ALL_KEYS = HEATMAP_ROWS.join("").split("")
 // The drillable marks that live on the shift layer (! ? :). These are the only
 // shift-layer cells that lock/unlock — capitals and the other shifted glyphs are
 // display-only (Decision 4).
-const SHIFT_DRILL_MARKS = ALL_KEYS.map(shiftedGlyph).filter(isDrillMark)
+const SHIFT_DRILL_MARKS = ALL_KEYS.map((key) => shiftedGlyph(key)).filter(isDrillMark)
 
 interface KeyboardProps {
     mode: TestModes,

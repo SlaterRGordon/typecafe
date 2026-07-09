@@ -1,35 +1,321 @@
-// Keyboard layout primitive: the pure data behind the global layout setting
-// (docs/features/keyboard-layouts.md). React-free and unit-tested, same shape
-// as heatmap.ts. A layout is just where the glyphs sit — all five arrange the
-// same ANSI glyph set, so heatmap.ts's shift pairing and per-char folding stay
-// layout-independent; only board rows and the train ladder's key stages derive
-// from here. Display/teaching only: input stays e.key, the OS does any remapping.
+// Keyboard-layout geometry: the one deep module that owns where keys live and
+// what they produce (docs/features/keyboard-layouts.md, decision 2). Pure and
+// React-free. Everything key-shaped derives from the layout table below:
+// boards for rendering (glyphs per layer, dead flags, ANSI/ISO shape), char →
+// physical-key folding for the heatmap, char → keystroke sequences for
+// teaching, the train ladder's key stages, and the stats-pool dimension.
+// Display/teaching only: input stays e.key, the OS does any remapping.
+//
+// Interface facts callers may rely on: every function is total (unknown layout
+// falls back to qwerty; unmappable chars return null/[]), qwerty outputs are
+// pinned to the pre-geometry behavior byte-for-byte, and sequences are at most
+// two steps (dead key + base). Layout data typos throw at module load, so a
+// bad table can't ship past the unit suite.
 
 export const DEFAULT_LAYOUT = "qwerty"
 
-// Four visual rows per layout (number row + three letter rows), ANSI shape,
-// matching heatmap.ts HEATMAP_ROWS. The qwerty entry is the single source of
-// truth HEATMAP_ROWS re-exports.
-const LAYOUT_ROWS: Record<string, readonly [string, string, string, string]> = {
-    qwerty: ["1234567890-=\\", "qwertyuiop[]", "asdfghjkl;'", "zxcvbnm,./"],
-    dvorak: ["1234567890[]\\", "',.pyfgcrl/=", "aoeuidhtns-", ";qjkxbmwvz"],
-    colemak: ["1234567890-=\\", "qwfpgjluy;[]", "arstdhneio'", "zxcvbkm,./"],
-    "colemak-dh": ["1234567890-=\\", "qwfpbjluy;[]", "arstgmneio'", "zxcdvkh,./"],
-    workman: ["1234567890-=\\", "qdrwbjfup;[]", "ashtgyneoi'", "zxmcvkl,./"],
+export type Layer = "base" | "shift" | "altgr" | "shiftAltgr"
+
+export interface KeyCap {
+    readonly base: string
+    readonly shift: string
+    readonly altgr?: string
+    readonly shiftAltgr?: string
+    // Layers on which this cap is a dead key (waits for the next press).
+    readonly dead?: readonly Layer[]
 }
 
-// Ordered as offered in the nav menu: the default first, then by adoption.
-export const LAYOUTS: string[] = ["qwerty", "colemak", "colemak-dh", "dvorak", "workman"]
+export interface Board {
+    readonly shape: "ansi" | "iso"
+    readonly rows: ReadonlyArray<readonly KeyCap[]>
+}
 
-// Rows for board rendering. Unknown names (corrupt storage) fall back to qwerty.
+// One keystroke of a teaching sequence: which physical key (named by its base
+// glyph) plus the modifiers held. `dead` marks a dead-key press awaiting the
+// next stroke — the board renders those as numbered steps.
+export interface Step {
+    readonly key: string
+    readonly shift?: boolean
+    readonly altgr?: boolean
+    readonly dead?: boolean
+}
+
+// ---------------------------------------------------------------------------
+// Layout data. Two authoring formats per row:
+//   - no spaces: one char per key, base layer only (the five remap layouts —
+//     kept byte-identical to their pre-geometry strings). Shift derives from
+//     uppercase for letters and the shared ANSI pair table for symbols.
+//   - space-separated tokens (national layouts): each token is one key's
+//     layers in order. Letters derive shift=uppercase, so their 2nd char is
+//     AltGr ("e€"). Non-letters author shift explicitly: base, shift, altgr,
+//     shiftAltgr ("0=}" = base 0, shift =, AltGr }). ß counts as non-letter
+//     here (its uppercase is "SS"), so "ß?\\" reads shift ?, AltGr \.
+// `dead` lists the layout's dead glyphs; any cap layer producing one gets the
+// dead flag. Compose (dead + base → composed) is the shared table below —
+// scoped to chars our languages actually use, not full Unicode.
+
+interface LayoutSpec {
+    readonly shape: "ansi" | "iso"
+    // True remaps (Dvorak, Colemak…) retrain fingers and get their own stats
+    // pool; national layouts re-describe the hardware users already type on
+    // and share the legacy qwerty pool (ledger decision 6).
+    readonly remap?: boolean
+    readonly rows: readonly [string, string, string, string]
+    readonly dead?: string
+}
+
+const SPECS: Record<string, LayoutSpec> = {
+    qwerty: { shape: "ansi", rows: ["1234567890-=\\", "qwertyuiop[]", "asdfghjkl;'", "zxcvbnm,./"] },
+    dvorak: { shape: "ansi", remap: true, rows: ["1234567890[]\\", "',.pyfgcrl/=", "aoeuidhtns-", ";qjkxbmwvz"] },
+    colemak: { shape: "ansi", remap: true, rows: ["1234567890-=\\", "qwfpgjluy;[]", "arstdhneio'", "zxcvbkm,./"] },
+    "colemak-dh": { shape: "ansi", remap: true, rows: ["1234567890-=\\", "qwfpbjluy;[]", "arstgmneio'", "zxcdvkh,./"] },
+    workman: { shape: "ansi", remap: true, rows: ["1234567890-=\\", "qdrwbjfup;[]", "ashtgyneoi'", "zxmcvkl,./"] },
+    // German T1 (DIN 2137). In the layout table but not the picker until the
+    // boards can render layered ISO caps (ledger slice 4).
+    "qwertz-de": {
+        shape: "iso",
+        rows: [
+            "^° 1! 2\"² 3§³ 4$ 5% 6& 7/{ 8([ 9)] 0=} ß?\\ ´`",
+            "q@ w e€ r t z u i o p ü +*~",
+            "a s d f g h j k l ö ä #'",
+            "<>| y x c v b n mµ ,; .: -_",
+        ],
+        dead: "^´`",
+    },
+}
+
+// The IDs the geometry knows (picker availability is a separate, narrower
+// list — PICKER_LAYOUTS below).
+export const LAYOUT_IDS: string[] = Object.keys(SPECS)
+
+// Shift twins shared by every ANSI remap layout (glyph-keyed: Dvorak's / still
+// shifts to ?). The single source the parser derives symbol shifts from.
+const ANSI_SHIFT: Record<string, string> = {
+    "1": "!", "2": "@", "3": "#", "4": "$", "5": "%",
+    "6": "^", "7": "&", "8": "*", "9": "(", "0": ")", "-": "_", "=": "+",
+    ";": ":", "'": "\"", ",": "<", ".": ">", "/": "?",
+    "[": "{", "]": "}", "\\": "|",
+}
+
+// Dead-key composition, shared across layouts (´+e is é on any hardware).
+// Only chars our offered languages use — grows with the layout catalog.
+const COMPOSE: Record<string, Record<string, string>> = {
+    "´": { a: "á", e: "é", i: "í", o: "ó", u: "ú", y: "ý" },
+    "`": { a: "à", e: "è", i: "ì", o: "ò", u: "ù" },
+    "^": { a: "â", e: "ê", i: "î", o: "ô", u: "û" },
+    "¨": { a: "ä", e: "ë", i: "ï", o: "ö", u: "ü" },
+    "~": { a: "ã", n: "ñ", o: "õ" },
+}
+
+// Uppercase-derived shift glyph, or null when the char doesn't single-char
+// uppercase (symbols, digits, ß → "SS").
+function derivedShift(ch: string): string | null {
+    const upper = ch.toUpperCase()
+    return ch.toLowerCase() === ch && upper !== ch && upper.length === 1 ? upper : null
+}
+
+function parseToken(token: string): KeyCap {
+    const chars = [...token]
+    const base = chars[0]!
+    const auto = derivedShift(base)
+    const shift = auto ?? chars[1] ?? ANSI_SHIFT[base] ?? base
+    const altgr = auto ? chars[1] : chars[2]
+    const shiftAltgr = auto ? chars[2] : chars[3]
+    return {
+        base,
+        shift,
+        ...(altgr !== undefined ? { altgr } : {}),
+        ...(shiftAltgr !== undefined ? { shiftAltgr } : {}),
+    }
+}
+
+function parseRow(row: string): KeyCap[] {
+    const tokens = row.includes(" ") ? row.split(" ") : [...row]
+    return tokens.map(parseToken)
+}
+
+const LAYERS: readonly Layer[] = ["base", "shift", "altgr", "shiftAltgr"]
+
+function buildBoard(spec: LayoutSpec): Board {
+    const deadGlyphs = new Set([...(spec.dead ?? "")])
+    const rows = spec.rows.map((row) =>
+        parseRow(row).map((cap) => {
+            const dead = LAYERS.filter((layer) => {
+                const glyph = cap[layer]
+                return glyph !== undefined && deadGlyphs.has(glyph)
+            })
+            return dead.length > 0 ? { ...cap, dead } : cap
+        }),
+    )
+    return { shape: spec.shape, rows }
+}
+
+// ---------------------------------------------------------------------------
+// Derived geometry, built eagerly per layout so data typos (one glyph on two
+// keys) throw during module load — the unit suite catches them, users never do.
+
+interface Geometry {
+    readonly board: Board
+    readonly capByBase: Map<string, KeyCap>
+    // Direct glyphs only: which physical key (base glyph) produces this char.
+    // Dead-key composed chars are deliberately absent (ledger upgrade path 1).
+    readonly charToKey: Map<string, string>
+    // Direct and dead-composed chars → keystroke sequence.
+    readonly charToSteps: Map<string, Step[]>
+}
+
+const LAYER_MODS: Record<Layer, Pick<Step, "shift" | "altgr">> = {
+    base: {},
+    shift: { shift: true },
+    altgr: { altgr: true },
+    shiftAltgr: { shift: true, altgr: true },
+}
+
+function buildGeometry(id: string, spec: LayoutSpec): Geometry {
+    const board = buildBoard(spec)
+    const capByBase = new Map<string, KeyCap>()
+    const charToKey = new Map<string, string>()
+    const charToSteps = new Map<string, Step[]>()
+
+    for (const row of board.rows) {
+        for (const cap of row) {
+            if (!capByBase.has(cap.base)) capByBase.set(cap.base, cap)
+            for (const layer of LAYERS) {
+                const glyph = cap[layer]
+                if (glyph === undefined) continue
+                const existing = charToKey.get(glyph)
+                if (existing !== undefined && existing !== cap.base) {
+                    throw new Error(`layout ${id}: glyph "${glyph}" on both "${existing}" and "${cap.base}"`)
+                }
+                if (existing === undefined) {
+                    charToKey.set(glyph, cap.base)
+                    charToSteps.set(glyph, [{ key: cap.base, ...LAYER_MODS[layer] }])
+                }
+            }
+        }
+    }
+
+    // Dead-key composition: every composable char gets a two-step sequence
+    // (dead press, then base). Direct keys win — ü on qwertz-de is its own key,
+    // never ¨+u — and the fold map stays direct-only (upgrade path 1).
+    for (const row of board.rows) {
+        for (const cap of row) {
+            for (const layer of cap.dead ?? []) {
+                const table = COMPOSE[cap[layer]!]
+                if (!table) continue
+                const deadStep: Step = { key: cap.base, ...LAYER_MODS[layer], dead: true }
+                for (const [baseChar, composed] of Object.entries(table)) {
+                    if (charToSteps.has(composed)) continue
+                    const baseSteps = charToSteps.get(baseChar)
+                    if (baseSteps) charToSteps.set(composed, [deadStep, ...baseSteps])
+                }
+            }
+        }
+    }
+
+    return { board, capByBase, charToKey, charToSteps }
+}
+
+const GEOMETRY: Record<string, Geometry> = Object.fromEntries(
+    Object.entries(SPECS).map(([id, spec]) => [id, buildGeometry(id, spec)]),
+)
+
+function geometryFor(layout: string): Geometry {
+    return GEOMETRY[layout] ?? GEOMETRY[DEFAULT_LAYOUT]!
+}
+
+// ---------------------------------------------------------------------------
+// The interface.
+
+export function boardFor(layout: string): Board {
+    return geometryFor(layout).board
+}
+
+// Base-glyph row strings, for consumers that only need where keys sit (the
+// pre-geometry rowsFor shape; layered rendering should use boardFor).
 export function rowsFor(layout: string): readonly string[] {
-    return LAYOUT_ROWS[layout] ?? LAYOUT_ROWS[DEFAULT_LAYOUT]!
+    return geometryFor(layout).board.rows.map((row) => row.map((cap) => cap.base).join(""))
 }
 
+// Which physical key (named by its base glyph) produced this char: letters
+// fold to their key, shifted/AltGr glyphs to theirs, space passes through.
+// Dead-key composed chars and anything off-board return null so callers skip
+// them — the single source of truth for "which cell does this char belong to".
+export function keyFor(char: string, layout: string): string | null {
+    if (char === " ") return " "
+    const { charToKey } = geometryFor(layout)
+    const direct = charToKey.get(char)
+    if (direct !== undefined) return direct
+    // Capitals fold to their letter's key even when the cap's shift glyph was
+    // claimed elsewhere (matches the pre-geometry A-Z fold).
+    const lower = char.toLowerCase()
+    return lower !== char ? charToKey.get(lower) ?? null : null
+}
+
+// The glyph a key shows on a given layer. Keys off the board (space) echo
+// themselves on base/shift; absent AltGr layers render as "" (no glyph).
+export function glyphAt(key: string, layer: Layer, layout: string): string {
+    const cap = geometryFor(layout).capByBase.get(key)
+    if (!cap) return layer === "base" || layer === "shift" ? key : ""
+    return cap[layer] ?? (layer === "base" || layer === "shift" ? cap.base : "")
+}
+
+// How to type a char on this layout: [] when it can't be typed, one step for
+// direct keys (with shift/altgr modifiers), two steps for dead-key chars.
+// Uppercase without its own cap = the lowercase sequence with shift on the
+// final press (Ê = dead ^, then Shift+E).
+export function sequenceFor(char: string, layout: string): Step[] {
+    if (char === " ") return [{ key: " " }]
+    const { charToSteps } = geometryFor(layout)
+    const direct = charToSteps.get(char)
+    if (direct) return direct
+    const lower = char.toLowerCase()
+    if (lower !== char) {
+        const steps = charToSteps.get(lower)
+        if (steps && steps.length > 0) {
+            const last = steps[steps.length - 1]!
+            return [...steps.slice(0, -1), { ...last, shift: true }]
+        }
+    }
+    return []
+}
+
+// The storage dimension for per-key/transition/train aggregates (ledger
+// decision 6): remaps retrain fingers and key their own pool; national
+// layouts re-describe existing hardware and share the legacy qwerty pool.
+export function statsPoolFor(layout: string): string {
+    const spec = SPECS[layout] ?? SPECS[DEFAULT_LAYOUT]!
+    return spec.remap ? layout : DEFAULT_LAYOUT
+}
+
+// ---------------------------------------------------------------------------
+// Picker metadata, ordered as offered in the nav menu: the default first, then
+// by adoption (the languageMeta.ts pattern — nav and any chip name layouts
+// identically). Narrower than LAYOUT_IDS: qwertz-de joins once slice 4 renders
+// layered ISO boards.
+export interface LayoutMeta { value: string, label: string }
+
+export const PICKER_LAYOUTS: LayoutMeta[] = [
+    { value: "qwerty", label: "QWERTY" },
+    { value: "colemak", label: "Colemak" },
+    { value: "colemak-dh", label: "Colemak-DH" },
+    { value: "dvorak", label: "Dvorak" },
+    { value: "workman", label: "Workman" },
+]
+
+export const layoutMeta = (value: string): LayoutMeta =>
+    PICKER_LAYOUTS.find((layout) => layout.value === value) ?? PICKER_LAYOUTS[0]!
+
+export const LAYOUTS: string[] = PICKER_LAYOUTS.map((layout) => layout.value)
+
+// ---------------------------------------------------------------------------
 // The train ladder's home-row-out order as physical positions ([row, column]
-// into rowsFor), one group per stage. Chosen so qwerty reproduces the
-// hand-authored KEY_STAGES it replaces (levels.ts); every layout gets the same
-// pedagogy — resting fingers first, then inner columns, outward, bottom row last.
+// into the board), one group per stage. Chosen so qwerty reproduces the
+// hand-authored KEY_STAGES it replaced (levels.ts); every layout gets the same
+// pedagogy — resting fingers first, then inner columns, outward, bottom row
+// last. Positions are finger positions: on ISO boards the bottom row shifts
+// one column right past the extra key, so [BOTTOM, 2] is the same physical
+// spot on ANSI and ISO hardware.
 const TOP = 1, HOME = 2, BOTTOM = 3
 const STAGE_POSITIONS: ReadonlyArray<ReadonlyArray<readonly [number, number]>> = [
     [[HOME, 0], [HOME, 1], [HOME, 2], [HOME, 3], [HOME, 6], [HOME, 7], [HOME, 8], [HOME, 9]],
@@ -44,7 +330,14 @@ const STAGE_POSITIONS: ReadonlyArray<ReadonlyArray<readonly [number, number]>> =
     [[BOTTOM, 4]],
 ]
 
+// Ladder keys are a-z only; national accent letters ride the L45+ mastery
+// stretch via levels.withLanguageAccents, never the intro stages.
 const isLetter = (ch: string) => ch >= "a" && ch <= "z"
+
+function letterAt(board: Board, row: number, col: number): string {
+    const offset = board.shape === "iso" && row === BOTTOM ? 1 : 0
+    return board.rows[row]?.[col + offset]?.base ?? ""
+}
 
 // Cumulative key stages for the train ladder (11 per layout, the shape
 // KEY_STAGES had). Positions holding non-letters in a layout are skipped
@@ -52,18 +345,21 @@ const isLetter = (ch: string) => ch >= "a" && ch <= "z"
 // and the final stage sweeps the remaining letter positions so every layout
 // introduces all 26 letters.
 export function keyStagesFor(layout: string): string[] {
-    const rows = rowsFor(layout)
+    const board = boardFor(layout)
     const stages: string[] = []
     let keys = ""
     for (const group of STAGE_POSITIONS) {
         for (const [row, col] of group) {
-            const ch = rows[row]?.[col] ?? ""
+            const ch = letterAt(board, row, col)
             if (isLetter(ch)) keys += ch
         }
         stages.push(keys)
     }
     const have = new Set(keys)
-    const rest = rows.slice(1).join("").split("").filter((ch) => isLetter(ch) && !have.has(ch))
+    const rest = board.rows
+        .slice(1)
+        .flatMap((row) => row.map((cap) => cap.base))
+        .filter((ch) => isLetter(ch) && !have.has(ch))
     stages.push(keys + rest.join(""))
     return stages
 }

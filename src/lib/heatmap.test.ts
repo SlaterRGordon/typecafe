@@ -152,3 +152,30 @@ describe("lookupAttempt", () => {
         expect(lookupAttempt(record, "z")).toBeUndefined()
     })
 })
+
+describe("layout threading", () => {
+    const ev = (key: string, correct: boolean): KeystrokeEvent => ({ key, correct, t: 0 })
+
+    it("foldToPhysicalKey resolves national glyphs only under their layout", () => {
+        expect(foldToPhysicalKey("ü", "qwertz-de")).toBe("ü")
+        expect(foldToPhysicalKey("ü")).toBeNull()
+    })
+
+    it("shiftedGlyph reads the layout's authored shift layer", () => {
+        expect(shiftedGlyph("ß", "qwertz-de")).toBe("?")
+    })
+
+    it("attemptsFromEvents tallies ü/Ü on the ü cell under qwertz-de, skips them by default", () => {
+        const events = [ev("ü", true), ev("Ü", false)]
+        const de = attemptsFromEvents(events, "qwertz-de")
+        expect(de.get("ü")).toEqual({ attempts: 2, correct: 1 })
+        expect(attemptsFromEvents(events).size).toBe(0)
+    })
+
+    it("foldAttempts sums ü/Ü on the ü cell under qwertz-de, drops them by default", () => {
+        const source = { "ü": { attempts: 2, correct: 1 }, "Ü": { attempts: 1, correct: 1 } }
+        const de = foldAttempts(source, "qwertz-de")
+        expect(de.get("ü")).toEqual({ attempts: 3, correct: 2 })
+        expect(foldAttempts(source).size).toBe(0)
+    })
+})

@@ -1,8 +1,9 @@
 # Keyboard layouts
 
-**Status:** 🔨 in progress — slices 1–2 shipped; plan re-derived from first
+**Status:** 🔨 in progress — slices 1–3 done; plan re-derived from first
 principles and merged with the national-layouts plan 2026-07-08 (supersedes
-both earlier versions of this ledger; decisions 4–10 need owner lock).
+both earlier versions of this ledger). **Decisions locked with the owner
+2026-07-08.**
 **Trigger:** a German user on the new language support — words are German,
 board is US QWERTY.
 
@@ -269,16 +270,22 @@ Until tags land, they render the viewer's active layout.
       picker meta in keyboardLayout.ts. Mobile bar overflow fixed by
       icon-only triggers below `sm`. E2e (pick Colemak, survives reload,
       desktop + mobile) + tour capture `39c-nav-layout-menu`.
-- [ ] 3 — **Geometry deepening** (decision 2/3): layered `KeyDef` rows, ISO
+- [x] 3 — **Geometry deepening** (decision 2/3): layered `KeyCap` rows, ISO
       shape, dead/compose data; `boardFor`/`keyFor`/`glyphAt`/`sequenceFor`/
-      `statsPoolFor`; folding + shift logic move from heatmap.ts behind the
-      interface (heatmap keeps tallies/color, gains `layout` params); five
-      remap layouts re-expressed; qwerty outputs pinned byte-for-byte by
-      tests; glyph-set invariant test replaced by per-layout data validation +
-      the accent-reachability invariant. No UI.
-- [ ] 4 — **Boards render the layout + QWERTZ lands:** qwertz-de data;
+      `statsPoolFor`; folding + shift logic moved from heatmap.ts behind the
+      interface (heatmap keeps tallies/color; its fns gain `layout` params
+      defaulting qwerty, so all pre-geometry callers are byte-for-byte
+      unchanged — 477/477 unit tests passed untouched); five remap layouts
+      re-expressed from their exact strings; glyph-set invariant test replaced
+      by load-time collision validation + the accent-reachability invariant.
+      Found while building: qwertz-de *data* pulled forward from slice 4 into
+      the layout table (not the picker — no UI leak) so dead/AltGr/ISO logic
+      is tested against real German T1 data instead of synthetic; compose is
+      one shared table (´+e→é on any hardware) with per-layout dead lists;
+      `LAYOUT_IDS` (geometry) split from `LAYOUTS` (picker). No UI.
+- [ ] 4 — **Boards render the layout + QWERTZ lands:** qwertz-de picker entry;
       `Keyboard.tsx` + `KeyHeatmap` take the active layout (import-time consts
-      → per-render derivations); ISO rendering; multi-glyph keycaps; AltGr
+      → per-layout derivations); ISO rendering; multi-glyph keycaps; AltGr
       layer toggle; dead-key styling; shift layer per layout. Practice keeps
       its a–z drill rules. E2e: pick German QWERTZ → ü ö ä are keys; tour.
 - [ ] 5 — **Auto mode:** stored default `"auto"`; `resolveLayout` +
