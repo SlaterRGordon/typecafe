@@ -8,11 +8,9 @@ import { KeyHeatmap } from "~/components/heatmap/KeyHeatmap";
 import { boardFor, composedFor, sequenceFor, keyFor, type Layer } from "~/lib/keyboardLayout";
 import { useLayout } from "~/hooks/useLayout";
 import { useLanguage } from "~/hooks/useLanguage";
+import { isDrillableKey, isPracticeLetter, isPracticeVowel } from "~/lib/drillKeys";
 
-const VOWELS = "aeiou"
-const CONSONANTS = "bcdfghjklmnpqrstvwxyz"
-const ALPHABET = "abcdefghijklmnopqrstuvwxyz"
-const isDrillable = (key: string) => ALPHABET.includes(key) || isDrillDigit(key) || isDrillMark(key)
+const isDrillable = isDrillableKey
 // The train/guide board is display-only: no tallies, ever.
 const EMPTY_ATTEMPTS = new Map<string, { attempts: number, correct: number }>()
 
@@ -242,20 +240,20 @@ export const Keyboard = (props: KeyboardProps) => {
         }
 
         if (selectedKeys.includes(key)) {
-            // Letters anchor word generation, so keep enough of them: at least 6,
-            // including a vowel and a consonant. Numbers/punctuation are add-on
-            // drill targets that don't count toward the floor and remove freely.
-            if (ALPHABET.includes(key)) {
-                const letters = selectedKeys.filter(k => ALPHABET.includes(k))
+            // Letters anchor word generation, so keep enough of them: at least 8,
+            // including two vowels and a consonant. International letters count
+            // too; numbers/punctuation remain add-on drill targets.
+            if (isPracticeLetter(key)) {
+                const letters = selectedKeys.filter(isPracticeLetter)
                 if (letters.length <= 8) {
-                    dispatch(addAlert({ message: "Must include at least 6 keys!", type: "error" }))
+                    dispatch(addAlert({ message: "Must include at least 8 keys!", type: "error" }))
                     return
                 }
-                if (VOWELS.includes(key) && letters.filter(k => VOWELS.includes(k)).length <= 2) {
-                    dispatch(addAlert({ message: "Must include at least 1 vowel!", type: "error" }))
+                if (isPracticeVowel(key) && letters.filter(isPracticeVowel).length <= 2) {
+                    dispatch(addAlert({ message: "Must include at least 2 vowels!", type: "error" }))
                     return
                 }
-                if (CONSONANTS.includes(key) && letters.filter(k => CONSONANTS.includes(k)).length <= 1) {
+                if (!isPracticeVowel(key) && letters.filter((letter) => !isPracticeVowel(letter)).length <= 1) {
                     dispatch(addAlert({ message: "Must include at least 1 consonant!", type: "error" }))
                     return
                 }

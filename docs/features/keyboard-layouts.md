@@ -352,10 +352,12 @@ Until tags land, they render the viewer's active layout.
       QWERTZ, é è à ç ù on AZERTY, ą ę on Polish AltGr) lock/unlock their own
       cell on whichever layer they live; a dead key is ONE toggle for its
       whole composed set (clicking ^ on AZERTY adds/removes ê â î ô û
-      together). Unlocked accents join word generation (`\p{L}` letters) and
-      the smart-drill pool (they ride as extras after the a–z anchors; the a–z
-      vowel/consonant floor is untouched). No accents *setting*: the per-key
-      lock is the setting — punctuation needed a global toggle because marks
+      together). Unlocked accents join word generation as lowercase Unicode
+      letters and become smart-drill anchors (not punctuation-like extras):
+      accented vowels normalize to their base vowel; other letters fill the
+      consonant slot; the eight-letter floor spans a–z and these active-layout
+      glyphs. No accents *setting*: the per-key lock is the setting —
+      punctuation needed a global toggle because marks
       are sprinkled between words; accent letters live inside words and each
       has its own cell. Fold change: `keyFor` now sends dead-composed chars to
       their dead key's cell (ê → ^), so score cards, /progress, and smart

@@ -474,7 +474,11 @@ test.describe("home typing test", () => {
     await expect(board.locator('[data-kb-key="ü"]')).toHaveCount(0);
   });
 
-  test("practice drills accent keys: umlauts unlock on QWERTZ, a dead key toggles its composed set", async ({ page }) => {
+  test("practice counts an unlocked umlaut toward the selection floor and toggles dead-key accents", async ({ page }) => {
+    await page.addInitScript(() => {
+      // A minimal valid pool: adding ü makes für a permitted German word.
+      window.localStorage.setItem("typecafe:testSettings", JSON.stringify({ selectedKeys: "abcdfgir".split("") }));
+    });
     await gotoHome(page);
 
     // German via the globe → auto layout renders QWERTZ; umlauts are real keys.
@@ -484,15 +488,37 @@ test.describe("home typing test", () => {
 
     const board = page.locator(".typecafe-keyboard");
     const uml = board.locator('[data-kb-key="ü"]');
+    const consonant = board.locator('[data-kb-key="c"]');
     await expect(uml).toBeVisible();
     // Accent keys start locked and toggle like any drill key. The click only
     // lands once the language's accent set has loaded — retry until the lock
     // badge (the cell's svg) disappears.
+    // Seed only the post-unlock generator: globally replacing Math.random before
+    // Home mounts stalls its initial text generator.
+    await page.evaluate(() => {
+      (window as typeof window & { originalMathRandom?: typeof Math.random }).originalMathRandom = Math.random;
+      Math.random = () => 0;
+    });
     await expect(uml.locator("svg")).toHaveCount(1);
     await expect(async () => {
       await uml.click();
       await expect(uml.locator("svg")).toHaveCount(0, { timeout: 250 });
     }).toPass();
+
+    // ü is an actual letter anchor: after it expands the eight-letter pool to
+    // nine, one selected ASCII consonant can be locked again without an alert.
+    await expect(consonant.locator("svg")).toHaveCount(0);
+    await consonant.click();
+    await expect(consonant.locator("svg")).toHaveCount(1);
+    await expect(page.getByTestId("practice-active-count")).toHaveText("8 keys active");
+    await expect(page.getByText("Must include at least 8 keys!", { exact: true })).toHaveCount(0);
+    await expect(page.locator("#words")).toContainText("für");
+
+    // The regenerated text retains the umlaut word after the floor-allowed removal.
+    await page.evaluate(() => {
+      const original = (window as typeof window & { originalMathRandom?: typeof Math.random }).originalMathRandom;
+      if (original) Math.random = original;
+    });
 
     // French flips the auto board to AZERTY, where the dead circumflex is one
     // toggle for its whole composed set (ê â î ô û).

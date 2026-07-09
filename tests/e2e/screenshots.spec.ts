@@ -349,6 +349,10 @@ test.describe("screenshot tour", () => {
   });
 
   test("national layout: German QWERTZ board with umlauts and AltGr layer", async ({ page }, testInfo) => {
+    await page.addInitScript(() => {
+      // A minimal valid pool: adding ü makes für a permitted German word.
+      window.localStorage.setItem("typecafe:testSettings", JSON.stringify({ selectedKeys: "abcdfgir".split("") }));
+    });
     await gotoHome(page);
 
     // Auto layout follows the nav language: German resolves to QWERTZ (DE).
@@ -371,11 +375,31 @@ test.describe("screenshot tour", () => {
 
     // Accent keys are drill targets now: clicking ü unlocks it (the lock badge
     // drops) once the language's accent set has loaded.
+    // Seed only the post-unlock generator: globally replacing Math.random before
+    // Home mounts stalls its initial text generator.
+    await page.evaluate(() => {
+      (window as typeof window & { originalMathRandom?: typeof Math.random }).originalMathRandom = Math.random;
+      Math.random = () => 0;
+    });
     const uml = board.locator('[data-kb-key="ü"]');
+    const consonant = board.locator('[data-kb-key="c"]');
     await expect(async () => {
       await uml.click();
       await expect(uml.locator("svg")).toHaveCount(0, { timeout: 250 });
     }).toPass();
+    // ü counts as a letter anchor, so c can return to its visibly locked state
+    // while the selected pool remains at the eight-letter floor.
+    await expect(consonant.locator("svg")).toHaveCount(0);
+    await consonant.click();
+    await expect(consonant.locator("svg")).toHaveCount(1);
+    await expect(page.getByTestId("practice-active-count")).toHaveText("8 keys active");
+    await expect(page.getByText("Must include at least 8 keys!", { exact: true })).toHaveCount(0);
+    // The text stays scoped to the remaining anchors, including the umlaut.
+    await expect(page.locator("#words")).toContainText("für");
+    await page.evaluate(() => {
+      const original = (window as typeof window & { originalMathRandom?: typeof Math.random }).originalMathRandom;
+      if (original) Math.random = original;
+    });
     await capture(page, testInfo, "63-practice-qwertz-umlaut-unlocked");
   });
 

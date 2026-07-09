@@ -20,15 +20,20 @@ export const isDrillableKey = (key: string) =>
     /^[a-z]$/.test(key) || isDrillDigit(key) || isDrillMark(key)
 
 const VOWELS = "aeiou"
-const ALPHABET = "abcdefghijklmnopqrstuvwxyz"
+
+// Practice accepts lowercase Unicode letters. Decomposing covers the accented
+// vowels used by the shipped language lists (ü → u, é → e, ą → a) without a
+// locale table; every other letter is a consonant for the generation floor.
+export const isPracticeLetter = (key: string) => /^\p{Ll}$/u.test(key)
+export const isPracticeVowel = (key: string) =>
+    isPracticeLetter(key) && VOWELS.includes(key.normalize("NFD")[0] ?? "")
 
 // Build a practice set from the user's eight least-accurate keys across letters,
-// numbers, punctuation, and the language's accent chars. The worst letters
-// anchor word generation — padded with home-row keys and balanced so generation
-// always has two vowels and a consonant; weak numbers/punctuation ride along as
-// extra drill targets sprinkled into the text, and weak accent chars join the
-// word pool directly (they're letters — real words carry them; a dead-composed
-// char like ê counts as itself, its reps ride the ^ cell on the board). Null
+// numbers, punctuation, and the language's accent chars. Weak letters —
+// including accents — anchor word generation, padded with home-row keys and
+// balanced for two vowels and a consonant. Numbers/punctuation ride along as
+// extra drill targets; a dead-composed char like ê counts as itself, while its
+// reps ride the ^ cell on the board. Null
 // when there isn't enough typing data yet.
 // minAttempts 3 matches the /progress "weakest keys" list, so smart drill
 // targets exactly the keys shown as weak there.
@@ -48,10 +53,9 @@ export function smartDrillSelection(
     if (worst.length === 0) return null
     const worstKeys = worst.map((entry) => entry.key)
 
-    // Letters anchor word-gen: keep the weak letters, pad to eight. Weak accent
-    // chars are letters too, but ride as extras — they never displace the a–z
-    // vowel/consonant balance the generator depends on.
-    const letters = worstKeys.filter((key) => ALPHABET.includes(key))
+    // Letters anchor word-gen: accents are letters too, so weak ü/é/ą can
+    // displace an a–z filler and shape the actual Practice text.
+    const letters = worstKeys.filter(isPracticeLetter)
     for (const key of "asdfghjkleiou") {
         if (letters.length >= 8) break
         if (!letters.includes(key)) letters.push(key)
@@ -65,9 +69,9 @@ export function smartDrillSelection(
             if (fill) letters[i] = fill
         }
     }
-    ensureMin("eaiou", (key) => VOWELS.includes(key), 2)
-    ensureMin("tnshr", (key) => !VOWELS.includes(key), 1)
+    ensureMin("eaiou", isPracticeVowel, 2)
+    ensureMin("tnshr", (key) => isPracticeLetter(key) && !isPracticeVowel(key), 1)
 
-    const extras = worstKeys.filter((key) => isDrillDigit(key) || isDrillMark(key) || accentSet.has(key))
+    const extras = worstKeys.filter((key) => isDrillDigit(key) || isDrillMark(key))
     return [...letters, ...extras]
 }

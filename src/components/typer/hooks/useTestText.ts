@@ -2,6 +2,7 @@ import { TestModes, TestSubModes } from "../types"
 import type { QuoteLength, TestGramScopes, TestGramSources } from "../types"
 import type { Level } from "../train/levels"
 import { applyTextOptions, ensureQuotesLoaded, ensureSizedLoaded, generateBetterPseudoText, generateNGram, generateQuote, generateText, isDrillDigit, isDrillMark, parseLanguage } from "../utils"
+import { isPracticeLetter } from "~/lib/drillKeys"
 
 export interface TestTextConfig {
     mode: TestModes,
@@ -52,13 +53,12 @@ export async function generateTestText(config: TestTextConfig, gramLevel: number
 
     if (mode === TestModes.practice) {
         if (!selectedKeys) return ""
-        // Practice uses ONLY the unlocked keys: the selected letters build the
-        // words *exclusively* (a locked letter never appears), and locked-in
-        // numbers/punctuation are sprinkled in as drill targets. The min-keys rule
-        // (>=6 letters incl. a vowel + consonant) guarantees text is always buildable.
-        // \p{L} so unlocked accent chars (ü, é, dead-composed ê) join the word
-        // pool — the language's word list decides whether they actually appear.
-        const letters = selectedKeys.filter((key) => /^\p{L}$/u.test(key) && key === key.toLowerCase())
+        // Practice uses ONLY unlocked keys: selected letters build words;
+        // numbers/punctuation are injected as drill targets. The selection floor
+        // keeps at least eight letters, including two vowels and a consonant.
+        // Lowercase Unicode letters (ü, é, dead-composed ê) join the word pool;
+        // the language list decides whether they appear.
+        const letters = selectedKeys.filter(isPracticeLetter)
         // The punctuation toggle gates the locked mark keys: off → no marks
         // sprinkled even if locked; on → sprinkle *only* the locked marks (never the
         // full natural pool, so Practice stays scoped to unlocked keys). Digits are
