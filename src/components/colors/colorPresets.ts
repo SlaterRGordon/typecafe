@@ -1,3 +1,5 @@
+import { readableTextColor } from "~/utils/convertColor"
+
 export interface Colors {
     "--b1": string,
     "--bc": string,
@@ -7,21 +9,10 @@ export interface Colors {
     "--sc": string,
 }
 
-const getReadableContentColor = (hex: string) => {
-    const value = hex.replace("#", "")
-    const red = parseInt(value.slice(0, 2), 16) / 255
-    const green = parseInt(value.slice(2, 4), 16) / 255
-    const blue = parseInt(value.slice(4, 6), 16) / 255
-    const toLinear = (channel: number) => channel <= 0.03928 ? channel / 12.92 : Math.pow((channel + 0.055) / 1.055, 2.4)
-    const luminance = 0.2126 * toLinear(red) + 0.7152 * toLinear(green) + 0.0722 * toLinear(blue)
-
-    return luminance > 0.179 ? "#000000" : "#ffffff"
-}
-
 export const withReadableContentColors = (colors: Omit<Colors, "--pc" | "--sc"> & Partial<Pick<Colors, "--pc" | "--sc">>): Colors => ({
     ...colors,
-    "--pc": colors["--pc"] || getReadableContentColor(colors["--p"]),
-    "--sc": colors["--sc"] || getReadableContentColor(colors["--s"]),
+    "--pc": colors["--pc"] || readableTextColor(colors["--p"]),
+    "--sc": colors["--sc"] || readableTextColor(colors["--s"]),
 })
 
 const darkPreset: Colors = {

@@ -817,6 +817,20 @@ test.describe("home typing test", () => {
     if (second !== first) await expect(firstCell).not.toHaveClass(/ring-primary/);
   });
 
+  // Heatmap cells sweep the full theme gradient, so each derives a legible
+  // black/white text color from its own background luminance rather than a
+  // fixed white that washed out on light cells (aqua's bright-cyan low end).
+  test("practice keyboard keys use legible black/white text on any cell color", async ({ page }) => {
+    await gotoHome(page);
+    await selectMode(page, "Practice");
+    await expect(page.locator(".typecafe-keyboard")).toBeVisible();
+
+    const cell = page.locator(".typecafe-key-heatmap [data-kb-key]").first();
+    await expect(cell).toBeVisible();
+    const color = await cell.evaluate((el) => getComputedStyle(el).color);
+    expect(["rgb(0, 0, 0)", "rgb(255, 255, 255)"]).toContain(color);
+  });
+
   // Regression guard: a diagnosis can surface all-consonant weak keys, and the
   // drill handoff used to hand Practice a vowel-less key set, which froze the
   // pseudo-word generator (an infinite loop) and hung the whole page. The drill

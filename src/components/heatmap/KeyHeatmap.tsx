@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react"
-import { hslToHex } from "~/utils/convertColor"
+import { hslToHex, readableTextColor } from "~/utils/convertColor"
 import { getActiveKey, subscribeActiveKey } from "~/components/typer/keySignal"
 import { useSecondaryStyle, useStyle } from "~/utils/hooks/useMutationObserver"
 import {
@@ -174,6 +174,10 @@ export function KeyHeatmap(props: KeyHeatmapProps) {
         const interactive = !!onKeyClick && (interactiveKeys ? interactiveKeys.has(glyph) : layer === "base")
         const cell = heatmapCell(glyph, lookupAttempt(attempts, glyph))
         const color = accuracyColor(cell.accuracy, lowColor, highColor)
+        // The cell background sweeps the full theme gradient, so a static text
+        // color loses contrast at the extremes (e.g. aqua's bright-cyan low end).
+        // Derive a legible black/white foreground from the cell's own luminance.
+        const textColor = readableTextColor(color)
         const isCurrent = currentKey != null && glyph === currentKey
         const ringed = isCurrent || highlight.has(glyph)
         const isLocked = !!lockedKeys?.has(glyph)
@@ -190,7 +194,7 @@ export function KeyHeatmap(props: KeyHeatmapProps) {
                 onClick={interactive ? () => onKeyClick!(glyph) : undefined}
                 role={interactive ? "button" : undefined}
                 className={`${keyClass} ${isSpace ? spaceClass : ""} ${ringed ? "ring-2 ring-primary ring-offset-1 ring-offset-base-200" : ""} ${interactive ? "cursor-pointer select-none" : ""} ${isLocked ? "opacity-60" : ""} ${isDead ? "border-2 border-dashed border-base-content/40" : ""}`}
-                style={{ backgroundColor: color }}
+                style={{ backgroundColor: color, color: textColor }}
                 title={`${label}: ${cell.hasData ? `${cell.accuracy}%` : "no data"}${isDead ? " \u2014 dead key (waits for the next press)" : ""}${isLocked ? (interactive ? " (locked \u2014 click to add)" : " (locked)") : ""}`}
             >
                 <span className={`leading-none ${showPercent ? "absolute left-1 top-1 text-sm sm:left-1.5 sm:top-1.5 sm:text-base" : ""}`}>
@@ -207,7 +211,7 @@ export function KeyHeatmap(props: KeyHeatmapProps) {
                     </span>
                 }
                 {showPercent &&
-                    <span className="pointer-events-none absolute bottom-0.5 right-1 text-[0.6rem] leading-none text-white/95 drop-shadow-sm sm:bottom-1 sm:right-1.5 sm:text-xs">
+                    <span className="pointer-events-none absolute bottom-0.5 right-1 text-[0.6rem] leading-none drop-shadow-sm sm:bottom-1 sm:right-1.5 sm:text-xs">
                         {cell.accuracy}%
                     </span>
                 }
