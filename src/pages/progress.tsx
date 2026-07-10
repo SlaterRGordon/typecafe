@@ -259,7 +259,8 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
     const [activeBoardLayout] = useLayout();
     // Heatmap layer switches: attempts are stored unfolded (char-keyed), so the
     // shift/AltGr layers read each glyph's own tally — R apart from r, € apart
-    // from e. AltGr only offers itself on layouts that have the layer.
+    // from e. Mutually exclusive (each turns the other off), so the board shows
+    // one layer at a time. AltGr only offers itself on layouts that have it.
     const [heatmapShift, setHeatmapShift] = useState(false);
     const [heatmapAltgr, setHeatmapAltgr] = useState(false);
     const boardHasAltGr = useMemo(() => boardFor(activeBoardLayout).rows.some((row) => row.some((cap) => cap.altgr)), [activeBoardLayout]);
@@ -596,7 +597,7 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
                                 type="button"
                                 className={`btn btn-xs normal-case ${heatmapShift ? "btn-primary" : "btn-ghost text-base-content/60"}`}
                                 aria-pressed={heatmapShift}
-                                onClick={() => setHeatmapShift((on) => !on)}
+                                onClick={() => { setHeatmapShift((on) => !on); setHeatmapAltgr(false); }}
                             >
                                 ⇧ shift
                             </button>
@@ -605,7 +606,7 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
                                     type="button"
                                     className={`btn btn-xs normal-case ${heatmapAltgr ? "btn-primary" : "btn-ghost text-base-content/60"}`}
                                     aria-pressed={heatmapAltgr}
-                                    onClick={() => setHeatmapAltgr((on) => !on)}
+                                    onClick={() => { setHeatmapAltgr((on) => !on); setHeatmapShift(false); }}
                                 >
                                     AltGr
                                 </button>

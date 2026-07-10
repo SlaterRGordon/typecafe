@@ -125,6 +125,24 @@ test.describe("home typing test", () => {
     await expect(page.locator("#words .text-secondary")).toHaveCount(0);
   });
 
+  test("Tab+Space restarts even when the space event beats Tab (chord race)", async ({ page }) => {
+    await gotoHome(page);
+
+    await typeCurrentCharacter(page);
+    await expect(page.locator("#c0")).toHaveClass(/text-base-300/);
+
+    // A near-simultaneous chord can reach the page with the space keydown ahead
+    // of Tab. page.keyboard always fires in call order, so dispatch synthetic
+    // keydowns in the racing order to prove the hook still restarts.
+    await page.evaluate(() => {
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: " ", bubbles: true }));
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", bubbles: true }));
+    });
+
+    await expect(page.locator("#c0")).toHaveClass(/active-char/);
+    await expect(page.locator("#c0")).not.toHaveClass(/text-base-300/);
+  });
+
   test("toolbar owns mode, length, language, and right-side actions", async ({ page }) => {
     await gotoHome(page);
 
