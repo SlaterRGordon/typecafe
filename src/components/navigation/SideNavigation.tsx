@@ -61,11 +61,8 @@ export const SideNavigation = () => {
                     <MaterialNavIcon name="trending_up" className={navIconClass} />
                     <div className={navLabelClass}>Progress</div>
                 </Link>
-                {/* Daily Challenge */}
-                <Link href="/challenge" className={getNavButtonClass('/challenge')} aria-label="Daily Challenge" title="Daily Challenge">
-                    <MaterialNavIcon name="calendar_today" className={navIconClass} />
-                    <div className={navLabelClass}>Challenge</div>
-                </Link>
+                {/* Daily Challenge hidden for now (2026-07) — /challenge still
+                    exists; restore the link from git history when it returns. */}
                 {/* Leaderboard */}
                 <Link href="/leaderboard" className={getNavButtonClass('/leaderboard')} aria-label="Leaderboard" title="Leaderboard">
                     <MaterialNavIcon name="leaderboard" className={navIconClass} />

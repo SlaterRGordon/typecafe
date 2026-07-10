@@ -101,9 +101,10 @@ weak-key card stays global (consistent with "training progress global", ADR
 ## Out of scope / deferred
 
 - 25k for non-English languages · per-language quotes · per-language coach/
-  transitions · per-national-layout keyboards (where é/ü/ł physically live — the
-  ladder can't show accent key positions, so they join only the mastery levels) ·
-  per-language profile (profile is a cross-language lifetime showcase by decision).
+  transitions · per-language profile (profile is a cross-language lifetime
+  showcase by decision). Per-national-layout keyboards (where é/ü/ł physically
+  live) are **no longer deferred** — planned in
+  [keyboard-layouts.md](keyboard-layouts.md).
 
 ### Deferred: token-weighted per-language grams (decided 2026-07-07)
 
@@ -126,6 +127,26 @@ frequency-ranked top-10k — a reasonable proxy — and no one has reported the 
 ladder feeling unrepresentative. Do it on that signal (a non-English user
 complaint, or noticing it firsthand), not speculatively. ~1 hour with data
 already fetched.
+
+### Deferred: per-language train threshold calibration (noted 2026-07-07)
+
+Train thresholds are a pure function of level × difficulty
+(`trainThresholds.ts`), identical across languages — but languages aren't
+equally fast to type. Below L45 the effect is noise (intro levels filter to
+a–z words everywhere). At L45+ the language's accent letters join the key set
+(`withLanguageAccents`), and on the keyboards most users have, é/ü/ł go through
+dead keys or AltGr chords several times slower than a plain keystroke — so top
+levels are mechanically harder in accented languages, right where thresholds
+are least forgiving (maybe 5–15% at the top given typical accent density, not
+2×). Global progress is the escape valve: anyone walled can pass the level in
+English.
+
+**The knob, when wanted:** a per-language multiplier alongside `DIFF_MULT`
+(english 1.0, others slightly under), applied in `targetWpm`. One record, no
+structural change. **Why not yet:** zero data for the constants — guessing
+them invents numbers and silently changes what stored `TrainProgress` stars
+mean. Trigger: a non-English user reporting the L45+ wall, or pass-rate data
+diverging by language.
 
 ## Known dead code (found while building, not touched)
 

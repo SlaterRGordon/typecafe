@@ -44,50 +44,16 @@ async function recordChallengeTabVisibility(page: Parameters<typeof mockTrpc>[0]
 }
 
 test.describe("daily challenge", () => {
-  test("home shows the daily challenge coach tab while undone, and dismiss hides it", async ({ page }, testInfo) => {
+  // The daily challenge surface is hidden for now (2026-07): no nav entry, no
+  // home coach tab — even with today's challenge undone. The /challenge page
+  // itself stays reachable by URL so the loop can return later.
+  test("home never shows the daily challenge coach tab (hidden for now)", async ({ page }) => {
     await page.clock.install({ time: new Date("2026-06-16T12:00:00.000Z") });
-    // Only yesterday done → today's challenge is still open, so the corner card shows.
-    await page.addInitScript(() => {
-      window.localStorage.setItem("typecafe:challengeHistory", JSON.stringify([
-        { dateKey: "2026-06-15", wpm: 70.1, accuracy: 97, t: Date.parse("2026-06-15T12:00:00.000Z") },
-      ]));
-    });
-
-    await page.goto("/");
-
-    if (testInfo.project.name.includes("mobile")) {
-      const tab = page.getByTestId("home-coach-tab-challenge-inline");
-      await expect(tab).toBeVisible();
-      await expect(tab.getByText("Try now")).toBeVisible();
-      await expect(tab.getByRole("link", { name: "Start challenge" })).toHaveAttribute("href", "/challenge");
-
-      await tab.getByRole("button", { name: "Dismiss daily challenge" }).click();
-      await expect(tab).toHaveCount(0);
-      return;
-    }
-
-    const tab = page.getByTestId("home-coach-tab-challenge");
-    await expect(tab).toBeVisible();
-    const collapsedLink = tab.getByRole("link", { name: "Daily challenge" });
-    await expect(collapsedLink).toHaveAttribute("href", "/challenge");
-    const collapsedLabel = tab.getByText("Try now");
-    await expect(collapsedLabel).toBeVisible();
-    await tab.hover();
-    const panel = page.getByTestId("home-coach-tab-challenge-panel");
-    await expect(collapsedLink).toHaveCSS("opacity", "0");
-    await expect(panel.getByRole("link", { name: "Start challenge" })).toHaveAttribute("href", "/challenge");
-
-    await panel.getByRole("button", { name: "Dismiss daily challenge" }).click();
-    await expect(tab).toHaveCount(0);
-  });
-
-  test("home hides the daily challenge nudge once today is done", async ({ page }) => {
-    await page.clock.install({ time: new Date("2026-06-16T12:00:00.000Z") });
+    // Only yesterday done → today's challenge would be "open" if the tab existed.
     await recordChallengeTabVisibility(page);
     await page.addInitScript(() => {
       window.localStorage.setItem("typecafe:challengeHistory", JSON.stringify([
         { dateKey: "2026-06-15", wpm: 70.1, accuracy: 97, t: Date.parse("2026-06-15T12:00:00.000Z") },
-        { dateKey: "2026-06-16", wpm: 74.2, accuracy: 98, t: Date.parse("2026-06-16T12:00:00.000Z") },
       ]));
     });
 
@@ -95,6 +61,7 @@ test.describe("daily challenge", () => {
 
     await expect(page.locator("#words .char").first()).toBeVisible();
     await expect(page.getByTestId("home-coach-tab-challenge")).toHaveCount(0);
+    await expect(page.getByTestId("home-coach-tab-challenge-inline")).toHaveCount(0);
     await expect.poll(async () => page.evaluate(
       () => (window as Window & { __typecafeChallengeTabSeen?: boolean }).__typecafeChallengeTabSeen ?? false,
     )).toBe(false);
@@ -128,20 +95,6 @@ test.describe("daily challenge", () => {
 
     expect(first.length).toBeGreaterThan(0);
     expect(second).toBe(first);
-  });
-
-  test("home hides the daily challenge nudge for a signed-in user who finished today", async ({ page }) => {
-    await recordChallengeTabVisibility(page);
-    await mockAuthenticatedSession(page);
-    await mockTrpc(page);
-    // The mock reports today's challenge already complete, so the corner nudge stays hidden.
-    await page.goto("/");
-
-    await expect(page.locator("#words .char").first()).toBeVisible();
-    await expect(page.getByTestId("home-coach-tab-challenge")).toHaveCount(0);
-    await expect.poll(async () => page.evaluate(
-      () => (window as Window & { __typecafeChallengeTabSeen?: boolean }).__typecafeChallengeTabSeen ?? false,
-    )).toBe(false);
   });
 
   test("completed challenge results lead with delta framing and can be shared", async ({ page }, testInfo) => {

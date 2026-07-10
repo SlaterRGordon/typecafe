@@ -11,11 +11,13 @@ import { TestGramScopes, TestGramSources, TestModes, TestSubModes } from "~/comp
 import { applyTextOptions, ensureLanguageLoaded, getWords } from "~/components/typer/utils"
 import { useLanguage } from "~/hooks/useLanguage"
 import { compileDrillText } from "~/lib/drill"
-import { isDrillMark, isDrillDigit, isDrillableKey } from "~/lib/drillKeys"
+import { isDrillMark, isDrillDigit, isDrillableKey, isPracticeLetter } from "~/lib/drillKeys"
 import { attemptsFromEvents, keyDrillDelta, keysBaseline, mergeAttempts, nextDrillFinding, transitionBaseline, transitionDrillDelta, type DrillDelta, type DrillFinding } from "~/lib/drillProgress"
 import { decodeTimeline } from "~/lib/keystrokes"
 import { readLocalKeyStats, type LocalKeyStat } from "~/lib/localSync"
 import { readLocalTransitions } from "~/lib/localTransitions"
+import { statsPoolFor } from "~/lib/keyboardLayout"
+import { useLayout } from "~/hooks/useLayout"
 import { isAnyModalOpen } from "~/lib/modals"
 import { aggregateTransitions, mergeTransitions, type TransitionAggregate } from "~/lib/transitions"
 import { api } from "~/utils/api"
@@ -57,20 +59,22 @@ const parseSeconds = (value: string | string[] | undefined): number => {
 
 const parseKeys = (value: string | string[] | undefined): string[] => {
     const raw = Array.isArray(value) ? value.join(",") : value ?? ""
+    // Accented letters (é, ü, ą) are drillable targets alongside a–z/digits/marks.
     return Array.from(new Set(raw
         .split(",")
         .map((key) => key.trim().toLowerCase())
-        .filter(isDrillableKey)))
+        .filter((key) => isDrillableKey(key) || isPracticeLetter(key))))
 }
 
 // Words to drill verbatim (letters-only, lowercased, deduped) — the toughest-words
-// handoff from a diagnosis. Non-letter tokens are dropped (can't form drill text).
+// handoff from a diagnosis. Non-letter tokens are dropped (can't form drill text);
+// accented words (für, café) pass, matching compileDrillText's normalizeWord.
 const parseWords = (value: string | string[] | undefined): string[] => {
     const raw = Array.isArray(value) ? value.join(",") : value ?? ""
     return Array.from(new Set(raw
         .split(",")
         .map((word) => word.trim().toLowerCase())
-        .filter((word) => /^[a-z]+$/.test(word))))
+        .filter((word) => /^\p{L}+$/u.test(word))))
 }
 
 const parseTransitions = (value: string | string[] | undefined): string[] => {
@@ -159,7 +163,7 @@ const Drill: NextPage = () => {
             // Letters build the words; locked digits/marks get sprinkled in (the
             // same tested sprinkler Practice uses), so a weak ; or 5 gets real reps
             // in natural prose instead of being stripped out.
-            const letters = keys.filter((key) => /^[a-z]$/.test(key))
+            const letters = keys.filter(isPracticeLetter)
             const marks = keys.filter(isDrillMark)
             const digits = keys.filter(isDrillDigit)
             return {
@@ -187,8 +191,12 @@ const Drill: NextPage = () => {
 
     const { data: sessionData } = useSession()
     const signedIn = !!sessionData?.user
-    const transitionsQuery = api.transitionStats.get.useQuery(undefined, { enabled: signedIn })
-    const practiceStatsQuery = api.practiceStats.get.useQuery(undefined, { enabled: signedIn })
+    // Lifetime key/transition evidence follows the active layout's stats pool
+    // (docs/features/keyboard-layouts.md decision 6).
+    const [activeLayout] = useLayout()
+    const pool = statsPoolFor(activeLayout)
+    const transitionsQuery = api.transitionStats.get.useQuery({ pool }, { enabled: signedIn })
+    const practiceStatsQuery = api.practiceStats.get.useQuery({ pool }, { enabled: signedIn })
 
     // Lifetime evidence snapshotted while the rep runs and frozen at completion,
     // so the result's before→after delta compares against the data as it stood
@@ -201,8 +209,8 @@ const Drill: NextPage = () => {
                 transitions: transitionsQuery.data ?? [],
                 keyStats: (practiceStatsQuery.data ?? []).map((s) => ({ key: s.character, attempts: s.total, correct: s.correct })),
             }
-            : { transitions: readLocalTransitions(), keyStats: readLocalKeyStats() })
-    }, [completed, restartSignal, signedIn, transitionsQuery.data, practiceStatsQuery.data])
+            : { transitions: readLocalTransitions(pool), keyStats: readLocalKeyStats(pool) })
+    }, [completed, restartSignal, signedIn, pool, transitionsQuery.data, practiceStatsQuery.data])
 
     // The header states the baseline being drilled against (the number to beat)
     // and offers the next pick straight from lifetime evidence — no completed

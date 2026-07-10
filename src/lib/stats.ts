@@ -205,7 +205,9 @@ export function worstKeysFromAttempts(
 // worst-first (e.g. from worstKeysFromAttempts); the result is re-sorted so it
 // still reads worst-first across both groups.
 export function composeWeakKeys(ranked: KeyAccuracy[], total = 6, maxOther = 3): KeyAccuracy[] {
-    const isLetter = (k: string) => /^[a-z]$/.test(k)
+    // Any lowercase letter counts — accented letters (é, ü, ą) are word anchors
+    // in their languages, so they lead drills like a–z do (not "other").
+    const isLetter = (k: string) => /^\p{Ll}$/u.test(k)
     const others = ranked.filter((e) => !isLetter(e.key)).slice(0, maxOther)
     const letters = ranked.filter((e) => isLetter(e.key)).slice(0, total - others.length)
     return [...letters, ...others].sort((a, b) => a.accuracy - b.accuracy)

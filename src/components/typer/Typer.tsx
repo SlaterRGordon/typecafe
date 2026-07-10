@@ -41,6 +41,7 @@ interface TyperProps {
     count: number,
     punctuation?: boolean,
     capitals?: boolean,
+    numbers?: boolean,
     customLength?: boolean,
     level?: Level,
     levelRequirements?: { wpm: number, accuracy: number },
@@ -74,7 +75,7 @@ export const Typer = (props: TyperProps) => {
         selectedKeys,
         gramSource, gramScope, gramCombination, gramRepetition,
         count, showStats,
-        punctuation = false, capitals = false,
+        punctuation = false, capitals = false, numbers = false,
         customLength = false,
         level,
         levelRequirements,
@@ -223,7 +224,7 @@ export const Typer = (props: TyperProps) => {
                     // the token discards stale results if another restart raced it.
                     const requestToken = ++textRequestRef.current
                     void generateTestText({
-                        mode, subMode, count, language, quoteLength, punctuation, capitals,
+                        mode, subMode, count, language, quoteLength, punctuation, capitals, numbers,
                         level, selectedKeys,
                         gramSource, gramScope, gramCombination, gramRepetition,
                     }, targetLevel ?? gramLevel).then((newText) => {
@@ -247,7 +248,7 @@ export const Typer = (props: TyperProps) => {
                 onRestartRef.current?.()
             }
         }, 0)
-    }, [recorder, count, gramCombination, gramLevel, gramRepetition, gramScope, gramSource, syncCharAttempts, language, quoteLength, level, mode, pause, punctuation, capitals, selectedKeys, setInitialTime, subMode, props.fixedText])
+    }, [recorder, count, gramCombination, gramLevel, gramRepetition, gramScope, gramSource, syncCharAttempts, language, quoteLength, level, mode, pause, punctuation, capitals, numbers, selectedKeys, setInitialTime, subMode, props.fixedText])
 
     useEffect(() => {
         handleRestart()
@@ -580,6 +581,7 @@ export const Typer = (props: TyperProps) => {
             subMode={subMode}
             punctuation={punctuation}
             capitals={capitals}
+            numbers={numbers}
             noAppend={!!props.fixedText}
             pacerWpm={props.pacerWpm}
             onPacerCaught={handlePacerCaught}

@@ -7,6 +7,12 @@ import {
 import { Prisma } from "~/generated/prisma/client";
 import { KEY_ATTEMPT_CAP } from "~/lib/practiceAttempts";
 
+// Aggregates are keyed per stats pool (docs/features/keyboard-layouts.md
+// decision 6): clients send statsPoolFor(activeLayout) — "qwerty" for every
+// national layout, the remap's own id otherwise. Absent = the legacy qwerty
+// pool, so old clients and rows keep working.
+const poolSchema = z.string().max(32).optional();
+
 const practiceStatInput = z
   .object({
     character: z.string().length(1),
@@ -18,65 +24,16 @@ const practiceStatInput = z
   });
 
 export const practiceStatsRouter = createTRPCRouter({
-  get: protectedProcedure.query(({ ctx }) => {
-    return ctx.prisma.practiceStats.findMany({
-      where: {
-        userId: ctx.session.user.id,
-      },
-      orderBy: {
-        character: "asc",
-      },
-    });
-  }),
-
-  create: protectedProcedure
-    .input(practiceStatInput)
-    .mutation(({ ctx, input }) => {
-      return ctx.prisma.practiceStats.create({
-        data: {
+  get: protectedProcedure
+    .input(z.object({ pool: poolSchema }).optional())
+    .query(({ ctx, input }) => {
+      return ctx.prisma.practiceStats.findMany({
+        where: {
           userId: ctx.session.user.id,
-          character: input.character,
-          total: input.total,
-          correct: input.correct,
+          pool: input?.pool ?? "qwerty",
         },
-      });
-    }),
-
-  update: protectedProcedure
-    .input(practiceStatInput)
-    .mutation(async ({ ctx, input }) => {
-      const userId = ctx.session.user.id;
-
-      const currentStats = await ctx.prisma.practiceStats.findFirst({
-        where: {
-          userId,
-          character: input.character,
-        },
-        select: {
-          id: true,
-          total: true,
-          correct: true,
-        },
-      });
-
-      if (!currentStats) {
-        return ctx.prisma.practiceStats.create({
-          data: {
-            userId,
-            character: input.character,
-            total: input.total,
-            correct: input.correct,
-          },
-        });
-      }
-
-      return ctx.prisma.practiceStats.update({
-        where: {
-          id: currentStats.id,
-        },
-        data: {
-          total: currentStats.total + input.total,
-          correct: currentStats.correct + input.correct,
+        orderBy: {
+          character: "asc",
         },
       });
     }),
@@ -85,6 +42,7 @@ export const practiceStatsRouter = createTRPCRouter({
     .input(
       z.object({
         stats: z.array(practiceStatInput),
+        pool: poolSchema,
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -93,18 +51,19 @@ export const practiceStatsRouter = createTRPCRouter({
       }
 
       const userId = ctx.session.user.id;
+      const pool = input.pool ?? "qwerty";
 
       // One bulk upsert (same pattern as transitionStats.batchSync) applying
       // the rolling window (ADR-0005): sum, then if a key overflows the attempt
       // cap, scale total/correct down proportionally — accuracy preserved, old
       // history stops anchoring the ratio. Mirrors lib/localSync mergeKeyStats.
       const rows = input.stats.map(
-        (s) => Prisma.sql`(gen_random_uuid()::text, ${userId}, ${s.character}, ${s.total}, ${s.correct}, NOW())`,
+        (s) => Prisma.sql`(gen_random_uuid()::text, ${userId}, ${pool}, ${s.character}, ${s.total}, ${s.correct}, NOW())`,
       );
       await ctx.prisma.$executeRaw`
-        INSERT INTO "PracticeStats" ("id", "userId", "character", "total", "correct", "updatedAt")
+        INSERT INTO "PracticeStats" ("id", "userId", "pool", "character", "total", "correct", "updatedAt")
         VALUES ${Prisma.join(rows)}
-        ON CONFLICT ("userId", "character") DO UPDATE SET
+        ON CONFLICT ("userId", "pool", "character") DO UPDATE SET
           "total" = LEAST("PracticeStats"."total" + EXCLUDED."total", ${KEY_ATTEMPT_CAP}),
           "correct" = CASE
             WHEN "PracticeStats"."total" + EXCLUDED."total" > ${KEY_ATTEMPT_CAP}

@@ -1,4 +1,4 @@
-import { createKeyedStore } from "./keyedStore"
+import { createKeyedStore, type KeyedStore } from "./keyedStore"
 import { KEY_ATTEMPT_CAP } from "./practiceAttempts"
 
 export const LOCAL_KEY_STATS_KEY = "typecafe:keyStats"
@@ -52,9 +52,17 @@ export function mergeKeyStats(existing: LocalKeyStat[], incoming: LocalKeyStat[]
     return Array.from(byKey.values(), capKeyStat).sort((a, b) => a.key.localeCompare(b.key))
 }
 
-const store = createKeyedStore(LOCAL_KEY_STATS_KEY, sanitizeStat, mergeKeyStats)
+// Guest mirrors are keyed per stats pool (docs/features/keyboard-layouts.md
+// decision 6): the legacy unsuffixed key IS the qwerty pool (zero migration);
+// remap pools live under suffixed keys ("typecafe:keyStats:colemak").
+const stores: Record<string, KeyedStore<LocalKeyStat>> = {}
 
-export const readLocalKeyStats = store.read
-export const writeLocalKeyStats = store.write
-export const addLocalKeyStats = store.add
-export const clearLocalKeyStats = store.clear
+function storeFor(pool: string) {
+    const key = pool === "qwerty" ? LOCAL_KEY_STATS_KEY : `${LOCAL_KEY_STATS_KEY}:${pool}`
+    return (stores[key] ??= createKeyedStore(key, sanitizeStat, mergeKeyStats))
+}
+
+export const readLocalKeyStats = (pool = "qwerty", s?: Storage) => storeFor(pool).read(s)
+export const writeLocalKeyStats = (items: LocalKeyStat[], pool = "qwerty", s?: Storage) => storeFor(pool).write(items, s)
+export const addLocalKeyStats = (items: LocalKeyStat[], pool = "qwerty", s?: Storage) => storeFor(pool).add(items, s)
+export const clearLocalKeyStats = (pool = "qwerty", s?: Storage) => storeFor(pool).clear(s)

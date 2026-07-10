@@ -108,3 +108,18 @@ export const interpolateColor = (color1: string, color2: string, percentage: num
 
   return rgbToHex(r, g, b);
 };
+
+// Pick a black/white foreground that stays legible on the given hex background,
+// using the WCAG relative-luminance threshold (0.179). Shared by the color
+// presets (auto pc/sc content colors) and the heatmap, whose cells sweep the
+// full theme gradient and so can't rely on a single static text color.
+export const readableTextColor = (hex: string): "#000000" | "#ffffff" => {
+  const value = hex.replace("#", "");
+  const red = parseInt(value.slice(0, 2), 16) / 255;
+  const green = parseInt(value.slice(2, 4), 16) / 255;
+  const blue = parseInt(value.slice(4, 6), 16) / 255;
+  const toLinear = (channel: number) => channel <= 0.03928 ? channel / 12.92 : Math.pow((channel + 0.055) / 1.055, 2.4);
+  const luminance = 0.2126 * toLinear(red) + 0.7152 * toLinear(green) + 0.0722 * toLinear(blue);
+
+  return luminance > 0.179 ? "#000000" : "#ffffff";
+};

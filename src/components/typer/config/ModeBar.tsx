@@ -76,11 +76,17 @@ interface ModeBarProps {
     gramAccuracyThreshold: number
     punctuation: boolean
     capitals: boolean
+    numbers: boolean
     fullscreen: boolean
     // Practice settings-line controls; state lives on the page (shared with the
     // keyboard board below the test).
     shiftLayer: boolean
     onToggleShift: () => void
+    // AltGr layer mirror — the toggle renders only for layouts that have AltGr
+    // glyphs at all (hasAltGr), so qwerty/remap boards stay uncluttered.
+    altgrLayer: boolean
+    onToggleAltgr: () => void
+    hasAltGr: boolean
     onSmartDrill: () => void
     setMode: (mode: TestModes) => void
     setSubMode: (subMode: TestSubModes) => void
@@ -96,6 +102,7 @@ interface ModeBarProps {
     setGramAccuracyThreshold: (value: number) => void
     setPunctuation: (value: boolean) => void
     setCapitals: (value: boolean) => void
+    setNumbers: (value: boolean) => void
     onRestart: () => void
     setFullscreen: (fullscreen: boolean) => void
 }
@@ -476,6 +483,19 @@ export function ModeBar(props: ModeBarProps) {
                         >
                             shift {props.shiftLayer ? "on" : "off"}
                         </TextOpt>
+                        {props.hasAltGr &&
+                            <>
+                                <Sep />
+                                <TextOpt
+                                    active={props.altgrLayer}
+                                    onClick={props.onToggleAltgr}
+                                    ariaLabel="Show AltGr keys (accents and symbols)"
+                                    title="Show AltGr keys — or hold AltGr"
+                                >
+                                    altgr {props.altgrLayer ? "on" : "off"}
+                                </TextOpt>
+                            </>
+                        }
                         <Sep />
                         <span data-testid="practice-active-count" className="text-xs text-base-content/40">
                             {props.selectedKeys.length} keys active
@@ -590,6 +610,7 @@ export function ModeBar(props: ModeBarProps) {
                                 punctuation, on sprinkles the locked marks. */}
                             <SettingsToggle label="punctuation" active={props.punctuation} onChange={props.setPunctuation} />
                             <SettingsToggle label="capitals" active={props.capitals} onChange={props.setCapitals} />
+                            <SettingsToggle label="numbers" active={props.numbers} onChange={props.setNumbers} />
                         </div>
                     </ToolbarMenu>
                 }

@@ -35,6 +35,7 @@ test.describe("drill page", () => {
       onProcedure: (procedure, input) => {
         if (procedure === "practiceStats.batchSync" && Array.isArray(input?.stats)) {
           syncedTotals.push((input.stats as { total: number }[]).reduce((sum, s) => sum + s.total, 0))
+          console.log("SYNC-DEBUG", Date.now(), JSON.stringify(input.stats))
         }
       },
     })

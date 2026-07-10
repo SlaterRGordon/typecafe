@@ -54,17 +54,26 @@ describe("local key stats sync", () => {
         const fakeStorage = storage()
         fakeStorage.setItem(LOCAL_KEY_STATS_KEY, JSON.stringify([{ key: "a", attempts: 2, correct: 5 }]))
 
-        expect(readLocalKeyStats(fakeStorage)).toEqual([{ key: "a", attempts: 2, correct: 2 }])
+        expect(readLocalKeyStats("qwerty", fakeStorage)).toEqual([{ key: "a", attempts: 2, correct: 2 }])
     })
 
     it("adds to existing local stats and clears them", () => {
         const fakeStorage = storage()
 
-        expect(writeLocalKeyStats([{ key: "e", attempts: 1, correct: 1 }], fakeStorage)).toBe(true)
-        expect(addLocalKeyStats([{ key: "e", attempts: 2, correct: 1 }], fakeStorage)).toBe(true)
-        expect(readLocalKeyStats(fakeStorage)).toEqual([{ key: "e", attempts: 3, correct: 2 }])
+        expect(writeLocalKeyStats([{ key: "e", attempts: 1, correct: 1 }], "qwerty", fakeStorage)).toBe(true)
+        expect(addLocalKeyStats([{ key: "e", attempts: 2, correct: 1 }], "qwerty", fakeStorage)).toBe(true)
+        expect(readLocalKeyStats("qwerty", fakeStorage)).toEqual([{ key: "e", attempts: 3, correct: 2 }])
 
-        expect(clearLocalKeyStats(fakeStorage)).toBe(true)
-        expect(readLocalKeyStats(fakeStorage)).toEqual([])
+        expect(clearLocalKeyStats("qwerty", fakeStorage)).toBe(true)
+        expect(readLocalKeyStats("qwerty", fakeStorage)).toEqual([])
+    })
+
+    it("isolates pools: the legacy key is the qwerty pool, remaps are suffixed", () => {
+        const fakeStorage = storage()
+        expect(addLocalKeyStats([{ key: "e", attempts: 2, correct: 1 }], "colemak", fakeStorage)).toBe(true)
+        expect(readLocalKeyStats("qwerty", fakeStorage)).toEqual([])
+        expect(readLocalKeyStats("colemak", fakeStorage)).toEqual([{ key: "e", attempts: 2, correct: 1 }])
+        expect(fakeStorage.getItem(`${LOCAL_KEY_STATS_KEY}:colemak`)).not.toBeNull()
+        expect(fakeStorage.getItem(LOCAL_KEY_STATS_KEY)).toBeNull()
     })
 })

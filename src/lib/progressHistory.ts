@@ -11,6 +11,7 @@ export interface LocalProgressEntry {
     c?: number // consistency 0-100, optional (older entries lack it)
     t: number // epoch ms
     lang?: string // base language; older entries lack it → treated as English on read
+    layout?: string // actual layout id (honesty tag, ledger decision 10); older entries lack it → qwerty
 }
 
 function storage(): Storage | undefined {
@@ -24,7 +25,8 @@ function sanitize(raw: unknown): LocalProgressEntry | null {
     if (!ok) return null
     const c = typeof v.c === "number" && Number.isFinite(v.c) ? v.c : undefined
     const lang = typeof v.lang === "string" ? v.lang : undefined
-    return { wpm: v.wpm as number, accuracy: v.accuracy as number, c, t: v.t as number, lang }
+    const layout = typeof v.layout === "string" ? v.layout : undefined
+    return { wpm: v.wpm as number, accuracy: v.accuracy as number, c, t: v.t as number, lang, layout }
 }
 
 export function readLocalProgress(s = storage()): LocalProgressEntry[] {

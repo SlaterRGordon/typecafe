@@ -125,6 +125,24 @@ test.describe("home typing test", () => {
     await expect(page.locator("#words .text-secondary")).toHaveCount(0);
   });
 
+  test("Tab+Space restarts even when the space event beats Tab (chord race)", async ({ page }) => {
+    await gotoHome(page);
+
+    await typeCurrentCharacter(page);
+    await expect(page.locator("#c0")).toHaveClass(/text-base-300/);
+
+    // A near-simultaneous chord can reach the page with the space keydown ahead
+    // of Tab. page.keyboard always fires in call order, so dispatch synthetic
+    // keydowns in the racing order to prove the hook still restarts.
+    await page.evaluate(() => {
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: " ", bubbles: true }));
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", bubbles: true }));
+    });
+
+    await expect(page.locator("#c0")).toHaveClass(/active-char/);
+    await expect(page.locator("#c0")).not.toHaveClass(/text-base-300/);
+  });
+
   test("toolbar owns mode, length, language, and right-side actions", async ({ page }) => {
     await gotoHome(page);
 
@@ -164,6 +182,7 @@ test.describe("home typing test", () => {
     await expect(settingsMenu.getByText("Display")).toHaveCount(0);
     await expect(settingsMenu.getByRole("button", { name: /punctuation/ })).toBeVisible();
     await expect(settingsMenu.getByRole("button", { name: /capitals/ })).toBeVisible();
+    await expect(settingsMenu.getByRole("button", { name: /numbers/ })).toBeVisible();
     await toolbar.getByRole("button", { name: "Open typing settings" }).click();
     await expect(settingsMenu).toBeHidden();
     await openSettingsMenu(page);
@@ -427,6 +446,114 @@ test.describe("home typing test", () => {
     await input.fill("35");
     await input.press("Enter");
     await expect(panel.getByRole("button", { name: "Edit WPM needed to advance" })).toContainText("35 wpm");
+  });
+
+  test("keyboard layout is chosen globally in the nav and persists", async ({ page }) => {
+    await gotoHome(page);
+
+    // Default trigger names the layout; picking another updates it app-wide.
+    const trigger = page.getByTestId("nav-layout-trigger");
+    await expect(trigger).toHaveText(/QWERTY/);
+    await trigger.click();
+    await page.getByTestId("nav-layout-menu").getByRole("button", { name: "Colemak", exact: true }).click();
+    await expect(trigger).toHaveText(/Colemak/);
+
+    // Local-first: the choice survives a reload.
+    await page.reload();
+    await expect(page.getByTestId("nav-layout-trigger")).toHaveText(/Colemak/);
+  });
+
+  test("auto layout follows the language; an explicit pick stays pinned", async ({ page }) => {
+    await gotoHome(page);
+
+    // Fresh visitor: layout is Auto, resolving to QWERTY for English.
+    const trigger = page.getByTestId("nav-layout-trigger");
+    await expect(trigger).toHaveText(/Auto — QWERTY/);
+
+    // Switching the language to German flips the auto board to QWERTZ …
+    await page.getByTestId("nav-language-trigger").click();
+    await page.getByTestId("nav-language-menu").getByRole("button", { name: "German" }).click();
+    await expect(trigger).toHaveText(/Auto — QWERTZ \(DE\)/);
+
+    // … and the practice board grows real umlaut keys (with an AltGr layer).
+    await selectMode(page, "Practice");
+    const board = page.locator(".typecafe-keyboard");
+    await expect(board.locator('[data-kb-key="ü"]')).toBeVisible();
+    await expect(board.locator('[data-kb-key="ö"]')).toBeVisible();
+    await expect(page.getByRole("button", { name: "Show AltGr keys (accents and symbols)" })).toContainText("altgr off");
+
+    // An explicit pick pins: QWERTY stays through a language change (no AZERTY),
+    // and the umlaut keys leave the board.
+    await trigger.click();
+    await page.getByTestId("nav-layout-menu").getByRole("button", { name: "QWERTY", exact: true }).click();
+    await expect(trigger).toHaveText(/^QWERTY$/);
+    await page.getByTestId("nav-language-trigger").click();
+    await page.getByTestId("nav-language-menu").getByRole("button", { name: "French" }).click();
+    await expect(trigger).toHaveText(/^QWERTY$/);
+    await expect(board.locator('[data-kb-key="ü"]')).toHaveCount(0);
+  });
+
+  test("practice counts an unlocked umlaut toward the selection floor and toggles dead-key accents", async ({ page }) => {
+    await page.addInitScript(() => {
+      // A minimal valid pool: adding ü makes für a permitted German word.
+      window.localStorage.setItem("typecafe:testSettings", JSON.stringify({ selectedKeys: "abcdfgir".split("") }));
+    });
+    await gotoHome(page);
+
+    // German via the globe → auto layout renders QWERTZ; umlauts are real keys.
+    await page.getByTestId("nav-language-trigger").click();
+    await page.getByTestId("nav-language-menu").getByRole("button", { name: "German" }).click();
+    await selectMode(page, "Practice");
+
+    const board = page.locator(".typecafe-keyboard");
+    const uml = board.locator('[data-kb-key="ü"]');
+    const consonant = board.locator('[data-kb-key="c"]');
+    await expect(uml).toBeVisible();
+    // Accent keys start locked and toggle like any drill key. The click only
+    // lands once the language's accent set has loaded — retry until the lock
+    // badge (the cell's svg) disappears.
+    // Seed only the post-unlock generator: globally replacing Math.random before
+    // Home mounts stalls its initial text generator.
+    await page.evaluate(() => {
+      (window as typeof window & { originalMathRandom?: typeof Math.random }).originalMathRandom = Math.random;
+      Math.random = () => 0;
+    });
+    await expect(uml.locator("svg")).toHaveCount(1);
+    await expect(async () => {
+      await uml.click();
+      await expect(uml.locator("svg")).toHaveCount(0, { timeout: 250 });
+    }).toPass();
+
+    // ü is an actual letter anchor: after it expands the eight-letter pool to
+    // nine, one selected ASCII consonant can be locked again without an alert.
+    await expect(consonant.locator("svg")).toHaveCount(0);
+    await consonant.click();
+    await expect(consonant.locator("svg")).toHaveCount(1);
+    await expect(page.getByTestId("practice-active-count")).toHaveText("8 keys active");
+    await expect(page.getByText("Must include at least 8 keys!", { exact: true })).toHaveCount(0);
+    await expect(page.locator("#words")).toContainText("für");
+
+    // The regenerated text retains the umlaut word after the floor-allowed removal.
+    await page.evaluate(() => {
+      const original = (window as typeof window & { originalMathRandom?: typeof Math.random }).originalMathRandom;
+      if (original) Math.random = original;
+    });
+
+    // French flips the auto board to AZERTY. The unlocked ü rides its physical
+    // cap across the switch (QWERTZ ü → AZERTY dead ^), and a dead target cap
+    // carries its language's whole composed set (ê â î ô û) — so the circumflex
+    // arrives unlocked, one toggle for the set.
+    await page.getByTestId("nav-language-trigger").click();
+    await page.getByTestId("nav-language-menu").getByRole("button", { name: "French" }).click();
+    const dead = board.locator('[data-kb-key="^"]');
+    await expect(dead).toHaveAttribute("data-kb-dead", "");
+    // Unlocked only once the French accent set has loaded and the remap landed.
+    await expect(dead.locator("svg")).toHaveCount(0);
+    // Locking it drops the whole set in one click; unlocking re-adds it.
+    await dead.click();
+    await expect(dead.locator("svg")).toHaveCount(1);
+    await dead.click();
+    await expect(dead.locator("svg")).toHaveCount(0);
   });
 
   test("settings cover language, text add-ons, practice keyboard, and no-timer length", async ({ page }) => {
@@ -772,6 +899,124 @@ test.describe("home typing test", () => {
     if (second !== first) await expect(firstCell).not.toHaveClass(/ring-primary/);
   });
 
+  // Heatmap cells sweep the full theme gradient, so each derives a legible
+  // black/white text color from its own background luminance rather than a
+  // fixed white that washed out on light cells (aqua's bright-cyan low end).
+  test("practice keyboard keys use legible black/white text on any cell color", async ({ page }) => {
+    await gotoHome(page);
+    await selectMode(page, "Practice");
+    await expect(page.locator(".typecafe-keyboard")).toBeVisible();
+
+    const cell = page.locator(".typecafe-key-heatmap [data-kb-key]").first();
+    await expect(cell).toBeVisible();
+    const color = await cell.evaluate((el) => getComputedStyle(el).color);
+    expect(["rgb(0, 0, 0)", "rgb(255, 255, 255)"]).toContain(color);
+  });
+
+  test("practice remaps a selected cap and keeps text viable after a language layout change", async ({ page }) => {
+    // `a` is the only source vowel. Its AZERTY counterpart at the same physical
+    // cap is `q`, so the language/layout transition must both move the selection
+    // and restore a vowel before Practice regenerates its prompt.
+    await page.addInitScript(() => {
+      window.localStorage.setItem("typecafe:testSettings", JSON.stringify({ selectedKeys: "asdfghjk".split("") }));
+    });
+    await gotoHome(page);
+    await selectMode(page, "Practice");
+
+    const board = page.locator(".typecafe-keyboard");
+    const sourceCap = board.locator('[data-kb-cell="a"]');
+    await expect(sourceCap).toHaveAttribute("data-kb-key", "a");
+    await expect(sourceCap.locator("svg")).toHaveCount(0);
+
+    await page.getByTestId("nav-language-trigger").click();
+    await page.getByTestId("nav-language-menu").getByRole("button", { name: "French" }).click();
+    await expect(page.getByTestId("nav-layout-trigger")).toHaveText(/Auto — AZERTY \(FR\)/);
+
+    // The source cap's AZERTY physical position is named `q`, not old glyph `a`.
+    const remappedCap = board.locator('[data-kb-cell="q"]');
+    await expect(remappedCap).toHaveAttribute("data-kb-key", "q");
+    await expect(remappedCap.locator("svg")).toHaveCount(0);
+    // Remapping must not leave the pseudo-word pool vowel-less / empty.
+    await expect(page.locator("#words .char").nth(5)).toBeVisible();
+  });
+
+  test("practice sticky layers exclude each other and AZERTY shifted digits unlock", async ({ page }) => {
+    await page.addInitScript(() => {
+      window.localStorage.setItem("typecafe:testSettings", JSON.stringify({ selectedKeys: "aeiousdf".split("") }));
+    });
+    await gotoHome(page);
+    await page.getByTestId("nav-language-trigger").click();
+    await page.getByTestId("nav-language-menu").getByRole("button", { name: "French" }).click();
+    await selectMode(page, "Practice");
+
+    const board = page.locator(".typecafe-keyboard");
+    const shift = page.getByRole("button", { name: "Show shifted keys (capitals and symbols)" });
+    const altgr = page.getByRole("button", { name: "Show AltGr keys (accents and symbols)" });
+
+    await shift.click();
+    await expect(shift).toContainText("shift on");
+    await expect(altgr).toContainText("altgr off");
+    await expect(board.locator('[data-kb-key="2"]')).toBeVisible();
+
+    await altgr.click();
+    await expect(shift).toContainText("shift off");
+    await expect(altgr).toContainText("altgr on");
+    await expect(board.locator('[data-kb-key="€"]')).toBeVisible();
+
+    await shift.click();
+    await expect(shift).toContainText("shift on");
+    await expect(altgr).toContainText("altgr off");
+    const digit = board.locator('[data-kb-key="2"]');
+    await expect(digit).toHaveAttribute("role", "button");
+    await expect(digit.locator("svg")).toHaveCount(1);
+    await digit.click();
+    await expect(digit.locator("svg")).toHaveCount(0);
+    // Unlocking a digit while the numbers add-on is off flips it on in the same
+    // click — no gear-menu trip.
+    await expect.poll(async () =>
+      page.evaluate(() => window.localStorage.getItem("typecafe:testSettings")),
+    ).toContain('"numbers":true');
+  });
+
+  test("practice: toggled-off add-ons lock their keys; unlocking flips the add-on on", async ({ page }) => {
+    await gotoHome(page);
+    await selectMode(page, "Practice");
+    const board = page.locator(".typecafe-keyboard");
+    await expect(board).toBeVisible();
+    const settings = () => page.evaluate(() => window.localStorage.getItem("typecafe:testSettings"));
+
+    // Numbers off (default) → every digit key reads locked; one click unlocks
+    // the key AND turns the numbers add-on on.
+    const seven = board.locator('[data-kb-key="7"]');
+    await expect(seven.locator("svg")).toHaveCount(1);
+    await seven.click();
+    await expect(seven.locator("svg")).toHaveCount(0);
+    await expect.poll(settings).toContain('"numbers":true');
+
+    // Same for punctuation: a mark unlock flips the punctuation add-on on.
+    const comma = board.locator('[data-kb-key=","]');
+    await expect(comma.locator("svg")).toHaveCount(1);
+    await comma.click();
+    await expect(comma.locator("svg")).toHaveCount(0);
+    await expect.poll(settings).toContain('"punctuation":true');
+
+    // With the add-on now on, clicking the unlocked key locks just that key
+    // again (per-key selection), leaving the add-on untouched.
+    await comma.click();
+    await expect(comma.locator("svg")).toHaveCount(1);
+    await expect.poll(settings).toContain('"punctuation":true');
+
+    // Capitals: on the shift layer every capital reads locked while the add-on
+    // is off; clicking one flips capitals on, and each capital then mirrors its
+    // lowercase base key ('a' selected → A unlocked).
+    await page.getByRole("button", { name: "Show shifted keys (capitals and symbols)" }).click();
+    const capitalA = board.locator('[data-kb-key="A"]');
+    await expect(capitalA.locator("svg")).toHaveCount(1);
+    await capitalA.click();
+    await expect(capitalA.locator("svg")).toHaveCount(0);
+    await expect.poll(settings).toContain('"capitals":true');
+  });
+
   // Regression guard: a diagnosis can surface all-consonant weak keys, and the
   // drill handoff used to hand Practice a vowel-less key set, which froze the
   // pseudo-word generator (an infinite loop) and hung the whole page. The drill
@@ -783,6 +1028,13 @@ test.describe("home typing test", () => {
 
     await expect(page.locator(".typecafe-keyboard")).toBeVisible({ timeout: 8000 });
     await expect(page.locator("#words .char").nth(5)).toBeVisible({ timeout: 8000 });
+
+    // The handoff selection (b,c,d + auto vowel) is then repaired to the letter
+    // floor (two vowels, eight letters), which regenerates the text once more.
+    // Wait for the repaired state — the count hits 8 and an "a" appears (the
+    // b/c/d/e-only text can't contain one) — so typing can't race that regen.
+    await expect(page.getByTestId("practice-active-count")).toHaveText("8 keys active");
+    await expect(page.locator("#words")).toContainText("a", { timeout: 8000 });
 
     // The main thread is responsive and the drill is interactive (not frozen).
     for (let i = 0; i < 4; i++) await typeCurrentCharacter(page, i);

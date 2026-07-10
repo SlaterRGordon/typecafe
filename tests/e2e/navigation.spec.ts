@@ -16,8 +16,10 @@ test.describe("app navigation", () => {
       nodes.map((node) => node.textContent?.trim()).filter(Boolean)
     );
 
-    expect(labels.slice(0, 5)).toEqual(["Home", "Train", "Progress", "Daily Challenge", "Leaderboard"]);
-    expect(icons.slice(0, 5)).toEqual(["home", "fitness_center", "trending_up", "calendar_today", "leaderboard"]);
+    // Daily Challenge is hidden for now (2026-07) — no /challenge entry point.
+    expect(labels.slice(0, 4)).toEqual(["Home", "Train", "Progress", "Leaderboard"]);
+    expect(icons.slice(0, 4)).toEqual(["home", "fitness_center", "trending_up", "leaderboard"]);
+    expect(labels).not.toContain("Daily Challenge");
     await expect(nav.locator(".fa-dumbbell")).toHaveCount(0);
   });
 

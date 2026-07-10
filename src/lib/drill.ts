@@ -22,7 +22,8 @@ const TOP_POOL_MIN = 24
 
 // Any-letter words (not just [a-z]): non-English word lists carry accented
 // words (é, ü, ł …) and dropping them would gut the pool — nearly half of the
-// top-1k Polish words carry diacritics. Target keys stay a–z (uniqueChars).
+// top-1k Polish words carry diacritics. Target keys are any lowercase letter
+// too, so a weak é ranks the words that actually exercise it.
 const normalizeWord = (word: string): string | null => {
     const normalized = word.trim().toLowerCase()
     if (!/^\p{L}+$/u.test(normalized)) return null
@@ -32,7 +33,7 @@ const normalizeWord = (word: string): string | null => {
 const uniqueChars = (chars: string[] | undefined): string[] =>
     Array.from(new Set((chars ?? [])
         .flatMap((char) => char.toLowerCase().split(""))
-        .filter((char) => /^[a-z]$/.test(char))))
+        .filter((char) => /^\p{Ll}$/u.test(char))))
 
 // Keep a transition's drillable chars (letters lowercased, digits, marks) so
 // symbol/capital pairs survive: a pure-symbol pair like "e:" matches no English

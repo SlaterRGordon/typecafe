@@ -354,6 +354,31 @@ test.describe("train page", () => {
     await expect(page.locator("#words")).toContainText(/[ąćęłńóśźż]/, { timeout: 15_000 });
   });
 
+  test("pinned QWERTY excludes German umlauts from full-alphabet Train text", async ({ page }) => {
+    // Level 45 is past the a–z introduction. Fixing the random pick to "für"
+    // makes this a deterministic integration check: it is selected only if the
+    // level incorrectly promotes German umlauts onto the pinned QWERTY board.
+    await page.addInitScript(() => {
+      window.localStorage.setItem("typecafe:language", JSON.stringify("german"));
+      window.localStorage.setItem("typecafe:layout", JSON.stringify("qwerty"));
+      window.localStorage.setItem("typecafe.trainProgress.easy", JSON.stringify(
+        Array.from({ length: 44 }, (_, i) => ({
+          options: `Level ${i + 1}`, speed: 200, accuracy: 100, stars: 3,
+        })),
+      ));
+      Math.random = () => 0.00301;
+    });
+
+    await gotoTrain(page);
+    await expect(page.getByTestId("train-rail-caption")).toContainText("Level 45");
+
+    const words = page.locator("#words");
+    // `eine` is the seeded first available German word once QWERTY filters out
+    // the umlauted candidate; it also proves the asynchronous language load ran.
+    await expect(words).toContainText("eine", { timeout: 15_000 });
+    await expect(words).not.toContainText(/[äöü]/);
+  });
+
   test("no-miss level: the first mistake ends the run as a fail", async ({ page }) => {
     // Clear Levels 1–6 so Level 7 (a no-miss round) is unlocked and auto-resumed.
     await page.addInitScript(() => {

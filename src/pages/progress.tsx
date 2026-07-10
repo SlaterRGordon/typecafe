@@ -3,7 +3,7 @@ import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { useSession } from "next-auth/react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { TrendChart } from "~/components/progress/TrendChart";
 import { GoalCard } from "~/components/progress/GoalCard";
 import { KeyHeatmap, KeyHeatmapLegend } from "~/components/heatmap/KeyHeatmap";
@@ -28,8 +28,12 @@ import {
     type ProgressRecord,
 } from "~/lib/progress";
 import { useLanguage } from "~/hooks/useLanguage";
+import { useLayout } from "~/hooks/useLayout";
 import { languageMeta } from "~/lib/languageMeta";
+import { boardFor, layoutMeta, statsPoolFor } from "~/lib/keyboardLayout";
 import { composeWeakKeys, netFromRaw, worstKeysFromAttempts } from "~/lib/stats";
+import { isDrillableOn } from "~/lib/drillKeys";
+import { accentsFor, ensureLanguageLoaded } from "~/components/typer/utils";
 import { detectPlateau } from "~/lib/trajectory";
 import { api } from "~/utils/api";
 
@@ -251,6 +255,15 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
     const [period, setPeriod] = useState<ProgressPeriod>(30);
     const [trendMetric, setTrendMetric] = useState<TrendMetric>("wpm");
     const [shareState, setShareState] = useState<"idle" | "sharing" | "copied">("idle");
+    // The board the heatmap below renders (and whose stats pool feeds it).
+    const [activeBoardLayout] = useLayout();
+    // Heatmap layer switches: attempts are stored unfolded (char-keyed), so the
+    // shift/AltGr layers read each glyph's own tally — R apart from r, € apart
+    // from e. Mutually exclusive (each turns the other off), so the board shows
+    // one layer at a time. AltGr only offers itself on layouts that have it.
+    const [heatmapShift, setHeatmapShift] = useState(false);
+    const [heatmapAltgr, setHeatmapAltgr] = useState(false);
+    const boardHasAltGr = useMemo(() => boardFor(activeBoardLayout).rows.some((row) => row.some((cap) => cap.altgr)), [activeBoardLayout]);
     const now = useMemo(() => new Date(), []);
     const createProgressShare = api.scoreShare.createProgress.useMutation();
 
@@ -307,12 +320,23 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
     }, [inPeriod, now]);
     const plateau = useMemo(() => detectPlateau(cleanRecords, now), [cleanRecords, now]);
     const slowTransitions = useMemo(() => worstTransitions(props.transitions), [props.transitions]);
-    // Top weak keys for the one-click "drill your weakest keys" CTA. Rank every
-    // key, then compose a letter-led set (≤3 punctuation/capitals) so a user who
-    // rarely types marks doesn't get a CTA that's all symbols.
+    // The active language's accent chars (loaded on demand; [] for English) —
+    // they let weak é/ü/ą show as drillable keys, and gate out keys from other
+    // languages/layouts the user isn't currently on.
+    const [accentChars, setAccentChars] = useState<string[]>([]);
+    useEffect(() => {
+        let alive = true;
+        void ensureLanguageLoaded(props.language).then(() => { if (alive) setAccentChars(accentsFor(props.language)); });
+        return () => { alive = false; };
+    }, [props.language]);
+    // Top weak keys for the one-click "drill your weakest keys" CTA. Only keys
+    // drillable on the current language/layout count; rank every key, then
+    // compose a letter-led set (≤3 punctuation/capitals) so a user who rarely
+    // types marks doesn't get a CTA that's all symbols.
     const topWeakKeys = useMemo(
-        () => composeWeakKeys(worstKeysFromAttempts(new Map(Object.entries(props.keyAttempts)), Infinity)),
-        [props.keyAttempts],
+        () => composeWeakKeys(worstKeysFromAttempts(new Map(Object.entries(props.keyAttempts)), Infinity)
+            .filter((entry) => isDrillableOn(entry.key, activeBoardLayout, accentChars))),
+        [props.keyAttempts, activeBoardLayout, accentChars],
     );
 
     // One toggled trend chart instead of three stacked ones (saves height): WPM by
@@ -364,6 +388,11 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
                     <h1 className="font-mono text-3xl font-bold tracking-tight">Progress</h1>
                     <Chip testId="progress-language-chip" size="md" icon={<i className="fa-solid fa-globe" aria-hidden="true" />}>
                         {languageMeta(props.language).label}
+                    </Chip>
+                    {/* Names the active board so an empty per-pool heatmap
+                        doesn't read as broken (ledger slice 8). */}
+                    <Chip testId="progress-layout-chip" size="md" icon={<i className="fa-regular fa-keyboard" aria-hidden="true" />}>
+                        {layoutMeta(activeBoardLayout).label}
                     </Chip>
                     {streak > 0 && (
                         <Chip
@@ -555,12 +584,34 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
                         <KeyHeatmapLegend />
                     </div>
                     <div className="flex w-full justify-center overflow-x-auto pb-1">
-                        <KeyHeatmap attempts={props.keyAttempts} size="full" showPercent={Object.keys(props.keyAttempts).length > 0} className="min-w-fit" testId="lifetime-heatmap" />
+                        <KeyHeatmap attempts={props.keyAttempts} size="full" showPercent={Object.keys(props.keyAttempts).length > 0} shiftLayer={heatmapShift} altgrLayer={heatmapAltgr} className="min-w-fit" testId="lifetime-heatmap" />
                     </div>
                     {Object.keys(props.keyAttempts).length === 0 && (
                         <p className="mt-4 text-center text-sm text-base-content/45">Take more tests to color in your per-key accuracy.</p>
                     )}
-                    <div className="mt-4 text-center">
+                    {/* Layer switches sit bottom-left of the board itself — they
+                        change what the board shows, so they live with it. */}
+                    <div className="mt-2 flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-1" data-testid="lifetime-heatmap-layers">
+                            <button
+                                type="button"
+                                className={`btn btn-xs normal-case ${heatmapShift ? "btn-primary" : "btn-ghost text-base-content/60"}`}
+                                aria-pressed={heatmapShift}
+                                onClick={() => { setHeatmapShift((on) => !on); setHeatmapAltgr(false); }}
+                            >
+                                ⇧ shift
+                            </button>
+                            {boardHasAltGr && (
+                                <button
+                                    type="button"
+                                    className={`btn btn-xs normal-case ${heatmapAltgr ? "btn-primary" : "btn-ghost text-base-content/60"}`}
+                                    aria-pressed={heatmapAltgr}
+                                    onClick={() => { setHeatmapAltgr((on) => !on); setHeatmapShift(false); }}
+                                >
+                                    AltGr
+                                </button>
+                            )}
+                        </div>
                         <Link href="/how-we-measure" className="text-xs text-base-content/45 underline-offset-2 hover:text-base-content/70 hover:underline">
                             How these numbers work →
                         </Link>
@@ -628,15 +679,18 @@ const Progress: NextPage = () => {
     );
 
     // Lifetime per-key accuracy for the heatmap: DB practice stats when signed
-    // in, the localStorage key-stat mirror for guests.
-    const practiceStatsQuery = api.practiceStats.get.useQuery(undefined, { enabled: !!sessionData?.user });
+    // in, the localStorage key-stat mirror for guests (useGuestEvidence follows
+    // the pool itself). Both read the active layout's stats pool (decision 6).
+    const [activeLayout] = useLayout();
+    const pool = statsPoolFor(activeLayout);
+    const practiceStatsQuery = api.practiceStats.get.useQuery({ pool }, { enabled: !!sessionData?.user });
     const dbKeyAttempts = useMemo(() => {
         const out: Record<string, KeyAttempt> = {};
         for (const stat of practiceStatsQuery.data ?? []) out[stat.character] = { attempts: stat.total, correct: stat.correct };
         return out;
     }, [practiceStatsQuery.data]);
 
-    const transitionsQuery = api.transitionStats.get.useQuery(undefined, { enabled: !!sessionData?.user });
+    const transitionsQuery = api.transitionStats.get.useQuery({ pool }, { enabled: !!sessionData?.user });
     const dbTransitions: TransitionAggregate[] = transitionsQuery.data ?? [];
 
     // Guest evidence lives in localStorage (read client-side after mount to avoid

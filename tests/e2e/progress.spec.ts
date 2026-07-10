@@ -111,6 +111,16 @@ test.describe("progress dashboard", () => {
     await expect(page.getByTestId("lifetime-keyboard-card")).toContainText("Lower accuracy");
     await expect(page.getByTestId("lifetime-heatmap")).toBeVisible();
     await expect(page.getByTestId("lifetime-heatmap")).toContainText("80%");
+    // The heatmap flips layers: shift renders each cell's shifted twin with its
+    // own tally (1 → !), and flipping back restores the base glyphs.
+    const heatmap = page.getByTestId("lifetime-heatmap");
+    await expect(heatmap.locator('[data-kb-key="1"]')).toBeVisible();
+    const shiftLayerButton = page.getByTestId("lifetime-heatmap-layers").getByRole("button", { name: "⇧ shift" });
+    await shiftLayerButton.click();
+    await expect(heatmap.locator('[data-kb-key="!"]')).toBeVisible();
+    await expect(heatmap.locator('[data-kb-key="R"]')).toBeVisible();
+    await shiftLayerButton.click();
+    await expect(heatmap.locator('[data-kb-key="1"]')).toBeVisible();
     const transitions = page.getByTestId("worst-transitions");
     await expect(transitions).toContainText("b→r");
     await expect(transitions.getByRole("link", { name: "Drill br" })).toBeVisible();

@@ -44,6 +44,9 @@ export interface ScoreSnapshot {
   punctuation?: boolean;
   capitals?: boolean;
   ranked?: boolean;
+  // The keyboard layout the run was typed on (actual id — ledger decision 10).
+  // Score surfaces render this board; absent/legacy = qwerty.
+  layout?: string;
   wpmSamples: ScoreWpmSample[];
 }
 
@@ -718,15 +721,18 @@ function ReMeasureStrip(props: { beforeWpm: number; afterWpm: number }) {
 // exactly those keys. Owner-only: rendered on the live results card, never on a
 // read-only shared score (which carries no timeline anyway).
 function DiagnosisPanel(props: { score: ShareableScore }) {
+  const boardLayout = props.score.layout ?? "qwerty";
   const { diagnosis, attempts, transitions } = useMemo(() => {
     const events = props.score.timeline ? decodeTimeline(props.score.timeline) : [];
     return {
       diagnosis: diagnose({ events, worstKeys: props.score.worstKeys }),
-      attempts: attemptsFromEvents(events),
+      // Folded onto the layout the test was typed on, so accent keys land on
+      // their real cells (ledger decision 10).
+      attempts: attemptsFromEvents(events, boardLayout),
       // This test's slowest transitions, framed against this test's own pace.
       transitions: worstTransitions(aggregateTransitions(events), 2),
     };
-  }, [props.score.timeline, props.score.worstKeys]);
+  }, [props.score.timeline, props.score.worstKeys, boardLayout]);
 
   // Only normal-mode tests carry a per-key timeline; without one there is nothing
   // to diagnose, so the panel stays hidden rather than showing an empty shell.
@@ -832,7 +838,7 @@ function DiagnosisPanel(props: { score: ShareableScore }) {
 
           <div className="border-t border-base-content/10 pt-4 lg:border-t-0 lg:border-l lg:pl-5 lg:pt-0">
             <p className="mb-3 text-sm text-base-content/60">This test&apos;s per-key accuracy — drilled keys ringed.</p>
-            <KeyHeatmap size="mini" attempts={attempts} highlightKeys={diagnosis.drillKeys} testId="diagnosis-heatmap" />
+            <KeyHeatmap size="mini" layout={boardLayout} attempts={attempts} highlightKeys={diagnosis.drillKeys} testId="diagnosis-heatmap" />
           </div>
         </div>
       }

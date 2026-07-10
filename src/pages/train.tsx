@@ -3,11 +3,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Typer } from "~/components/typer/Typer";
 import { TestGramScopes, TestGramSources, TestModes } from "~/components/typer/types";
 import type { Level } from "~/components/typer/train/levels";
-import { levels, withLanguageAccents } from "~/components/typer/train/levels";
+import { levelsFor, reachableAccentsFor, withLanguageAccents } from "~/components/typer/train/levels";
 import { accentsFor, ensureLanguageLoaded } from "~/components/typer/utils";
 import { KIND_META } from "~/components/typer/train/kindMeta";
 import { api } from "~/utils/api";
 import { useLanguage } from "~/hooks/useLanguage";
+import { useLayout } from "~/hooks/useLayout";
+import { statsPoolFor } from "~/lib/keyboardLayout";
 import { Keyboard } from "~/components/typer/Keyboard";
 import { typingFocusFadeClass } from "~/components/typer/typingFocus";
 import { useSession } from "next-auth/react";
@@ -148,16 +150,16 @@ const Train: NextPage = () => {
     // Training text follows the global language; the ladder progress stays global
     // (TrainProgress is keyed by difficulty/options, not language).
     const [language] = useLanguage()
-    // The language's accent letters (derived from its word list once it loads)
-    // extend the key set on full-alphabet levels, so the mastery stretch types
-    // the real alphabet. [] for English and while loading.
+    const [activeLayout] = useLayout()
+    // The language's accent letters that the active layout can type extend the
+    // full-alphabet stretch, so Train never generates a char absent from its board.
     const [accents, setAccents] = useState<string[]>([])
     useEffect(() => {
         let active = true
         setAccents([])
-        void ensureLanguageLoaded(language).then(() => { if (active) setAccents(accentsFor(language)) })
+        void ensureLanguageLoaded(language).then(() => { if (active) setAccents(reachableAccentsFor(accentsFor(language), activeLayout)) })
         return () => { active = false }
-    }, [language])
+    }, [language, activeLayout])
     const mode = TestModes.normal
     const gramSource = TestGramSources.bigrams
     const gramScope = TestGramScopes.fifty
@@ -167,7 +169,15 @@ const Train: NextPage = () => {
     const gramAccuracyThreshold = 100
     const [difficulty, setDifficulty] = useState<DifficultyName>("easy")
     const [view, setView] = useState<TrainView>("map")
-    const [level, setLevel] = useState<Level>(levels[0] as Level)
+    // The ladder follows the active layout (docs/features/keyboard-layouts.md
+    // slice 7): same names/counts/kinds everywhere, keys from keyStagesFor.
+    const trainLevels = useMemo(() => levelsFor(activeLayout), [activeLayout])
+    const [level, setLevel] = useState<Level>(trainLevels[0] as Level)
+    // A layout switch re-points the selected level at the same rung of the new
+    // layout's ladder (names are the identity; progress is untouched).
+    useEffect(() => {
+        setLevel((current) => trainLevels.find((item) => item.name === current.name) ?? trainLevels[0]!)
+    }, [trainLevels])
     // Speed-round levels run as short timed tests; every other kind is a words run.
     const subMode = level.subMode
     const [levelChanged, setLevelChanged] = useState<boolean>(false)
@@ -176,7 +186,7 @@ const Train: NextPage = () => {
     const [typingFocused, setTypingFocused] = useState(false)
     const charAttemptsRef = useRef<Map<string, { attempts: number, correct: number }>>(new Map())
 
-    const train = useTrainProgress(difficulty)
+    const train = useTrainProgress(difficulty, statsPoolFor(activeLayout))
     const completedProgress = train.completedProgress
 
     // fetch types
@@ -189,16 +199,16 @@ const Train: NextPage = () => {
     }, [difficulty])
 
     const ladder: LevelStatus[] = useMemo(
-        () => ladderState(completedProgress, difficulty),
-        [completedProgress, difficulty],
+        () => ladderState(completedProgress, difficulty, trainLevels),
+        [completedProgress, difficulty, trainLevels],
     )
     const progressSelectedLevel = useMemo(
-        () => resumeLevel(completedProgress, difficulty),
-        [completedProgress, difficulty],
+        () => resumeLevel(completedProgress, difficulty, trainLevels),
+        [completedProgress, difficulty, trainLevels],
     )
 
     const advanceToNextLevel = useCallback((freshProgress: LevelProgress[]) => {
-        const next = nextLevel(freshProgress, level.name, difficulty)
+        const next = nextLevel(freshProgress, level.name, difficulty, trainLevels)
 
         if (next) {
             setLevel(next)
@@ -207,7 +217,7 @@ const Train: NextPage = () => {
         }
 
         setLevelChanged(false)
-    }, [level.name, difficulty])
+    }, [level.name, difficulty, trainLevels])
 
     // Import the guest mirror, then advance from the current level (page state).
     const importDeviceProgress = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
@@ -239,7 +249,7 @@ const Train: NextPage = () => {
         options: { saved: TrainCompletion["saved"], nextProgress?: LevelProgress[] } = { saved: "failed" },
     ) => {
         const levelName = result.levelName ?? level.name
-        const completedLevel = levels.find(item => item.name == levelName) ?? level
+        const completedLevel = trainLevels.find(item => item.name == levelName) ?? level
         const { thresholds, stars: gradedStars } = gradeLevel(completedLevel, difficulty, { netWpm: result.netWpm, accuracy: result.accuracy })
         // An overtake on a boss is a loss regardless of the WPM the typed span hit.
         const stars = result.pacerCaught ? 0 : gradedStars
@@ -253,10 +263,10 @@ const Train: NextPage = () => {
             kind: completedLevel.kind,
             pacerCaught: !!result.pacerCaught,
             isNoMiss: completedLevel.kind === "noMiss",
-            nextLevelName: stars > 0 && options.nextProgress ? (nextLevel(options.nextProgress, levelName, difficulty)?.name ?? null) : null,
+            nextLevelName: stars > 0 && options.nextProgress ? (nextLevel(options.nextProgress, levelName, difficulty, trainLevels)?.name ?? null) : null,
             saved: options.saved,
         })
-    }, [difficulty, level])
+    }, [difficulty, level, trainLevels])
 
     // With eagerResult, a signed-in completion reports twice (instant, then the
     // save upgrade). The popover shows nothing server-derived, so only the first
@@ -268,7 +278,7 @@ const Train: NextPage = () => {
         completionHandledRef.current = true
 
         const levelName = result.levelName ?? level.name
-        const completedLevel = levels.find(item => item.name == levelName) ?? level
+        const completedLevel = trainLevels.find(item => item.name == levelName) ?? level
         const { stars: gradedStars, entry } = gradeLevel(completedLevel, difficulty, { netWpm: result.netWpm, accuracy: result.accuracy })
         // An overtake on a boss is a loss regardless of the WPM the typed span hit.
         const stars = result.pacerCaught ? 0 : gradedStars
@@ -292,7 +302,7 @@ const Train: NextPage = () => {
                     ...current,
                     saved: saved ? "saved" : "failed",
                     nextLevelName: current.stars > 0
-                        ? (nextLevel(nextProgress, levelName, difficulty)?.name ?? current.nextLevelName)
+                        ? (nextLevel(nextProgress, levelName, difficulty, trainLevels)?.name ?? current.nextLevelName)
                         : null,
                 }
             })
@@ -333,7 +343,7 @@ const Train: NextPage = () => {
 
     const goToNextLevel = () => {
         if (!completion?.nextLevelName) return
-        const nextLevel = levels.find(level => level.name == completion.nextLevelName)
+        const nextLevel = trainLevels.find(level => level.name == completion.nextLevelName)
         if (!nextLevel) return
         setLevel(nextLevel)
         setLevelChanged(true)
@@ -389,9 +399,9 @@ const Train: NextPage = () => {
     const currentNum = levelNumber(level.name)
 
     // Level rail: a five-wide window around the current level, then the summit.
-    const railStart = Math.min(Math.max(currentNum - 1, 1), levels.length - 4)
+    const railStart = Math.min(Math.max(currentNum - 1, 1), trainLevels.length - 4)
     const railItems = ladder.slice(railStart - 1, railStart + 4)
-    const railShowsTail = railStart + 4 < levels.length
+    const railShowsTail = railStart + 4 < trainLevels.length
 
     // The caption line carries only the next milestone; all three thresholds live
     // on the hover title and the results popover.
@@ -509,7 +519,7 @@ const Train: NextPage = () => {
                                     <div>
                                         <h1 className="text-lg font-medium capitalize">{difficulty} tier</h1>
                                         <p className="mt-0.5 text-sm text-base-content/60">
-                                            {doneCount} of {levels.length} levels · <span className="text-primary">{starCount}</span> of {levels.length * 3} stars
+                                            {doneCount} of {trainLevels.length} levels · <span className="text-primary">{starCount}</span> of {trainLevels.length * 3} stars
                                         </p>
                                     </div>
                                     <button
@@ -522,7 +532,7 @@ const Train: NextPage = () => {
                                     </button>
                                 </div>
                                 <div className="h-[3px] overflow-hidden rounded-sm bg-base-content/10">
-                                    <div className="h-full bg-primary" style={{ width: `${(doneCount / levels.length) * 100}%` }} />
+                                    <div className="h-full bg-primary" style={{ width: `${(doneCount / trainLevels.length) * 100}%` }} />
                                 </div>
                                 <div data-testid="train-map-grid" className="grid grid-cols-5 gap-1.5 sm:grid-cols-10">
                                     {ladder.map(mapCell)}
@@ -549,7 +559,7 @@ const Train: NextPage = () => {
                                         {railShowsTail &&
                                             <>
                                                 <div className="flex h-9 w-4 items-center justify-center text-xs text-base-content/40" aria-hidden="true">…</div>
-                                                {railBox(ladder[levels.length - 1]!)}
+                                                {railBox(ladder[trainLevels.length - 1]!)}
                                             </>
                                         }
                                     </div>

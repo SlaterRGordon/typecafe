@@ -1,4 +1,5 @@
 import { TestSubModes } from "~/components/typer/types";
+import { DEFAULT_LAYOUT, keyStagesFor, sequenceFor } from "~/lib/keyboardLayout";
 
 export type LevelKind = "keys" | "speed" | "noMiss" | "boss"
 
@@ -17,20 +18,10 @@ export interface Level {
 
 // Keys are introduced progressively over the first INTRO_LEVELS, then the full
 // alphabet is held for the rest of the climb — later difficulty comes from the
-// WPM ramp, longer counts and themed kinds, not new keys.
-const KEY_STAGES = [
-    "asdfjkl",                    // home row
-    "asdfghjkl",                  // + g h
-    "asdefghijkl",                // + e i
-    "asderfghijkul",              // + r u
-    "asdertfghijkuly",            // + t y
-    "wasdertfghijkulyo",          // + w o
-    "qwasdertfghijkulyop",        // + q p
-    "qwasdertfghijkulyopcn",      // + c n
-    "qwasdertfghijkulyopcnvm",    // + v m
-    "qwasdertfghijkulyopcnvmb",   // + b
-    "qwertyuiopasdfghjklzxcvbnm", // full alphabet
-]
+// WPM ramp, longer counts and themed kinds, not new keys. The stages follow the
+// active keyboard layout (keyStagesFor: home row out, docs/features/
+// keyboard-layouts.md slice 7) — names, counts and kinds are layout-independent,
+// so TrainProgress (keyed by level name) is untouched by a layout switch.
 
 const TOTAL_LEVELS = 100
 const INTRO_LEVELS = 44 // keys fully introduced by ~L44
@@ -39,11 +30,11 @@ const MAX_COUNT = 50    // words at the top (non-boss/speed)
 const BOSS_COUNT = 60   // boss levels are longer
 const SPEED_SECONDS = 30 // speed rounds are timed (count is seconds — wired in slice 4)
 
-function keysForLevel(level: number): string {
-    if (level > INTRO_LEVELS) return KEY_STAGES[KEY_STAGES.length - 1]!
-    const perStage = INTRO_LEVELS / KEY_STAGES.length
-    const index = Math.min(KEY_STAGES.length - 1, Math.floor((level - 1) / perStage))
-    return KEY_STAGES[index]!
+function keysForLevel(level: number, stages: string[]): string {
+    if (level > INTRO_LEVELS) return stages[stages.length - 1]!
+    const perStage = INTRO_LEVELS / stages.length
+    const index = Math.min(stages.length - 1, Math.floor((level - 1) / perStage))
+    return stages[index]!
 }
 
 // Block-of-10 rhythm: boss on the 10th, a speed round at position 4 and a no-miss
@@ -63,13 +54,14 @@ function countForLevel(level: number, kind: LevelKind): number {
     return Math.round(BASE_COUNT + (MAX_COUNT - BASE_COUNT) * (level - 1) / (TOTAL_LEVELS - 1))
 }
 
-function buildLevels(): Level[] {
+function buildLevels(layout: string): Level[] {
+    const stages = keyStagesFor(layout)
     return Array.from({ length: TOTAL_LEVELS }, (_, i) => {
         const level = i + 1
         const kind = kindForLevel(level)
         return {
             name: `Level ${level}`,
-            keys: keysForLevel(level),
+            keys: keysForLevel(level, stages),
             count: countForLevel(level, kind),
             kind,
             subMode: kind === "speed" ? TestSubModes.timed : TestSubModes.words,
@@ -77,7 +69,17 @@ function buildLevels(): Level[] {
     })
 }
 
-export const levels: Level[] = buildLevels()
+// Ladders per layout, built on first use. Unknown layouts collapse to qwerty
+// (keyStagesFor is total), sharing its cached array.
+const laddersByLayout: Record<string, Level[]> = {}
+
+export function levelsFor(layout: string): Level[] {
+    const stages = keyStagesFor(layout)
+    const key = stages.join("|")
+    return (laddersByLayout[key] ??= buildLevels(layout))
+}
+
+export const levels: Level[] = levelsFor(DEFAULT_LAYOUT)
 
 // Once every a–z key is introduced, the ladder types the language's *real*
 // alphabet: the active language's accent letters (é, ü, ł …) join the key set so
@@ -88,3 +90,7 @@ export function withLanguageAccents(level: Level, accents: string[]): Level {
     if (accents.length === 0 || level.keys.length < 26) return level
     return { ...level, keys: level.keys + accents.join("") }
 }
+
+// Train can only introduce characters the active board can show and teach.
+export const reachableAccentsFor = (accents: readonly string[], layout: string): string[] =>
+    accents.filter((accent) => sequenceFor(accent, layout).length > 0)

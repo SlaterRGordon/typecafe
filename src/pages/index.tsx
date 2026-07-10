@@ -2,7 +2,7 @@ import { type NextPage } from "next";
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useDispatch } from "react-redux";
 import { FirstVisitPromise } from "~/components/home/FirstVisitPromise";
@@ -15,9 +15,11 @@ import { typingFocusFadeClass } from "~/components/typer/typingFocus";
 import { TestModes, TestSubModes, type QuoteLength, type TestGramScopes, type TestGramSources } from "~/components/typer/types";
 import { useTestSettings } from "~/hooks/useTestSettings";
 import { useLanguage } from "~/hooks/useLanguage";
-import { clampSize, composeLanguage, parseLanguage } from "~/components/typer/utils";
+import { useLayout } from "~/hooks/useLayout";
+import { boardFor, sequenceFor, statsPoolFor } from "~/lib/keyboardLayout";
+import { accentsFor, clampSize, composeLanguage, ensureLanguageLoaded, parseLanguage } from "~/components/typer/utils";
 import { withPracticeVowel } from "~/lib/diagnosis";
-import { smartDrillSelection } from "~/lib/drillKeys";
+import { isPracticeLetter, remapPracticeSelectionByPosition, repairPracticeSelection, smartDrillSelection } from "~/lib/drillKeys";
 import { addAlert } from "~/state/alert/alertSlice";
 import { appendLocalProgress } from "~/lib/progressHistory";
 import { consistencyFromSamples } from "~/lib/stats";
@@ -51,7 +53,7 @@ const Home: NextPage = () => {
   const [fullscreen, setFullscreen] = useState(false)
   const { settings, updateSetting } = useTestSettings()
   const {
-    mode, subMode, language, quoteLength, count, customLength, punctuation, capitals,
+    mode, subMode, language, quoteLength, count, customLength, punctuation, capitals, numbers,
     selectedKeys, gramSource, gramScope, gramCombination, gramRepetition,
     gramWpmThreshold, gramAccuracyThreshold,
   } = settings
@@ -63,6 +65,7 @@ const Home: NextPage = () => {
   const setCount = (value: number) => updateSetting("count", value)
   const setPunctuation = (value: boolean) => updateSetting("punctuation", value)
   const setCapitals = (value: boolean) => updateSetting("capitals", value)
+  const setNumbers = (value: boolean) => updateSetting("numbers", value)
   const setCustomLength = (value: boolean) => updateSetting("customLength", value)
   const setGramSource = (value: TestGramSources) => updateSetting("gramSource", value)
   const setGramScope = (value: TestGramScopes) => updateSetting("gramScope", value)
@@ -90,6 +93,10 @@ const Home: NextPage = () => {
   // settings-line "shift on/off" label reflects the peek too, not just the board.
   const [shiftToggle, setShiftToggle] = useState(false)
   const [shiftHeld, setShiftHeld] = useState(false)
+  // AltGr mirror of the shift layer, for national layouts (@ € ~ µ, Polish
+  // accents). The toggle only renders when the active layout has AltGr glyphs.
+  const [altgrToggle, setAltgrToggle] = useState(false)
+  const [altgrHeld, setAltgrHeld] = useState(false)
   const dispatch = useDispatch()
   const [restartSignal, setRestartSignal] = useState(0)
   const [completedScore, setCompletedScore] = useState<(ScoreSnapshot & {
@@ -136,7 +143,28 @@ const Home: NextPage = () => {
   const attemptReMeasureRef = useRef<{ beforeWpm: number } | undefined>(undefined)
   const { data: sessionData } = useSession()
   const router = useRouter()
-  const { data: persistedStats } = api.practiceStats.get.useQuery(undefined, {
+  const [activeLayout] = useLayout()
+  const priorPracticeLayout = useRef(activeLayout)
+  useEffect(() => {
+    const fromLayout = priorPracticeLayout.current
+    if (mode !== TestModes.practice) {
+      priorPracticeLayout.current = activeLayout
+      return
+    }
+    let alive = true
+    void ensureLanguageLoaded(globalLanguage).then(() => {
+      if (!alive) return
+      const accents = accentsFor(globalLanguage)
+      const carried = fromLayout === activeLayout
+        ? selectedKeys
+        : remapPracticeSelectionByPosition(selectedKeys, fromLayout, activeLayout, accents)
+      const repaired = repairPracticeSelection(carried, activeLayout, accents)
+      if (repaired.length !== selectedKeys.length || repaired.some((key, index) => key !== selectedKeys[index])) setSelectedKeys(repaired)
+      priorPracticeLayout.current = activeLayout
+    })
+    return () => { alive = false }
+  }, [activeLayout, globalLanguage, mode, selectedKeys])
+  const { data: persistedStats } = api.practiceStats.get.useQuery({ pool: statsPoolFor(activeLayout) }, {
     enabled: mode === TestModes.practice && !!sessionData?.user,
   })
   const createShare = api.scoreShare.create.useMutation()
@@ -194,9 +222,19 @@ const Home: NextPage = () => {
 
   useEffect(() => {
     if (mode !== TestModes.practice) return
-    const onDown = (e: KeyboardEvent) => { if (e.key === "Shift" && !e.repeat) setShiftHeld(true) }
-    const onUp = (e: KeyboardEvent) => { if (e.key === "Shift") setShiftHeld(false) }
-    const clear = () => setShiftHeld(false)
+    const onDown = (e: KeyboardEvent) => {
+      if (e.repeat) return
+      if (e.key === "Shift") setShiftHeld(true)
+      if (e.key === "AltGraph") setAltgrHeld(true)
+    }
+    const onUp = (e: KeyboardEvent) => {
+      if (e.key === "Shift") setShiftHeld(false)
+      if (e.key === "AltGraph") setAltgrHeld(false)
+    }
+    const clear = () => {
+      setShiftHeld(false)
+      setAltgrHeld(false)
+    }
     window.addEventListener("keydown", onDown)
     window.addEventListener("keyup", onUp)
     window.addEventListener("blur", clear)
@@ -207,9 +245,14 @@ const Home: NextPage = () => {
     }
   }, [mode])
   const shiftLayer = shiftToggle || shiftHeld
+  const altgrLayer = altgrToggle || altgrHeld
+
+  const hasAltGr = useMemo(() => boardFor(activeLayout).rows.some((row) => row.some((cap) => cap.altgr)), [activeLayout])
 
   // Smart drill (settings line): select the eight least-accurate keys from the
-  // folded lifetime + session attempts. Selection math lives in lib/drillKeys.
+  // folded lifetime + session attempts — including the language's accent chars
+  // the active layout can type (ü on qwertz-de, dead-composed ê on azerty-fr).
+  // Selection math lives in lib/drillKeys.
   const handleSmartDrill = () => {
     const merged = new Map<string, { attempts: number, correct: number }>()
     for (const source of [persistedAttemptsRef.current, charAttemptsRef.current]) {
@@ -220,7 +263,8 @@ const Home: NextPage = () => {
         merged.set(key, entry)
       }
     }
-    const keys = smartDrillSelection(merged)
+    const accents = accentsFor(parseLanguage(language).base).filter((ch) => sequenceFor(ch, activeLayout).length > 0)
+    const keys = smartDrillSelection(merged, accents)
     if (!keys) {
       dispatch(addAlert({ message: "Not enough typing data yet — practice a little first!", type: "warning" }))
       return
@@ -278,6 +322,7 @@ const Home: NextPage = () => {
       punctuation: result.punctuation,
       capitals: result.capitals,
       ranked: result.ranked,
+      layout: activeLayout,
       count,
       mode,
       subMode,
@@ -295,7 +340,7 @@ const Home: NextPage = () => {
     // Mirror guest results locally so /progress is real from the first test
     // (local-first; signed-in users' trends come from the DB instead).
     if (!sessionData?.user) {
-      appendLocalProgress({ wpm: result.speed, accuracy: result.accuracy, c: consistency, t: Date.now(), lang: parseLanguage(language).base })
+      appendLocalProgress({ wpm: result.speed, accuracy: result.accuracy, c: consistency, t: Date.now(), lang: parseLanguage(language).base, layout: activeLayout })
     }
 
     // Only guests stash a pending score (to save once they sign in). Signed-in
@@ -378,7 +423,7 @@ const Home: NextPage = () => {
         const share = await createShare.mutateAsync({
           testId: test.id,
           snapshot: { durationSeconds, rawWpm, netWpm, accuracy, totalKeystrokes, correctKeystrokes,
-            incorrectKeystrokes, promptText, typedText, typedSegments, worstKeys, brag, avgDelta: test.avgDelta, wpmSamples, punctuation, capitals, ranked },
+            incorrectKeystrokes, promptText, typedText, typedSegments, worstKeys, brag, avgDelta: test.avgDelta, wpmSamples, punctuation, capitals, ranked, layout: restoredScore.layout },
         })
         const url = `${window.location.origin}/score/${share.slug}`
         setShareUrl(url)
@@ -440,11 +485,12 @@ const Home: NextPage = () => {
       ? router.query.keys
       : Array.isArray(router.query.keys) ? router.query.keys.join(",") : ""
     // Practice needs a vowel to form words; a weakness set can be all consonants.
+    // Accented letters are drill targets too (weak é from a French test).
     const keys = withPracticeVowel(
       rawKeys
         .split(",")
         .map((key) => key.trim().toLowerCase())
-        .filter((key) => /^[a-z]$/.test(key)),
+        .filter(isPracticeLetter),
     )
 
     if (completedScore && completedScore.mode === TestModes.normal) {
@@ -583,6 +629,7 @@ const Home: NextPage = () => {
       capitals,
       ranked,
       wpmSamples,
+      layout: completedScore.layout,
     }
     // Signed-in: link the share to the saved Test. Guest: mint a snapshot-only
     // share that carries its own render fields (mode/language/count).
@@ -657,8 +704,18 @@ const Home: NextPage = () => {
               gramAccuracyThreshold={gramAccuracyThreshold}
               punctuation={punctuation}
               capitals={capitals}
+              numbers={numbers}
               shiftLayer={shiftLayer}
-              onToggleShift={() => setShiftToggle((on) => !on)}
+              onToggleShift={() => {
+                setShiftToggle((on) => !on)
+                setAltgrToggle(false)
+              }}
+              altgrLayer={altgrLayer}
+              onToggleAltgr={() => {
+                setAltgrToggle((on) => !on)
+                setShiftToggle(false)
+              }}
+              hasAltGr={hasAltGr}
               onSmartDrill={handleSmartDrill}
               setCount={setCount}
               setCustomLength={setCustomLength}
@@ -671,6 +728,7 @@ const Home: NextPage = () => {
               setGramAccuracyThreshold={setGramAccuracyThreshold}
               setPunctuation={setPunctuation}
               setCapitals={setCapitals}
+              setNumbers={setNumbers}
               onRestart={requestRestart}
               fullscreen={fullscreen}
               setFullscreen={setFullscreen}
@@ -718,6 +776,7 @@ const Home: NextPage = () => {
           count={count}
           punctuation={punctuation}
           capitals={capitals}
+          numbers={numbers}
           customLength={customLength}
           showStats={true}
           modalOpen={false}
@@ -770,7 +829,21 @@ const Home: NextPage = () => {
         }
         {!completedScore && shouldShowHomeKeyboard &&
           <div data-testid="typing-focus-home-keyboard" className="min-h-[11rem] md:min-h-[15.25rem]">
-            <Keyboard mode={mode} selectedKeys={selectedKeys} setSelectedKeys={setSelectedKeys} charAttemptsRef={charAttemptsRef} baseAttemptsRef={persistedAttemptsRef} shiftToggle={shiftLayer} />
+            <Keyboard
+              mode={mode}
+              selectedKeys={selectedKeys}
+              setSelectedKeys={setSelectedKeys}
+              charAttemptsRef={charAttemptsRef}
+              baseAttemptsRef={persistedAttemptsRef}
+              shiftToggle={shiftLayer}
+              altgrToggle={altgrLayer}
+              punctuation={punctuation}
+              capitals={capitals}
+              numbers={numbers}
+              setPunctuation={setPunctuation}
+              setCapitals={setCapitals}
+              setNumbers={setNumbers}
+            />
           </div>
         }
       </div>

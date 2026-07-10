@@ -2,6 +2,7 @@ import { TestModes, TestSubModes } from "../types"
 import type { QuoteLength, TestGramScopes, TestGramSources } from "../types"
 import type { Level } from "../train/levels"
 import { applyTextOptions, ensureQuotesLoaded, ensureSizedLoaded, generateBetterPseudoText, generateNGram, generateQuote, generateText, isDrillDigit, isDrillMark, parseLanguage } from "../utils"
+import { ALL_DIGITS, isPracticeLetter } from "~/lib/drillKeys"
 
 export interface TestTextConfig {
     mode: TestModes,
@@ -11,6 +12,7 @@ export interface TestTextConfig {
     quoteLength: QuoteLength,
     punctuation: boolean,
     capitals: boolean,
+    numbers: boolean,
     level?: Level,
     selectedKeys?: string[],
     gramSource: TestGramSources,
@@ -24,7 +26,10 @@ export interface TestTextConfig {
 // approaches the end, so the initial size only needs to outrun the first append.
 // Async because non-English word lists load on demand.
 export async function generateTestText(config: TestTextConfig, gramLevel: number): Promise<string> {
-    const { mode, subMode, count, language, punctuation, capitals, level, selectedKeys } = config
+    const { mode, subMode, count, language, punctuation, capitals, numbers, level, selectedKeys } = config
+    // The numbers toggle sprinkles standalone digit tokens into word-list text,
+    // exactly like punctuation/capitals ride applyTextOptions.
+    const numberPool = numbers ? ALL_DIGITS : []
 
     if (mode === TestModes.quotes) {
         // Quotes are typed verbatim — no lowercasing, no punctuation/capitals
@@ -41,29 +46,29 @@ export async function generateTestText(config: TestTextConfig, gramLevel: number
             // A speed-round level drills its own keys at speed; the buffer is large
             // so a 30s run never exhausts it (Text appends more from the same keys).
             if (level) return applyTextOptions(generateBetterPseudoText(500, level.keys.split(""), base), punctuation, capitals)
-            return applyTextOptions(generateText(500, language), punctuation, capitals)
+            return applyTextOptions(generateText(500, language), punctuation, capitals, { digits: numberPool })
         }
         if (subMode === TestSubModes.words) {
             if (level) return applyTextOptions(generateBetterPseudoText(count, level.keys.split(""), base), punctuation, capitals)
-            return applyTextOptions(generateText(count, language), punctuation, capitals)
+            return applyTextOptions(generateText(count, language), punctuation, capitals, { digits: numberPool })
         }
         return ""
     }
 
     if (mode === TestModes.practice) {
         if (!selectedKeys) return ""
-        // Practice uses ONLY the unlocked keys: the selected letters build the
-        // words *exclusively* (a locked letter never appears), and locked-in
-        // numbers/punctuation are sprinkled in as drill targets. The min-keys rule
-        // (>=6 letters incl. a vowel + consonant) guarantees text is always buildable.
-        const letters = selectedKeys.filter((key) => /^[a-z]$/.test(key))
-        // The punctuation toggle gates the locked mark keys: off → no marks
-        // sprinkled even if locked; on → sprinkle *only* the locked marks (never the
-        // full natural pool, so Practice stays scoped to unlocked keys). Digits are
-        // numbers, not punctuation, so they ride the locks regardless. `capitals`
-        // stays as the one Capitalize add-on.
+        // Practice uses ONLY unlocked keys: selected letters build words;
+        // numbers/punctuation are injected as drill targets. The selection floor
+        // keeps at least eight letters, including two vowels and a consonant.
+        // Lowercase Unicode letters (ü, é, dead-composed ê) join the word pool;
+        // the language list decides whether they appear.
+        const letters = selectedKeys.filter(isPracticeLetter)
+        // The punctuation/numbers toggles gate the locked mark/digit keys: off →
+        // none sprinkled even if unlocked; on → sprinkle *only* the unlocked ones
+        // (never the full natural pool, so Practice stays scoped to unlocked
+        // keys). `capitals` stays as the one Capitalize add-on.
         const marks = punctuation ? selectedKeys.filter(isDrillMark) : []
-        const digits = selectedKeys.filter(isDrillDigit)
+        const digits = numbers ? selectedKeys.filter(isDrillDigit) : []
         return applyTextOptions(generateBetterPseudoText(500, letters, base), false, capitals, { marks, digits })
     }
 
@@ -72,7 +77,7 @@ export async function generateTestText(config: TestTextConfig, gramLevel: number
     }
 
     if (mode === TestModes.relaxed) {
-        return applyTextOptions(generateText(50, language), punctuation, capitals)
+        return applyTextOptions(generateText(50, language), punctuation, capitals, { digits: numberPool })
     }
 
     return ""
