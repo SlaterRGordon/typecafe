@@ -14,6 +14,7 @@ import Script from "next/script";
 import { useRouter } from "next/router";
 import { useEffect } from "react";
 import { Analytics } from "@vercel/analytics/next"
+import { SpeedInsights } from "@vercel/speed-insights/next"
 
 declare global {
   interface Window {
@@ -47,6 +48,7 @@ const MyApp: AppType<{ session: Session | null }> = ({
     <Provider store={store}>
       <SessionProvider session={session}>
         <Analytics/>
+        <SpeedInsights/>
         <GuestImport />
         <Layout>
           <Head>
