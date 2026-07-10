@@ -26,6 +26,26 @@ function read(): string {
     return "english"
 }
 
+export function hasStoredLanguageChoice(): boolean {
+    if (typeof window === "undefined") return false
+    try {
+        return localStorage.getItem(KEY) !== null
+    } catch {
+        return false
+    }
+}
+
+export function writeLanguage(next: string): boolean {
+    if (typeof window === "undefined") return false
+    try {
+        localStorage.setItem(KEY, JSON.stringify(parseLanguage(next).base))
+    } catch {
+        return false
+    }
+    window.dispatchEvent(new Event(CHANGED_EVENT))
+    return true
+}
+
 export function useLanguage(): [string, (next: string) => void] {
     const [language, setLanguage] = useState("english")
 
@@ -43,12 +63,7 @@ export function useLanguage(): [string, (next: string) => void] {
 
     const update = useCallback((next: string) => {
         setLanguage(next)
-        try {
-            localStorage.setItem(KEY, JSON.stringify(next))
-        } catch {
-            // Storage full or unavailable — the choice just won't persist.
-        }
-        window.dispatchEvent(new Event(CHANGED_EVENT))
+        writeLanguage(next)
     }, [])
 
     return [language, update]

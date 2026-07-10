@@ -462,6 +462,34 @@ export function defaultLayoutFor(language: string, locale = ""): string {
     }
 }
 
+export function languageForLayout(layout: string): string | null {
+    switch (layout) {
+        case "qwertz-de":
+        case "qwertz-ch":
+            return "german"
+        case "azerty-fr":
+        case "azerty-be":
+        case "cf":
+            return "french"
+        case "qwerty-es":
+        case "qwerty-latam":
+            return "spanish"
+        case "qwerty-it":
+            return "italian"
+        case "qwerty-pt":
+        case "qwerty-abnt2":
+            return "portuguese"
+        case "qwerty-us-intl":
+            return "dutch"
+        case "qwerty-pl":
+            return "polish"
+        case "qwerty-uk":
+            return "english"
+        default:
+            return null
+    }
+}
+
 export function resolveLayout(stored: string, language: string, detected: string | null, locale = ""): string {
     if (stored !== AUTO_LAYOUT && SPECS[stored]) return stored
     if (detected && SPECS[detected]) return detected
