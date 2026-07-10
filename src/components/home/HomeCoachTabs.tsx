@@ -3,17 +3,16 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/router";
 import { useEffect, useMemo, useState } from "react";
 import { MaterialNavIcon } from "~/components/navigation/MaterialNavIcon";
-import { challengeDateKey } from "~/lib/challenge";
-import { localChallengeStatus, readLocalChallengeHistory, type ChallengeStatus } from "~/lib/challengeHistory";
 import { nextDrillFinding } from "~/lib/drillProgress";
 import { useGuestEvidence } from "~/hooks/useGuestEvidence";
+import { useLanguage } from "~/hooks/useLanguage";
 import { useLayout } from "~/hooks/useLayout";
+import { isDrillableOn } from "~/lib/drillKeys";
 import { statsPoolFor } from "~/lib/keyboardLayout";
+import { accentsFor, ensureLanguageLoaded } from "~/components/typer/utils";
 import { api } from "~/utils/api";
 
 const NEXT_ACTION_DISMISS_KEY = "typecafe:nextActionDismissed";
-
-type ChallengeStatusEntry = NonNullable<ChallengeStatus["today"]> & { delta?: number | null };
 
 type CoachTab = {
     key: "drill" | "challenge";
@@ -33,17 +32,6 @@ type HomeCoachTabsProps = {
     desktop?: boolean;
     inline?: boolean;
 };
-
-function formatNumber(value: number, digits = 1) {
-    return value.toLocaleString(undefined, {
-        maximumFractionDigits: digits,
-        minimumFractionDigits: digits,
-    });
-}
-
-function statusFromLocal(dateKey: string): ChallengeStatus {
-    return localChallengeStatus(dateKey, readLocalChallengeHistory());
-}
 
 function CoachTabPanel({ leftClassName, tab }: { leftClassName: string; tab: CoachTab }) {
     return (
@@ -130,14 +118,6 @@ export function HomeCoachTabs({ className = "", desktop = true, inline = true }:
     const [dismissedFinding, setDismissedFinding] = useState(() => {
         try { return localStorage.getItem(NEXT_ACTION_DISMISS_KEY); } catch { return null; }
     });
-    const [dateKey, setDateKey] = useState<string | null>(null);
-    const [localChallenge, setLocalChallenge] = useState<ChallengeStatus | null>(null);
-    const [challengeDismissed, setChallengeDismissed] = useState(false);
-
-    useEffect(() => {
-        // Synced UTC day boundary — must match the challenge page (src/pages/challenge.tsx).
-        setDateKey(challengeDateKey(new Date()));
-    }, []);
 
     useEffect(() => {
         const onSideNavExpanded = (event: Event) => {
@@ -147,28 +127,21 @@ export function HomeCoachTabs({ className = "", desktop = true, inline = true }:
         return () => window.removeEventListener("typecafe:side-nav-expanded", onSideNavExpanded);
     }, []);
 
-    useEffect(() => {
-        if (!dateKey) return;
-        try {
-            setChallengeDismissed(sessionStorage.getItem(`typecafe:challengeCardDismissed:${dateKey}`) === "1");
-        } catch { /* sessionStorage unavailable */ }
-    }, [dateKey]);
-
-    useEffect(() => {
-        if (!dateKey || sessionStatus !== "unauthenticated") return;
-        setLocalChallenge(statusFromLocal(dateKey));
-    }, [dateKey, sessionStatus]);
-
     // Coach evidence follows the active layout's stats pool (ledger decision 6).
     const [activeLayout] = useLayout();
     const pool = statsPoolFor(activeLayout);
     const transitionsQuery = api.transitionStats.get.useQuery({ pool }, { enabled: signedIn });
     const practiceStatsQuery = api.practiceStats.get.useQuery({ pool }, { enabled: signedIn });
     const guestEvidence = useGuestEvidence();
-    const remoteChallenge = api.test.getDailyChallengeStatus.useQuery(
-        { dateKey: dateKey ?? "1970-01-01" },
-        { enabled: !!dateKey && signedIn },
-    );
+    // The active language's accents let a weak é surface — and keys from other
+    // languages/layouts stay out of the suggestion.
+    const [language] = useLanguage();
+    const [accentChars, setAccentChars] = useState<string[]>([]);
+    useEffect(() => {
+        let alive = true;
+        void ensureLanguageLoaded(language).then(() => { if (alive) setAccentChars(accentsFor(language)); });
+        return () => { alive = false; };
+    }, [language]);
 
     const tabs = useMemo(() => {
         const nextTabs: CoachTab[] = [];
@@ -176,9 +149,11 @@ export function HomeCoachTabs({ className = "", desktop = true, inline = true }:
         // Same finding priority for both sources: signed-in reads the DB,
         // guests read their local-first evidence (ADR-0001). No history → no tab.
         const transitions = signedIn ? transitionsQuery.data ?? [] : guestEvidence?.transitions ?? [];
-        const attempts = signedIn
+        const rawAttempts = signedIn
             ? new Map((practiceStatsQuery.data ?? []).map((s) => [s.character, { attempts: s.total, correct: s.correct }]))
             : new Map((guestEvidence?.keyStats ?? []).map((s) => [s.key, { attempts: s.attempts, correct: s.correct }]));
+        // Only suggest keys drillable on the current language/layout.
+        const attempts = new Map([...rawAttempts].filter(([key]) => isDrillableOn(key, activeLayout, accentChars)));
 
         const finding = nextDrillFinding(transitions, attempts);
         const drillBody: React.ReactNode = finding?.kind === "transition"
@@ -206,30 +181,11 @@ export function HomeCoachTabs({ className = "", desktop = true, inline = true }:
             });
         }
 
-        const challengeStatusLoaded = signedIn ? remoteChallenge.data !== undefined : sessionStatus === "unauthenticated" && localChallenge !== null;
-        const challengeStatus = signedIn ? remoteChallenge.data : localChallenge;
-        const today = challengeStatus?.today as ChallengeStatusEntry | null | undefined;
-        const streak = challengeStatus?.streak ?? 0;
-        if (dateKey && challengeStatusLoaded && !today && !challengeDismissed) {
-            nextTabs.push({
-                key: "challenge",
-                label: "Try now",
-                eyebrow: "Daily challenge",
-                body: <>Today&apos;s 30s challenge is ready{streak > 0 ? <>. {formatNumber(streak, 0)}-day streak on the line.</> : "."}</>,
-                href: "/challenge",
-                cta: "Start challenge",
-                testId: "home-coach-tab-challenge",
-                topClassName: "top-[16.5rem]",
-                dismissLabel: "Dismiss daily challenge",
-                onDismiss: () => {
-                    setChallengeDismissed(true);
-                    try { sessionStorage.setItem(`typecafe:challengeCardDismissed:${dateKey}`, "1"); } catch { /* sessionStorage unavailable */ }
-                },
-            });
-        }
+        // Daily challenge tab hidden for now (2026-07): the challenge surface is
+        // parked while the core loop settles — restore from git history if it returns.
 
         return nextTabs;
-    }, [challengeDismissed, dateKey, dismissedFinding, guestEvidence, localChallenge, practiceStatsQuery.data, remoteChallenge.data, sessionStatus, signedIn, transitionsQuery.data]);
+    }, [accentChars, activeLayout, dismissedFinding, guestEvidence, practiceStatsQuery.data, signedIn, transitionsQuery.data]);
 
     if (tabs.length === 0) return null;
 

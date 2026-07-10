@@ -13,6 +13,8 @@ export const DRILL_MARKS = [...ENDER_MARKS, ...MID_MARKS]
 
 export const isDrillMark = (key: string) => DRILL_MARKS.includes(key)
 export const isDrillDigit = (key: string) => /^[0-9]$/.test(key)
+// The full digit pool the numbers toggle sprinkles into normal-mode text.
+export const ALL_DIGITS = "0123456789".split("")
 
 // One drillable key: a lowercase letter, a digit, or a drill mark. Capitals fold
 // to their base letter before this check — capitals are diagnosed but not drilled
@@ -29,6 +31,14 @@ export const isPracticeLetter = (key: string) => /^\p{Ll}$/u.test(key)
 export const isPracticeVowel = (key: string) =>
     isPracticeLetter(key) && VOWELS.includes(key.normalize("NFD")[0] ?? "")
 
+
+// Weak-key surfaces (progress, coach tab) only show keys the user can drill
+// *right now*: ASCII drillables plus the active language's accent chars, and
+// typeable on the active layout. Case-folds so a weak 'R' follows its base key.
+export function isDrillableOn(key: string, layout: string, accents: readonly string[]): boolean {
+    const base = key.toLowerCase()
+    return (isDrillableKey(base) || accents.includes(base)) && sequenceFor(key, layout).length > 0
+}
 
 const LAYERS: readonly Layer[] = ["base", "shift", "altgr", "shiftAltgr"]
 const isAsciiLetter = (key: string) => /^[a-z]$/.test(key)

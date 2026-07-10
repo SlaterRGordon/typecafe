@@ -27,6 +27,15 @@ interface KeyboardProps {
     // Practice: the AltGr layer equivalent (sticky toggle OR held AltGr). Only
     // wired by pages when the active layout has AltGr glyphs.
     altgrToggle?: boolean,
+    // Practice text add-ons. A toggled-off add-on locks its keys on the board
+    // (no marks/digits/capitals in the text regardless of selection); clicking a
+    // locked key flips the add-on back on, so nobody digs through the gear menu.
+    punctuation?: boolean,
+    capitals?: boolean,
+    numbers?: boolean,
+    setPunctuation?: (value: boolean) => void,
+    setCapitals?: (value: boolean) => void,
+    setNumbers?: (value: boolean) => void,
 }
 
 // Layer picking, shared by the lock and interactive sets so they always agree
@@ -35,7 +44,12 @@ const activeLayer = (shift: boolean, altgr: boolean): Layer =>
     altgr ? (shift ? "shiftAltgr" : "altgr") : shift ? "shift" : "base"
 
 export const Keyboard = (props: KeyboardProps) => {
-    const { mode, selectedKeys, setSelectedKeys, charAttemptsRef, baseAttemptsRef, highlightKeys, shiftToggle = false, altgrToggle = false } = props
+    const {
+        mode, selectedKeys, setSelectedKeys, charAttemptsRef, baseAttemptsRef, highlightKeys,
+        shiftToggle = false, altgrToggle = false,
+        punctuation = false, capitals = false, numbers = false,
+        setPunctuation, setCapitals, setNumbers,
+    } = props
     const dispatch = useDispatch()
     const [layout] = useLayout()
     const board = useMemo(() => boardFor(layout), [layout])
@@ -179,6 +193,16 @@ export const Keyboard = (props: KeyboardProps) => {
     const shiftLayer = shiftToggle
     const altgrLayer = altgrToggle
 
+    // A shifted letter twin (R, Ü) — not its own drill target; it mirrors the
+    // base key and rides the capitals add-on.
+    const isCapitalMirror = (glyph: string) =>
+        !isUnlockable(glyph) && glyph.toLowerCase() !== glyph && isPracticeLetter(glyph.toLowerCase())
+    // A toggled-off text add-on locks its whole key family, whatever the
+    // selection says — the text can't contain them, so the board shouldn't
+    // claim otherwise.
+    const addOnLocked = (glyph: string) =>
+        (isDrillMark(glyph) && !punctuation) || (isDrillDigit(glyph) && !numbers) || (isCapitalMirror(glyph) && !capitals)
+
     // Lock badges read off the active layer. A typeable drill glyph owns its
     // selection on every layer (French Shift+1, AltGr accents, marks); shifted
     // letters still mirror their lowercase base key. Dead keys unlock when any
@@ -196,12 +220,13 @@ export const Keyboard = (props: KeyboardProps) => {
                     : layer === "base" ? selectedKeys.includes(glyph)
                     : layer === "shift" ? selectedKeys.includes(isUnlockable(glyph) ? glyph : cap.base)
                     : isUnlockable(glyph) && selectedKeys.includes(glyph)
-                if (!unlocked) lockedKeys.add(glyph)
+                if (!unlocked || addOnLocked(glyph)) lockedKeys.add(glyph)
             }
         }
     }
     // Base cells remain broadly clickable (the handler filters). Every
-    // typeable glyph on a shifted/AltGr layer is directly unlockable.
+    // typeable glyph on a shifted/AltGr layer is directly unlockable; capital
+    // twins are clickable too — their click flips the capitals add-on.
     const interactiveKeys = useMemo(() => {
         const layer = activeLayer(shiftLayer, altgrLayer)
         if (layer === "base") return undefined
@@ -210,7 +235,7 @@ export const Keyboard = (props: KeyboardProps) => {
             for (const cap of row) {
                 const glyph = cap[layer] ?? (layer === "shiftAltgr" ? cap.altgr : undefined)
                 if (!glyph) continue
-                if (isUnlockable(glyph)) allow.add(glyph)
+                if (isUnlockable(glyph) || isCapitalMirror(glyph)) allow.add(glyph)
             }
         }
         return allow
@@ -218,8 +243,27 @@ export const Keyboard = (props: KeyboardProps) => {
 
     const handleKeyClicked = (key: string) => {
         if (!selectedKeys || !setSelectedKeys || mode !== TestModes.practice) return
+        // Capital twins: one click flips the capitals add-on for the whole board
+        // (the base letter keeps owning the selection).
+        if (isCapitalMirror(key)) {
+            setCapitals?.(!capitals)
+            return
+        }
         // Only drillable keys toggle; display-only filler stays permanently locked.
         if (!isUnlockable(key)) return
+
+        // Unlocking a mark/digit while its add-on is off turns the add-on on in
+        // the same click (and keeps/gains the selection) — no gear-menu trip.
+        if (isDrillMark(key) && !punctuation) {
+            setPunctuation?.(true)
+            if (!selectedKeys.includes(key)) setSelectedKeys([...selectedKeys, key])
+            return
+        }
+        if (isDrillDigit(key) && !numbers) {
+            setNumbers?.(true)
+            if (!selectedKeys.includes(key)) setSelectedKeys([...selectedKeys, key])
+            return
+        }
 
         // A dead key is one toggle for its whole composed set (ê â î ô û ride ^).
         // A partial selection reads as unlocked, so clicking converges: any

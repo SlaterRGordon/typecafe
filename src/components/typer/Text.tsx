@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react"
 import { applyTextOptions, generateBetterPseudoText, generateText, parseLanguage } from "./utils"
+import { ALL_DIGITS } from "~/lib/drillKeys"
 import { TestModes, TestSubModes } from "./types"
 import { isAnyModalOpen, isModalOpen, MODAL_IDS } from "~/lib/modals"
 import { runWhenIdle } from "~/lib/idle"
@@ -22,6 +23,7 @@ interface TextProps {
     subMode: TestSubModes,
     punctuation?: boolean,
     capitals?: boolean,
+    numbers?: boolean,
     // Challenge runs use fixed seeded text; never append generated words (which
     // would break the byte-identical-across-clients guarantee).
     noAppend?: boolean,
@@ -68,6 +70,7 @@ export const Text = memo(function Text(props: TextProps) {
         subMode,
         punctuation = false,
         capitals = false,
+        numbers = false,
         noAppend = false,
         pacerWpm,
         onPacerCaught,
@@ -246,8 +249,8 @@ export const Text = memo(function Text(props: TextProps) {
         (mode === TestModes.normal && subMode === TestSubModes.timed))
     // Latest append inputs, readable from the idle callback without re-wiring
     // it on every option change.
-    const appendConfigRef = useRef({ appendsText, appendKeys, language, punctuation, capitals })
-    appendConfigRef.current = { appendsText, appendKeys, language, punctuation, capitals }
+    const appendConfigRef = useRef({ appendsText, appendKeys, language, punctuation, capitals, numbers })
+    appendConfigRef.current = { appendsText, appendKeys, language, punctuation, capitals, numbers }
     // Bumped on restart so a scheduled append can't land on a regenerated test.
     const appendEpochRef = useRef(0)
 
@@ -268,7 +271,7 @@ export const Text = memo(function Text(props: TextProps) {
             const generated = current.appendKeys
                 ? generateBetterPseudoText(100, current.appendKeys.split(""), parseLanguage(current.language).base)
                 : generateText(100, current.language)
-            const newText = applyTextOptions(generated, current.punctuation, current.capitals)
+            const newText = applyTextOptions(generated, current.punctuation, current.capitals, { digits: current.numbers ? ALL_DIGITS : [] })
             appendNewText(" " + newText)
             currentTextRef.current += " " + newText
         }

@@ -291,6 +291,15 @@ describe("composeWeakKeys", () => {
         // 4 weak marks available but capped at 3; 2 letters → total 5, cap respected.
         expect(result.map((e) => e.key)).toEqual(["?", ":", ",", "a", "b"])
     })
+
+    it("counts accented letters as letters, not as capped others", () => {
+        const result = composeWeakKeys(rank([
+            ["é", 40], ["ü", 45], ["ą", 50], ["?", 55], ["a", 60], ["b", 65], ["c", 70],
+        ]))
+        // Three accents + ? would blow the 3-other cap if accents were "other";
+        // as letters they all survive and the set stays letter-led.
+        expect(result.map((e) => e.key)).toEqual(["é", "ü", "ą", "?", "a", "b"])
+    })
 })
 
 describe("isReliableWpmSample", () => {

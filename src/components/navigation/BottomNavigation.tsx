@@ -33,10 +33,7 @@ export const BottomNavigation = () => {
                 <Link href="/progress" className={getNavButtonClass('/progress')} aria-label="Progress" title="Progress">
                     <MaterialNavIcon name="trending_up" className={navIconClass} />
                 </Link>
-                {/* Daily Challenge */}
-                <Link href="/challenge" className={getNavButtonClass('/challenge')} aria-label="Daily Challenge" title="Daily Challenge">
-                    <MaterialNavIcon name="calendar_today" className={navIconClass} />
-                </Link>
+                {/* Daily Challenge hidden for now (2026-07) — see SideNavigation. */}
                 {/* Leaderboard */}
                 <Link href="/leaderboard" className={getNavButtonClass('/leaderboard')} aria-label="Leaderboard" title="Leaderboard">
                     <MaterialNavIcon name="leaderboard" className={navIconClass} />

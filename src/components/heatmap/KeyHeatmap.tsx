@@ -185,8 +185,9 @@ export function KeyHeatmap(props: KeyHeatmapProps) {
     // unfolded accuracy); full-size cells also show small secondary glyphs in
     // the physical convention — the shift twin top-right (symbols only; a
     // capital adds nothing) and the AltGr glyph bottom-left. Dead-key glyphs
-    // (cap dead on this layer) render dash-bordered: the key waits for the
-    // next press (ledger decision 7).
+    // (cap dead on this layer) carry data-kb-dead and a tooltip: the key waits
+    // for the next press (ledger decision 7; the old dashed border read as
+    // noise, so the state is tooltip-only now).
     const renderCap = (cap: KeyCap | null, isSpace = false) => {
         const glyph = isSpace ? HEATMAP_SPACE : cap?.[layer] ?? (layer === "shiftAltgr" ? cap?.altgr ?? "" : "")
         // A cell with no glyph on this layer (AltGr on a plain key) is inert.
@@ -224,7 +225,7 @@ export function KeyHeatmap(props: KeyHeatmapProps) {
                 data-kb-dead={isDead ? "" : undefined}
                 onClick={interactive ? () => onKeyClick!(glyph) : undefined}
                 role={interactive ? "button" : undefined}
-                className={`${keyClass} ${isSpace ? spaceClass : ""} ${ringed ? "ring-2 ring-primary ring-offset-1 ring-offset-base-200" : ""} ${interactive ? "cursor-pointer select-none" : ""} ${isLocked ? "opacity-60" : ""} ${isDead ? "border-2 border-dashed border-base-content/40" : ""}`}
+                className={`${keyClass} ${isSpace ? spaceClass : ""} ${ringed ? "ring-2 ring-primary ring-offset-1 ring-offset-base-200" : ""} ${interactive ? "cursor-pointer select-none" : ""} ${isLocked ? "opacity-60" : ""}`}
                 style={color ? { backgroundColor: color, color: textColor } : undefined}
                 title={`${label}${showAccuracy ? `: ${cell.hasData ? `${cell.accuracy}%` : "no data"}` : ""}${isDead ? " \u2014 dead key (waits for the next press)" : ""}${isLocked ? (interactive ? " (locked \u2014 click to add)" : " (locked)") : ""}`}
             >

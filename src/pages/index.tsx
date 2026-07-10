@@ -19,7 +19,7 @@ import { useLayout } from "~/hooks/useLayout";
 import { boardFor, sequenceFor, statsPoolFor } from "~/lib/keyboardLayout";
 import { accentsFor, clampSize, composeLanguage, ensureLanguageLoaded, parseLanguage } from "~/components/typer/utils";
 import { withPracticeVowel } from "~/lib/diagnosis";
-import { remapPracticeSelectionByPosition, repairPracticeSelection, smartDrillSelection } from "~/lib/drillKeys";
+import { isPracticeLetter, remapPracticeSelectionByPosition, repairPracticeSelection, smartDrillSelection } from "~/lib/drillKeys";
 import { addAlert } from "~/state/alert/alertSlice";
 import { appendLocalProgress } from "~/lib/progressHistory";
 import { consistencyFromSamples } from "~/lib/stats";
@@ -53,7 +53,7 @@ const Home: NextPage = () => {
   const [fullscreen, setFullscreen] = useState(false)
   const { settings, updateSetting } = useTestSettings()
   const {
-    mode, subMode, language, quoteLength, count, customLength, punctuation, capitals,
+    mode, subMode, language, quoteLength, count, customLength, punctuation, capitals, numbers,
     selectedKeys, gramSource, gramScope, gramCombination, gramRepetition,
     gramWpmThreshold, gramAccuracyThreshold,
   } = settings
@@ -65,6 +65,7 @@ const Home: NextPage = () => {
   const setCount = (value: number) => updateSetting("count", value)
   const setPunctuation = (value: boolean) => updateSetting("punctuation", value)
   const setCapitals = (value: boolean) => updateSetting("capitals", value)
+  const setNumbers = (value: boolean) => updateSetting("numbers", value)
   const setCustomLength = (value: boolean) => updateSetting("customLength", value)
   const setGramSource = (value: TestGramSources) => updateSetting("gramSource", value)
   const setGramScope = (value: TestGramScopes) => updateSetting("gramScope", value)
@@ -484,11 +485,12 @@ const Home: NextPage = () => {
       ? router.query.keys
       : Array.isArray(router.query.keys) ? router.query.keys.join(",") : ""
     // Practice needs a vowel to form words; a weakness set can be all consonants.
+    // Accented letters are drill targets too (weak é from a French test).
     const keys = withPracticeVowel(
       rawKeys
         .split(",")
         .map((key) => key.trim().toLowerCase())
-        .filter((key) => /^[a-z]$/.test(key)),
+        .filter(isPracticeLetter),
     )
 
     if (completedScore && completedScore.mode === TestModes.normal) {
@@ -702,6 +704,7 @@ const Home: NextPage = () => {
               gramAccuracyThreshold={gramAccuracyThreshold}
               punctuation={punctuation}
               capitals={capitals}
+              numbers={numbers}
               shiftLayer={shiftLayer}
               onToggleShift={() => {
                 setShiftToggle((on) => !on)
@@ -725,6 +728,7 @@ const Home: NextPage = () => {
               setGramAccuracyThreshold={setGramAccuracyThreshold}
               setPunctuation={setPunctuation}
               setCapitals={setCapitals}
+              setNumbers={setNumbers}
               onRestart={requestRestart}
               fullscreen={fullscreen}
               setFullscreen={setFullscreen}
@@ -772,6 +776,7 @@ const Home: NextPage = () => {
           count={count}
           punctuation={punctuation}
           capitals={capitals}
+          numbers={numbers}
           customLength={customLength}
           showStats={true}
           modalOpen={false}
@@ -824,7 +829,21 @@ const Home: NextPage = () => {
         }
         {!completedScore && shouldShowHomeKeyboard &&
           <div data-testid="typing-focus-home-keyboard" className="min-h-[11rem] md:min-h-[15.25rem]">
-            <Keyboard mode={mode} selectedKeys={selectedKeys} setSelectedKeys={setSelectedKeys} charAttemptsRef={charAttemptsRef} baseAttemptsRef={persistedAttemptsRef} shiftToggle={shiftLayer} altgrToggle={altgrLayer} />
+            <Keyboard
+              mode={mode}
+              selectedKeys={selectedKeys}
+              setSelectedKeys={setSelectedKeys}
+              charAttemptsRef={charAttemptsRef}
+              baseAttemptsRef={persistedAttemptsRef}
+              shiftToggle={shiftLayer}
+              altgrToggle={altgrLayer}
+              punctuation={punctuation}
+              capitals={capitals}
+              numbers={numbers}
+              setPunctuation={setPunctuation}
+              setCapitals={setCapitals}
+              setNumbers={setNumbers}
+            />
           </div>
         }
       </div>

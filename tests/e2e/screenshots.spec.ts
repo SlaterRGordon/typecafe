@@ -1,4 +1,4 @@
-import { expect, test, type Locator, type Page, type TestInfo } from "@playwright/test";
+import { expect, test, type Page, type TestInfo } from "@playwright/test";
 import { mockAuthenticatedSession, mockTrpc } from "./helpers/trpc";
 import { typeCurrentCharacter, typeVisibleTestText, typeWrongCharacter } from "./helpers/typing";
 import { readdirSync, readFileSync, rmSync, statSync } from "node:fs";
@@ -42,12 +42,6 @@ async function capture(page: Page, testInfo: TestInfo, name: string) {
   await page.screenshot({
     path: join(screenshotRoot, testInfo.project.name, `${name}.png`),
     fullPage: true,
-  });
-}
-
-async function captureElement(locator: Locator, testInfo: TestInfo, name: string) {
-  await locator.screenshot({
-    path: join(screenshotRoot, testInfo.project.name, `${name}.png`),
   });
 }
 
@@ -97,13 +91,6 @@ async function typeWrongZeroes(page: Page, count: number) {
   }).toPass({ timeout: 5_000 });
 
   for (let i = 1; i < count; i++) await page.keyboard.press("0");
-}
-
-async function startTimedChallenge(page: Page) {
-  await page.locator("#text").click();
-  const firstChar = await page.locator("#words .active-char").last().textContent();
-  if (firstChar === " ") await page.keyboard.press("Space");
-  else await page.keyboard.press(firstChar ?? "a");
 }
 
 async function finishVisibleTypingTest(page: Page) {
@@ -224,14 +211,17 @@ test.describe("screenshot tour", () => {
     await capture(page, testInfo, "23-test-view-words-mode");
   });
 
-  test("timed mode: punctuation and capitals test view", async ({ page }, testInfo) => {
+  test("timed mode: punctuation, capitals and numbers test view", async ({ page }, testInfo) => {
     await gotoHome(page);
     await openSettingsMenu(page);
     await page.getByTestId("settings-menu").getByRole("button", { name: /punctuation/ }).click();
     await page.getByTestId("settings-menu").getByRole("button", { name: /capitals/ }).click();
+    await page.getByTestId("settings-menu").getByRole("button", { name: /numbers/ }).click();
     await page.keyboard.press("Escape");
 
     await expect(page.locator("#words .char").first()).toBeVisible();
+    // Numbers sprinkles standalone digit tokens into the prose.
+    await expect(page.locator("#words")).toContainText(/[0-9]/);
     await capture(page, testInfo, "24-test-view-punctuation-capitals");
   });
 
@@ -285,16 +275,18 @@ test.describe("screenshot tour", () => {
     const keyboardKey = (key: string) =>
       page.locator(`.typecafe-keyboard kbd[title^="${key}: "]`);
 
-    // Unlock an extra key: "e" starts locked (lock badge) outside the default set.
-    await expect(keyboardKey("e").locator("svg")).toHaveCount(1);
-    await keyboardKey("e").click();
+    // The default nine-key set is repaired to the two-vowel floor on entry
+    // (adds "e"), so it renders unlocked; "w" sits outside the set and starts
+    // locked — one click unlocks it.
     await expect(keyboardKey("e").locator("svg")).toHaveCount(0);
+    await expect(keyboardKey("w").locator("svg")).toHaveCount(1);
+    await keyboardKey("w").click();
+    await expect(keyboardKey("w").locator("svg")).toHaveCount(0);
     await capture(page, testInfo, "29-practice-key-added");
 
-    // Deselecting the only vowel must be rejected with an alert toast.
-    await keyboardKey("e").click();
+    // Locking a vowel at the two-vowel floor must be rejected with an alert toast.
     await keyboardKey("a").click();
-    await expect(page.getByText("Must include at least 1 vowel!")).toBeVisible();
+    await expect(page.getByText("Must include at least 2 vowels!")).toBeVisible();
     await capture(page, testInfo, "30-practice-vowel-alert");
 
     // Smart drill without enough typing history surfaces the warning toast.
@@ -335,17 +327,20 @@ test.describe("screenshot tour", () => {
     await expect(keyboardKey(";")).toHaveCount(0);
     await capture(page, testInfo, "59-practice-shift-layer");
 
-    // Shifted marks lock from the shift layer (? starts locked, click adds it to the
-    // drill); capitals stay inert — display + diagnosis only (Decision 4).
+    // Shifted marks lock from the shift layer: ? starts locked (punctuation off),
+    // and unlocking it flips the punctuation add-on on in the same click.
     await expect(keyboardKey("?").locator("svg")).toHaveCount(1);
     await keyboardKey("?").click();
     await expect(keyboardKey("?").locator("svg")).toHaveCount(0);
-    await expect(keyboardKey("R")).not.toHaveAttribute("role", "button");
 
-    // A capital mirrors its lowercase letter's lock state: 'a' is in the default
-    // drill set so 'A' reads unlocked; 'r' is not, so 'R' reads locked.
+    // Capitals ride the capitals add-on: while it's off every capital reads
+    // locked; clicking one flips the add-on on, then each capital mirrors its
+    // lowercase base key ('a' selected → A unlocked; 'r' not → R locked).
+    await expect(keyboardKey("A").locator("svg")).toHaveCount(1);
+    await keyboardKey("A").click();
     await expect(keyboardKey("A").locator("svg")).toHaveCount(0);
     await expect(keyboardKey("R").locator("svg")).toHaveCount(1);
+    await capture(page, testInfo, "64-practice-capitals-unlocked");
   });
 
   test("national layout: German QWERTZ board with umlauts and AltGr layer", async ({ page }, testInfo) => {
@@ -771,58 +766,9 @@ test.describe("screenshot tour", () => {
     await capture(page, testInfo, "43-progress-guest-history");
   });
 
-  test("daily challenge", async ({ page }, testInfo) => {
-    await mockTrpc(page);
-    await page.goto("/challenge");
-    await expect(page.getByTestId("challenge-header")).toBeVisible();
-    await expect(page.getByTestId("challenge-countdown")).toContainText(/new challenge in/);
-    await expect(page.locator("#words .char").first()).toBeVisible();
-    const boards = page.getByTestId("daily-challenge-boards");
-    await expect(boards).toBeVisible();
-    await expect(boards).toContainText("Fastest Today");
-    await expect(boards).toContainText("Most Improved");
-    await expect(boards).toContainText("+6.0");
-    await capture(page, testInfo, "49-daily-challenge");
-  });
-
-  test("daily challenge result share card", async ({ page }, testInfo) => {
-    test.slow();
-    await mockAuthenticatedSession(page);
-    await mockTrpc(page);
-    await page.goto("/challenge");
-    await expect(page.locator("#words .char").first()).toBeVisible();
-
-    await startTimedChallenge(page);
-
-    await expect(page.getByTestId("score-screenshot-card")).toBeVisible({ timeout: 40_000 });
-    await expect(page.getByTestId("score-screenshot-card").getByText("+3.2 over my average")).toBeVisible();
-    await capture(page, testInfo, "51-daily-challenge-result-share");
-    const shareImage = page.getByTestId("score-share-image");
-    await expect(shareImage).toContainText("Daily Challenge");
-    await shareImage.evaluate((element) => {
-      const wrapper = element.parentElement;
-      if (!wrapper) return;
-      wrapper.setAttribute("style", "position: static; pointer-events: none;");
-    });
-    await captureElement(shareImage, testInfo, "51-daily-challenge-share-image");
-  });
-
-  test("home: daily challenge coach tab", async ({ page }, testInfo) => {
-    test.skip(testInfo.project.name.includes("mobile"), "The rail coach tabs are desktop-only.");
-    await page.clock.install({ time: new Date("2026-06-16T12:00:00.000Z") });
-    await page.addInitScript(() => {
-      // Only yesterday done → today's challenge is still open, so the corner card shows.
-      window.localStorage.setItem("typecafe:challengeHistory", JSON.stringify([
-        { dateKey: "2026-06-15", wpm: 70.1, accuracy: 97, t: Date.parse("2026-06-15T12:00:00.000Z") },
-      ]));
-    });
-    await page.goto("/");
-    const tab = page.getByTestId("home-coach-tab-challenge");
-    await expect(tab).toBeVisible();
-    await tab.hover();
-    await expect(page.getByTestId("home-coach-tab-challenge-panel")).toBeVisible();
-    await capture(page, testInfo, "50-home-daily-challenge-tab");
-  });
+  // Daily challenge captures removed (2026-07): the surface is hidden — no nav
+  // entry, no coach tab — so the tour no longer reviews it. Restore from git
+  // history alongside the nav/coach-tab code when the challenge returns.
 
   test("navigation: expanded side rail", async ({ page }, testInfo) => {
     test.skip(testInfo.project.name.includes("mobile"), "The side rail is desktop-only.");

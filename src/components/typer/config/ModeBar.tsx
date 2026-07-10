@@ -76,6 +76,7 @@ interface ModeBarProps {
     gramAccuracyThreshold: number
     punctuation: boolean
     capitals: boolean
+    numbers: boolean
     fullscreen: boolean
     // Practice settings-line controls; state lives on the page (shared with the
     // keyboard board below the test).
@@ -101,6 +102,7 @@ interface ModeBarProps {
     setGramAccuracyThreshold: (value: number) => void
     setPunctuation: (value: boolean) => void
     setCapitals: (value: boolean) => void
+    setNumbers: (value: boolean) => void
     onRestart: () => void
     setFullscreen: (fullscreen: boolean) => void
 }
@@ -608,6 +610,7 @@ export function ModeBar(props: ModeBarProps) {
                                 punctuation, on sprinkles the locked marks. */}
                             <SettingsToggle label="punctuation" active={props.punctuation} onChange={props.setPunctuation} />
                             <SettingsToggle label="capitals" active={props.capitals} onChange={props.setCapitals} />
+                            <SettingsToggle label="numbers" active={props.numbers} onChange={props.setNumbers} />
                         </div>
                     </ToolbarMenu>
                 }

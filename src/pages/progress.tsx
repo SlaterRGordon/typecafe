@@ -3,7 +3,7 @@ import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { useSession } from "next-auth/react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { TrendChart } from "~/components/progress/TrendChart";
 import { GoalCard } from "~/components/progress/GoalCard";
 import { KeyHeatmap, KeyHeatmapLegend } from "~/components/heatmap/KeyHeatmap";
@@ -32,6 +32,8 @@ import { useLayout } from "~/hooks/useLayout";
 import { languageMeta } from "~/lib/languageMeta";
 import { boardFor, layoutMeta, statsPoolFor } from "~/lib/keyboardLayout";
 import { composeWeakKeys, netFromRaw, worstKeysFromAttempts } from "~/lib/stats";
+import { isDrillableOn } from "~/lib/drillKeys";
+import { accentsFor, ensureLanguageLoaded } from "~/components/typer/utils";
 import { detectPlateau } from "~/lib/trajectory";
 import { api } from "~/utils/api";
 
@@ -317,12 +319,23 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
     }, [inPeriod, now]);
     const plateau = useMemo(() => detectPlateau(cleanRecords, now), [cleanRecords, now]);
     const slowTransitions = useMemo(() => worstTransitions(props.transitions), [props.transitions]);
-    // Top weak keys for the one-click "drill your weakest keys" CTA. Rank every
-    // key, then compose a letter-led set (≤3 punctuation/capitals) so a user who
-    // rarely types marks doesn't get a CTA that's all symbols.
+    // The active language's accent chars (loaded on demand; [] for English) —
+    // they let weak é/ü/ą show as drillable keys, and gate out keys from other
+    // languages/layouts the user isn't currently on.
+    const [accentChars, setAccentChars] = useState<string[]>([]);
+    useEffect(() => {
+        let alive = true;
+        void ensureLanguageLoaded(props.language).then(() => { if (alive) setAccentChars(accentsFor(props.language)); });
+        return () => { alive = false; };
+    }, [props.language]);
+    // Top weak keys for the one-click "drill your weakest keys" CTA. Only keys
+    // drillable on the current language/layout count; rank every key, then
+    // compose a letter-led set (≤3 punctuation/capitals) so a user who rarely
+    // types marks doesn't get a CTA that's all symbols.
     const topWeakKeys = useMemo(
-        () => composeWeakKeys(worstKeysFromAttempts(new Map(Object.entries(props.keyAttempts)), Infinity)),
-        [props.keyAttempts],
+        () => composeWeakKeys(worstKeysFromAttempts(new Map(Object.entries(props.keyAttempts)), Infinity)
+            .filter((entry) => isDrillableOn(entry.key, activeBoardLayout, accentChars))),
+        [props.keyAttempts, activeBoardLayout, accentChars],
     );
 
     // One toggled trend chart instead of three stacked ones (saves height): WPM by
@@ -567,29 +580,7 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
                         {/* "Your keyboard", not "Lifetime": per-key accuracy is a rolling
                             window of recent attempts (ADR-0005), not an all-time sum. */}
                         <div className="text-base font-semibold text-base-content">Your keyboard</div>
-                        <div className="flex items-center gap-3">
-                            <div className="flex items-center gap-1" data-testid="lifetime-heatmap-layers">
-                                <button
-                                    type="button"
-                                    className={`btn btn-xs normal-case ${heatmapShift ? "btn-primary" : "btn-ghost text-base-content/60"}`}
-                                    aria-pressed={heatmapShift}
-                                    onClick={() => setHeatmapShift((on) => !on)}
-                                >
-                                    ⇧ shift
-                                </button>
-                                {boardHasAltGr && (
-                                    <button
-                                        type="button"
-                                        className={`btn btn-xs normal-case ${heatmapAltgr ? "btn-primary" : "btn-ghost text-base-content/60"}`}
-                                        aria-pressed={heatmapAltgr}
-                                        onClick={() => setHeatmapAltgr((on) => !on)}
-                                    >
-                                        AltGr
-                                    </button>
-                                )}
-                            </div>
-                            <KeyHeatmapLegend />
-                        </div>
+                        <KeyHeatmapLegend />
                     </div>
                     <div className="flex w-full justify-center overflow-x-auto pb-1">
                         <KeyHeatmap attempts={props.keyAttempts} size="full" showPercent={Object.keys(props.keyAttempts).length > 0} shiftLayer={heatmapShift} altgrLayer={heatmapAltgr} className="min-w-fit" testId="lifetime-heatmap" />
@@ -597,7 +588,29 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
                     {Object.keys(props.keyAttempts).length === 0 && (
                         <p className="mt-4 text-center text-sm text-base-content/45">Take more tests to color in your per-key accuracy.</p>
                     )}
-                    <div className="mt-4 text-center">
+                    {/* Layer switches sit bottom-left of the board itself — they
+                        change what the board shows, so they live with it. */}
+                    <div className="mt-2 flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-1" data-testid="lifetime-heatmap-layers">
+                            <button
+                                type="button"
+                                className={`btn btn-xs normal-case ${heatmapShift ? "btn-primary" : "btn-ghost text-base-content/60"}`}
+                                aria-pressed={heatmapShift}
+                                onClick={() => setHeatmapShift((on) => !on)}
+                            >
+                                ⇧ shift
+                            </button>
+                            {boardHasAltGr && (
+                                <button
+                                    type="button"
+                                    className={`btn btn-xs normal-case ${heatmapAltgr ? "btn-primary" : "btn-ghost text-base-content/60"}`}
+                                    aria-pressed={heatmapAltgr}
+                                    onClick={() => setHeatmapAltgr((on) => !on)}
+                                >
+                                    AltGr
+                                </button>
+                            )}
+                        </div>
                         <Link href="/how-we-measure" className="text-xs text-base-content/45 underline-offset-2 hover:text-base-content/70 hover:underline">
                             How these numbers work →
                         </Link>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { isPracticeLetter, isPracticeVowel, remapPracticeSelectionByPosition, repairPracticeSelection, smartDrillSelection } from "./drillKeys"
+import { isDrillableOn, isPracticeLetter, isPracticeVowel, remapPracticeSelectionByPosition, repairPracticeSelection, smartDrillSelection } from "./drillKeys"
 
 const entry = (attempts: number, correct: number) => ({ attempts, correct })
 
@@ -72,6 +72,27 @@ describe("practice letter classification", () => {
         for (const key of ["7", "^", "éé", "É"]) {
             expect(isPracticeLetter(key)).toBe(false)
         }
+    })
+})
+
+describe("isDrillableOn", () => {
+    it("accepts ASCII drillables and the language's accents typeable on the layout", () => {
+        expect(isDrillableOn("r", "qwerty", [])).toBe(true)
+        expect(isDrillableOn("5", "qwerty", [])).toBe(true)
+        expect(isDrillableOn("?", "qwerty", [])).toBe(true)
+        // Case-folds: a weak capital follows its base key.
+        expect(isDrillableOn("R", "qwerty", [])).toBe(true)
+        // ü is a real cap on QWERTZ (DE) when German declares it an accent…
+        expect(isDrillableOn("ü", "qwertz-de", ["ü", "ö", "ä"])).toBe(true)
+    })
+
+    it("rejects keys outside the current language or layout", () => {
+        // …but not part of the active (English) language,
+        expect(isDrillableOn("ü", "qwertz-de", [])).toBe(false)
+        // and not typeable at all on plain QWERTY even when the language has it.
+        expect(isDrillableOn("ü", "qwerty", ["ü"])).toBe(false)
+        // Symbols outside the drillable set never surface.
+        expect(isDrillableOn("€", "qwertz-de", [])).toBe(false)
     })
 })
 
