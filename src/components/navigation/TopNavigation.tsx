@@ -14,7 +14,7 @@ export const TopNavigation = () => {
                 <LayoutMenu />
                 {/* Color Button */}
                 <label
-                    className="btn btn-primary btn-sm gap-2 normal-case"
+                    className="btn btn-sm gap-2 normal-case bg-base-100 text-base-content border border-base-content/20 hover:bg-base-200"
                     htmlFor="colorModal"
                     aria-label="Open color settings"
                     title="Open color settings"
@@ -27,11 +27,12 @@ export const TopNavigation = () => {
                 {/* If the user is not signed in, display auth buttons */}
                 {!sessionData?.user ?
                     <label
-                        className="btn btn-secondary btn-sm"
+                        className="btn btn-sm gap-2 normal-case bg-base-100 text-base-content border border-base-content/20 hover:bg-base-200"
                         htmlFor="signInModal"
                         aria-label="Open sign in"
                         title="Open sign in"
                     >
+                        <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" width="20" height="20" viewBox="0 0 24 24"><path fill="currentColor" d="M11 7L9.6 8.4l2.6 2.6H2v2h10.2l-2.6 2.6L11 17l5-5l-5-5zm9 12h-8v2h8c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-8v2h8v14z" /></svg>
                         Log In
                     </label>
                     :
