@@ -8,6 +8,7 @@ import {
     glyphAt,
     keyFor,
     keyStagesFor,
+    languageForLayout,
     rowsFor,
     sequenceFor,
     statsPoolFor,
@@ -24,6 +25,16 @@ describe("layout catalogs", () => {
         for (const layout of LAYOUTS) expect(LAYOUT_IDS).toContain(layout)
         // qwertz-de joined the picker with the layered boards (slices 4-5).
         expect(LAYOUTS).toContain(DE)
+    })
+
+    it("maps detected national layouts back to the app language when unambiguous", () => {
+        expect(languageForLayout("qwertz-de")).toBe("german")
+        expect(languageForLayout("azerty-fr")).toBe("french")
+        expect(languageForLayout("qwerty-latam")).toBe("spanish")
+        expect(languageForLayout("qwerty-abnt2")).toBe("portuguese")
+        expect(languageForLayout("qwerty-pl")).toBe("polish")
+        expect(languageForLayout("colemak")).toBeNull()
+        expect(languageForLayout("qwerty")).toBeNull()
     })
 })
 

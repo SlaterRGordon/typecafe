@@ -179,7 +179,11 @@ The signature matcher is one pure function over `code → glyph` observations �
 the real seam here, with the API probe and the passive listener as its two
 adapters feeding one cached result. Detection **only feeds `auto`**, applied
 at mount/test boundaries (never mid-test board swaps), never overrides an
-explicit pick. `navigator.language` is a variant tiebreak, never layout
+explicit pick. When a first-run user has no saved language choice, an
+unambiguous detected national layout also seeds the matching app language
+(QWERTZ → German, AZERTY → French, Spanish layout → Spanish, etc.); a saved
+language remains authoritative so English-on-QWERTZ and similar deliberate
+setups stay put. `navigator.language` is a variant tiebreak, never layout
 evidence.
 
 ### 6. Stats pool by layout family — the storage dimension is `statsPoolFor`

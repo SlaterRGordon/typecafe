@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { AUTO_LAYOUT, LAYOUTS, resolveLayout } from "~/lib/keyboardLayout"
+import { AUTO_LAYOUT, LAYOUTS, languageForLayout, resolveLayout } from "~/lib/keyboardLayout"
 import { startLayoutDetection } from "~/lib/layoutDetect"
-import { useLanguage } from "./useLanguage"
+import { hasStoredLanguageChoice, useLanguage, writeLanguage } from "./useLanguage"
 
 // The global, local-first keyboard layout setting: which layout the app
 // displays and teaches (boards, heatmaps, the train ladder) — chosen in the
@@ -76,15 +76,23 @@ export function useLayout(): [string, (next: string) => void, string] {
     // mount, so a board never swaps mid-test. Detection only feeds `auto`.
     useEffect(() => {
         startLayoutDetection((verdict, source) => {
-            if (verdict === readDetected()) return
+            if (verdict === readDetected()) {
+                seedLanguageFromDetectedLayout(verdict)
+                return
+            }
             try {
                 localStorage.setItem(LAYOUT_DETECTED_KEY, JSON.stringify(verdict))
             } catch {
                 return // Storage unavailable — nothing cached, nothing to apply.
             }
+            seedLanguageFromDetectedLayout(verdict)
             if (source === "api") window.dispatchEvent(new Event(LAYOUT_CHANGED_EVENT))
         })
     }, [])
+
+    useEffect(() => {
+        if (detected) seedLanguageFromDetectedLayout(detected)
+    }, [detected])
 
     const layout = useMemo(
         () => resolveLayout(stored, language, detected, locale),
@@ -104,3 +112,8 @@ export function useLayout(): [string, (next: string) => void, string] {
     return [layout, update, stored]
 }
 
+function seedLanguageFromDetectedLayout(layout: string): void {
+    const language = languageForLayout(layout)
+    if (!language || hasStoredLanguageChoice()) return
+    writeLanguage(language)
+}

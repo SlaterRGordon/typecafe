@@ -493,39 +493,53 @@ test.describe("home typing test", () => {
     await expect(board.locator('[data-kb-key="ü"]')).toHaveCount(0);
   });
 
-  test("practice counts an unlocked umlaut toward the selection floor and toggles dead-key accents", async ({ page }) => {
+  test("detected national layout seeds the language until the user has chosen one", async ({ page }) => {
     await page.addInitScript(() => {
-      // A minimal valid pool: adding ü makes für a permitted German word.
-      window.localStorage.setItem("typecafe:testSettings", JSON.stringify({ selectedKeys: "abcdfgir".split("") }));
+      window.localStorage.setItem("typecafe:layout-detected", JSON.stringify("qwertz-de"));
     });
     await gotoHome(page);
 
-    // German via the globe → auto layout renders QWERTZ; umlauts are real keys.
-    await page.getByTestId("nav-language-trigger").click();
-    await page.getByTestId("nav-language-menu").getByRole("button", { name: "German" }).click();
+    await expect(page.getByTestId("nav-layout-trigger")).toHaveText(/Auto — QWERTZ \(DE\)/);
+    await expect(page.getByTestId("nav-language-trigger")).toHaveAttribute("aria-label", "Language: German");
+    await expect(page.getByTestId("typer-toolbar").getByRole("button", { name: "Language: German" })).toBeVisible();
+
+    await page.evaluate(() => window.localStorage.clear());
+    await page.addInitScript(() => {
+      window.localStorage.setItem("typecafe:layout-detected", JSON.stringify("qwertz-de"));
+      window.localStorage.setItem("typecafe:language", JSON.stringify("english"));
+    });
+    await page.reload();
+    await expect(page.getByTestId("nav-layout-trigger")).toHaveText(/Auto — QWERTZ \(DE\)/);
+    await expect(page.getByTestId("nav-language-trigger")).toHaveAttribute("aria-label", "Language: English");
+    await expect(page.getByTestId("typer-toolbar").getByRole("button", { name: "Language: English" })).toBeVisible();
+  });
+
+  test("practice counts an unlocked umlaut toward the selection floor and toggles dead-key accents", async ({ page }) => {
+    await page.addInitScript(() => {
+      // A minimal valid pool: adding ü makes für a permitted German word.
+      window.localStorage.setItem("typecafe:language", JSON.stringify("german"));
+      window.localStorage.setItem("typecafe:testSettings", JSON.stringify({ selectedKeys: [..."abcdfgir", "ü"] }));
+    });
+    await gotoHome(page);
+
+    // German + auto layout renders QWERTZ; umlauts are real keys.
+    await expect(page.getByTestId("nav-layout-trigger")).toHaveText(/Auto — QWERTZ \(DE\)/);
     await selectMode(page, "Practice");
 
     const board = page.locator(".typecafe-keyboard");
     const uml = board.locator('[data-kb-key="ü"]');
     const consonant = board.locator('[data-kb-key="c"]');
     await expect(uml).toBeVisible();
-    // Accent keys start locked and toggle like any drill key. The click only
-    // lands once the language's accent set has loaded — retry until the lock
-    // badge (the cell's svg) disappears.
     // Seed only the post-unlock generator: globally replacing Math.random before
     // Home mounts stalls its initial text generator.
     await page.evaluate(() => {
       (window as typeof window & { originalMathRandom?: typeof Math.random }).originalMathRandom = Math.random;
       Math.random = () => 0;
     });
-    await expect(uml.locator("svg")).toHaveCount(1);
-    await expect(async () => {
-      await uml.click();
-      await expect(uml.locator("svg")).toHaveCount(0, { timeout: 250 });
-    }).toPass();
+    await expect(uml.locator("svg")).toHaveCount(0);
 
-    // ü is an actual letter anchor: after it expands the eight-letter pool to
-    // nine, one selected ASCII consonant can be locked again without an alert.
+    // ü is an actual letter anchor: with it expanding the eight-letter pool to
+    // nine, one selected ASCII consonant can be locked without an alert.
     await expect(consonant.locator("svg")).toHaveCount(0);
     await consonant.click();
     await expect(consonant.locator("svg")).toHaveCount(1);
