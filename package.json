@@ -34,6 +34,7 @@
     "@trpc/server": "^11.17.0",
     "@vercel/analytics": "^2.0.1",
     "@vercel/blob": "^2.4.0",
+    "@vercel/speed-insights": "^2.0.0",
     "bcrypt": "^6.0.0",
     "daisyui": "^5.5.20",
     "dotenv": "^17.4.2",
