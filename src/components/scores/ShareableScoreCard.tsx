@@ -340,7 +340,7 @@ function MetricCard(props: { label: string; value: string; note: string; info: s
         <span>{props.label}</span>
         <InfoIcon label={props.info} />
       </div>
-      <div className={`mt-4 font-mono font-bold leading-none text-primary ${props.hero ? "text-5xl sm:text-6xl" : "text-4xl sm:text-5xl"}`}>
+      <div className={`mt-4 font-mono font-bold leading-none text-primary ${props.hero ? "text-4xl sm:text-6xl" : "text-3xl sm:text-5xl"}`}>
         {props.value}
       </div>
     </div>
@@ -582,7 +582,7 @@ function WpmChart(props: { samples: ScoreWpmSample[]; durationSeconds: number; r
   const strokeFor = (line: ChartLine) => (line.neutral ? "var(--color-base-content)" : "currentColor");
 
   return (
-    <div className="rounded-lg border border-base-content/10 bg-base-100/45 p-4" aria-labelledby={chartTitleId}>
+    <div data-testid="wpm-chart" className="rounded-lg border border-base-content/10 bg-base-100/45 p-4" aria-labelledby={chartTitleId}>
       <div className="mb-1 flex items-center gap-2 text-lg font-semibold text-base-content">
         <span id={chartTitleId}>WPM Over Time</span>
         <InfoIcon label={hasCumulative
@@ -765,7 +765,12 @@ function DiagnosisPanel(props: { score: ShareableScore }) {
       <p className="mb-4 text-sm text-base-content/60">What slowed you down this test — and the one-click fix.</p>
 
       {diagnosis.tooShort ?
-        <p className="text-base-content/75">Too short to diagnose — try a 30s+ test.</p>
+        <div className="flex flex-col items-start gap-3">
+          <p className="text-base-content/75">Too short to diagnose — try a 30s+ test.</p>
+          <Link className="inline-flex min-h-11 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85" href="/?mode=timed&count=30">
+            Take a 30s test
+          </Link>
+        </div>
         :
         <div className="grid gap-5 lg:grid-cols-2 lg:items-start">
           {/* Findings + drill CTAs on the left, the per-key heatmap alongside on
@@ -776,7 +781,14 @@ function DiagnosisPanel(props: { score: ShareableScore }) {
               // so drop the generic slow-transitions finding from this list.
               const keyFindings = diagnosis.findings.filter((f) => f.kind !== "slow-transitions");
               if (keyFindings.length === 0 && transitions.length === 0) {
-                return <p className="text-base-content/75">No clear weak spots this test — a clean, even run. Keep the pace up.</p>;
+                return (
+                  <div className="flex flex-col items-start gap-3">
+                    <p className="text-base-content/75">No clear weak spots this test — a clean, even run. Keep the pace up.</p>
+                    <Link className="inline-flex min-h-11 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85" href="/train">
+                      Keep building in Train
+                    </Link>
+                  </div>
+                );
               }
               return (
                 <>
@@ -1173,11 +1185,13 @@ export function ShareableScoreCard(props: ShareableScoreCardProps) {
 
         {score.reMeasure && <ReMeasureStrip beforeWpm={score.reMeasure.beforeWpm} afterWpm={score.netWpm} />}
 
-        <div className="score-reveal mt-7 grid gap-4 md:grid-cols-4" style={{ "--reveal-delay": "80ms" } as CSSProperties}>
+        <div className="score-reveal mt-7 grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4" style={{ "--reveal-delay": "80ms" } as CSSProperties}>
           {metricItems.map((item) => (
             <MetricCard key={item.label} {...item} />
           ))}
         </div>
+
+        {!readonly && <DiagnosisPanel score={score} />}
 
         <div className="score-reveal mt-5 grid gap-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(320px,1fr)]" style={{ "--reveal-delay": "160ms" } as CSSProperties}>
           <WpmChart samples={score.wpmSamples} durationSeconds={score.durationSeconds} rawWpm={score.rawWpm} accuracy={score.accuracy} timeline={score.timeline} />
@@ -1194,8 +1208,6 @@ export function ShareableScoreCard(props: ShareableScoreCardProps) {
             }
           </div>
         </div>
-
-        {!readonly && <DiagnosisPanel score={score} />}
 
         <div className="score-reveal mt-5 rounded-lg border border-base-content/10 bg-base-100/45 p-5" style={{ "--reveal-delay": "240ms" } as CSSProperties}>
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

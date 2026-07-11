@@ -829,6 +829,11 @@ test.describe("home typing test", () => {
     await expect(page.getByText("Too short to diagnose")).toHaveCount(0);
     // Phase 1.5: the reusable per-key heatmap renders inside the diagnosis panel.
     await expect(page.getByTestId("diagnosis-heatmap")).toBeVisible();
+    await expect(page.getByTestId("diagnosis-panel")).toBeVisible();
+    expect(await page.getByTestId("diagnosis-panel").evaluate((panel) => {
+      const chart = document.querySelector('[data-testid="wpm-chart"]');
+      return chart ? Boolean(panel.compareDocumentPosition(chart) & Node.DOCUMENT_POSITION_FOLLOWING) : false;
+    })).toBe(true);
 
     // Toughest-words row: same one-click handoff, but drills those exact words
     // verbatim via /drill?words= (checked by href so we don't navigate away yet).
