@@ -918,6 +918,11 @@ test.describe("screenshot tour", () => {
     await expect(page.getByText(/calculating net WPM for each test first/i)).toBeVisible();
     await capture(page, testInfo, "55-how-we-measure");
 
+    await page.goto("/guides");
+    await expect(page.getByRole("heading", { name: "Typing Guides" })).toBeVisible();
+    await expect(page.getByTestId("guides-grid")).toBeVisible();
+    await capture(page, testInfo, "68-guides");
+
     await page.goto("/how-to-type-faster");
     await expect(page.getByRole("heading", { name: "How to Type Faster", exact: true })).toBeVisible();
     await capture(page, testInfo, "65-how-to-type-faster");

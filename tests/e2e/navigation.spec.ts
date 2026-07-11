@@ -75,7 +75,13 @@ test.describe("app navigation", () => {
       await expect(menu).toBeVisible();
     };
 
-    // The five footer links now live behind one "More" popover.
+    // The footer links now live behind one "More" popover; guide articles sit
+    // behind the single /guides hub entry.
+    await openMore();
+    await menu.getByRole("link", { name: "Guides" }).click();
+    await expect(page.getByRole("heading", { name: "Typing Guides" })).toBeVisible();
+    await expect(menu).toBeHidden();
+
     await openMore();
     await menu.getByRole("link", { name: "Support Me" }).click();
     await expect(page.getByRole("heading", { name: "Support TypeCafe" })).toBeVisible();
