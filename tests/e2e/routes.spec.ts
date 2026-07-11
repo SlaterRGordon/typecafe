@@ -18,6 +18,7 @@ const publicRoutes: PublicRoute[] = [
   { path: "/terms-and-conditions", heading: "Terms and Conditions" },
   { path: "/how-to-type-faster", heading: "How to Type Faster" },
   { path: "/how-ngrams-work", heading: "How N-grams Work" },
+  { path: "/keyboard-layouts", heading: "Keyboard Layouts Explained" },
 ];
 
 test.describe("public routes", () => {

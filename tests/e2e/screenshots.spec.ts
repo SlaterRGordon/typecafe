@@ -926,6 +926,10 @@ test.describe("screenshot tour", () => {
     await expect(page.getByRole("heading", { name: "How N-grams Work", exact: true })).toBeVisible();
     await capture(page, testInfo, "66-how-ngrams-work");
 
+    await page.goto("/keyboard-layouts");
+    await expect(page.getByRole("heading", { name: "Keyboard Layouts Explained", exact: true })).toBeVisible();
+    await capture(page, testInfo, "67-keyboard-layouts");
+
     await page.goto("/privacy-policy");
     await expect(page.getByRole("heading", { name: "Privacy Policy for TypeCafe" })).toBeVisible();
     await capture(page, testInfo, "21-privacy-policy");
