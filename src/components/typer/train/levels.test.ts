@@ -34,7 +34,7 @@ describe("generated Train ladder", () => {
 
     it("introduces keys progressively then holds the full alphabet", () => {
         expect(levels[0]!.keys).toBe("asdfjkl")
-        // The final stage is the full alphabet in introduction order — the key
+        // The final stage is the full alphabet in introduction order - the key
         // SET is the contract (generation and highlights are set-based).
         expect(sorted(levels[99]!.keys)).toBe("abcdefghijklmnopqrstuvwxyz")
         // never shrinks as you climb
@@ -58,7 +58,7 @@ describe("withLanguageAccents", () => {
     it("extends full-alphabet levels with the language's accent letters", () => {
         const extended = withLanguageAccents(levels[99]!, accents)
         expect(extended.keys).toBe(levels[99]!.keys + "éèç")
-        // Everything else (name, count, kind) is untouched — progress and
+        // Everything else (name, count, kind) is untouched - progress and
         // thresholds key off the name.
         expect(extended).toMatchObject({ name: "Level 100", count: levels[99]!.count, kind: levels[99]!.kind })
     })

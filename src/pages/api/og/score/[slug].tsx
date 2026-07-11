@@ -123,7 +123,7 @@ function ScoreCard(props: { data: OgScoreData; brag?: string }) {
   );
 }
 
-// The "+18 WPM in 60 days" unfurl — leads with the delta, not an absolute.
+// The "+18 WPM in 60 days" unfurl - leads with the delta, not an absolute.
 function ProgressCard(props: { data: OgProgressData }) {
   const { data } = props;
   const positive = data.deltaWpm >= 0;

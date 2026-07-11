@@ -12,11 +12,11 @@ const screenshotRoot = join(__dirname, "../../docs/screenshots");
 
 // Prune captures left behind by renamed/removed tests: anything older than
 // this run's start (stamped once in globalSetup) can't have been written by
-// the captures below, so it's an orphan. Per-worker but race-free — fresh
+// the captures below, so it's an orphan. Per-worker but race-free - fresh
 // captures are always newer than runStart, so no worker deletes another's.
 test.beforeAll(({}, testInfo) => {
   const dir = join(screenshotRoot, testInfo.project.name);
-  // globalSetup stamps "skip" for a filtered (-g) run — pruning there would
+  // globalSetup stamps "skip" for a filtered (-g) run - pruning there would
   // delete every capture the filter didn't regenerate.
   const runStart = Number(readFileSync(runStartFile, "utf8"));
   if (!Number.isFinite(runStart)) return;
@@ -24,7 +24,7 @@ test.beforeAll(({}, testInfo) => {
   try {
     files = readdirSync(dir);
   } catch {
-    return; // first run for this project — nothing to prune
+    return; // first run for this project - nothing to prune
   }
   for (const file of files) {
     const path = join(dir, file);
@@ -194,7 +194,7 @@ test.describe("screenshot tour", () => {
     await capture(page, testInfo, "07-settings-practice-mode");
     await page.keyboard.press("Escape");
 
-    // ∞ (no timer) — the relaxed engine, now a length option on Timed.
+    // ∞ (no timer) - the relaxed engine, now a length option on Timed.
     await selectMode(page, "Timed");
     await page.getByTestId("toolbar-context").getByRole("button", { name: "No timer" }).click();
     await openSettingsMenu(page);
@@ -277,7 +277,7 @@ test.describe("screenshot tour", () => {
 
     // The default nine-key set is repaired to the two-vowel floor on entry
     // (adds "e"), so it renders unlocked; "w" sits outside the set and starts
-    // locked — one click unlocks it.
+    // locked - one click unlocks it.
     await expect(keyboardKey("e").locator("svg")).toHaveCount(0);
     await expect(keyboardKey("w").locator("svg")).toHaveCount(1);
     await keyboardKey("w").click();
@@ -291,7 +291,7 @@ test.describe("screenshot tour", () => {
 
     // Smart drill without enough typing history surfaces the warning toast.
     await page.getByRole("button", { name: "Drill your eight least accurate keys" }).click();
-    await expect(page.getByText("Not enough typing data yet — practice a little first!")).toBeVisible();
+    await expect(page.getByText("Not enough typing data yet - practice a little first!")).toBeVisible();
     await capture(page, testInfo, "31-practice-smart-drill-no-data");
 
     // Type a few characters so the keyboard's per-key accuracy reflects the session.
@@ -304,7 +304,7 @@ test.describe("screenshot tour", () => {
     await page.keyboard.press("Enter");
     await page.keyboard.up("Tab");
 
-    // Accuracy is always visible now — no toggle. The per-key percentages render
+    // Accuracy is always visible now - no toggle. The per-key percentages render
     // directly on the keyboard.
     await capture(page, testInfo, "32-practice-keyboard-analytics");
 
@@ -353,7 +353,7 @@ test.describe("screenshot tour", () => {
     // Auto layout follows the nav language: German resolves to QWERTZ (DE).
     await page.getByTestId("nav-language-trigger").click();
     await page.getByTestId("nav-language-menu").getByRole("button", { name: "German" }).click();
-    await expect(page.getByTestId("nav-layout-trigger")).toHaveText(/Auto — QWERTZ \(DE\)/);
+    await expect(page.getByTestId("nav-layout-trigger")).toHaveText(/Auto - QWERTZ \(DE\)/);
 
     // The practice board renders the national layout: real ü/ö/ä caps, the ISO
     // extra key, and dead keys (´ ^) dash-marked.
@@ -452,14 +452,14 @@ test.describe("screenshot tour", () => {
     // Shorten the test to 3 seconds so the completion dashboard appears fast.
     await setToolbarCustomLength(page, "3");
 
-    // Focus the typing surface before the first keystroke — committing the custom
+    // Focus the typing surface before the first keystroke - committing the custom
     // length can leave focus on the toolbar, dropping a bare keyboard press.
     await page.locator("#text").click();
     await typeCurrentCharacter(page);
     await expect(page.getByRole("button", { name: "Test Again" })).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText("WPM Over Time")).toBeVisible();
     // Honest-review 2026-07 §2: a 3s custom test is unranked, so the card wears
-    // the Unranked badge and no flattery — the save's brag/delta/streak must not
+    // the Unranked badge and no flattery - the save's brag/delta/streak must not
     // render. (The ranked chips are pinned in shared-score.spec.ts.)
     await expect(page.getByText("Unranked")).toBeVisible();
     await expect(page.getByTestId("avg-delta")).toHaveCount(0);
@@ -512,7 +512,7 @@ test.describe("screenshot tour", () => {
     });
 
     // /drill's result card offers the Re-measure CTA (href carries the token back
-    // home — asserted in drill.spec); capture the prompt here.
+    // home - asserted in drill.spec); capture the prompt here.
     await page.goto(`/drill?keys=x&length=4&rm=${encodeURIComponent(rm)}`);
     await expect(page.getByTestId("drill-typer")).toBeVisible();
     await typeVisibleTestText(page);
@@ -525,7 +525,7 @@ test.describe("screenshot tour", () => {
 
     // Landing home with the token re-runs the diagnosed test → before→after delta.
     // Wait for the rm config to actually apply (its 4-word counter replaces the
-    // default timed countdown) before reading the prompt — typing against the
+    // default timed countdown) before reading the prompt - typing against the
     // pre-switch text loses the race when the restart regenerates it.
     await page.goto(`/?rm=${encodeURIComponent(rm)}`);
     await expect(page.getByTestId("word-counter")).toContainText("/ 4");
@@ -728,7 +728,7 @@ test.describe("screenshot tour", () => {
     await page.addInitScript(() => window.localStorage.setItem("typecafe:lastRecapAt", String(Date.now())));
     await page.goto("/progress");
     await expect(page.getByTestId("plateau-headline")).toBeVisible();
-    // The plateau headline is the single coach voice here — the stance card must
+    // The plateau headline is the single coach voice here - the stance card must
     // not also render "nothing to change" beside it (the old contradiction).
     await expect(page.getByTestId("stance")).toHaveCount(0);
     await capture(page, testInfo, "47-progress-plateau");
@@ -772,8 +772,8 @@ test.describe("screenshot tour", () => {
     await capture(page, testInfo, "43-progress-guest-history");
   });
 
-  // Daily challenge captures removed (2026-07): the surface is hidden — no nav
-  // entry, no coach tab — so the tour no longer reviews it. Restore from git
+  // Daily challenge captures removed (2026-07): the surface is hidden - no nav
+  // entry, no coach tab - so the tour no longer reviews it. Restore from git
   // history alongside the nav/coach-tab code when the challenge returns.
 
   test("navigation: expanded side rail", async ({ page }, testInfo) => {
@@ -883,7 +883,7 @@ test.describe("screenshot tour", () => {
   });
 
   test("shared score page (guest, no account)", async ({ page }, testInfo) => {
-    // A snapshot-only share minted by a signed-out guest — no Test row backs it.
+    // A snapshot-only share minted by a signed-out guest - no Test row backs it.
     await mockTrpc(page);
     await page.goto("/score/guest-score-share");
     await expect(page.getByTestId("score-screenshot-card")).toBeVisible();

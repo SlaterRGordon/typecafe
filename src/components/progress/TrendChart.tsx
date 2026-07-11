@@ -2,7 +2,7 @@ import { useId, useMemo, useState, type ReactNode } from "react"
 import type { TrendPoint } from "~/lib/progress"
 
 interface TrendChartProps {
-    // X source — only `t` is read (createdAt ms); aligned 1:1 with values/trend.
+    // X source - only `t` is read (createdAt ms); aligned 1:1 with values/trend.
     points: TrendPoint[]
     values: number[]
     // The straight trend (least-squares fit) line, aligned 1:1 with `points`.
@@ -67,7 +67,7 @@ function formatMetric(value: number, suffix = ""): string {
     return `${value.toFixed(1)}${suffix}`
 }
 
-// Per-test scatter with a rolling-average line — the chart that proves "am I
+// Per-test scatter with a rolling-average line - the chart that proves "am I
 // getting faster?" (§3.1.2). Pure presentation; renders for 1, 10, or 1,000 points.
 export function TrendChart(props: TrendChartProps) {
     const titleId = useId()
@@ -100,7 +100,7 @@ export function TrendChart(props: TrendChartProps) {
 
         // Domain must cover every plotted x, including the secondary (best/day)
         // line. Best/day points sit at noon-UTC of each day, which can fall
-        // outside the scatter's first/last test time — pinning the domain to the
+        // outside the scatter's first/last test time - pinning the domain to the
         // scatter alone would push that line off the left/right edge.
         const allT = [...props.points.map((p) => p.t), ...(props.secondary?.map((s) => s.t) ?? [])]
         const minT = allT.length > 0 ? Math.min(...allT) : 0

@@ -25,7 +25,7 @@ function Svg(props: { children: React.ReactNode } & IconProps) {
     )
 }
 
-// Plain key practice — a speed bolt (every level is a speed level at heart).
+// Plain key practice - a speed bolt (every level is a speed level at heart).
 function KeysIcon(props: IconProps) {
     return (
         <svg
@@ -40,7 +40,7 @@ function KeysIcon(props: IconProps) {
     )
 }
 
-// Timed sprint — a stopwatch.
+// Timed sprint - a stopwatch.
 function TimedIcon(props: IconProps) {
     return (
         <Svg className={props.className}>
@@ -50,7 +50,7 @@ function TimedIcon(props: IconProps) {
     )
 }
 
-// No-miss precision — an arrow striking a bullseye.
+// No-miss precision - an arrow striking a bullseye.
 function NoMissIcon(props: IconProps) {
     return (
         <Svg className={props.className}>
@@ -61,7 +61,7 @@ function NoMissIcon(props: IconProps) {
     )
 }
 
-// Boss — an angry horned face.
+// Boss - an angry horned face.
 function BossIcon(props: IconProps) {
     return (
         <Svg className={props.className}>
@@ -95,7 +95,7 @@ export const KIND_META: Record<LevelKind, KindMeta> = {
         label: "Timed",
         special: true,
         Icon: TimedIcon,
-        blurb: "A timed sprint — type as much as you can before the clock runs out. Stars come from your net WPM.",
+        blurb: "A timed sprint - type as much as you can before the clock runs out. Stars come from your net WPM.",
     },
     noMiss: {
         label: "No miss",
@@ -107,6 +107,6 @@ export const KIND_META: Record<LevelKind, KindMeta> = {
         label: "Boss",
         special: true,
         Icon: BossIcon,
-        blurb: "A pacer line chases you at the 1★ pace. Reach the end before it catches you — if it does, the run ends. Stars come from your net WPM.",
+        blurb: "A pacer line chases you at the 1★ pace. Reach the end before it catches you - if it does, the run ends. Stars come from your net WPM.",
     },
 }

@@ -58,7 +58,7 @@ export function useTestPersistence({ charAttemptsRef, onTestComplete, eagerResul
         },
         onError: (error) => {
             console.error(error)
-            // The save failed, but the user still finished the test — show their
+            // The save failed, but the user still finished the test - show their
             // results instead of a blank screen, just unpersisted.
             const completion = pendingCompletionRef.current
             if (completion) {
@@ -66,7 +66,7 @@ export function useTestPersistence({ charAttemptsRef, onTestComplete, eagerResul
                 pendingCompletionRef.current = null
             }
             dispatch(addAlert({
-                message: "Couldn't save your score — check your connection and try again.",
+                message: "Couldn't save your score - check your connection and try again.",
                 type: "warning",
             }))
         }
@@ -75,7 +75,7 @@ export function useTestPersistence({ charAttemptsRef, onTestComplete, eagerResul
     // Save a completed test for the signed-in user; completion is reported via
     // the mutation callbacks above so the result can carry the test id and brag.
     // When eager, also report it immediately (unpersisted) so the result card
-    // shows without waiting for the save — the callbacks then patch it in place.
+    // shows without waiting for the save - the callbacks then patch it in place.
     const persistCompletion = useCallback((completion: TestCompletionResult, input: CreateTestInput) => {
         pendingCompletionRef.current = completion
         if (eagerResult) onTestComplete?.(completion)
@@ -88,7 +88,7 @@ export function useTestPersistence({ charAttemptsRef, onTestComplete, eagerResul
     // The drain must live here (hook-level), not as a mutate-level callback:
     // drill/train unmount the Typer the moment the eager result shows, and
     // react-query skips mutate-level callbacks once the observer has no
-    // listeners — the synced attempts would never drain and the next sync
+    // listeners - the synced attempts would never drain and the next sync
     // would re-send (double-count) them. Hook-level callbacks ride the
     // mutation itself and fire regardless of mount.
     const { mutate: syncPracticeStats } = api.practiceStats.batchSync.useMutation({
@@ -123,7 +123,7 @@ export function useTestPersistence({ charAttemptsRef, onTestComplete, eagerResul
     }, [sessionData?.user, syncTransitionStats, pool])
 
     // Per-key accuracy is tracked in every mode (Normal, Quotes, Practice, Drill),
-    // not just Practice — the heatmap and smart drill want the user's real typing,
+    // not just Practice - the heatmap and smart drill want the user's real typing,
     // wherever it happens. Ngrams is excluded by the callers in Typer because its
     // repeated-gram text would skew the per-key picture.
     const syncCharAttempts = useCallback(() => {

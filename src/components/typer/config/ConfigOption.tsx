@@ -1,6 +1,6 @@
 import type { ReactNode } from "react"
 
-// One segment inside a SegmentedGroup. Equal width, single line, never wraps —
+// One segment inside a SegmentedGroup. Equal width, single line, never wraps -
 // text truncates as a last resort on very narrow screens.
 const segmentBase = "flex-1 basis-0 min-w-0 cursor-pointer truncate rounded-md px-2 py-2.5 text-center whitespace-nowrap text-sm font-medium transition-colors sm:text-base focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
 

@@ -11,7 +11,7 @@ import { expect, test, type CDPSession, type Page } from "@playwright/test";
 // Numbers print as a table per scenario; budgets are asserted loosely so this
 // gates egregious regressions without flaking. Baselines are recorded in the
 // feature doc. Runs against the dev server like the rest of the suite, so
-// absolute numbers are pessimistic (React dev mode) — treat them as relative.
+// absolute numbers are pessimistic (React dev mode) - treat them as relative.
 
 declare global {
   interface Window {
@@ -103,7 +103,7 @@ const fmt = (n: number) => Number.isNaN(n) ? "n/a" : `${n.toFixed(1)}ms`;
 // numbers (recorded in docs/features/typing-feel.md) so a reintroduced
 // per-keystroke render storm fails loudly without flaking on run-to-run noise.
 // The pre-phase-1 baseline would fail all four assertions.
-// NOTE: run on a quiet machine — a parallel e2e suite on the same dev server
+// NOTE: run on a quiet machine - a parallel e2e suite on the same dev server
 // contaminates the numbers (input delay >10ms is the tell).
 async function collectAndReport(
   page: Page,
@@ -152,7 +152,7 @@ test.describe("typing perf baseline", () => {
     await collectAndReport(page, "timed (default home)", typed, { p95: 60, hitches: 15 });
   });
 
-  // Scenario 2: practice mode — the on-screen keyboard is visible, the page
+  // Scenario 2: practice mode - the on-screen keyboard is visible, the page
   // re-renders per keystroke, and this is where lag is felt most today.
   test("practice mode with keyboard: keystroke latency under throttle", async ({ page }) => {
     test.setTimeout(120_000);

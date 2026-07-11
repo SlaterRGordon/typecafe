@@ -60,6 +60,6 @@ For each finding, include the file, line, the issue, and a suggested fix.
 
 ## Notes
 
-- Be constructive — explain why something is a problem, not just that it is.
+- Be constructive - explain why something is a problem, not just that it is.
 - Acknowledge what's done well, not just what needs fixing.
 - Don't bikeshed on style issues that a linter/formatter should handle.

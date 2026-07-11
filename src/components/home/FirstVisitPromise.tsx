@@ -18,7 +18,7 @@ export function FirstVisitPromise() {
             data-testid="first-visit-promise"
             className="mb-3 text-center text-sm text-base-content/70"
         >
-            Not just a typing test — finish one to see{" "}
+            Not just a typing test - finish one to see{" "}
             <span className="font-semibold text-primary">what&apos;s slowing you down</span>, and the
             drill that fixes it.
         </p>

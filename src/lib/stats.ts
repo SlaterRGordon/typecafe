@@ -1,4 +1,4 @@
-// Pure typing-test math. No React, no DOM — everything here is unit-testable.
+// Pure typing-test math. No React, no DOM - everything here is unit-testable.
 
 // Rolling-window settings for the WPM-over-time chart. The headline WPM stays a
 // pure cumulative figure (chars / 5 over total elapsed time); these constants only
@@ -9,9 +9,9 @@ export const WPM_SAMPLE_TARGET_POINTS = 60
 export const WPM_MIN_SAMPLE_STEP_SECONDS = 0.1
 
 // A WPM figure is only meaningful once enough time and enough keystrokes have
-// accrued. Below this, a tiny sample extrapolates to absurd speeds — e.g. a
+// accrued. Below this, a tiny sample extrapolates to absurd speeds - e.g. a
 // 2-character grams level typed in 0.2s reads as "500 wpm". Callers should show
-// a placeholder ("—") instead of a number until a sample clears both bars.
+// a placeholder ("-") instead of a number until a sample clears both bars.
 export const WPM_MIN_RELIABLE_SECONDS = 1
 export const WPM_MIN_RELIABLE_KEYSTROKES = 5
 
@@ -19,7 +19,7 @@ export function isReliableWpmSample(durationSeconds: number, keystrokes: number)
     return durationSeconds >= WPM_MIN_RELIABLE_SECONDS && keystrokes >= WPM_MIN_RELIABLE_KEYSTROKES
 }
 
-// Ranking floor — separate from, and firmer than, the display floor above.
+// Ranking floor - separate from, and firmer than, the display floor above.
 // A *ranked* test feeds lifetime aggregates (daily rollups, streaks, the WPM
 // trend, percentile pools, the brag line), so a stray 1–3 keystroke or abandoned
 // test must not count: it would inflate streaks and pollute the trend the whole
@@ -36,7 +36,7 @@ export function isRankableSample(durationSeconds: number, keystrokes: number): b
 // counts. Algebraically identical to computeStats' netWpm: with raw = total/5/min
 // and accuracy a = correct/total, net = ((correct−incorrect)/5)/min = raw·(2a−1),
 // clamped at 0 (a fully-wrong run has 0 net). Lets every surface show net as the
-// canonical "WPM" from data we already persist — no migration.
+// canonical "WPM" from data we already persist - no migration.
 export function netFromRaw(rawWpm: number, accuracyPct: number): number {
     return Math.max(0, rawWpm * (2 * accuracyPct / 100 - 1))
 }
@@ -108,7 +108,7 @@ export interface CumulativeWpm {
 // Cumulative (running-average) raw and net WPM at each of the given elapsed times
 // (seconds, ascending), from the per-keystroke correctness timeline. Unlike the
 // burst samples (a trailing window), each point is the average speed from the
-// first keystroke through that moment — so the curve smooths the burst line out
+// first keystroke through that moment - so the curve smooths the burst line out
 // and converges toward the headline raw/net WPM. Times at or before 0 report 0/0.
 // Both `events` (t in ms) and `elapsedSecondsAt` must be ascending; the walk is a
 // single two-pointer pass that relies on it.
@@ -205,7 +205,7 @@ export function worstKeysFromAttempts(
 // worst-first (e.g. from worstKeysFromAttempts); the result is re-sorted so it
 // still reads worst-first across both groups.
 export function composeWeakKeys(ranked: KeyAccuracy[], total = 6, maxOther = 3): KeyAccuracy[] {
-    // Any lowercase letter counts — accented letters (é, ü, ą) are word anchors
+    // Any lowercase letter counts - accented letters (é, ü, ą) are word anchors
     // in their languages, so they lead drills like a–z do (not "other").
     const isLetter = (k: string) => /^\p{Ll}$/u.test(k)
     const others = ranked.filter((e) => !isLetter(e.key)).slice(0, maxOther)

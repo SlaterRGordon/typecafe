@@ -13,7 +13,7 @@ interface AvatarProps {
 
 // The one avatar used everywhere: a circular picture, or a deterministic
 // coloured initial when there's no picture (never a blank circle). Presentational
-// — callers pass the user's image/name (e.g. from the session or a row).
+// - callers pass the user's image/name (e.g. from the session or a row).
 export const Avatar = ({ image, name, size, className }: AvatarProps) => {
     const dimensions = { width: size, height: size };
 

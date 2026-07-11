@@ -53,7 +53,7 @@ const HowWeMeasure: NextPage = () => {
         </DocumentSection>
 
         <DocumentSection title="Net WPM">
-          <p>Net WPM is the canonical &quot;WPM&quot; across TypeCafe — the headline number on score cards, the figure leaderboards and personal bests rank by, and what your progress trends and improvement measure. Raw WPM is shown beside it for reference, never as the headline.</p>
+          <p>Net WPM is the canonical &quot;WPM&quot; across TypeCafe - the headline number on score cards, the figure leaderboards and personal bests rank by, and what your progress trends and improvement measure. Raw WPM is shown beside it for reference, never as the headline.</p>
           <p><code>((correct keystrokes - incorrect keystrokes) / 5) / elapsed minutes</code></p>
           <p>The value is clamped at 0. A fully wrong run can still have raw speed, but it has 0 net WPM. Each saved test&apos;s sortable score and each current daily rollup store net WPM directly; raw speed and accuracy remain available for explanation and compatibility.</p>
         </DocumentSection>
@@ -85,7 +85,7 @@ const HowWeMeasure: NextPage = () => {
           <p>Diagnosis only speaks when there is enough evidence. Short tests and one-off slips should not become fake coaching.</p>
           <ul>
             <li><strong>Slow transitions:</strong> a letter pair must appear at least {TRANSITION_MIN_COUNT} times and be at least {TRANSITION_SLOW_RATIO}x slower than your overall transition pace.</li>
-            <li><strong>Recent, not lifetime:</strong> per-key accuracy and per-pair speed are rolling windows — roughly your last {KEY_ATTEMPT_CAP} attempts on a key and {TRANSITION_SAMPLE_CAP} occurrences of a pair. Older samples fade out proportionally, so the coach reflects how you type <em>now</em>, and a weakness you fix stops being flagged once recent typing proves it.</li>
+            <li><strong>Recent, not lifetime:</strong> per-key accuracy and per-pair speed are rolling windows - roughly your last {KEY_ATTEMPT_CAP} attempts on a key and {TRANSITION_SAMPLE_CAP} occurrences of a pair. Older samples fade out proportionally, so the coach reflects how you type <em>now</em>, and a weakness you fix stops being flagged once recent typing proves it.</li>
           </ul>
         </DocumentSection>
 

@@ -22,7 +22,7 @@ function isProgressSnapshot(value: unknown): value is ProgressShareSnapshot {
 
 export { isProgressSnapshot }
 
-// The shareable "+18 WPM in 60 days" card — a brag available to every user, not
+// The shareable "+18 WPM in 60 days" card - a brag available to every user, not
 // just fast ones (vision §7). Renders the headline delta and the trend; reuses
 // the /progress TrendChart so the shared view matches the dashboard.
 export function ProgressShareCard(props: { snapshot: ProgressShareSnapshot; shareUrl?: string }) {

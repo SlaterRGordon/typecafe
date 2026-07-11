@@ -98,7 +98,7 @@ describe("keyFor", () => {
     })
 
     it("folds dead-composed chars onto the dead key's cell", () => {
-        // ê has no cell of its own on qwertz-de — it rides ^ (dead circumflex).
+        // ê has no cell of its own on qwertz-de - it rides ^ (dead circumflex).
         expect(keyFor("ê", DE)).toBe("^")
         // Uppercase composed folds the same way.
         expect(keyFor("Ê", DE)).toBe("^")
@@ -109,7 +109,7 @@ describe("keyFor", () => {
     it("returns null for untypeable and off-board chars", () => {
         // No ogonek compose row: ą is untypeable on qwertz-de.
         expect(keyFor("ą", DE)).toBeNull()
-        // ü exists on qwertz-de only — qwerty still rejects it.
+        // ü exists on qwertz-de only - qwerty still rejects it.
         expect(keyFor("ü", "qwerty")).toBeNull()
         // qwerty has no dead keys, so composed chars stay unmapped there.
         expect(keyFor("ê", "qwerty")).toBeNull()
@@ -118,7 +118,7 @@ describe("keyFor", () => {
 
 describe("composedFor", () => {
     it("lists exactly the chars a dead glyph composes on the layout", () => {
-        // The ^ COMPOSE row (a e i o u) — none direct on qwertz-de, all listed.
+        // The ^ COMPOSE row (a e i o u) - none direct on qwertz-de, all listed.
         expect([...composedFor("^", DE)].sort()).toEqual(["â", "ê", "î", "ô", "û"])
         // ´ composes ý too: y has its own key on qwertz-de.
         expect([...composedFor("´", DE)].sort()).toEqual(["á", "é", "í", "ó", "ú", "ý"])
@@ -132,7 +132,7 @@ describe("composedFor", () => {
     })
 
     it("never lists a char that has its own cell", () => {
-        // The umlauts are direct keys on qwertz-de — no dead glyph may claim
+        // The umlauts are direct keys on qwertz-de - no dead glyph may claim
         // them, and ¨ (their composer elsewhere) isn't dead here at all.
         for (const dead of ["^", "´", "`", "¨"]) {
             for (const direct of ["ü", "ö", "ä"]) {
@@ -218,7 +218,7 @@ describe("reachability", () => {
 
     it("every language's default layout reaches its accent set", () => {
         // The honest per-layout sets: what each national layout can actually
-        // produce (œ is deliberately absent — real AZERTY can't type it).
+        // produce (œ is deliberately absent - real AZERTY can't type it).
         const accentSets: Record<string, string> = {
             "azerty-fr": "éèàùçâêîôûëïü",
             "qwerty-es": "ñáéíóúü",
@@ -248,7 +248,7 @@ describe("reachability", () => {
         expect(glyphAt("3", "shift", "qwerty-uk")).toBe("£")
         // US-International: é composes through the dead apostrophe.
         expect(sequenceFor("é", "qwerty-us-intl")).toEqual([{ key: "'", dead: true }, { key: "e" }])
-        // Italian: é is shift on the è cap — no dead keys at all.
+        // Italian: é is shift on the è cap - no dead keys at all.
         expect(sequenceFor("é", "qwerty-it")).toEqual([{ key: "è", shift: true }])
         // Portuguese: ã composes through the dead tilde.
         expect(sequenceFor("ã", "qwerty-pt")).toEqual([{ key: "~", dead: true }, { key: "a" }])
@@ -303,7 +303,7 @@ describe("keyStagesFor", () => {
             expect(stages).toHaveLength(11)
             const first = stages[0]!
             // Stage 1 is the resting fingers: home-row letters, plus at most one
-            // borrowed vowel when the home row has none (AZERTY) — word
+            // borrowed vowel when the home row has none (AZERTY) - word
             // generation needs a vowel from the first stage. Enough keys to
             // generate words (Practice's floor: 6+ keys, vowel + consonant).
             const offRow = first.split("").filter((ch) => !homeLetters.has(ch))
@@ -320,7 +320,7 @@ describe("keyStagesFor", () => {
             const finalKeys = stages[stages.length - 1]!
             expect(new Set(finalKeys).size).toBe(finalKeys.length)
 
-            // The full alphabet arrives by the final stage — exactly 26, so
+            // The full alphabet arrives by the final stage - exactly 26, so
             // withLanguageAccents (keys.length < 26 guard) still fires on it.
             expect(sorted(finalKeys)).toBe("abcdefghijklmnopqrstuvwxyz")
         }

@@ -78,9 +78,9 @@ describe("generateBetterPseudoText", () => {
     // Regression guard for the Practice freeze: a vowel-less (or otherwise
     // un-buildable) key set used to spin the word-builder forever, hanging the UI.
     // The generator must ALWAYS terminate for any key set. If this regresses, these
-    // synchronous calls never return and the test run hangs — a loud failure.
+    // synchronous calls never return and the test run hangs - a loud failure.
     const adversarialKeySets = [
-        ["b", "c", "d"], // no vowel — the reported crash
+        ["b", "c", "d"], // no vowel - the reported crash
         ["b"],           // single consonant
         ["z"],           // single rare consonant
         ["q", "w"],      // consonants with no real words / few grams
@@ -159,7 +159,7 @@ describe("generateNGram", () => {
         const topBigrams = (lang: string) => Array.from({ length: 10 }, (_, level) =>
             generateNGram(TestGramSources.bigrams, TestGramScopes.twoHundred, 1, 0, level, lang).trim())
         for (const gram of topBigrams("french")) expect(gram).toHaveLength(2)
-        // Two languages don't share the same top-10 bigram ranking — proves French
+        // Two languages don't share the same top-10 bigram ranking - proves French
         // grams are derived from the French words, not the English static list.
         expect(topBigrams("french")).not.toEqual(topBigrams("english"))
     })

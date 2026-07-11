@@ -47,7 +47,7 @@ describe("toDrillKeys", () => {
 
 describe("symbol latency", () => {
     it("surfaces a slow punctuation key as a finding and a drill target", () => {
-        // A steady 'a' rhythm at 100ms with a slow ':' (300ms) spliced in — the
+        // A steady 'a' rhythm at 100ms with a slow ':' (300ms) spliced in - the
         // colon must be diagnosed and kept drillable, not stripped as a non-letter.
         const evts = [
             ...steady("a", 25, 100),
@@ -108,7 +108,7 @@ describe("slowestKeys", () => {
         const r = slow.find((k) => k.key === "r")!
         expect(r.samples).toBe(3)
         // First 'r' inherits the preceding steady-'a' gap (100ms); the other two
-        // land at 300ms — mean 233ms, i.e. ~2.3x the 100ms baseline.
+        // land at 300ms - mean 233ms, i.e. ~2.3x the 100ms baseline.
         expect(r.meanMs).toBeCloseTo(700 / 3, 5)
         expect(r.ratio).toBeGreaterThanOrEqual(2)
     })

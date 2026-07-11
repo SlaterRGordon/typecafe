@@ -44,7 +44,7 @@ export const SideNavigation = () => {
         >
             <div className="flex flex-col" data-testid="side-primary-nav">
                 {/* Real <a href> links (via next/link) so Googlebot can crawl the
-                    internal pages and pass link equity — onClick nav is invisible
+                    internal pages and pass link equity - onClick nav is invisible
                     to it (growth-seo §E). SPA behaviour is unchanged. */}
                 {/* Home */}
                 <Link href="/" className={getNavButtonClass('/')} aria-label="Home" title="Home">
@@ -61,7 +61,7 @@ export const SideNavigation = () => {
                     <MaterialNavIcon name="trending_up" className={navIconClass} />
                     <div className={navLabelClass}>Progress</div>
                 </Link>
-                {/* Daily Challenge hidden for now (2026-07) — /challenge still
+                {/* Daily Challenge hidden for now (2026-07) - /challenge still
                     exists; restore the link from git history when it returns. */}
                 {/* Leaderboard */}
                 <Link href="/leaderboard" className={getNavButtonClass('/leaderboard')} aria-label="Leaderboard" title="Leaderboard">
@@ -86,7 +86,7 @@ export const SideNavigation = () => {
             <div className="relative flex flex-col">
                 {/* More: the legal/support links rolled into one popover. It fits within
                     the rail's expanded (16rem) width, so the pointer stays inside the
-                    rail while using it — the rail's mouse-leave closes it. */}
+                    rail while using it - the rail's mouse-leave closes it. */}
                 {moreOpen &&
                     <div data-testid="nav-more-menu" className="absolute bottom-full left-2 z-[46] mb-1 w-52 rounded-lg border border-base-content/10 bg-base-200 p-1 shadow-lg">
                         {MORE_LINKS.map((link) => (

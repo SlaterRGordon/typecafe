@@ -106,7 +106,7 @@ describe("getShareForOg", () => {
     const data = await getShareForOg("legacy-no-net")
 
     // The share card must agree with the leaderboard/percentile, which use
-    // netFromRaw. The old fallback computed raw·(accuracy/100) = 69.84 — a
+    // netFromRaw. The old fallback computed raw·(accuracy/100) = 69.84 - a
     // different, more flattering number. Pin to the canonical one (= 67.68).
     expect(data).toMatchObject({ kind: "score", netWpm: netFromRaw(72, 97) })
     expect(netFromRaw(72, 97)).not.toBe(72 * (97 / 100))

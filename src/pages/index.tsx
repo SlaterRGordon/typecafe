@@ -92,7 +92,7 @@ const Home: NextPage = () => {
   const [typingFocused, setTypingFocused] = useState(false)
   // Practice: the shift-layer toggle lives in the settings line but drives the
   // keyboard board below the test, so the page holds it. Holding physical Shift
-  // peeks the layer (release returns to the sticky toggle) — lifted here so the
+  // peeks the layer (release returns to the sticky toggle) - lifted here so the
   // settings-line "shift on/off" label reflects the peek too, not just the board.
   const [shiftToggle, setShiftToggle] = useState(false)
   const [shiftHeld, setShiftHeld] = useState(false)
@@ -118,7 +118,7 @@ const Home: NextPage = () => {
     reMeasure?: { beforeWpm: number };
   }) | null>(null)
   const [shareUrl, setShareUrl] = useState<string | undefined>(undefined)
-  // True while a signed-in user's just-finished test is being saved — the card
+  // True while a signed-in user's just-finished test is being saved - the card
   // renders instantly (eagerResult) and shows a loader until the save settles.
   const [isSavingScore, setIsSavingScore] = useState(false)
   // The pending re-measure offer. The ref is the synchronous source of truth (read
@@ -200,7 +200,7 @@ const Home: NextPage = () => {
       if (value) sessionStorage.setItem(RE_MEASURE_KEY, JSON.stringify({ savedAt: Date.now(), ...value }))
       else sessionStorage.removeItem(RE_MEASURE_KEY)
     } catch {
-      // sessionStorage unavailable — the prompt just won't survive a reload.
+      // sessionStorage unavailable - the prompt just won't survive a reload.
     }
   }, [])
 
@@ -219,7 +219,7 @@ const Home: NextPage = () => {
       reMeasureRef.current = { beforeWpm: parsed.beforeWpm, config: parsed.config }
       setReMeasure(reMeasureRef.current)
     } catch {
-      // Corrupt entry — ignore.
+      // Corrupt entry - ignore.
     }
   }, [])
 
@@ -253,7 +253,7 @@ const Home: NextPage = () => {
   const hasAltGr = useMemo(() => boardFor(activeLayout).rows.some((row) => row.some((cap) => cap.altgr)), [activeLayout])
 
   // Smart drill (settings line): select the eight least-accurate keys from the
-  // folded lifetime + session attempts — including the language's accent chars
+  // folded lifetime + session attempts - including the language's accent chars
   // the active layout can type (ü on qwertz-de, dead-composed ê on azerty-fr).
   // Selection math lives in lib/drillKeys.
   const handleSmartDrill = () => {
@@ -269,7 +269,7 @@ const Home: NextPage = () => {
     const accents = accentsFor(parseLanguage(activeTestLanguage).base).filter((ch) => sequenceFor(ch, activeLayout).length > 0)
     const keys = smartDrillSelection(merged, accents)
     if (!keys) {
-      dispatch(addAlert({ message: "Not enough typing data yet — practice a little first!", type: "warning" }))
+      dispatch(addAlert({ message: "Not enough typing data yet - practice a little first!", type: "warning" }))
       return
     }
     setSelectedKeys(keys)
@@ -365,7 +365,7 @@ const Home: NextPage = () => {
           },
         }))
       } catch {
-        // sessionStorage unavailable — not critical
+        // sessionStorage unavailable - not critical
       }
     }
   }
@@ -428,7 +428,7 @@ const Home: NextPage = () => {
         try { await navigator.clipboard.writeText(url) } catch { /* clipboard blocked */ }
         void router.push(`/score/${share.slug}`)
       } catch {
-        // Share creation failed — score is saved, user can share manually
+        // Share creation failed - score is saved, user can share manually
       }
     }).catch(() => {
       hasSavedPendingRef.current = false
@@ -529,7 +529,7 @@ const Home: NextPage = () => {
   // Re-measure handoff: /drill's "Re-measure" CTA returns here as /?rm=<token>,
   // carrying the diagnosed test's config. Rebuild the before→after offer, switch
   // into that exact config and start it; onTestComplete then headlines the delta
-  // (Phase 1.3 — the loop's payoff, now reached via the unified /drill surface).
+  // (Phase 1.3 - the loop's payoff, now reached via the unified /drill surface).
   useEffect(() => {
     if (!router.isReady) return
     const raw = typeof router.query.rm === "string" ? router.query.rm : null
@@ -678,7 +678,7 @@ const Home: NextPage = () => {
       <div id="typer" className={`flex flex-col h-full overflow-auto ${completedScore ? "py-4" : "[justify-content:safe_center]"} ${fullscreen ? 'absolute top-0 left-0 w-full h-full bg-base-100 z-[500] sm:px-8' : 'w-full max-w-screen-xl mx-auto'}`}>
         {/* A real page heading for crawlers + screen readers without disturbing
             the minimal test-first hero (growth-seo §E). */}
-        <h1 className="sr-only">TypeCafe — the typing coach that makes you faster</h1>
+        <h1 className="sr-only">TypeCafe - the typing coach that makes you faster</h1>
         {!completedScore && !fullscreen &&
           <HomeCoachTabs className={typingFocusFadeClass(typingFocused, "")} desktop={false} />
         }
@@ -798,7 +798,7 @@ const Home: NextPage = () => {
                   data-testid="continue-plan"
                   className="flex w-full items-center justify-between gap-3 rounded-lg border border-primary/40 bg-primary/10 px-5 py-3 text-sm font-semibold text-base-content transition hover:bg-primary/15"
                 >
-                  <span>Step done — back to your plan.</span>
+                  <span>Step done - back to your plan.</span>
                   <span className="text-primary">Continue plan →</span>
                 </Link>
               </div>

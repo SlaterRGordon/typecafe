@@ -2,8 +2,8 @@ import Link from "next/link";
 import { Avatar } from "~/components/Avatar";
 
 // A portable score tile: a hero WPM with optional secondary stats, a rank badge,
-// and a user identity. Purely presentational — it takes already-computed numbers
-// (net WPM, accuracy, …), no queries — so the same card serves profile signature
+// and a user identity. Purely presentational - it takes already-computed numbers
+// (net WPM, accuracy, …), no queries - so the same card serves profile signature
 // bests, leaderboard rows, and the daily-challenge boards. Pass only the props a
 // surface needs; everything but `wpm` is optional.
 export interface ScoreCardProps {

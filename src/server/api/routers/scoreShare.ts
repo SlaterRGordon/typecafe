@@ -78,7 +78,7 @@ const beatRunSnapshotSchema = scoreSnapshotSchema.extend({
   createdAt: z.number().int().nonnegative(),
 });
 
-// A point-in-time /progress snapshot — the "+18 WPM in 60 days" brag any user
+// A point-in-time /progress snapshot - the "+18 WPM in 60 days" brag any user
 // can share, not tied to a single test.
 const progressSnapshotSchema = z.object({
   deltaWpm: z.number(),

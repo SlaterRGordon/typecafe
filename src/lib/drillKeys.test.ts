@@ -6,7 +6,7 @@ const entry = (attempts: number, correct: number) => ({ attempts, correct })
 describe("smartDrillSelection", () => {
     it("returns null without enough typing data", () => {
         expect(smartDrillSelection(new Map())).toBeNull()
-        // Under the 3-attempt floor, or perfectly accurate — nothing weak to drill.
+        // Under the 3-attempt floor, or perfectly accurate - nothing weak to drill.
         expect(smartDrillSelection(new Map([["a", entry(2, 0)]]))).toBeNull()
         expect(smartDrillSelection(new Map([["a", entry(50, 50)]]))).toBeNull()
     })

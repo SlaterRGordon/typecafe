@@ -1,6 +1,6 @@
 // Goal-trajectory math (Phase 3 §3.5). Pure, unit-testable. Projects the user's
 // current WPM trend linearly and compares it to the pace needed to hit a target
-// by a date — honest about shortfall, never flattering. Assumptions: a simple
+// by a date - honest about shortfall, never flattering. Assumptions: a simple
 // least-squares fit over per-test WPM (no weighting, no curve), extrapolated
 // linearly; real improvement curves bend, so treat the projected date as a
 // straight-line estimate, not a promise.
@@ -107,7 +107,7 @@ export function projectTrajectory(records: ProgressRecord[], goal: Goal, now: Da
 }
 
 // ---------------------------------------------------------------------------
-// Plateau detection (Phase 4 §4.5) — the coach noticing before the user does
+// Plateau detection (Phase 4 §4.5) - the coach noticing before the user does
 // ---------------------------------------------------------------------------
 
 export const PLATEAU_CONFIG = {
@@ -143,8 +143,8 @@ function isFlat(slopePerDay: number, windowDays: number): boolean {
 }
 
 // A plateau = a ~flat WPM trend over the trailing 3 weeks (within noise). When
-// flat, we extend the window back week by week to report how long it's lasted —
-// "plateaued for N weeks" — so the coach can call it out before the user notices.
+// flat, we extend the window back week by week to report how long it's lasted -
+// "plateaued for N weeks" - so the coach can call it out before the user notices.
 export function detectPlateau(records: ProgressRecord[], now: Date): PlateauResult {
     const base = slopeOverWindow(records, now, 21)
     if (!base || base.count < PLATEAU_CONFIG.minTests) {

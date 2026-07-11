@@ -52,7 +52,7 @@ test.describe("train page", () => {
   });
 
   // The next-key marker on the train board is applied imperatively (no React
-  // render per keystroke — typing-feel §1); guard that it actually follows.
+  // render per keystroke - typing-feel §1); guard that it actually follows.
   test("keyboard lights the next expected key as you type", async ({ page }) => {
     await gotoTrain(page);
     await expect(page.locator(".typecafe-keyboard")).toBeVisible();
@@ -101,7 +101,7 @@ test.describe("train page", () => {
     await expect(page.getByTestId("train-rail-caption")).toContainText("Level 1");
   });
 
-  // typing-feel §3: the popover never waits for the save round-trips — it
+  // typing-feel §3: the popover never waits for the save round-trips - it
   // renders instantly from local grading (stars, next-level unlock), then the
   // background save patches the status line.
   test("signed-in clear shows the popover before the slow save settles", async ({ page }) => {
@@ -115,7 +115,7 @@ test.describe("train page", () => {
     // Well before the 4s save delay could resolve.
     await expect(popover).toBeVisible({ timeout: 2500 });
     await expect(popover.getByTestId("train-save-status")).toContainText("Saving progress");
-    // The next-level unlock comes from the local merge — usable immediately.
+    // The next-level unlock comes from the local merge - usable immediately.
     await expect(popover.getByRole("button", { name: "Next level" })).toBeEnabled();
     // The background save settles and patches the status.
     await expect(popover.getByTestId("train-save-status")).toContainText("Best result saved.", { timeout: 15_000 });
@@ -166,7 +166,7 @@ test.describe("train page", () => {
     const popover = page.getByTestId("train-complete-popover");
     await expect(popover).toBeVisible();
     await expect(popover).toContainText("Level 1 not cleared yet");
-    await expect(popover).toContainText("Need 22 net WPM to clear — you hit 0.");
+    await expect(popover).toContainText("Need 22 net WPM to clear - you hit 0.");
     await expect(popover.getByTestId("train-net-result")).toContainText("Need 22 net WPM");
     await expect(popover.getByTestId("train-net-result")).toHaveClass(/border-error/);
     await expect(popover.getByTestId("train-accuracy-result")).toContainText("Accuracy");
@@ -208,7 +208,7 @@ test.describe("train page", () => {
     const popover = page.getByTestId("train-complete-popover");
     await expect(popover).toBeVisible();
 
-    // No next level on a fail — the chord takes the Try again path.
+    // No next level on a fail - the chord takes the Try again path.
     await page.keyboard.down("Tab");
     await page.keyboard.press("Enter");
     await page.keyboard.up("Tab");
@@ -259,7 +259,7 @@ test.describe("train page", () => {
     // Boss levels carry a "Boss" type chip in the controls.
     await expect(page.getByTestId("train-level-kind")).toContainText("Boss");
 
-    // Type one character to start the attempt, then stop — the pacer catches up.
+    // Type one character to start the attempt, then stop - the pacer catches up.
     await typeCurrentCharacter(page);
 
     const popover = page.getByTestId("train-complete-popover");
@@ -323,7 +323,7 @@ test.describe("train page", () => {
     await gotoTrain(page);
     await expect(page.getByText("Level 4").first()).toBeVisible();
 
-    // Speed rounds are timed — a countdown is shown and the chip reads "Timed".
+    // Speed rounds are timed - a countdown is shown and the chip reads "Timed".
     await expect(page.getByTestId("timed-countdown")).toBeVisible();
     await expect(page.getByTestId("train-level-kind")).toContainText("Timed");
 
@@ -339,7 +339,7 @@ test.describe("train page", () => {
   test("full-alphabet levels type the language's real alphabet (Polish diacritics)", async ({ page }) => {
     // Level 45 is past the key intro (full a–z), so with Polish active its key
     // set gains the derived diacritics and real accented words appear. Nearly
-    // half the common Polish vocabulary carries diacritics — a 28-word level
+    // half the common Polish vocabulary carries diacritics - a 28-word level
     // without a single one means the accent extension is broken.
     await page.addInitScript(() => {
       window.localStorage.setItem("typecafe:language", JSON.stringify("polish"));
@@ -393,7 +393,7 @@ test.describe("train page", () => {
     // No-miss levels carry a "No miss" type chip in the controls.
     await expect(page.getByTestId("train-level-kind")).toContainText("No miss");
 
-    await typeCurrentCharacter(page, 0); // correct — starts the run
+    await typeCurrentCharacter(page, 0); // correct - starts the run
     await typeWrongCharacter(page, 1);   // one miss ends it
 
     const popover = page.getByTestId("train-complete-popover");

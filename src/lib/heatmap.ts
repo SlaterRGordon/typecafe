@@ -9,13 +9,13 @@ import type { KeystrokeEvent } from "./keystrokes"
 import { DEFAULT_LAYOUT, glyphAt, keyFor, rowsFor } from "./keyboardLayout"
 
 // The physical keyboard rows the heatmap renders, in visual order: the full ANSI
-// shape — number row, three letter rows extended with the punctuation/bracket
+// shape - number row, three letter rows extended with the punctuation/bracket
 // cluster, and a space bar handled separately by the component. Every typed
 // character folds onto one of these physical keys (see foldToPhysicalKey), so the
 // map reads as one cell per real key. The bracket/equals keys ([ ] \ = ) are
 // display-only filler for keyboard fidelity: nothing generates text for them, so
 // they read as neutral "no data" until a user actually hits one.
-// Key geometry (rows, layers, folding) lives in keyboardLayout.ts — this file
+// Key geometry (rows, layers, folding) lives in keyboardLayout.ts - this file
 // keeps the accuracy math and delegates every "where is this key" question.
 // The qwerty default on the layout params below preserves pre-geometry callers
 // byte-for-byte; boards thread the active layout starting with ledger slice 4.
@@ -33,13 +33,13 @@ export function shiftedGlyph(key: string, layout = DEFAULT_LAYOUT): string {
 // lowercase, shifted symbols to their base key, plain keys pass through, and
 // dead-key composed chars fold onto their dead key's cell (ê → ^). Anything
 // off this keyboard (tab, etc.) returns null so callers can skip it. Delegates
-// to the geometry module's keyFor — the single source of truth for "which
+// to the geometry module's keyFor - the single source of truth for "which
 // cell does this char belong to".
 export function foldToPhysicalKey(char: string, layout = DEFAULT_LAYOUT): string | null {
     return keyFor(char, layout)
 }
 
-// Per-key tally — the single shape every data source (live session refs,
+// Per-key tally - the single shape every data source (live session refs,
 // localStorage aggregates, a decoded test timeline) reduces to.
 export interface KeyAttempt {
     attempts: number,
@@ -49,7 +49,7 @@ export interface KeyAttempt {
 export interface HeatmapCell {
     key: string,
     // 0–100, rounded. Defaults to 100 for keys the user hasn't typed, so untyped
-    // keys read as "fine" rather than alarming red — the original Practice
+    // keys read as "fine" rather than alarming red - the original Practice
     // behavior.
     accuracy: number,
     attempts: number,

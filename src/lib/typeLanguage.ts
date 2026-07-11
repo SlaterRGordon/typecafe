@@ -2,7 +2,7 @@
 // one competitive language: a test ranks and lands on the same English
 // leaderboard regardless of vocabulary size. Collapsing the variants to the
 // seeded "english" TestType is also what makes a signed-in user's score persist
-// — TestType.findFirst returns null for an unseeded language, which silently
+// - TestType.findFirst returns null for an unseeded language, which silently
 // drops the save. New englishNk sizes are covered automatically.
 export function baseTypeLanguage(language: string | undefined): string | undefined {
     if (!language) return language;

@@ -16,7 +16,7 @@ describe("rankDrillWords", () => {
     })
 
     test("keeps accented words in the pool (non-English lists)", () => {
-        // Half the common Polish/French vocabulary carries diacritics — dropping
+        // Half the common Polish/French vocabulary carries diacritics - dropping
         // those words would drill an unrepresentative rump of the language.
         const ranked = rankDrillWords(["école", "être", "già", "week-end", "łatwe"], ["e"])
         expect(ranked.map((candidate) => candidate.word)).toEqual(expect.arrayContaining(["école", "être", "łatwe"]))

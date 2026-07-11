@@ -2,7 +2,7 @@
 // a JSON array under one key, validated on read (localStorage is user-editable)
 // and folded by a domain merge. Each mirror supplies its own `sanitize` (one
 // record) and `merge` (the dedupe/sum/sort that encodes its semantics); this
-// owns the read/write/add/clear plumbing once. progressHistory stays separate —
+// owns the read/write/add/clear plumbing once. progressHistory stays separate -
 // it's append+cap, not a merge.
 
 function defaultStorage(): Storage | undefined {

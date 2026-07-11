@@ -74,7 +74,7 @@ describe("createKeystrokeRecorder", () => {
             { t: 140, chars: 1 },
             { t: 160, chars: 2 },
         ])
-        // Attempts accumulate forever — backspace never decrements them.
+        // Attempts accumulate forever - backspace never decrements them.
         expect(bundle.charAttempts.get("a")).toEqual({ attempts: 2, correct: 1 })
         expect(bundle.charAttempts.get("b")).toEqual({ attempts: 1, correct: 1 })
     })

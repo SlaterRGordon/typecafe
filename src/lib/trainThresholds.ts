@@ -1,11 +1,11 @@
-// Train ladder thresholds — formula-derived, never authored per level (ADR-0003).
+// Train ladder thresholds - formula-derived, never authored per level (ADR-0003).
 // The level number is the speed axis (key-set difficulty is the per-level content
 // axis); difficulty multiplies the whole climb and stars add per-level headroom.
 
 export type DifficultyName = "easy" | "medium" | "hard" | "extreme" | "insane"
 
 // Ordered easiest→hardest. Extensible: appending a tier is one entry here plus its
-// multiplier below — no other structural change. The server enum derives from this.
+// multiplier below - no other structural change. The server enum derives from this.
 export const DIFFICULTIES: DifficultyName[] = ["easy", "medium", "hard", "extreme", "insane"]
 
 // Each tier is a gentler/steeper journey through the same 100 levels.

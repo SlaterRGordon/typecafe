@@ -89,7 +89,7 @@ const GuidedPlan = (props: { plan: Plan }) => {
                 <h1 className="font-mono text-3xl font-bold tracking-tight">Your plan</h1>
                 <p className="mt-1 text-base-content/60">
                     {plan.kind === "calibration"
-                        ? "Calibration week — varied tests to build your profile, then your targeted plan begins."
+                        ? "Calibration week - varied tests to build your profile, then your targeted plan begins."
                         : "A 30-day plan built from your weakest keys and transitions."}
                     {" "}{doneDays}/{plan.days.length} days done.
                 </p>
@@ -106,7 +106,7 @@ const GuidedPlan = (props: { plan: Plan }) => {
             ) : safe.status === "day-done" ? (
                 <div data-testid="plan-day-done" className="rounded-xl border border-success/40 bg-success/10 p-6">
                     <p className="text-xs font-semibold uppercase tracking-wide text-success">Day {safe.day} complete</p>
-                    <h2 className="mt-1 text-2xl font-bold text-base-content">Nice — that&apos;s today&apos;s session done.</h2>
+                    <h2 className="mt-1 text-2xl font-bold text-base-content">Nice - that&apos;s today&apos;s session done.</h2>
                     <p className="mt-1 text-base-content/70">Come back tomorrow, or keep the momentum going.</p>
                     <button type="button" onClick={startNextDay} data-testid="plan-next-day" className="mt-4 inline-flex items-center rounded-md bg-primary px-5 py-2.5 text-sm font-semibold text-primary-content transition hover:opacity-85">
                         {isLastDay ? "Finish plan →" : `Start day ${safe.day + 1} →`}
@@ -156,7 +156,7 @@ const GuidedPlan = (props: { plan: Plan }) => {
                         return (
                             <div
                                 key={d.day}
-                                title={`Day ${d.day}${d.isBenchmark ? " — benchmark" : ""}`}
+                                title={`Day ${d.day}${d.isBenchmark ? " - benchmark" : ""}`}
                                 className={`flex h-9 items-center justify-center rounded-md text-xs font-semibold ${
                                     isDone
                                         ? "bg-primary text-primary-content"
@@ -209,7 +209,7 @@ const PlanPage: NextPage = () => {
     return (
         <>
             <Head>
-                <title>Your plan — TypeCafe</title>
+                <title>Your plan - TypeCafe</title>
                 <meta name="description" content="Your personalized practice plan: a coach-guided daily session built from your weakest keys and transitions." />
             </Head>
             <div className="flex h-full w-full justify-center overflow-auto px-4 py-8">

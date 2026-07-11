@@ -28,7 +28,7 @@ export interface DailyStatAggregate {
     consistencySamples: number
 }
 
-// The mutable fields of a DailyUserStat row that a merge produces — the shape
+// The mutable fields of a DailyUserStat row that a merge produces - the shape
 // both the create and the update path write.
 export interface DailyStatValues {
     tests: number

@@ -24,13 +24,13 @@ interface KeyHeatmapProps {
     includeSpace?: boolean,
     // Override the per-cell percentage label; defaults on for full, off for mini.
     showPercent?: boolean,
-    // False renders a plain board: no accuracy shading, no percentages — the
+    // False renders a plain board: no accuracy shading, no percentages - the
     // same geometry (layers, dead styling, corner glyphs) as a neutral teaching
     // surface (the train board). Defaults true: every heatmap stays a heatmap.
     showAccuracy?: boolean,
     // Keys to ring, e.g. the diagnosed keys the user is about to drill.
     highlightKeys?: string[],
-    // Practice interaction (all optional — score-card/progress stay read-only):
+    // Practice interaction (all optional - score-card/progress stay read-only):
     // keys to badge with a lock (excluded from the drill set), a click handler
     // that makes cells interactive, and the live "next key" to ring.
     lockedKeys?: ReadonlySet<string>,
@@ -38,7 +38,7 @@ interface KeyHeatmapProps {
     currentKey?: string,
     // Live boards (Practice): ring the typer's next key by moving classes on
     // the cells instead of re-rendering ~50 of them per keystroke
-    // (typing-feel §1). Don't combine with highlightKeys — the mover owns the
+    // (typing-feel §1). Don't combine with highlightKeys - the mover owns the
     // ring classes and would strip a static highlight ring it lands on.
     followActiveKey?: boolean,
     // Shift layer: render each cell's shifted twin (R, ?, !, :) with its own raw
@@ -53,7 +53,7 @@ interface KeyHeatmapProps {
     // When given, only these glyphs are clickable-to-lock (e.g. the shift layer
     // exposes just the drillable marks ? ! :, leaving capitals inert). When
     // omitted, every cell is interactive in the base layer and none in the shift
-    // layer — preserving the read-only score-card/progress views.
+    // layer - preserving the read-only score-card/progress views.
     interactiveKeys?: ReadonlySet<string>,
     // Which layout's board to render; defaults to the active global setting.
     // Score surfaces pass a test's own layout tag here (ledger decision 10).
@@ -80,7 +80,7 @@ const ROW_CLASS_BY_SIZE: Record<KeyHeatmapSize, string> = {
 
 const KEY_CLASS_BY_SIZE: Record<KeyHeatmapSize, string> = {
     // The after: pseudo renders the teaching step badge (1→2 / ⇧ / AG) from
-    // data-kb-step — set imperatively by the train board, absent everywhere
+    // data-kb-step - set imperatively by the train board, absent everywhere
     // else, so the pseudo-element resolves to empty content and shows nothing.
     full: "relative kbd kbd-md sm:kbd-lg font-mono after:absolute after:-right-1 after:-top-1.5 after:text-[9px] after:font-bold after:text-primary after:content-[attr(data-kb-step)]",
     mini: "relative kbd kbd-sm font-mono text-xs",
@@ -130,7 +130,7 @@ export function KeyHeatmap(props: KeyHeatmapProps) {
     const boardLayout = props.layout ?? activeLayout
     const board = boardFor(boardLayout)
     // The active layer decides which glyph each cell renders and reads accuracy
-    // for (unfolded — each glyph its own tally, matching the shift layer).
+    // for (unfolded - each glyph its own tally, matching the shift layer).
     const layer: Layer = altgrLayer && shiftLayer ? "shiftAltgr" : altgrLayer ? "altgr" : shiftLayer ? "shift" : "base"
     const showAccuracy = props.showAccuracy ?? true
     const showPercent = (props.showPercent ?? size === "full") && showAccuracy
@@ -162,7 +162,7 @@ export function KeyHeatmap(props: KeyHeatmapProps) {
     const spaceClass = SPACE_CLASS_BY_SIZE[size]
 
     // A dead cell's accuracy aggregates its own tally with every char composed
-    // through it (ê rides ^'s cell) — unfolded sources carry composed chars as
+    // through it (ê rides ^'s cell) - unfolded sources carry composed chars as
     // themselves; folded sources already landed them here, so the extra lookups
     // find nothing and never double-count.
     const attemptFor = (glyph: string): KeyAttempt | undefined => {
@@ -183,7 +183,7 @@ export function KeyHeatmap(props: KeyHeatmapProps) {
 
     // One cell per physical cap. The active layer picks the glyph (and its own
     // unfolded accuracy); full-size cells also show small secondary glyphs in
-    // the physical convention — the shift twin top-right (symbols only; a
+    // the physical convention - the shift twin top-right (symbols only; a
     // capital adds nothing) and the AltGr glyph bottom-left. Dead-key glyphs
     // (cap dead on this layer) carry data-kb-dead and a tooltip: the key waits
     // for the next press (ledger decision 7; the old dashed border read as
@@ -202,7 +202,7 @@ export function KeyHeatmap(props: KeyHeatmapProps) {
         // names this glyph, or (no allow-set) we're on the base layer.
         const interactive = !!onKeyClick && (interactiveKeys ? interactiveKeys.has(glyph) : layer === "base")
         const cell = heatmapCell(glyph, attemptFor(glyph))
-        // Plain boards (train) skip the gradient entirely — the default kbd
+        // Plain boards (train) skip the gradient entirely - the default kbd
         // surface is the "no data" look everywhere.
         const color = showAccuracy ? accuracyColor(cell.accuracy, lowColor, highColor) : undefined
         // The cell background sweeps the full theme gradient, so a static text

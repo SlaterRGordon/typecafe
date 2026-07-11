@@ -177,7 +177,7 @@ describe("layout threading", () => {
         // its reps land on the dead circumflex key.
         const events = [ev("ê", true), ev("ê", false)]
         expect(attemptsFromEvents(events, "qwertz-de").get("^")).toEqual({ attempts: 2, correct: 1 })
-        // qwerty has no dead keys — ê is off-board there and dropped.
+        // qwerty has no dead keys - ê is off-board there and dropped.
         expect(attemptsFromEvents(events).size).toBe(0)
     })
 

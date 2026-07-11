@@ -36,15 +36,15 @@ export interface ScoreSnapshot {
   // or shared snapshots (the panel is owner-only and not shown there anyway).
   timeline?: EncodedKeystroke[];
   brag?: string | null;
-  // WPM vs the user's 30-day average at save time (vision §7 — deltas everywhere).
+  // WPM vs the user's 30-day average at save time (vision §7 - deltas everywhere).
   avgDelta?: number | null;
   dailyChallenge?: boolean;
-  // Current practice-day streak (transient — shown on the live result card).
+  // Current practice-day streak (transient - shown on the live result card).
   streak?: number | null;
   punctuation?: boolean;
   capitals?: boolean;
   ranked?: boolean;
-  // The keyboard layout the run was typed on (actual id — ledger decision 10).
+  // The keyboard layout the run was typed on (actual id - ledger decision 10).
   // Score surfaces render this board; absent/legacy = qwerty.
   layout?: string;
   wpmSamples: ScoreWpmSample[];
@@ -151,7 +151,7 @@ async function renderScoreCardImage(scoreCard: HTMLElement) {
     try {
       await document.fonts.ready;
     } catch {
-      // ignore — fall through and render with whatever is available
+      // ignore - fall through and render with whatever is available
     }
   }
   const bounds = scoreCard.getBoundingClientRect();
@@ -281,7 +281,7 @@ const shareMenuItemClass =
   "flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary";
 
 // A link-out share target (X, Reddit). Rendered as an inert row with a trailing
-// spinner until the share URL is minted, then swapped for a real anchor — so the
+// spinner until the share URL is minted, then swapped for a real anchor - so the
 // click that opens the tab is a fresh user gesture (no popup-blocker fight).
 function ShareMenuLink(props: { href?: string; loading: boolean; icon: ReactNode; label: string; onSelect: () => void }) {
   if (!props.href) {
@@ -476,7 +476,7 @@ function WpmChart(props: { samples: ScoreWpmSample[]; durationSeconds: number; r
     const xAt = (second: number) => padding.left + ((Math.min(second, maxSecond) - chartStartSecond) / xSpan) * chartWidth;
     const yAt = (wpm: number) => padding.top + chartHeight - (wpm / maxWpm) * chartHeight;
     // Every sample already starts at chartStartSecond, so no per-line floor is
-    // needed — the axis itself begins where the running average settles.
+    // needed - the axis itself begins where the running average settles.
     const pointsFor = (values: number[]) =>
       samples.map((sample, i) => ({ second: sample.elapsedSeconds, x: xAt(sample.elapsedSeconds), y: yAt(values[i]!) }));
 
@@ -762,11 +762,11 @@ function DiagnosisPanel(props: { score: ShareableScore }) {
         <span>Diagnosis</span>
         <InfoIcon label="The keys and transitions that cost you the most this test, computed from your keystroke timeline. Each finding opens a targeted drill built from those keys." />
       </div>
-      <p className="mb-4 text-sm text-base-content/60">What slowed you down this test — and the one-click fix.</p>
+      <p className="mb-4 text-sm text-base-content/60">What slowed you down this test - and the one-click fix.</p>
 
       {diagnosis.tooShort ?
         <div className="flex flex-col items-start gap-3">
-          <p className="text-base-content/75">Too short to diagnose — try a 30s+ test.</p>
+          <p className="text-base-content/75">Too short to diagnose - try a 30s+ test.</p>
           <Link className="inline-flex min-h-11 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85" href="/?mode=timed&count=30">
             Take a 30s test
           </Link>
@@ -774,7 +774,7 @@ function DiagnosisPanel(props: { score: ShareableScore }) {
         :
         <div className="grid gap-5 lg:grid-cols-2 lg:items-start">
           {/* Findings + drill CTAs on the left, the per-key heatmap alongside on
-              the right (stacks on mobile) — keeps the panel short. */}
+              the right (stacks on mobile) - keeps the panel short. */}
           <div className="flex flex-col gap-4">
             {(() => {
               // Transitions get their own richer "N× your average" treatment below,
@@ -783,7 +783,7 @@ function DiagnosisPanel(props: { score: ShareableScore }) {
               if (keyFindings.length === 0 && transitions.length === 0) {
                 return (
                   <div className="flex flex-col items-start gap-3">
-                    <p className="text-base-content/75">No clear weak spots this test — a clean, even run. Keep the pace up.</p>
+                    <p className="text-base-content/75">No clear weak spots this test - a clean, even run. Keep the pace up.</p>
                     <Link className="inline-flex min-h-11 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85" href="/train">
                       Keep building in Train
                     </Link>
@@ -849,7 +849,7 @@ function DiagnosisPanel(props: { score: ShareableScore }) {
           </div>
 
           <div className="border-t border-base-content/10 pt-4 lg:border-t-0 lg:border-l lg:pl-5 lg:pt-0">
-            <p className="mb-3 text-sm text-base-content/60">This test&apos;s per-key accuracy — drilled keys ringed.</p>
+            <p className="mb-3 text-sm text-base-content/60">This test&apos;s per-key accuracy - drilled keys ringed.</p>
             <KeyHeatmap size="mini" layout={boardLayout} attempts={attempts} highlightKeys={diagnosis.drillKeys} testId="diagnosis-heatmap" />
           </div>
         </div>
@@ -861,7 +861,7 @@ function DiagnosisPanel(props: { score: ShareableScore }) {
 export function ShareableScoreCard(props: ShareableScoreCardProps) {
   const { score, shareUrl, readonly = false, isCreatingShare = false, canCreateShare = false, isSaving = false, signInHtmlFor, onCreateShare, onTestAgain } = props;
   // While the result is still saving (signed-in eager render) the share action is
-  // a loader, not a sign-in prompt — the user is already signed in.
+  // a loader, not a sign-in prompt - the user is already signed in.
   const showSignInCta = !readonly && !shareUrl && !canCreateShare && !isSaving && !!signInHtmlFor;
   const [linkState, setLinkState] = useState<ActionState>("idle");
   const [imageState, setImageState] = useState<ActionState>("idle");
@@ -934,7 +934,7 @@ export function ShareableScoreCard(props: ShareableScoreCardProps) {
     try {
       await navigator.share({ title: "TypeCafe", text: shareText, url: nextUrl });
     } catch {
-      // Cancelled by the user or unsupported mid-flight — nothing to do; the
+      // Cancelled by the user or unsupported mid-flight - nothing to do; the
       // X/Reddit links and copy button remain as fallbacks.
     }
   };
@@ -1164,7 +1164,7 @@ export function ShareableScoreCard(props: ShareableScoreCardProps) {
                   {shareFailed &&
                     <ShareMenuButton
                       icon={<i className="fa-solid fa-rotate-right w-4 text-center" aria-hidden="true" />}
-                      label="Couldn't create link — Retry"
+                      label="Couldn't create link - Retry"
                       onClick={() => void startMint()}
                     />
                   }

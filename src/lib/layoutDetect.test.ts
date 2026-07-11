@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { matchLayout } from "./layoutDetect"
 
-// The pure seam both adapters feed. Adapters themselves are browser glue —
+// The pure seam both adapters feed. Adapters themselves are browser glue -
 // covered by e2e, not unit-tested here.
 describe("matchLayout", () => {
     it("fingerprints QWERTZ from the y/z swap plus an umlaut", () => {
@@ -31,7 +31,7 @@ describe("matchLayout", () => {
     })
 
     it("returns null on ambiguity instead of guessing", () => {
-        // ñ alone fits both Spanish layouts — the language default decides.
+        // ñ alone fits both Spanish layouts - the language default decides.
         expect(matchLayout({ Semicolon: "ñ", KeyQ: "q" })).toBeNull()
         // A plain US fingerprint fits qwerty, us-intl and polish alike (they
         // differ only in dead keys/AltGr, invisible to code→key maps).

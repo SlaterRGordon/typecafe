@@ -4,7 +4,7 @@
 // reads from this timeline, so the shape is deliberately minimal and stable.
 
 // One forward keystroke against an expected character. Backspaces are not
-// recorded here — diagnosis cares about the latency and correctness of the keys
+// recorded here - diagnosis cares about the latency and correctness of the keys
 // the user actually committed to.
 export interface KeystrokeEvent {
     // The character the user was meant to type at this position.
@@ -34,7 +34,7 @@ export type EncodedKeystroke = [number, 0 | 1 | 2, number]
 
 // Total elapsed typing time of an encoded timeline (sum of inter-key gaps, in
 // ms). The first keystroke contributes 0, so this is the span from the first to
-// the last committed key — the duration figure used to judge whether a sample is
+// the last committed key - the duration figure used to judge whether a sample is
 // substantial enough to rank.
 export function timelineDurationMs(encoded: EncodedKeystroke[]): number {
     let total = 0
@@ -83,7 +83,7 @@ export interface KeyLatency {
 }
 
 // Per-key latency aggregation. The latency "of" a keystroke is the gap from the
-// previous keystroke to it — i.e. how long the user took to produce that key —
+// previous keystroke to it - i.e. how long the user took to produce that key -
 // so the very first keystroke (no predecessor) is excluded.
 export function aggregateKeyLatency(events: KeystrokeEvent[]): Map<string, { totalMs: number, samples: number }> {
     const byKey = new Map<string, { totalMs: number, samples: number }>()

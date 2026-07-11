@@ -133,7 +133,7 @@ export function HomeCoachTabs({ className = "", desktop = true, inline = true }:
     const transitionsQuery = api.transitionStats.get.useQuery({ pool }, { enabled: signedIn });
     const practiceStatsQuery = api.practiceStats.get.useQuery({ pool }, { enabled: signedIn });
     const guestEvidence = useGuestEvidence();
-    // The active language's accents let a weak é surface — and keys from other
+    // The active language's accents let a weak é surface - and keys from other
     // languages/layouts stay out of the suggestion.
     const [language] = useLanguage();
     const [accentChars, setAccentChars] = useState<string[]>([]);
@@ -182,7 +182,7 @@ export function HomeCoachTabs({ className = "", desktop = true, inline = true }:
         }
 
         // Daily challenge tab hidden for now (2026-07): the challenge surface is
-        // parked while the core loop settles — restore from git history if it returns.
+        // parked while the core loop settles - restore from git history if it returns.
 
         return nextTabs;
     }, [accentChars, activeLayout, dismissedFinding, guestEvidence, practiceStatsQuery.data, signedIn, transitionsQuery.data]);

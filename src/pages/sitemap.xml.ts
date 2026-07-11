@@ -41,8 +41,8 @@ function generateSiteMap(staticPages: string[], users: User[]) {
         urlEntry(`${EXTERNAL_DATA_URL}/profile/${encodeURIComponent(username)}`, now, "0.6", "weekly")
     );
 
-    // Per-score share pages are noindex,follow (growth-seo §C) — social cards,
-    // not search landing pages — so they're deliberately absent here.
+    // Per-score share pages are noindex,follow (growth-seo §C) - social cards,
+    // not search landing pages - so they're deliberately absent here.
     return `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   ${[...staticEntries, ...profileEntries].join('')}

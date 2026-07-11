@@ -39,7 +39,7 @@ test.describe("app navigation", () => {
       nodes.map((node) => node.textContent?.trim()).filter(Boolean)
     );
 
-    // Daily Challenge is hidden for now (2026-07) — no /challenge entry point.
+    // Daily Challenge is hidden for now (2026-07) - no /challenge entry point.
     expect(labels.slice(0, 4)).toEqual(["Home", "Train", "Progress", "Leaderboard"]);
     expect(icons.slice(0, 4)).toEqual(["home", "fitness_center", "trending_up", "leaderboard"]);
     expect(labels).not.toContain("Daily Challenge");

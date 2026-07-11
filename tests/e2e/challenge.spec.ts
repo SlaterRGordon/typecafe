@@ -45,7 +45,7 @@ async function recordChallengeTabVisibility(page: Parameters<typeof mockTrpc>[0]
 
 test.describe("daily challenge", () => {
   // The daily challenge surface is hidden for now (2026-07): no nav entry, no
-  // home coach tab — even with today's challenge undone. The /challenge page
+  // home coach tab - even with today's challenge undone. The /challenge page
   // itself stays reachable by URL so the loop can return later.
   test("home never shows the daily challenge coach tab (hidden for now)", async ({ page }) => {
     await page.clock.install({ time: new Date("2026-06-16T12:00:00.000Z") });

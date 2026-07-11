@@ -33,7 +33,7 @@ test.describe("typing focus fade", () => {
     await typeCurrentCharacter(page);
     await expectTypingFocus(page, page.getByTestId("typing-focus-home-controls"));
 
-    // Tab released *before* Enter — the shortcut must still fire.
+    // Tab released *before* Enter - the shortcut must still fire.
     await page.keyboard.press("Tab");
     await page.keyboard.press("Enter");
 
@@ -50,7 +50,7 @@ test.describe("typing focus fade", () => {
     await typeCurrentCharacter(page);
 
     await expectTypingFocus(page, page.getByTestId("train-controls"));
-    // The keyboard stays visible while typing — it's a typing aid, not chrome.
+    // The keyboard stays visible while typing - it's a typing aid, not chrome.
     await expect(page.getByTestId("train-keyboard-wrap")).toHaveCSS("opacity", "1");
   });
 

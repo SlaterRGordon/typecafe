@@ -20,7 +20,7 @@ export const BottomNavigation = () => {
             {/* Bottom Navigation */}
             <div className="typing-focus-global-fade btm-nav fixed bottom-0 left-0 right-0 z-50 flex h-16 min-h-16 w-full bg-base-200" data-testid="bottom-primary-nav">
                 {/* Real <a href> links (next/link) so Googlebot can crawl these
-                    internal pages — onClick nav is invisible to it (growth-seo §E). */}
+                    internal pages - onClick nav is invisible to it (growth-seo §E). */}
                 {/* Home */}
                 <Link href="/" className={getNavButtonClass('/')} aria-label="Home" title="Home">
                     <MaterialNavIcon name="home" className={navIconClass} />
@@ -33,7 +33,7 @@ export const BottomNavigation = () => {
                 <Link href="/progress" className={getNavButtonClass('/progress')} aria-label="Progress" title="Progress">
                     <MaterialNavIcon name="trending_up" className={navIconClass} />
                 </Link>
-                {/* Daily Challenge hidden for now (2026-07) — see SideNavigation. */}
+                {/* Daily Challenge hidden for now (2026-07) - see SideNavigation. */}
                 {/* Leaderboard */}
                 <Link href="/leaderboard" className={getNavButtonClass('/leaderboard')} aria-label="Leaderboard" title="Leaderboard">
                     <MaterialNavIcon name="leaderboard" className={navIconClass} />

@@ -20,7 +20,7 @@ function hashSeed(text: string): number {
     return h >>> 0
 }
 
-// mulberry32 — a tiny, fast, fully deterministic PRNG. Same seed → same sequence
+// mulberry32 - a tiny, fast, fully deterministic PRNG. Same seed → same sequence
 // on every platform (integer ops only, no float accumulation).
 function mulberry32(seed: number): () => number {
     let a = seed >>> 0

@@ -1,8 +1,8 @@
-// Pure progression math for the /progress dashboard (Phase 3 — the retention
+// Pure progression math for the /progress dashboard (Phase 3 - the retention
 // engine). No React, no DOM, no Prisma: every function here is unit-testable and
 // produces identical results for a signed-in user (DB `Test` rows) and a guest
 // (the localStorage mirror), so the page can answer "am I getting faster?" the
-// same way for both. The numbers are the product — treat changes like the rest
+// same way for both. The numbers are the product - treat changes like the rest
 // of src/lib/stats.ts.
 
 import { baseTypeLanguage } from "./typeLanguage"
@@ -29,7 +29,7 @@ export interface ProgressRecord {
     subMode?: number
     language?: string
     // True for records synthesized from a daily rollup (day-averages with no
-    // per-test signal) rather than a real test. `day` can't discriminate — raw
+    // per-test signal) rather than a real test. `day` can't discriminate - raw
     // DB rows carry their summary day too.
     rollup?: boolean
 }
@@ -60,7 +60,7 @@ export function filterProgressRecords(records: ProgressRecord[], filters: Progre
 // Progress is shown one language at a time (the global, nav-chosen language), so a
 // language switch cleanly rescopes the trend instead of mixing e.g. English and
 // German WPM into one noisy line. Every vocabulary size shares its base language.
-// Records without a language — older guest entries — count as English, the
+// Records without a language - older guest entries - count as English, the
 // historical default.
 export function recordsForLanguage(records: ProgressRecord[], language: string): ProgressRecord[] {
     return records.filter((record) => baseTypeLanguage(record.language ?? "english") === language)
@@ -71,7 +71,7 @@ export function recordsForLanguage(records: ProgressRecord[], language: string):
 // ---------------------------------------------------------------------------
 
 // The inclusive lower bound of a period's window. `null` for "all" (no lower
-// bound — the whole history counts).
+// bound - the whole history counts).
 export function periodStart(period: ProgressPeriod, now: Date): Date | null {
     if (period === "all") return null
     return new Date(now.getTime() - period * DAY_MS)
@@ -128,7 +128,7 @@ export function bestWpm(records: ProgressRecord[]): number {
 }
 
 // ---------------------------------------------------------------------------
-// Headline delta — the largest number on the page
+// Headline delta - the largest number on the page
 // ---------------------------------------------------------------------------
 
 export type HeadlineTrend = "up" | "down" | "flat" | "insufficient"
@@ -249,7 +249,7 @@ export function rankImprovementLeague(entries: ImprovementLeagueEntry[]): Ranked
 }
 
 // Splits the records into a "current" and a "prior" window and reports the
-// change in average WPM between them — deltas over absolutes (vision §7).
+// change in average WPM between them - deltas over absolutes (vision §7).
 //
 // For a numeric period N: current = the last N days, prior = the N days before
 // that. For "all": the full history is split at its time midpoint (older half =
@@ -257,7 +257,7 @@ export function rankImprovementLeague(entries: ImprovementLeagueEntry[]): Ranked
 // when I started?".
 //
 // When there's no usable comparison window (no prior records, or a single data
-// point), delta/priorAvg are null and trend is "insufficient" — we never invent
+// point), delta/priorAvg are null and trend is "insufficient" - we never invent
 // a comparison the data can't support.
 export function headlineDelta(records: ProgressRecord[], period: ProgressPeriod, now: Date): HeadlineDelta {
     let current: ProgressRecord[]
@@ -332,7 +332,7 @@ export function headlineDelta(records: ProgressRecord[], period: ProgressPeriod,
 }
 
 // ---------------------------------------------------------------------------
-// Trend series — the scatter + rolling-average chart payload
+// Trend series - the scatter + rolling-average chart payload
 // ---------------------------------------------------------------------------
 
 export interface TrendPoint {
@@ -351,7 +351,7 @@ export interface TrendSeries {
 }
 
 // Trailing rolling average. `rollingAverage(xs, k)[i]` is the mean of
-// xs[max(0, i-k+1) .. i] — so early points average over fewer samples rather
+// xs[max(0, i-k+1) .. i] - so early points average over fewer samples rather
 // than being dropped, keeping the line the same length as the data.
 export function rollingAverage(values: number[], window: number): number[] {
     if (window < 1) throw new Error("rollingAverage window must be >= 1")
@@ -399,16 +399,16 @@ export function trendSeries(
 }
 
 // ---------------------------------------------------------------------------
-// Outlier rejection — keep junk tests out of trends and deltas
+// Outlier rejection - keep junk tests out of trends and deltas
 // ---------------------------------------------------------------------------
 
-// Drops tests that are almost certainly noise rather than signal — a test
+// Drops tests that are almost certainly noise rather than signal - a test
 // abandoned mid-way (stopped typing → near-zero WPM) or a key-mash restart
 // (accuracy in the floor). The WPM cut is low-side only and robust (median ±
 // MAD, not mean ± stdev, so a couple of garbage points can't move the
 // threshold): a freakishly *high* test is a real PB and stays. Rollup records
 // (record.rollup) are already day-averages with no per-test signal, so they
-// pass through untouched. Pure — apply once and every number downstream
+// pass through untouched. Pure - apply once and every number downstream
 // (delta, trend, records, best) inherits the cleanup.
 export function rejectOutliers(records: ProgressRecord[]): ProgressRecord[] {
     const perTest = records.filter((r) => !r.rollup)
@@ -427,7 +427,7 @@ export function rejectOutliers(records: ProgressRecord[]): ProgressRecord[] {
 }
 
 // ---------------------------------------------------------------------------
-// Linear trend — the straight fit line that replaces the wiggly rolling avg
+// Linear trend - the straight fit line that replaces the wiggly rolling avg
 // ---------------------------------------------------------------------------
 
 export interface TrendLine {
@@ -476,7 +476,7 @@ export interface HeroDelta {
 export const MIN_TREND_TESTS = 5
 
 // The headline 30-day change: the WPM trend line read at its first vs last point,
-// so the number is exactly the slope the chart shows — not a separate window
+// so the number is exactly the slope the chart shows - not a separate window
 // average that flips sign on a single junk test. Null delta until there are
 // MIN_TREND_TESTS points to compare; flat within ±0.05 WPM.
 export function heroDelta(points: { t: number; wpm: number }[]): HeroDelta {
@@ -492,7 +492,7 @@ export function heroDelta(points: { t: number; wpm: number }[]): HeroDelta {
 }
 
 // ---------------------------------------------------------------------------
-// Daily rollups — the O(days) aggregation behind the trends and streaks
+// Daily rollups - the O(days) aggregation behind the trends and streaks
 // ---------------------------------------------------------------------------
 
 export interface DailyRollup {
@@ -563,7 +563,7 @@ export function mergeDailyRollups(records: ProgressRecord[], rollups: DailyRollu
 }
 
 // ---------------------------------------------------------------------------
-// Records timeline — personal bests as dated events (§3.1.6)
+// Records timeline - personal bests as dated events (§3.1.6)
 // ---------------------------------------------------------------------------
 
 // Round WPM milestones worth calling out as "first 80+ WPM" events.
@@ -601,10 +601,10 @@ export function personalRecords(records: ProgressRecord[], thresholds: number[] 
 }
 
 // Consecutive-day practice streak ending today (Phase 3 §3.2), computed on read
-// from the records — no jobs, no stored counter. Today not yet practised doesn't
+// from the records - no jobs, no stored counter. Today not yet practised doesn't
 // break the streak as long as yesterday was (the day isn't over).
 // ponytail: counts any day with a completed test; the doc's "≥30s of typing"
-// anti-spam bar needs per-test duration we don't store on Test yet — add that
+// anti-spam bar needs per-test duration we don't store on Test yet - add that
 // filter here once duration lands. DST-safe because the offset is fixed.
 export function currentStreak(records: ProgressRecord[], now: Date, utcOffsetMinutes = 0): number {
     const days = new Set(records.map((r) => r.day ?? dayKey(r.createdAt, utcOffsetMinutes)))

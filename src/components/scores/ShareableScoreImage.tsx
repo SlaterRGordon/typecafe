@@ -116,7 +116,7 @@ export const ShareableScoreImage = forwardRef<HTMLDivElement, { score: Shareable
                 }
               </div>
             }
-            {/* Hero — net WPM is the canonical headline "WPM" (speed after errors);
+            {/* Hero - net WPM is the canonical headline "WPM" (speed after errors);
                 raw stays a secondary stat on the right. */}
             <span className="mt-5 text-2xl font-semibold uppercase tracking-widest text-primary">Words per minute</span>
             <span className="font-mono font-bold leading-none text-primary" style={{ fontSize: "132px", letterSpacing: "-0.04em" }}>

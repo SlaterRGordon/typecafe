@@ -46,7 +46,7 @@ interface TextProps {
 
 // True for editable form controls. The toolbar and its subpanels live inside
 // #typer, so their inputs would otherwise have focus yanked back to the hidden
-// typing input on click/keystroke/restart — making them un-editable.
+// typing input on click/keystroke/restart - making them un-editable.
 function isEditableElement(el: Element | EventTarget | null): boolean {
     const node = el as HTMLElement | null
     if (!node || !node.tagName) return false
@@ -88,7 +88,7 @@ export const Text = memo(function Text(props: TextProps) {
     // nextLetter/prevLetter; React only re-renders on restart/config changes.
     const positionRef = useRef(0)
     // The span the cursor sits on. Char spans are ordered siblings, so the
-    // cursor walks nextElementSibling/previousElementSibling — no per-keystroke
+    // cursor walks nextElementSibling/previousElementSibling - no per-keystroke
     // querySelector over the (append-grown) container.
     const activeCharRef = useRef<HTMLElement | null>(null)
     const textContainerRef = useRef<HTMLDivElement>(null)
@@ -112,7 +112,7 @@ export const Text = memo(function Text(props: TextProps) {
     // ref input to focus
     const inputRef = useRef<HTMLInputElement>(null)
 
-    // Place the caret at the active char's left edge — or the right edge of the
+    // Place the caret at the active char's left edge - or the right edge of the
     // last char when the text is fully consumed. Coordinates mirror the pacer's:
     // offsets are relative to #text, minus the words-container scroll.
     const positionCaret = useCallback(() => {
@@ -203,7 +203,7 @@ export const Text = memo(function Text(props: TextProps) {
     useEffect(() => {
         // The toolbar now lives inside #typer, so its own form fields (the
         // custom-length input, dropdowns) would otherwise have focus yanked back
-        // to the hidden typing input on every click/keystroke — making them
+        // to the hidden typing input on every click/keystroke - making them
         // un-editable. Skip the auto-focus whenever the user is interacting with
         // another editable control.
         const isEditableTarget = (target: EventTarget | null) =>
@@ -269,7 +269,7 @@ export const Text = memo(function Text(props: TextProps) {
     }, [modalOpen, positionCaret, renderInitialText, restarted, text, restartNonce])
 
     // Append new text when needed. Relaxed mode scrolls forever; timed tests must
-    // also never run out of text — a fast typist on a long custom duration would
+    // also never run out of text - a fast typist on a long custom duration would
     // otherwise exhaust the buffer and deadlock until the timer expires.
     const appendsText = !noAppend && (mode === TestModes.relaxed ||
         (mode === TestModes.normal && subMode === TestSubModes.timed))
@@ -379,7 +379,7 @@ export const Text = memo(function Text(props: TextProps) {
                 if (currentPosition === 0 && !started) startAttempt()
             } else if (e.code == 'Space' || e.key.length == 1) {
                 // Any single printable key (letter, capital, punctuation, symbol) that
-                // does not match the expected character counts as an incorrect attempt —
+                // does not match the expected character counts as an incorrect attempt -
                 // including on the very first character, which also starts the timer.
                 nextLetter(false, e.key)
                 if (currentPosition === 0 && !started) startAttempt()
@@ -413,7 +413,7 @@ export const Text = memo(function Text(props: TextProps) {
 
             positionRef.current = currentIndex + 1
 
-            // No-miss levels end on the first error — the recorded miss makes the
+            // No-miss levels end on the first error - the recorded miss makes the
             // completion grade as a fail (accuracy < 100).
             if (!correct && failOnMiss && !completedRef.current) {
                 completedRef.current = true
@@ -472,7 +472,7 @@ export const Text = memo(function Text(props: TextProps) {
     // Boss pacer: a vertical line glides across the text at pacerWpm. It advances
     // on a continuous clock (rAF), interpolating between character boxes so it
     // slides smoothly rather than jumping per character. If it consumes as many
-    // characters as the typist has (it reached the cursor), the run ends —
+    // characters as the typist has (it reached the cursor), the run ends -
     // overtake = death. Only runs once typing has started and a pacer is set.
     useEffect(() => {
         const line = pacerLineRef.current
@@ -546,9 +546,9 @@ export const Text = memo(function Text(props: TextProps) {
     return (
         <div id="text" className={`relative z-30 mb-8 flex w-full max-w-[calc(100vw-2rem)] flex-col md:max-w-screen-xl ${mode === TestModes.ngrams && text.length <= 8 ? "text-[40px] leading-[4.4rem] tracking-wide sm:text-[60px] sm:leading-[6rem]" : "text-[24px] leading-[2.2rem] sm:text-[34px] sm:leading-[3rem]"}`}>
             <input id="input" autoCapitalize="none" autoComplete="off" className="h-0 p-0 m-0 border-none" onKeyDown={handleKeyPress} ref={inputRef} autoFocus />
-            {/* The typing caret — positioned imperatively per keystroke (typing-feel §2). */}
+            {/* The typing caret - positioned imperatively per keystroke (typing-feel §2). */}
             <div ref={caretRef} data-testid="typing-caret" aria-hidden="true" className="typing-caret caret-idle pointer-events-none absolute left-0 top-0 z-40 w-[2.5px] rounded-full bg-primary will-change-transform" style={{ display: 'none', height: 0, transform: 'translate(-9999px, 0)' }} />
-            {/* Boss pacer line — positioned and animated imperatively by the pacer effect. */}
+            {/* Boss pacer line - positioned and animated imperatively by the pacer effect. */}
             <div ref={pacerLineRef} aria-hidden="true" className="pointer-events-none absolute left-0 top-0 z-40 w-[3px] rounded-full bg-error/90 will-change-transform" style={{ display: 'none', height: 0, transform: 'translate(-9999px, 0)' }} />
             {/* Shown instead when the pacer has scrolled above the view: an up-caret that
                 tracks its horizontal position along the words' top edge, so its location stays legible. */}

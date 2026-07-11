@@ -24,11 +24,11 @@ Always gather evidence before explaining. Do not invent changes that are not in 
 
 ## Workflow
 
-1. **Identify scope** — local only, staged, one commit, branch delta, or path filter.
-2. **Collect context** — run the commands above; read affected files when the diff is unclear or truncated.
-3. **Infer purpose** — group hunks into logical changes (feature, fix, refactor, chore). Use commit messages when reviewing history; use code and file paths when reviewing local work.
-4. **Explain impact** — who/what is affected (UI, API, schema, config). Note breaking or risky areas.
-5. **Separate facts from guesses** — label assumptions when intent is ambiguous.
+1. **Identify scope** - local only, staged, one commit, branch delta, or path filter.
+2. **Collect context** - run the commands above; read affected files when the diff is unclear or truncated.
+3. **Infer purpose** - group hunks into logical changes (feature, fix, refactor, chore). Use commit messages when reviewing history; use code and file paths when reviewing local work.
+4. **Explain impact** - who/what is affected (UI, API, schema, config). Note breaking or risky areas.
+5. **Separate facts from guesses** - label assumptions when intent is ambiguous.
 
 ## Output format
 
@@ -42,7 +42,7 @@ Always gather evidence before explaining. Do not invent changes that are not in 
 - **Files:** <count> files, or list if small>
 
 ## Changes
-### <Logical group 1 — e.g. "Theme-aware keyboard stats">
+### <Logical group 1 - e.g. "Theme-aware keyboard stats">
 - **What:** …
 - **Why (purpose):** …
 - **Files:** `path` (brief note)
@@ -77,10 +77,10 @@ For **local uncommitted** work, add:
 
 ## How to infer purpose
 
-- **File paths** — `src/components/typer/` → typing UI; `src/server/api/` → tRPC; `prisma/` → data model.
-- **Diff patterns** — new exports/props → feature wiring; only styles → UI polish; schema + migration → persistence change.
-- **Commit message** — treat as author intent, but verify against the diff (messages can be wrong or vague).
-- **Deletions vs additions** — prefer describing behavior change, not line counts.
+- **File paths** - `src/components/typer/` → typing UI; `src/server/api/` → tRPC; `prisma/` → data model.
+- **Diff patterns** - new exports/props → feature wiring; only styles → UI polish; schema + migration → persistence change.
+- **Commit message** - treat as author intent, but verify against the diff (messages can be wrong or vague).
+- **Deletions vs additions** - prefer describing behavior change, not line counts.
 
 ## Rules
 
@@ -97,10 +97,10 @@ See [reference.md](../reference.md) for directory meanings when describing areas
 
 Common change types in this repo:
 
-- **Typer / Text / Keyboard** — typing feel, stats, themes, input handling
-- **tRPC routers** — API contracts, auth boundaries
-- **Prisma schema** — requires migration note in impact section
-- **`.cursor/skills/`** — agent documentation only, no runtime effect
+- **Typer / Text / Keyboard** - typing feel, stats, themes, input handling
+- **tRPC routers** - API contracts, auth boundaries
+- **Prisma schema** - requires migration note in impact section
+- **`.cursor/skills/`** - agent documentation only, no runtime effect
 
 ## Examples
 

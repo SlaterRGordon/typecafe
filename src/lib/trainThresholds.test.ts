@@ -35,7 +35,7 @@ describe("starsForWpm", () => {
         expect(starsForWpm(28, 1, "easy")).toBe(3)
     })
 
-    it("does not separately gate on accuracy — net WPM already includes errors", () => {
+    it("does not separately gate on accuracy - net WPM already includes errors", () => {
         expect(starsForWpm(999, 1, "easy")).toBe(3)
     })
 })

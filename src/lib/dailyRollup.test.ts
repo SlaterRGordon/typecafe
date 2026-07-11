@@ -8,7 +8,7 @@ import {
     type DailyStatValues,
 } from "./dailyRollup"
 
-// 2026-06-26T12:00:00Z and 2026-06-27T12:00:00Z — noon UTC so a modest offset
+// 2026-06-26T12:00:00Z and 2026-06-27T12:00:00Z - noon UTC so a modest offset
 // can't tip them across a day boundary unexpectedly.
 const day1 = Date.UTC(2026, 5, 26, 12)
 const day2 = Date.UTC(2026, 5, 27, 12)

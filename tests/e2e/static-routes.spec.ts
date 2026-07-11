@@ -45,8 +45,8 @@ test.describe("secondary static routes", () => {
     const response = await page.goto("/");
     const html = (await response?.text()) ?? "";
 
-    await expect(page).toHaveTitle("TypeCafe — The Typing Coach That Makes You Faster");
-    await expect(page.getByRole("heading", { name: "TypeCafe — the typing coach that makes you faster" })).toHaveCount(1);
+    await expect(page).toHaveTitle("TypeCafe - The Typing Coach That Makes You Faster");
+    await expect(page.getByRole("heading", { name: "TypeCafe - the typing coach that makes you faster" })).toHaveCount(1);
     expect(html).toContain("diagnoses what slows your typing");
     expect(html).toContain("targeted drills");
     expect(html).toContain('"applicationCategory":"EducationalApplication"');

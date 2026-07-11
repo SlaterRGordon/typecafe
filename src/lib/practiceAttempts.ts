@@ -17,7 +17,7 @@ export interface SyncedStat {
 }
 
 // After a batch of practice stats is persisted, subtract exactly what was synced
-// from the live attempts map. Mutates in place — keystrokes typed while the sync
+// from the live attempts map. Mutates in place - keystrokes typed while the sync
 // was in flight have already been added to the same map, and subtracting (rather
 // than deleting the key, or replacing the map) is what lets them survive for the
 // next sync. A key drained to zero or below is removed; correct never goes

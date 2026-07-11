@@ -65,7 +65,7 @@ describe("rejectOutliers", () => {
 
     it("still rejects outliers among raw DB tests, which carry their summary day", () => {
         // Regression: every signed-in Test row has `day` set, which used to be
-        // misread as "rollup — pass through", disabling rejection entirely.
+        // misread as "rollup - pass through", disabling rejection entirely.
         const records = [rec(5, 50), rec(4, 52), rec(3, 48), rec(2, 51), rec(1, 1)]
             .map((r, i) => ({ ...r, day: `2026-06-0${i + 1}` }))
         expect(rejectOutliers(records).map((r) => r.wpm)).not.toContain(1)

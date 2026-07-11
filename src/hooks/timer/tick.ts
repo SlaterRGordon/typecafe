@@ -1,6 +1,6 @@
 // Pure timer math, extracted so it can be unit-tested without React. The whole
 // point of the rewrite is that the displayed time is always re-derived from the
-// wall clock (Date.now() - startMs), never chained off the previous tick — so
+// wall clock (Date.now() - startMs), never chained off the previous tick - so
 // render and effect latency between ticks can never accumulate into drift.
 
 import type { TimerType } from "./types"
@@ -12,7 +12,7 @@ export interface DeriveTimeInput {
     interval: number,
     step: number,
     timerType: TimerType,
-    // null/undefined means "no end clamp" — the `!= null` guard handles both.
+    // null/undefined means "no end clamp" - the `!= null` guard handles both.
     endTime: number | null | undefined,
 }
 

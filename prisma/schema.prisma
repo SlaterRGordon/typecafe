@@ -99,7 +99,7 @@ model Test {
     punctuation Boolean @default(false)
     capitals    Boolean @default(false)
     ranked      Boolean @default(true)
-    // The keyboard layout the test was typed on (actual id, e.g. "qwertz-de") —
+    // The keyboard layout the test was typed on (actual id, e.g. "qwertz-de") -
     // honesty metadata for score surfaces; aggregation uses statsPoolFor
     // (docs/features/keyboard-layouts.md decisions 6/10). Legacy rows = qwerty.
     layout    String   @default("qwerty")
@@ -208,7 +208,7 @@ model DailyUserStat {
 model TransitionStat {
     id        String   @id @default(cuid())
     userId    String
-    // Stats pool (statsPoolFor) — see PracticeStats.pool.
+    // Stats pool (statsPoolFor) - see PracticeStats.pool.
     pool      String   @default("qwerty")
     pair      String   @db.VarChar(2)
     count     Int
@@ -229,7 +229,7 @@ model TrainProgress {
     id         String   @id @default(cuid())
     userId     String
     difficulty String
-    // Stats pool (statsPoolFor) — see PracticeStats.pool.
+    // Stats pool (statsPoolFor) - see PracticeStats.pool.
     pool       String   @default("qwerty")
     options    String
     speed      Float

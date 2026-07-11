@@ -1,7 +1,7 @@
 // Display metadata for the languages offered in the picker (the nav globe menu),
 // shared by the nav and the typer bar so both name languages identically. Order is
 // the menu order. chinese/hindi are seeded competitive but intentionally not offered
-// here (non-Latin, out of scope — see docs/features/global-language.md).
+// here (non-Latin, out of scope - see docs/features/global-language.md).
 export interface LanguageMeta { value: string, label: string, short: string }
 
 export const PICKER_LANGUAGES: LanguageMeta[] = [

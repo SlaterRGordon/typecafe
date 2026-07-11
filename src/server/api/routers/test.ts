@@ -64,7 +64,7 @@ interface BragArgs {
   typeId: string;
   count: number;
   score: number;
-  // Net WPM of this run — the canonical "WPM", used for the personal-best frame.
+  // Net WPM of this run - the canonical "WPM", used for the personal-best frame.
   netWpm: number;
 }
 
@@ -130,7 +130,7 @@ async function buildBrag(prisma: PrismaClient, args: BragArgs): Promise<string |
   return globalPercentileBrag(betterUsers.length, allUsers.length);
 }
 
-// WPM change vs the user's 30-day rolling average (a delta available to share —
+// WPM change vs the user's 30-day rolling average (a delta available to share -
 // vision §7). Null until there's enough history to compare honestly.
 const MIN_TESTS_FOR_AVG_DELTA = 3;
 async function thirtyDayDelta(
@@ -362,8 +362,8 @@ export const testRouter = createTRPCRouter({
 
       return { fastest, improved };
     }),
-  // Leaderboard: one row per user — their single best run (by net WPM, the
-  // canonical metric) within the window — so one fast typer can't flood the
+  // Leaderboard: one row per user - their single best run (by net WPM, the
+  // canonical metric) within the window - so one fast typer can't flood the
   // board with every attempt. Net isn't stored, so dedupe/sort in memory.
   // (Volume is low pre-launch; a materialised best-per-window is the budget-era
   // upgrade.)
@@ -460,7 +460,7 @@ export const testRouter = createTRPCRouter({
       options: z.string().max(100),
       punctuation: z.boolean().optional(),
       capitals: z.boolean().optional(),
-      // The keyboard layout the test was typed on (actual id — honesty tag,
+      // The keyboard layout the test was typed on (actual id - honesty tag,
       // ledger decision 10). Absent/legacy = qwerty.
       layout: z.string().max(32).optional(),
       // Persisted whole (locked constraint #2). Capped well above the longest
@@ -475,7 +475,7 @@ export const testRouter = createTRPCRouter({
       const timeline = input.timeline as EncodedKeystroke[];
       // A test only ranks if it's a substantial, human sample: enough keystrokes
       // and time to be a real attempt (not a stray 1–3 key tap), and not a
-      // machine-like timeline. Unranked tests still save — they just don't feed
+      // machine-like timeline. Unranked tests still save - they just don't feed
       // rollups, streaks, trends, or percentiles.
       const testType = await ctx.prisma.testType.findUnique({
         where: { id: input.typeId },
@@ -515,7 +515,7 @@ export const testRouter = createTRPCRouter({
             capitals: input.capitals ?? false,
             ranked,
             layout: input.layout ?? "qwerty",
-            // Persist the full timeline (locked constraint #2) — evidence for
+            // Persist the full timeline (locked constraint #2) - evidence for
             // replay and re-diagnosis under future heuristics; no reads yet.
             timeline,
             summaryDate,
@@ -545,7 +545,7 @@ export const testRouter = createTRPCRouter({
       //   4. nothing (the card just shows the clean WPM).
       const netWpm = evidence.netWpm;
       // Every flattering element shares the ranking quality bar (honest-review
-      // 2026-07 §2): an unranked run — tiny sample or machine-like timeline —
+      // 2026-07 §2): an unranked run - tiny sample or machine-like timeline -
       // gets no brag, no 30-day delta, no streak chip. buildBrag gates itself.
       const [brag, avgDelta, streak] = await Promise.all([
         buildBrag(ctx.prisma, {
@@ -632,7 +632,7 @@ export const testRouter = createTRPCRouter({
           userId: ctx.session.user.id,
           ranked: true,
         },
-        // Newest first so the cap drops the *oldest* tests — a progress
+        // Newest first so the cap drops the *oldest* tests - a progress
         // dashboard can lose distant history to rollups, never recent trend.
         orderBy: { createdAt: "desc" },
         take: input?.limit ?? 2000,

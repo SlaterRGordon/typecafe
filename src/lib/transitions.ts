@@ -1,4 +1,4 @@
-// Transition (bigram) analytics (Phase 4 §4.1) — the coach's real edge. Single
+// Transition (bigram) analytics (Phase 4 §4.1) - the coach's real edge. Single
 // keys are table stakes; the *transitions* between them (th, ion, br) are what
 // cap intermediate typists. Pure and React-free: the same aggregation runs on a
 // single test's timeline (to sync) and over a user's lifetime rows (to surface).
@@ -13,7 +13,7 @@ export const TRANSITION_MIN_COUNT = 4
 export const TRANSITION_SLOW_RATIO = 1.3
 // Aggregates are a rolling window, not a true lifetime sum (ADR-0005): a pair's
 // effective sample count caps here. When a merge pushes past the cap, count /
-// totalMs / errors scale down proportionally — the mean and error rate are
+// totalMs / errors scale down proportionally - the mean and error rate are
 // preserved, but each new sample then carries at least 1/cap of the weight, so
 // the coach tracks *current* ability instead of being anchored by months-old
 // history. History stays recoverable from the stored keystroke timelines.
@@ -65,7 +65,7 @@ export interface SlowTransition {
     errorRate: number // 0..1
 }
 
-// The overall mean transition latency across all pairs — the baseline a single
+// The overall mean transition latency across all pairs - the baseline a single
 // pair is judged "slow" against.
 export function overallTransitionMeanMs(aggregates: TransitionAggregate[]): number {
     let totalMs = 0
@@ -119,7 +119,7 @@ function capTransitionAggregate(a: TransitionAggregate): TransitionAggregate {
 }
 
 // Merge two sets of aggregates (lifetime + a new test, or local + incoming) by
-// summing, then capping each pair to the rolling window — the same arithmetic
+// summing, then capping each pair to the rolling window - the same arithmetic
 // the DB upsert applies (transitionStats.batchSync).
 export function mergeTransitions(existing: TransitionAggregate[], incoming: TransitionAggregate[]): TransitionAggregate[] {
     const byPair = new Map<string, TransitionAggregate>()
