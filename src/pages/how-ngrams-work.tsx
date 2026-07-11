@@ -8,6 +8,60 @@ import { DocumentPage, DocumentSection } from "~/components/legal/DocumentPage";
 // (bigrams/trigrams) that doubles as a demo of Grams mode. Each section ends in
 // a link to the surface that uses n-grams, feeding internal links (growth-seo §E).
 const HowNgramsWork: NextPage = () => {
+  // GEO structured data: FAQPage for direct-answer citation, Article to mark
+  // the page as citable content. Answers mirror the prose below.
+  const faqLd = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: [
+      {
+        "@type": "Question",
+        name: "What is an n-gram?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "An n-gram is a short run of n characters. A two-letter run is a bigram (th, er, in), a three-letter run is a trigram (ing, the, ion), and a four-letter run is a tetragram (tion, ther). Every word is a chain of overlapping n-grams, so any text breaks down into a small vocabulary of sequences you type over and over.",
+        },
+      },
+      {
+        "@type": "Question",
+        name: "Why does drilling common n-grams make you type faster?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "Language is lopsided: a small set of sequences like th, he, in, er, and an makes up a huge share of everything you type, while most letter pairs almost never appear. Drilling the top few dozen sequences pays off on nearly every word. It also matches how motor memory forms, through repetition packed close together, which is when a sequence turns into a single chunked movement.",
+        },
+      },
+      {
+        "@type": "Question",
+        name: "What are the most common bigrams in English?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "The most frequent English bigrams include th, he, in, er, an, re, on, at, and nd. A couple dozen sequences like these appear constantly, which is why practising them carries over to nearly everything you type.",
+        },
+      },
+      {
+        "@type": "Question",
+        name: "Is it better to drill n-grams or type full paragraphs?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "Drilling targeted n-grams is more efficient. Most of a paragraph is sequences you already own, so retyping it spends most of your effort on moves you have mastered. Short, dense reps on the handful of transitions that are actually slow build the chunk faster than general typing that only touches them a few times.",
+        },
+      },
+    ],
+  };
+
+  const articleLd = {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    headline: "How N-grams Work for Typing Practice (and Why)",
+    description:
+      "What an n-gram is, how drilling one works, and why targeted sequence practice makes you type faster.",
+    author: { "@type": "Organization", name: "TypeCafe" },
+    publisher: { "@type": "Organization", name: "TypeCafe" },
+    datePublished: "2026-07-06",
+    dateModified: "2026-07-06",
+    mainEntityOfPage: "https://typecafe.app/how-ngrams-work",
+  };
+
   return (
     <>
       <Head>
@@ -15,6 +69,14 @@ const HowNgramsWork: NextPage = () => {
         <meta
           name="description"
           content="An n-gram is a short letter sequence like th, ing, or tion. Drilling the most common ones works because a tiny set of sequences makes up most of what you type. Here's how and why."
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(faqLd) }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(articleLd) }}
         />
       </Head>
       <DocumentPage

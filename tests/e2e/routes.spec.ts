@@ -16,8 +16,10 @@ const publicRoutes: PublicRoute[] = [
   { path: "/contact", heading: "Contact TypeCafe" },
   { path: "/privacy-policy", heading: "Privacy Policy for TypeCafe" },
   { path: "/terms-and-conditions", heading: "Terms and Conditions" },
+  { path: "/guides", heading: "Typing Guides" },
   { path: "/how-to-type-faster", heading: "How to Type Faster" },
   { path: "/how-ngrams-work", heading: "How N-grams Work" },
+  { path: "/keyboard-layouts", heading: "Keyboard Layouts Explained" },
 ];
 
 test.describe("public routes", () => {

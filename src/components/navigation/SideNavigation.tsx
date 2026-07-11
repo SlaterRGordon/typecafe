@@ -5,17 +5,18 @@ import { Avatar } from "../Avatar";
 import { useRouter } from "next/router";
 import { SHOW_PLAN_NAVIGATION } from "~/lib/features";
 import { MaterialNavIcon } from "./MaterialNavIcon";
+import { GUIDES } from "~/pages/guides";
 
 // The legal/support links that used to sit in the page footer, now rolled into
-// one "More" popover at the bottom of the rail.
+// one "More" popover at the bottom of the rail. Guide articles live behind the
+// /guides hub - new articles get a card there, never a nav item.
 const MORE_LINKS = [
+    { href: "/guides", label: "Guides" },
     { href: "/support", label: "Support Me" },
     { href: "/contact", label: "Contact Us" },
     { href: "/privacy-policy", label: "Privacy Policy" },
     { href: "/terms-and-conditions", label: "Terms" },
     { href: "/how-we-measure", label: "How we measure" },
-    { href: "/how-to-type-faster", label: "How to type faster" },
-    { href: "/how-ngrams-work", label: "How n-grams work" },
 ];
 
 export const SideNavigation = () => {
@@ -23,7 +24,8 @@ export const SideNavigation = () => {
     const { data: sessionData } = useSession();
     const [isExpanded, setIsExpanded] = useState(false);
     const [moreOpen, setMoreOpen] = useState(false);
-    const moreActive = MORE_LINKS.some((link) => router.pathname.startsWith(link.href));
+    // Guide articles keep highlighting "More" even though only the hub is listed.
+    const moreActive = [...MORE_LINKS, ...GUIDES].some((link) => router.pathname.startsWith(link.href));
     const getNavButtonClass = (href: string) => {
         const isActive = router.pathname === href || (href !== "/" && router.pathname.startsWith(href))
 

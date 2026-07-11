@@ -918,6 +918,11 @@ test.describe("screenshot tour", () => {
     await expect(page.getByText(/calculating net WPM for each test first/i)).toBeVisible();
     await capture(page, testInfo, "55-how-we-measure");
 
+    await page.goto("/guides");
+    await expect(page.getByRole("heading", { name: "Typing Guides" })).toBeVisible();
+    await expect(page.getByTestId("guides-grid")).toBeVisible();
+    await capture(page, testInfo, "68-guides");
+
     await page.goto("/how-to-type-faster");
     await expect(page.getByRole("heading", { name: "How to Type Faster", exact: true })).toBeVisible();
     await capture(page, testInfo, "65-how-to-type-faster");
@@ -925,6 +930,10 @@ test.describe("screenshot tour", () => {
     await page.goto("/how-ngrams-work");
     await expect(page.getByRole("heading", { name: "How N-grams Work", exact: true })).toBeVisible();
     await capture(page, testInfo, "66-how-ngrams-work");
+
+    await page.goto("/keyboard-layouts");
+    await expect(page.getByRole("heading", { name: "Keyboard Layouts Explained", exact: true })).toBeVisible();
+    await capture(page, testInfo, "67-keyboard-layouts");
 
     await page.goto("/privacy-policy");
     await expect(page.getByRole("heading", { name: "Privacy Policy for TypeCafe" })).toBeVisible();
