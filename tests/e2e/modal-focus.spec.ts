@@ -26,6 +26,20 @@ async function expectTypingIgnoredWhileModalOpen(page: Page, modal: Locator) {
 }
 
 test.describe("modal focus behavior", () => {
+  test("defers global modal implementations until first intent", async ({ page }) => {
+    await gotoHome(page);
+
+    await expect(page.locator("#colorModal")).toHaveCount(0);
+    await expect(page.locator("#signInModal")).toHaveCount(0);
+
+    await page.getByTestId("nav-color-trigger").click();
+    await expect(page.locator("#colorModal")).toBeChecked();
+    await closeCheckboxModal(page.locator("#colorModal"));
+
+    await page.getByTestId("nav-auth-trigger").click();
+    await expect(page.locator("#signInModal")).toBeChecked();
+  });
+
   // Settings is now a non-modal toolbar dropdown (Phase 2). It no longer pauses
   // typing the way the old modal did; closing it must leave typing focus intact.
   test("settings dropdown closes on escape and typing resumes after", async ({ page }) => {

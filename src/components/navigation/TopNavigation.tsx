@@ -2,7 +2,13 @@ import { signOut, useSession } from "next-auth/react";
 import { LanguageMenu } from "./LanguageMenu";
 import { LayoutMenu } from "./LayoutMenu";
 import Link from "next/link";
-export const TopNavigation = () => {
+
+interface TopNavigationProps {
+    onOpenColors: () => void;
+    onOpenSignIn: () => void;
+}
+
+export const TopNavigation = ({ onOpenColors, onOpenSignIn }: TopNavigationProps) => {
     const { data: sessionData } = useSession();
 
     return (
@@ -14,10 +20,11 @@ export const TopNavigation = () => {
                 <LanguageMenu />
                 <LayoutMenu />
                 {/* Color Button */}
-                <label
+                <button
+                    type="button"
                     data-testid="nav-color-trigger"
                     className="btn btn-sm !h-11 !min-h-11 min-w-11 gap-2 border border-base-content/20 bg-base-100 px-3 text-base-content normal-case hover:bg-base-200"
-                    htmlFor="colorModal"
+                    onClick={onOpenColors}
                     aria-label="Open color settings"
                     title="Open color settings"
                 >
@@ -25,19 +32,20 @@ export const TopNavigation = () => {
                     {/* Icon-only on phones — the labelled bar overflows once the
                         layout menu joins it. */}
                     <span className="hidden sm:inline">Colors</span>
-                </label>
+                </button>
                 {/* If the user is not signed in, display auth buttons */}
                 {!sessionData?.user ?
-                    <label
+                    <button
+                        type="button"
                         data-testid="nav-auth-trigger"
                         className="btn btn-sm !h-11 !min-h-11 min-w-11 gap-2 border border-base-content/20 bg-base-100 px-3 text-base-content normal-case hover:bg-base-200"
-                        htmlFor="signInModal"
+                        onClick={onOpenSignIn}
                         aria-label="Open sign in"
                         title="Open sign in"
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" width="20" height="20" viewBox="0 0 24 24"><path fill="currentColor" d="M11 7L9.6 8.4l2.6 2.6H2v2h10.2l-2.6 2.6L11 17l5-5l-5-5zm9 12h-8v2h8c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-8v2h8v14z" /></svg>
                         <span className="hidden sm:inline">Log In</span>
-                    </label>
+                    </button>
                     :
                     <>
                         <button type="button" data-testid="nav-auth-trigger" className="btn btn-sm !h-11 !min-h-11 min-w-11 gap-2 border border-base-content/20 bg-base-100 px-3 text-base-content normal-case hover:bg-base-200" aria-label="Sign out" title="Sign out" onClick={() => void signOut()}>

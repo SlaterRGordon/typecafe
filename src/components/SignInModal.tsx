@@ -4,7 +4,12 @@ import { useState } from "react";
 import { api } from "~/utils/api";
 import { emailSchema, passwordSchema, usernameSchema, USERNAME_MAX_LENGTH } from "~/lib/userProfile";
 
-export const SignInModal = () => {
+interface SignInModalProps {
+    open: boolean;
+    onClose: () => void;
+}
+
+export const SignInModal = ({ open, onClose }: SignInModalProps) => {
     const router = useRouter()
     const [email, setEmail] = useState("")
     const [username, setUsername] = useState("")
@@ -15,10 +20,7 @@ export const SignInModal = () => {
     const [error, setError] = useState("")
     const callbackUrl = router.asPath || "/"
     const closeSignInModal = () => {
-        const modal = document.getElementById("signInModal") as HTMLInputElement | null
-        if (modal) {
-            modal.checked = false
-        }
+        onClose()
     }
 
     const register = api.user.registerUser.useMutation({
@@ -111,9 +113,15 @@ export const SignInModal = () => {
 
     return (
         <>
-            <input type="checkbox" id="signInModal" className="modal-toggle" />
-            <label htmlFor="signInModal" className="modal modal-bottom sm:modal-middle cursor-pointer">
-                <label htmlFor="" className="modal-box space-y-4">
+            <input
+                type="checkbox"
+                id="signInModal"
+                className="modal-toggle"
+                checked={open}
+                onChange={(event) => { if (!event.target.checked) onClose() }}
+            />
+            <div role="dialog" aria-modal="true" aria-label="Sign in" className="modal modal-bottom sm:modal-middle cursor-pointer" onClick={onClose}>
+                <div className="modal-box space-y-4" onClick={(event) => event.stopPropagation()}>
                     <form className="flex flex-col gap-2" onSubmit={onSubmit}>
                         {error != "" &&
                             <div role="alert" className="alert alert-error justify-normal">
@@ -193,8 +201,8 @@ export const SignInModal = () => {
                             <span className="ml-2">Already a member? Sign In</span>
                         </button>
                     }
-                </label>
-            </label>
+                </div>
+            </div>
         </>
     )
 }

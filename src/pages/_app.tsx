@@ -16,6 +16,16 @@ import { useEffect } from "react";
 import { Analytics } from "@vercel/analytics/next"
 import { SpeedInsights } from "@vercel/speed-insights/next"
 import { SITE_DESCRIPTION, SITE_TITLE } from "~/lib/siteMetadata";
+import localFont from "next/font/local";
+
+const robotoMono = localFont({
+  src: [
+    { path: "../server/og/fonts/RobotoMono-Regular.ttf", weight: "400", style: "normal" },
+    { path: "../server/og/fonts/RobotoMono-Bold.ttf", weight: "700", style: "normal" },
+  ],
+  display: "swap",
+  variable: "--font-roboto-mono",
+});
 
 declare global {
   interface Window {
@@ -48,10 +58,11 @@ const MyApp: AppType<{ session: Session | null }> = ({
   return (
     <Provider store={store}>
       <SessionProvider session={session}>
-        <Analytics/>
-        <SpeedInsights/>
-        <GuestImport />
-        <Layout>
+        <div className={`${robotoMono.variable} contents`}>
+          <Analytics/>
+          <SpeedInsights/>
+          <GuestImport />
+          <Layout>
           <Head>
             <title>{SITE_TITLE}</title>
             <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -71,8 +82,8 @@ const MyApp: AppType<{ session: Session | null }> = ({
             <meta key="twitter:image" name="twitter:image" content="https://typecafe.app/images/preview-image.png" />
           </Head>
           <Component {...pageProps} />
-        </Layout>
-        {process.env.NEXT_PUBLIC_VERCEL_ENV === "production" && <>
+          </Layout>
+          {process.env.NEXT_PUBLIC_VERCEL_ENV === "production" && <>
           <Script
             src="https://www.googletagmanager.com/gtag/js?id=G-16KETVK938"
             strategy="afterInteractive"
@@ -85,7 +96,8 @@ const MyApp: AppType<{ session: Session | null }> = ({
               gtag('config', 'G-16KETVK938');
             `}
           </Script>
-        </>}
+          </>}
+        </div>
       </SessionProvider>
     </Provider>
   );

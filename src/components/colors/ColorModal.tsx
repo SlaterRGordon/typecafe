@@ -38,7 +38,12 @@ const setThemeColor = (name: string, hsl: string) => {
 }
 
 
-export const ColorModal = () => {
+interface ColorModalProps {
+    open: boolean;
+    onClose: () => void;
+}
+
+export const ColorModal = ({ open, onClose }: ColorModalProps) => {
     const dispatch = useDispatch()
 
     const { data: sessionData } = useSession()
@@ -178,9 +183,18 @@ export const ColorModal = () => {
 
     return (
         <>
-            <input onChange={handleClickOutside} type="checkbox" id="colorModal" className="modal-toggle" />
-            <label htmlFor="colorModal" className="modal modal-bottom !my-0 sm:modal-middle cursor-pointer">
-                <label htmlFor="" className="flex flex-col modal-box sm:!w-[440px] !h-[80dvh] sm:!h-[540px] !max-w-5xl gap-2 overflow-hidden">
+            <input
+                onChange={(event) => {
+                    handleClickOutside(event)
+                    if (!event.target.checked) onClose()
+                }}
+                type="checkbox"
+                id="colorModal"
+                className="modal-toggle"
+                checked={open}
+            />
+            <div role="dialog" aria-modal="true" aria-label="Color settings" className="modal modal-bottom !my-0 sm:modal-middle cursor-pointer" onClick={onClose}>
+                <div className="flex flex-col modal-box sm:!w-[440px] !h-[80dvh] sm:!h-[540px] !max-w-5xl gap-2 overflow-hidden" onClick={(event) => event.stopPropagation()}>
                     <div className="flex flex-col h-full min-h-0 gap-3">
                         <h3 className="font-mono font-bold text-4xl px-1 shrink-0 tracking-tight">Colors</h3>
                         <div className="shrink-0">
@@ -273,8 +287,8 @@ export const ColorModal = () => {
                             </div>
                         }
                     </div>
-                </label>
-            </label>
+                </div>
+            </div>
             <Popover color={colors[currentKey]} setColor={setColor} isOpen={isOpen} togglePopover={() => setIsOpen(isOpen => !isOpen)} position={position} />
         </>
     )
