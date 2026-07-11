@@ -1,10 +1,11 @@
+@import url('https://fonts.googleapis.com/css2?family=Roboto+Mono&display=swap');
 @import "tailwindcss";
 @plugin "daisyui" {
     themes: light, dark --default, cyberpunk, valentine, acid;
 }
 
 @theme {
-    --font-mono: var(--font-roboto-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    --font-mono: "Roboto Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
     --color-dracula: hsl(var(--dracula));
     --color-retro: hsl(var(--retro));
     --color-valentine: hsl(var(--valentine));
