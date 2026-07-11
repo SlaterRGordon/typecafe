@@ -1,9 +1,13 @@
 import { Html, Head, Main, NextScript } from "next/document";
+import { themeBootScript } from "~/components/colors/applyColors";
 
 export default function Document() {
     return (
         <Html lang="en" data-theme="dark">
             <Head>
+                {/* Paint the saved theme before first paint to avoid a flash of the
+                    default theme. Must run before body renders. */}
+                <script dangerouslySetInnerHTML={{ __html: themeBootScript }} />
                 {/* Site-wide OG/description defaults live in _app.tsx (via next/head)
                     so individual pages can override them by key. Keep only static,
                     non-overridable tags here. */}
