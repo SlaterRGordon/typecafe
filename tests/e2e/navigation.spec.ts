@@ -1,6 +1,29 @@
 import { expect, test } from "@playwright/test";
 
 test.describe("app navigation", () => {
+  test("mobile global controls fit the viewport and meet touch targets", async ({ page }, testInfo) => {
+    test.skip(!testInfo.project.name.includes("mobile"), "Mobile navigation geometry only.");
+    await page.goto("/");
+
+    const nav = page.getByTestId("top-navigation");
+    await expect(nav).toBeVisible();
+    expect(await nav.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+
+    const viewport = page.viewportSize();
+    expect(viewport).not.toBeNull();
+    for (const testId of ["nav-language-trigger", "nav-layout-trigger", "nav-color-trigger", "nav-auth-trigger"]) {
+      const control = page.getByTestId(testId);
+      const box = await control.boundingBox();
+      expect(box, `${testId} should have a rendered box`).not.toBeNull();
+      expect(box?.height).toBeGreaterThanOrEqual(44);
+      expect(box?.x).toBeGreaterThanOrEqual(0);
+      expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(viewport?.width ?? 0);
+    }
+
+    await expect(page.getByTestId("nav-language-trigger")).toHaveRole("button");
+    await expect(page.getByTestId("nav-layout-trigger")).toHaveRole("button");
+  });
+
   test("orders primary navigation around the improvement loop", async ({ page }, testInfo) => {
     await page.goto("/");
 

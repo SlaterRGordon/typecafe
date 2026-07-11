@@ -36,6 +36,7 @@ export const ConfigOption = (props: ConfigOptionProps) => {
                     const isActive = props.active == value
                     return (
                         <button
+                            type="button"
                             key={i}
                             onClick={() => props.onChange(value)}
                             aria-pressed={isActive}
@@ -55,6 +56,7 @@ export const ConfigOption = (props: ConfigOptionProps) => {
                 const isActive = props.active == (props.values ? props.values[i] as string | number : i)
                 return (
                     <button
+                        type="button"
                         onClick={() => props.onChange(props.values ? props.values[i] as string | number : i)}
                         key={i}
                         className={`btn btn-sm flex basis-0 grow flex-col normal-case max-w-[100px] ${isActive ? "border-primary bg-primary text-primary-content hover:border-primary hover:bg-primary" : "border-base-200 bg-base-200"}`}>
@@ -77,6 +79,7 @@ interface ConfigToggleProps {
 export const ConfigToggle = (props: ConfigToggleProps) => {
     return (
         <button
+            type="button"
             onClick={() => props.onChange(!props.active)}
             aria-pressed={props.active}
             className={segmentClass(props.active)}

@@ -484,6 +484,8 @@ test.describe("screenshot tour", () => {
     const diagnosisBox = await page.getByTestId("diagnosis-panel").boundingBox();
     const chartBox = await page.getByTestId("wpm-chart").boundingBox();
     expect(diagnosisBox?.y).toBeLessThan(chartBox?.y ?? 0);
+    const authBox = await page.getByTestId("nav-auth-trigger").boundingBox();
+    expect((authBox?.x ?? 0) + (authBox?.width ?? 0)).toBeLessThanOrEqual(page.viewportSize()?.width ?? 0);
     await capture(page, testInfo, "35-score-card-diagnosis");
 
     // The one-click drill hands off to the unified /drill surface on the keys.

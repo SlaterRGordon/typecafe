@@ -47,7 +47,7 @@ export const ColorModal = () => {
     const { data: savedColors, refetch: refetchSavedColors } = api.color.getByUser.useQuery(
         undefined,
         {
-            enabled: !!sessionData,
+            enabled: !!sessionData?.user,
         }
     );
 
@@ -212,7 +212,7 @@ export const ColorModal = () => {
                                             })}
                                             {savedColors?.length == 0 && <h2 className="col-span-2 text-xl">No saved colors yet</h2>}
                                         </div>
-                                        <button onClick={() => setTab("Custom")} className="btn btn-block btn-primary shrink-0">
+                                        <button type="button" onClick={() => setTab("Custom")} className="btn btn-block btn-primary shrink-0">
                                             Create New Color
                                         </button>
                                     </>
@@ -266,7 +266,7 @@ export const ColorModal = () => {
                                     </div>
                                 </div>
                                 {sessionData?.user?.id &&
-                                    <button onClick={saveColors} className="btn btn-primary btn-block shrink-0">
+                                    <button type="button" onClick={saveColors} className="btn btn-primary btn-block shrink-0">
                                         Save Color
                                     </button>
                                 }

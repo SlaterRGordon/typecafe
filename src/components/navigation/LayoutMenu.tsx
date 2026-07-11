@@ -32,10 +32,11 @@ export const LayoutMenu = () => {
 
     return (
         <div className="dropdown dropdown-end">
-            <label
-                tabIndex={0}
+            <button
+                type="button"
                 data-testid="nav-layout-trigger"
-                className="btn btn-sm gap-2 normal-case bg-base-100 text-base-content border border-base-content/20 hover:bg-base-200"
+                className="btn btn-sm !h-11 !min-h-11 min-w-11 gap-2 border border-base-content/20 bg-base-100 px-3 text-base-content normal-case hover:bg-base-200"
+                aria-haspopup="menu"
                 aria-label={`Keyboard layout: ${activeLabel}`}
                 title={`Keyboard layout: ${activeLabel}`}
             >
@@ -43,7 +44,7 @@ export const LayoutMenu = () => {
                 {/* Icon-only on phones — the label alongside globe/colors/auth
                     overflows the mobile bar. */}
                 <span className="hidden sm:inline">{activeLabel}</span>
-            </label>
+            </button>
             <ul
                 tabIndex={0}
                 data-testid="nav-layout-menu"

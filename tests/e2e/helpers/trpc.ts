@@ -3,6 +3,14 @@ import superjson from "superjson";
 
 type ProcedureInput = Record<string, unknown> | undefined;
 interface MockTrpcOptions {
+  savedColors?: Array<{
+    id: string;
+    name: string;
+    background: string;
+    text: string;
+    primary: string;
+    secondary: string;
+  }>;
   savedTrainProgress?: unknown[];
   importedTrainProgress?: unknown[];
   profileImage?: string | null;
@@ -371,7 +379,9 @@ function responseForProcedure(procedure: string, input: ProcedureInput, options:
     case "user.delete":
       return currentProfileUser;
     case "color.getByUser":
-      return [];
+      return options.savedColors ?? [];
+    case "color.delete":
+      return null;
     case "color.create":
       return null;
     case "scoreShare.create":

@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
+import { mockAuthenticatedSession, mockTrpc } from "./helpers/trpc";
 import { typeCurrentCharacter } from "./helpers/typing";
 
 async function gotoHome(page: Page) {
@@ -59,6 +60,35 @@ test.describe("modal focus behavior", () => {
 
     await typeCurrentCharacter(page);
     await expect(page.locator("#c0")).toHaveClass(/text-base-300/);
+  });
+
+  test("saved color apply and delete actions are separate controls", async ({ page }) => {
+    await mockAuthenticatedSession(page);
+    await mockTrpc(page, {
+      savedColors: [{
+        id: "ocean-theme",
+        name: "Ocean",
+        background: "#102a43",
+        text: "#f0f4f8",
+        primary: "#38bdf8",
+        secondary: "#fbbf24",
+      }],
+    });
+    await gotoHome(page);
+
+    await page.getByTestId("nav-color-trigger").click();
+    await page.getByRole("button", { name: "Saved", exact: true }).click();
+
+    const apply = page.getByRole("button", { name: "Apply Ocean color theme" });
+    const remove = page.getByRole("button", { name: "Delete Ocean color theme" });
+    await expect(apply).toBeVisible();
+    await expect(remove).toBeVisible();
+    await expect(apply.locator("button")).toHaveCount(0);
+    expect(await apply.evaluate((element) => element.contains(document.activeElement))).toBe(false);
+
+    await remove.focus();
+    await expect(remove).toBeFocused();
+    await remove.press("Enter");
   });
 
   test("sign-in modal pauses typing", async ({ page }) => {
