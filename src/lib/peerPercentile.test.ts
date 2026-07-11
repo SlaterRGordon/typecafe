@@ -10,10 +10,11 @@ import {
 
 const now = new Date("2026-06-19T12:00:00.000Z")
 
-function test(userId: string, day: number, speed: number, score = speed * 98): RankedStarterTest {
+function test(userId: string, day: number, speed: number, score = speed, accuracy = 100): RankedStarterTest {
     return {
         userId,
         speed,
+        accuracy,
         score,
         createdAt: new Date(now.getTime() + day * 24 * 60 * 60 * 1000),
     }
@@ -37,6 +38,15 @@ describe("starterPeersFromTests", () => {
         expect(peers).toEqual([
             { userId: "u1", baselineWpm: 66, bestScore: 12_000 },
         ])
+    })
+
+    it("uses net rather than raw speed for the starter band", () => {
+        const [starter] = starterPeersFromTests([
+            test("u1", 0, 100, 80, 90),
+            test("u1", 1, 100, 80, 90),
+            test("u1", 2, 100, 80, 90),
+        ])
+        expect(starter?.baselineWpm).toBe(80)
     })
 })
 

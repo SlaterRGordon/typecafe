@@ -186,7 +186,7 @@ function BeatRunChallenge(props: { slug: string; target: BeatTarget }) {
       worstKeys: result.worstKeys,
       timeline: result.timeline,
       ranked: result.ranked,
-      // The viewer's own board (their active layout) — the target keeps its tag.
+      // The viewer's own board (their active layout) - the target keeps its tag.
       layout: activeLayout,
       brag: beatRunBrag(deltaWpm, attemptNumber),
       wpmSamples: result.wpmSamples,
@@ -540,7 +540,7 @@ const SharedScorePage: NextPage<SharedScorePageProps> = ({ slug, meta }) => {
 
 export const getServerSideProps: GetServerSideProps<SharedScorePageProps> = async ({ params }) => {
   const slug = typeof params?.slug === "string" ? params.slug : "";
-  // Trusted origin only — never from req.headers.host / x-forwarded-proto (both
+  // Trusted origin only - never from req.headers.host / x-forwarded-proto (both
   // attacker-controlled → Host-header injection into the canonical/OG URLs).
   // ponytail: hardcoded apex; swap to a NEXT_PUBLIC_SITE_URL env var if the domain changes.
   const origin =
@@ -552,7 +552,7 @@ export const getServerSideProps: GetServerSideProps<SharedScorePageProps> = asyn
   const imageUrl = `${origin}/api/og/score/${encodedSlug}`;
   const pageUrl = `${origin}/score/${encodedSlug}`;
 
-  // Meta enrichment must never break the page — fall back to generic tags if the
+  // Meta enrichment must never break the page - fall back to generic tags if the
   // lookup fails (e.g. DB unavailable). The interactive card still loads client-side.
   let data: OgShareData | null = null;
   try {
@@ -573,14 +573,14 @@ export const getServerSideProps: GetServerSideProps<SharedScorePageProps> = asyn
   } else if (data) {
     meta = {
       title: `${data.rawWpm.toFixed(1)} WPM on TypeCafe`,
-      description: `${data.username ? `@${data.username} typed ` : ""}${data.rawWpm.toFixed(1)} WPM at ${data.accuracy.toFixed(1)}% accuracy. Test your typing speed on TypeCafe.`,
+      description: `${data.username ? `@${data.username} typed ` : ""}${data.rawWpm.toFixed(1)} WPM at ${data.accuracy.toFixed(1)}% accuracy. Diagnose weak spots and drill them on TypeCafe.`,
       imageUrl,
       pageUrl,
     };
   } else {
     meta = {
       title: "Typing score | TypeCafe",
-      description: "Test your typing speed on TypeCafe.",
+      description: "Measure your typing, diagnose weak spots, and drill them on TypeCafe.",
       imageUrl,
       pageUrl,
     };

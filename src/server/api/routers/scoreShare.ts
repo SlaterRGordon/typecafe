@@ -8,29 +8,35 @@ import {
   protectedProcedure,
   publicProcedure,
 } from "~/server/api/trpc";
+import { consumePublicWriteQuota } from "~/server/rateLimit";
+import type { PrismaClient } from "~/generated/prisma/client";
+
+const GUEST_SHARE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+const GUEST_SHARE_LIMIT = 20;
+const GUEST_SHARE_WINDOW_MS = 60 * 60 * 1000;
 
 const slugSchema = z.string().min(8).max(32).regex(/^[a-zA-Z0-9_-]+$/);
 const scoreSnapshotSchema = z.object({
-  durationSeconds: z.number().nonnegative(),
-  rawWpm: z.number().nonnegative(),
-  netWpm: z.number().nonnegative(),
+  durationSeconds: z.number().finite().min(0).max(24 * 60 * 60),
+  rawWpm: z.number().finite().min(0).max(1000),
+  netWpm: z.number().finite().min(0).max(1000),
   accuracy: z.number().min(0).max(100),
-  totalKeystrokes: z.number().int().nonnegative(),
-  correctKeystrokes: z.number().int().nonnegative(),
-  incorrectKeystrokes: z.number().int().nonnegative(),
+  totalKeystrokes: z.number().int().min(0).max(50000),
+  correctKeystrokes: z.number().int().min(0).max(50000),
+  incorrectKeystrokes: z.number().int().min(0).max(50000),
   promptText: z.string().min(1).max(20000).optional(),
-  typedText: z.string(),
+  typedText: z.string().max(20000),
   typedSegments: z.array(z.object({
-    ch: z.string(),
+    ch: z.string().min(1).max(2),
     correct: z.boolean(),
-  })).optional(),
+  })).max(20000).optional(),
   worstKeys: z.array(z.object({
     key: z.string(),
     accuracy: z.number().min(0).max(100),
     attempts: z.number().int().nonnegative(),
-  })).optional(),
-  brag: z.string().nullish(),
-  avgDelta: z.number().nullish(),
+  })).max(20).optional(),
+  brag: z.string().max(200).nullish(),
+  avgDelta: z.number().finite().min(-1000).max(1000).nullish(),
   dailyChallenge: z.boolean().optional(),
   punctuation: z.boolean().optional(),
   capitals: z.boolean().optional(),
@@ -39,20 +45,20 @@ const scoreSnapshotSchema = z.object({
   // surfaces render this board, absent = qwerty.
   layout: z.string().max(32).optional(),
   wpmSamples: z.array(z.object({
-    elapsedSeconds: z.number().nonnegative(),
-    wpm: z.number().nonnegative(),
-  })),
+    elapsedSeconds: z.number().finite().min(0).max(24 * 60 * 60),
+    wpm: z.number().finite().min(0).max(1000),
+  })).max(600),
 });
 
 // A guest's finished test, shareable without an account: the snapshot carries
 // the render fields (mode/language/count) that a signed-in share reads off the
 // Test row instead.
 const guestScoreSnapshotSchema = scoreSnapshotSchema.extend({
-  count: z.number().int().nonnegative(),
-  mode: z.number().int().nonnegative(),
-  subMode: z.number().int().nonnegative(),
+  count: z.number().int().min(1).max(5000),
+  mode: z.number().int().min(0).max(4),
+  subMode: z.number().int().min(0).max(1),
   language: z.string().min(1).max(40),
-  options: z.string().optional(),
+  options: z.string().max(100).optional(),
   speed: z.number().nonnegative().optional(),
   score: z.number().optional(),
   createdAt: z.number().int().nonnegative(),
@@ -60,19 +66,19 @@ const guestScoreSnapshotSchema = scoreSnapshotSchema.extend({
 
 const beatRunSnapshotSchema = scoreSnapshotSchema.extend({
   promptText: z.string().min(1).max(20000),
-  count: z.number().int().nonnegative(),
-  mode: z.number().int().nonnegative(),
-  subMode: z.number().int().nonnegative(),
+  count: z.number().int().min(1).max(5000),
+  mode: z.number().int().min(0).max(4),
+  subMode: z.number().int().min(0).max(1),
   language: z.string().min(1).max(40),
-  options: z.string().optional(),
+  options: z.string().max(100).optional(),
   score: z.number().optional(),
-  username: z.string().nullish(),
+  username: z.string().max(24).nullish(),
   sourceShareSlug: slugSchema.optional(),
   attemptNumber: z.number().int().positive().optional(),
   createdAt: z.number().int().nonnegative(),
 });
 
-// A point-in-time /progress snapshot — the "+18 WPM in 60 days" brag any user
+// A point-in-time /progress snapshot - the "+18 WPM in 60 days" brag any user
 // can share, not tied to a single test.
 const progressSnapshotSchema = z.object({
   deltaWpm: z.number(),
@@ -88,6 +94,30 @@ const progressSnapshotSchema = z.object({
 
 function createShareSlug() {
   return randomBytes(9).toString("base64url");
+}
+
+type GuestShareContext = {
+  prisma: Pick<PrismaClient, "$queryRaw" | "publicWriteQuota" | "scoreShare">;
+  requestIdentity: string;
+};
+
+async function enforceGuestShareQuota(ctx: GuestShareContext) {
+  const quota = await consumePublicWriteQuota(ctx.prisma, {
+    scope: "guest-score-share",
+    identity: ctx.requestIdentity,
+    limit: GUEST_SHARE_LIMIT,
+    windowMs: GUEST_SHARE_WINDOW_MS,
+  });
+  if (!quota.allowed) {
+    throw new TRPCError({
+      code: "TOO_MANY_REQUESTS",
+      message: `Too many share links. Try again in ${quota.retryAfterSeconds} seconds.`,
+    });
+  }
+}
+
+async function cleanupExpiredGuestShares(ctx: GuestShareContext) {
+  await ctx.prisma.scoreShare.deleteMany({ where: { expiresAt: { lt: new Date() } } });
 }
 
 export const scoreShareRouter = createTRPCRouter({
@@ -194,6 +224,8 @@ export const scoreShareRouter = createTRPCRouter({
   createGuestScore: publicProcedure
     .input(z.object({ snapshot: guestScoreSnapshotSchema }))
     .mutation(async ({ ctx, input }) => {
+      await enforceGuestShareQuota(ctx);
+      await cleanupExpiredGuestShares(ctx);
       for (let attempt = 0; attempt < 4; attempt += 1) {
         try {
           return await ctx.prisma.scoreShare.create({
@@ -203,6 +235,7 @@ export const scoreShareRouter = createTRPCRouter({
               testId: null,
               userId: ctx.session?.user?.id ?? null,
               snapshot: input.snapshot,
+              expiresAt: new Date(Date.now() + GUEST_SHARE_TTL_MS),
             },
             select: { slug: true },
           });
@@ -216,6 +249,8 @@ export const scoreShareRouter = createTRPCRouter({
   createBeatRun: publicProcedure
     .input(z.object({ snapshot: beatRunSnapshotSchema }))
     .mutation(async ({ ctx, input }) => {
+      await enforceGuestShareQuota(ctx);
+      await cleanupExpiredGuestShares(ctx);
       for (let attempt = 0; attempt < 4; attempt += 1) {
         try {
           return await ctx.prisma.scoreShare.create({
@@ -225,6 +260,7 @@ export const scoreShareRouter = createTRPCRouter({
               testId: null,
               userId: ctx.session?.user?.id ?? null,
               snapshot: input.snapshot,
+              expiresAt: new Date(Date.now() + GUEST_SHARE_TTL_MS),
             },
             select: { slug: true },
           });

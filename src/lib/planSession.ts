@@ -1,6 +1,6 @@
 // Guided-player session state (Phase 4 §4.4). Pure + unit-testable. The plan
 // itself (the ordered days/steps) is derived from weakness data on each load;
-// this is only the player's *position* in it — which day, which step, and
+// this is only the player's *position* in it - which day, which step, and
 // whether the day or whole plan is done. Persisted to localStorage so a returning
 // visitor resumes where they left off (synced on sign-in later).
 
@@ -63,6 +63,6 @@ export function parseSession(raw: string | null): PlanSessionState | null {
         ) {
             return { day: v.day, stepIndex: v.stepIndex, status: v.status }
         }
-    } catch { /* corrupt — ignore */ }
+    } catch { /* corrupt - ignore */ }
     return null
 }

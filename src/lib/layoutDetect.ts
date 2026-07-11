@@ -1,5 +1,5 @@
 // Keyboard-layout detection (docs/features/keyboard-layouts.md decision 5):
-// a pure signature matcher fed by two adapters — the Chromium-only
+// a pure signature matcher fed by two adapters - the Chromium-only
 // navigator.keyboard.getLayoutMap() probe (no permission prompt; Firefox and
 // Safari never ship it) and a passive keystroke listener that works
 // everywhere. Verdicts only feed the `auto` resolution chain (useLayout owns
@@ -13,9 +13,9 @@ export const PROBE_CODES = [
     "Semicolon", "Quote", "BracketLeft", "Backslash", "Minus",
 ] as const
 
-// Unshifted `code → key` fingerprints. Only distinctive probes are listed —
+// Unshifted `code → key` fingerprints. Only distinctive probes are listed -
 // an observation for an unlisted code neither helps nor contradicts.
-// Layouts indistinguishable at the base layer (qwerty vs us-intl vs polish —
+// Layouts indistinguishable at the base layer (qwerty vs us-intl vs polish -
 // they differ only in dead keys/AltGr, which the layout map doesn't expose;
 // spanish-es vs latam under sparse passive data) tie, and matchLayout returns
 // null so resolveLayout falls through to defaultLayoutFor's locale tiebreaks.
@@ -43,7 +43,7 @@ const SIGNATURES: Record<string, Record<string, string>> = {
 
 // The seam both adapters feed. A verdict needs one layout that (a) never
 // contradicts an overlapping observation and (b) matches at least two of
-// them — and it must be the ONLY such layout. Ties (identical base layers,
+// them - and it must be the ONLY such layout. Ties (identical base layers,
 // sparse passive data) return null: ambiguity is the language default's job,
 // never a guess here.
 export function matchLayout(observations: Record<string, string>): string | null {
@@ -74,7 +74,7 @@ interface KeyboardApi { getLayoutMap?: () => Promise<Map<string, string>> }
 
 export async function probeKeyboardApi(): Promise<Record<string, string> | null> {
     try {
-        // navigator.keyboard is Chromium-only and absent from lib.dom — a
+        // navigator.keyboard is Chromium-only and absent from lib.dom - a
         // feature-detected cast, not trust in the shape.
         const keyboard = (navigator as Navigator & { keyboard?: KeyboardApi }).keyboard
         const map = await keyboard?.getLayoutMap?.()
@@ -94,7 +94,7 @@ export type DetectionSource = "api" | "passive"
 
 // Start both adapters once per session (useLayout calls this on mount; the
 // module flag makes re-mounts free). The callback receives every fresh
-// verdict; the caller owns caching and when to apply it — the ledger's
+// verdict; the caller owns caching and when to apply it - the ledger's
 // mount/test-boundary rule lives there, not here.
 let started = false
 
@@ -109,7 +109,7 @@ export function startLayoutDetection(onVerdict: (layout: string, source: Detecti
     })
 
     // Passive fallback (all browsers, zero permissions): real typing already
-    // carries code→key evidence. Modified strokes are skipped — shift/AltGr
+    // carries code→key evidence. Modified strokes are skipped - shift/AltGr
     // change e.key and would fake contradictions; dead keys report multi-char
     // e.key ("Dead") and fall to the length guard.
     const observations: Record<string, string> = {}

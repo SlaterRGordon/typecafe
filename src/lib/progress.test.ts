@@ -65,7 +65,7 @@ describe("rejectOutliers", () => {
 
     it("still rejects outliers among raw DB tests, which carry their summary day", () => {
         // Regression: every signed-in Test row has `day` set, which used to be
-        // misread as "rollup — pass through", disabling rejection entirely.
+        // misread as "rollup - pass through", disabling rejection entirely.
         const records = [rec(5, 50), rec(4, 52), rec(3, 48), rec(2, 51), rec(1, 1)]
             .map((r, i) => ({ ...r, day: `2026-06-0${i + 1}` }))
         expect(rejectOutliers(records).map((r) => r.wpm)).not.toContain(1)
@@ -476,10 +476,10 @@ describe("mergeDailyRollups", () => {
 
         expect(merged).toHaveLength(2)
         expect(merged.map((record) => record.day ?? dayKey(record.createdAt))).toEqual(["2026-06-13", "2026-06-14"])
-        // Rollup-only day: wpm is net derived from the day's raw avg + accuracy
-        // (65 · (2·0.94 − 1) = 57.2). Raw per-test records pass through untouched.
+        // Rollup-only day already carries canonical net WPM.
+        // Raw per-test records pass through untouched.
         expect(merged[0]).toMatchObject({ accuracy: 94, consistency: 80, day: "2026-06-13", rollup: true })
-        expect(merged[0]!.wpm).toBeCloseTo(57.2, 6)
+        expect(merged[0]!.wpm).toBe(65)
         expect(merged[1]).toMatchObject({ wpm: 70, count: 30, mode: 0, subMode: 0 })
     })
 })

@@ -12,15 +12,15 @@ export interface Level {
 }
 
 // The 100-level Train ladder, generated from a compact spec rather than authored
-// per level (docs/features/train-ladder.md). Thresholds are not stored here — they
+// per level (docs/features/train-ladder.md). Thresholds are not stored here - they
 // derive from the level number via src/lib/trainThresholds.ts. Curves below are
 // tunable knobs; the generated shape is what the rest of the app consumes.
 
 // Keys are introduced progressively over the first INTRO_LEVELS, then the full
-// alphabet is held for the rest of the climb — later difficulty comes from the
+// alphabet is held for the rest of the climb - later difficulty comes from the
 // WPM ramp, longer counts and themed kinds, not new keys. The stages follow the
 // active keyboard layout (keyStagesFor: home row out, docs/features/
-// keyboard-layouts.md slice 7) — names, counts and kinds are layout-independent,
+// keyboard-layouts.md slice 7) - names, counts and kinds are layout-independent,
 // so TrainProgress (keyed by level name) is untouched by a layout switch.
 
 const TOTAL_LEVELS = 100
@@ -28,7 +28,7 @@ const INTRO_LEVELS = 44 // keys fully introduced by ~L44
 const BASE_COUNT = 10   // words at L1
 const MAX_COUNT = 50    // words at the top (non-boss/speed)
 const BOSS_COUNT = 60   // boss levels are longer
-const SPEED_SECONDS = 30 // speed rounds are timed (count is seconds — wired in slice 4)
+const SPEED_SECONDS = 30 // speed rounds are timed (count is seconds - wired in slice 4)
 
 function keysForLevel(level: number, stages: string[]): string {
     if (level > INTRO_LEVELS) return stages[stages.length - 1]!
@@ -83,7 +83,7 @@ export const levels: Level[] = levelsFor(DEFAULT_LAYOUT)
 
 // Once every a–z key is introduced, the ladder types the language's *real*
 // alphabet: the active language's accent letters (é, ü, ł …) join the key set so
-// accented words survive the word filter. Intro stages stay pure a–z — accents
+// accented words survive the word filter. Intro stages stay pure a–z - accents
 // aren't ladder keys, they ride the mastery levels. Progress/thresholds key off
 // the level name, so this never touches them.
 export function withLanguageAccents(level: Level, accents: string[]): Level {

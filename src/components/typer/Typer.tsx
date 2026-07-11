@@ -5,7 +5,7 @@ import { Text } from "./Text"
 import { useTimer } from "~/hooks/timer/useTimer"
 import { api } from "~/utils/api"
 import type { Level } from "./train/levels"
-import { buildWpmSamples, computeStats, consistencyFromSamples, isReliableWpmSample, worstKeysFromAttempts } from "~/lib/stats"
+import { buildWpmSamples, computeStats, isReliableWpmSample, worstKeysFromAttempts } from "~/lib/stats"
 import type { TypedSegment } from "~/lib/stats"
 import { encodeTimeline } from "~/lib/keystrokes"
 import { createKeystrokeRecorder } from "~/lib/keystrokeRecorder"
@@ -51,7 +51,7 @@ interface TyperProps {
     failOnMiss?: boolean,
     onTestComplete?: (result: TestCompletionResult) => void,
     // Render the result instantly and patch in server fields when the save settles
-    // (home only — see useTestPersistence). Pairs with onSavingChange for the loader.
+    // (home only - see useTestPersistence). Pairs with onSavingChange for the loader.
     eagerResult?: boolean,
     onSavingChange?: (saving: boolean) => void,
     onTypingFocusChange?: (isTyping: boolean) => void,
@@ -86,11 +86,11 @@ export const Typer = (props: TyperProps) => {
     const [text, setText] = useState("")
     const [started, setStarted] = useState(false)
     const [restarted, setRestarted] = useState(true)
-    // Bumped on every restart so the text view always re-renders fresh — even when
+    // Bumped on every restart so the text view always re-renders fresh - even when
     // the regenerated text is identical (e.g. a grams level produces the same
     // deterministic gram), where `restarted`/`text` alone wouldn't change.
     const [restartNonce, setRestartNonce] = useState(0)
-    // The recorder owns every per-keystroke capture for the attempt — the raw
+    // The recorder owns every per-keystroke capture for the attempt - the raw
     // event log plus the derived timeline, net counts and per-character attempts.
     // It's a ref (not state) so typing never re-renders Typer; the visible numbers
     // (wpm/accuracy/typedCount) refresh by reading it on a 250ms interval.
@@ -101,7 +101,7 @@ export const Typer = (props: TyperProps) => {
     const [wpm, setWpm] = useState(0.00)
     const [accuracy, setAccuracy] = useState(0.00)
     // Grams levels can be as short as two characters; until a sample is long
-    // enough to measure (see isReliableWpmSample) the WPM/avg show "—" rather
+    // enough to measure (see isReliableWpmSample) the WPM/avg show "-" rather
     // than an extrapolated spike like "500 wpm". Only ever set in grams mode.
     const [wpmPending, setWpmPending] = useState(false)
     const typedTextRef = useRef("")
@@ -199,7 +199,7 @@ export const Typer = (props: TyperProps) => {
 
     // Coalesces the rapid double-restart that fires when settings load right after
     // mount (default `normal` config → then the persisted mode). Only the *latest*
-    // scheduled restart runs, so its fresh mode/config wins — the old boolean flag
+    // scheduled restart runs, so its fresh mode/config wins - the old boolean flag
     // let the first-fired (stale) closure win, which loaded normal text over the
     // returning grams/practice mode.
     const restartSeqRef = useRef(0)
@@ -213,7 +213,7 @@ export const Typer = (props: TyperProps) => {
                 // must not delay the fresh text paint (typing-feel §3).
                 if (mode !== TestModes.ngrams) runWhenIdle(syncCharAttempts)
 
-                // A daily challenge uses fixed seeded text — same for every client,
+                // A daily challenge uses fixed seeded text - same for every client,
                 // never regenerated or appended.
                 if (props.fixedText) {
                     setText(props.fixedText)
@@ -256,7 +256,7 @@ export const Typer = (props: TyperProps) => {
 
     // A user-initiated restart (button or tab+enter) re-runs the current test. In
     // grams this restarts the current level (regenerating its deterministic gram
-    // and clearing the attempt), keeping the drill progression — switching
+    // and clearing the attempt), keeping the drill progression - switching
     // scope/source is what resets back to level 1.
     const restartTest = useCallback(() => {
         handleRestart()
@@ -296,10 +296,10 @@ export const Typer = (props: TyperProps) => {
             ? count
             : finalStats.durationSeconds
         const wpmSamples = buildWpmSamples(recorder.timeline)
-        const timeline = encodeTimeline(recorder.events)
+        const timeline = encodeTimeline(recorder.evidence)
         // Quotes vary in length/difficulty, and train levels are short/targeted
         // (a single key set, a boss pacer), so neither posts to a leaderboard or
-        // counts toward best WPM — they still persist a timeline and feed
+        // counts toward best WPM - they still persist a timeline and feed
         // diagnosis, streak, and activity, just unranked. `level` marks a train run.
         const ranked = mode !== TestModes.quotes && !customLength && !level && isRankableTimeline(timeline)
 
@@ -348,7 +348,7 @@ export const Typer = (props: TyperProps) => {
         return false
     }, [])
 
-    // Latest onTestComplete without making it a dependency of handleComplete —
+    // Latest onTestComplete without making it a dependency of handleComplete -
     // parents recreate it every render, which would otherwise defeat memo(Text).
     const onTestCompleteRef = useRef(props.onTestComplete)
     useEffect(() => {
@@ -384,7 +384,7 @@ export const Typer = (props: TyperProps) => {
         activeAttemptRef.current = null
 
         // The recorder records each keystroke synchronously (append fires before
-        // completion), so its counts already include the final character — no
+        // completion), so its counts already include the final character - no
         // lag-correction needed.
         const finalCharacterCount = recorder.characterCount
         const finalIncorrectCount = recorder.incorrectCount
@@ -400,7 +400,7 @@ export const Typer = (props: TyperProps) => {
 
         if (mode === TestModes.normal || mode === TestModes.quotes) {
             // An overtake (boss) or any error (no-miss) is a loss no matter what net
-            // WPM the typed span measured — always the fail path, never persisted.
+            // WPM the typed span measured - always the fail path, never persisted.
             if (
                 pacerCaughtRef.current ||
                 (props.failOnMiss && finalStats.accuracy < 100) ||
@@ -411,15 +411,10 @@ export const Typer = (props: TyperProps) => {
                 if (sessionData?.user && testType?.id) {
                     persistCompletion(completion, {
                         typeId: testType.id,
-                        accuracy: finalStats.accuracy,
-                        speed: finalStats.speed,
-                        consistency: consistencyFromSamples(completion.wpmSamples),
-                        score: finalStats.speed * finalStats.accuracy,
                         count: count,
                         options: level ? level.name : "",
                         punctuation,
                         capitals,
-                        ranked: completion.ranked,
                         timeline: completion.timeline,
                         utcOffsetMinutes: -new Date().getTimezoneOffset(),
                         challengeDate: props.challengeDate,
@@ -443,12 +438,12 @@ export const Typer = (props: TyperProps) => {
 
         // Analytics ride an idle callback, not the completion paint (typing-feel
         // §3): aggregation + sync round-trips would otherwise stutter the result
-        // render. `events` is captured by reference — reset() replaces the array,
+        // render. `events` is captured by reference - reset() replaces the array,
         // so a restart can't mutate what the deferred aggregation reads.
         const events = recorder.events
         runWhenIdle(() => {
             if (mode !== TestModes.ngrams) syncCharAttempts()
-            // Transition analytics come from normal-mode tests — including drills
+            // Transition analytics come from normal-mode tests - including drills
             // (owner decision, ADR-0004 reversal): every rep counts toward the
             // lifetime pair data. Grams/practice text stays excluded.
             if (mode === TestModes.normal) syncTransitions(events)
@@ -506,7 +501,7 @@ export const Typer = (props: TyperProps) => {
             if (characterCount == 0) setAccuracy(0)
             else setAccuracy(correct / characterCount * 100)
 
-            // In grams, hold the WPM at "—" until the current level has produced a
+            // In grams, hold the WPM at "-" until the current level has produced a
             // measurable sample, so a 2-char level never flashes a 500-wpm spike.
             if (mode === TestModes.ngrams) {
                 const elapsedSeconds = (Date.now() - startTime) / 1000
@@ -531,11 +526,11 @@ export const Typer = (props: TyperProps) => {
         : typedCount === 0
 
     // Live stats line: rounded wpm, floored accuracy (so 100% always means
-    // perfect), "—" while there's nothing measurable yet.
+    // perfect), "-" while there's nothing measurable yet.
     const wpmBlank = statsPending || wpmPending
-    const liveWpmText = wpmBlank ? "—" : String(Math.round(wpm))
-    const liveAccText = statsPending ? "—" : String(Math.floor(accuracy))
-    const liveAvgText = wpmBlank ? "—" : String(Math.round(gramWpm))
+    const liveWpmText = wpmBlank ? "-" : String(Math.round(wpm))
+    const liveAccText = statsPending ? "-" : String(Math.floor(accuracy))
+    const liveAvgText = wpmBlank ? "-" : String(Math.round(gramWpm))
 
     // Word-count modes: words completed = spaces consumed in the prompt so far.
     const isWordCounted = mode === TestModes.normal && subMode === TestSubModes.words
@@ -608,7 +603,7 @@ export const Typer = (props: TyperProps) => {
                         the text; then the mode's progress element; then the restart hint. */}
                     <div className="mx-auto flex w-full max-w-screen-xl flex-col">
                         {/* No reserved height: the #words block (in Text) caps at three
-                            lines and scrolls, and shrinks to fit below that — so a short
+                            lines and scrolls, and shrinks to fit below that - so a short
                             prompt sits right above the live stats with no gap. */}
                         {textNode}
                     </div>
@@ -637,7 +632,7 @@ export const Typer = (props: TyperProps) => {
                         </div>
                     }
                     <p className={typingFocusFadeClass(started, "mt-6 font-mono text-sm text-base-content/40 select-none")}>
-                        <kbd className="kbd kbd-xs">tab</kbd> + <kbd className="kbd kbd-xs">enter</kbd> / <kbd className="kbd kbd-xs">space</kbd> — restart
+                        <kbd className="kbd kbd-xs">tab</kbd> + <kbd className="kbd kbd-xs">enter</kbd> / <kbd className="kbd kbd-xs">space</kbd> - restart
                     </p>
             </>
         </div>

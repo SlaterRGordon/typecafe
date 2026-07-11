@@ -98,7 +98,7 @@ test.describe("drill page", () => {
     const words = (await page.locator("#words").innerText()).trim().split(/\s+/)
     expect(words.length).toBeGreaterThan(0)
     // 'e' is common, so the drill uses real ranked words (not the pseudo fallback).
-    // Every word must come from the French list — English sourcing would emit words
+    // Every word must come from the French list - English sourcing would emit words
     // absent from it (the, here, week...).
     const french = new Set(french10k.words)
     expect(words.every((word) => french.has(word))).toBe(true)
@@ -111,7 +111,7 @@ test.describe("drill page", () => {
 
     await expect(page.getByText("Word drill")).toBeVisible()
     await expect(page.getByTestId("drill-typer")).toBeVisible()
-    // Every drill word is one of the two verbatim targets — no keyword ranking.
+    // Every drill word is one of the two verbatim targets - no keyword ranking.
     const words = (await page.locator("#words").innerText()).trim().split(/\s+/)
     expect(words).toHaveLength(4)
     expect(words.every((word) => word === "rhythm" || word === "syzygy")).toBe(true)
@@ -185,7 +185,7 @@ test.describe("drill page", () => {
     await expect(page.getByTestId("drill-typer")).toBeVisible()
 
     // The header states the baseline to beat and offers the next pick up front
-    // (from lifetime evidence, x excluded) — no completed rep required.
+    // (from lifetime evidence, x excluded) - no completed rep required.
     await expect(page.getByTestId("drill-header-stat")).toHaveText("50.0% recent accuracy on this key. Beat it below.")
     await expect(page.getByTestId("drill-header-next")).toHaveAttribute("href", "/drill?keys=q")
 
@@ -203,15 +203,15 @@ test.describe("drill page", () => {
     await expect(page.getByTestId("drill-header-next")).toHaveCount(0)
 
     // The header's session trail proves the rep landed (a clean rep on x is 100%).
-    await expect(page.getByTestId("drill-session")).toHaveText("This session: 100.0% — 1 rep")
+    await expect(page.getByTestId("drill-session")).toHaveText("This session: 100.0% - 1 rep")
 
-    // A restart (tab+enter) brings the header pick back — the user is never
+    // A restart (tab+enter) brings the header pick back - the user is never
     // forced through another full rep to reach the next drill.
     await pressRestartShortcut(page, "Enter")
     await expect(page.getByTestId("drill-typer")).toBeVisible()
     await expect(page.getByTestId("drill-header-next")).toHaveAttribute("href", "/drill?keys=q")
 
-    // A second rep accumulates on the trail — the header visibly moves with
+    // A second rep accumulates on the trail - the header visibly moves with
     // every rep even though the lifetime baseline barely does (ADR-0004).
     await typeVisibleTestText(page)
     await expect(page.getByTestId("drill-result")).toBeVisible()
@@ -250,10 +250,10 @@ test.describe("drill page", () => {
     // The session trail carries the rep's ms on the drilled pair.
     const session = page.getByTestId("drill-session")
     await expect(session).toContainText("This session:")
-    await expect(session).toContainText("ms — 1 rep")
+    await expect(session).toContainText("ms - 1 rep")
 
     // Drill again: the baseline re-snapshots from lifetime data that now
-    // includes the rep's fast samples — the header's number visibly moves
+    // includes the rep's fast samples - the header's number visibly moves
     // (ADR-0004 reversal; this is the loop the owner wanted).
     await pressRestartShortcut(page, "Enter")
     await expect(page.getByTestId("drill-typer")).toBeVisible()
@@ -262,7 +262,7 @@ test.describe("drill page", () => {
     await expect(restatedStat).not.toContainText("400ms")
 
     // The rep syncs into the lifetime bigram data (ADR-0004 reversal): br's
-    // mean drops below io's, so the coach tab (desktop only — the inline
+    // mean drops below io's, so the coach tab (desktop only - the inline
     // mobile variant renders on the home page) live-updates to the next-worst
     // pair instead of re-recommending the drill just finished.
     if (!testInfo.project.name.includes("mobile")) {
@@ -283,7 +283,7 @@ test.describe("drill page", () => {
     await expect(page.getByTestId("drill-typer")).toBeVisible()
     await expect(page.getByTestId("home-coach-tab-drill")).toBeHidden()
 
-    // Miss every x, hit everything else — x becomes the only weak key.
+    // Miss every x, hit everything else - x becomes the only weak key.
     await expect(page.locator("#c0")).toHaveClass(/active-char/)
     const characters = await page.locator("#words .char").allTextContents()
     // The typer drops keystrokes for a brief window after load; land the first.

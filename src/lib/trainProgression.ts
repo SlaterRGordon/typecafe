@@ -4,7 +4,7 @@ import { starThresholds, starsForWpm, targetWpm, type StarThresholds } from "~/l
 export type { DifficultyName } from "~/lib/trainThresholds"
 import type { DifficultyName } from "~/lib/trainThresholds"
 
-// A Level's 1-based number on the ladder — the speed axis the thresholds key on.
+// A Level's 1-based number on the ladder - the speed axis the thresholds key on.
 export function levelNumber(levelName: string): number {
     const index = levels.findIndex((level) => level.name === levelName)
     return index >= 0 ? index + 1 : 1
@@ -12,7 +12,7 @@ export function levelNumber(levelName: string): number {
 
 // A cleared Level's best result, in domain terms. The persisted shape (DB
 // columns, tRPC input, the localStorage mirror) calls these `options`/`speed`
-// — see PersistedProgress and the toLevelProgress/fromLevelProgress mappers.
+// - see PersistedProgress and the toLevelProgress/fromLevelProgress mappers.
 export interface LevelProgress {
     levelName: string
     netWpm: number
@@ -76,7 +76,7 @@ export function mergeProgress(progress: LevelProgress[], entry: LevelProgress): 
 // The ladder's standing for a difficulty: Level 1 is always Unlocked; every
 // other Level unlocks once the prior Level's best net WPM meets the prior
 // Level's requirement (accuracy is not gated). `ladder` defaults to the qwerty
-// levels; Train passes the active layout's (levelsFor) — names and thresholds
+// levels; Train passes the active layout's (levelsFor) - names and thresholds
 // are layout-independent, only each Level's keys differ.
 export function ladderState(progress: LevelProgress[], difficulty: DifficultyName, ladder: Level[] = levels): LevelStatus[] {
     return ladder.map((level, index, array) => {

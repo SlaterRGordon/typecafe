@@ -432,7 +432,7 @@ describe("cumulativeWpmAtTimes", () => {
     it("accumulates monotonically across ascending query times", () => {
         const samples = cumulativeWpmAtTimes(events, [0.1, 0.2, 0.4])
         expect(samples).toHaveLength(3)
-        // 2 chars by 0.1s, 3 by 0.2s, 5 by 0.4s — each divided by its own elapsed.
+        // 2 chars by 0.1s, 3 by 0.2s, 5 by 0.4s - each divided by its own elapsed.
         expect(samples[0]!.rawWpm).toBeCloseTo((2 / 5) / (0.1 / 60), 6)
         expect(samples[2]!.rawWpm).toBeCloseTo(150, 6)
     })

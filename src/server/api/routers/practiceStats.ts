@@ -8,7 +8,7 @@ import { Prisma } from "~/generated/prisma/client";
 import { KEY_ATTEMPT_CAP } from "~/lib/practiceAttempts";
 
 // Aggregates are keyed per stats pool (docs/features/keyboard-layouts.md
-// decision 6): clients send statsPoolFor(activeLayout) — "qwerty" for every
+// decision 6): clients send statsPoolFor(activeLayout) - "qwerty" for every
 // national layout, the remap's own id otherwise. Absent = the legacy qwerty
 // pool, so old clients and rows keep working.
 const poolSchema = z.string().max(32).optional();
@@ -55,7 +55,7 @@ export const practiceStatsRouter = createTRPCRouter({
 
       // One bulk upsert (same pattern as transitionStats.batchSync) applying
       // the rolling window (ADR-0005): sum, then if a key overflows the attempt
-      // cap, scale total/correct down proportionally — accuracy preserved, old
+      // cap, scale total/correct down proportionally - accuracy preserved, old
       // history stops anchoring the ratio. Mirrors lib/localSync mergeKeyStats.
       const rows = input.stats.map(
         (s) => Prisma.sql`(gen_random_uuid()::text, ${userId}, ${pool}, ${s.character}, ${s.total}, ${s.correct}, NOW())`,

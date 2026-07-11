@@ -1,6 +1,6 @@
 // Post-drill progression (Phase 4): the "what next" pick shared by the home
 // coach tab and the drill result card, and the lifetime-vs-this-rep delta the
-// result card headlines. Pure and React-free — the numbers are the product.
+// result card headlines. Pure and React-free - the numbers are the product.
 
 import type { KeystrokeEvent } from "./keystrokes"
 import type { LocalKeyStat } from "./localSync"
@@ -44,7 +44,7 @@ export function nextDrillFinding(
     return { kind: "keys", id: `keys:${keys.join(",")}`, href: `/drill?keys=${keys.join(",")}`, keys }
 }
 
-// Roll a test's timeline into per-key attempt counts — the same shape the
+// Roll a test's timeline into per-key attempt counts - the same shape the
 // lifetime key stats use, so rep and lifetime data merge and compare directly.
 export function attemptsFromEvents(events: KeystrokeEvent[]): KeyAttempts {
     const byKey: KeyAttempts = new Map()
@@ -75,7 +75,7 @@ export const DELTA_MIN_KEY_ATTEMPTS = 10
 
 // Lifetime baseline vs this rep on the drilled target. `unit` decides the
 // direction: "ms" improves downward (faster), "%" improves upward (accuracy).
-// A flat result is not an improvement — never claim a win that isn't there.
+// A flat result is not an improvement - never claim a win that isn't there.
 export interface DrillDelta {
     label: string
     before: number
@@ -84,7 +84,7 @@ export interface DrillDelta {
     improved: boolean
 }
 
-// The lifetime baseline the drill header states up front — what the user is
+// The lifetime baseline the drill header states up front - what the user is
 // trying to beat. Null when the pair lacks enough lifetime samples.
 export function transitionBaseline(pair: string, lifetime: TransitionAggregate[]): { meanMs: number, ratio: number } | null {
     const agg = lifetime.find((a) => a.pair === pair)
@@ -95,7 +95,7 @@ export function transitionBaseline(pair: string, lifetime: TransitionAggregate[]
     return { meanMs, ratio: meanMs / overall }
 }
 
-// Lifetime accuracy summed across the drilled keys — the header's baseline and
+// Lifetime accuracy summed across the drilled keys - the header's baseline and
 // the "before" side of keyDrillDelta.
 export function keysBaseline(keys: string[], lifetime: LocalKeyStat[]): { accuracy: number } | null {
     const targets = new Set(keys)
@@ -122,7 +122,7 @@ export function transitionDrillDelta(pair: string, lifetime: TransitionAggregate
     return { label: `${pair[0]}→${pair[1]}`, before, after, unit: "ms", improved: after < before }
 }
 
-// Accuracy across the drilled keys (summed, not per-key — one honest headline
+// Accuracy across the drilled keys (summed, not per-key - one honest headline
 // number): lifetime vs this rep.
 export function keyDrillDelta(keys: string[], lifetime: LocalKeyStat[], repEvents: KeystrokeEvent[]): DrillDelta | null {
     const base = keysBaseline(keys, lifetime)

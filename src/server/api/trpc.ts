@@ -19,9 +19,11 @@ import { type Session } from "next-auth";
 
 import { getServerAuthSession } from "~/server/auth";
 import { prisma } from "~/server/db";
+import { requestIdentity } from "~/server/requestIdentity";
 
 type CreateContextOptions = {
   session: Session | null;
+  requestIdentity: string;
 };
 
 /**
@@ -38,6 +40,7 @@ const createInnerTRPCContext = (opts: CreateContextOptions) => {
   return {
     session: opts.session,
     prisma,
+    requestIdentity: opts.requestIdentity,
   };
 };
 
@@ -55,6 +58,7 @@ export const createTRPCContext = async (opts: CreateNextContextOptions) => {
   
   return createInnerTRPCContext({
     session,
+    requestIdentity: requestIdentity(req),
   });
 };
 

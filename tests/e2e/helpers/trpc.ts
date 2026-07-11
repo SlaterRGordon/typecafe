@@ -3,6 +3,14 @@ import superjson from "superjson";
 
 type ProcedureInput = Record<string, unknown> | undefined;
 interface MockTrpcOptions {
+  savedColors?: Array<{
+    id: string;
+    name: string;
+    background: string;
+    text: string;
+    primary: string;
+    secondary: string;
+  }>;
   savedTrainProgress?: unknown[];
   importedTrainProgress?: unknown[];
   profileImage?: string | null;
@@ -168,11 +176,12 @@ function progressRollupsFromEntries(input: ProcedureInput) {
     if (!raw || typeof raw !== "object") continue;
     const entry = raw as Record<string, unknown>;
     if (typeof entry.wpm !== "number" || typeof entry.accuracy !== "number" || typeof entry.t !== "number") continue;
+    const netWpm = Math.max(0, entry.wpm * (2 * entry.accuracy / 100 - 1));
     const day = new Date(entry.t).toISOString().slice(0, 10);
     const current = byDay.get(day) ?? { day, tests: 0, bestWpm: 0, totalWpm: 0, totalAccuracy: 0, totalConsistency: 0, consistencySamples: 0 };
     current.tests += 1;
-    current.bestWpm = Math.max(current.bestWpm, entry.wpm);
-    current.totalWpm += entry.wpm;
+    current.bestWpm = Math.max(current.bestWpm, netWpm);
+    current.totalWpm += netWpm;
     current.totalAccuracy += entry.accuracy;
     if (typeof entry.c === "number") {
       current.totalConsistency += entry.c;
@@ -370,7 +379,9 @@ function responseForProcedure(procedure: string, input: ProcedureInput, options:
     case "user.delete":
       return currentProfileUser;
     case "color.getByUser":
-      return [];
+      return options.savedColors ?? [];
+    case "color.delete":
+      return null;
     case "color.create":
       return null;
     case "scoreShare.create":

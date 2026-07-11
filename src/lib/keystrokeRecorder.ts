@@ -4,17 +4,17 @@
 // concentrating them here makes the recording semantics (especially backspace)
 // unit-testable without mounting Typer.
 //
-// Forward keystroke: append() records the committed key (events), advances the
-// net character count (timeline + characterCount), and tallies the per-character
-// attempt. Backspace: backspace() only walks the net count back — it never
-// rewrites the event log or the attempt tallies, matching what diagnosis wants
-// (the keys the user actually committed to) and what the live counters showed.
+// Forward keystroke: append() records the analytics event and persisted evidence,
+// advances the net character count, and tallies the per-character attempt.
+// Backspace records persisted evidence and walks the net count back, but never
+// rewrites forward analytics or attempt tallies.
 
 import type { Keystroke } from "./stats"
-import type { KeystrokeEvent } from "./keystrokes"
+import type { KeystrokeEvent, TestEvidenceEvent } from "./keystrokes"
 
 export interface KeystrokeBundle {
     events: KeystrokeEvent[]
+    evidence: TestEvidenceEvent[]
     timeline: Keystroke[]
     characterCount: number
     incorrectCount: number
@@ -26,6 +26,7 @@ export interface KeystrokeRecorder {
     backspace(t?: number): void
     reset(): void
     readonly events: KeystrokeEvent[]
+    readonly evidence: TestEvidenceEvent[]
     readonly timeline: Keystroke[]
     readonly charAttempts: Map<string, { attempts: number, correct: number }>
     readonly characterCount: number
@@ -35,6 +36,7 @@ export interface KeystrokeRecorder {
 
 export function createKeystrokeRecorder(): KeystrokeRecorder {
     let events: KeystrokeEvent[] = []
+    let evidence: TestEvidenceEvent[] = []
     let timeline: Keystroke[] = []
     let charAttempts = new Map<string, { attempts: number, correct: number }>()
     // Per-position correctness, so backspace can undo an incorrect mark exactly
@@ -45,7 +47,9 @@ export function createKeystrokeRecorder(): KeystrokeRecorder {
 
     return {
         append(expected, correct, t = Date.now()) {
-            events.push({ key: expected, correct, t })
+            const event = { key: expected, correct, t }
+            events.push(event)
+            evidence.push(event)
             position += 1
             timeline.push({ t, chars: position })
             charStates[position - 1] = correct ? "correct" : "incorrect"
@@ -58,6 +62,7 @@ export function createKeystrokeRecorder(): KeystrokeRecorder {
         },
         backspace(t = Date.now()) {
             if (position === 0) return
+            evidence.push({ action: "backspace", t })
             position -= 1
             timeline.push({ t, chars: position })
             if (charStates[position] === "incorrect") incorrect = Math.max(incorrect - 1, 0)
@@ -65,6 +70,7 @@ export function createKeystrokeRecorder(): KeystrokeRecorder {
         },
         reset() {
             events = []
+            evidence = []
             timeline = []
             charAttempts = new Map()
             charStates = []
@@ -72,6 +78,7 @@ export function createKeystrokeRecorder(): KeystrokeRecorder {
             incorrect = 0
         },
         get events() { return events },
+        get evidence() { return evidence },
         get timeline() { return timeline },
         get charAttempts() { return charAttempts },
         get characterCount() { return position },
@@ -79,6 +86,7 @@ export function createKeystrokeRecorder(): KeystrokeRecorder {
         finalize() {
             return {
                 events,
+                evidence,
                 timeline,
                 characterCount: position,
                 incorrectCount: incorrect,

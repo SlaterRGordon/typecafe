@@ -3,7 +3,7 @@ import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { useSession } from "next-auth/react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { TrendChart } from "~/components/progress/TrendChart";
 import { GoalCard } from "~/components/progress/GoalCard";
 import { KeyHeatmap, KeyHeatmapLegend } from "~/components/heatmap/KeyHeatmap";
@@ -68,7 +68,7 @@ function HeroDeltaLine(props: { start: number | null; current: number; delta: nu
         <div data-testid="headline-start-current" className="flex items-center gap-3 sm:gap-5">
             <div className="shrink-0">
                 <div className="font-mono text-xl font-semibold text-base-content/70 sm:text-2xl">
-                    {props.start === null ? "—" : props.start.toFixed(1)}
+                    {props.start === null ? "-" : props.start.toFixed(1)}
                 </div>
                 <div className="text-[0.6rem] font-semibold uppercase tracking-wide text-base-content/40">Start</div>
             </div>
@@ -258,7 +258,7 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
     // The board the heatmap below renders (and whose stats pool feeds it).
     const [activeBoardLayout] = useLayout();
     // Heatmap layer switches: attempts are stored unfolded (char-keyed), so the
-    // shift/AltGr layers read each glyph's own tally — R apart from r, € apart
+    // shift/AltGr layers read each glyph's own tally - R apart from r, € apart
     // from e. Mutually exclusive (each turns the other off), so the board shows
     // one layer at a time. AltGr only offers itself on layouts that have it.
     const [heatmapShift, setHeatmapShift] = useState(false);
@@ -269,7 +269,7 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
 
     // Drop junk tests (stopped typing, key-mash restarts) once, up front, so the
     // delta, trend line, records and best chip are all computed from clean data.
-    // Progress combines every mode and length into one view — no per-mode/length
+    // Progress combines every mode and length into one view - no per-mode/length
     // filtering, so the only knob left is the time period.
     const cleanRecords = useMemo(() => rejectOutliers(props.records), [props.records]);
 
@@ -278,12 +278,12 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
     const inPeriod = useMemo(() => filterByPeriod(cleanRecords, period, now), [cleanRecords, period, now]);
     const records = useMemo(() => personalRecords(cleanRecords), [cleanRecords]);
 
-    // Straight least-squares fit per metric — one readable line instead of a
+    // Straight least-squares fit per metric - one readable line instead of a
     // wiggly rolling average, aligned 1:1 with the scatter points.
-    const fitLine = (values: number[]) => {
+    const fitLine = useCallback((values: number[]) => {
         const line = linearTrend(series.points.map((p) => p.t), values);
         return series.points.map((p) => line.at(p.t));
-    };
+    }, [series.points]);
     const wpm = useMemo(() => {
         const values = series.points.map((p) => p.wpm);
         const line = linearTrend(series.points.map((p) => p.t), values);
@@ -292,7 +292,7 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
     const accuracy = useMemo(() => {
         const values = series.points.map((p) => p.accuracy);
         return { values, trend: fitLine(values) };
-    }, [series]);
+    }, [fitLine, series]);
     // Consistency only exists on tests recorded since the feature shipped; show the
     // chart once every point in the window has it (no mixing real values with 0s).
     const consistency = useMemo(() => {
@@ -300,14 +300,14 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
         if (values.length === 0 || values.some((v) => typeof v !== "number")) return null;
         const nums = values as number[];
         return { values: nums, trend: fitLine(nums) };
-    }, [series]);
+    }, [fitLine, series]);
 
     // The hero delta reads off the WPM trend line's endpoints, so the headline
-    // number is exactly the slope the chart shows — not a separate noisy
+    // number is exactly the slope the chart shows - not a separate noisy
     // window-average subtraction that flips sign on a single junk test.
     const hero = useMemo(() => heroDelta(series.points), [series]);
 
-    // Best WPM per local day, fit to a straight least-squares line — a lighter
+    // Best WPM per local day, fit to a straight least-squares line - a lighter
     // ceiling trend behind the WPM trend. Two endpoints (not the jagged daily
     // points) so it reads as a direction at a glance, same as the main trend.
     const bestPerDay = useMemo(() => {
@@ -320,7 +320,7 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
     }, [inPeriod, now]);
     const plateau = useMemo(() => detectPlateau(cleanRecords, now), [cleanRecords, now]);
     const slowTransitions = useMemo(() => worstTransitions(props.transitions), [props.transitions]);
-    // The active language's accent chars (loaded on demand; [] for English) —
+    // The active language's accent chars (loaded on demand; [] for English) -
     // they let weak é/ü/ą show as drillable keys, and gate out keys from other
     // languages/layouts the user isn't currently on.
     const [accentChars, setAccentChars] = useState<string[]>([]);
@@ -462,7 +462,7 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
                             />
                         ) : hasData ? (
                             // Enough to chart, but no comparison window yet: a flat line
-                            // off the current average — the hero reads the same shape,
+                            // off the current average - the hero reads the same shape,
                             // just with no change to show. The chart and goal below
                             // carry the rest of the story.
                             <HeroDeltaLine
@@ -589,7 +589,7 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
                     {Object.keys(props.keyAttempts).length === 0 && (
                         <p className="mt-4 text-center text-sm text-base-content/45">Take more tests to color in your per-key accuracy.</p>
                     )}
-                    {/* Layer switches sit bottom-left of the board itself — they
+                    {/* Layer switches sit bottom-left of the board itself - they
                         change what the board shows, so they live with it. */}
                     <div className="mt-2 flex items-center justify-between gap-3">
                         <div className="flex items-center gap-1" data-testid="lifetime-heatmap-layers">
@@ -645,7 +645,7 @@ const Progress: NextPage = () => {
     const router = useRouter();
     // Progress is scoped to the global language. Daily rollups (DailyUserStat, incl.
     // imported guest history) carry no language, so recordsForLanguage counts them as
-    // English — the historical default: the English view keeps the old/imported tail,
+    // English - the historical default: the English view keeps the old/imported tail,
     // other languages show only their own raw records (derived-on-read, no schema
     // change; ADR-0005: rollups are re-aggregatable from timelines if ever split).
     const [language] = useLanguage();
@@ -711,14 +711,14 @@ const Progress: NextPage = () => {
     }, [guest]);
     const guestTransitions: TransitionAggregate[] = guest?.transitions ?? [];
     // Dashboard-vs-signup-pitch keys off having ANY progress, not the language-
-    // filtered slice — otherwise a guest with English history sees the signup pitch
+    // filtered slice - otherwise a guest with English history sees the signup pitch
     // the moment they switch to a language they haven't typed.
     const hasAnyGuestProgress = (guest?.progress ?? []).length > 0;
 
     return (
         <>
             <Head>
-                <title>Progress — TypeCafe</title>
+                <title>Progress - TypeCafe</title>
                 <meta name="description" content="Your typing progress over time: WPM trend, accuracy, and the improvement that proves you're getting faster." />
             </Head>
             <div className="flex h-full w-full justify-center items-start overflow-auto px-4 py-8">
@@ -736,11 +736,11 @@ const Progress: NextPage = () => {
                             <ProgressDashboard language={language} records={guestRecords} keyAttempts={guestKeyAttempts} transitions={guestTransitions} />
                         </div>
                     ) : (
-                        // No local history yet — the page is the signup pitch.
+                        // No local history yet - the page is the signup pitch.
                         <div data-testid="progress-signed-out" className="mt-10 w-full max-w-md space-y-4 text-center">
                             <h1 className="font-mono text-3xl font-bold tracking-tight">Your progress, kept forever</h1>
                             <p className="text-base-content/60">
-                                Sign in to track every test — your WPM trend, accuracy, and the chart that proves you&apos;re getting faster.
+                                Sign in to track every test - your WPM trend, accuracy, and the chart that proves you&apos;re getting faster.
                             </p>
                             <label htmlFor="signInModal" className="inline-flex cursor-pointer items-center rounded-md bg-primary px-5 py-2.5 text-sm font-semibold text-primary-content transition hover:opacity-85">
                                 Sign in to track progress

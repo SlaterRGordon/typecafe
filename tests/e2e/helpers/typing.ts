@@ -28,7 +28,7 @@ async function pressChar(page: Page, char: string) {
 }
 
 export async function typeVisibleTestText(page: Page) {
-  // Wait for the test to be ready (first char active) before reading the text —
+  // Wait for the test to be ready (first char active) before reading the text -
   // a just-triggered restart may still be regenerating it.
   await expect(page.locator("#c0")).toHaveClass(/active-char/);
   const characters = await page.locator("#words .char").allTextContents();
@@ -37,7 +37,7 @@ export async function typeVisibleTestText(page: Page) {
 
   // The typer drops keystrokes for a brief window around a restart; press the
   // first character until it registers (the active char advances), then type
-  // the rest. (Callers only need completion — none count exact keystrokes.)
+  // the rest. (Callers only need completion - none count exact keystrokes.)
   await expect(async () => {
     await pressChar(page, first);
     await expect(page.locator("#c0")).not.toHaveClass(/active-char/, { timeout: 500 });

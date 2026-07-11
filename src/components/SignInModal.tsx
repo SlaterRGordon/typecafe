@@ -2,8 +2,14 @@ import { signIn } from "next-auth/react";
 import { useRouter } from "next/router";
 import { useState } from "react";
 import { api } from "~/utils/api";
+import { emailSchema, passwordSchema, usernameSchema, USERNAME_MAX_LENGTH } from "~/lib/userProfile";
 
-export const SignInModal = () => {
+interface SignInModalProps {
+    open: boolean;
+    onClose: () => void;
+}
+
+export const SignInModal = ({ open, onClose }: SignInModalProps) => {
     const router = useRouter()
     const [email, setEmail] = useState("")
     const [username, setUsername] = useState("")
@@ -14,16 +20,14 @@ export const SignInModal = () => {
     const [error, setError] = useState("")
     const callbackUrl = router.asPath || "/"
     const closeSignInModal = () => {
-        const modal = document.getElementById("signInModal") as HTMLInputElement | null
-        if (modal) {
-            modal.checked = false
-        }
+        onClose()
     }
 
     const register = api.user.registerUser.useMutation({
         onSuccess: async () => {
+            const normalizedEmail = emailSchema.parse(email)
             const result = await signIn("login", {
-                email,
+                email: normalizedEmail,
                 password,
                 callbackUrl,
                 redirect: false,
@@ -45,11 +49,7 @@ export const SignInModal = () => {
     const onUsernameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const newUsername = e.target.value
         setUsername(newUsername)
-        if (newUsername.length > 0) {
-            setUsernameError(false)
-        } else {
-            setUsernameError(true)
-        }
+        setUsernameError(!usernameSchema.safeParse(newUsername).success)
     }
 
     const [emailError, setEmailError] = useState(true)
@@ -57,15 +57,7 @@ export const SignInModal = () => {
         const newEmail = e.target.value
         setEmail(newEmail)
 
-        if (newEmail.toLowerCase()
-            .match(
-                /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|.(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/
-            )
-        ) {
-            setEmailError(false)
-        } else {
-            setEmailError(true)
-        }
+        setEmailError(!emailSchema.safeParse(newEmail).success)
     }
 
     const [passwordError, setPasswordError] = useState(true)
@@ -73,19 +65,7 @@ export const SignInModal = () => {
         const newPassword = e.target.value
         setPassword(newPassword)
 
-        const lowerCaseLetters = /[a-z]/g;
-        const upperCaseLetters = /[A-Z]/g;
-        const numbers = /[0-9]/g;
-
-        if (newPassword.match(lowerCaseLetters) &&
-            newPassword.match(upperCaseLetters) &&
-            newPassword.match(numbers) &&
-            newPassword.length >= 8
-        ) {
-            setPasswordError(false)
-        } else {
-            setPasswordError(true)
-        }
+        setPasswordError(!passwordSchema.safeParse(newPassword).success)
     }
 
     const handleSignIn = (e: React.MouseEvent<HTMLButtonElement, MouseEvent>, provider: string) => {
@@ -119,8 +99,8 @@ export const SignInModal = () => {
             }
 
             register.mutate({
-                email,
-                username,
+                email: emailSchema.parse(email),
+                username: usernameSchema.parse(username),
                 password,
             })
         }
@@ -133,21 +113,28 @@ export const SignInModal = () => {
 
     return (
         <>
-            <input type="checkbox" id="signInModal" className="modal-toggle" />
-            <label htmlFor="signInModal" className="modal modal-bottom sm:modal-middle cursor-pointer">
-                <label htmlFor="" className="modal-box space-y-4">
+            <input
+                type="checkbox"
+                id="signInModal"
+                className="modal-toggle"
+                checked={open}
+                onChange={(event) => { if (!event.target.checked) onClose() }}
+            />
+            <div role="dialog" aria-modal="true" aria-label="Sign in" className="modal modal-bottom sm:modal-middle cursor-pointer" onClick={onClose}>
+                <div className="modal-box space-y-4" onClick={(event) => event.stopPropagation()}>
                     <form className="flex flex-col gap-2" onSubmit={onSubmit}>
                         {error != "" &&
                             <div role="alert" className="alert alert-error justify-normal">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                                 <span>{error}</span>
                             </div>
                         }
                         <div className="flex flex-col">
-                            <h3 className="font-semibold text-2xl p-1">Email</h3>
+                            <label htmlFor="emailInput" className="font-semibold text-2xl p-1">Email</label>
                             <input
                                 id="emailInput"
-                                type="text" placeholder="Email"
+                                type="email" placeholder="Email"
+                                autoComplete="email"
                                 className={`w-full input input-bordered ${emailError ? "input-error" : ""}`}
                                 value={email}
                                 onChange={onEmailChange}
@@ -155,10 +142,12 @@ export const SignInModal = () => {
                         </div>
                         {!signInForm &&
                             <div className="flex flex-col">
-                                <h3 className="font-semibold text-2xl p-1">Username</h3>
+                                <label htmlFor="usernamInput" className="font-semibold text-2xl p-1">Username</label>
                                 <input
                                     id="usernamInput"
                                     type="text" placeholder="Username"
+                                    autoComplete="username"
+                                    maxLength={USERNAME_MAX_LENGTH}
                                     className={`w-full input input-bordered ${usernameError ? "input-error" : ""}`}
                                     value={username}
                                     onChange={onUsernameChange}
@@ -166,11 +155,12 @@ export const SignInModal = () => {
                             </div>
                         }
                         <div className="flex flex-col">
-                            <h3 className="font-semibold text-2xl p-1">Password</h3>
-                            <label className={`flex items-center gap-2 ${passwordError ? "input-error" : ""}`}>
+                            <label htmlFor="passwordInput" className="font-semibold text-2xl p-1">Password</label>
+                            <div className={`flex items-center gap-2 ${passwordError ? "input-error" : ""}`}>
                                 <input
                                     id="passwordInput"
                                     type={`${showPassword ? "text" : "password"}`} placeholder="Password"
+                                    autoComplete={signInForm ? "current-password" : "new-password"}
                                     value={password}
                                     className={`grow input input-bordered  ${passwordError ? "input-error" : ""}`}
                                     onChange={onPasswordChange} />
@@ -187,7 +177,7 @@ export const SignInModal = () => {
                                         <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" height="24" viewBox="0 -960 960 960" width="24"><path fill="currentColor" d="M480-320q75 0 127.5-52.5T660-500q0-75-52.5-127.5T480-680q-75 0-127.5 52.5T300-500q0 75 52.5 127.5T480-320Zm0-72q-45 0-76.5-31.5T372-500q0-45 31.5-76.5T480-608q45 0 76.5 31.5T588-500q0 45-31.5 76.5T480-392Zm0 192q-146 0-266-81.5T40-500q54-137 174-218.5T480-800q146 0 266 81.5T920-500q-54 137-174 218.5T480-200Zm0-300Zm0 220q113 0 207.5-59.5T832-500q-50-101-144.5-160.5T480-720q-113 0-207.5 59.5T128-500q50 101 144.5 160.5T480-280Z" /></svg>
                                     }
                                 </button>
-                            </label>
+                            </div>
                         </div>
                         <button type="submit" className="btn btn-block btn-primary mt-2">
                             <span className="ml-2">{signInForm ? "Sign In" : "Sign Up"}</span>
@@ -211,8 +201,8 @@ export const SignInModal = () => {
                             <span className="ml-2">Already a member? Sign In</span>
                         </button>
                     }
-                </label>
-            </label>
+                </div>
+            </div>
         </>
     )
 }

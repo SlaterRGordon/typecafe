@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { addAlert } from "~/state/alert/alertSlice";
 import { TestModes } from "./types";
 import { getActiveKey, subscribeActiveKey } from "./keySignal";
@@ -22,7 +22,7 @@ interface KeyboardProps {
     baseAttemptsRef?: React.MutableRefObject<Map<string, { attempts: number, correct: number }>>,
     highlightKeys?: string[],
     // Practice: the combined shift-layer state (sticky settings-line toggle OR a
-    // held-Shift peek) — both owned by the page so the label and board stay in sync.
+    // held-Shift peek) - both owned by the page so the label and board stay in sync.
     shiftToggle?: boolean,
     // Practice: the AltGr layer equivalent (sticky toggle OR held AltGr). Only
     // wired by pages when the active layout has AltGr glyphs.
@@ -56,10 +56,10 @@ export const Keyboard = (props: KeyboardProps) => {
     const [language] = useLanguage()
 
     // The language's accent chars (derived from its word list once it loads;
-    // [] for English and while loading) — the pool practice can drill beyond
+    // [] for English and while loading) - the pool practice can drill beyond
     // a-z/digits/marks. Split by how the active layout types them: direct
     // glyphs (ü on qwertz-de, ą on Polish AltGr) lock/unlock their own cell;
-    // dead-composed chars (ê on azerty-fr) ride their dead key — one click
+    // dead-composed chars (ê on azerty-fr) ride their dead key - one click
     // toggles the whole composed set.
     const [accentChars, setAccentChars] = useState<string[]>([])
     useEffect(() => {
@@ -81,11 +81,14 @@ export const Keyboard = (props: KeyboardProps) => {
         }
         return { direct, byDead }
     }, [accentChars, board, layout])
-    const isUnlockable = (glyph: string) => isDrillable(glyph) || accents.direct.has(glyph) || accents.byDead.has(glyph)
+    const isUnlockable = useCallback(
+        (glyph: string) => isDrillable(glyph) || accents.direct.has(glyph) || accents.byDead.has(glyph),
+        [accents],
+    )
 
     // A keystroke never re-renders the board (typing-feel §1): the moving
     // current-key marker is applied imperatively below (and inside KeyHeatmap),
-    // and the heatmap's accuracy shading refreshes only when typing pauses —
+    // and the heatmap's accuracy shading refreshes only when typing pauses -
     // a trailing debounce that re-reads charAttemptsRef. Mid-burst the numbers
     // aren't readable anyway; a calm board while typing is the better behavior.
     const [, setShadingTick] = useState(0)
@@ -103,7 +106,7 @@ export const Keyboard = (props: KeyboardProps) => {
     }, [mode])
 
     // Held-modifier peek for the non-practice (train/guide) board: the pages
-    // don't wire toggles here, so the board itself listens — holding Shift or
+    // don't wire toggles here, so the board itself listens - holding Shift or
     // AltGr peeks that layer, releasing (or blurring) returns to base. The
     // practice board keeps the page-owned combined toggles instead.
     const [heldShift, setHeldShift] = useState(false)
@@ -134,13 +137,13 @@ export const Keyboard = (props: KeyboardProps) => {
 
     // Non-practice board: light the next key by swapping classes on the cells,
     // not by re-rendering. This effect owns every color on the plain board: it
-    // paints the level's keys (bg-secondary) on mount — a dead-composed level
-    // char paints its dead key's cell — then moves the primary marker per
+    // paints the level's keys (bg-secondary) on mount - a dead-composed level
+    // char paints its dead key's cell - then moves the primary marker per
     // keystroke and restores the highlight on leave. The expected char resolves
     // through sequenceFor (ledger decision 7): one step rings its cap (with a
     // ⇧/AG modifier badge when the step needs one), a dead-key char rings both
     // caps with 1→2 step badges. Cells are addressed by data-kb-cell (stable
-    // per physical key), so the marker survives layer peeks — which re-render
+    // per physical key), so the marker survives layer peeks - which re-render
     // the caps and re-run this effect via the held* deps.
     const boardRef = useRef<HTMLDivElement>(null)
     useEffect(() => {
@@ -193,12 +196,14 @@ export const Keyboard = (props: KeyboardProps) => {
     const shiftLayer = shiftToggle
     const altgrLayer = altgrToggle
 
-    // A shifted letter twin (R, Ü) — not its own drill target; it mirrors the
+    // A shifted letter twin (R, Ü) - not its own drill target; it mirrors the
     // base key and rides the capitals add-on.
-    const isCapitalMirror = (glyph: string) =>
-        !isUnlockable(glyph) && glyph.toLowerCase() !== glyph && isPracticeLetter(glyph.toLowerCase())
+    const isCapitalMirror = useCallback(
+        (glyph: string) => !isUnlockable(glyph) && glyph.toLowerCase() !== glyph && isPracticeLetter(glyph.toLowerCase()),
+        [isUnlockable],
+    )
     // A toggled-off text add-on locks its whole key family, whatever the
-    // selection says — the text can't contain them, so the board shouldn't
+    // selection says - the text can't contain them, so the board shouldn't
     // claim otherwise.
     const addOnLocked = (glyph: string) =>
         (isDrillMark(glyph) && !punctuation) || (isDrillDigit(glyph) && !numbers) || (isCapitalMirror(glyph) && !capitals)
@@ -226,7 +231,7 @@ export const Keyboard = (props: KeyboardProps) => {
     }
     // Base cells remain broadly clickable (the handler filters). Every
     // typeable glyph on a shifted/AltGr layer is directly unlockable; capital
-    // twins are clickable too — their click flips the capitals add-on.
+    // twins are clickable too - their click flips the capitals add-on.
     const interactiveKeys = useMemo(() => {
         const layer = activeLayer(shiftLayer, altgrLayer)
         if (layer === "base") return undefined
@@ -239,7 +244,7 @@ export const Keyboard = (props: KeyboardProps) => {
             }
         }
         return allow
-    }, [board, shiftLayer, altgrLayer, accents])
+    }, [board, shiftLayer, altgrLayer, isCapitalMirror, isUnlockable])
 
     const handleKeyClicked = (key: string) => {
         if (!selectedKeys || !setSelectedKeys || mode !== TestModes.practice) return
@@ -253,7 +258,7 @@ export const Keyboard = (props: KeyboardProps) => {
         if (!isUnlockable(key)) return
 
         // Unlocking a mark/digit while its add-on is off turns the add-on on in
-        // the same click (and keeps/gains the selection) — no gear-menu trip.
+        // the same click (and keeps/gains the selection) - no gear-menu trip.
         if (isDrillMark(key) && !punctuation) {
             setPunctuation?.(true)
             if (!selectedKeys.includes(key)) setSelectedKeys([...selectedKeys, key])
@@ -305,7 +310,7 @@ export const Keyboard = (props: KeyboardProps) => {
 
     // Combined lifetime + live-session per-key tally that feeds the analytics
     // heatmap, kept *unfolded* (keyed by the actual char) so the base layer reads
-    // r/;/1 and the shift layer reads R/:/! — each glyph its own accuracy.
+    // r/;/1 and the shift layer reads R/:/! - each glyph its own accuracy.
     const buildStatsAttempts = () => {
         const merged = new Map<string, { attempts: number, correct: number }>()
         const addAll = (m?: Map<string, { attempts: number, correct: number }>) => {
@@ -343,8 +348,8 @@ export const Keyboard = (props: KeyboardProps) => {
                 </div>
                 :
                 // Non-practice modes (train): the same full physical board as the
-                // heatmap — layered keycaps, corner glyphs, dead styling, ISO
-                // shape — rendered plain (no accuracy shading or percentages).
+                // heatmap - layered keycaps, corner glyphs, dead styling, ISO
+                // shape - rendered plain (no accuracy shading or percentages).
                 // The imperative effect above owns the level highlight and the
                 // next-key marker; holding Shift/AltGr peeks those layers.
                 <KeyHeatmap

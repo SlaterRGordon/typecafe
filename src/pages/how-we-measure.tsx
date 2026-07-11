@@ -44,7 +44,7 @@ const HowWeMeasure: NextPage = () => {
 
         <DocumentSection title="Accuracy">
           <p>Accuracy is keystroke accuracy: <code>correct keystrokes / total typed keystrokes</code>. If you type 100 characters and 92 match the expected text, accuracy is 92%.</p>
-          <p>Backspace changes the live character count for speed timing, but it is not a magic eraser for accuracy. The score card reports the correctness of what you typed against the prompt.</p>
+          <p>Backspace removes that position from the score card&apos;s final speed and accuracy. The original attempt still counts in your per-key evidence, so correcting a miss cleans up the result without hiding the weakness from your coach.</p>
         </DocumentSection>
 
         <DocumentSection title="Per-Key Heatmap">
@@ -53,9 +53,9 @@ const HowWeMeasure: NextPage = () => {
         </DocumentSection>
 
         <DocumentSection title="Net WPM">
-          <p>Net WPM is the canonical &quot;WPM&quot; across TypeCafe — the headline number on score cards, the figure leaderboards and personal bests rank by, and what your progress trends and improvement measure. Raw WPM is shown beside it for reference, never as the headline.</p>
+          <p>Net WPM is the canonical &quot;WPM&quot; across TypeCafe - the headline number on score cards, the figure leaderboards and personal bests rank by, and what your progress trends and improvement measure. Raw WPM is shown beside it for reference, never as the headline.</p>
           <p><code>((correct keystrokes - incorrect keystrokes) / 5) / elapsed minutes</code></p>
-          <p>The value is clamped at 0. A fully wrong run can still have raw speed, but it has 0 net WPM. Where only raw WPM and accuracy are stored (older rows, daily rollups), net is derived exactly as <code>raw × (2 × accuracy − 1)</code>.</p>
+          <p>The value is clamped at 0. A fully wrong run can still have raw speed, but it has 0 net WPM. Each saved test&apos;s sortable score and each current daily rollup store net WPM directly; raw speed and accuracy remain available for explanation and compatibility.</p>
         </DocumentSection>
 
         <DocumentSection title="Consistency">
@@ -66,6 +66,7 @@ const HowWeMeasure: NextPage = () => {
 
         <DocumentSection title="Progress &amp; Improvement">
           <p>Progress pages compare your current window against the previous matching window. For example, the 30-day headline compares the last 30 days with the 30 days before that.</p>
+          <p>Daily averages are built by calculating net WPM for each test first, then averaging those net values. TypeCafe does not estimate net speed from separate daily averages.</p>
           <p>Score cards may show a 30-day improvement after save. That requires at least 3 prior ranked tests in the last 30 days, so the comparison has enough evidence to be useful.</p>
         </DocumentSection>
 
@@ -84,12 +85,13 @@ const HowWeMeasure: NextPage = () => {
           <p>Diagnosis only speaks when there is enough evidence. Short tests and one-off slips should not become fake coaching.</p>
           <ul>
             <li><strong>Slow transitions:</strong> a letter pair must appear at least {TRANSITION_MIN_COUNT} times and be at least {TRANSITION_SLOW_RATIO}x slower than your overall transition pace.</li>
-            <li><strong>Recent, not lifetime:</strong> per-key accuracy and per-pair speed are rolling windows — roughly your last {KEY_ATTEMPT_CAP} attempts on a key and {TRANSITION_SAMPLE_CAP} occurrences of a pair. Older samples fade out proportionally, so the coach reflects how you type <em>now</em>, and a weakness you fix stops being flagged once recent typing proves it.</li>
+            <li><strong>Recent, not lifetime:</strong> per-key accuracy and per-pair speed are rolling windows - roughly your last {KEY_ATTEMPT_CAP} attempts on a key and {TRANSITION_SAMPLE_CAP} occurrences of a pair. Older samples fade out proportionally, so the coach reflects how you type <em>now</em>, and a weakness you fix stops being flagged once recent typing proves it.</li>
           </ul>
         </DocumentSection>
 
         <DocumentSection title="Ranked and Unranked Runs">
           <p>Ranked runs feed leaderboards, personal bests, challenge boards, improvement leagues, and percentile brags. Unranked runs still show a result, but they do not compete.</p>
+          <p>Saved speed, accuracy, consistency, and score are replayed on the server from the full keystroke and backspace timeline. The browser does not submit those summary numbers as facts.</p>
           <ul>
             <li>Custom-length tests are unranked.</li>
             <li>Tiny runs are unranked: a ranked test needs at least {RANKABLE_MIN_SECONDS}s of typing and at least {RANKABLE_MIN_KEYSTROKES} keystrokes, so a stray tap never inflates a streak or trend.</li>

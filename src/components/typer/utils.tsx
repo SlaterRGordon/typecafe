@@ -16,7 +16,7 @@ interface WordList {
 
 type QuoteBuckets = { short: string[], medium: string[], long: string[] }
 
-// Quotes load on demand (the JSON is a few hundred KB) — Quotes is a secondary
+// Quotes load on demand (the JSON is a few hundred KB) - Quotes is a secondary
 // mode, so it never belongs in the first-paint bundle.
 let quotes: QuoteBuckets | null = null
 let quotesPromise: Promise<void> | null = null
@@ -28,7 +28,7 @@ export const ensureQuotesLoaded = (): Promise<void> => {
 }
 
 // A random verbatim quote from the chosen length bucket ("all" pools them).
-// Returns "" until the JSON has loaded — callers await ensureQuotesLoaded first.
+// Returns "" until the JSON has loaded - callers await ensureQuotesLoaded first.
 export const generateQuote = (length: QuoteLength): string => {
     if (!quotes) return ""
     const pool = length === "short" || length === "medium" || length === "long"
@@ -38,7 +38,7 @@ export const generateQuote = (length: QuoteLength): string => {
 }
 
 // English ships in the main bundle because it is the default language for every
-// mode. All other word lists (and the 400 KB pentagrams file) load on demand —
+// mode. All other word lists (and the 400 KB pentagrams file) load on demand -
 // they would otherwise dominate the first-paint bundle.
 const languages: Record<string, WordList> = {
     english: english1k,
@@ -74,7 +74,7 @@ export const ensureLanguageLoaded = (language: string): Promise<void> => {
     return languagePromises[language]
 }
 
-// Falls back to English when a language hasn't loaded yet — callers that need a
+// Falls back to English when a language hasn't loaded yet - callers that need a
 // guarantee should await ensureLanguageLoaded first.
 export const getWords = (language: string): string[] =>
     (languages[language] ?? languages.english!).words
@@ -111,7 +111,7 @@ export const clampSize = (base: string, size: WordSize): WordSize =>
 
 // A word test is (global language) × (per-test size). English resolves to its
 // size-specific SCOWL file; every other language loads one frequency-ranked list
-// and slices the top-N — so sizes cost no extra files (derived-on-read). English
+// and slices the top-N - so sizes cost no extra files (derived-on-read). English
 // "1k" is the base `english` key that ships in the main bundle.
 export const resolveWordKey = (language: string, size: WordSize): string => {
     if (language === "english") return size === "1k" ? "english" : `english${size}`
@@ -167,7 +167,7 @@ export const rankNGrams = (words: string[], n: number, limit: number): string[] 
 }
 
 // Non-English Grams derive their n-grams from the language's word list on first use
-// (no gram data files — derived-on-read), memoized per base. English keeps its
+// (no gram data files - derived-on-read), memoized per base. English keeps its
 // curated static arrays. generateNGram slices to its scope before the level walk,
 // so the deepest scope the bar offers (200) is all the depth ever read.
 const NGRAM_DEPTH = 200
@@ -175,7 +175,7 @@ const derivedNGrams = new Map<string, NGrams>()
 
 const gramsFor = (base: string): NGrams => {
     if (base === "english") return ngrams
-    // List not loaded yet (callers ensureSizedLoaded first) — fall back to the
+    // List not loaded yet (callers ensureSizedLoaded first) - fall back to the
     // English grams *without* memoizing them under this base.
     if (!languages[base]) return ngrams
     const cached = derivedNGrams.get(base)
@@ -205,7 +205,7 @@ export const accentChars = (words: string[]): string[] => {
 }
 
 // Derived-on-read per base, memoized like gramsFor. English (and a list that
-// hasn't loaded yet — callers ensureLanguageLoaded first) yields none.
+// hasn't loaded yet - callers ensureLanguageLoaded first) yields none.
 const derivedAccents = new Map<string, string[]>()
 
 export const accentsFor = (base: string): string[] => {
@@ -220,7 +220,7 @@ export const accentsFor = (base: string): string[] => {
 
 // Training/Practice key-drill text: real words from `language` restricted to the
 // unlocked `characters`, with an English-ngram pseudo-word fallback for early key
-// stages where few real words fit. Accented words never survive the a–z filter —
+// stages where few real words fit. Accented words never survive the a–z filter -
 // unless the caller extends `characters` with the language's accents (the train
 // ladder's full-alphabet stretch does; see levels.withLanguageAccents).
 export const generateBetterPseudoText = (count: number, characters: string[], language = "english") => {
@@ -299,8 +299,8 @@ export const generateBetterPseudoText = (count: number, characters: string[], la
         // `< wordLength` (not `!==`) plus the break below guarantees this loop
         // always terminates: each pass either grows newWord or breaks out. With
         // `!==` and a missing gram (e.g. a vowel is needed but no selected key is a
-        // vowel) the word could never reach its target length and the loop — and
-        // the whole UI — would hang. See utils.test.ts "always terminates".
+        // vowel) the word could never reach its target length and the loop - and
+        // the whole UI - would hang. See utils.test.ts "always terminates".
         while(newWord.length < wordLength) {
             let filteredGramsByLength: string[] = []
             let randomGram = ''
@@ -328,7 +328,7 @@ export const generateBetterPseudoText = (count: number, characters: string[], la
                 const randomIndex = Math.floor(Math.random() * filteredGramsByLength.length)
                 randomGram = filteredGramsByLength[randomIndex] as string
             }
-            // Nothing can extend the word — bail out instead of spinning forever.
+            // Nothing can extend the word - bail out instead of spinning forever.
             if (!randomGram) break
             newWord += randomGram
         }
@@ -422,12 +422,12 @@ export const applyTextOptions = (
 export const generateText = (count: number, language: string) => {
     let text = ''
 
-    // Generate random text. `language` is a composed base+size — slice accordingly.
+    // Generate random text. `language` is a composed base+size - slice accordingly.
     const { base, size } = parseLanguage(language)
     const words = getSizedWords(base, size)
     let prev = ''
     for (let i = 0; i < count; i++) {
-        // Re-roll so no word repeats back-to-back — a doubled word reads as a typo
+        // Re-roll so no word repeats back-to-back - a doubled word reads as a typo
         // and breaks flow. ponytail: word lists have hundreds of entries so this
         // terminates in ~1 roll; a single-word list simply can't avoid the repeat.
         let randomWord = prev

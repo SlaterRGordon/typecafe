@@ -16,7 +16,7 @@ import hindi1k from "../components/typer/languages/hindi1k.json"
 
 // Test text is a shareable surface (daily challenge, share cards, screenshots).
 // The frequency lists came from a web corpus, so scrubbed profanity must not
-// sneak back in via a list update. Exact match by design — see blocklist.json.
+// sneak back in via a list update. Exact match by design - see blocklist.json.
 describe("word lists contain no blocklisted words", () => {
     const block = new Set(blocklist.words)
     const lists: [string, string[]][] = [

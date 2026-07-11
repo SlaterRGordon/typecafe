@@ -23,6 +23,8 @@ test.describe("authenticated profile", () => {
 
     await expect(page.getByText("testuser").first()).toBeVisible();
     await expect(page.locator("p").getByText("Typing fast, testing faster.")).toBeVisible();
+    await expect(page.getByRole("link", { name: "https://typecafe.vercel.app" })).toHaveAttribute("target", "_blank");
+    await expect(page.getByRole("link", { name: "https://typecafe.vercel.app" })).toHaveAttribute("rel", /noopener/);
 
     await expect(page.getByText("Tests this year")).toBeVisible();
     await expect(page.getByText("minutes typed")).toBeVisible();

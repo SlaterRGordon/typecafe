@@ -10,7 +10,7 @@ interface Props {
 export const PresetButton = ({ name, preset, hoverStyle, setColors }: Props) => {
 
     return (
-        <button style={{ 
+        <button type="button" style={{
             backgroundColor: preset["--b1"], 
             borderColor: "#878787", 
             color: preset["--bc"],

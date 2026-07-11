@@ -17,7 +17,7 @@ export const isDrillDigit = (key: string) => /^[0-9]$/.test(key)
 export const ALL_DIGITS = "0123456789".split("")
 
 // One drillable key: a lowercase letter, a digit, or a drill mark. Capitals fold
-// to their base letter before this check — capitals are diagnosed but not drilled
+// to their base letter before this check - capitals are diagnosed but not drilled
 // directly (the shift motion rides on the base key), so they're not their own key.
 export const isDrillableKey = (key: string) =>
     /^[a-z]$/.test(key) || isDrillDigit(key) || isDrillMark(key)
@@ -94,7 +94,7 @@ export function remapPracticeSelectionByPosition(
 
 // Persisted settings can predate a language/layout switch. Keep every typeable
 // selected token, then minimally repair the letter floor so Practice always has
-// words to build — especially after an accent-only set returns to English.
+// words to build - especially after an accent-only set returns to English.
 export function repairPracticeSelection(selected: readonly string[], layout: string, accents: readonly string[]): string[] {
     const accentSet = new Set(accents)
     const out = [...new Set(selected.filter((key) => tokenKind(key, accentSet) !== null && sequenceFor(key, layout).length > 0))]
@@ -116,15 +116,15 @@ export function repairPracticeSelection(selected: readonly string[], layout: str
     return out
 }
 // Build a practice set from the user's eight least-accurate keys across letters,
-// numbers, punctuation, and the language's accent chars. Weak letters —
-// including accents — anchor word generation, padded with home-row keys and
+// numbers, punctuation, and the language's accent chars. Weak letters -
+// including accents - anchor word generation, padded with home-row keys and
 // balanced for two vowels and a consonant. Numbers/punctuation ride along as
 // extra drill targets; a dead-composed char like ê counts as itself, while its
 // reps ride the ^ cell on the board. Null
 // when there isn't enough typing data yet.
 // minAttempts 3 matches the /progress "weakest keys" list, so smart drill
 // targets exactly the keys shown as weak there.
-// `accents`: the language's accent chars typeable on the active layout — the
+// `accents`: the language's accent chars typeable on the active layout - the
 // caller owns that intersection (language and layout live above lib/).
 export function smartDrillSelection(
     attempts: ReadonlyMap<string, { attempts: number, correct: number }>,

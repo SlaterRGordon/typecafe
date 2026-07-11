@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react"
 import { TestGramScopes, TestGramSources, TestModes, TestSubModes, type QuoteLength, type WordSize } from "../types"
+import { TIMED_TEST_PRESETS, WORD_TEST_PRESETS } from "~/lib/testConfig"
 import { ToolbarMenu } from "./ToolbarMenu"
 import { composeLanguage, parseLanguage } from "../utils"
 import { languageMeta } from "~/lib/languageMeta"
@@ -20,8 +21,8 @@ const TOOLBAR_MODES: ToolbarMode[] = [
     { label: "grams", mode: TestModes.ngrams, defaultCount: 10 },
 ]
 
-const TIMED_LENGTHS = [15, 30, 60, 120]
-const WORD_LENGTHS = [10, 25, 50, 100]
+const TIMED_LENGTHS: readonly number[] = TIMED_TEST_PRESETS
+const WORD_LENGTHS: readonly number[] = WORD_TEST_PRESETS
 const QUOTE_LENGTHS: { value: QuoteLength, label: string }[] = [
     { value: "all", label: "all" },
     { value: "short", label: "short" },
@@ -82,7 +83,7 @@ interface ModeBarProps {
     // keyboard board below the test).
     shiftLayer: boolean
     onToggleShift: () => void
-    // AltGr layer mirror — the toggle renders only for layouts that have AltGr
+    // AltGr layer mirror - the toggle renders only for layouts that have AltGr
     // glyphs at all (hasAltGr), so qwerty/remap boards stay uncluttered.
     altgrLayer: boolean
     onToggleAltgr: () => void
@@ -279,7 +280,7 @@ export function ModeBar(props: ModeBarProps) {
 
     const isActive = (option: ToolbarMode) => {
         if (option.mode === TestModes.normal) {
-            // Timed/Words stay lit under the ∞ relaxed engine too — ∞ is a length,
+            // Timed/Words stay lit under the ∞ relaxed engine too - ∞ is a length,
             // not a different mode.
             const inWordEngine = props.mode === TestModes.normal || props.mode === TestModes.relaxed
             return inWordEngine && props.subMode === option.subMode
@@ -317,7 +318,7 @@ export function ModeBar(props: ModeBarProps) {
         setCustomOpen(true)
     }
 
-    // ∞: no timer (Timed) / infinite words (Words). Both run the relaxed engine —
+    // ∞: no timer (Timed) / infinite words (Words). Both run the relaxed engine -
     // text scrolls forever and the test never auto-completes (free-typing / warmup).
     const handleSelectInfinite = () => {
         props.setMode(TestModes.relaxed)
@@ -479,7 +480,7 @@ export function ModeBar(props: ModeBarProps) {
                             active={props.shiftLayer}
                             onClick={props.onToggleShift}
                             ariaLabel="Show shifted keys (capitals and symbols)"
-                            title="Show shifted keys (capitals & symbols) — or hold Shift"
+                            title="Show shifted keys (capitals & symbols) - or hold Shift"
                         >
                             shift {props.shiftLayer ? "on" : "off"}
                         </TextOpt>
@@ -490,7 +491,7 @@ export function ModeBar(props: ModeBarProps) {
                                     active={props.altgrLayer}
                                     onClick={props.onToggleAltgr}
                                     ariaLabel="Show AltGr keys (accents and symbols)"
-                                    title="Show AltGr keys — or hold AltGr"
+                                    title="Show AltGr keys - or hold AltGr"
                                 >
                                     altgr {props.altgrLayer ? "on" : "off"}
                                 </TextOpt>
@@ -563,7 +564,7 @@ export function ModeBar(props: ModeBarProps) {
                                         ))}
                                     </div>
                                 </div>
-                                {/* Quotes: English-only verbatim prose — hidden for other languages. */}
+                                {/* Quotes: English-only verbatim prose - hidden for other languages. */}
                                 {languageBase === "english" &&
                                     <button
                                         type="button"

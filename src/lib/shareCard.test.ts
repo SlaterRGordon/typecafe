@@ -23,7 +23,7 @@ describe("globalPercentileBrag", () => {
     })
 
     it("stays silent below the flattering threshold", () => {
-        // faster-than 50% — below 60.
+        // faster-than 50% - below 60.
         expect(globalPercentileBrag(5, 10)).toBeNull()
     })
 

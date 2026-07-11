@@ -32,7 +32,7 @@ export async function generateTestText(config: TestTextConfig, gramLevel: number
     const numberPool = numbers ? ALL_DIGITS : []
 
     if (mode === TestModes.quotes) {
-        // Quotes are typed verbatim — no lowercasing, no punctuation/capitals
+        // Quotes are typed verbatim - no lowercasing, no punctuation/capitals
         // toggles, no shuffling. applyTextOptions would mangle their own casing.
         await ensureQuotesLoaded()
         return generateQuote(config.quoteLength)

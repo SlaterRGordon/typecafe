@@ -1,4 +1,4 @@
-// Guest mirror of TransitionStat — local-first transition analytics with no
+// Guest mirror of TransitionStat - local-first transition analytics with no
 // account (locked constraint), same shape the DB stores so sync-on-signup is a
 // straight batch-import. Mirrors localSync.ts for key stats.
 

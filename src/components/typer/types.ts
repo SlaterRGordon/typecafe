@@ -3,7 +3,7 @@ import type { EncodedKeystroke } from "~/lib/keystrokes"
 
 export interface TestCompletionResult {
     worstKeys?: KeyAccuracy[],
-    // Compact per-keystroke timeline ([charCode, correct, dtMs] deltas) — the
+    // Compact per-keystroke timeline ([charCode, correct, dtMs] deltas) - the
     // foundation diagnosis and later trends read from. Empty for a no-keystroke test.
     timeline: EncodedKeystroke[],
     speed: number,

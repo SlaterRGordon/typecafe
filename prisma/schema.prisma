@@ -92,13 +92,14 @@ model Test {
     speed     Float
     accuracy  Float
     consistency Float?
+    // Canonical sortable score: net WPM (backfilled in 20260711140000).
     score     Float
     count     Int      @default(0)
     options   String
     punctuation Boolean @default(false)
     capitals    Boolean @default(false)
     ranked      Boolean @default(true)
-    // The keyboard layout the test was typed on (actual id, e.g. "qwertz-de") —
+    // The keyboard layout the test was typed on (actual id, e.g. "qwertz-de") -
     // honesty metadata for score surfaces; aggregation uses statsPoolFor
     // (docs/features/keyboard-layouts.md decisions 6/10). Legacy rows = qwerty.
     layout    String   @default("qwerty")
@@ -137,6 +138,17 @@ model ScoreShare {
 
     @@index([testId])
     @@index([userId])
+    @@index([expiresAt])
+}
+
+// Free-tier durable rate limits for unauthenticated write surfaces. Keys are
+// one-way hashes of scope + request identity; raw IP addresses are never stored.
+model PublicWriteQuota {
+    key       String   @id
+    count     Int
+    expiresAt DateTime
+    updatedAt DateTime @updatedAt
+
     @@index([expiresAt])
 }
 
@@ -180,6 +192,9 @@ model DailyUserStat {
     avgAccuracy        Float
     avgConsistency     Float?
     consistencySamples Int      @default(0)
+    // 2 = bestWpm/avgWpm are canonical net WPM. Legacy v1 rows stored raw WPM
+    // and cannot always be converted exactly after per-test evidence was folded.
+    metricVersion      Int      @default(2)
     createdAt          DateTime @default(now())
     updatedAt          DateTime @updatedAt
 
@@ -193,7 +208,7 @@ model DailyUserStat {
 model TransitionStat {
     id        String   @id @default(cuid())
     userId    String
-    // Stats pool (statsPoolFor) — see PracticeStats.pool.
+    // Stats pool (statsPoolFor) - see PracticeStats.pool.
     pool      String   @default("qwerty")
     pair      String   @db.VarChar(2)
     count     Int
@@ -214,7 +229,7 @@ model TrainProgress {
     id         String   @id @default(cuid())
     userId     String
     difficulty String
-    // Stats pool (statsPoolFor) — see PracticeStats.pool.
+    // Stats pool (statsPoolFor) - see PracticeStats.pool.
     pool       String   @default("qwerty")
     options    String
     speed      Float

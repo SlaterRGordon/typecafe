@@ -3,14 +3,14 @@ import { useEffect } from "react"
 // Global Tab→Enter/Space restart shortcut. Tab arms the restart (and highlights
 // the restart button when there is one); the *next* Enter or Space fires it.
 // This is sequential, not a chord: you no longer have to hold Tab down while
-// pressing Enter — Tab then Enter works. Any other key cancels the armed state,
+// pressing Enter - Tab then Enter works. Any other key cancels the armed state,
 // so a stray Tab can't leave a later Space (the word separator) primed to
 // restart mid-test. Suppressed while any modal is open so modal keyboard
 // navigation keeps working.
 //
 // A near-simultaneous Tab+Space (or Tab+Enter) can arrive with the restart key
-// *before* Tab — the OS reports two all-but-simultaneous presses in scan order,
-// not press order — which would leave the space unarmed and skip the restart.
+// *before* Tab - the OS reports two all-but-simultaneous presses in scan order,
+// not press order - which would leave the space unarmed and skip the restart.
 // So a restart key also records its time; a Tab landing within CHORD_WINDOW_MS
 // after it fires the restart anyway (the space already typed is wiped by it).
 const CHORD_WINDOW_MS = 80
@@ -56,7 +56,7 @@ export function useRestartShortcut(
                 e.preventDefault()
                 e.stopPropagation()
                 // Chord race: the restart key beat Tab through the event queue.
-                // Honour it — the space it already typed is wiped by the restart.
+                // Honour it - the space it already typed is wiped by the restart.
                 if (performance.now() - lastRestartKeyAt < CHORD_WINDOW_MS) {
                     disarm()
                     lastRestartKeyAt = 0

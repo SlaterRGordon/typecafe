@@ -103,7 +103,7 @@ const Challenge: NextPage = () => {
     // mounted so the server/first-client render agree (no hydration mismatch).
     const [nowTs, setNowTs] = useState<number | null>(null);
     const charAttemptsRef = useRef<Map<string, { attempts: number; correct: number }>>(new Map());
-    // True while the result card is on screen for the current attempt — guards the
+    // True while the result card is on screen for the current attempt - guards the
     // async save upgrade from re-showing the card after the user already restarted.
     const cardActiveRef = useRef(false);
     const utils = api.useUtils();
@@ -137,16 +137,16 @@ const Challenge: NextPage = () => {
         // the user already dismissed/restarted (its eager render set the flag).
         if (result.persisted && !cardActiveRef.current) return;
         cardActiveRef.current = true;
-        // Record the challenge and refresh the boards once — on the first (eager)
-        // report — not again when the save settles.
+        // Record the challenge and refresh the boards once - on the first (eager)
+        // report - not again when the save settles.
         if (dateKey) {
             // Store net (the canonical WPM) so the guest challenge status/board
-            // matches the signed-in path — guests only ever report eagerly.
+            // matches the signed-in path - guests only ever report eagerly.
             if (!result.persisted) {
                 recordLocalChallenge({ dateKey, wpm: result.netWpm, accuracy: result.accuracy, t: Date.now() });
             }
             // Refresh on every report: a signed-in user's score only lands in the DB
-            // on the persisted upgrade, so the boards must refetch then too —
+            // on the persisted upgrade, so the boards must refetch then too -
             // otherwise a replay's new score never shows until a full reload.
             void utils.test.getDailyChallengeStatus.invalidate({ dateKey });
             void utils.test.getDailyChallengeBoards.invalidate({ dateKey, limit: 10 });

@@ -21,7 +21,7 @@ function read(): string {
         const legacy = (JSON.parse(localStorage.getItem(LEGACY_KEY) ?? "{}") as { language?: string }).language
         if (typeof legacy === "string") return parseLanguage(legacy).base
     } catch {
-        // Corrupt or unavailable storage — fall through to the default.
+        // Corrupt or unavailable storage - fall through to the default.
     }
     return "english"
 }

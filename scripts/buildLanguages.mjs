@@ -1,4 +1,4 @@
-// @ts-nocheck  — standalone Node build script, not part of the app/tsc build.
+// @ts-nocheck  - standalone Node build script, not part of the app/tsc build.
 // Regenerates the non-English word lists from open, permissively-licensed data.
 //
 //   Frequency data: Hermit Dave / FrequencyWords (OpenSubtitles 2018, MIT)

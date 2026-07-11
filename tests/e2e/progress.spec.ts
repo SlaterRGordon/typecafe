@@ -49,7 +49,7 @@ test.describe("progress dashboard", () => {
     await expect(page.getByTestId("progress-language-chip")).toHaveText("English");
     await expect(page.getByTestId("headline-delta")).toBeVisible();
 
-    // Switching language in the nav rescopes progress — no French records → empty.
+    // Switching language in the nav rescopes progress - no French records → empty.
     await page.getByTestId("nav-language-trigger").click();
     await page.getByTestId("nav-language-menu").getByRole("button", { name: "French" }).click();
     await expect(page.getByTestId("progress-language-chip")).toHaveText("French");
@@ -63,7 +63,7 @@ test.describe("progress dashboard", () => {
     await gotoProgress(page);
 
     // The headline delta is the largest number on the page and answers
-    // "am I getting faster?" — the mocked history rises, so it's positive.
+    // "am I getting faster?" - the mocked history rises, so it's positive.
     const headline = page.getByTestId("headline-delta");
     await expect(headline).toBeVisible();
     await expect(headline.getByText(/\+\d/)).toBeVisible();
@@ -101,7 +101,7 @@ test.describe("progress dashboard", () => {
     // Weak spots → drill (§6.4): top weak keys + slowest transitions, each → /drill.
     const weak = page.getByTestId("weak-spots");
     await expect(weak).toBeVisible();
-    // r (80%) is weaker than e (96.7%), so it leads the weakest-keys CTA — the
+    // r (80%) is weaker than e (96.7%), so it leads the weakest-keys CTA - the
     // keys show as chips above the button; the button just carries the action,
     // and the drill href preserves their order.
     const drillWeak = weak.getByRole("link", { name: /Drill weakest keys/ });
@@ -155,7 +155,7 @@ test.describe("progress dashboard", () => {
     await page.addInitScript(() => window.localStorage.setItem("typecafe:lastRecapAt", String(Date.now())));
     await gotoProgress(page);
 
-    // Mode/length filters are gone — every test rolls into one combined view.
+    // Mode/length filters are gone - every test rolls into one combined view.
     await expect(page.getByTestId("progress-filters")).toHaveCount(0);
     await expect(page.getByTestId("progress-mode-filter")).toHaveCount(0);
     await expect(page.getByTestId("progress-length-filter")).toHaveCount(0);

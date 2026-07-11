@@ -1,16 +1,16 @@
 // Seeds the competitive TestType rows a language needs before signed-in scores
 // will save + rank (Typer guards saving on testType?.id; type.get returns null
-// for an unseeded language — see src/lib/typeLanguage.ts).
+// for an unseeded language - see src/lib/typeLanguage.ts).
 //
 // Each competitive language gets two rows: timed (mode 0, subMode 0) and words
 // (mode 0, subMode 1), both competitive. There's no unique constraint on
-// (mode, subMode, language), so inserts are guarded WHERE NOT EXISTS — the
+// (mode, subMode, language), so inserts are guarded WHERE NOT EXISTS - the
 // script is safe to re-run and to point at both the dev and prod databases.
 //
 //   Dev:   node --env-file=.env.local scripts/seedCompetitiveTypes.mjs
 //   Prod:  node --env-file=.env       scripts/seedCompetitiveTypes.mjs
 
-// @ts-nocheck  — standalone Node seed script, not part of the app/tsc build.
+// @ts-nocheck  - standalone Node seed script, not part of the app/tsc build.
 import pg from "pg";
 
 const LANGUAGES = ["german", "italian", "portuguese", "dutch", "polish"];

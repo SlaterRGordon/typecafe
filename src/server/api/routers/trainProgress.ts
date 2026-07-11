@@ -12,7 +12,7 @@ const difficultySchema = z.enum(DIFFICULTIES as [DifficultyName, ...DifficultyNa
 
 // Ladder progress is keyed per stats pool (docs/features/keyboard-layouts.md
 // decision 6); absent = the legacy qwerty pool. getSummary (the profile) stays
-// cross-pool — the profile is a lifetime showcase across pools, like languages.
+// cross-pool - the profile is a lifetime showcase across pools, like languages.
 const poolSchema = z.string().max(32).optional();
 
 const trainProgressInput = z.object({

@@ -18,7 +18,7 @@ function readGoal(): StoredGoal | null {
         if (typeof v.targetWpm === "number" && Number.isFinite(v.targetWpm) && typeof v.targetDate === "string") {
             return { targetWpm: v.targetWpm, targetDate: v.targetDate }
         }
-    } catch { /* corrupt — ignore */ }
+    } catch { /* corrupt - ignore */ }
     return null
 }
 
@@ -116,7 +116,7 @@ export function GoalCard(props: { records: ProgressRecord[]; now: Date }) {
 
     if (!goal) return null
 
-    // Where the fitted trend lands by the deadline — the "projected" marker.
+    // Where the fitted trend lands by the deadline - the "projected" marker.
     const projectedWpm = trajectory && trajectory.enoughData
         ? trajectory.currentWpm + trajectory.slopePerDay * trajectory.daysToDeadline
         : null
@@ -148,19 +148,19 @@ export function GoalCard(props: { records: ProgressRecord[]; now: Date }) {
             </div>
 
             {!trajectory || !trajectory.enoughData ? (
-                <p data-testid="goal-status" className="mt-2 text-sm text-base-content/60">Keep testing — once there&apos;s a trend, we&apos;ll project whether you&apos;re on pace.</p>
+                <p data-testid="goal-status" className="mt-2 text-sm text-base-content/60">Keep testing - once there&apos;s a trend, we&apos;ll project whether you&apos;re on pace.</p>
             ) : trajectory.gapWpm <= 0 ? (
-                <p data-testid="goal-status" className="mt-2 text-sm font-medium text-success">Already there — you&apos;re averaging {trajectory.currentWpm.toFixed(1)} WPM. Time for a higher target.</p>
+                <p data-testid="goal-status" className="mt-2 text-sm font-medium text-success">Already there - you&apos;re averaging {trajectory.currentWpm.toFixed(1)} WPM. Time for a higher target.</p>
             ) : trajectory.onTrack ? (
                 <p data-testid="goal-status" className="mt-2 text-sm font-medium text-success">
-                    On track — at +{(trajectory.slopePerDay * 7).toFixed(1)} WPM/week you&apos;ll hit {goal.targetWpm} around {trajectory.reachesTargetOn ? formatDate(trajectory.reachesTargetOn) : "soon"}.
+                    On track - at +{(trajectory.slopePerDay * 7).toFixed(1)} WPM/week you&apos;ll hit {goal.targetWpm} around {trajectory.reachesTargetOn ? formatDate(trajectory.reachesTargetOn) : "soon"}.
                 </p>
             ) : (
                 <p data-testid="goal-status" className="mt-2 text-sm font-medium text-error">
-                    Behind — {projectedWpm !== null ? `you're projected to reach ~${projectedWpm.toFixed(0)} WPM by ${formatDate(new Date(goal.targetDate))}. ` : ""}
+                    Behind - {projectedWpm !== null ? `you're projected to reach ~${projectedWpm.toFixed(0)} WPM by ${formatDate(new Date(goal.targetDate))}. ` : ""}
                     {trajectory.requiredSlopePerDay !== null
                         ? `Need +${(trajectory.requiredSlopePerDay * 7).toFixed(1)} WPM/week (you're at +${(trajectory.slopePerDay * 7).toFixed(1)}).`
-                        : "That date has passed — pick a new one."}
+                        : "That date has passed - pick a new one."}
                 </p>
             )}
         </div>

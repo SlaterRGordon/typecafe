@@ -2,8 +2,8 @@ import { useEffect, useState, useRef } from "react";
 import { useWindowSize } from "usehooks-ts";
 import useLocalStorage from "~/utils/hooks/useLocalStorage";
 import { Popover } from "./Popover";
-import { getDarkerShades, hexToHsl } from "~/utils/convertColor";
 import { ColorButton } from "./ColorButton";
+import { applyColors } from "./applyColors";
 import { presets, withReadableContentColors } from "./colorPresets";
 import type { Colors } from "./colorPresets";
 import { PresetButton } from "./PresetButton";
@@ -14,31 +14,12 @@ import { useDispatch } from "react-redux";
 import { addAlert } from "~/state/alert/alertSlice";
 import { ConfigOption } from "../typer/config/ConfigOption";
 
-const colorVariableMap: Record<string, string | undefined> = {
-    "--b1": "--color-base-100",
-    "--b2": "--color-base-200",
-    "--b3": "--color-base-300",
-    "--bc": "--color-base-content",
-    "--p": "--color-primary",
-    "--pc": "--color-primary-content",
-    "--s": "--color-secondary",
-    "--sc": "--color-secondary-content",
-    "--n": "--color-neutral",
-    "--nf": "--color-neutral-content",
+interface ColorModalProps {
+    open: boolean;
+    onClose: () => void;
 }
 
-const setThemeColor = (name: string, hsl: string) => {
-    document.documentElement.style.setProperty(name, hsl)
-    document.documentElement.style.setProperty(`--color${name.slice(1)}`, `hsl(${hsl})`)
-
-    const daisyColor = colorVariableMap[name]
-    if (daisyColor) {
-        document.documentElement.style.setProperty(daisyColor, `hsl(${hsl})`)
-    }
-}
-
-
-export const ColorModal = () => {
+export const ColorModal = ({ open, onClose }: ColorModalProps) => {
     const dispatch = useDispatch()
 
     const { data: sessionData } = useSession()
@@ -47,7 +28,7 @@ export const ColorModal = () => {
     const { data: savedColors, refetch: refetchSavedColors } = api.color.getByUser.useQuery(
         undefined,
         {
-            enabled: !!sessionData,
+            enabled: !!sessionData?.user,
         }
     );
 
@@ -158,29 +139,23 @@ export const ColorModal = () => {
             return
         }
 
-        for (const key in normalizedColors) {
-            if (normalizedColors[key as keyof Colors] != "") {
-                const hsl = hexToHsl(normalizedColors[key as keyof Colors])
-                setThemeColor(key, hsl)
-                if (key == "--b1") {
-                    const darkerShades = getDarkerShades(hexToHsl(normalizedColors[key as keyof Colors]))
-                    setThemeColor("--b2", darkerShades[0] as string)
-                    setThemeColor("--b3", darkerShades[1] as string)
-                    setThemeColor("--n", darkerShades[3] as string)
-                    setThemeColor("--nf", darkerShades[3] as string)
-                } else if (key == "--p" || key == "--s") {
-                    const darkerShades = getDarkerShades(hexToHsl(normalizedColors[key as keyof Colors]))
-                    setThemeColor(`${key}f`, darkerShades[3] as string)
-                }
-            }
-        }
+        applyColors(normalizedColors)
     }, [colors, setColors])
 
     return (
         <>
-            <input onChange={handleClickOutside} type="checkbox" id="colorModal" className="modal-toggle" />
-            <label htmlFor="colorModal" className="modal modal-bottom !my-0 sm:modal-middle cursor-pointer">
-                <label htmlFor="" className="flex flex-col modal-box sm:!w-[440px] !h-[80dvh] sm:!h-[540px] !max-w-5xl gap-2 overflow-hidden">
+            <input
+                onChange={(event) => {
+                    handleClickOutside(event)
+                    if (!event.target.checked) onClose()
+                }}
+                type="checkbox"
+                id="colorModal"
+                className="modal-toggle"
+                checked={open}
+            />
+            <div role="dialog" aria-modal="true" aria-label="Color settings" className="modal modal-bottom !my-0 sm:modal-middle cursor-pointer" onClick={onClose}>
+                <div className="flex flex-col modal-box sm:!w-[440px] !h-[80dvh] sm:!h-[540px] !max-w-5xl gap-2 overflow-hidden" onClick={(event) => event.stopPropagation()}>
                     <div className="flex flex-col h-full min-h-0 gap-3">
                         <h3 className="font-mono font-bold text-4xl px-1 shrink-0 tracking-tight">Colors</h3>
                         <div className="shrink-0">
@@ -212,7 +187,7 @@ export const ColorModal = () => {
                                             })}
                                             {savedColors?.length == 0 && <h2 className="col-span-2 text-xl">No saved colors yet</h2>}
                                         </div>
-                                        <button onClick={() => setTab("Custom")} className="btn btn-block btn-primary shrink-0">
+                                        <button type="button" onClick={() => setTab("Custom")} className="btn btn-block btn-primary shrink-0">
                                             Create New Color
                                         </button>
                                     </>
@@ -266,15 +241,15 @@ export const ColorModal = () => {
                                     </div>
                                 </div>
                                 {sessionData?.user?.id &&
-                                    <button onClick={saveColors} className="btn btn-primary btn-block shrink-0">
+                                    <button type="button" onClick={saveColors} className="btn btn-primary btn-block shrink-0">
                                         Save Color
                                     </button>
                                 }
                             </div>
                         }
                     </div>
-                </label>
-            </label>
+                </div>
+            </div>
             <Popover color={colors[currentKey]} setColor={setColor} isOpen={isOpen} togglePopover={() => setIsOpen(isOpen => !isOpen)} position={position} />
         </>
     )

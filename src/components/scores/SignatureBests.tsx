@@ -2,7 +2,7 @@ import { ScoreCard } from "~/components/scores/ScoreCard";
 import { api } from "~/utils/api";
 
 // The profile's signature personal bests as showcase cards (one per common
-// config). Trophies, not a filterable log — Progress owns the dated PB
+// config). Trophies, not a filterable log - Progress owns the dated PB
 // milestones; this is the proud showcase slice.
 export function SignatureBests(props: { userId?: string }) {
     const { data, isLoading } = api.test.getSignatureBests.useQuery({ userId: props.userId });

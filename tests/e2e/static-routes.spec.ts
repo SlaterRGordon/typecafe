@@ -41,6 +41,22 @@ test.describe("secondary static routes", () => {
     expect(html).toContain('"url":"https://typecafe.app"');
   });
 
+  test("positions the homepage as a measurable typing coach", async ({ page }) => {
+    const response = await page.goto("/");
+    const html = (await response?.text()) ?? "";
+
+    await expect(page).toHaveTitle("TypeCafe - The Typing Coach That Makes You Faster");
+    await expect(page.getByRole("heading", { name: "TypeCafe - the typing coach that makes you faster" })).toHaveCount(1);
+    expect(html).toContain("diagnoses what slows your typing");
+    expect(html).toContain("targeted drills");
+    expect(html).toContain('"applicationCategory":"EducationalApplication"');
+
+    const manifestResponse = await page.request.get("/manifest.json");
+    expect(manifestResponse.ok()).toBe(true);
+    const manifest = await manifestResponse.json() as { description?: string };
+    expect(manifest.description).toContain("drill weak keys and transitions");
+  });
+
   test("content pages self-canonicalize instead of pointing at the homepage", async ({ page }) => {
     const response = await page.goto("/how-to-type-faster");
     const html = (await response?.text()) ?? "";

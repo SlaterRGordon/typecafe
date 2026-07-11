@@ -19,7 +19,7 @@ const targetedInput: PlanInput = {
     historyDays: 30,
 }
 
-describe("generatePlan — calibration", () => {
+describe("generatePlan - calibration", () => {
     it("returns a calibration week with too little history", () => {
         const plan = generatePlan({ ...targetedInput, historyDays: 3 })
         expect(plan.kind).toBe("calibration")
@@ -39,7 +39,7 @@ describe("generatePlan — calibration", () => {
     })
 })
 
-describe("generatePlan — targeted", () => {
+describe("generatePlan - targeted", () => {
     const plan = generatePlan(targetedInput)
 
     it("is a 30-day targeted plan", () => {

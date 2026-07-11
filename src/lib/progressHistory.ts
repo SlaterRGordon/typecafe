@@ -36,7 +36,7 @@ export function readLocalProgress(s = storage()): LocalProgressEntry[] {
         if (!Array.isArray(parsed)) return []
         // Cap on read too, not just on write: a hand-edited (user-editable)
         // localStorage could hold more than CAP, and sync-on-signup rejects a
-        // batch over the server limit — which would silently never clear and retry
+        // batch over the server limit - which would silently never clear and retry
         // forever. Keeping the newest CAP keeps that path bounded.
         return parsed.map(sanitize).filter((e): e is LocalProgressEntry => e !== null).slice(-CAP)
     } catch {

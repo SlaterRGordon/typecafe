@@ -6,6 +6,7 @@ import { Stats, type ProfileStatsData } from "~/components/profile/stats/Stats";
 import { TypingStylePanel } from "~/components/profile/typingStyle/TypingStylePanel";
 import { formatPercentile } from "~/components/profile/stats/utils";
 import { Chip } from "~/components/ui/Chip";
+import { profileLinkSchema } from "~/lib/userProfile";
 import { currentStreak } from "~/lib/progress";
 import { netFromRaw } from "~/lib/stats";
 import { api } from "~/utils/api";
@@ -146,6 +147,8 @@ export function ProfileView(props: { user: ProfileUser; isLoading: boolean; edit
     const { user, isLoading, editable } = props;
     const userId = user?.id;
     const shouldLoadProfileData = !isLoading && !!userId;
+    const parsedProfileLink = profileLinkSchema.safeParse(user?.link ?? "");
+    const safeProfileLink = parsedProfileLink.success && parsedProfileLink.data !== "" ? parsedProfileLink.data : null;
 
     const streakRange = useState(() => ({
         startDate: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000),
@@ -256,10 +259,10 @@ export function ProfileView(props: { user: ProfileUser; isLoading: boolean; edit
                                         {user?.bio && <span className="truncate">{user.bio}</span>}
                                     </p>
                                 }
-                                {user?.link &&
-                                    <a href={user.link} className="inline-flex max-w-full text-xs items-center gap-1.5 truncate text-primary hover:underline">
+                                {safeProfileLink &&
+                                    <a href={safeProfileLink} target="_blank" rel="noopener noreferrer" className="inline-flex max-w-full text-xs items-center gap-1.5 truncate text-primary hover:underline">
                                         <i className="fa-solid fa-link shrink-0" aria-hidden="true" />
-                                        <span className="truncate">{user.link}</span>
+                                        <span className="truncate">{safeProfileLink}</span>
                                     </a>
                                 }
                             </div>

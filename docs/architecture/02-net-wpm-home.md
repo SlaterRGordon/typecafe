@@ -68,3 +68,12 @@ exists (rejected as speculative). ~5 lines changed, 1 test added.
 
 Note: snapshot `netWpm` from `computeStats` is already algebraically `raw·(2a−1)`,
 so only the *fallback* path (older snapshots without `netWpm`) diverges today.
+
+## Storage follow-up (2026-07-11)
+
+The formula still lives in `netFromRaw`, but ranked database ordering now stores
+that canonical value in `Test.score`. This follow-up became load-bearing when a
+full-site audit found profile best/percentile queries ordering the legacy
+`raw·accuracy` score, plus daily rollups trying to reconstruct net from two
+separate averages. Migration `20260711140000_canonical_net_wpm` backfills Test
+scores; version-2 daily rows average per-test net values before folding.

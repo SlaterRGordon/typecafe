@@ -1,4 +1,4 @@
-// Practice plans (Phase 4 §4.4) — the flagship "your 30-day plan". Pure and
+// Practice plans (Phase 4 §4.4) - the flagship "your 30-day plan". Pure and
 // unit-testable. A plan is just an ordered list of days, each a short sequence
 // of drills built from the user's *own* weakness data. Plans reuse existing
 // modes (they never invent test types): every step is a deep-link into a
@@ -9,7 +9,7 @@ import type { SlowTransition } from "./transitions"
 
 export const PLAN_LENGTH_DAYS = 30
 export const CALIBRATION_DAYS = 7
-// Below this much history we can't target weaknesses honestly — run a
+// Below this much history we can't target weaknesses honestly - run a
 // calibration week of varied tests to build the profile first.
 export const MIN_HISTORY_DAYS = 7
 const KEYS_PER_DRILL = 3
@@ -40,7 +40,7 @@ export interface PlanInput {
     // Lifetime worst keys / transitions, worst first (may be empty).
     worstKeys: KeyAccuracy[]
     worstTransitions: SlowTransition[]
-    // The user's main timed/words config — used for warm-ups and benchmarks.
+    // The user's main timed/words config - used for warm-ups and benchmarks.
     benchmark: { subMode: "timed" | "words"; count: number }
     // Days of history available; below MIN_HISTORY_DAYS → calibration plan.
     historyDays: number
@@ -59,12 +59,12 @@ function configHref(subMode: "timed" | "words", count: number): string {
 function warmupStep(): DrillStep {
     // A 15s timed warm-up runs on /drill (same surface as the drills) so the whole
     // session flows through one place with seamless step-to-step advancing.
-    return { kind: "warmup", label: "Warm-up — 15s timed", href: "/drill?seconds=15" }
+    return { kind: "warmup", label: "Warm-up - 15s timed", href: "/drill?seconds=15" }
 }
 
 function benchmarkStep(benchmark: { subMode: "timed" | "words"; count: number }): DrillStep {
     const unit = benchmark.subMode === "timed" ? "s timed" : " words"
-    return { kind: "benchmark", label: `Benchmark — ${benchmark.count}${unit}`, href: configHref(benchmark.subMode, benchmark.count) }
+    return { kind: "benchmark", label: `Benchmark - ${benchmark.count}${unit}`, href: configHref(benchmark.subMode, benchmark.count) }
 }
 
 function keysStep(keys: string[]): DrillStep {
@@ -79,12 +79,12 @@ function transitionStep(t: SlowTransition): DrillStep {
 // when there isn't enough history to target weaknesses.
 function calibrationPlan(benchmark: { subMode: "timed" | "words"; count: number }): Plan {
     const varied: DrillStep[] = [
-        { kind: "calibration", label: "Calibration — 30s timed", href: configHref("timed", 30) },
-        { kind: "calibration", label: "Calibration — 25 words", href: configHref("words", 25) },
-        { kind: "calibration", label: "Calibration — 60s timed", href: configHref("timed", 60) },
-        { kind: "calibration", label: "Calibration — grams", href: "/?mode=grams" },
-        { kind: "calibration", label: "Calibration — 50 words", href: configHref("words", 50) },
-        { kind: "calibration", label: "Calibration — 15s timed", href: configHref("timed", 15) },
+        { kind: "calibration", label: "Calibration - 30s timed", href: configHref("timed", 30) },
+        { kind: "calibration", label: "Calibration - 25 words", href: configHref("words", 25) },
+        { kind: "calibration", label: "Calibration - 60s timed", href: configHref("timed", 60) },
+        { kind: "calibration", label: "Calibration - grams", href: "/?mode=grams" },
+        { kind: "calibration", label: "Calibration - 50 words", href: configHref("words", 50) },
+        { kind: "calibration", label: "Calibration - 15s timed", href: configHref("timed", 15) },
     ]
     const days: PlanDay[] = Array.from({ length: CALIBRATION_DAYS }, (_, i) => {
         const day = i + 1

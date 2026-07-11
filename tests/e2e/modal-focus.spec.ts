@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
+import { mockAuthenticatedSession, mockTrpc } from "./helpers/trpc";
 import { typeCurrentCharacter } from "./helpers/typing";
 
 async function gotoHome(page: Page) {
@@ -25,6 +26,32 @@ async function expectTypingIgnoredWhileModalOpen(page: Page, modal: Locator) {
 }
 
 test.describe("modal focus behavior", () => {
+  test("defers global modal implementations until first intent", async ({ page }) => {
+    await gotoHome(page);
+
+    await expect(page.locator("#colorModal")).toHaveCount(0);
+    await expect(page.locator("#signInModal")).toHaveCount(0);
+
+    await page.getByTestId("nav-color-trigger").click();
+    await expect(page.locator("#colorModal")).toBeChecked();
+    await closeCheckboxModal(page.locator("#colorModal"));
+
+    await page.getByTestId("nav-auth-trigger").click();
+    await expect(page.locator("#signInModal")).toBeChecked();
+  });
+
+  test("applies the saved theme on load without opening the color modal", async ({ page }) => {
+    await gotoHome(page);
+
+    // The color modal is lazy - it must not be mounted here.
+    await expect(page.locator("#colorModal")).toHaveCount(0);
+    // ...yet the theme is painted onto the document root anyway.
+    const primary = await page.evaluate(() =>
+      document.documentElement.style.getPropertyValue("--p"),
+    );
+    expect(primary.trim()).not.toBe("");
+  });
+
   // Settings is now a non-modal toolbar dropdown (Phase 2). It no longer pauses
   // typing the way the old modal did; closing it must leave typing focus intact.
   test("settings dropdown closes on escape and typing resumes after", async ({ page }) => {
@@ -59,6 +86,35 @@ test.describe("modal focus behavior", () => {
 
     await typeCurrentCharacter(page);
     await expect(page.locator("#c0")).toHaveClass(/text-base-300/);
+  });
+
+  test("saved color apply and delete actions are separate controls", async ({ page }) => {
+    await mockAuthenticatedSession(page);
+    await mockTrpc(page, {
+      savedColors: [{
+        id: "ocean-theme",
+        name: "Ocean",
+        background: "#102a43",
+        text: "#f0f4f8",
+        primary: "#38bdf8",
+        secondary: "#fbbf24",
+      }],
+    });
+    await gotoHome(page);
+
+    await page.getByTestId("nav-color-trigger").click();
+    await page.getByRole("button", { name: "Saved", exact: true }).click();
+
+    const apply = page.getByRole("button", { name: "Apply Ocean color theme" });
+    const remove = page.getByRole("button", { name: "Delete Ocean color theme" });
+    await expect(apply).toBeVisible();
+    await expect(remove).toBeVisible();
+    await expect(apply.locator("button")).toHaveCount(0);
+    expect(await apply.evaluate((element) => element.contains(document.activeElement))).toBe(false);
+
+    await remove.focus();
+    await expect(remove).toBeFocused();
+    await remove.press("Enter");
   });
 
   test("sign-in modal pauses typing", async ({ page }) => {

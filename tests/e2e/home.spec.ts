@@ -74,7 +74,7 @@ test.describe("home typing test", () => {
   test("returning to a persisted grams mode loads grams text, not normal words", async ({ page }) => {
     // Regression: settings load in an effect after mount, so the typer first mounts
     // in the default (normal) mode and must switch. The restart coalescing has to
-    // keep the *latest* (grams) config — the old first-fired-wins flag loaded the
+    // keep the *latest* (grams) config - the old first-fired-wins flag loaded the
     // 500-char normal buffer over the returning grams drill (mode 2 = ngrams).
     await page.addInitScript(() => {
       window.localStorage.setItem("typecafe:testSettings", JSON.stringify({ mode: 2 }));
@@ -92,7 +92,7 @@ test.describe("home typing test", () => {
 
   test("grams mode derives grams in the active language", async ({ page }) => {
     // A French guest returning to a persisted grams drill. The grams must derive
-    // from the French list (no static French gram files) and render — an under-deep
+    // from the French list (no static French gram files) and render - an under-deep
     // derivation would index past its list and print "undefined".
     await page.addInitScript(() => {
       window.localStorage.setItem("typecafe:language", JSON.stringify("french"));
@@ -118,7 +118,7 @@ test.describe("home typing test", () => {
     await page.keyboard.press("Space");
     await page.keyboard.up("Tab");
 
-    // Tab+Space restarts (back to the first character) — the Space is consumed by
+    // Tab+Space restarts (back to the first character) - the Space is consumed by
     // the restart chord, not typed against the test.
     await expect(page.locator("#c0")).toHaveClass(/active-char/);
     await expect(page.locator("#c0")).not.toHaveClass(/text-base-300/);
@@ -224,7 +224,7 @@ test.describe("home typing test", () => {
     await selectMode(page, "Practice");
     await expect(langButton).toHaveCount(0);
 
-    // Quotes is a text source in the picker, so the icon stays — now labelled Quotes.
+    // Quotes is a text source in the picker, so the icon stays - now labelled Quotes.
     await selectMode(page, "Timed");
     await selectQuotesLanguage(page);
     await expect(toolbar.getByRole("button", { name: "Language: Quotes" })).toBeVisible();
@@ -242,7 +242,7 @@ test.describe("home typing test", () => {
     await bucketBar.getByRole("button", { name: "Short" }).click();
     await expect(bucketBar.getByRole("button", { name: "Short" })).toHaveAttribute("aria-pressed", "true");
 
-    // A quote loads as real prose — capitals and punctuation survive (the typer
+    // A quote loads as real prose - capitals and punctuation survive (the typer
     // lowercases word-list text, so an uppercase char proves it's a verbatim quote).
     await expect(page.locator("#words")).toContainText(/[A-Z]/);
   });
@@ -329,7 +329,7 @@ test.describe("home typing test", () => {
     await expect(panel).toContainText("2.2x avg");
     await expect(panel.getByRole("link", { name: "Start drill" })).toHaveAttribute("href", "/drill?transitions=br");
 
-    // Dismissible — and stays gone for the session.
+    // Dismissible - and stays gone for the session.
     await panel.getByRole("button", { name: "Dismiss drill suggestion" }).click();
     await expect(tab).toBeHidden();
   });
@@ -364,7 +364,7 @@ test.describe("home typing test", () => {
   });
 
   // Honest-review #1 (honest-review-2026-07.md): a zero-history visitor must
-  // see the promise before the first keystroke — and never again once any
+  // see the promise before the first keystroke - and never again once any
   // evidence exists.
   test("zero-history guests see the promise line", async ({ page }) => {
     await mockTrpc(page);
@@ -468,12 +468,12 @@ test.describe("home typing test", () => {
 
     // Fresh visitor: layout is Auto, resolving to QWERTY for English.
     const trigger = page.getByTestId("nav-layout-trigger");
-    await expect(trigger).toHaveText(/Auto — QWERTY/);
+    await expect(trigger).toHaveText(/Auto - QWERTY/);
 
     // Switching the language to German flips the auto board to QWERTZ …
     await page.getByTestId("nav-language-trigger").click();
     await page.getByTestId("nav-language-menu").getByRole("button", { name: "German" }).click();
-    await expect(trigger).toHaveText(/Auto — QWERTZ \(DE\)/);
+    await expect(trigger).toHaveText(/Auto - QWERTZ \(DE\)/);
 
     // … and the practice board grows real umlaut keys (with an AltGr layer).
     await selectMode(page, "Practice");
@@ -499,7 +499,7 @@ test.describe("home typing test", () => {
     });
     await gotoHome(page);
 
-    await expect(page.getByTestId("nav-layout-trigger")).toHaveText(/Auto — QWERTZ \(DE\)/);
+    await expect(page.getByTestId("nav-layout-trigger")).toHaveText(/Auto - QWERTZ \(DE\)/);
     await expect(page.getByTestId("nav-language-trigger")).toHaveAttribute("aria-label", "Language: German");
     await expect(page.getByTestId("typer-toolbar").getByRole("button", { name: "Language: German" })).toBeVisible();
 
@@ -509,7 +509,7 @@ test.describe("home typing test", () => {
       window.localStorage.setItem("typecafe:language", JSON.stringify("english"));
     });
     await page.reload();
-    await expect(page.getByTestId("nav-layout-trigger")).toHaveText(/Auto — QWERTZ \(DE\)/);
+    await expect(page.getByTestId("nav-layout-trigger")).toHaveText(/Auto - QWERTZ \(DE\)/);
     await expect(page.getByTestId("nav-language-trigger")).toHaveAttribute("aria-label", "Language: English");
     await expect(page.getByTestId("typer-toolbar").getByRole("button", { name: "Language: English" })).toBeVisible();
   });
@@ -523,7 +523,7 @@ test.describe("home typing test", () => {
     await gotoHome(page);
 
     // German + auto layout renders QWERTZ; umlauts are real keys.
-    await expect(page.getByTestId("nav-layout-trigger")).toHaveText(/Auto — QWERTZ \(DE\)/);
+    await expect(page.getByTestId("nav-layout-trigger")).toHaveText(/Auto - QWERTZ \(DE\)/);
     await selectMode(page, "Practice");
 
     const board = page.locator(".typecafe-keyboard");
@@ -555,7 +555,7 @@ test.describe("home typing test", () => {
 
     // French flips the auto board to AZERTY. The unlocked ü rides its physical
     // cap across the switch (QWERTZ ü → AZERTY dead ^), and a dead target cap
-    // carries its language's whole composed set (ê â î ô û) — so the circumflex
+    // carries its language's whole composed set (ê â î ô û) - so the circumflex
     // arrives unlocked, one toggle for the set.
     await page.getByTestId("nav-language-trigger").click();
     await page.getByTestId("nav-language-menu").getByRole("button", { name: "French" }).click();
@@ -593,7 +593,7 @@ test.describe("home typing test", () => {
     await selectMode(page, "Practice");
     await expect(page.locator(".typecafe-keyboard")).toBeVisible();
 
-    // Practice exposes both text add-ons — the punctuation toggle gates the
+    // Practice exposes both text add-ons - the punctuation toggle gates the
     // locked mark keys, so it must be reachable (not just capitals).
     await openSettingsMenu(page);
     const practiceSettings = page.getByTestId("settings-menu");
@@ -625,7 +625,7 @@ test.describe("home typing test", () => {
   });
 
   // Phase 2 regression: the toolbar moved inside #typer, where Text.tsx's
-  // click/keydown handlers used to yank focus back to the hidden typing input —
+  // click/keydown handlers used to yank focus back to the hidden typing input -
   // making the custom-length field uneditable (only the first digit ever landed).
   test("custom length input stays focused and editable while typing", async ({ page }) => {
     await gotoHome(page);
@@ -637,7 +637,7 @@ test.describe("home typing test", () => {
     await input.click();
     await expect(input).toBeFocused();
 
-    // Real, per-keystroke typing (not fill) — this is what the focus-steal broke:
+    // Real, per-keystroke typing (not fill) - this is what the focus-steal broke:
     // a stolen focus would drop every digit after the first, leaving "4" not "45".
     await input.fill("");
     await input.pressSequentially("45");
@@ -706,7 +706,7 @@ test.describe("home typing test", () => {
 
   // Honest-review 2026-07 §2: flattery shares the ranking quality bar. A 3s
   // custom test is unranked, and the mocked save still returns a brag, delta,
-  // and streak — none of them may render on an unranked card.
+  // and streak - none of them may render on an unranked card.
   test("an unranked test wears no flattery chips", async ({ page }) => {
     await mockAuthenticatedSession(page);
     await mockTrpc(page);
@@ -767,8 +767,8 @@ test.describe("home typing test", () => {
 
   // Regression guard for the grams micro-sample WPM (phase-0-trust.md 0.1): the
   // default 2-char gram level used to read "500.0 wpm (500.0avg)". A sample that
-  // small can't be measured, so WPM and its average must show "—" instead.
-  test("grams mode shows — instead of an inflated WPM on a micro-sample level", async ({ page }) => {
+  // small can't be measured, so WPM and its average must show "-" instead.
+  test("grams mode shows - instead of an inflated WPM on a micro-sample level", async ({ page }) => {
     await gotoHome(page);
 
     await selectMode(page, "Grams");
@@ -776,9 +776,9 @@ test.describe("home typing test", () => {
     await expect(page.locator("#words .char").first()).toBeVisible();
     await typeVisibleTestText(page);
 
-    // The WPM and its running average render "—", never an inflated number like 500.
-    await expect(page.getByTestId("stat-wpm")).toHaveText("—");
-    await expect(page.getByTestId("stat-avg")).toHaveText("—");
+    // The WPM and its running average render "-", never an inflated number like 500.
+    await expect(page.getByTestId("stat-wpm")).toHaveText("-");
+    await expect(page.getByTestId("stat-avg")).toHaveText("-");
   });
 
   // Regression guard for the swallowed-save bug (phase-0-trust.md 0.1): a signed-in
@@ -809,7 +809,7 @@ test.describe("home typing test", () => {
 
   // Phase 1.2/1.3 + Slice 5c: a finished test must surface at least one honest
   // finding and a one-click drill that lands on the unified /drill surface built
-  // from those keys — the first two clicks of the improvement loop, available to a
+  // from those keys - the first two clicks of the improvement loop, available to a
   // guest with no account.
   test("diagnosis panel offers a one-click drill on /drill (guest)", async ({ page }) => {
     await mockTrpc(page);
@@ -819,7 +819,7 @@ test.describe("home typing test", () => {
     await setToolbarCustomLength(page, "4");
 
     // 50 deliberately-wrong keystrokes: every expected key is missed, so several
-    // keys land under 100% — enough for an honest "least accurate keys" finding
+    // keys land under 100% - enough for an honest "least accurate keys" finding
     // regardless of the (machine-uniform) keystroke timing.
     await typeWrongZeroes(page, 50);
 
@@ -829,6 +829,11 @@ test.describe("home typing test", () => {
     await expect(page.getByText("Too short to diagnose")).toHaveCount(0);
     // Phase 1.5: the reusable per-key heatmap renders inside the diagnosis panel.
     await expect(page.getByTestId("diagnosis-heatmap")).toBeVisible();
+    await expect(page.getByTestId("diagnosis-panel")).toBeVisible();
+    expect(await page.getByTestId("diagnosis-panel").evaluate((panel) => {
+      const chart = document.querySelector('[data-testid="wpm-chart"]');
+      return chart ? Boolean(panel.compareDocumentPosition(chart) & Node.DOCUMENT_POSITION_FOLLOWING) : false;
+    })).toBe(true);
 
     // Toughest-words row: same one-click handoff, but drills those exact words
     // verbatim via /drill?words= (checked by href so we don't navigate away yet).
@@ -850,7 +855,7 @@ test.describe("home typing test", () => {
 
   // Regression guard: Practice (and any non-Normal mode) carries a leftover
   // subMode of "timed". Without a Normal-mode gate that drives a decremental
-  // countdown to 0 that fires the instant the test starts — rendering a stuck
+  // countdown to 0 that fires the instant the test starts - rendering a stuck
   // "0" and ending the session immediately. Verify both: no countdown, and the
   // drill keeps running as keys are typed.
   test("practice mode has no countdown and keeps running", async ({ page }) => {
@@ -862,14 +867,14 @@ test.describe("home typing test", () => {
     // The countdown counter must not be present.
     await expect(page.getByTestId("timed-countdown")).toHaveCount(0);
 
-    // Typing accrues live stats — proof the session is running, not instantly
-    // completed (which would leave the stats pending at "—" forever).
+    // Typing accrues live stats - proof the session is running, not instantly
+    // completed (which would leave the stats pending at "-" forever).
     for (let i = 0; i < 6; i++) await typeCurrentCharacter(page, i);
     await expect(page.getByTestId("stat-acc")).toHaveText("100", { timeout: 3000 });
   });
 
   // The vertical caret is positioned imperatively (no React render per
-  // keystroke — typing-feel §2); guard that it shows, glides forward with a
+  // keystroke - typing-feel §2); guard that it shows, glides forward with a
   // typed character, and blinks only when typing pauses.
   test("vertical caret tracks typing and blinks when idle", async ({ page }) => {
     await gotoHome(page);
@@ -895,7 +900,7 @@ test.describe("home typing test", () => {
   });
 
   // The next-key ring on the practice board is applied imperatively (no React
-  // render per keystroke — typing-feel §1); guard that it actually follows.
+  // render per keystroke - typing-feel §1); guard that it actually follows.
   test("practice keyboard rings the next expected key as you type", async ({ page }) => {
     await gotoHome(page);
 
@@ -944,7 +949,7 @@ test.describe("home typing test", () => {
 
     await page.getByTestId("nav-language-trigger").click();
     await page.getByTestId("nav-language-menu").getByRole("button", { name: "French" }).click();
-    await expect(page.getByTestId("nav-layout-trigger")).toHaveText(/Auto — AZERTY \(FR\)/);
+    await expect(page.getByTestId("nav-layout-trigger")).toHaveText(/Auto - AZERTY \(FR\)/);
 
     // The source cap's AZERTY physical position is named `q`, not old glyph `a`.
     const remappedCap = board.locator('[data-kb-cell="q"]');
@@ -986,7 +991,7 @@ test.describe("home typing test", () => {
     await digit.click();
     await expect(digit.locator("svg")).toHaveCount(0);
     // Unlocking a digit while the numbers add-on is off flips it on in the same
-    // click — no gear-menu trip.
+    // click - no gear-menu trip.
     await expect.poll(async () =>
       page.evaluate(() => window.localStorage.getItem("typecafe:testSettings")),
     ).toContain('"numbers":true');
@@ -1045,8 +1050,8 @@ test.describe("home typing test", () => {
 
     // The handoff selection (b,c,d + auto vowel) is then repaired to the letter
     // floor (two vowels, eight letters), which regenerates the text once more.
-    // Wait for the repaired state — the count hits 8 and an "a" appears (the
-    // b/c/d/e-only text can't contain one) — so typing can't race that regen.
+    // Wait for the repaired state - the count hits 8 and an "a" appears (the
+    // b/c/d/e-only text can't contain one) - so typing can't race that regen.
     await expect(page.getByTestId("practice-active-count")).toHaveText("8 keys active");
     await expect(page.locator("#words")).toContainText("a", { timeout: 8000 });
 
@@ -1055,7 +1060,7 @@ test.describe("home typing test", () => {
     await expect(page.getByTestId("stat-acc")).toHaveText("100", { timeout: 4000 });
   });
 
-  // Phase 1.3 + Slice 5c: the loop's last mile — /drill's "Re-measure" CTA returns
+  // Phase 1.3 + Slice 5c: the loop's last mile - /drill's "Re-measure" CTA returns
   // home as /?rm=<token>, which rebuilds the offer, re-runs the diagnosed test on
   // its original config, and headlines a before→after delta. Proven for a guest.
   test("re-measure round-trip: drill then Re-measure shows a before/after delta (guest)", async ({ page }) => {
@@ -1069,7 +1074,7 @@ test.describe("home typing test", () => {
     }));
 
     // Drill the diagnosed keys, then follow /drill's Re-measure CTA (a client-side
-    // nav to /?rm=) — the real product path back into the diagnosed test.
+    // nav to /?rm=) - the real product path back into the diagnosed test.
     await page.goto(`/drill?keys=x&length=4&rm=${rm}`);
     await expect(page.getByTestId("drill-typer")).toBeVisible();
     await typeVisibleTestText(page);
@@ -1077,7 +1082,7 @@ test.describe("home typing test", () => {
 
     // Home rebuilds the offer, switches into the diagnosed config and starts it.
     // Wait for the rm config to actually apply (its 4-word counter replaces the
-    // default timed countdown) before reading the prompt — typing against the
+    // default timed countdown) before reading the prompt - typing against the
     // pre-switch text loses the race when the restart regenerates it.
     await expect(page.getByTestId("word-counter")).toContainText("/ 4");
     // …and for the 4-word prompt itself (the long default text stays rendered

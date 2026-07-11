@@ -1,7 +1,7 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { mockAuthenticatedSession, mockTrpc } from "./helpers/trpc";
 
-// iPhone SE-sized viewport — the smallest screen we support.
+// iPhone SE-sized viewport - the smallest screen we support.
 test.use({ viewport: { width: 375, height: 667 } });
 
 async function expectModalFits(page: Page, box: Locator) {
@@ -55,7 +55,7 @@ test.describe("modals fit on a small mobile viewport", () => {
     await expectModalFits(page, colorsBox);
 
     // Custom tab: the swatches stack and the pinned Save Color stays on-screen.
-    // Scope to the modal box — the toolbar now has its own "Custom" length button.
+    // Scope to the modal box - the toolbar now has its own "Custom" length button.
     await colorsBox.getByRole("button", { name: "Custom" }).click();
     await expect(colorsBox.getByRole("button", { name: "Save Color" })).toBeInViewport();
   });

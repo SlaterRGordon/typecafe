@@ -71,7 +71,7 @@ describe("ladderState", () => {
         expect(ladder[1]!.unlocked).toBe(false)
     })
 
-    it("does not gate on accuracy — fast but inaccurate still unlocks", () => {
+    it("does not gate on accuracy - fast but inaccurate still unlocks", () => {
         const ladder = ladderState([{ levelName: "Level 1", netWpm: 80, accuracy: 1, stars: 1 }], "easy")
         expect(ladder[1]!.unlocked).toBe(true)
     })

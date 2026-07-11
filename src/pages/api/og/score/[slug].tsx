@@ -123,7 +123,7 @@ function ScoreCard(props: { data: OgScoreData; brag?: string }) {
   );
 }
 
-// The "+18 WPM in 60 days" unfurl — leads with the delta, not an absolute.
+// The "+18 WPM in 60 days" unfurl - leads with the delta, not an absolute.
 function ProgressCard(props: { data: OgProgressData }) {
   const { data } = props;
   const positive = data.deltaWpm >= 0;
@@ -183,7 +183,7 @@ function FallbackCard() {
       }}
     >
       <div style={{ fontSize: 64, fontWeight: 700 }}>TypeCafe</div>
-      <div style={{ fontSize: 30, color: BRAND.primary, marginTop: 12 }}>Test your typing speed</div>
+      <div style={{ fontSize: 30, color: BRAND.primary, marginTop: 12 }}>Find what slows you down. Drill it.</div>
       <div style={{ fontSize: 24, color: BRAND.textMuted, marginTop: 24 }}>{SHARE_DOMAIN}</div>
     </div>
   );

@@ -55,7 +55,7 @@ const BLOCKLIST = new Set([
     "pm", "tv", "cd", "pc", "uk",
 ]);
 
-// SCOWL membership isn't enough for 1-2 letter tokens — gate those on the
+// SCOWL membership isn't enough for 1-2 letter tokens - gate those on the
 // allowlists; length >= 3 is trusted via SCOWL minus the blocklist.
 /** @param {string} word @returns {boolean} */
 function isRealTypingWord(word) {

@@ -15,6 +15,7 @@ import { useRouter } from "next/router";
 import { useEffect } from "react";
 import { Analytics } from "@vercel/analytics/next"
 import { SpeedInsights } from "@vercel/speed-insights/next"
+import { SITE_DESCRIPTION, SITE_TITLE } from "~/lib/siteMetadata";
 
 declare global {
   interface Window {
@@ -52,21 +53,21 @@ const MyApp: AppType<{ session: Session | null }> = ({
         <GuestImport />
         <Layout>
           <Head>
-            <title>Type Cafe</title>
+            <title>{SITE_TITLE}</title>
             <meta name="viewport" content="width=device-width, initial-scale=1" />
             {/* Site-wide defaults. Keyed so individual pages can override any of
                 these with a next/head tag using the same key. */}
-            <meta key="description" name="description" content="TypeCafe is a user-centered typing test with a clean, aesthetic feel. Level up your typing and track your progress." />
+            <meta key="description" name="description" content={SITE_DESCRIPTION} />
             <link key="canonical" rel="canonical" href={canonicalUrl} />
             <meta key="og:site_name" property="og:site_name" content="TypeCafe" />
             <meta key="og:url" property="og:url" content={canonicalUrl} />
             <meta key="og:type" property="og:type" content="website" />
-            <meta key="og:title" property="og:title" content="TypeCafe — Test your typing speed" />
-            <meta key="og:description" property="og:description" content="A user-centered typing test with a clean, aesthetic feel. Level up your typing and track your progress." />
+            <meta key="og:title" property="og:title" content={SITE_TITLE} />
+            <meta key="og:description" property="og:description" content={SITE_DESCRIPTION} />
             <meta key="og:image" property="og:image" content="https://typecafe.app/images/preview-image.png" />
             <meta key="twitter:card" name="twitter:card" content="summary_large_image" />
-            <meta key="twitter:title" name="twitter:title" content="TypeCafe — Test your typing speed" />
-            <meta key="twitter:description" name="twitter:description" content="A user-centered typing test with a clean, aesthetic feel. Level up your typing and track your progress." />
+            <meta key="twitter:title" name="twitter:title" content={SITE_TITLE} />
+            <meta key="twitter:description" name="twitter:description" content={SITE_DESCRIPTION} />
             <meta key="twitter:image" name="twitter:image" content="https://typecafe.app/images/preview-image.png" />
           </Head>
           <Component {...pageProps} />

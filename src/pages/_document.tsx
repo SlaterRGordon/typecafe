@@ -7,7 +7,7 @@ export default function Document() {
                 {/* Site-wide OG/description defaults live in _app.tsx (via next/head)
                     so individual pages can override them by key. Keep only static,
                     non-overridable tags here. */}
-                <meta name="keywords" content="typing, test, aesthetic, minimalistic, keyboard, speed, leaderboard, track" />
+                <meta name="keywords" content="typing coach, typing practice, typing test, targeted typing drills, WPM, accuracy, progress" />
                 <meta name="theme-color" content="#1b1d29" />
                 <link rel="manifest" href="/manifest.json" />
                 <link rel="shortcut icon" href="/images/TypeCafeIcon.ico" />
@@ -16,11 +16,11 @@ export default function Document() {
                 <link rel="icon" type="image/png" sizes="64x64" href="/images/TypeCafe64x64.png"/>
                 <link rel="preconnect" href="https://fonts.googleapis.com" />
                 <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-                <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0&display=block" />
+                <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" />
                 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
                 <meta name="google-site-verification" content="k7imjzARc_FR0VJoclkwODcjF6-MSxaWKYO_N4hHg2w" />
                 {/* Site-wide entity markup so Google can build the brand entity
-                    (helps the brand-term result + sitelinks). No SearchAction —
+                    (helps the brand-term result + sitelinks). No SearchAction -
                     there's no site-search endpoint to back it (growth-seo §D). */}
                 <script
                     type="application/ld+json"

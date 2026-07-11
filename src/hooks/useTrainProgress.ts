@@ -20,10 +20,10 @@ const getStorageKey = (difficulty: DifficultyName, pool: string) =>
 export interface TrainProgressStore {
     // The user's ladder progress, converged from whichever source applies.
     completedProgress: LevelProgress[]
-    // Account progress exists *and* there's unimported device progress — offer the
+    // Account progress exists *and* there's unimported device progress - offer the
     // import button rather than silently merging.
     shouldShowImportPrompt: boolean
-    // Signed in with device progress and an empty account — safe to auto-import.
+    // Signed in with device progress and an empty account - safe to auto-import.
     canSilentImport: boolean
     isImporting: boolean
     isLoading: boolean
@@ -40,7 +40,7 @@ export interface TrainProgressStore {
 // completedProgress. save() and importDevice() route on session and resolve with
 // the outcome the page reacts to (the modal, the level advance), so the page
 // never branches on session itself. The pure merge lives in trainProgression.
-// `pool` is the stats pool (statsPoolFor) — remap ladders track separately
+// `pool` is the stats pool (statsPoolFor) - remap ladders track separately
 // (docs/features/keyboard-layouts.md decision 6).
 export function useTrainProgress(difficulty: DifficultyName, pool = "qwerty"): TrainProgressStore {
     const { data: sessionData } = useSession()
@@ -60,7 +60,7 @@ export function useTrainProgress(difficulty: DifficultyName, pool = "qwerty"): T
     const completeTrainProgress = api.trainProgress.complete.useMutation()
 
     // Reload the guest mirror and drop optimistic entries on difficulty or pool
-    // change — each difficulty (and each pool's ladder) is its own ladder.
+    // change - each difficulty (and each pool's ladder) is its own ladder.
     useEffect(() => {
         setOptimisticProgress([])
         setIsLocalProgressLoaded(false)

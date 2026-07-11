@@ -23,7 +23,7 @@ describe("generateQuote", () => {
     });
 
     it("falls back to the full pool for a stale value", () => {
-        // @ts-expect-error — simulating a corrupt localStorage QuoteLength
+        // @ts-expect-error - simulating a corrupt localStorage QuoteLength
         expect(all.has(generateQuote("bogus"))).toBe(true);
     });
 });

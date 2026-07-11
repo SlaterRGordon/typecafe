@@ -1,5 +1,5 @@
 // Weekly recap generator (Phase 3 §3.4). Free-tier honest: no email provider
-// exists, so the recap is a *surface*, not a send. This stays render-agnostic —
+// exists, so the recap is a *surface*, not a send. This stays render-agnostic -
 // a pure payload the /progress banner renders now and a Resend/Postmark email
 // could render later from the same data.
 

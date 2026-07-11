@@ -39,7 +39,7 @@ interface LifetimeEvidence {
     keyStats: LocalKeyStat[],
 }
 
-// A drill is a quick, clearly-ending rep — short enough that finishing it and
+// A drill is a quick, clearly-ending rep - short enough that finishing it and
 // moving on (e.g. to the next plan step) never feels like an endless test.
 const DEFAULT_DRILL_WORDS = 20
 
@@ -66,7 +66,7 @@ const parseKeys = (value: string | string[] | undefined): string[] => {
         .filter((key) => isDrillableKey(key) || isPracticeLetter(key))))
 }
 
-// Words to drill verbatim (letters-only, lowercased, deduped) — the toughest-words
+// Words to drill verbatim (letters-only, lowercased, deduped) - the toughest-words
 // handoff from a diagnosis. Non-letter tokens are dropped (can't form drill text);
 // accented words (für, café) pass, matching compileDrillText's normalizeWord.
 const parseWords = (value: string | string[] | undefined): string[] => {
@@ -106,7 +106,7 @@ function DeltaLine({ delta }: { delta: DrillDelta }) {
         <p data-testid="drill-delta" className="mt-4 text-sm text-base-content/75">
             <span className="font-mono font-bold text-base-content">{delta.label}</span>{": "}
             <span className={flat ? "" : delta.improved ? "font-semibold text-success" : "font-semibold text-warning"}>{change}</span>
-            {" "}your recent average — {rep} this rep vs {lifetime}.
+            {" "}your recent average - {rep} this rep vs {lifetime}.
         </p>
     )
 }
@@ -213,14 +213,14 @@ const Drill: NextPage = () => {
     }, [completed, restartSignal, signedIn, pool, transitionsQuery.data, practiceStatsQuery.data])
 
     // The header states the baseline being drilled against (the number to beat)
-    // and offers the next pick straight from lifetime evidence — no completed
+    // and offers the next pick straight from lifetime evidence - no completed
     // rep required, so a restart never strands the user without a way forward.
     const headerStat = useMemo(() => {
         if (!config) return null
         if (config.kind === "transitions") {
             for (const pair of config.targets) {
                 const base = transitionBaseline(pair, baseline.transitions)
-                if (base) return `${Math.round(base.meanMs)}ms on this jump — ${base.ratio.toFixed(1)}× your typical transition. Beat it below.`
+                if (base) return `${Math.round(base.meanMs)}ms on this jump - ${base.ratio.toFixed(1)}× your typical transition. Beat it below.`
             }
             return null
         }
@@ -241,9 +241,9 @@ const Drill: NextPage = () => {
         )
     }, [config, baseline])
 
-    // What the rep proved (delta vs lifetime) and what to drill next — the next
+    // What the rep proved (delta vs lifetime) and what to drill next - the next
     // finding recomputes from baseline + this rep's keystrokes (reps count toward
-    // lifetime data — ADR-0004 reversal), excluding the just-drilled target so it
+    // lifetime data - ADR-0004 reversal), excluding the just-drilled target so it
     // never re-suggests the drill just finished.
     const outcome = useMemo(() => {
         if (!completed || !config || config.kind === "timed" || config.kind === "words") return null
@@ -268,14 +268,14 @@ const Drill: NextPage = () => {
     }, [completed, config, baseline])
 
     // This session's reps on the drilled target (delta.after per completed rep).
-    // The lifetime baseline moves too (reps sync into it — ADR-0004 reversal),
+    // The lifetime baseline moves too (reps sync into it - ADR-0004 reversal),
     // but slowly once the pair has history; the trail shows each rep landing.
     const [sessionReps, setSessionReps] = useState<number[]>([])
     const recordedRepRef = useRef<TestCompletionResult["timeline"] | null>(null)
     useEffect(() => {
         if (!completed || !outcome?.delta) return
         // The eager completion is re-reported once the save settles with the same
-        // timeline array (spread copy) — reference equality dedupes the rep.
+        // timeline array (spread copy) - reference equality dedupes the rep.
         if (recordedRepRef.current === completed.timeline) return
         recordedRepRef.current = completed.timeline
         const after = outcome.delta.after
@@ -301,7 +301,7 @@ const Drill: NextPage = () => {
     return (
         <>
             <Head>
-                <title>Drill — TypeCafe</title>
+                <title>Drill - TypeCafe</title>
                 <meta name="description" content="Targeted typing drills built from your weak keys and transitions." />
             </Head>
             <div className="flex h-full w-full justify-center overflow-auto px-4 py-8">
@@ -332,13 +332,13 @@ const Drill: NextPage = () => {
                                                         This session:{" "}
                                                         <span className="font-semibold text-base-content">{fmt(best)}</span>
                                                         {sessionReps.length === 1
-                                                            ? " — 1 rep"
+                                                            ? " - 1 rep"
                                                             : ` best · ${fmt(last)} last · ${sessionReps.length} reps`}
                                                     </p>
                                                 )
                                             })()}
                                         </div>
-                                        {/* Hidden once the rep completes — the result card offers a
+                                        {/* Hidden once the rep completes - the result card offers a
                                             fresher pick recomputed with this rep included. */}
                                         {!completed && headerNext && (
                                             <a

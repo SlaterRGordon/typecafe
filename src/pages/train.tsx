@@ -46,11 +46,11 @@ type TrainCompletion = {
     saved: "saving" | "saved" | "failed",
 }
 
-// Why a fail popup says what it does — the specific cause, not just the WPM gap.
+// Why a fail popup says what it does - the specific cause, not just the WPM gap.
 function failMessage(c: TrainCompletion): string {
-    if (c.pacerCaught) return "The pacer caught you — reach the end before the line does to beat the boss."
-    if (c.kind === "noMiss" && c.accuracy < 100) return "One miss ends a no-miss level — stay perfect."
-    return `Need ${formatNumber(c.thresholds.oneStarNetWpm, 0)} net WPM to clear — you hit ${formatNumber(c.netWpm, 0)}.`
+    if (c.pacerCaught) return "The pacer caught you - reach the end before the line does to beat the boss."
+    if (c.kind === "noMiss" && c.accuracy < 100) return "One miss ends a no-miss level - stay perfect."
+    return `Need ${formatNumber(c.thresholds.oneStarNetWpm, 0)} net WPM to clear - you hit ${formatNumber(c.netWpm, 0)}.`
 }
 
 function formatNumber(value: number, digits = 1) {
@@ -121,7 +121,7 @@ function Stars(props: { earned: number, ghostClass?: string, className?: string 
     )
 }
 
-// All three thresholds on hover — the caption line only carries the next one.
+// All three thresholds on hover - the caption line only carries the next one.
 function thresholdsTitle(levelNum: number, difficulty: DifficultyName): string {
     const t = starThresholds(levelNum, difficulty)
     return `★ ${t.oneStarNetWpm} · ★★ ${t.twoStarNetWpm} · ★★★ ${t.threeStarNetWpm} net WPM`
@@ -183,11 +183,14 @@ const Train: NextPage = () => {
     const [levelChanged, setLevelChanged] = useState<boolean>(false)
     const [restartSignal, setRestartSignal] = useState(0)
     const [completion, setCompletion] = useState<TrainCompletion | null>(null)
+    // Eager results are followed by a persisted upgrade for signed-in users.
+    // This attempt-local guard keeps that pair to one completion popover.
+    const completionHandledRef = useRef(false)
     const [typingFocused, setTypingFocused] = useState(false)
     const charAttemptsRef = useRef<Map<string, { attempts: number, correct: number }>>(new Map())
 
     const train = useTrainProgress(difficulty, statsPoolFor(activeLayout))
-    const completedProgress = train.completedProgress
+    const { completedProgress, importDevice, save } = train
 
     // fetch types
     const { isLoading: isLoadingTestType } = api.type.get.useQuery({ mode, subMode, language: language })
@@ -195,7 +198,6 @@ const Train: NextPage = () => {
     // The modal belongs to the page; clear it when the ladder changes.
     useEffect(() => {
         setCompletion(null)
-        completionHandledRef.current = false
     }, [difficulty])
 
     const ladder: LevelStatus[] = useMemo(
@@ -221,9 +223,9 @@ const Train: NextPage = () => {
 
     // Import the guest mirror, then advance from the current level (page state).
     const importDeviceProgress = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
-        const fresh = await train.importDevice({ silent })
+        const fresh = await importDevice({ silent })
         if (fresh) advanceToNextLevel(fresh)
-    }, [train.importDevice, advanceToNextLevel])
+    }, [importDevice, advanceToNextLevel])
 
     const enterLevel = (next: Level) => {
         setLevel(next)
@@ -239,6 +241,7 @@ const Train: NextPage = () => {
             setView("map")
             return
         }
+        completionHandledRef.current = false
         setDifficulty(tier)
         setLevelChanged(false)
         setView("map")
@@ -268,11 +271,6 @@ const Train: NextPage = () => {
         })
     }, [difficulty, level, trainLevels])
 
-    // With eagerResult, a signed-in completion reports twice (instant, then the
-    // save upgrade). The popover shows nothing server-derived, so only the first
-    // report counts; the ref clears when the popover closes for a new attempt.
-    const completionHandledRef = useRef(false)
-
     const onTestComplete = (result: TestCompletionResult) => {
         if (completionHandledRef.current) return
         completionHandledRef.current = true
@@ -292,10 +290,10 @@ const Train: NextPage = () => {
 
         // Show the popover now: stars and the next-level unlock are computable
         // locally (the same merge save() uses). The save settles in the
-        // background and patches the status line — and the unlock, should the
+        // background and patches the status line - and the unlock, should the
         // refreshed server progress ever disagree with the local merge.
         showCompletion(result, { saved: "saving", nextProgress: mergeProgress(completedProgress, entry) })
-        void train.save(entry).then(({ saved, nextProgress }) => {
+        void save(entry).then(({ saved, nextProgress }) => {
             setCompletion((current) => {
                 if (!current || current.levelName !== levelName) return current
                 return {
@@ -352,8 +350,8 @@ const Train: NextPage = () => {
     }
 
     // While the completion popover is open, the Tab+Space/Enter chord drives its
-    // primary action — Next level when cleared (no-op if there's none), else Try
-    // again — instead of restarting the test underneath. Listens on window in the
+    // primary action - Next level when cleared (no-op if there's none), else Try
+    // again - instead of restarting the test underneath. Listens on window in the
     // capture phase so it fires before (and stops) the Typer's document-level
     // restart shortcut, which React mounts first as a child effect.
     useEffect(() => {
@@ -492,8 +490,8 @@ const Train: NextPage = () => {
                     type="button"
                     disabled={!status.unlocked}
                     onClick={() => isNow ? setView("map") : enterLevel(status.level)}
-                    title={isNow ? `${thresholdsTitle(num, difficulty)} — click to open the level map` : thresholdsTitle(num, difficulty)}
-                    aria-label={isNow ? `${status.level.name} — open level map` : `${status.level.name}${status.unlocked ? "" : " (locked)"}`}
+                    title={isNow ? `${thresholdsTitle(num, difficulty)} - click to open the level map` : thresholdsTitle(num, difficulty)}
+                    aria-label={isNow ? `${status.level.name} - open level map` : `${status.level.name}${status.unlocked ? "" : " (locked)"}`}
                     className={`flex h-9 w-9 items-center justify-center rounded-lg border text-sm transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary ${isNow ? "border-[1.5px] border-primary bg-primary/10 font-semibold text-primary" : status.unlocked ? "cursor-pointer border-base-content/15 bg-base-200 text-base-content/80 hover:border-primary/50" : "cursor-not-allowed border-base-content/5 bg-base-200/40 text-base-content/30"} ${num > 99 ? "text-xs" : ""}`}
                 >
                     {status.unlocked ? num : <LockIcon className="h-3 w-3 text-base-content/30" />}

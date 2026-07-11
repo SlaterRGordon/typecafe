@@ -76,7 +76,7 @@ export function useTestSettings() {
             const raw = localStorage.getItem(STORAGE_KEY)
             if (raw) setSettings({ ...DEFAULT_TEST_SETTINGS, ...sanitize(JSON.parse(raw)) })
         } catch {
-            // Corrupt or unavailable storage — fall back to defaults.
+            // Corrupt or unavailable storage - fall back to defaults.
         }
         loadedRef.current = true
     }, [])
@@ -86,7 +86,7 @@ export function useTestSettings() {
         try {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(settings))
         } catch {
-            // Storage full or unavailable — settings just won't persist.
+            // Storage full or unavailable - settings just won't persist.
         }
     }, [settings])
 

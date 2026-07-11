@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { NextPage } from 'next';
 
 const Contact: NextPage = () => {
-    const [formData, setFormData] = useState({ name: '', email: '', message: '' });
+    const [formData, setFormData] = useState({ name: '', email: '', message: '', website: '' });
     const [status, setStatus] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -27,9 +27,10 @@ const Contact: NextPage = () => {
 
             if (response.ok) {
                 setStatus('Message sent successfully!');
-                setFormData({ name: '', email: '', message: '' });
+                setFormData({ name: '', email: '', message: '', website: '' });
             } else {
-                setStatus('Failed to send message.');
+                const result = await response.json().catch(() => null) as { message?: string } | null;
+                setStatus(result?.message ?? 'Failed to send message.');
             }
         } catch {
             setStatus('Failed to send message.');
@@ -73,6 +74,7 @@ const Contact: NextPage = () => {
                                 placeholder="Your Name"
                                 className="input input-bordered w-full"
                                 autoComplete="name"
+                                maxLength={80}
                                 required
                             />
                         </div>
@@ -89,6 +91,7 @@ const Contact: NextPage = () => {
                                 placeholder="Your Email"
                                 className="input input-bordered w-full"
                                 autoComplete="email"
+                                maxLength={254}
                                 required
                             />
                         </div>
@@ -103,9 +106,21 @@ const Contact: NextPage = () => {
                                 onChange={handleChange}
                                 placeholder="Your Message"
                                 className="textarea textarea-bordered min-h-36 w-full"
+                                minLength={10}
+                                maxLength={5000}
                                 required
                             ></textarea>
                         </div>
+                        <input
+                            type="text"
+                            name="website"
+                            value={formData.website}
+                            onChange={handleChange}
+                            tabIndex={-1}
+                            autoComplete="off"
+                            aria-hidden="true"
+                            className="hidden"
+                        />
                         <button className="btn btn-primary mt-2" type="submit" disabled={isSubmitting}>
                             {isSubmitting ? <div className="w-5 h-5 rounded-full animate-spin border border-solid text-primary border-t-transparent"></div> : "Send Message"}
                         </button>

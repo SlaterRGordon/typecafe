@@ -4,7 +4,7 @@ export interface CompileDrillTextInput {
     keys?: string[],
     transitions?: string[],
     // Specific words to drill verbatim (e.g. the words a test stumbled on). When
-    // present, the drill is built purely from these — no keyword ranking.
+    // present, the drill is built purely from these - no keyword ranking.
     words?: string[],
     wordList: string[],
     length?: number,
@@ -21,7 +21,7 @@ const DEFAULT_LENGTH = 80
 const TOP_POOL_MIN = 24
 
 // Any-letter words (not just [a-z]): non-English word lists carry accented
-// words (é, ü, ł …) and dropping them would gut the pool — nearly half of the
+// words (é, ü, ł …) and dropping them would gut the pool - nearly half of the
 // top-1k Polish words carry diacritics. Target keys are any lowercase letter
 // too, so a weak é ranks the words that actually exercise it.
 const normalizeWord = (word: string): string | null => {

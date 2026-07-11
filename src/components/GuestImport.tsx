@@ -8,8 +8,8 @@ import { api } from "~/utils/api";
 
 // On sign-in, import the guest's local-first evidence into the account: progress
 // history, per-key practice stats, and transition stats. One mount point for all
-// three (was split across this component, useTestPersistence, and — for
-// transitions — nowhere, so guest transitions were lost on sign-in). Each family
+// three (was split across this component, useTestPersistence, and - for
+// transitions - nowhere, so guest transitions were lost on sign-in). Each family
 // is guarded per-user and clears its localStorage mirror only on its own success.
 export function GuestImport() {
     const { data: sessionData } = useSession();
@@ -50,7 +50,7 @@ export function GuestImport() {
             const entries = readLocalProgress();
             if (entries.length > 0) {
                 progressForUserRef.current = userId;
-                // A guest who'd been typing locally just signed in — the conversion
+                // A guest who'd been typing locally just signed in - the conversion
                 // moment. Local progress is cleared on import, so this fires once.
                 window.gtag?.("event", "guest_signup", { tests: entries.length });
                 syncProgress.mutate({ entries, utcOffsetMinutes: -new Date().getTimezoneOffset() });
@@ -58,7 +58,7 @@ export function GuestImport() {
         }
 
         // Key stats and transitions import per stats pool (the guest mirrors are
-        // pool-suffixed — docs/features/keyboard-layouts.md decision 6).
+        // pool-suffixed - docs/features/keyboard-layouts.md decision 6).
         if (keyStatsForUserRef.current !== userId) {
             keyStatsForUserRef.current = userId;
             for (const pool of STATS_POOLS) {
