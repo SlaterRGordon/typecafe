@@ -5,7 +5,6 @@
 // same way for both. The numbers are the product — treat changes like the rest
 // of src/lib/stats.ts.
 
-import { netFromRaw } from "./stats"
 import { baseTypeLanguage } from "./typeLanguage"
 
 // The period the dashboard's headline delta and trends are scoped to. Numeric
@@ -550,9 +549,8 @@ export function mergeDailyRollups(records: ProgressRecord[], rollups: DailyRollu
     const rollupRecords = rollups
         .filter((rollup) => !rawDays.has(rollup.day))
         .map((rollup) => ({
-            // Canonical WPM is net; rollups store raw day-averages, so derive net
-            // from the day's avg raw + avg accuracy to match the per-test records.
-            wpm: netFromRaw(rollup.avgWpm, rollup.avgAccuracy),
+            // Version-2 rollups already store canonical net WPM.
+            wpm: rollup.avgWpm,
             accuracy: rollup.avgAccuracy,
             consistency: rollup.avgConsistency ?? undefined,
             createdAt: new Date(`${rollup.day}T12:00:00.000Z`),

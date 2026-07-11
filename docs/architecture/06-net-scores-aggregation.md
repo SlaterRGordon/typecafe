@@ -70,4 +70,7 @@ to `src/lib/netScores.ts`. The router keeps every Prisma query and calls them.
 - `bestNetPerUser` returns the winning rows (not just numbers) so each caller
   keeps its own row→DTO shaping (username, image, rank).
 
-Net stays raw-derived per the canonical formula — no schema change, no migration.
+Net remains derived by the canonical formula at calculation boundaries. A
+2026-07-11 correctness follow-up additionally persists that value in
+`Test.score` for database ordering and versions daily rollups so they average
+per-test net values. See [02](02-net-wpm-home.md#storage-follow-up-2026-07-11).

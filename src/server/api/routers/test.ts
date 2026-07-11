@@ -100,6 +100,7 @@ async function buildBrag(prisma: PrismaClient, args: BragArgs): Promise<string |
     select: {
       userId: true,
       speed: true,
+      accuracy: true,
       score: true,
       createdAt: true,
     },
@@ -525,8 +526,8 @@ export const testRouter = createTRPCRouter({
           await upsertDailyUserStat(tx, ctx.session.user.id, {
             date: summaryDate,
             tests: 1,
-            bestWpm: evidence.speed,
-            totalWpm: evidence.speed,
+            bestWpm: evidence.netWpm,
+            totalWpm: evidence.netWpm,
             totalAccuracy: evidence.accuracy,
             totalConsistency: evidence.consistency,
             consistencySamples: 1,
@@ -587,7 +588,7 @@ export const testRouter = createTRPCRouter({
       });
 
       const rows = await ctx.prisma.dailyUserStat.findMany({
-        where: { userId: ctx.session.user.id },
+        where: { userId: ctx.session.user.id, metricVersion: 2 },
         orderBy: { date: "asc" },
         select: {
           date: true,
@@ -604,7 +605,7 @@ export const testRouter = createTRPCRouter({
   getDailyProgressRollups: protectedProcedure
     .query(async ({ ctx }) => {
       const rows = await ctx.prisma.dailyUserStat.findMany({
-        where: { userId: ctx.session.user.id },
+        where: { userId: ctx.session.user.id, metricVersion: 2 },
         orderBy: { date: "asc" },
         select: {
           date: true,

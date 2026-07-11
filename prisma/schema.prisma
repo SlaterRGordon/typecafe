@@ -92,6 +92,7 @@ model Test {
     speed     Float
     accuracy  Float
     consistency Float?
+    // Canonical sortable score: net WPM (backfilled in 20260711140000).
     score     Float
     count     Int      @default(0)
     options   String
@@ -180,6 +181,9 @@ model DailyUserStat {
     avgAccuracy        Float
     avgConsistency     Float?
     consistencySamples Int      @default(0)
+    // 2 = bestWpm/avgWpm are canonical net WPM. Legacy v1 rows stored raw WPM
+    // and cannot always be converted exactly after per-test evidence was folded.
+    metricVersion      Int      @default(2)
     createdAt          DateTime @default(now())
     updatedAt          DateTime @updatedAt
 

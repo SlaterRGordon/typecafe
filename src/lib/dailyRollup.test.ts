@@ -23,8 +23,8 @@ describe("aggregateProgressHistory", () => {
         expect(out).toHaveLength(2)
         const d1 = out.find((a) => a.date.getTime() === dateFromDayKey("2026-06-26").getTime())!
         expect(d1.tests).toBe(2)
-        expect(d1.bestWpm).toBe(80)
-        expect(d1.totalWpm).toBe(140)
+        expect(d1.bestWpm).toBe(72)
+        expect(d1.totalWpm).toBe(120)
         expect(d1.totalAccuracy).toBe(185)
         expect(d1.totalConsistency).toBe(170)
         expect(d1.consistencySamples).toBe(2)
@@ -69,6 +69,7 @@ describe("mergeDailyStat", () => {
             avgAccuracy: 92.5,
             avgConsistency: 85,
             consistencySamples: 2,
+            metricVersion: 2,
         })
     })
 
@@ -85,6 +86,7 @@ describe("mergeDailyStat", () => {
             avgAccuracy: 98,
             avgConsistency: 60,
             consistencySamples: 1,
+            metricVersion: 2,
         }
         const out = mergeDailyStat(existing, agg)
         expect(out.tests).toBe(3)
@@ -100,11 +102,25 @@ describe("mergeDailyStat", () => {
         const existing: DailyStatValues = {
             tests: 1, bestWpm: 50, avgWpm: 50, avgAccuracy: 90,
             avgConsistency: null, consistencySamples: 0,
+            metricVersion: 2,
         }
         const out = mergeDailyStat(existing, agg)
         // only the aggregate's samples count toward consistency
         expect(out.avgConsistency!).toBeCloseTo(170 / 2)
         expect(out.consistencySamples).toBe(2)
+    })
+
+    it("restarts a legacy raw-WPM row instead of mixing incompatible metrics", () => {
+        const legacy: DailyStatValues = {
+            tests: 10,
+            bestWpm: 100,
+            avgWpm: 80,
+            avgAccuracy: 90,
+            avgConsistency: 70,
+            consistencySamples: 10,
+            metricVersion: 1,
+        }
+        expect(mergeDailyStat(legacy, agg)).toEqual(mergeDailyStat(null, agg))
     })
 })
 

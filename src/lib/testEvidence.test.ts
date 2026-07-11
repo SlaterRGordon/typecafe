@@ -25,7 +25,7 @@ describe("evaluateTestEvidence", () => {
         expect(result.speed).toBe(60)
         expect(result.accuracy).toBe(90)
         expect(result.netWpm).toBe(48)
-        expect(result.score).toBe(5400)
+        expect(result.score).toBe(48)
         expect(result.ranked).toBe(true)
     })
 

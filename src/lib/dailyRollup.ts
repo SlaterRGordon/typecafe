@@ -5,6 +5,9 @@
 // in src/lib/).
 
 import { dayKey } from "./progress"
+import { netFromRaw } from "./stats"
+
+export const DAILY_STAT_METRIC_VERSION = 2
 
 // One progress entry as stored by guests (localStorage) or replayed on sync.
 export interface ProgressEntry {
@@ -34,6 +37,7 @@ export interface DailyStatValues {
     avgAccuracy: number
     avgConsistency: number | null
     consistencySamples: number
+    metricVersion: number
 }
 
 export function dateFromDayKey(key: string): Date {
@@ -53,13 +57,14 @@ export function aggregateProgressHistory(
         const key = dayKey(new Date(entry.t), utcOffsetMinutes)
         const current = byDay.get(key)
         const consistency = typeof entry.c === "number" && Number.isFinite(entry.c) ? entry.c : null
+        const netWpm = netFromRaw(entry.wpm, entry.accuracy)
 
         if (!current) {
             byDay.set(key, {
                 date: dateFromDayKey(key),
                 tests: 1,
-                bestWpm: entry.wpm,
-                totalWpm: entry.wpm,
+                bestWpm: netWpm,
+                totalWpm: netWpm,
                 totalAccuracy: entry.accuracy,
                 totalConsistency: consistency ?? 0,
                 consistencySamples: consistency === null ? 0 : 1,
@@ -68,8 +73,8 @@ export function aggregateProgressHistory(
         }
 
         current.tests += 1
-        current.bestWpm = Math.max(current.bestWpm, entry.wpm)
-        current.totalWpm += entry.wpm
+        current.bestWpm = Math.max(current.bestWpm, netWpm)
+        current.totalWpm += netWpm
         current.totalAccuracy += entry.accuracy
         if (consistency !== null) {
             current.totalConsistency += consistency
@@ -87,7 +92,7 @@ export function mergeDailyStat(
     existing: DailyStatValues | null,
     aggregate: DailyStatAggregate,
 ): DailyStatValues {
-    if (!existing) {
+    if (!existing || existing.metricVersion !== DAILY_STAT_METRIC_VERSION) {
         return {
             tests: aggregate.tests,
             bestWpm: aggregate.bestWpm,
@@ -97,6 +102,7 @@ export function mergeDailyStat(
                 ? aggregate.totalConsistency / aggregate.consistencySamples
                 : null,
             consistencySamples: aggregate.consistencySamples,
+            metricVersion: DAILY_STAT_METRIC_VERSION,
         }
     }
 
@@ -111,6 +117,7 @@ export function mergeDailyStat(
         avgAccuracy: ((existing.avgAccuracy * existing.tests) + aggregate.totalAccuracy) / tests,
         avgConsistency: consistencySamples > 0 ? consistencyTotal / consistencySamples : null,
         consistencySamples,
+        metricVersion: DAILY_STAT_METRIC_VERSION,
     }
 }
 

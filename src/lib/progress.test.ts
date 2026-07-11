@@ -476,10 +476,10 @@ describe("mergeDailyRollups", () => {
 
         expect(merged).toHaveLength(2)
         expect(merged.map((record) => record.day ?? dayKey(record.createdAt))).toEqual(["2026-06-13", "2026-06-14"])
-        // Rollup-only day: wpm is net derived from the day's raw avg + accuracy
-        // (65 · (2·0.94 − 1) = 57.2). Raw per-test records pass through untouched.
+        // Rollup-only day already carries canonical net WPM.
+        // Raw per-test records pass through untouched.
         expect(merged[0]).toMatchObject({ accuracy: 94, consistency: 80, day: "2026-06-13", rollup: true })
-        expect(merged[0]!.wpm).toBeCloseTo(57.2, 6)
+        expect(merged[0]!.wpm).toBe(65)
         expect(merged[1]).toMatchObject({ wpm: 70, count: 30, mode: 0, subMode: 0 })
     })
 })

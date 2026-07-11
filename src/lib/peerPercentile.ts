@@ -1,6 +1,9 @@
+import { netFromRaw } from "./stats"
+
 export interface RankedStarterTest {
     userId: string
     speed: number
+    accuracy: number
     score: number
     createdAt: Date
 }
@@ -39,7 +42,7 @@ export function starterPeersFromTests(
             if (baselineRows.length < baselineTests) return null
             return {
                 userId,
-                baselineWpm: baselineRows.reduce((sum, row) => sum + row.speed, 0) / baselineRows.length,
+                baselineWpm: baselineRows.reduce((sum, row) => sum + netFromRaw(row.speed, row.accuracy), 0) / baselineRows.length,
                 bestScore: rows.reduce((best, row) => Math.max(best, row.score), -Infinity),
             }
         })

@@ -59,7 +59,7 @@ export function evaluateTestEvidence(input: EvaluateTestEvidenceInput): Evaluate
         speed: stats.rawWpm,
         accuracy: stats.accuracy,
         consistency: consistencyFromSamples(buildWpmSamples(countTimeline)),
-        score: stats.rawWpm * stats.accuracy,
+        score: stats.netWpm,
         netWpm: stats.netWpm,
         characterCount,
         incorrectCount,

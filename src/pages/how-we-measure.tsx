@@ -55,7 +55,7 @@ const HowWeMeasure: NextPage = () => {
         <DocumentSection title="Net WPM">
           <p>Net WPM is the canonical &quot;WPM&quot; across TypeCafe — the headline number on score cards, the figure leaderboards and personal bests rank by, and what your progress trends and improvement measure. Raw WPM is shown beside it for reference, never as the headline.</p>
           <p><code>((correct keystrokes - incorrect keystrokes) / 5) / elapsed minutes</code></p>
-          <p>The value is clamped at 0. A fully wrong run can still have raw speed, but it has 0 net WPM. Where only raw WPM and accuracy are stored (older rows, daily rollups), net is derived exactly as <code>raw × (2 × accuracy − 1)</code>.</p>
+          <p>The value is clamped at 0. A fully wrong run can still have raw speed, but it has 0 net WPM. Each saved test&apos;s sortable score and each current daily rollup store net WPM directly; raw speed and accuracy remain available for explanation and compatibility.</p>
         </DocumentSection>
 
         <DocumentSection title="Consistency">
@@ -66,6 +66,7 @@ const HowWeMeasure: NextPage = () => {
 
         <DocumentSection title="Progress &amp; Improvement">
           <p>Progress pages compare your current window against the previous matching window. For example, the 30-day headline compares the last 30 days with the 30 days before that.</p>
+          <p>Daily averages are built by calculating net WPM for each test first, then averaging those net values. TypeCafe does not estimate net speed from separate daily averages.</p>
           <p>Score cards may show a 30-day improvement after save. That requires at least 3 prior ranked tests in the last 30 days, so the comparison has enough evidence to be useful.</p>
         </DocumentSection>
 
