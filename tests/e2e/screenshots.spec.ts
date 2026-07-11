@@ -651,6 +651,7 @@ test.describe("screenshot tour", () => {
     await mockTrpc(page);
     await page.goto("/profile/testuser");
     await expect(page.getByText("testuser").first()).toBeVisible();
+    await expect(page.getByRole("link", { name: "https://typecafe.vercel.app" })).toHaveAttribute("target", "_blank");
     await capture(page, testInfo, "17-profile-public");
   });
 

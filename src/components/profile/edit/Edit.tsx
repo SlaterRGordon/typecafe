@@ -1,4 +1,3 @@
-import type { User } from "~/generated/prisma/client"
 import { upload } from "@vercel/blob/client";
 import { useSession } from "next-auth/react";
 import { Avatar } from "~/components/Avatar";
@@ -7,9 +6,17 @@ import type { Area } from "react-easy-crop";
 import { api } from "~/utils/api"
 import { AvatarCropper } from "./AvatarCropper";
 import { getCroppedAvatarFile } from "./avatarCrop";
+import { bioSchema, profileLinkSchema, usernameSchema, BIO_MAX_LENGTH, USERNAME_MAX_LENGTH } from "~/lib/userProfile";
+
+interface EditableUser {
+    username: string | null
+    bio: string | null
+    link: string | null
+    image: string | null
+}
 
 interface EditProps {
-    userData: User | null | undefined
+    userData: EditableUser | null | undefined
     onClose: () => void
     openConfirmModal: () => void
 }
@@ -33,7 +40,11 @@ export const Edit = (props: EditProps) => {
 
     const [saving, setSaving] = useState(false)
 
-    const { data: usernameExists, isLoading } = api.user.checkUsernameExists.useQuery({ username: name })
+    const validUsername = usernameSchema.safeParse(name).success
+    const { data: usernameExists, isLoading } = api.user.checkUsernameExists.useQuery(
+        { username: name },
+        { enabled: validUsername },
+    )
 
     useEffect(() => {
         setName(props.userData?.username ?? "")
@@ -153,9 +164,19 @@ export const Edit = (props: EditProps) => {
     const saveChanges = () => {
         setSaving(true)
 
-        if (name.length < 3) {
-            setNameError(true)
-            setError("Username must have atleast 3 characters.")
+        const parsedUsername = usernameSchema.safeParse(name)
+        const parsedBio = bioSchema.safeParse(bio)
+        const parsedLink = profileLinkSchema.safeParse(link)
+        if (!parsedUsername.success || !parsedBio.success || !parsedLink.success) {
+            setNameError(!parsedUsername.success)
+            const issue = !parsedUsername.success
+                ? parsedUsername.error.issues[0]
+                : !parsedBio.success
+                    ? parsedBio.error.issues[0]
+                    : !parsedLink.success
+                        ? parsedLink.error.issues[0]
+                        : undefined
+            setError(issue?.message ?? "Check your profile details.")
             setSaving(false)
             return
         }
@@ -169,9 +190,9 @@ export const Edit = (props: EditProps) => {
         }
 
         updateUser.mutate({
-            username: name,
-            bio: bio,
-            link: link,
+            username: parsedUsername.data,
+            bio: parsedBio.data,
+            link: parsedLink.data,
             ...(avatarChanged ? { image } : {}),
         })
     }
@@ -226,11 +247,12 @@ export const Edit = (props: EditProps) => {
                 }
             </div>
             <div className="flex flex-col gap-2">
-                <h4 className="text-lg font-bold sm:text-xl">Username</h4>
+                <label htmlFor="nameInput" className="text-lg font-bold sm:text-xl">Username</label>
                 <label className={`flex items-center gap-2 ${nameError ? "input-error" : ""}`}>
                     <input
                         id="nameInput"
                         placeholder="Name"
+                        maxLength={USERNAME_MAX_LENGTH}
                         value={name}
                         className={`grow input input-bordered ${nameError ? "input-error" : ""}`}
                         onChange={onNameChange} />
@@ -245,23 +267,26 @@ export const Edit = (props: EditProps) => {
                 </label>
             </div>
             <div className="flex flex-col gap-2">
-                <h4 className="text-lg font-bold sm:text-xl">Bio</h4>
+                <label htmlFor="bioInput" className="text-lg font-bold sm:text-xl">Bio</label>
                 <textarea
+                    id="bioInput"
                     className={`w-full textarea textarea-bordered`}
                     placeholder="Bio"
+                    maxLength={BIO_MAX_LENGTH}
                     value={bio}
                     onChange={onBioChange}
                 />
             </div>
             <div className="flex flex-col gap-2">
-                <h4 className="text-lg font-bold sm:text-xl">Link</h4>
+                <label htmlFor="linkInput" className="text-lg font-bold sm:text-xl">Link</label>
                 <input
                     id="linkInput"
-                    type="text" placeholder="Link"
+                    type="url" placeholder="Link"
                     className={`w-full input input-bordered`}
                     value={link}
                     onChange={onLinkChange}
                 />
+                <p className="text-xs text-base-content/60">Use a full http:// or https:// address.</p>
             </div>
             <button onClick={saveChanges} disabled={avatarUploading || saving} className="btn btn-primary btn-block mt-1">
                 {saving ? <div className="w-6 h-6 rounded-full animate-spin border border-solid text-primary border-t-transparent"></div> : avatarUploading ? "Uploading..." : "Save Changes"}

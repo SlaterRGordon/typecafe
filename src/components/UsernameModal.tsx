@@ -1,6 +1,7 @@
 import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
 import { api } from "~/utils/api";
+import { usernameSchema, USERNAME_MAX_LENGTH } from "~/lib/userProfile";
 
 export const UsernameModal = () => {
     const session = useSession()
@@ -10,7 +11,7 @@ export const UsernameModal = () => {
     const { data: usernameExists, isLoading } = api.user.checkUsernameExists.useQuery(
         { username },
         {
-            enabled: !!session.data,
+            enabled: !!session.data && usernameSchema.safeParse(username).success,
         }
     )
     const updateUsername = api.user.update.useMutation({
@@ -26,19 +27,20 @@ export const UsernameModal = () => {
     const onUsernameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const newUsername = e.target.value
         setUsername(newUsername)
-        if (newUsername.length > 0) {
-            setUsernameError(false)
-        } else {
-            setUsernameError(true)
-        }
+        setUsernameError(!usernameSchema.safeParse(newUsername).success)
     }
 
     const handleSumbit = () => {
+        const parsed = usernameSchema.safeParse(username)
+        if (!parsed.success) {
+            setError(parsed.error.issues[0]?.message ?? "Choose a valid username.")
+            return
+        }
         if (usernameExists) {
             setError("Username already in use.")
             return
         }
-        updateUsername.mutate({ username })
+        updateUsername.mutate({ username: parsed.data })
     }
 
     useEffect(() => {
@@ -59,16 +61,17 @@ export const UsernameModal = () => {
                     <div className="flex flex-col gap-2">
                         {error != "" &&
                             <div role="alert" className="alert alert-error justify-normal">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                                 <span>{error}</span>
                             </div>
                         }
                         <div className="flex flex-col">
-                            <h3 className="font-semibold text-2xl p-1">Username</h3>
+                            <label htmlFor="usernameInput" className="font-semibold text-2xl p-1">Username</label>
                             <label className={`flex items-center gap-2`}>
                                 <input
                                     id="usernameInput"
                                     placeholder="Username"
+                                    maxLength={USERNAME_MAX_LENGTH}
                                     value={username}
                                     className={`grow input input-bordered ${usernameError ? "input-error" : ""}`}
                                     onChange={onUsernameChange} />

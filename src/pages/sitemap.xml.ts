@@ -38,7 +38,7 @@ function generateSiteMap(staticPages: string[], users: User[]) {
     });
 
     const profileEntries = users.map(({ username }) =>
-        urlEntry(`${EXTERNAL_DATA_URL}/profile/${username}`, now, "0.6", "weekly")
+        urlEntry(`${EXTERNAL_DATA_URL}/profile/${encodeURIComponent(username)}`, now, "0.6", "weekly")
     );
 
     // Per-score share pages are noindex,follow (growth-seo §C) — social cards,

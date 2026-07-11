@@ -28,7 +28,7 @@ async function generateSitemap() {
     const username = user.username ?? 'unknown';
     return `
       <url>
-        <loc>${`https://typecafe.app/profile/${username}`}</loc>
+        <loc>${`https://typecafe.app/profile/${encodeURIComponent(username)}`}</loc>
         <lastmod>${new Date().toISOString()}</lastmod>
       </url>
     `;

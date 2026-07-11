@@ -26,7 +26,7 @@ const LeaderboardList = (props: LeaderboardListProps) => {
     const showEmptyState = !isLoading && rows?.length === 0;
 
     const navigateProfile = async (username: string) => {
-        await router.push(`/profile/${username}`);
+        await router.push(`/profile/${encodeURIComponent(username)}`);
     };
 
     return (

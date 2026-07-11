@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from "react"
 import type { TestModes, TestSubModes } from "~/components/typer/types"
-import { api } from "~/utils/api"
-import type { Test, User } from "~/generated/prisma/client"
+import { api, type RouterOutputs } from "~/utils/api"
 import { useRouter } from "next/router";
 import { Avatar } from "~/components/Avatar";
 import { netFromRaw } from "~/lib/stats";
@@ -23,10 +22,12 @@ interface LeaderboardProps {
     update?: boolean,
 }
 
+type ScoreTest = RouterOutputs["test"]["getAll"][number]
+
 const Scores = (props: LeaderboardProps) => {
     const router = useRouter()
     const { mode, subMode, count, date, language } = props;
-    const [allTests, setAllTests] = useState<(Test & { user: User; })[] | undefined>(undefined)
+    const [allTests, setAllTests] = useState<ScoreTest[] | undefined>(undefined)
     const limit = 16
     const [page, setPage] = useState(0)
     const [loadingList, setLoadingList] = useState(true)
@@ -50,7 +51,7 @@ const Scores = (props: LeaderboardProps) => {
 
     const navigateProfile = async (username: string | null) => {
         if (!username) return
-        await router.push(`/profile/${username}`)
+        await router.push(`/profile/${encodeURIComponent(username)}`)
         return
     }
 
@@ -85,8 +86,8 @@ const Scores = (props: LeaderboardProps) => {
 
     useEffect(() => {
         function uniqueById(
-            prev: (Test & { user: User; })[],
-            curr: (Test & { user: User; })[]
+            prev: ScoreTest[],
+            curr: ScoreTest[]
         ) {
             return curr.filter((currItem) => {
                 if (prev.find((prevItem) => prevItem.id === currItem.id)) return false;

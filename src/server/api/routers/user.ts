@@ -1,23 +1,19 @@
 import { TRPCError } from "@trpc/server";
 import { hash } from "bcrypt";
 import { z } from "zod";
+import { Prisma } from "~/generated/prisma/client";
 
 import {
     createTRPCRouter,
     protectedProcedure,
     publicProcedure,
 } from "~/server/api/trpc";
-
-const publicUserSelect = {
-    id: true,
-    name: true,
-    email: true,
-    emailVerified: true,
-    username: true,
-    image: true,
-    bio: true,
-    link: true,
-} as const;
+import {
+    profileUpdateSchema,
+    registrationSchema,
+    usernameSchema,
+} from "~/lib/userProfile";
+import { privateUserSelect, publicUserSelect } from "~/server/db/userSelect";
 
 const avatarImageSchema = z
     .string()
@@ -28,77 +24,48 @@ const avatarImageSchema = z
         return protocol === "https:" && hostname.endsWith(".public.blob.vercel-storage.com");
     }, "Profile picture must be a Vercel Blob URL.");
 
+function isUniqueConflict(error: unknown): boolean {
+    return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
+}
+
 export const userRouter = createTRPCRouter({
     update: protectedProcedure
-        .input(z.object({
-            username: z.string().optional(),
-            name: z.string().optional(),
-            bio: z.string().optional(),
-            link: z.string().optional(),
+        .input(profileUpdateSchema.extend({
             image: avatarImageSchema.nullable().optional(),
         }))
-        .mutation(({ ctx, input }) => {
-            return ctx.prisma.user.update({
-                where: {
-                    id: ctx.session?.user.id,
-                },
-                data: {
-                    username: input.username,
-                    name: input.name,
-                    bio: input.bio,
-                    link: input.link,
-                    image: input.image,
-                },
-            });
+        .mutation(async ({ ctx, input }) => {
+            if (input.username) {
+                const existing = await ctx.prisma.user.findFirst({
+                    where: {
+                        id: { not: ctx.session.user.id },
+                        username: { equals: input.username, mode: "insensitive" },
+                    },
+                    select: { id: true },
+                });
+                if (existing) throw new TRPCError({ code: "CONFLICT", message: "Username already in use." });
+            }
+
+            try {
+                return await ctx.prisma.user.update({
+                    where: { id: ctx.session.user.id },
+                    data: {
+                        username: input.username,
+                        bio: input.bio,
+                        link: input.link === "" ? null : input.link,
+                        image: input.image,
+                    },
+                    select: privateUserSelect,
+                });
+            } catch (error) {
+                if (isUniqueConflict(error)) throw new TRPCError({ code: "CONFLICT", message: "Username already in use." });
+                throw error;
+            }
         }),
     get: protectedProcedure
         .query(({ ctx }) => {
             return ctx.prisma.user.findUnique({
-                where: {
-                    id: ctx.session?.user.id,
-                },
-            });
-        }),
-    getUserByUsername: protectedProcedure
-        .input(z.object({
-            username: z.string(),
-        }))
-        .query(({ ctx, input }) => {
-            return ctx.prisma.user.findFirst({
-                where: {
-                    username: input.username,
-                },
-                select: publicUserSelect,
-            });
-        }),
-    getUserByEmail: protectedProcedure
-        .input(z.object({
-            email: z.string(),
-        }))
-        .query(({ ctx, input }) => {
-            return ctx.prisma.user.findFirst({
-                where: {
-                    email: input.email,
-                },
-                select: publicUserSelect,
-            });
-        }),
-    createUser: protectedProcedure
-        .input(z.object({
-            email: z.string(),
-            username: z.string(),
-            password: z.string(),
-        }))
-        .mutation(async ({ ctx, input }) => {
-            const hashedPassword: string = await hash(input.password, 10);
-
-            return ctx.prisma.user.create({
-                data: {
-                    name: input.username,
-                    username: input.username,
-                    email: input.email,
-                    password: hashedPassword,
-                },
+                where: { id: ctx.session.user.id },
+                select: privateUserSelect,
             });
         }),
     delete: protectedProcedure
@@ -107,19 +74,17 @@ export const userRouter = createTRPCRouter({
                 where: {
                     id: ctx.session?.user.id,
                 },
+                select: { id: true },
             });
         }),
     registerUser: publicProcedure
-        .input(z.object({
-            email: z.string(),
-            username: z.string(),
-            password: z.string(),
-        }))
+        .input(registrationSchema)
         .mutation(async ({ ctx, input }) => {
             const { username, email, password } = input;
 
             const emailExists = await ctx.prisma.user.findFirst({
-                where: { email },
+                where: { email: { equals: email, mode: "insensitive" } },
+                select: { id: true },
             });
             if (emailExists) {
                 throw new TRPCError({
@@ -129,7 +94,8 @@ export const userRouter = createTRPCRouter({
             }
 
             const usernameExists = await ctx.prisma.user.findFirst({
-                where: { username },
+                where: { username: { equals: username, mode: "insensitive" } },
+                select: { id: true },
             });
             if (usernameExists) {
                 throw new TRPCError({
@@ -140,26 +106,29 @@ export const userRouter = createTRPCRouter({
 
             const hashedPassword: string = await hash(password, 10);
 
-            const result = await ctx.prisma.user.create({
-                data: {
-                    name: username,
-                    username: username,
-                    email: email,
-                    password: hashedPassword,
-                },
-            });
+            try {
+                await ctx.prisma.user.create({
+                    data: { name: username, username, email, password: hashedPassword },
+                    select: { id: true },
+                });
+            } catch (error) {
+                if (isUniqueConflict(error)) {
+                    throw new TRPCError({ code: "CONFLICT", message: "Email or username already in use." });
+                }
+                throw error;
+            }
 
             return {
                 status: 201,
                 message: "Account created successfully",
-                result: result.email,
             };
         }),
     checkUsernameExists: publicProcedure
         .input(z.object({
-            username: z.string(),
+            username: z.string().trim().max(64),
         }))
         .query(async ({ ctx, input }) => {
+            if (!usernameSchema.safeParse(input.username).success) return true;
             const usernameExists = await ctx.prisma.user.findFirst({
                 where: {
                     username: {
@@ -169,24 +138,18 @@ export const userRouter = createTRPCRouter({
                 },
             });
 
-            return usernameExists ? true : false;
+            return !!usernameExists;
         }),
     getProfileByUsername: publicProcedure
         .input(z.object({
-            username: z.string(),
+            username: usernameSchema,
         }))
         .query(async ({ ctx, input }) => {
             return ctx.prisma.user.findFirst({
                 where: {
-                    username: input.username,
+                    username: { equals: input.username, mode: "insensitive" },
                 },
-                select: {
-                    id: true,
-                    image: true,
-                    username: true,
-                    bio: true,
-                    link: true,
-                },
+                select: publicUserSelect,
             });
         }),
 });

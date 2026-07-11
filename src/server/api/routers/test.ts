@@ -33,6 +33,7 @@ import {
   mergeDailyStat,
   type DailyStatAggregate,
 } from "~/lib/dailyRollup";
+import { publicUserSelect } from "~/server/db/userSelect";
 
 const MAX_PEER_PERCENTILE_TESTS = 20000;
 const encodedKeystrokeSchema = z.tuple([
@@ -431,7 +432,7 @@ export const testRouter = createTRPCRouter({
         take: input.limit,
         skip: input.page * input.limit,
         include: {
-          user: true,
+          user: { select: publicUserSelect },
         },
       });
     }),
@@ -447,7 +448,7 @@ export const testRouter = createTRPCRouter({
           [input.orderBy]: input.order,
         },
         include: {
-          user: true,
+          user: { select: publicUserSelect },
         },
       });
     }),
@@ -837,7 +838,7 @@ export const testRouter = createTRPCRouter({
         orderBy: { score: 'desc' },
         distinct: ['options'],
         include: {
-          user: true,
+          user: { select: publicUserSelect },
         },
       });
     }),
