@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import useLocalStorage from "~/utils/hooks/useLocalStorage";
-import { getDarkerShades, hexToHsl } from "~/utils/convertColor";
+import { getDarkerShades, hexToHsl, readableTextColor } from "~/utils/convertColor";
 import { presets, withReadableContentColors } from "./colorPresets";
 import type { Colors } from "./colorPresets";
 
@@ -46,6 +46,26 @@ export const applyColors = (normalizedColors: Colors) => {
         }
     }
 }
+
+// Blocking <head> script that paints the saved theme before first paint, so
+// there's no flash of the default theme while React hydrates and useApplyColors
+// (a post-mount effect) catches up. Reuses the exact runtime color helpers via
+// .toString() so the boot path can't drift from applyColors above.
+export const themeBootScript = `(function(){try{
+var s=localStorage.getItem("colors");
+var c=s?JSON.parse(s):${JSON.stringify(presets.dracula)};
+var hexToHsl=${hexToHsl.toString()};
+var getDarkerShades=${getDarkerShades.toString()};
+var readableTextColor=${readableTextColor.toString()};
+var map=${JSON.stringify(colorVariableMap)};
+c["--pc"]=c["--pc"]||readableTextColor(c["--p"]);
+c["--sc"]=c["--sc"]||readableTextColor(c["--s"]);
+var r=document.documentElement;
+function set(n,h){r.style.setProperty(n,h);r.style.setProperty("--color"+n.slice(1),"hsl("+h+")");if(map[n])r.style.setProperty(map[n],"hsl("+h+")");}
+for(var k in c){if(c[k]==="")continue;var h=hexToHsl(c[k]);set(k,h);
+if(k==="--b1"){var d=getDarkerShades(h);set("--b2",d[0]);set("--b3",d[1]);set("--n",d[3]);set("--nf",d[3]);}
+else if(k==="--p"||k==="--s"){set(k+"f",getDarkerShades(h)[3]);}}
+}catch(e){}})();`;
 
 // Apply the saved theme on load, independent of the (lazily mounted) ColorModal.
 // Mounted once in Navigation so every page gets the theme without opening Colors.
