@@ -573,14 +573,14 @@ export const getServerSideProps: GetServerSideProps<SharedScorePageProps> = asyn
   } else if (data) {
     meta = {
       title: `${data.rawWpm.toFixed(1)} WPM on TypeCafe`,
-      description: `${data.username ? `@${data.username} typed ` : ""}${data.rawWpm.toFixed(1)} WPM at ${data.accuracy.toFixed(1)}% accuracy. Test your typing speed on TypeCafe.`,
+      description: `${data.username ? `@${data.username} typed ` : ""}${data.rawWpm.toFixed(1)} WPM at ${data.accuracy.toFixed(1)}% accuracy. Diagnose weak spots and drill them on TypeCafe.`,
       imageUrl,
       pageUrl,
     };
   } else {
     meta = {
       title: "Typing score | TypeCafe",
-      description: "Test your typing speed on TypeCafe.",
+      description: "Measure your typing, diagnose weak spots, and drill them on TypeCafe.",
       imageUrl,
       pageUrl,
     };

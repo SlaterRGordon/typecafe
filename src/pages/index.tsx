@@ -24,6 +24,7 @@ import { addAlert } from "~/state/alert/alertSlice";
 import { appendLocalProgress } from "~/lib/progressHistory";
 import { consistencyFromSamples } from "~/lib/stats";
 import { api } from "~/utils/api";
+import { SITE_DESCRIPTION } from "~/lib/siteMetadata";
 
 // Runs synchronously before paint on the client so we can suppress the typer's
 // first (stale-mode) render before it ever shows; falls back to useEffect on the
@@ -657,8 +658,8 @@ const Home: NextPage = () => {
     "@type": "WebApplication",
     "name": "TypeCafe",
     "url": "https://typecafe.app",
-    "description": "A user-centered typing test with a clean, aesthetic feel. Level up your typing and track your progress.",
-    "applicationCategory": "UtilitiesApplication",
+    "description": SITE_DESCRIPTION,
+    "applicationCategory": "EducationalApplication",
     "operatingSystem": "Any",
     "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
   };
@@ -677,7 +678,7 @@ const Home: NextPage = () => {
       <div id="typer" className={`flex flex-col h-full overflow-auto ${completedScore ? "py-4" : "[justify-content:safe_center]"} ${fullscreen ? 'absolute top-0 left-0 w-full h-full bg-base-100 z-[500] sm:px-8' : 'w-full max-w-screen-xl mx-auto'}`}>
         {/* A real page heading for crawlers + screen readers without disturbing
             the minimal test-first hero (growth-seo §E). */}
-        <h1 className="sr-only">TypeCafe — the typing test that makes you faster</h1>
+        <h1 className="sr-only">TypeCafe — the typing coach that makes you faster</h1>
         {!completedScore && !fullscreen &&
           <HomeCoachTabs className={typingFocusFadeClass(typingFocused, "")} desktop={false} />
         }

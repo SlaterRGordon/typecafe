@@ -1,7 +1,7 @@
 {
   "name": "TypeCafe",
   "short_name": "TypeCafe",
-  "description": "A user-centered typing test with a clean, aesthetic feel. Level up your typing and track your progress.",
+  "description": "Diagnose what slows your typing, drill weak keys and transitions, and prove you are getting faster.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#1b1d29",

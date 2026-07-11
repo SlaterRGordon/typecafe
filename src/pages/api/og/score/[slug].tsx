@@ -183,7 +183,7 @@ function FallbackCard() {
       }}
     >
       <div style={{ fontSize: 64, fontWeight: 700 }}>TypeCafe</div>
-      <div style={{ fontSize: 30, color: BRAND.primary, marginTop: 12 }}>Test your typing speed</div>
+      <div style={{ fontSize: 30, color: BRAND.primary, marginTop: 12 }}>Find what slows you down. Drill it.</div>
       <div style={{ fontSize: 24, color: BRAND.textMuted, marginTop: 24 }}>{SHARE_DOMAIN}</div>
     </div>
   );

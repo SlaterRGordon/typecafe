@@ -7,7 +7,7 @@ export default function Document() {
                 {/* Site-wide OG/description defaults live in _app.tsx (via next/head)
                     so individual pages can override them by key. Keep only static,
                     non-overridable tags here. */}
-                <meta name="keywords" content="typing, test, aesthetic, minimalistic, keyboard, speed, leaderboard, track" />
+                <meta name="keywords" content="typing coach, typing practice, typing test, targeted typing drills, WPM, accuracy, progress" />
                 <meta name="theme-color" content="#1b1d29" />
                 <link rel="manifest" href="/manifest.json" />
                 <link rel="shortcut icon" href="/images/TypeCafeIcon.ico" />
