@@ -1,6 +1,6 @@
 import type { ReactNode } from "react"
-import { TestModes, TestSubModes, TestGramScopes } from "../types"
-import type { TestGramSources } from "../types"
+import { TestModes, TestGramScopes } from "../types"
+import type { TestGramSources, TestSubModes } from "../types"
 import { ConfigOption, ConfigToggle, SegmentedGroup } from "./ConfigOption"
 
 interface ConfigProps {

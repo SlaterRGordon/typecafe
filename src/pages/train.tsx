@@ -183,11 +183,14 @@ const Train: NextPage = () => {
     const [levelChanged, setLevelChanged] = useState<boolean>(false)
     const [restartSignal, setRestartSignal] = useState(0)
     const [completion, setCompletion] = useState<TrainCompletion | null>(null)
+    // Eager results are followed by a persisted upgrade for signed-in users.
+    // This attempt-local guard keeps that pair to one completion popover.
+    const completionHandledRef = useRef(false)
     const [typingFocused, setTypingFocused] = useState(false)
     const charAttemptsRef = useRef<Map<string, { attempts: number, correct: number }>>(new Map())
 
     const train = useTrainProgress(difficulty, statsPoolFor(activeLayout))
-    const completedProgress = train.completedProgress
+    const { completedProgress, importDevice, save } = train
 
     // fetch types
     const { isLoading: isLoadingTestType } = api.type.get.useQuery({ mode, subMode, language: language })
@@ -195,7 +198,6 @@ const Train: NextPage = () => {
     // The modal belongs to the page; clear it when the ladder changes.
     useEffect(() => {
         setCompletion(null)
-        completionHandledRef.current = false
     }, [difficulty])
 
     const ladder: LevelStatus[] = useMemo(
@@ -221,9 +223,9 @@ const Train: NextPage = () => {
 
     // Import the guest mirror, then advance from the current level (page state).
     const importDeviceProgress = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
-        const fresh = await train.importDevice({ silent })
+        const fresh = await importDevice({ silent })
         if (fresh) advanceToNextLevel(fresh)
-    }, [train.importDevice, advanceToNextLevel])
+    }, [importDevice, advanceToNextLevel])
 
     const enterLevel = (next: Level) => {
         setLevel(next)
@@ -239,6 +241,7 @@ const Train: NextPage = () => {
             setView("map")
             return
         }
+        completionHandledRef.current = false
         setDifficulty(tier)
         setLevelChanged(false)
         setView("map")
@@ -268,11 +271,6 @@ const Train: NextPage = () => {
         })
     }, [difficulty, level, trainLevels])
 
-    // With eagerResult, a signed-in completion reports twice (instant, then the
-    // save upgrade). The popover shows nothing server-derived, so only the first
-    // report counts; the ref clears when the popover closes for a new attempt.
-    const completionHandledRef = useRef(false)
-
     const onTestComplete = (result: TestCompletionResult) => {
         if (completionHandledRef.current) return
         completionHandledRef.current = true
@@ -295,7 +293,7 @@ const Train: NextPage = () => {
         // background and patches the status line — and the unlock, should the
         // refreshed server progress ever disagree with the local merge.
         showCompletion(result, { saved: "saving", nextProgress: mergeProgress(completedProgress, entry) })
-        void train.save(entry).then(({ saved, nextProgress }) => {
+        void save(entry).then(({ saved, nextProgress }) => {
             setCompletion((current) => {
                 if (!current || current.levelName !== levelName) return current
                 return {

@@ -61,7 +61,7 @@ const Home: NextPage = () => {
   const setQuoteLength = (value: QuoteLength) => updateSetting("quoteLength", value)
   const setMode = (value: TestModes) => updateSetting("mode", value)
   const setSubMode = (value: TestSubModes) => updateSetting("subMode", value)
-  const setSelectedKeys = (value: string[]) => updateSetting("selectedKeys", value)
+  const setSelectedKeys = useCallback((value: string[]) => updateSetting("selectedKeys", value), [updateSetting])
   const setCount = (value: number) => updateSetting("count", value)
   const setPunctuation = (value: boolean) => updateSetting("punctuation", value)
   const setCapitals = (value: boolean) => updateSetting("capitals", value)
@@ -78,14 +78,16 @@ const Home: NextPage = () => {
   // base in step with it, preserving the current size (clamped to what the new
   // language offers). One-way: nav → test settings.
   const [globalLanguage] = useLanguage()
-  useEffect(() => {
+  const activeTestLanguage = useMemo(() => {
     const { size } = parseLanguage(language)
-    const composed = composeLanguage(globalLanguage, clampSize(globalLanguage, size))
-    if (composed !== language) setLanguage(composed)
+    return composeLanguage(globalLanguage, clampSize(globalLanguage, size))
+  }, [globalLanguage, language])
+  useEffect(() => {
+    if (activeTestLanguage !== language) setLanguage(activeTestLanguage)
     // Quotes are English-only; leaving English exits the quote engine.
     if (globalLanguage !== "english" && mode === TestModes.quotes) setMode(TestModes.normal)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [globalLanguage, language])
+  }, [activeTestLanguage, globalLanguage, language])
   const [typingFocused, setTypingFocused] = useState(false)
   // Practice: the shift-layer toggle lives in the settings line but drives the
   // keyboard board below the test, so the page holds it. Holding physical Shift
@@ -163,7 +165,7 @@ const Home: NextPage = () => {
       priorPracticeLayout.current = activeLayout
     })
     return () => { alive = false }
-  }, [activeLayout, globalLanguage, mode, selectedKeys])
+  }, [activeLayout, globalLanguage, mode, selectedKeys, setSelectedKeys])
   const { data: persistedStats } = api.practiceStats.get.useQuery({ pool: statsPoolFor(activeLayout) }, {
     enabled: mode === TestModes.practice && !!sessionData?.user,
   })
@@ -263,7 +265,7 @@ const Home: NextPage = () => {
         merged.set(key, entry)
       }
     }
-    const accents = accentsFor(parseLanguage(language).base).filter((ch) => sequenceFor(ch, activeLayout).length > 0)
+    const accents = accentsFor(parseLanguage(activeTestLanguage).base).filter((ch) => sequenceFor(ch, activeLayout).length > 0)
     const keys = smartDrillSelection(merged, accents)
     if (!keys) {
       dispatch(addAlert({ message: "Not enough typing data yet — practice a little first!", type: "warning" }))
@@ -282,7 +284,7 @@ const Home: NextPage = () => {
     const matches =
       subMode === c.subMode &&
       count === c.count &&
-      language === c.language &&
+      activeTestLanguage === c.language &&
       customLength === c.customLength &&
       (result.punctuation ?? false) === c.punctuation &&
       (result.capitals ?? false) === c.capitals
@@ -326,7 +328,7 @@ const Home: NextPage = () => {
       count,
       mode,
       subMode,
-      language,
+      language: activeTestLanguage,
       options: result.levelName,
       createdAt: new Date(),
       testId: result.testId,
@@ -340,7 +342,7 @@ const Home: NextPage = () => {
     // Mirror guest results locally so /progress is real from the first test
     // (local-first; signed-in users' trends come from the DB instead).
     if (!sessionData?.user) {
-      appendLocalProgress({ wpm: result.speed, accuracy: result.accuracy, c: consistency, t: Date.now(), lang: parseLanguage(language).base, layout: activeLayout })
+      appendLocalProgress({ wpm: result.speed, accuracy: result.accuracy, c: consistency, t: Date.now(), lang: parseLanguage(activeTestLanguage).base, layout: activeLayout })
     }
 
     // Only guests stash a pending score (to save once they sign in). Signed-in
@@ -692,7 +694,7 @@ const Home: NextPage = () => {
               setSubMode={setSubMode}
               count={count}
               customLength={customLength}
-              language={language}
+              language={activeTestLanguage}
               quoteLength={quoteLength}
               setQuoteLength={setQuoteLength}
               selectedKeys={selectedKeys}
@@ -761,7 +763,7 @@ const Home: NextPage = () => {
           </div>
         ) : (
         <Typer
-          language={language}
+          language={activeTestLanguage}
           quoteLength={quoteLength}
           mode={mode}
           subMode={subMode}

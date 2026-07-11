@@ -2,18 +2,15 @@ import { useEffect } from "react";
 import { useLocalStorage } from "usehooks-ts";
 
 export const ThemeSwitch = () => {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call
     const [theme, setTheme] = useLocalStorage("theme", "dark")
     const label = theme === "dark" ? "Switch to light theme" : "Switch to dark theme"
 
     const toggleTheme = () => {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
         setTheme(theme === "dark" ? "light" : "dark")
     }
 
     useEffect(() => {
         const body = document.documentElement;
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
         body.setAttribute('data-theme', theme);
     }, [theme])
 

@@ -11,8 +11,7 @@ import type { EncodedKeystroke, KeystrokeEvent } from "~/lib/keystrokes"
 import { api } from "~/utils/api"
 import { statsPoolFor } from "~/lib/keyboardLayout"
 import { useLayout } from "~/hooks/useLayout"
-import { TestModes } from "../types"
-import type { TestCompletionResult } from "../types"
+import type { TestCompletionResult, TestModes } from "../types"
 
 export interface CreateTestInput {
     typeId: string,

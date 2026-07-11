@@ -3,7 +3,7 @@ import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { useSession } from "next-auth/react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { TrendChart } from "~/components/progress/TrendChart";
 import { GoalCard } from "~/components/progress/GoalCard";
 import { KeyHeatmap, KeyHeatmapLegend } from "~/components/heatmap/KeyHeatmap";
@@ -280,10 +280,10 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
 
     // Straight least-squares fit per metric — one readable line instead of a
     // wiggly rolling average, aligned 1:1 with the scatter points.
-    const fitLine = (values: number[]) => {
+    const fitLine = useCallback((values: number[]) => {
         const line = linearTrend(series.points.map((p) => p.t), values);
         return series.points.map((p) => line.at(p.t));
-    };
+    }, [series.points]);
     const wpm = useMemo(() => {
         const values = series.points.map((p) => p.wpm);
         const line = linearTrend(series.points.map((p) => p.t), values);
@@ -292,7 +292,7 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
     const accuracy = useMemo(() => {
         const values = series.points.map((p) => p.accuracy);
         return { values, trend: fitLine(values) };
-    }, [series]);
+    }, [fitLine, series]);
     // Consistency only exists on tests recorded since the feature shipped; show the
     // chart once every point in the window has it (no mixing real values with 0s).
     const consistency = useMemo(() => {
@@ -300,7 +300,7 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
         if (values.length === 0 || values.some((v) => typeof v !== "number")) return null;
         const nums = values as number[];
         return { values: nums, trend: fitLine(nums) };
-    }, [series]);
+    }, [fitLine, series]);
 
     // The hero delta reads off the WPM trend line's endpoints, so the headline
     // number is exactly the slope the chart shows — not a separate noisy

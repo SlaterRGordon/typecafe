@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { addAlert } from "~/state/alert/alertSlice";
 import { TestModes } from "./types";
 import { getActiveKey, subscribeActiveKey } from "./keySignal";
@@ -81,7 +81,10 @@ export const Keyboard = (props: KeyboardProps) => {
         }
         return { direct, byDead }
     }, [accentChars, board, layout])
-    const isUnlockable = (glyph: string) => isDrillable(glyph) || accents.direct.has(glyph) || accents.byDead.has(glyph)
+    const isUnlockable = useCallback(
+        (glyph: string) => isDrillable(glyph) || accents.direct.has(glyph) || accents.byDead.has(glyph),
+        [accents],
+    )
 
     // A keystroke never re-renders the board (typing-feel §1): the moving
     // current-key marker is applied imperatively below (and inside KeyHeatmap),
@@ -195,8 +198,10 @@ export const Keyboard = (props: KeyboardProps) => {
 
     // A shifted letter twin (R, Ü) — not its own drill target; it mirrors the
     // base key and rides the capitals add-on.
-    const isCapitalMirror = (glyph: string) =>
-        !isUnlockable(glyph) && glyph.toLowerCase() !== glyph && isPracticeLetter(glyph.toLowerCase())
+    const isCapitalMirror = useCallback(
+        (glyph: string) => !isUnlockable(glyph) && glyph.toLowerCase() !== glyph && isPracticeLetter(glyph.toLowerCase()),
+        [isUnlockable],
+    )
     // A toggled-off text add-on locks its whole key family, whatever the
     // selection says — the text can't contain them, so the board shouldn't
     // claim otherwise.
@@ -239,7 +244,7 @@ export const Keyboard = (props: KeyboardProps) => {
             }
         }
         return allow
-    }, [board, shiftLayer, altgrLayer, accents])
+    }, [board, shiftLayer, altgrLayer, isCapitalMirror, isUnlockable])
 
     const handleKeyClicked = (key: string) => {
         if (!selectedKeys || !setSelectedKeys || mode !== TestModes.practice) return

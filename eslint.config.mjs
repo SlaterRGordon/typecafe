@@ -18,6 +18,7 @@ export default tseslint.config(
       "src/generated/prisma/**",
       "tailwind.config.ts",
       "test-results/**",
+      "worktrees/**",
       "src/pages/sitemap.xml.js",
     ],
   },
