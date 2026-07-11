@@ -40,6 +40,18 @@ test.describe("modal focus behavior", () => {
     await expect(page.locator("#signInModal")).toBeChecked();
   });
 
+  test("applies the saved theme on load without opening the color modal", async ({ page }) => {
+    await gotoHome(page);
+
+    // The color modal is lazy - it must not be mounted here.
+    await expect(page.locator("#colorModal")).toHaveCount(0);
+    // ...yet the theme is painted onto the document root anyway.
+    const primary = await page.evaluate(() =>
+      document.documentElement.style.getPropertyValue("--p"),
+    );
+    expect(primary.trim()).not.toBe("");
+  });
+
   // Settings is now a non-modal toolbar dropdown (Phase 2). It no longer pauses
   // typing the way the old modal did; closing it must leave typing focus intact.
   test("settings dropdown closes on escape and typing resumes after", async ({ page }) => {

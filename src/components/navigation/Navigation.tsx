@@ -6,6 +6,7 @@ import { TopNavigation } from "./TopNavigation";
 import { SideNavigation } from "./SideNavigation";
 import { BottomNavigation } from "./BottomNavigation";
 import { HomeCoachTabs } from "../home/HomeCoachTabs";
+import { useApplyColors } from "../colors/applyColors";
 
 const SignInModal = dynamic(
     () => import("../SignInModal").then((module) => module.SignInModal),
@@ -21,6 +22,7 @@ const UsernameModal = dynamic(
 );
 
 export const Navigation = () => {
+    useApplyColors();
     const { data: session, status } = useSession();
     const [signInLoaded, setSignInLoaded] = useState(false);
     const [signInOpen, setSignInOpen] = useState(false);
