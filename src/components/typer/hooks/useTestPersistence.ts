@@ -15,15 +15,10 @@ import type { TestCompletionResult, TestModes } from "../types"
 
 export interface CreateTestInput {
     typeId: string,
-    accuracy: number,
-    speed: number,
-    consistency?: number,
-    score: number,
     count: number,
     options: string,
     punctuation: boolean,
     capitals: boolean,
-    ranked: boolean,
     timeline: EncodedKeystroke[],
     utcOffsetMinutes?: number,
     challengeDate?: string,

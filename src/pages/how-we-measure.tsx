@@ -44,7 +44,7 @@ const HowWeMeasure: NextPage = () => {
 
         <DocumentSection title="Accuracy">
           <p>Accuracy is keystroke accuracy: <code>correct keystrokes / total typed keystrokes</code>. If you type 100 characters and 92 match the expected text, accuracy is 92%.</p>
-          <p>Backspace changes the live character count for speed timing, but it is not a magic eraser for accuracy. The score card reports the correctness of what you typed against the prompt.</p>
+          <p>Backspace removes that position from the score card&apos;s final speed and accuracy. The original attempt still counts in your per-key evidence, so correcting a miss cleans up the result without hiding the weakness from your coach.</p>
         </DocumentSection>
 
         <DocumentSection title="Per-Key Heatmap">
@@ -90,6 +90,7 @@ const HowWeMeasure: NextPage = () => {
 
         <DocumentSection title="Ranked and Unranked Runs">
           <p>Ranked runs feed leaderboards, personal bests, challenge boards, improvement leagues, and percentile brags. Unranked runs still show a result, but they do not compete.</p>
+          <p>Saved speed, accuracy, consistency, and score are replayed on the server from the full keystroke and backspace timeline. The browser does not submit those summary numbers as facts.</p>
           <ul>
             <li>Custom-length tests are unranked.</li>
             <li>Tiny runs are unranked: a ranked test needs at least {RANKABLE_MIN_SECONDS}s of typing and at least {RANKABLE_MIN_KEYSTROKES} keystrokes, so a stray tap never inflates a streak or trend.</li>

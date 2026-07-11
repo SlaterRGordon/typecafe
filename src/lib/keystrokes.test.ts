@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import {
+    decodeEvidenceTimeline,
     aggregateKeyLatency,
     decodeTimeline,
     encodeTimeline,
@@ -63,6 +64,22 @@ describe("encodeTimeline / decodeTimeline", () => {
         expect(decoded.map((e) => e.correct)).toEqual([true, true, false])
         // Gaps preserved (absolute base resets to 0).
         expect(decoded.map((e) => e.t)).toEqual([0, 90, 400])
+    })
+
+    it("persists backspaces for replay while hiding them from analytics", () => {
+        const encoded = encodeTimeline([
+            { key: "a", correct: false, t: 1000 },
+            { action: "backspace", t: 1100 },
+            { key: "a", correct: true, t: 1250 },
+        ])
+
+        expect(encoded).toEqual([[97, 0, 0], [8, 2, 100], [97, 1, 150]])
+        expect(decodeEvidenceTimeline(encoded)).toEqual([
+            { key: "a", correct: false, t: 0 },
+            { action: "backspace", t: 100 },
+            { key: "a", correct: true, t: 250 },
+        ])
+        expect(decodeTimeline(encoded).map((event) => event.key)).toEqual(["a", "a"])
     })
 
     it("clamps negative gaps to zero", () => {

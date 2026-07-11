@@ -5,7 +5,7 @@ import { Text } from "./Text"
 import { useTimer } from "~/hooks/timer/useTimer"
 import { api } from "~/utils/api"
 import type { Level } from "./train/levels"
-import { buildWpmSamples, computeStats, consistencyFromSamples, isReliableWpmSample, worstKeysFromAttempts } from "~/lib/stats"
+import { buildWpmSamples, computeStats, isReliableWpmSample, worstKeysFromAttempts } from "~/lib/stats"
 import type { TypedSegment } from "~/lib/stats"
 import { encodeTimeline } from "~/lib/keystrokes"
 import { createKeystrokeRecorder } from "~/lib/keystrokeRecorder"
@@ -296,7 +296,7 @@ export const Typer = (props: TyperProps) => {
             ? count
             : finalStats.durationSeconds
         const wpmSamples = buildWpmSamples(recorder.timeline)
-        const timeline = encodeTimeline(recorder.events)
+        const timeline = encodeTimeline(recorder.evidence)
         // Quotes vary in length/difficulty, and train levels are short/targeted
         // (a single key set, a boss pacer), so neither posts to a leaderboard or
         // counts toward best WPM — they still persist a timeline and feed
@@ -411,15 +411,10 @@ export const Typer = (props: TyperProps) => {
                 if (sessionData?.user && testType?.id) {
                     persistCompletion(completion, {
                         typeId: testType.id,
-                        accuracy: finalStats.accuracy,
-                        speed: finalStats.speed,
-                        consistency: consistencyFromSamples(completion.wpmSamples),
-                        score: finalStats.speed * finalStats.accuracy,
                         count: count,
                         options: level ? level.name : "",
                         punctuation,
                         capitals,
-                        ranked: completion.ranked,
                         timeline: completion.timeline,
                         utcOffsetMinutes: -new Date().getTimezoneOffset(),
                         challengeDate: props.challengeDate,

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { TRPCError } from "@trpc/server";
 
 import {
   createTRPCRouter,
@@ -6,10 +7,11 @@ import {
   protectedProcedure,
 } from "~/server/api/trpc";
 import type { PrismaClient } from "~/generated/prisma/client";
-import { detectImpossibleTimeline } from "~/lib/antiCheat";
 import { challengeStreakFromDateKeys, shiftChallengeDateKey } from "~/lib/challenge";
 import { timelineDurationMs, type EncodedKeystroke } from "~/lib/keystrokes";
-import { isRankableSample, netFromRaw } from "~/lib/stats";
+import { netFromRaw } from "~/lib/stats";
+import { isPresetTestLength } from "~/lib/testConfig";
+import { evaluateTestEvidence } from "~/lib/testEvidence";
 import { baseTypeLanguage } from "~/lib/typeLanguage";
 import { averageNet, bestNetPerUser, netOf } from "~/lib/netScores";
 import {
@@ -34,9 +36,9 @@ import {
 
 const MAX_PEER_PERCENTILE_TESTS = 20000;
 const encodedKeystrokeSchema = z.tuple([
-  z.number().int().nonnegative(),
-  z.union([z.literal(0), z.literal(1)]),
-  z.number().nonnegative(),
+  z.number().int().min(0).max(65535),
+  z.union([z.literal(0), z.literal(1), z.literal(2)]),
+  z.number().int().min(0).max(24 * 60 * 60 * 1000),
 ]);
 const utcOffsetMinutesSchema = z.number().int().min(-14 * 60).max(14 * 60).optional();
 
@@ -452,15 +454,10 @@ export const testRouter = createTRPCRouter({
   create: protectedProcedure
     .input(z.object({
       typeId: z.string(),
-      speed: z.number(),
-      accuracy: z.number(),
-      consistency: z.number().optional(),
-      score: z.number(),
-      count: z.number(),
-      options: z.string(),
+      count: z.number().int().min(1).max(5000),
+      options: z.string().max(100),
       punctuation: z.boolean().optional(),
       capitals: z.boolean().optional(),
-      ranked: z.boolean().optional(),
       // The keyboard layout the test was typed on (actual id — honesty tag,
       // ledger decision 10). Absent/legacy = qwerty.
       layout: z.string().max(32).optional(),
@@ -478,19 +475,38 @@ export const testRouter = createTRPCRouter({
       // and time to be a real attempt (not a stray 1–3 key tap), and not a
       // machine-like timeline. Unranked tests still save — they just don't feed
       // rollups, streaks, trends, or percentiles.
-      const substantialSample = isRankableSample(timelineDurationMs(timeline) / 1000, timeline.length);
-      const ranked = (input.ranked ?? true) && substantialSample && !detectImpossibleTimeline(timeline).impossible;
+      const testType = await ctx.prisma.testType.findUnique({
+        where: { id: input.typeId },
+        select: { mode: true, subMode: true, competitive: true },
+      });
+      if (!testType) throw new TRPCError({ code: "NOT_FOUND", message: "Test type not found." });
+
+      const isNormal = testType.mode === 0;
+      const isTimed = isNormal && testType.subMode === 0;
+      const isWords = isNormal && testType.subMode === 1;
+      const durationSeconds = isTimed ? input.count : timelineDurationMs(timeline) / 1000;
+      const eligibleForRanking = testType.competitive &&
+        input.options.length === 0 &&
+        (isTimed || isWords) &&
+        isPresetTestLength(isTimed ? "timed" : "words", input.count);
+      const evidence = evaluateTestEvidence({
+        timeline,
+        durationSeconds,
+        eligibleForRanking,
+        expectedWordCount: isWords ? input.count : undefined,
+      });
+      const { ranked } = evidence;
       const summaryDate = dateFromDayKey(dayKey(new Date(), input.utcOffsetMinutes ?? 0));
       const test = await ctx.prisma.$transaction(async (tx) => {
         const created = await tx.test.create({
           data: {
             userId: ctx.session.user.id,
             typeId: input.typeId,
-            speed: input.speed,
-            accuracy: input.accuracy,
-            consistency: input.consistency ?? null,
+            speed: evidence.speed,
+            accuracy: evidence.accuracy,
+            consistency: evidence.consistency,
             challengeDate: input.challengeDate ? new Date(`${input.challengeDate}T00:00:00.000Z`) : null,
-            score: input.score,
+            score: evidence.score,
             count: input.count,
             options: input.options,
             punctuation: input.punctuation ?? false,
@@ -508,11 +524,11 @@ export const testRouter = createTRPCRouter({
           await upsertDailyUserStat(tx, ctx.session.user.id, {
             date: summaryDate,
             tests: 1,
-            bestWpm: input.speed,
-            totalWpm: input.speed,
-            totalAccuracy: input.accuracy,
-            totalConsistency: typeof input.consistency === "number" ? input.consistency : 0,
-            consistencySamples: typeof input.consistency === "number" ? 1 : 0,
+            bestWpm: evidence.speed,
+            totalWpm: evidence.speed,
+            totalAccuracy: evidence.accuracy,
+            totalConsistency: evidence.consistency,
+            consistencySamples: 1,
           });
         }
 
@@ -525,7 +541,7 @@ export const testRouter = createTRPCRouter({
       //   2. a similar-starter percentile once that peer pool exists, else
       //   3. a global percentile while the peer pool is still cold, else
       //   4. nothing (the card just shows the clean WPM).
-      const netWpm = netFromRaw(input.speed, input.accuracy);
+      const netWpm = evidence.netWpm;
       // Every flattering element shares the ranking quality bar (honest-review
       // 2026-07 §2): an unranked run — tiny sample or machine-like timeline —
       // gets no brag, no 30-day delta, no streak chip. buildBrag gates itself.
@@ -536,15 +552,15 @@ export const testRouter = createTRPCRouter({
           testId: test.id,
           typeId: input.typeId,
           count: input.count,
-          score: input.score,
+          score: evidence.score,
           netWpm,
         }),
         ranked
           ? thirtyDayDelta(ctx.prisma, {
             userId: ctx.session.user.id,
             testId: test.id,
-            speed: input.speed,
-            accuracy: input.accuracy,
+            speed: evidence.speed,
+            accuracy: evidence.accuracy,
           })
           : Promise.resolve(null),
         ranked

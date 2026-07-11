@@ -16,6 +16,10 @@ describe("createKeystrokeRecorder", () => {
                 { key: "a", correct: true, t: 100 },
                 { key: "b", correct: true, t: 150 },
             ],
+            evidence: [
+                { key: "a", correct: true, t: 100 },
+                { key: "b", correct: true, t: 150 },
+            ],
             timeline: [
                 { t: 100, chars: 1 },
                 { t: 150, chars: 2 },
@@ -55,6 +59,14 @@ describe("createKeystrokeRecorder", () => {
             { key: "a", correct: true, t: 140 },
             { key: "b", correct: true, t: 160 },
         ])
+        // Persisted evidence additionally records the edit, so replay can derive
+        // the same final cursor and error counts.
+        expect(bundle.evidence).toEqual([
+            { key: "a", correct: false, t: 100 },
+            { action: "backspace", t: 120 },
+            { key: "a", correct: true, t: 140 },
+            { key: "b", correct: true, t: 160 },
+        ])
         // Timeline records the backspace as a net-count dip.
         expect(bundle.timeline).toEqual([
             { t: 100, chars: 1 },
@@ -83,6 +95,7 @@ describe("createKeystrokeRecorder", () => {
         r.backspace(100)
         expect(r.finalize()).toEqual({
             events: [],
+            evidence: [],
             timeline: [],
             characterCount: 0,
             incorrectCount: 0,
@@ -96,6 +109,7 @@ describe("createKeystrokeRecorder", () => {
         r.reset()
         expect(r.finalize()).toEqual({
             events: [],
+            evidence: [],
             timeline: [],
             characterCount: 0,
             incorrectCount: 0,

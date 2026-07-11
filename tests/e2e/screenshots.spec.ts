@@ -907,6 +907,7 @@ test.describe("screenshot tour", () => {
 
     await page.goto("/how-we-measure");
     await expect(page.getByRole("heading", { name: "How TypeCafe Measures Typing" })).toBeVisible();
+    await expect(page.getByText(/replayed on the server from the full keystroke and backspace timeline/i)).toBeVisible();
     await capture(page, testInfo, "55-how-we-measure");
 
     await page.goto("/how-to-type-faster");

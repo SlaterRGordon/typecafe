@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react"
 import { TestGramScopes, TestGramSources, TestModes, TestSubModes, type QuoteLength, type WordSize } from "../types"
+import { TIMED_TEST_PRESETS, WORD_TEST_PRESETS } from "~/lib/testConfig"
 import { ToolbarMenu } from "./ToolbarMenu"
 import { composeLanguage, parseLanguage } from "../utils"
 import { languageMeta } from "~/lib/languageMeta"
@@ -20,8 +21,8 @@ const TOOLBAR_MODES: ToolbarMode[] = [
     { label: "grams", mode: TestModes.ngrams, defaultCount: 10 },
 ]
 
-const TIMED_LENGTHS = [15, 30, 60, 120]
-const WORD_LENGTHS = [10, 25, 50, 100]
+const TIMED_LENGTHS: readonly number[] = TIMED_TEST_PRESETS
+const WORD_LENGTHS: readonly number[] = WORD_TEST_PRESETS
 const QUOTE_LENGTHS: { value: QuoteLength, label: string }[] = [
     { value: "all", label: "all" },
     { value: "short", label: "short" },
