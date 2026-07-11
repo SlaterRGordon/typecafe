@@ -8,6 +8,61 @@ import { DocumentPage, DocumentSection } from "~/components/legal/DocumentPage";
 // the TypeCafe loop: each section ends in a link to the surface that does it,
 // so the guide doubles as a product demo and feeds internal links (growth-seo §E).
 const HowToTypeFaster: NextPage = () => {
+  // GEO structured data: FAQPage lets an answer engine cite a direct response,
+  // Article marks this as citable content. Answers stay faithful to the prose
+  // below so the structured data never overstates what the page says.
+  const faqLd = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: [
+      {
+        "@type": "Question",
+        name: "How can I type faster?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "Getting faster is a measurement problem, not a matter of typing more. Fix your accuracy first (aim for 97-98%), find the specific keys and letter transitions that slow you down, drill exactly those in short dense reps, then re-measure to check the before/after delta. Keep it to a few focused minutes a day and track your monthly trend rather than any single test.",
+        },
+      },
+      {
+        "@type": "Question",
+        name: "Should I focus on speed or accuracy first?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "Accuracy first. Every wrong keystroke costs you twice, once to backspace and once to retype, so speed without accuracy is a trap. If your accuracy is below about 95%, that is your bottleneck: slow down until you are hitting 97-98%, then let speed climb from there.",
+        },
+      },
+      {
+        "@type": "Question",
+        name: "Why am I not getting faster at typing?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "Typing more plateaus fast because it spreads practice evenly over keys you have already mastered. You do not type slowly in general, you lose time on a handful of specific keys and transitions. Drilling exactly those, then re-measuring to confirm the number moved, is what breaks the plateau.",
+        },
+      },
+      {
+        "@type": "Question",
+        name: "How long does it take to type faster?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "With short daily targeted practice, most people feel a real difference within a couple of weeks and see a clear trend shift within a month or two. The biggest jumps come early, especially when moving from hunting-and-pecking to touch typing; after that it is steady, measurable gains.",
+        },
+      },
+    ],
+  };
+
+  const articleLd = {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    headline: "How to Type Faster: A Practical, Measurable Guide",
+    description:
+      "A practical method for typing faster: fix accuracy first, drill your weak keys and transitions, and measure the delta.",
+    author: { "@type": "Organization", name: "TypeCafe" },
+    publisher: { "@type": "Organization", name: "TypeCafe" },
+    datePublished: "2026-07-04",
+    dateModified: "2026-07-04",
+    mainEntityOfPage: "https://typecafe.app/how-to-type-faster",
+  };
+
   return (
     <>
       <Head>
@@ -15,6 +70,14 @@ const HowToTypeFaster: NextPage = () => {
         <meta
           name="description"
           content="Type faster by fixing accuracy first, drilling the exact keys and transitions that slow you down, and measuring the delta, not by grinding random tests. A practical guide."
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(faqLd) }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(articleLd) }}
         />
       </Head>
       <DocumentPage

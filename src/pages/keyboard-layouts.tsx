@@ -133,7 +133,7 @@ const KeyboardLayouts: NextPage = () => {
         eyebrow="Guide"
         title="Keyboard Layouts Explained"
         updated="July 11, 2026"
-        intro="QWERTY, Dvorak, Colemak, Workman: keyboard layouts decide which finger types which letter. Alternative layouts move common letters onto the home row to cut finger travel, and people ask whether switching makes them faster. The short answer: layout shapes comfort more than your speed ceiling; practice sets the ceiling. Here is what each layout is, how they compare, and what actually makes you faster."
+        intro="QWERTY, Dvorak, Colemak, Workman: keyboard layouts decide which finger types which letter. Alternative layouts move common letters onto the home row to cut finger travel, and the usual question is whether switching makes you faster. The short version: a layout changes how comfortable typing feels far more than how fast you can go, and speed is set by practice. Here is what each layout is, how they compare, and what actually moves your numbers."
       >
         <DocumentSection title="What is a keyboard layout?">
           <p>A <strong>keyboard layout</strong> is the mapping of letters and symbols to the physical keys. The same slab of keys can produce QWERTY, Dvorak, or Colemak depending purely on which character each key sends. Layouts differ mainly in where they put the most common letters: the more of your typing that lands on the <strong>home row</strong> (<code>asdf</code> / <code>jkl;</code>), the less your fingers have to travel.</p>
@@ -169,7 +169,7 @@ const KeyboardLayouts: NextPage = () => {
 
         <DocumentSection title="What is the best keyboard layout for typing speed?">
           <p><strong>There is no single fastest layout for everyone.</strong> By design, Dvorak and Colemak are more efficient: they put roughly 70% of keystrokes on the home row versus about 32% for QWERTY, so your fingers move less and the hands share the work more evenly. That is a real ergonomic win.</p>
-          <p>But efficiency on paper is not the same as speed in practice. The thing that actually sets your speed ceiling is <em>practice</em>, not layout. A well-drilled QWERTY typist will out-type an untrained Dvorak typist every time. Layout changes the comfort of the journey; drilling changes how fast you arrive.</p>
+          <p>Efficiency on paper is not the same as speed in your hands, though. What sets your top speed is practice, not the layout underneath it. Give a well-drilled QWERTY typist and an untrained Dvorak typist the same paragraph and the QWERTY typist wins every time. A better layout makes typing more comfortable; it does not raise your ceiling. Drilling does.</p>
           <p><Link href="/how-to-type-faster">See what actually makes you faster on any layout →</Link></p>
         </DocumentSection>
 
@@ -181,7 +181,7 @@ const KeyboardLayouts: NextPage = () => {
         </DocumentSection>
 
         <DocumentSection title="Why practice beats layout">
-          <p>Your typing speed lives in <strong>motor memory</strong>, the automatic, chunked movements your fingers make without conscious thought. That memory is built by repetition, and it is layout-agnostic: switching layouts throws away years of it and forces you to rebuild from scratch. The layout is the map; the motor memory is the mileage.</p>
+          <p>Your typing speed lives in <strong>motor memory</strong>, the chunked finger movements you make without thinking about them. You build that memory through repetition, and it is tied to the specific keys you have drilled. Switch layouts and you throw away years of it, then rebuild from zero. That is why the switch costs weeks: you are not learning to type, you are learning to type again.</p>
           <p>This is why targeted practice wins. You do not type slowly &quot;in general&quot;, you lose time on a handful of specific keys and letter <Link href="/how-ngrams-work">transitions</Link>. Fixing those pays off on nearly every word, on whatever layout you use, and it costs days rather than the weeks a full layout switch demands.</p>
           <p>TypeCafe reads your keystroke timeline after each test and names the exact keys and transitions costing you time, then builds a drill from them and measures the before→after delta. That diagnose → drill → re-measure loop is what moves your number, no layout change required.</p>
           <p><Link href="/train">Start the diagnose-drill-remeasure loop →</Link></p>
