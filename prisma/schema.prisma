@@ -141,6 +141,17 @@ model ScoreShare {
     @@index([expiresAt])
 }
 
+// Free-tier durable rate limits for unauthenticated write surfaces. Keys are
+// one-way hashes of scope + request identity; raw IP addresses are never stored.
+model PublicWriteQuota {
+    key       String   @id
+    count     Int
+    expiresAt DateTime
+    updatedAt DateTime @updatedAt
+
+    @@index([expiresAt])
+}
+
 model TestType {
     id          String   @id @default(cuid())
     mode        Int

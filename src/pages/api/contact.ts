@@ -1,38 +1,57 @@
-// filepath: /c:/wd/typecafe/src/pages/api/contact.ts
-import type { NextApiRequest, NextApiResponse } from 'next';
-import nodemailer from 'nodemailer';
+import type { NextApiRequest, NextApiResponse } from "next"
+import nodemailer from "nodemailer"
+import { contactMessageSchema } from "~/lib/contact"
+import { env } from "~/env.mjs"
+import { prisma } from "~/server/db"
+import { consumePublicWriteQuota } from "~/server/rateLimit"
+import { requestIdentity } from "~/server/requestIdentity"
 
-const handler = async (req: NextApiRequest, res: NextApiResponse) => {
-    if (req.method === 'POST') {
-        const { name, email, message } = req.body as { name: string; email: string; message: string };
+const CONTACT_LIMIT = 3
+const CONTACT_WINDOW_MS = 60 * 60 * 1000
 
-        // Create a transporter object using SMTP transport
-        const transporter = nodemailer.createTransport({
-            service: 'gmail', // Use your email service
-            auth: {
-                user: process.env.EMAIL_USER as string, // Your email address
-                pass: process.env.EMAIL_PASS as string, // Your email password
-            },
-        });
+export const config = {
+    api: { bodyParser: { sizeLimit: "16kb" } },
+}
 
-        // Email options
-        const mailOptions = {
-            from: email,
-            to: process.env.EMAIL_USER as string, // Your email address
-            subject: `Contact form submission from ${name}`,
-            text: email + message,
-        };
-
-        try {
-            // Send email
-            await transporter.sendMail(mailOptions);
-            res.status(200).json({ message: 'Email sent successfully' });
-        } catch (error) {
-            res.status(500).json({ message: 'Error sending email', error });
-        }
-    } else {
-        res.status(405).json({ message: 'Method not allowed' });
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+    if (req.method !== "POST") {
+        res.setHeader("Allow", "POST")
+        return res.status(405).json({ message: "Method not allowed" })
     }
-};
 
-export default handler;
+    const parsed = contactMessageSchema.safeParse(req.body)
+    if (!parsed.success) {
+        return res.status(400).json({ message: parsed.error.issues[0]?.message ?? "Invalid contact message." })
+    }
+
+    const quota = await consumePublicWriteQuota(prisma, {
+        scope: "contact",
+        identity: requestIdentity(req),
+        limit: CONTACT_LIMIT,
+        windowMs: CONTACT_WINDOW_MS,
+    })
+    if (!quota.allowed) {
+        res.setHeader("Retry-After", String(quota.retryAfterSeconds))
+        return res.status(429).json({ message: "Too many messages. Please try again later." })
+    }
+
+    const { name, email, message } = parsed.data
+    const transporter = nodemailer.createTransport({
+        service: "gmail",
+        auth: { user: env.EMAIL_USER, pass: env.EMAIL_PASS },
+    })
+
+    try {
+        await transporter.sendMail({
+            from: `TypeCafe contact <${env.EMAIL_USER}>`,
+            replyTo: email,
+            to: env.EMAIL_USER,
+            subject: `TypeCafe contact from ${name}`,
+            text: `From: ${name} <${email}>\n\n${message}`,
+        })
+        return res.status(200).json({ message: "Email sent successfully" })
+    } catch (error) {
+        console.error("Contact email failed", error)
+        return res.status(502).json({ message: "Could not send message." })
+    }
+}

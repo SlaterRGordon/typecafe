@@ -900,6 +900,7 @@ test.describe("screenshot tour", () => {
   test("static pages", async ({ page }, testInfo) => {
     await page.goto("/contact");
     await expect(page.getByRole("heading", { name: "Contact TypeCafe" })).toBeVisible();
+    await expect(page.locator('input[name="website"]')).toBeHidden();
     await capture(page, testInfo, "19-contact");
 
     await page.goto("/support");
