@@ -1,5 +1,9 @@
 # Architecture deepening candidates
 
+For current ownership, critical flows, persistence paths, and verification
+commands, start with the compact [system map](system-map.md). This ledger records
+review history and resolved candidates; it is not the current-system overview.
+
 Five candidates from the 2026-06-26 review, each grilled to a resolved scope.
 All centre on the dual-source locality friction (ADR-0001): a Test's evidence —
 key stats, transitions, progress — must read identically from a guest's
@@ -110,6 +114,19 @@ were judged confusing enough to translate to domain `{levelName, netWpm}` at eac
 boundary rather than spread through the logic; the gating returns a domain
 `LevelStatus[]` so react-select vocabulary stays in the page; `levels` is imported
 (one ladder, no speculative seam).
+
+## Round 4 (2026-07-10 full-site audit)
+
+The audit's load-bearing deepening is complete: `src/lib/testEvidence.ts` now owns
+derivation of authoritative Test metrics and ranking eligibility from the persisted
+timeline (`757bcfd`). The router accepts configuration/evidence, not client claims,
+and adversarial unit tests pin corrections, duration, and forged-metric cases.
+
+Three lower-priority candidates remain intentionally open: consolidating the
+completion/share lifecycle, collapsing profile proof reads, and moving leaderboard
+pagination fully into Postgres when volume warrants it. Their rationale and
+original evidence live in the [full-site audit](../reviews/2026-07-10-full-site-audit.md);
+no speculative interfaces were added for them.
 
 ## Notes carried out of grilling
 
