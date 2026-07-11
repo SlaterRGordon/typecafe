@@ -758,11 +758,11 @@ function DiagnosisPanel(props: { score: ShareableScore }) {
 
   return (
     <div data-testid="diagnosis-panel" className="score-reveal mt-5 rounded-lg border border-base-content/10 bg-base-100/45 p-5" style={{ "--reveal-delay": "200ms" } as CSSProperties}>
-      <div className="mb-1 flex items-center gap-2 text-lg font-semibold text-base-content">
+      
+      <div className="mb-4 flex items-center gap-2 text-lg font-semibold text-base-content">
         <span>Diagnosis</span>
         <InfoIcon label="The keys and transitions that cost you the most this test, computed from your keystroke timeline. Each finding opens a targeted drill built from those keys." />
       </div>
-      <p className="mb-4 text-sm text-base-content/60">What slowed you down this test - and the one-click fix.</p>
 
       {diagnosis.tooShort ?
         <div className="flex flex-col items-start gap-3">
@@ -774,8 +774,10 @@ function DiagnosisPanel(props: { score: ShareableScore }) {
         :
         <div className="grid gap-5 lg:grid-cols-2 lg:items-start">
           {/* Findings + drill CTAs on the left, the per-key heatmap alongside on
-              the right (stacks on mobile) - keeps the panel short. */}
+              the right (stacks on mobile) - keeps the panel short. The subtitle
+              lives in this column so it lines up with the heatmap's caption. */}
           <div className="flex flex-col gap-4">
+            <p className="text-sm text-base-content/60">What slowed you down this test - and the one-click fix.</p>
             {(() => {
               // Transitions get their own richer "N× your average" treatment below,
               // so drop the generic slow-transitions finding from this list.
