@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { mockAuthenticatedSession, mockTrpc } from "./helpers/trpc";
 import { typeCurrentCharacter, typeVisibleTestText, typeWrongCharacter } from "./helpers/typing";
+import english1k from "../../src/components/typer/languages/english1k.json";
 
 async function gotoHome(page: Page) {
   await page.goto("/");
@@ -1052,6 +1053,14 @@ test.describe("home typing test", () => {
     // b/c/d/e-only text can't contain one) - so typing can't race that regen.
     await expect(page.getByTestId("practice-active-count")).toHaveText("8 keys active");
     await expect(page.locator("#words")).toContainText("a", { timeout: 8000 });
+
+    // Practice now routes every word through the phonology engine. The prompt
+    // should contain novel multi-letter forms, not real-word filler or raw keys.
+    const corpus = new Set(english1k.words);
+    await expect.poll(async () => {
+      const words = ((await page.locator("#words").textContent()) ?? "").trim().split(/\s+/).slice(0, 25);
+      return words.length === 25 && words.every((word) => word.length > 1 && !corpus.has(word));
+    }).toBe(true);
 
     // The main thread is responsive and the drill is interactive (not frozen).
     for (let i = 0; i < 4; i++) await typeCurrentCharacter(page, i);

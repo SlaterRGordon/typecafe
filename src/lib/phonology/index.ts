@@ -15,6 +15,14 @@ export interface PhonologicalWordRequest {
     rng?: Random
 }
 
+export interface PhonologicalTextRequest {
+    language: string
+    corpus: readonly string[]
+    allowedCharacters: readonly string[]
+    count: number
+    rng?: Random
+}
+
 interface Segment {
     spelling: string
     phonemes: readonly string[]
@@ -40,6 +48,10 @@ interface PhonologyModel {
 }
 
 const models = new WeakMap<readonly string[], Map<string, PhonologyModel>>()
+const PASSAGE_TARGET_OCCURRENCES = 2
+const RECENT_WORD_WINDOW = 8
+const COMPOSITION_BRANCH_LIMIT = 32
+const MIN_WORD_CHARACTERS = 2
 
 const normalizeWord = (word: string): string | null => {
     const normalized = word.trim().toLowerCase().normalize("NFC")
@@ -141,9 +153,12 @@ const buildModel = (corpus: readonly string[], profile: PhonologyProfile): Phono
     for (const raw of corpus) {
         const word = normalizeWord(raw)
         if (!word || words.has(word)) continue
+        // Novelty is orthographic: every corpus spelling is excluded even when
+        // this deliberately small profile cannot derive a vowel-bearing model
+        // for it (for example English "be" under the silent-final-e rule).
+        words.add(word)
         const segments = phonemize(word, profile)
         if (nucleusIndexes(segments).length === 0) continue
-        words.add(word)
         pronunciations.push(segments)
         initialOnsets.add(initialOnset(segments))
         finalCodas.add(finalCoda(segments))
@@ -201,13 +216,67 @@ const poolFor = (model: PhonologyModel, allowed: ReadonlySet<string>): readonly 
     return pool
 }
 
-const score = (syllable: Syllable, rng: Random): number =>
-    Math.log1p(syllable.count) + (syllable.initial ? 0.15 : 0) + (syllable.final ? 0.15 : 0) + rng() * 0.01
+const score = (syllable: Syllable, rng: Random): number => {
+    const sample = Math.min(1 - Number.EPSILON, Math.max(Number.EPSILON, rng()))
+    const gumbel = -Math.log(-Math.log(sample))
+    return Math.log1p(syllable.count) + (syllable.initial ? 0.15 : 0) + (syllable.final ? 0.15 : 0) + gumbel * 0.35
+}
 
 const ranked = (syllables: readonly Syllable[], rng: Random): Syllable[] =>
     syllables.map((syllable) => ({ syllable, score: score(syllable, rng) }))
         .sort((a, b) => b.score - a.score)
         .map(({ syllable }) => syllable)
+
+const generateFromPool = (
+    model: PhonologyModel,
+    pool: readonly Syllable[],
+    required: string,
+    excluded: ReadonlySet<string>,
+    rng: Random,
+): string | null => {
+    const targets = ranked(pool.filter((syllable) => syllable.spelling.includes(required)), rng)
+    for (const target of targets) {
+        const boundaryLicensed = model.initialOnsets.has(target.onset) && model.finalCodas.has(target.coda)
+        if (
+            boundaryLicensed
+            && target.spelling.length >= MIN_WORD_CHARACTERS
+            && !model.words.has(target.spelling)
+            && !excluded.has(target.spelling)
+        ) return target.spelling
+
+        // A licensed standalone syllable may still be a corpus word. Let it take
+        // an attested neighbour to become novel; null preserves the shorter form
+        // when its own boundary is legal. Internal syllables require neighbours
+        // on whichever edge is not licensed at a word boundary.
+        const prefixes: Array<Syllable | null> = [
+            ...(model.initialOnsets.has(target.onset) ? [null] : []),
+            ...ranked(pool.filter((syllable) => syllable.initial), rng),
+        ]
+        const suffixes: Array<Syllable | null> = [
+            ...(model.finalCodas.has(target.coda) ? [null] : []),
+            ...ranked(pool.filter((syllable) => syllable.final), rng),
+        ]
+        // Bound the Cartesian search independently of corpus size. Ranking puts
+        // frequent, boundary-attested syllables first; 32×32 still leaves ample
+        // novelty while keeping a 500-word prompt comfortably interactive.
+        for (const prefix of prefixes.slice(0, COMPOSITION_BRANCH_LIMIT)) {
+            for (const suffix of suffixes.slice(0, COMPOSITION_BRANCH_LIMIT)) {
+                const word = `${prefix?.spelling ?? ""}${target.spelling}${suffix?.spelling ?? ""}`
+                if (
+                    word !== target.spelling
+                    && word.length >= MIN_WORD_CHARACTERS
+                    && word.length <= 16
+                    && !model.words.has(word)
+                    && !excluded.has(word)
+                ) return word
+            }
+        }
+    }
+    return null
+}
+
+const normalizedAlphabet = (characters: readonly string[]): string[] =>
+    [...new Set(characters.map((char) => char.toLowerCase().normalize("NFC")).filter(Boolean))]
 
 /**
  * Generates one novel, pronounceable spelling from phoneme-bearing syllables
@@ -220,26 +289,48 @@ export function generatePhonologicalWord(request: PhonologicalWordRequest): stri
     const profile = profileFor(request.language)
     if (!profile) return null
     const rng = request.rng ?? Math.random
-    const allowed = new Set(request.allowedCharacters.map((char) => char.toLowerCase().normalize("NFC")))
+    const alphabet = normalizedAlphabet(request.allowedCharacters)
+    const allowed = new Set(alphabet)
     const required = request.requiredCharacter.toLowerCase().normalize("NFC")
     if (!allowed.has(required)) return null
 
     const model = modelFor(request.corpus, profile)
     const pool = poolFor(model, allowed)
-    const targets = ranked(pool.filter((syllable) => syllable.spelling.includes(required)), rng)
+    return generateFromPool(model, pool, required, new Set(), rng)
+}
 
-    for (const target of targets) {
-        const boundaryLicensed = model.initialOnsets.has(target.onset) && model.finalCodas.has(target.coda)
-        if (boundaryLicensed && !model.words.has(target.spelling)) return target.spelling
+/**
+ * Generates a complete all-phonological passage. Every token goes through the
+ * syllable engine; active characters are scheduled for early coverage, and a
+ * recent-word window prevents mechanical repetition when alternatives exist.
+ */
+export function generatePhonologicalText(request: PhonologicalTextRequest): string {
+    if (request.count <= 0) return ""
+    const profile = profileFor(request.language)
+    const alphabet = normalizedAlphabet(request.allowedCharacters)
+    if (!profile || alphabet.length === 0) return ""
 
-        const prefixes = target.initial ? [null] : ranked(pool.filter((syllable) => syllable.initial), rng)
-        const suffixes = target.final ? [null] : ranked(pool.filter((syllable) => syllable.final), rng)
-        for (const prefix of prefixes.slice(0, 8)) {
-            for (const suffix of suffixes.slice(0, 8)) {
-                const word = `${prefix?.spelling ?? ""}${target.spelling}${suffix?.spelling ?? ""}`
-                if (word.length <= 16 && !model.words.has(word)) return word
-            }
+    const rng = request.rng ?? Math.random
+    const model = modelFor(request.corpus, profile)
+    const pool = poolFor(model, new Set(alphabet))
+    const deficits = new Map(alphabet.map((character) => [character, PASSAGE_TARGET_OCCURRENCES]))
+    const recent: string[] = []
+    const output: string[] = []
+
+    while (output.length < request.count) {
+        const target = [...alphabet].reverse().find((character) => (deficits.get(character) ?? 0) > 0)
+            ?? alphabet[Math.floor(rng() * alphabet.length)]!
+        const excluded = new Set(recent)
+        const word = generateFromPool(model, pool, target, excluded, rng)
+            ?? generateFromPool(model, pool, target, new Set(), rng)
+            ?? target
+        output.push(word)
+        for (const character of word) {
+            const remaining = deficits.get(character)
+            if (remaining) deficits.set(character, Math.max(0, remaining - 1))
         }
+        recent.push(word)
+        if (recent.length > RECENT_WORD_WINDOW) recent.shift()
     }
-    return null
+    return output.join(" ")
 }

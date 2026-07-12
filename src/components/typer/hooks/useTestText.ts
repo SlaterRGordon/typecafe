@@ -1,7 +1,7 @@
 import { TestModes, TestSubModes } from "../types"
 import type { QuoteLength, TestGramScopes, TestGramSources } from "../types"
 import type { Level } from "../train/levels"
-import { applyTextOptions, ensureQuotesLoaded, ensureSizedLoaded, generateBetterPseudoText, generateNGram, generateQuote, generateText, isDrillDigit, isDrillMark, parseLanguage } from "../utils"
+import { applyTextOptions, ensureQuotesLoaded, ensureSizedLoaded, generateBetterPseudoText, generateNGram, generatePracticePseudoText, generateQuote, generateText, isDrillDigit, isDrillMark, parseLanguage } from "../utils"
 import { ALL_DIGITS, isPracticeLetter } from "~/lib/drillKeys"
 
 export interface TestTextConfig {
@@ -69,7 +69,7 @@ export async function generateTestText(config: TestTextConfig, gramLevel: number
         // keys). `capitals` stays as the one Capitalize add-on.
         const marks = punctuation ? selectedKeys.filter(isDrillMark) : []
         const digits = numbers ? selectedKeys.filter(isDrillDigit) : []
-        return applyTextOptions(generateBetterPseudoText(500, letters, base), false, capitals, { marks, digits })
+        return applyTextOptions(generatePracticePseudoText(500, letters, base), false, capitals, { marks, digits })
     }
 
     if (mode === TestModes.ngrams) {

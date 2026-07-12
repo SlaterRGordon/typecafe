@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { accentChars, applyTextOptions, ensureSizedLoaded, generateBetterPseudoText, generateNGram, generateText, rankNGrams } from "./utils"
+import { accentChars, applyTextOptions, ensureSizedLoaded, generateBetterPseudoText, generateNGram, generatePracticePseudoText, generateText, getWords, rankNGrams } from "./utils"
 import { TestGramScopes, TestGramSources } from "./types"
 
 const SENTENCE_ENDERS = [".", "?", "!"]
@@ -121,7 +121,8 @@ describe("generateBetterPseudoText", () => {
         "guarantees every active key in %s practice text",
         async (language) => {
             await ensureSizedLoaded(language, "1k")
-            const keys = "asdfghjkl".split("")
+            // Mirrors Practice's invariant: at least eight letters and two vowels.
+            const keys = "asdfjklo".split("")
             const text = generateBetterPseudoText(40, keys, language)
             const words = text.split(" ")
 
@@ -129,6 +130,25 @@ describe("generateBetterPseudoText", () => {
             for (const key of keys) {
                 expect([...text].filter((char) => char === key).length).toBeGreaterThanOrEqual(2)
                 expect(words.some((word) => word.length > 1 && word.includes(key))).toBe(true)
+            }
+        },
+    )
+})
+
+describe("generatePracticePseudoText", () => {
+    it.each(["english", "french", "spanish", "german", "italian", "portuguese", "dutch", "polish"])(
+        "uses only phonological pseudo-words for %s Practice text",
+        async (language) => {
+            await ensureSizedLoaded(language, "1k")
+            const keys = "asdfghjkl".split("")
+            const corpus = new Set(getWords(language).map((word) => word.toLowerCase().normalize("NFC")))
+            const words = generatePracticePseudoText(40, keys, language).split(" ")
+
+            expect(words).toHaveLength(40)
+            expect(words.filter((word) => word.length <= 1 || corpus.has(word))).toEqual([])
+            expect(words.every((word) => [...word].every((character) => keys.includes(character)))).toBe(true)
+            for (const key of keys) {
+                expect([...words.join("")].filter((character) => character === key).length).toBeGreaterThanOrEqual(2)
             }
         },
     )

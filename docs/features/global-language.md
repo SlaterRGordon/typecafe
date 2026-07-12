@@ -98,18 +98,19 @@ weak-key card stays global (consistent with "training progress global", ADR
       layout-dependent), and progress/thresholds are untouched (keyed by level
       name). Practice stays a–z: its whole UI is the QWERTY key board.
 
-- [x] 11 — **Language-shaped Practice fallbacks (2026-07-12).** Restricted-key
-      text now guarantees every active letter appears instead of treating any
-      non-empty real-word pool as sufficient. `src/lib/phonology/` is the deep
-      module behind the fallback seam: per-language profiles convert graphemes
-      into phoneme segments; the engine derives legal onsets and final codas from
-      the active corpus, syllabifies with maximal onset, and composes only
-      phonologically licensed syllables. `restrictedText.ts` prefers real carrier
-      words and uses an explicit key token only when the selected alphabet has no
-      pronounceable path. English, French, Spanish, German, Italian, Portuguese,
-      Dutch, and Polish are covered; Chinese and Hindi remain excluded pending a
+- [x] 11 — **Language-shaped Practice text (2026-07-12).** Restricted-key text
+      guarantees every active letter appears instead of treating any non-empty
+      real-word pool as sufficient. `src/lib/phonology/` is the deep module:
+      per-language profiles convert graphemes into phoneme segments; the engine
+      derives legal onsets and final codas from the active corpus, syllabifies
+      with maximal onset, and composes only phonologically licensed syllables.
+      Practice now sends its whole 500-word passage through that engine, with
+      corpus novelty, an eight-word repeat window, and early two-use key coverage;
+      Train deliberately remains real-word-first through `restrictedText.ts`.
+      English, French, Spanish, German, Italian, Portuguese, Dutch, and Polish are
+      covered; Chinese and Hindi retain the existing English fallback pending a
       script-specific design. Corpus models and per-alphabet pools are lazy and
-      memoized so prompt extension does not rebuild them.
+      memoized so prompt generation does not rebuild them.
 
 ## Out of scope / deferred
 

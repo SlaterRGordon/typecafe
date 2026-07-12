@@ -8,6 +8,7 @@ import { TestGramScopes, TestGramSources, type QuoteLength, type WordSize } from
 // Drillable-key definitions live in lib (single source shared with diagnosis and
 // the drill page); re-exported here for the typer modules that import from utils.
 import { DRILL_MARKS, ENDER_MARKS, MID_MARKS, isDrillMark, isDrillDigit } from '~/lib/drillKeys'
+import { generatePhonologicalText } from '~/lib/phonology'
 import { generateRestrictedText } from '~/lib/restrictedText'
 export { DRILL_MARKS, isDrillMark, isDrillDigit }
 
@@ -213,6 +214,19 @@ export const generateBetterPseudoText = (count: number, characters: string[], la
         language: phonologyLanguage,
         words: getWords(phonologyLanguage),
         characters,
+        count,
+    })
+}
+
+// Practice is intentionally all pseudo-words: the phonology module owns the
+// complete passage policy (novelty, active-key coverage, and recent diversity).
+// Train remains real-word-first through generateBetterPseudoText above.
+export const generatePracticePseudoText = (count: number, characters: string[], language = "english") => {
+    const phonologyLanguage = language === "chinese" || language === "hindi" ? "english" : language
+    return generatePhonologicalText({
+        language: phonologyLanguage,
+        corpus: getWords(phonologyLanguage),
+        allowedCharacters: characters,
         count,
     })
 }

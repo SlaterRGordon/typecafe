@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import english10k from "~/components/typer/languages/english10k.json"
-import { generatePhonologicalWord } from "."
+import { generatePhonologicalText, generatePhonologicalWord } from "."
 
 const cyclingRng = () => {
     let value = 0
@@ -107,6 +107,65 @@ describe("generatePhonologicalWord", () => {
         })
 
         expect(word).not.toBeNull()
+        expect(performance.now() - started).toBeLessThan(500)
+    })
+})
+
+describe("generatePhonologicalText", () => {
+    const request = {
+        language: "english",
+        corpus: english10k.words,
+        allowedCharacters: "asdfghjkl".split(""),
+        count: 40,
+    }
+
+    it("builds an exact-length passage entirely from novel, allowed spellings", () => {
+        const words = generatePhonologicalText({ ...request, rng: cyclingRng() }).split(" ")
+        const corpus = new Set(english10k.words.map((word) => word.toLowerCase().normalize("NFC")))
+
+        expect(words).toHaveLength(request.count)
+        expect(words.every((word) => !corpus.has(word))).toBe(true)
+        expect(words.every((word) => [...word].every((character) => request.allowedCharacters.includes(character)))).toBe(true)
+        expect(words.every((word) => word.length > 1)).toBe(true)
+    })
+
+    it("covers every active key repeatedly and avoids mechanical repetition", () => {
+        const words = generatePhonologicalText({ ...request, rng: cyclingRng() }).split(" ")
+        const text = words.join("")
+
+        for (const character of request.allowedCharacters) {
+            expect([...text].filter((candidate) => candidate === character).length).toBeGreaterThanOrEqual(2)
+        }
+        expect(new Set(words).size).toBeGreaterThan(10)
+        words.forEach((word, index) => expect(words.slice(Math.max(0, index - 8), index)).not.toContain(word))
+    })
+
+    it("is deterministic with an injected random source", () => {
+        const first = generatePhonologicalText({ ...request, rng: cyclingRng() })
+        const second = generatePhonologicalText({ ...request, rng: cyclingRng() })
+
+        expect(second).toBe(first)
+    })
+
+    it("terminates with explicit key fallbacks when no vowel-bearing form is possible", () => {
+        const text = generatePhonologicalText({
+            language: "english",
+            corpus: english10k.words,
+            allowedCharacters: ["s", "t", "r"],
+            count: 6,
+            rng: cyclingRng(),
+        })
+
+        expect(text.split(" ")).toHaveLength(6)
+        expect([...text.replaceAll(" ", "")].every((character) => "str".includes(character))).toBe(true)
+    })
+
+    it("generates a full cached practice buffer within the interaction budget", () => {
+        generatePhonologicalText({ ...request, count: 1, rng: cyclingRng() })
+        const started = performance.now()
+        const text = generatePhonologicalText({ ...request, count: 500, rng: cyclingRng() })
+
+        expect(text.split(" ")).toHaveLength(500)
         expect(performance.now() - started).toBeLessThan(500)
     })
 })
