@@ -74,9 +74,11 @@ test.describe("drill page", () => {
 
     await expect(page.getByTestId("drill-result")).toBeVisible()
     await expect(page.getByRole("link", { name: "Re-measure" })).toHaveAttribute("href", "/?mode=timed&count=30")
-    // No lifetime evidence → no delta line and nothing left to suggest next.
+    // No lifetime evidence → no delta line. Depending on the generated words,
+    // the completed rep may or may not contain enough repeated Transition
+    // evidence to offer a next Drill, so that optional CTA is intentionally not
+    // asserted here.
     await expect(page.getByTestId("drill-delta")).toHaveCount(0)
-    await expect(page.getByTestId("drill-next")).toHaveCount(0)
     await pressRestartShortcut(page, "Enter")
     await expect(page.getByTestId("drill-typer")).toBeVisible()
 
@@ -151,7 +153,7 @@ test.describe("drill page", () => {
 
   test("runs a timed warm-up drill from a duration", async ({ page }) => {
     await mockTrpc(page)
-    await page.goto("/drill?seconds=15&return=plan")
+    await page.goto("/drill?seconds=15")
 
     await expect(page.getByText("Timed warm-up")).toBeVisible()
     await expect(page.getByTestId("drill-typer")).toBeVisible()
@@ -159,17 +161,17 @@ test.describe("drill page", () => {
     await expect(page.locator("#words .char").first()).toBeVisible()
   })
 
-  test("a timed warm-up completes and offers Next step / Restart", async ({ page }) => {
+  test("a standalone timed warm-up completes with re-measure and restart", async ({ page }) => {
     await mockTrpc(page)
-    await page.goto("/drill?seconds=3&return=plan")
+    await page.goto("/drill?seconds=3")
     await expect(page.getByTestId("drill-typer")).toBeVisible()
 
     // A few keystrokes start the countdown; the timer then ends the test.
     for (let i = 0; i < 5; i++) await typeCurrentCharacter(page, i)
 
     await expect(page.getByTestId("drill-result")).toBeVisible({ timeout: 8000 })
-    await expect(page.getByTestId("drill-continue-plan")).toHaveText("Next step →")
-    await expect(page.getByRole("button", { name: "Restart" })).toBeVisible()
+    await expect(page.getByRole("link", { name: "Re-measure" })).toBeVisible()
+    await expect(page.getByRole("button", { name: "Drill again" })).toBeVisible()
   })
 
   test("key drill result shows a lifetime delta and the next-worst drill", async ({ page }) => {
@@ -261,27 +263,23 @@ test.describe("drill page", () => {
     await expect(restatedStat).toContainText("ms on this jump")
     await expect(restatedStat).not.toContainText("400ms")
 
-    // The rep syncs into the lifetime bigram data (ADR-0004 reversal): br's
-    // mean drops below io's, so the coach tab (desktop only - the inline
-    // mobile variant renders on the home page) live-updates to the next-worst
-    // pair instead of re-recommending the drill just finished.
+    // Today's prescription is frozen even as the evidence underneath it moves.
+    // The coach may use io tomorrow; it must not rewrite today's active step.
     if (!testInfo.project.name.includes("mobile")) {
-      const tab = page.getByTestId("home-coach-tab-drill")
+      const tab = page.getByTestId("home-coach-tab-daily")
       await tab.hover()
-      const panel = page.getByTestId("home-coach-tab-drill-panel")
-      await expect(panel).toContainText("i->o")
-      await expect(panel.getByRole("link", { name: "Start drill" })).toHaveAttribute("href", "/drill?transitions=io")
+      const panel = page.getByTestId("home-coach-tab-daily-panel")
+      await expect(panel).toContainText("Warm up: 30-second Test")
     }
   })
 
-  test("a completed drill surfaces fresh evidence in the coach tab without a reload", async ({ page }, testInfo) => {
+  test("a completed drill does not rewrite today's calibration prescription", async ({ page }, testInfo) => {
     test.skip(testInfo.project.name.includes("mobile"), "coach tabs are desktop-only outside the home page")
-    // A guest with no history: no coach tab exists until this drill's synced
-    // key stats create the first weak-key evidence.
     await mockTrpc(page)
     await page.goto("/drill?keys=x&length=4")
     await expect(page.getByTestId("drill-typer")).toBeVisible()
-    await expect(page.getByTestId("home-coach-tab-drill")).toBeHidden()
+    const tab = page.getByTestId("home-coach-tab-daily")
+    await expect(tab).toBeVisible()
 
     // Miss every x, hit everything else - x becomes the only weak key.
     await expect(page.locator("#c0")).toHaveClass(/active-char/)
@@ -298,13 +296,11 @@ test.describe("drill page", () => {
     }
     await expect(page.getByTestId("drill-result")).toBeVisible()
 
-    // The always-mounted coach tab picked up the synced evidence live.
-    const tab = page.getByTestId("home-coach-tab-drill")
-    await expect(tab).toBeVisible()
+    // x is useful evidence for tomorrow, but today's three-step snapshot stays
+    // calibration instead of shifting under the user mid-session.
     await tab.hover()
-    const panel = page.getByTestId("home-coach-tab-drill-panel")
-    await expect(panel).toContainText("Your weakest keys are x")
-    await expect(panel.getByRole("link", { name: "Start drill" })).toHaveAttribute("href", "/drill?keys=x")
+    const panel = page.getByTestId("home-coach-tab-daily-panel")
+    await expect(panel).toContainText("Map your typing")
   })
 
   test("transition drill biases text toward the requested pair", async ({ page }) => {

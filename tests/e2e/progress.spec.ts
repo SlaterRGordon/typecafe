@@ -271,11 +271,14 @@ test.describe("progress dashboard", () => {
       },
     });
 
+    // Relative dates: fixed timestamps age out of the default 30-day window
+    // and rot the test (this one broke exactly 30 days after it was written).
     await page.addInitScript(() => {
+      const day = 24 * 60 * 60 * 1000;
       window.localStorage.setItem("typecafe:lastRecapAt", String(Date.now()));
       window.localStorage.setItem("typecafe:progressHistory", JSON.stringify([
-        { wpm: 62, accuracy: 94, c: 72, t: Date.parse("2026-06-10T12:00:00.000Z") },
-        { wpm: 68, accuracy: 96, c: 78, t: Date.parse("2026-06-12T12:00:00.000Z") },
+        { wpm: 62, accuracy: 94, c: 72, t: Date.now() - 6 * day },
+        { wpm: 68, accuracy: 96, c: 78, t: Date.now() - 4 * day },
       ]));
     });
 

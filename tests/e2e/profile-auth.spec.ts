@@ -74,7 +74,7 @@ test.describe("authenticated profile", () => {
     await page.goto("/profile");
 
     await expect(page.getByTestId("profile-typing-style")).toBeVisible();
-    await expect(page.getByTestId("home-coach-tab-drill")).toHaveCount(0);
+    await expect(page.getByTestId("home-coach-tab-daily")).toBeVisible();
     await expect(page.getByText("x->i")).toHaveCount(0);
   });
 

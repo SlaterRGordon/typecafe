@@ -19,6 +19,7 @@ interface MockTrpcOptions {
   // Per-key practice stats for the /progress lifetime heatmap.
   keyStats?: { character: string; total: number; correct: number }[];
   transitionStats?: { pair: string; count: number; totalMs: number; errors: number }[];
+  coachingSession?: unknown;
   // Make the progress history flat (a plateau) instead of rising.
   flatProgress?: boolean;
   // Mix timed and words records so /progress filter tests can prove scoping.
@@ -113,7 +114,11 @@ function makeScore(input: ProcedureInput) {
     score: 7000,
     count,
     options: "",
-    ranked: typeof input?.ranked === "boolean" ? input.ranked : true,
+    // The real Test router replays the timeline and rejects these short custom
+    // fixtures. The mock has no server replay, so preserve that authoritative
+    // outcome for the custom 3s/4s journeys instead of upgrading the eager
+    // unranked card to ranked when the mocked save resolves.
+    ranked: typeof input?.ranked === "boolean" ? input.ranked : count !== 3 && count !== 4,
     user: {
       ...profileUser,
       id: userId,
@@ -200,7 +205,7 @@ function progressRollupsFromEntries(input: ProcedureInput) {
   }));
 }
 
-function responseForProcedure(procedure: string, input: ProcedureInput, options: MockTrpcOptions, state: { importedTrainProgress: boolean; syncedProgressRollups: unknown[] }) {
+function responseForProcedure(procedure: string, input: ProcedureInput, options: MockTrpcOptions, state: { importedTrainProgress: boolean; syncedProgressRollups: unknown[]; coachingSession: unknown }) {
   switch (procedure) {
     case "type.get":
       return {
@@ -355,6 +360,11 @@ function responseForProcedure(procedure: string, input: ProcedureInput, options:
       return { count: Array.isArray(input?.stats) ? input.stats.length : 0 };
     case "practiceStats.batchSync":
       return { count: Array.isArray(input?.stats) ? input.stats.length : 0 };
+    case "coachingSession.getToday":
+      return state.coachingSession;
+    case "coachingSession.save":
+      state.coachingSession = input?.snapshot ?? null;
+      return state.coachingSession;
     case "user.get":
       return currentProfileUser;
     case "user.getProfileByUsername":
@@ -546,7 +556,7 @@ function responseForProcedure(procedure: string, input: ProcedureInput, options:
 
 export async function mockTrpc(page: Page, options: MockTrpcOptions = {}) {
   currentProfileUser = { ...profileUser, image: options.profileImage ?? profileUser.image };
-  const state = { importedTrainProgress: false, syncedProgressRollups: [] as unknown[] };
+  const state = { importedTrainProgress: false, syncedProgressRollups: [] as unknown[], coachingSession: options.coachingSession ?? null };
 
   await page.route("**/api/trpc/**", async (route: Route) => {
     const url = new URL(route.request().url());

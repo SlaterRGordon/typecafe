@@ -11,6 +11,18 @@ import { TestGramScopes, TestGramSources, TestModes, TestSubModes } from "~/comp
 import { applyTextOptions, ensureLanguageLoaded, getWords } from "~/components/typer/utils"
 import { useLanguage } from "~/hooks/useLanguage"
 import { compileDrillText } from "~/lib/drill"
+import {
+    currentDailyStep,
+    DAILY_COACHING_UPDATED_EVENT,
+    FOCUS_SETS_GOAL,
+    GUEST_DAILY_SCOPE,
+    localDateKey,
+    readLocalDailySession,
+    recordDailySet,
+    targetMatchesDrill,
+    writeLocalDailySession,
+    type DailyCoachingSession,
+} from "~/lib/dailyCoaching"
 import { isDrillMark, isDrillDigit, isDrillableKey, isPracticeLetter } from "~/lib/drillKeys"
 import { attemptsFromEvents, keyDrillDelta, keysBaseline, mergeAttempts, nextDrillFinding, transitionBaseline, transitionDrillDelta, type DrillDelta, type DrillFinding } from "~/lib/drillProgress"
 import { decodeTimeline } from "~/lib/keystrokes"
@@ -118,6 +130,15 @@ const Drill: NextPage = () => {
     const [restartSignal, setRestartSignal] = useState(0)
     const charAttemptsRef = useRef<Map<string, { attempts: number, correct: number }>>(new Map())
     const resultRestartRef = useRef<HTMLButtonElement>(null)
+    const [dailySession, setDailySession] = useState<DailyCoachingSession | null>(null)
+    // Keeps the coaching strip visible after a recorded set advances/finishes
+    // the session (the next step may not match this drill's config anymore).
+    const recordedHereRef = useRef(false)
+    // One recorded set per rep: the eager and persisted completion reports share
+    // the same timeline array, so reference equality dedupes them.
+    const recordedSetRef = useRef<TestCompletionResult["timeline"] | null>(null)
+    // This session's reps on the drilled target (delta.after per completed rep).
+    const [sessionReps, setSessionReps] = useState<number[]>([])
 
     // Drill words follow the global language. Load its list before compiling text,
     // so the drill is built once from the right words (getWords falls back to
@@ -267,10 +288,58 @@ const Drill: NextPage = () => {
         return { delta, next }
     }, [completed, config, baseline])
 
-    // This session's reps on the drilled target (delta.after per completed rep).
-    // The lifetime baseline moves too (reps sync into it - ADR-0004 reversal),
-    // but slowly once the pair has history; the trail shows each rep landing.
-    const [sessionReps, setSessionReps] = useState<number[]>([])
+    // Client-side navigation can swap the drill target without remounting this
+    // page (a coaching next-step link, the coach tab flyout). A new target must
+    // start fresh: drop the previous rep's result card (so the typer shows, not
+    // a stale "Drill complete") and re-arm the coaching strip. recordedSetRef is
+    // deliberately kept - the old rep must never record against the new step.
+    const targetKey = config ? `${config.kind}:${config.targets.join(",")}` : null
+    useEffect(() => {
+        recordedHereRef.current = false
+        setCompleted(null)
+        setSessionReps([])
+    }, [targetKey])
+
+    // Today's coaching adopts drills by what they train, not how they were
+    // launched: when the active step's target matches this drill's config, reps
+    // count as sets. Reading by (date, pool, language) pins the session to the
+    // evidence pool actually being typed - a language/layout switch mid-session
+    // simply stops matching instead of polluting the prescription.
+    const dailyScope = sessionData?.user?.id ?? GUEST_DAILY_SCOPE
+    useEffect(() => {
+        const read = () => {
+            const stored = readLocalDailySession(dailyScope, { dateKey: localDateKey(), pool, language })
+            const active = stored ? currentDailyStep(stored) : null
+            const matches = !!(active?.target && config && (config.kind === "keys" || config.kind === "transitions") &&
+                targetMatchesDrill(active.target, { kind: config.kind, targets: config.targets }))
+            setDailySession(matches || recordedHereRef.current ? stored : null)
+        }
+        read()
+        window.addEventListener(DAILY_COACHING_UPDATED_EVENT, read)
+        return () => window.removeEventListener(DAILY_COACHING_UPDATED_EVENT, read)
+    }, [config, dailyScope, language, pool])
+
+    // A set is recorded only from a real Typer completion. Query parameters and
+    // navigation never count as proof by themselves.
+    useEffect(() => {
+        if (!completed || !dailySession || recordedSetRef.current === completed.timeline) return
+        const active = currentDailyStep(dailySession)
+        if (!active) return
+        recordedSetRef.current = completed.timeline
+        const next = recordDailySet(dailySession, active.id, {
+            netWpm: completed.netWpm,
+            accuracy: completed.accuracy,
+            ...(outcome?.delta ? { targetDelta: outcome.delta } : {}),
+        })
+        if (next === dailySession) return
+        recordedHereRef.current = true
+        writeLocalDailySession(dailyScope, next)
+        setDailySession(next)
+    }, [completed, dailySession, dailyScope, outcome?.delta])
+
+    // Append this rep's delta.after to the session trail. The lifetime baseline
+    // moves too (reps sync into it - ADR-0004 reversal), but slowly once the
+    // pair has history; the trail shows each rep landing.
     const recordedRepRef = useRef<TestCompletionResult["timeline"] | null>(null)
     useEffect(() => {
         if (!completed || !outcome?.delta) return
@@ -289,9 +358,10 @@ const Drill: NextPage = () => {
     // before→after delta; without it, fall back to a generic timed re-measure.
     const rmToken = typeof router.query.rm === "string" ? router.query.rm : null
     const reMeasureHref = rmToken ? `/?rm=${encodeURIComponent(rmToken)}` : "/?mode=timed&count=30"
-    // A drill launched from a plan step returns to the guided player, which
-    // advances to the next step (Phase 4 §4.4).
-    const returnToPlan = router.query.return === "plan"
+    const dailyActiveStep = dailySession ? currentDailyStep(dailySession) : null
+    // Still the same step after this rep → the primary action is another set.
+    const dailyNeedsMoreSets = !!(dailyActiveStep?.target && config && (config.kind === "keys" || config.kind === "transitions") &&
+        targetMatchesDrill(dailyActiveStep.target, { kind: config.kind, targets: config.targets }))
 
     // Full-page navigation, like Re-measure: the drill page must remount so the
     // new target compiles fresh text and the baseline re-snapshots.
@@ -305,9 +375,26 @@ const Drill: NextPage = () => {
                 <meta name="description" content="Targeted typing drills built from your weak keys and transitions." />
             </Head>
             <div className="flex h-full w-full justify-center overflow-auto px-4 py-8">
-                <main className="flex w-full max-w-5xl flex-col justify-center mb-[12rem] gap-5">
+                <main className={`flex w-full max-w-5xl flex-col gap-5 ${dailySession ? "justify-start pb-24" : "mb-[12rem] justify-center"}`}>
                     {config ? (
                         <>
+                            {dailySession && (
+                                <section data-testid="daily-session-strip" className={typingFocusFadeClass(typingFocused, "flex flex-wrap items-center justify-between gap-2 rounded-lg border border-primary/30 bg-primary/10 px-4 py-3")} aria-label="Today's coaching progress">
+                                    <div>
+                                        <p className="text-xs font-bold uppercase tracking-wide text-primary">Today&apos;s coaching</p>
+                                        <p className="mt-0.5 text-sm font-semibold text-base-content">
+                                            {dailySession.status === "completed"
+                                                ? "Session complete"
+                                                : dailyActiveStep?.kind === "focus"
+                                                    ? `${dailyActiveStep.title} · set ${Math.min(dailyActiveStep.sets.length + 1, FOCUS_SETS_GOAL)} of up to ${FOCUS_SETS_GOAL}`
+                                                    : dailyActiveStep?.title}
+                                        </p>
+                                    </div>
+                                    <span className="text-sm text-base-content/65">
+                                        {dailySession.status === "completed" ? "All steps done" : `Step ${dailySession.currentStepIndex + 1} of ${dailySession.steps.length}`}
+                                    </span>
+                                </section>
+                            )}
                             <section data-testid="drill-header" className={typingFocusFadeClass(typingFocused, "rounded-lg border border-base-content/10 bg-base-100/45 p-4 sm:p-5")}>
                                 <div className="flex flex-col gap-3">
                                     <div className="flex items-start justify-between gap-3">
@@ -383,9 +470,11 @@ const Drill: NextPage = () => {
                                         modalOpen={false}
                                         restartSignal={restartSignal}
                                         onRestart={() => setCompleted(null)}
-                                        onTestComplete={setCompleted}
-                                        // setCompleted is idempotent under the eager double-report:
-                                        // the persisted upgrade just re-sets the same card.
+                                        // The drill card uses no server-derived fields, so drop the
+                                        // persisted re-report: a slow save settling after the user
+                                        // moved on (next set, next step's drill) must not resurrect
+                                        // the old result card over the typer.
+                                        onTestComplete={(result) => { if (!result.persisted) setCompleted(result) }}
                                         eagerResult
                                         onTypingFocusChange={setTypingFocused}
                                         charAttemptsRef={charAttemptsRef}
@@ -410,10 +499,20 @@ const Drill: NextPage = () => {
                                     </div>
                                     {outcome?.delta && <DeltaLine delta={outcome.delta} />}
                                     <div className="mt-5 flex flex-col gap-2 sm:flex-row">
-                                        {returnToPlan ? (
-                                            <Link href="/plan?step=done" data-testid="drill-continue-plan" className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85">
-                                                Next step →
-                                            </Link>
+                                        {dailySession ? (
+                                            dailySession.status === "completed" ? (
+                                                <Link href="/plan" data-testid="daily-session-continue" className="inline-flex min-h-11 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
+                                                    See today&apos;s result →
+                                                </Link>
+                                            ) : dailyNeedsMoreSets ? (
+                                                <button ref={resultRestartRef} type="button" onClick={restartDrill} data-testid="daily-session-continue" className="inline-flex min-h-11 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
+                                                    Next set →
+                                                </button>
+                                            ) : (
+                                                <Link href={dailyActiveStep!.href} data-testid="daily-session-continue" className="inline-flex min-h-11 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
+                                                    Next: {dailyActiveStep!.title} →
+                                                </Link>
+                                            )
                                         ) : (
                                             // A full-page navigation (not next/link): home must mount with
                                             // ?rm already in the URL so it applies the diagnosed config before
@@ -422,7 +521,7 @@ const Drill: NextPage = () => {
                                                 Re-measure
                                             </a>
                                         )}
-                                        {!returnToPlan && outcome?.next && (
+                                        {!dailySession && outcome?.next && (
                                             <a
                                                 href={nextDrillHref(outcome.next)}
                                                 data-testid="drill-next"
@@ -431,9 +530,11 @@ const Drill: NextPage = () => {
                                                 Next drill: {nextDrillLabel(outcome.next)}
                                             </a>
                                         )}
-                                        <button ref={resultRestartRef} type="button" onClick={restartDrill} className="inline-flex items-center justify-center rounded-md border border-base-content/15 px-4 py-2 text-sm font-semibold text-base-content transition hover:bg-base-content/5">
-                                            {returnToPlan ? "Restart" : "Drill again"}
-                                        </button>
+                                        {!(dailySession && dailySession.status === "active" && dailyNeedsMoreSets) && (
+                                            <button ref={resultRestartRef} type="button" onClick={restartDrill} className="inline-flex items-center justify-center rounded-md border border-base-content/15 px-4 py-2 text-sm font-semibold text-base-content transition hover:bg-base-content/5">
+                                                {dailySession ? "Restart" : "Drill again"}
+                                            </button>
+                                        )}
                                     </div>
                                 </section>
                             )}

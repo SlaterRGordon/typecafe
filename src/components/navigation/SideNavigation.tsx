@@ -3,9 +3,9 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Avatar } from "../Avatar";
 import { useRouter } from "next/router";
-import { SHOW_PLAN_NAVIGATION } from "~/lib/features";
 import { MaterialNavIcon } from "./MaterialNavIcon";
 import { GUIDES } from "~/pages/guides";
+import { useDailySessionBadge } from "~/hooks/useDailyCoachingSession";
 
 // The legal/support links that used to sit in the page footer, now rolled into
 // one "More" popover at the bottom of the rail. Guide articles live behind the
@@ -22,6 +22,7 @@ const MORE_LINKS = [
 export const SideNavigation = () => {
     const router = useRouter();
     const { data: sessionData } = useSession();
+    const dailyBadge = useDailySessionBadge();
     const [isExpanded, setIsExpanded] = useState(false);
     const [moreOpen, setMoreOpen] = useState(false);
     // Guide articles keep highlighting "More" even though only the hub is listed.
@@ -53,6 +54,17 @@ export const SideNavigation = () => {
                     <MaterialNavIcon name="home" className={navIconClass} />
                     <div className={navLabelClass}>Home</div>
                 </Link>
+                {/* Today's coaching - the returning user's front door. The dot
+                    marks an unfinished session; it clears when today is done. */}
+                <Link href="/plan" className={getNavButtonClass('/plan')} aria-label="Today's coaching" title="Today's coaching" data-testid="nav-today">
+                    <span className="relative">
+                        <MaterialNavIcon name="today" className={navIconClass} />
+                        {dailyBadge === "active" &&
+                            <span data-testid="nav-today-dot" aria-hidden="true" className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-primary" />
+                        }
+                    </span>
+                    <div className={navLabelClass}>Today</div>
+                </Link>
                 {/* Practise */}
                 <Link href="/train" className={getNavButtonClass('/train')} aria-label="Train" title="Train">
                     <MaterialNavIcon name="fitness_center" className={navIconClass} />
@@ -70,13 +82,6 @@ export const SideNavigation = () => {
                     <MaterialNavIcon name="leaderboard" className={navIconClass} />
                     <div className={navLabelClass}>Leaderboard</div>
                 </Link>
-                {/* Plan, if signed in */}
-                {SHOW_PLAN_NAVIGATION && sessionData?.user &&
-                    <Link href="/plan" className={getNavButtonClass('/plan')} aria-label="Plan" title="Plan">
-                        <MaterialNavIcon name="assignment_turned_in" className={navIconClass} />
-                        <div className={navLabelClass}>Plan</div>
-                    </Link>
-                }
                 {/* Profile, if signed in */}
                 {sessionData?.user &&
                     <Link href="/profile" className={getNavButtonClass('/profile')} aria-label="Profile" title="Profile">

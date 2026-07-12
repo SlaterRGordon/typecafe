@@ -1,222 +1,197 @@
-import { type NextPage } from "next";
-import Head from "next/head";
-import { useRouter } from "next/router";
-import { useSession } from "next-auth/react";
-import { useEffect, useMemo, useState } from "react";
-import { generatePlan, type DrillStep, type Plan } from "~/lib/plan";
+import { type NextPage } from "next"
+import Head from "next/head"
+import Link from "next/link"
+import { useDailyCoachingSession } from "~/hooks/useDailyCoachingSession"
 import {
-    completeStep,
-    initialSession,
-    nextDay,
-    parseSession,
-    PLAN_SESSION_KEY,
-    reconcile,
-    type PlanSessionState,
-} from "~/lib/planSession";
-import { worstKeysFromAttempts } from "~/lib/stats";
-import { worstTransitions } from "~/lib/transitions";
-import type { KeyAttempt } from "~/lib/heatmap";
-import { useGuestEvidence } from "~/hooks/useGuestEvidence";
-import { useLayout } from "~/hooks/useLayout";
-import { statsPoolFor } from "~/lib/keyboardLayout";
-import { api } from "~/utils/api";
+    baselineResult,
+    coldCheck,
+    currentDailyStep,
+    focusProof,
+    focusStep,
+    FOCUS_SETS_GOAL,
+    stepGoalMet,
+    type DailyStep,
+} from "~/lib/dailyCoaching"
+import type { DrillDelta } from "~/lib/drillProgress"
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-// ponytail: a fixed benchmark config; "the user's main config" can replace this
-// once we read their most-used mode/length.
-const BENCHMARK = { subMode: "timed" as const, count: 60 };
-
-// A step that launches a test deep-links out and comes back as /plan?step=done.
-function withReturn(href: string): string {
-    return `${href}${href.includes("?") ? "&" : "?"}return=plan`;
+function formatMetric(value: number, unit: "ms" | "%"): string {
+    return unit === "ms" ? `${Math.round(value)}ms` : `${value.toFixed(1)}%`
 }
 
-const COACH_HEADLINE: Record<DrillStep["kind"], string> = {
-    warmup: "Warm up",
-    keys: "Drill your weak keys",
-    transition: "Drill the transition",
-    benchmark: "Benchmark",
-    calibration: "Calibration test",
-};
-
-function readSession(): PlanSessionState | null {
-    if (typeof window === "undefined") return null;
-    return parseSession(window.localStorage.getItem(PLAN_SESSION_KEY));
+function stepSummary(step: DailyStep): string | null {
+    if (step.sets.length === 0) return null
+    if (step.kind === "baseline" || step.kind === "calibration") {
+        const set = step.sets[0]!
+        return `${set.netWpm.toFixed(1)} WPM · ${set.accuracy.toFixed(1)}% accuracy`
+    }
+    const deltas = step.sets.map((set) => set.targetDelta).filter((d): d is DrillDelta => !!d)
+    if (deltas.length === 0) return `${step.sets.length} ${step.sets.length === 1 ? "set" : "sets"}`
+    const best = deltas.reduce((a, b) => a.unit === "ms" ? (b.after < a.after ? b : a) : (b.after > a.after ? b : a))
+    return `${step.sets.length} ${step.sets.length === 1 ? "set" : "sets"} · best ${formatMetric(best.after, best.unit)}`
 }
 
-const GuidedPlan = (props: { plan: Plan }) => {
-    const { plan } = props;
-    const router = useRouter();
-    const [session, setSession] = useState<PlanSessionState>(initialSession);
-    const [loaded, setLoaded] = useState(false);
+const primaryCta = "inline-flex min-h-11 items-center justify-center rounded-md bg-primary px-5 py-2.5 text-sm font-semibold text-primary-content transition hover:opacity-85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+const secondaryCta = "inline-flex min-h-11 items-center justify-center rounded-md border border-base-content/15 px-5 py-2.5 text-sm font-semibold text-base-content transition hover:bg-base-content/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
 
-    // Resume the saved position (client-only to avoid a hydration mismatch).
-    useEffect(() => {
-        setSession(reconcile(readSession() ?? initialSession(), plan));
-        setLoaded(true);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+const DailyCoachingPage: NextPage = () => {
+    const { session, loading, finding } = useDailyCoachingSession()
 
-    useEffect(() => {
-        if (loaded) {
-            try { window.localStorage.setItem(PLAN_SESSION_KEY, JSON.stringify(session)); } catch { /* blocked */ }
-        }
-    }, [session, loaded]);
-
-    // A drill/benchmark step returns here as /plan?step=done once its test is done.
-    useEffect(() => {
-        if (!router.isReady || !loaded) return;
-        if (router.query.step !== "done") return;
-        setSession((s) => completeStep(reconcile(s, plan), plan));
-        void router.replace("/plan", undefined, { shallow: true });
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [router.isReady, router.query.step, loaded]);
-
-    const safe = useMemo(() => reconcile(session, plan), [session, plan]);
-    const day = plan.days[safe.day - 1]!;
-    const step = day.steps[safe.stepIndex];
-    const isLastDay = safe.day >= plan.days.length;
-
-    const advance = () => setSession(completeStep(safe, plan));
-    const startNextDay = () => setSession(nextDay(safe, plan));
-    const restart = () => setSession(initialSession());
-
-    const doneDays = safe.status === "plan-done" ? plan.days.length : safe.day - 1;
-
-    return (
-        <div className="w-full max-w-2xl space-y-6">
-            <div>
-                <h1 className="font-mono text-3xl font-bold tracking-tight">Your plan</h1>
-                <p className="mt-1 text-base-content/60">
-                    {plan.kind === "calibration"
-                        ? "Calibration week - varied tests to build your profile, then your targeted plan begins."
-                        : "A 30-day plan built from your weakest keys and transitions."}
-                    {" "}{doneDays}/{plan.days.length} days done.
-                </p>
+    if (loading || !session) {
+        return (
+            <div className="flex h-full w-full items-center justify-center" role="status" aria-live="polite">
+                <span className="text-base-content/60">Preparing today&apos;s coaching…</span>
             </div>
+        )
+    }
 
-            {safe.status === "plan-done" ? (
-                <div data-testid="plan-finished" className="rounded-xl border border-success/40 bg-success/10 p-6">
-                    <h2 className="text-2xl font-bold text-success">Plan complete 🎉</h2>
-                    <p className="mt-1 text-base-content/70">You worked every day of the plan. Set a fresh goal and regenerate to keep climbing.</p>
-                    <button type="button" onClick={restart} className="mt-4 inline-flex items-center rounded-md border border-base-content/20 px-4 py-2 text-sm font-semibold text-base-content/80 transition hover:bg-base-content/5">
-                        Restart plan
-                    </button>
-                </div>
-            ) : safe.status === "day-done" ? (
-                <div data-testid="plan-day-done" className="rounded-xl border border-success/40 bg-success/10 p-6">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-success">Day {safe.day} complete</p>
-                    <h2 className="mt-1 text-2xl font-bold text-base-content">Nice - that&apos;s today&apos;s session done.</h2>
-                    <p className="mt-1 text-base-content/70">Come back tomorrow, or keep the momentum going.</p>
-                    <button type="button" onClick={startNextDay} data-testid="plan-next-day" className="mt-4 inline-flex items-center rounded-md bg-primary px-5 py-2.5 text-sm font-semibold text-primary-content transition hover:opacity-85">
-                        {isLastDay ? "Finish plan →" : `Start day ${safe.day + 1} →`}
-                    </button>
-                </div>
-            ) : step ? (
-                <>
-                    {/* One active step at a time, with the coach's framing. */}
-                    <div>
-                        <div className="mb-2 flex items-center justify-between text-sm text-base-content/55">
-                            <span>Day {safe.day} of {plan.days.length}</span>
-                            <span>Step {safe.stepIndex + 1} of {day.steps.length}</span>
-                        </div>
-                        <div className="h-2 overflow-hidden rounded-full bg-base-content/10">
-                            <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${(safe.stepIndex / day.steps.length) * 100}%` }} />
-                        </div>
-                    </div>
-
-                    <div data-testid="plan-active-step" className="rounded-xl border border-primary/30 bg-primary/10 p-6">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-primary">
-                            {day.isBenchmark ? "Benchmark day" : `Day ${safe.day}`}
-                        </p>
-                        <h2 className="mt-1 text-2xl font-bold text-base-content">{COACH_HEADLINE[step.kind]}</h2>
-                        <p className="mt-1 text-base-content/70">{step.label}</p>
-
-                        <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:items-center">
-                            {/* Every step launches on /drill (or home for grams) and advances
-                                on completion; Skip is the manual fallback so nobody's stuck.
-                                Full-page nav so the test surface mounts cleanly with ?return=plan. */}
-                            <a href={withReturn(step.href)} data-testid="plan-start-step" className="inline-flex items-center justify-center rounded-md bg-primary px-5 py-2.5 text-sm font-semibold text-primary-content transition hover:opacity-85">
-                                {step.kind === "warmup" ? "Start warm-up →" : "Start →"}
-                            </a>
-                            <button type="button" onClick={advance} data-testid="plan-advance" className="inline-flex items-center justify-center rounded-md px-3 py-2 text-sm font-medium text-base-content/55 transition hover:text-base-content">
-                                Skip →
-                            </button>
-                        </div>
-                    </div>
-                </>
-            ) : null}
-
-            <div>
-                <p className="mb-2 text-sm font-semibold uppercase tracking-wide text-base-content/45">All {plan.days.length} days</p>
-                <div className="grid grid-cols-7 gap-2">
-                    {plan.days.map((d) => {
-                        const isDone = safe.status === "plan-done" || d.day < safe.day;
-                        const isToday = safe.status === "active" && d.day === safe.day;
-                        return (
-                            <div
-                                key={d.day}
-                                title={`Day ${d.day}${d.isBenchmark ? " - benchmark" : ""}`}
-                                className={`flex h-9 items-center justify-center rounded-md text-xs font-semibold ${
-                                    isDone
-                                        ? "bg-primary text-primary-content"
-                                        : isToday
-                                            ? "border border-primary text-primary"
-                                            : "border border-base-content/15 text-base-content/50"
-                                }`}
-                            >
-                                {d.isBenchmark ? "★" : d.day}
-                            </div>
-                        );
-                    })}
-                </div>
-            </div>
-        </div>
-    );
-};
-
-const PlanPage: NextPage = () => {
-    const { data: sessionData, status } = useSession();
-    const signedIn = !!sessionData?.user;
-
-    const recordsQuery = api.test.getProgressRecords.useQuery(undefined, { enabled: signedIn });
-    // Key/transition evidence follows the active layout's stats pool (ledger decision 6).
-    const [activeLayout] = useLayout();
-    const pool = statsPoolFor(activeLayout);
-    const practiceStatsQuery = api.practiceStats.get.useQuery({ pool }, { enabled: signedIn });
-    const transitionsQuery = api.transitionStats.get.useQuery({ pool }, { enabled: signedIn });
-
-    const guest = useGuestEvidence();
-
-    const plan = useMemo(() => {
-        const dates = signedIn ? (recordsQuery.data ?? []).map((r) => new Date(r.createdAt).getTime()) : (guest?.progress ?? []).map((e) => e.t);
-        const keyAttempts: Record<string, KeyAttempt> = signedIn
-            ? Object.fromEntries((practiceStatsQuery.data ?? []).map((s) => [s.character, { attempts: s.total, correct: s.correct }]))
-            : Object.fromEntries((guest?.keyStats ?? []).map((s) => [s.key, { attempts: s.attempts, correct: s.correct }]));
-        const transitions = signedIn ? (transitionsQuery.data ?? []) : (guest?.transitions ?? []);
-
-        const historyDays = dates.length > 0 ? (Date.now() - Math.min(...dates)) / DAY_MS : 0;
-        return generatePlan({
-            worstKeys: worstKeysFromAttempts(new Map(Object.entries(keyAttempts)), 6),
-            worstTransitions: worstTransitions(transitions),
-            benchmark: BENCHMARK,
-            historyDays,
-        });
-    }, [signedIn, recordsQuery.data, practiceStatsQuery.data, transitionsQuery.data, guest]);
-
-    const loading = status === "loading" || (signedIn && (recordsQuery.isLoading || practiceStatsQuery.isLoading || transitionsQuery.isLoading));
+    const active = currentDailyStep(session)
+    const stepsDone = session.steps.filter(stepGoalMet).length
+    const proof = focusProof(session)
+    const cold = coldCheck(session)
+    const baseline = baselineResult(session)
+    const focus = focusStep(session)
+    const dateLabel = new Date(`${session.dateKey}T12:00:00`).toLocaleDateString(undefined, {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+    })
 
     return (
         <>
             <Head>
-                <title>Your plan - TypeCafe</title>
-                <meta name="description" content="Your personalized practice plan: a coach-guided daily session built from your weakest keys and transitions." />
+                <title>Today&apos;s coaching - TypeCafe</title>
+                <meta name="description" content="Your daily typing coaching session, built from your recent keys and transitions." />
             </Head>
-            <div className="flex h-full w-full justify-center overflow-auto px-4 py-8">
-                {loading ? <div className="mt-16 text-base-content/50">Building your plan…</div> : <GuidedPlan plan={plan} />}
+            <div className="flex h-full w-full justify-center overflow-auto px-4 py-8 sm:py-12">
+                <main className="w-full max-w-3xl pb-24">
+                    <header>
+                        <p className="text-sm font-semibold text-primary">{dateLabel}</p>
+                        <h1 className="mt-1 font-mono text-3xl font-bold tracking-tight text-base-content sm:text-4xl">Today&apos;s coaching</h1>
+                        <p className="mt-3 max-w-2xl text-base leading-7 text-base-content/75">{session.reason}</p>
+                    </header>
+
+                    {session.status === "completed" && session.kind === "calibration" ? (
+                        <section data-testid="daily-session-complete" className="mt-8 rounded-xl border border-success/40 bg-success/10 p-5 sm:p-6" aria-labelledby="session-complete-title">
+                            <p className="text-xs font-bold uppercase tracking-wide text-success">Mapping done</p>
+                            {finding ? (
+                                <>
+                                    <h2 id="session-complete-title" className="mt-1 text-2xl font-bold text-base-content">
+                                        Found it: {finding.kind === "transition"
+                                            ? <>your <span className="font-mono">{finding.from}→{finding.to}</span> transition is {finding.ratio.toFixed(1)}× slower than your typical one.</>
+                                            : <>your weakest keys are <span className="font-mono">{finding.keys.join(" ")}</span>.</>}
+                                    </h2>
+                                    <p className="mt-3 text-sm text-base-content/75">Tomorrow&apos;s session targets it — or start on it right now.</p>
+                                    <div className="mt-5 flex flex-col gap-2 sm:flex-row">
+                                        <Link href={finding.href} data-testid="daily-first-finding-drill" className={primaryCta}>
+                                            Drill it now
+                                        </Link>
+                                        <Link href="/" className={secondaryCta}>Back home</Link>
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    <h2 id="session-complete-title" className="mt-1 text-2xl font-bold text-base-content">Your map is in.</h2>
+                                    <p className="mt-3 text-sm text-base-content/75">No single weakness stands out yet — another Test or two will surface one, and tomorrow&apos;s session picks it up.</p>
+                                    <div className="mt-5 flex flex-col gap-2 sm:flex-row">
+                                        <Link href="/" className={primaryCta}>Take another Test</Link>
+                                    </div>
+                                </>
+                            )}
+                        </section>
+                    ) : session.status === "completed" ? (
+                        <section data-testid="daily-session-complete" className="mt-8 rounded-xl border border-success/40 bg-success/10 p-5 sm:p-6" aria-labelledby="session-complete-title">
+                            <p className="text-xs font-bold uppercase tracking-wide text-success">Session complete</p>
+                            <h2 id="session-complete-title" className="mt-1 text-2xl font-bold text-base-content">You did the work today.</h2>
+                            {proof ? (
+                                <div className="mt-5 rounded-lg border border-base-content/10 bg-base-100/35 p-4">
+                                    <p className="text-xs font-semibold uppercase text-base-content/55">{proof.label} · baseline → best set</p>
+                                    <p data-testid="daily-proof" className={`mt-1 font-mono text-3xl font-bold ${proof.improved ? "text-success" : "text-base-content"}`}>
+                                        {formatMetric(proof.before, proof.unit)} → {formatMetric(proof.after, proof.unit)}
+                                    </p>
+                                    {!proof.improved && (
+                                        <p className="mt-2 text-sm text-base-content/70">No win today — that happens. The reps still count as evidence.</p>
+                                    )}
+                                </div>
+                            ) : (
+                                <p className="mt-4 text-sm text-base-content/75">
+                                    Sets logged, but not enough reps landed on the target to measure a change honestly.
+                                </p>
+                            )}
+                            {cold && (
+                                <p data-testid="daily-cold-check" className="mt-4 text-sm text-base-content/75">
+                                    Cold check on yesterday&apos;s <span className="font-mono font-bold text-base-content">{cold.yesterday.label}</span>:{" "}
+                                    <span className="font-semibold text-base-content">{formatMetric(cold.value, cold.unit)}</span>
+                                    {" "}(started at {formatMetric(cold.yesterday.before, cold.unit)} before drilling) —{" "}
+                                    {cold.held ? <span className="font-semibold text-success">the change stuck.</span> : <span className="font-semibold text-warning">it slipped; worth another pass.</span>}
+                                </p>
+                            )}
+                            {baseline && (
+                                <p className="mt-3 text-sm text-base-content/65">Today&apos;s warm-up: {baseline.netWpm.toFixed(1)} WPM · {baseline.accuracy.toFixed(1)}% accuracy.</p>
+                            )}
+                            <p className="mt-3 text-sm text-base-content/65">The real proof is tomorrow&apos;s cold check — your next session opens with it.</p>
+                            <div className="mt-5 flex flex-col gap-2 sm:flex-row">
+                                {focus ? (
+                                    <Link href={focus.href} className={primaryCta}>Extra targeted practice</Link>
+                                ) : (
+                                    <Link href="/progress" className={primaryCta}>See your progress</Link>
+                                )}
+                                <Link href="/" className={secondaryCta}>Back home</Link>
+                            </div>
+                        </section>
+                    ) : (
+                        <section data-testid="daily-session-active" className="mt-8 rounded-xl border border-primary/30 bg-primary/10 p-5 sm:p-6" aria-labelledby="active-step-title">
+                            <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                                <span className="font-semibold text-primary">{stepsDone === 0 ? "Ready for today" : "Session in progress"}</span>
+                                <span className="text-base-content/60">About {session.estimatedMinutes} min · {stepsDone}/{session.steps.length} steps</span>
+                            </div>
+                            <div className="mt-3 h-2 overflow-hidden rounded-full bg-base-content/10" role="progressbar" aria-valuemin={0} aria-valuemax={session.steps.length} aria-valuenow={stepsDone} aria-label="Daily coaching progress">
+                                <div className="h-full rounded-full bg-primary transition-[width] duration-200 motion-reduce:transition-none" style={{ width: `${(stepsDone / session.steps.length) * 100}%` }} />
+                            </div>
+                            <p className="mt-6 text-xs font-bold uppercase tracking-wide text-primary">
+                                Up next · Step {session.currentStepIndex + 1}
+                                {active?.kind === "focus" && active.sets.length > 0 && ` · set ${Math.min(active.sets.length + 1, FOCUS_SETS_GOAL)} of up to ${FOCUS_SETS_GOAL}`}
+                            </p>
+                            <h2 id="active-step-title" className="mt-1 text-2xl font-bold text-base-content">{active?.title}</h2>
+                            <p className="mt-2 text-base-content/70">{active?.detail}</p>
+                            <Link href={active?.href ?? "/"} data-testid="daily-session-start" className={`${primaryCta} mt-5 w-full sm:w-auto`}>
+                                {stepsDone === 0 && (active?.sets.length ?? 0) === 0 ? "Start today's session" : "Resume session"}
+                            </Link>
+                        </section>
+                    )}
+
+                    <section className="mt-8" aria-labelledby="session-steps-title">
+                        <div className="flex items-end justify-between gap-3">
+                            <div>
+                                <p className="text-xs font-bold uppercase tracking-wide text-base-content/50">Today&apos;s prescription</p>
+                                <h2 id="session-steps-title" className="mt-1 text-xl font-bold text-base-content">
+                                    {session.kind === "calibration" ? "Measure once, then target" : "Warm up → focus sets"}
+                                </h2>
+                            </div>
+                            <span className="text-sm text-base-content/55">Frozen for today</span>
+                        </div>
+                        <ol className="mt-4 space-y-2">
+                            {session.steps.map((item, index) => {
+                                const isDone = stepGoalMet(item)
+                                const isActive = session.status === "active" && index === session.currentStepIndex
+                                const summary = stepSummary(item)
+                                return (
+                                    <li key={item.id} className={`flex gap-3 rounded-lg border p-4 ${isActive ? "border-primary/35 bg-primary/5" : "border-base-content/10 bg-base-100/25"}`}>
+                                        <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-sm font-bold ${isDone ? "border-success/50 bg-success/15 text-success" : isActive ? "border-primary bg-primary text-primary-content" : "border-base-content/20 text-base-content/45"}`} aria-hidden="true">
+                                            {isDone ? "✓" : index + 1}
+                                        </span>
+                                        <div className="min-w-0">
+                                            <p className="font-semibold text-base-content">{item.title}</p>
+                                            <p className="mt-0.5 text-sm text-base-content/60">{summary ?? item.detail}</p>
+                                        </div>
+                                    </li>
+                                )
+                            })}
+                        </ol>
+                    </section>
+                </main>
             </div>
         </>
-    );
-};
+    )
+}
 
-export default PlanPage;
+export default DailyCoachingPage

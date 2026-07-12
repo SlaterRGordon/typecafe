@@ -2,12 +2,13 @@ import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { Avatar } from "../Avatar";
 import { useRouter } from "next/router";
-import { SHOW_PLAN_NAVIGATION } from "~/lib/features";
 import { MaterialNavIcon } from "./MaterialNavIcon";
+import { useDailySessionBadge } from "~/hooks/useDailyCoachingSession";
 
 export const BottomNavigation = () => {
     const router = useRouter();
     const { data: sessionData } = useSession();
+    const dailyBadge = useDailySessionBadge();
     const getNavButtonClass = (href: string) => {
         const isActive = router.pathname === href || (href !== "/" && router.pathname.startsWith(href))
 
@@ -25,6 +26,15 @@ export const BottomNavigation = () => {
                 <Link href="/" className={getNavButtonClass('/')} aria-label="Home" title="Home">
                     <MaterialNavIcon name="home" className={navIconClass} />
                 </Link>
+                {/* Today's coaching - dot marks an unfinished session. */}
+                <Link href="/plan" className={getNavButtonClass('/plan')} aria-label="Today's coaching" title="Today's coaching" data-testid="nav-today">
+                    <span className="relative">
+                        <MaterialNavIcon name="today" className={navIconClass} />
+                        {dailyBadge === "active" &&
+                            <span data-testid="nav-today-dot" aria-hidden="true" className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-primary" />
+                        }
+                    </span>
+                </Link>
                 {/* Train */}
                 <Link href="/train" className={getNavButtonClass('/train')} aria-label="Train" title="Train">
                     <MaterialNavIcon name="fitness_center" className={navIconClass} />
@@ -38,12 +48,6 @@ export const BottomNavigation = () => {
                 <Link href="/leaderboard" className={getNavButtonClass('/leaderboard')} aria-label="Leaderboard" title="Leaderboard">
                     <MaterialNavIcon name="leaderboard" className={navIconClass} />
                 </Link>
-                {/* Plan, if signed in */}
-                {SHOW_PLAN_NAVIGATION && sessionData?.user &&
-                    <Link href="/plan" className={getNavButtonClass('/plan')} aria-label="Plan" title="Plan">
-                        <MaterialNavIcon name="assignment_turned_in" className={navIconClass} />
-                    </Link>
-                }
                 {/* Profile, if signed in */}
                 {sessionData?.user &&
                     <Link href="/profile" className={getNavButtonClass('/profile')} aria-label="Profile" title="Profile">

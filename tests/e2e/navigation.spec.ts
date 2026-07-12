@@ -40,8 +40,9 @@ test.describe("app navigation", () => {
     );
 
     // Daily Challenge is hidden for now (2026-07) - no /challenge entry point.
-    expect(labels.slice(0, 4)).toEqual(["Home", "Train", "Progress", "Leaderboard"]);
-    expect(icons.slice(0, 4)).toEqual(["home", "fitness_center", "trending_up", "leaderboard"]);
+    // Today's coaching sits right after Home: the returning user's front door.
+    expect(labels.slice(0, 5)).toEqual(["Home", "Today's coaching", "Train", "Progress", "Leaderboard"]);
+    expect(icons.slice(0, 5)).toEqual(["home", "today", "fitness_center", "trending_up", "leaderboard"]);
     expect(labels).not.toContain("Daily Challenge");
     await expect(nav.locator(".fa-dumbbell")).toHaveCount(0);
   });
