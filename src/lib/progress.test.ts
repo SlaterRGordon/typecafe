@@ -7,9 +7,11 @@ import {
     bestWpm,
     currentStreak,
     dailyRollups,
+    dailyWpmSeries,
     dayKey,
     defaultRollingWindow,
     filterByPeriod,
+    filterByCalendarPeriod,
     filterProgressRecords,
     headlineDelta,
     heroDelta,
@@ -95,6 +97,29 @@ describe("periodStart", () => {
     it("subtracts the period's days from now", () => {
         expect(periodStart(30, NOW)!.getTime()).toBe(NOW.getTime() - 30 * DAY_MS)
         expect(periodStart(7, NOW)!.getTime()).toBe(NOW.getTime() - 7 * DAY_MS)
+    })
+})
+
+describe("filterByCalendarPeriod", () => {
+    it("treats 7d as today plus the prior six local calendar dates", () => {
+        const now = new Date("2026-06-14T23:30:00.000Z")
+        const records: ProgressRecord[] = [
+            { wpm: 70, accuracy: 95, createdAt: new Date("2026-06-08T00:01:00.000Z") },
+            { wpm: 60, accuracy: 95, createdAt: new Date("2026-06-07T23:59:00.000Z") },
+        ]
+
+        expect(filterByCalendarPeriod(records, 7, now).map((record) => record.wpm)).toEqual([70])
+    })
+
+    it("uses the persisted local summary day at a timezone boundary", () => {
+        const record: ProgressRecord = {
+            wpm: 70,
+            accuracy: 95,
+            createdAt: new Date("2026-06-08T06:30:00.000Z"),
+            day: "2026-06-07",
+        }
+
+        expect(filterByCalendarPeriod([record], 7, new Date("2026-06-14T20:00:00.000Z"), -420)).toEqual([])
     })
 })
 
@@ -462,6 +487,38 @@ describe("dailyRollups", () => {
     })
 })
 
+describe("dailyWpmSeries", () => {
+    it("plots one median point per practiced day and keeps the exact daily best", () => {
+        const records: ProgressRecord[] = [
+            { wpm: 50, accuracy: 90, consistency: 70, createdAt: new Date("2026-06-13T09:00:00.000Z") },
+            { wpm: 70, accuracy: 100, consistency: 90, createdAt: new Date("2026-06-13T10:00:00.000Z") },
+            { wpm: 90, accuracy: 95, consistency: 80, createdAt: new Date("2026-06-13T11:00:00.000Z") },
+            { wpm: 75, accuracy: 96, consistency: 84, createdAt: new Date("2026-06-14T10:00:00.000Z") },
+        ]
+
+        const series = dailyWpmSeries(records, 7, NOW)
+        expect(series.points).toHaveLength(2)
+        expect(series.points[0]).toMatchObject({ wpm: 70, bestWpm: 90, tests: 3, accuracy: 95, consistency: 80 })
+        expect(series.points[1]).toMatchObject({ wpm: 75, bestWpm: 75, tests: 1 })
+        expect(series.trend).toHaveLength(2)
+        expect(series.bestTrend).toHaveLength(2)
+    })
+
+    it("uses a persisted rollup's average as its representative point and preserves its best", () => {
+        const series = dailyWpmSeries([{
+            wpm: 64,
+            bestWpm: 82,
+            tests: 5,
+            accuracy: 96,
+            createdAt: new Date("2026-06-13T12:00:00.000Z"),
+            day: "2026-06-13",
+            rollup: true,
+        }], 7, NOW)
+
+        expect(series.points[0]).toMatchObject({ wpm: 64, bestWpm: 82, tests: 5 })
+    })
+})
+
 describe("mergeDailyRollups", () => {
     it("adds rollup-only days without duplicating days that already have raw tests", () => {
         const raw = [
@@ -480,6 +537,8 @@ describe("mergeDailyRollups", () => {
         // Raw per-test records pass through untouched.
         expect(merged[0]).toMatchObject({ accuracy: 94, consistency: 80, day: "2026-06-13", rollup: true })
         expect(merged[0]!.wpm).toBe(65)
+        expect(merged[0]!.bestWpm).toBe(69)
+        expect(merged[0]!.tests).toBe(2)
         expect(merged[1]).toMatchObject({ wpm: 70, count: 30, mode: 0, subMode: 0 })
     })
 })

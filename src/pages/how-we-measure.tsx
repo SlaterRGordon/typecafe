@@ -28,7 +28,7 @@ const HowWeMeasure: NextPage = () => {
       <DocumentPage
         eyebrow="Measurement"
         title="How TypeCafe Measures Typing"
-        updated="June 20, 2026"
+        updated="July 11, 2026"
         intro="TypeCafe is a typing coach, so the numbers have to be boringly honest. This page explains the formulas and thresholds used on score cards, progress charts, coach notes, and ranked surfaces."
       >
         <DocumentSection title="Words Per Minute">
@@ -65,7 +65,9 @@ const HowWeMeasure: NextPage = () => {
         </DocumentSection>
 
         <DocumentSection title="Progress &amp; Improvement">
-          <p>Progress pages compare your current window against the previous matching window. For example, the 30-day headline compares the last 30 days with the 30 days before that.</p>
+          <p>Progress periods use your local calendar. For example, 7d means today plus the previous six local dates, not a trailing 168-hour slice that can touch eight dates.</p>
+          <p>The WPM chart gives every practiced day one vote. Each dot is that day&apos;s median net WPM, and the solid line is a straight least-squares trend through those daily medians. The headline change reads the solid line at its first and last practiced days.</p>
+          <p>The dashed daily best trend is a separate straight fit through each day&apos;s highest ranked net WPM. Hover or focus a daily dot to see its exact median, daily best, test count, average accuracy, and average consistency.</p>
           <p>Daily averages are built by calculating net WPM for each test first, then averaging those net values. TypeCafe does not estimate net speed from separate daily averages.</p>
           <p>Score cards may show a 30-day improvement after save. That requires at least 3 prior ranked tests in the last 30 days, so the comparison has enough evidence to be useful.</p>
         </DocumentSection>

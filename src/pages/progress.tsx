@@ -15,8 +15,8 @@ import {
     PROGRESS_PERIODS,
     bestWpm,
     currentStreak,
-    dailyRollups,
-    filterByPeriod,
+    dailyWpmSeries,
+    filterByCalendarPeriod,
     heroDelta,
     linearTrend,
     mergeDailyRollups,
@@ -265,6 +265,7 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
     const [heatmapAltgr, setHeatmapAltgr] = useState(false);
     const boardHasAltGr = useMemo(() => boardFor(activeBoardLayout).rows.some((row) => row.some((cap) => cap.altgr)), [activeBoardLayout]);
     const now = useMemo(() => new Date(), []);
+    const utcOffsetMinutes = -now.getTimezoneOffset();
     const createProgressShare = api.scoreShare.createProgress.useMutation();
 
     // Drop junk tests (stopped typing, key-mash restarts) once, up front, so the
@@ -273,9 +274,16 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
     // filtering, so the only knob left is the time period.
     const cleanRecords = useMemo(() => rejectOutliers(props.records), [props.records]);
 
-    const streak = useMemo(() => currentStreak(cleanRecords, now, -now.getTimezoneOffset()), [cleanRecords, now]);
-    const series = useMemo(() => trendSeries(cleanRecords, period, now), [cleanRecords, period, now]);
-    const inPeriod = useMemo(() => filterByPeriod(cleanRecords, period, now), [cleanRecords, period, now]);
+    const streak = useMemo(() => currentStreak(cleanRecords, now, utcOffsetMinutes), [cleanRecords, now, utcOffsetMinutes]);
+    const inPeriod = useMemo(
+        () => filterByCalendarPeriod(cleanRecords, period, now, utcOffsetMinutes),
+        [cleanRecords, period, now, utcOffsetMinutes],
+    );
+    const series = useMemo(() => trendSeries(inPeriod, "all", now), [inPeriod, now]);
+    const dailyWpm = useMemo(
+        () => dailyWpmSeries(cleanRecords, period, now, utcOffsetMinutes),
+        [cleanRecords, period, now, utcOffsetMinutes],
+    );
     const records = useMemo(() => personalRecords(cleanRecords), [cleanRecords]);
 
     // Straight least-squares fit per metric - one readable line instead of a
@@ -285,10 +293,9 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
         return series.points.map((p) => line.at(p.t));
     }, [series.points]);
     const wpm = useMemo(() => {
-        const values = series.points.map((p) => p.wpm);
-        const line = linearTrend(series.points.map((p) => p.t), values);
-        return { values, trend: series.points.map((p) => line.at(p.t)) };
-    }, [series]);
+        const values = dailyWpm.points.map((p) => p.wpm);
+        return { values, trend: dailyWpm.trend };
+    }, [dailyWpm]);
     const accuracy = useMemo(() => {
         const values = series.points.map((p) => p.accuracy);
         return { values, trend: fitLine(values) };
@@ -305,19 +312,7 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
     // The hero delta reads off the WPM trend line's endpoints, so the headline
     // number is exactly the slope the chart shows - not a separate noisy
     // window-average subtraction that flips sign on a single junk test.
-    const hero = useMemo(() => heroDelta(series.points), [series]);
-
-    // Best WPM per local day, fit to a straight least-squares line - a lighter
-    // ceiling trend behind the WPM trend. Two endpoints (not the jagged daily
-    // points) so it reads as a direction at a glance, same as the main trend.
-    const bestPerDay = useMemo(() => {
-        const days = dailyRollups(inPeriod, -now.getTimezoneOffset())
-            .map((d) => ({ t: new Date(`${d.day}T12:00:00.000Z`).getTime(), value: d.bestWpm }));
-        if (days.length < 2) return days;
-        const fit = linearTrend(days.map((d) => d.t), days.map((d) => d.value));
-        const first = days[0]!.t, last = days[days.length - 1]!.t;
-        return [{ t: first, value: fit.at(first) }, { t: last, value: fit.at(last) }];
-    }, [inPeriod, now]);
+    const hero = useMemo(() => heroDelta(dailyWpm.points), [dailyWpm.points]);
     const plateau = useMemo(() => detectPlateau(cleanRecords, now), [cleanRecords, now]);
     const slowTransitions = useMemo(() => worstTransitions(props.transitions), [props.transitions]);
     // The active language's accent chars (loaded on demand; [] for English) -
@@ -349,14 +344,14 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
     ];
     const activeMetric: TrendMetric = trendMetric === "consistency" && !consistency ? "wpm" : trendMetric;
     const trendConfig = {
-        wpm: { title: "WPM over time", values: wpm.values, trend: wpm.trend, baseline: "zero" as const, suffix: "" },
-        accuracy: { title: "Accuracy over time", values: accuracy.values, trend: accuracy.trend, baseline: "fit" as const, suffix: "%" },
-        consistency: { title: "Consistency over time", values: consistency?.values ?? [], trend: consistency?.trend ?? [], baseline: "fit" as const, suffix: "%" },
+        wpm: { title: "WPM over time", points: dailyWpm.points, values: wpm.values, trend: wpm.trend, baseline: "zero" as const, suffix: "", pointKind: "daily" as const, trendLabel: "Daily median trend" },
+        accuracy: { title: "Accuracy over time", points: series.points, values: accuracy.values, trend: accuracy.trend, baseline: "fit" as const, suffix: "%", pointKind: "test" as const, trendLabel: "Trend" },
+        consistency: { title: "Consistency over time", points: series.points, values: consistency?.values ?? [], trend: consistency?.trend ?? [], baseline: "fit" as const, suffix: "%", pointKind: "test" as const, trendLabel: "Trend" },
     }[activeMetric];
 
-    const hasData = series.points.length > 0;
+    const hasData = dailyWpm.points.length > 0;
     // A progress card only makes sense with a real delta to brag about.
-    const canShare = !!props.canShare && hero.delta !== null && series.points.length > 0;
+    const canShare = !!props.canShare && hero.delta !== null && dailyWpm.points.length > 0;
 
     const shareProgress = async () => {
         if (hero.delta === null) return;
@@ -366,7 +361,7 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
                 snapshot: {
                     deltaWpm: hero.delta,
                     periodLabel: periodShareLabel(period),
-                    points: series.points.slice(-2000).map((p) => ({ t: p.t, wpm: p.wpm })),
+                    points: dailyWpm.points.slice(-2000).map((p) => ({ t: p.t, wpm: p.wpm })),
                     streak: streak > 0 ? streak : undefined,
                     username: props.username ?? undefined,
                     generatedAt: Date.now(),
@@ -487,11 +482,13 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
                     {hasData ? (
                         <TrendChart
                             title={trendConfig.title}
-                            points={series.points}
+                            points={trendConfig.points}
                             values={trendConfig.values}
                             trend={trendConfig.trend}
-                            secondary={activeMetric === "wpm" && bestPerDay.length >= 2 ? bestPerDay : undefined}
-                            secondaryLabel="Best/day"
+                            trendLabel={trendConfig.trendLabel}
+                            pointKind={trendConfig.pointKind}
+                            secondary={activeMetric === "wpm" && dailyWpm.bestTrend.length >= 2 ? dailyWpm.bestTrend : undefined}
+                            secondaryLabel="Daily best trend"
                             baseline={trendConfig.baseline}
                             valueSuffix={trendConfig.suffix}
                             action={
