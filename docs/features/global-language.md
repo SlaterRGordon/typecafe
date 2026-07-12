@@ -110,6 +110,10 @@ weak-key card stays global (consistent with "training progress global", ADR
       forms only where the dictionary cannot provide coverage. Generated forms
       retain corpus-attested bigrams, a phonological boundary guard, and an
       eight-word novelty window; natural carriers avoid adjacent repetition.
+      The generator ranks 16 candidates by whole-word transition likelihood,
+      penalizes one-character backoff and repeated chunks, caps inventions at
+      seven letters, and rejects four-vowel/triple-letter runs so locally valid
+      transitions cannot accumulate into conspicuous outliers.
       Train deliberately remains real-word-first through `restrictedText.ts`.
       English, French, Spanish, German, Italian, Portuguese, Dutch, and Polish are
       covered; Chinese and Hindi retain the existing English fallback pending a

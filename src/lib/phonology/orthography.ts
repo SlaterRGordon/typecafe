@@ -5,6 +5,16 @@ interface WeightedValue {
     weight: number
 }
 
+interface ChoiceSet {
+    choices: readonly WeightedValue[]
+    contextLength: number
+}
+
+interface Candidate {
+    word: string
+    score: number
+}
+
 export interface OrthographicModel {
     transitions: readonly ReadonlyMap<string, readonly WeightedValue[]>[]
     prefixesByCharacter: ReadonlyMap<string, readonly WeightedValue[]>
@@ -24,9 +34,9 @@ interface GenerateRequest {
 const CONTEXT_LENGTH = 3
 const TRANSITION_CONTEXT_LENGTHS = [1, CONTEXT_LENGTH] as const
 const MIN_WORD_LENGTH = 3
-const MAX_WORD_LENGTH = 10
+const MAX_WORD_LENGTH = 7
 const MAX_PREFIX_LENGTH = 6
-const MAX_ATTEMPTS = 32
+const MAX_ATTEMPTS = 16
 const START = "\u0002"
 const END = "\u0003"
 const END_WEIGHT_GROWTH = 1.3
@@ -133,14 +143,18 @@ const prefixPoolsFor = (
 }
 
 const sample = (choices: readonly WeightedValue[], rng: Random): string | null => {
+    return sampleChoice(choices, rng)?.value ?? null
+}
+
+const sampleChoice = (choices: readonly WeightedValue[], rng: Random): WeightedValue | null => {
     const total = choices.reduce((sum, choice) => sum + choice.weight, 0)
     if (!(total > 0)) return null
     let cursor = Math.min(1 - Number.EPSILON, Math.max(0, rng())) * total
     for (const choice of choices) {
         cursor -= choice.weight
-        if (cursor < 0) return choice.value
+        if (cursor < 0) return choice
     }
-    return choices.at(-1)?.value ?? null
+    return choices.at(-1) ?? null
 }
 
 const canEnd = (word: string, request: GenerateRequest): boolean =>
@@ -154,7 +168,7 @@ const nextChoices = (
     history: readonly string[],
     word: string,
     request: GenerateRequest,
-): WeightedValue[] => {
+): ChoiceSet | null => {
     for (let length = CONTEXT_LENGTH; length >= 1; length -= 1) {
         const entries = request.model.transitions[length]?.get(contextKey(history.slice(-length)))
         if (!entries) continue
@@ -166,22 +180,49 @@ const nextChoices = (
             if ([...word].length >= MAX_WORD_LENGTH || !request.allowed.has(value)) return []
             return [{ value, weight }]
         })
-        if (choices.length > 0) return choices
+        if (choices.length > 0) return { choices, contextLength: length }
     }
-    return []
+    return null
 }
 
-const growWord = (prefix: string, request: GenerateRequest): string | null => {
+const repetitionPenalty = (word: string): number => {
+    const characters = [...word]
+    let penalty = 0
+    for (const size of [2, 3]) {
+        for (let index = 0; index + size * 2 <= characters.length; index += 1) {
+            const first = characters.slice(index, index + size).join("")
+            const second = characters.slice(index + size, index + size * 2).join("")
+            if (first === second) penalty += 0.75
+        }
+    }
+    return penalty
+}
+
+const growWord = (prefix: string, request: GenerateRequest): Candidate | null => {
     const characters = [...prefix]
     const history = [...Array.from({ length: CONTEXT_LENGTH }, () => START), ...characters].slice(-CONTEXT_LENGTH)
+    let logProbability = 0
+    let decisions = 0
+    let backoffs = 0
 
     while (characters.length <= MAX_WORD_LENGTH) {
         const word = characters.join("")
-        const next = sample(nextChoices(history, word, request), request.rng)
-        if (next === END) return word
-        if (next == null) return null
-        characters.push(next)
-        history.push(next)
+        const choiceSet = nextChoices(history, word, request)
+        if (choiceSet == null) return null
+        const choice = sampleChoice(choiceSet.choices, request.rng)
+        if (choice == null) return null
+        const totalWeight = choiceSet.choices.reduce((sum, candidate) => sum + candidate.weight, 0)
+        logProbability += Math.log(choice.weight / totalWeight)
+        decisions += 1
+        if (choiceSet.contextLength < CONTEXT_LENGTH) backoffs += 1
+
+        if (choice.value === END) {
+            const averageLogProbability = logProbability / decisions
+            const score = averageLogProbability - backoffs * 0.9 - repetitionPenalty(word)
+            return { word, score }
+        }
+        characters.push(choice.value)
+        history.push(choice.value)
         history.shift()
     }
     return null
@@ -196,10 +237,13 @@ export function generateOrthographicWord(request: GenerateRequest): string | nul
     const prefixes = request.required == null
         ? []
         : prefixPoolsFor(request.model, request.allowed).get(request.required) ?? []
+    const candidates = new Map<string, Candidate>()
     for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt += 1) {
         const prefix = sample(prefixes, request.rng) ?? ""
-        const word = growWord(prefix, request)
-        if (word != null) return word
+        const candidate = growWord(prefix, request)
+        if (candidate == null) continue
+        const previous = candidates.get(candidate.word)
+        if (!previous || candidate.score > previous.score) candidates.set(candidate.word, candidate)
     }
-    return null
+    return [...candidates.values()].sort((a, b) => b.score - a.score)[0]?.word ?? null
 }

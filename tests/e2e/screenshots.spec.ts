@@ -352,7 +352,7 @@ test.describe("screenshot tour", () => {
 
   test("practice language engine: sparse alphabet stays word-shaped", async ({ page }, testInfo) => {
     await page.addInitScript(() => {
-      window.localStorage.setItem("typecafe:testSettings", JSON.stringify({ selectedKeys: "auyvixjb".split("") }));
+      window.localStorage.setItem("typecafe:testSettings", JSON.stringify({ selectedKeys: "auvixjbz".split("") }));
     });
     await gotoHome(page);
     await selectMode(page, "Practice");

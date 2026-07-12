@@ -63,6 +63,7 @@ const RECENT_WORD_WINDOW = 8
 const COMPOSITION_BRANCH_LIMIT = 32
 const MIN_WORD_CHARACTERS = 3
 const MAX_WORD_CHARACTERS = 10
+const MAX_GENERATED_WORD_CHARACTERS = 7
 const NATURAL_WORD_RANK_LIMIT = 5000
 
 const normalizeWord = (word: string): string | null => {
@@ -277,6 +278,7 @@ const generateFromPool = (
     required: string,
     excluded: ReadonlySet<string>,
     rng: Random,
+    accepts: (word: string) => boolean = () => true,
 ): string | null => {
     const targets = ranked(pool.filter((syllable) => syllable.spelling.includes(required)), rng)
     for (const target of targets) {
@@ -286,6 +288,7 @@ const generateFromPool = (
             && target.spelling.length >= MIN_WORD_CHARACTERS
             && !model.words.has(target.spelling)
             && !excluded.has(target.spelling)
+            && accepts(target.spelling)
         ) return target.spelling
 
         // A licensed standalone syllable may still be a corpus word. Let it take
@@ -312,6 +315,7 @@ const generateFromPool = (
                     && word.length <= MAX_WORD_CHARACTERS
                     && !model.words.has(word)
                     && !excluded.has(word)
+                    && accepts(word)
                 ) return word
             }
         }
@@ -319,10 +323,26 @@ const generateFromPool = (
     return null
 }
 
+const hasNaturalShape = (word: string, profile: PhonologyProfile): boolean => {
+    if ([...word].length > MAX_GENERATED_WORD_CHARACTERS) return false
+    let vowelRun = 0
+    let repeatedRun = 0
+    let previous = ""
+    for (const character of word) {
+        vowelRun = profile.vowels.has(character) ? vowelRun + 1 : 0
+        repeatedRun = character === previous ? repeatedRun + 1 : 1
+        if (vowelRun > 3 || repeatedRun > 2) return false
+        previous = character
+    }
+    return true
+}
+
 const isPhonologicallyLicensed = (word: string, model: PhonologyModel, profile: PhonologyProfile): boolean => {
     const segments = phonemize(word, profile)
     if (nucleusIndexes(segments).length === 0) return false
-    return model.initialOnsets.has(initialOnset(segments)) && model.finalCodas.has(finalCoda(segments))
+    return hasNaturalShape(word, profile)
+        && model.initialOnsets.has(initialOnset(segments))
+        && model.finalCodas.has(finalCoda(segments))
 }
 
 const generateNovelWord = (
@@ -347,6 +367,7 @@ const generateNovelWord = (
     required ?? [...allowed][Math.floor(rng() * allowed.size)]!,
     excluded,
     rng,
+    (word) => isPhonologicallyLicensed(word, model, profile),
 )
 
 const sampleCarrier = (

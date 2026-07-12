@@ -159,8 +159,13 @@ describe("generatePhonologicalText", () => {
             const characters = [...word.toLowerCase().normalize("NFC")]
             return characters.slice(1).map((character, index) => `${characters[index]}${character}`)
         }))
+        const corpus = new Set(english10k.words)
+        const generated = words.filter((word) => !corpus.has(word))
 
         expect(words.filter((word) => word.length < 3 || word.length > 10)).toEqual([])
+        expect(generated.filter((word) => word.length > 7)).toEqual([])
+        expect(generated.filter((word) => /[aeiouy]{4}/.test(word))).toEqual([])
+        expect(generated.filter((word) => /(.)\1\1/.test(word))).toEqual([])
         expect(words.filter((word) => [...word].some((character) => !allowedCharacters.includes(character)))).toEqual([])
         expect(words.filter((word) => [...word].slice(1).some((character, index) => !corpusBigrams.has(`${[...word][index]}${character}`)))).toEqual([])
         words.forEach((word, index) => {
@@ -168,6 +173,27 @@ describe("generatePhonologicalText", () => {
         })
         for (const character of allowedCharacters) {
             expect([...words.join("")].filter((candidate) => candidate === character).length).toBeGreaterThanOrEqual(2)
+        }
+    })
+
+    it("rejects long stitched outliers in the reported sparse alphabet", () => {
+        const allowedCharacters = "auvixjbz".split("")
+        const corpus = new Set(english10k.words)
+        const words = generatePhonologicalText({
+            language: "english",
+            corpus: english10k.words,
+            allowedCharacters,
+            count: 200,
+            rng: cyclingRng(),
+        }).split(" ")
+        const generated = words.filter((word) => !corpus.has(word))
+
+        expect(words).not.toContain("uauabuibia")
+        expect(generated.filter((word) => word.length > 7)).toEqual([])
+        expect(generated.filter((word) => /[aeiouy]{4}/.test(word))).toEqual([])
+        expect(generated.filter((word) => /(.)\1\1/.test(word))).toEqual([])
+        for (const character of allowedCharacters) {
+            expect(words.join("")).toContain(character)
         }
     })
 
