@@ -218,14 +218,15 @@ export const generateBetterPseudoText = (count: number, characters: string[], la
     })
 }
 
-// Practice is intentionally all pseudo-words: the phonology module owns the
-// complete passage policy (novelty, active-key coverage, and recent diversity).
-// Train remains real-word-first through generateBetterPseudoText above.
-export const generatePracticePseudoText = (count: number, characters: string[], language = "english") => {
+// The phonology module owns Practice's complete passage policy: natural carrier
+// words, generated coverage for missing keys, and repetition control. Train
+// remains on the separate level-oriented policy above.
+export const generatePracticeText = (count: number, characters: string[], language = "english") => {
     const phonologyLanguage = language === "chinese" || language === "hindi" ? "english" : language
+    const corpusKey = phonologyLanguage === "english" ? "english10k" : phonologyLanguage
     return generatePhonologicalText({
         language: phonologyLanguage,
-        corpus: getWords(phonologyLanguage),
+        corpus: getWords(corpusKey),
         allowedCharacters: characters,
         count,
     })

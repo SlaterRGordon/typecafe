@@ -350,6 +350,21 @@ test.describe("screenshot tour", () => {
     await capture(page, testInfo, "64-practice-capitals-unlocked");
   });
 
+  test("practice language engine: sparse alphabet stays word-shaped", async ({ page }, testInfo) => {
+    await page.addInitScript(() => {
+      window.localStorage.setItem("typecafe:testSettings", JSON.stringify({ selectedKeys: "auyvixjb".split("") }));
+    });
+    await gotoHome(page);
+    await selectMode(page, "Practice");
+
+    await expect(page.getByTestId("practice-active-count")).toHaveText("8 keys active");
+    await expect.poll(async () => {
+      const words = ((await page.locator("#words").textContent()) ?? "").trim().split(/\s+/).slice(0, 30);
+      return words.length === 30 && words.every((word) => word.length >= 3 && word.length <= 10);
+    }).toBe(true);
+    await capture(page, testInfo, "65-practice-sparse-language-engine");
+  });
+
   test("national layout: German QWERTZ board with umlauts and AltGr layer", async ({ page }, testInfo) => {
     await page.addInitScript(() => {
       // A minimal valid pool: adding ü makes für a permitted German word.

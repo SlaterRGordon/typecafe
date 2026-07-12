@@ -104,13 +104,19 @@ weak-key card stays global (consistent with "training progress global", ADR
       per-language profiles convert graphemes into phoneme segments; the engine
       derives legal onsets and final codas from the active corpus, syllabifies
       with maximal onset, and composes only phonologically licensed syllables.
-      Practice now sends its whole 500-word passage through that engine, with
-      corpus novelty, an eight-word repeat window, and early two-use key coverage;
+      Its whole-word layer now learns order-4 spelling transitions from the
+      frequency-ranked corpus: Practice prefers natural top-5k carrier words,
+      targets a selected key every other word, and uses 3–10-letter generated
+      forms only where the dictionary cannot provide coverage. Generated forms
+      retain corpus-attested bigrams, a phonological boundary guard, and an
+      eight-word novelty window; natural carriers avoid adjacent repetition.
       Train deliberately remains real-word-first through `restrictedText.ts`.
       English, French, Spanish, German, Italian, Portuguese, Dutch, and Polish are
       covered; Chinese and Hindi retain the existing English fallback pending a
       script-specific design. Corpus models and per-alphabet pools are lazy and
-      memoized so prompt generation does not rebuild them.
+      memoized so prompt generation does not rebuild them. This mirrors the
+      useful principle behind Keybr's default natural-word mode without copying
+      its code or prebuilt language models.
 
 ## Out of scope / deferred
 

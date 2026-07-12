@@ -1054,12 +1054,14 @@ test.describe("home typing test", () => {
     await expect(page.getByTestId("practice-active-count")).toHaveText("8 keys active");
     await expect(page.locator("#words")).toContainText("a", { timeout: 8000 });
 
-    // Practice now routes every word through the phonology engine. The prompt
-    // should contain novel multi-letter forms, not real-word filler or raw keys.
+    // Practice now routes the complete passage through the language engine. It
+    // should prefer natural carriers while keeping every fallback word-shaped.
     const corpus = new Set(english1k.words);
     await expect.poll(async () => {
       const words = ((await page.locator("#words").textContent()) ?? "").trim().split(/\s+/).slice(0, 25);
-      return words.length === 25 && words.every((word) => word.length > 1 && !corpus.has(word));
+      return words.length === 25
+        && words.every((word) => word.length >= 3 && word.length <= 10)
+        && words.some((word) => corpus.has(word));
     }).toBe(true);
 
     // The main thread is responsive and the drill is interactive (not frozen).

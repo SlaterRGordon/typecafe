@@ -1,9 +1,10 @@
 import { profileFor, type PhonologyProfile } from "./profiles"
+import { buildOrthographicModel, generateOrthographicWord, type OrthographicModel } from "./orthography"
 
-// A generation-focused phonology engine: profiles provide grapheme-to-phoneme
-// rules, while corpus evidence supplies each language's productive syllable
-// shapes. It deliberately does not present itself as dictionary-grade phonetic
-// transcription; its interface guarantees phonotactically licensed nonce words.
+// A generation-focused language engine: profiles provide grapheme-to-phoneme
+// rules, while corpus evidence supplies whole-word spelling transitions and
+// productive syllable shapes. It deliberately does not present itself as
+// dictionary-grade phonetic transcription.
 
 type Random = () => number
 
@@ -41,17 +42,28 @@ interface Syllable {
 
 interface PhonologyModel {
     words: ReadonlySet<string>
+    rankedWords: readonly string[]
+    orthography: OrthographicModel
     syllables: readonly Syllable[]
     initialOnsets: ReadonlySet<string>
     finalCodas: ReadonlySet<string>
     allowedPools: Map<string, readonly Syllable[]>
+    allowedWordPools: Map<string, PassageWordPool>
+}
+
+interface PassageWordPool {
+    all: readonly string[]
+    byCharacter: ReadonlyMap<string, readonly string[]>
 }
 
 const models = new WeakMap<readonly string[], Map<string, PhonologyModel>>()
 const PASSAGE_TARGET_OCCURRENCES = 2
+const PASSAGE_FOCUS_INTERVAL = 2
 const RECENT_WORD_WINDOW = 8
 const COMPOSITION_BRANCH_LIMIT = 32
-const MIN_WORD_CHARACTERS = 2
+const MIN_WORD_CHARACTERS = 3
+const MAX_WORD_CHARACTERS = 10
+const NATURAL_WORD_RANK_LIMIT = 5000
 
 const normalizeWord = (word: string): string | null => {
     const normalized = word.trim().toLowerCase().normalize("NFC")
@@ -146,6 +158,7 @@ const describeSyllable = (segments: readonly Segment[], initial: boolean, final:
 
 const buildModel = (corpus: readonly string[], profile: PhonologyProfile): PhonologyModel => {
     const words = new Set<string>()
+    const normalizedWords: string[] = []
     const pronunciations: Segment[][] = []
     const initialOnsets = new Set<string>([""])
     const finalCodas = new Set<string>([""])
@@ -157,6 +170,7 @@ const buildModel = (corpus: readonly string[], profile: PhonologyProfile): Phono
         // this deliberately small profile cannot derive a vowel-bearing model
         // for it (for example English "be" under the silent-final-e rule).
         words.add(word)
+        normalizedWords.push(word)
         const segments = phonemize(word, profile)
         if (nucleusIndexes(segments).length === 0) continue
         pronunciations.push(segments)
@@ -183,10 +197,13 @@ const buildModel = (corpus: readonly string[], profile: PhonologyProfile): Phono
 
     return {
         words,
+        rankedWords: normalizedWords,
+        orthography: buildOrthographicModel(normalizedWords),
         syllables: [...syllables.values()],
         initialOnsets,
         finalCodas,
         allowedPools: new Map(),
+        allowedWordPools: new Map(),
     }
 }
 
@@ -213,6 +230,33 @@ const poolFor = (model: PhonologyModel, allowed: ReadonlySet<string>): readonly 
         pool = model.syllables.filter((syllable) => [...syllable.spelling].every((char) => allowed.has(char)))
         model.allowedPools.set(key, pool)
     }
+    return pool
+}
+
+const passageWordPoolFor = (model: PhonologyModel, allowed: ReadonlySet<string>): PassageWordPool => {
+    const key = alphabetKey(allowed)
+    let pool = model.allowedWordPools.get(key)
+    if (pool) return pool
+
+    // Keep carriers frequency-ranked before applying the restricted alphabet.
+    // The 5k ceiling adds useful sparse-alphabet words without reaching the
+    // abbreviation-heavy tail of imported non-English frequency lists.
+    const all = model.rankedWords.slice(0, NATURAL_WORD_RANK_LIMIT).filter((word) => {
+        const characters = [...word]
+        return characters.length >= MIN_WORD_CHARACTERS
+            && characters.length <= MAX_WORD_CHARACTERS
+            && characters.every((character) => allowed.has(character))
+    })
+    const byCharacter = new Map<string, string[]>()
+    for (const word of all) {
+        for (const character of new Set(word)) {
+            const carriers = byCharacter.get(character) ?? []
+            carriers.push(word)
+            byCharacter.set(character, carriers)
+        }
+    }
+    pool = { all, byCharacter }
+    model.allowedWordPools.set(key, pool)
     return pool
 }
 
@@ -265,7 +309,7 @@ const generateFromPool = (
                 if (
                     word !== target.spelling
                     && word.length >= MIN_WORD_CHARACTERS
-                    && word.length <= 16
+                    && word.length <= MAX_WORD_CHARACTERS
                     && !model.words.has(word)
                     && !excluded.has(word)
                 ) return word
@@ -275,15 +319,75 @@ const generateFromPool = (
     return null
 }
 
+const isPhonologicallyLicensed = (word: string, model: PhonologyModel, profile: PhonologyProfile): boolean => {
+    const segments = phonemize(word, profile)
+    if (nucleusIndexes(segments).length === 0) return false
+    return model.initialOnsets.has(initialOnset(segments)) && model.finalCodas.has(finalCoda(segments))
+}
+
+const generateNovelWord = (
+    model: PhonologyModel,
+    profile: PhonologyProfile,
+    pool: readonly Syllable[],
+    allowed: ReadonlySet<string>,
+    required: string | null,
+    excluded: ReadonlySet<string>,
+    rng: Random,
+): string | null => generateOrthographicWord({
+    model: model.orthography,
+    allowed,
+    required,
+    excluded,
+    forbidden: model.words,
+    accepts: (word) => isPhonologicallyLicensed(word, model, profile),
+    rng,
+}) ?? generateFromPool(
+    model,
+    pool,
+    required ?? [...allowed][Math.floor(rng() * allowed.size)]!,
+    excluded,
+    rng,
+)
+
+const sampleCarrier = (
+    pool: PassageWordPool,
+    required: string | null,
+    excluded: ReadonlySet<string>,
+    rng: Random,
+): string | null => {
+    const candidates = (required == null ? pool.all : pool.byCharacter.get(required) ?? [])
+        .filter((word) => !excluded.has(word))
+    return candidates.length > 0 ? candidates[Math.floor(rng() * candidates.length)]! : null
+}
+
+const generatePassageWord = (
+    model: PhonologyModel,
+    profile: PhonologyProfile,
+    pool: readonly Syllable[],
+    carriers: PassageWordPool,
+    allowed: ReadonlySet<string>,
+    required: string | null,
+    excluded: ReadonlySet<string>,
+    lastWord: string | null,
+    rng: Random,
+): string | null => {
+    // A small restricted dictionary must be reusable; excluding only the last
+    // carrier matches natural prose's no-stutter rule without needlessly forcing
+    // generated filler. Novel forms retain the wider anti-repetition window.
+    const carrierExclusion = lastWord == null ? new Set<string>() : new Set([lastWord])
+    return sampleCarrier(carriers, required, carrierExclusion, rng)
+        ?? generateNovelWord(model, profile, pool, allowed, required, excluded, rng)
+}
+
 const normalizedAlphabet = (characters: readonly string[]): string[] =>
     [...new Set(characters.map((char) => char.toLowerCase().normalize("NFC")).filter(Boolean))]
 
 /**
- * Generates one novel, pronounceable spelling from phoneme-bearing syllables
- * learned from `corpus`. The result uses only `allowedCharacters`, contains the
- * required character, begins with an attested onset, and ends with an attested
- * coda. Returns null when those linguistic constraints cannot all be satisfied.
- * Models and per-alphabet syllable pools are memoized by corpus-array identity.
+ * Generates one novel, pronounceable spelling from an order-4 corpus model,
+ * guarded by the language's phonological boundary rules. The result uses only
+ * `allowedCharacters` and contains the required character. Syllable composition
+ * remains the internal fallback when the restricted transition graph dead-ends.
+ * Models and per-alphabet pools are memoized by corpus-array identity.
  */
 export function generatePhonologicalWord(request: PhonologicalWordRequest): string | null {
     const profile = profileFor(request.language)
@@ -296,13 +400,13 @@ export function generatePhonologicalWord(request: PhonologicalWordRequest): stri
 
     const model = modelFor(request.corpus, profile)
     const pool = poolFor(model, allowed)
-    return generateFromPool(model, pool, required, new Set(), rng)
+    return generateNovelWord(model, profile, pool, allowed, required, new Set(), rng)
 }
 
 /**
- * Generates a complete all-phonological passage. Every token goes through the
- * syllable engine; active characters are scheduled for early coverage, and a
- * recent-word window prevents mechanical repetition when alternatives exist.
+ * Generates a complete language-shaped passage. Natural corpus carriers are
+ * preferred; coverage gaps go through the whole-word transition model and
+ * phonological guard. Focus scheduling balances fluency with selected-key reps.
  */
 export function generatePhonologicalText(request: PhonologicalTextRequest): string {
     if (request.count <= 0) return ""
@@ -312,18 +416,27 @@ export function generatePhonologicalText(request: PhonologicalTextRequest): stri
 
     const rng = request.rng ?? Math.random
     const model = modelFor(request.corpus, profile)
-    const pool = poolFor(model, new Set(alphabet))
+    const allowed = new Set(alphabet)
+    const pool = poolFor(model, allowed)
+    const carriers = passageWordPoolFor(model, allowed)
     const deficits = new Map(alphabet.map((character) => [character, PASSAGE_TARGET_OCCURRENCES]))
     const recent: string[] = []
     const output: string[] = []
+    let focusCursor = 0
 
     while (output.length < request.count) {
-        const target = [...alphabet].reverse().find((character) => (deficits.get(character) ?? 0) > 0)
-            ?? alphabet[Math.floor(rng() * alphabet.length)]!
+        const focusWord = output.length % PASSAGE_FOCUS_INTERVAL === 0
+        const deficitTarget = focusWord
+            ? [...alphabet].reverse().find((character) => (deficits.get(character) ?? 0) > 0)
+            : undefined
+        const target = focusWord
+            ? deficitTarget ?? alphabet[focusCursor++ % alphabet.length]!
+            : null
         const excluded = new Set(recent)
-        const word = generateFromPool(model, pool, target, excluded, rng)
-            ?? generateFromPool(model, pool, target, new Set(), rng)
+        const word = generatePassageWord(model, profile, pool, carriers, allowed, target, excluded, recent.at(-1) ?? null, rng)
+            ?? generateNovelWord(model, profile, pool, allowed, target, new Set(), rng)
             ?? target
+            ?? alphabet[Math.floor(rng() * alphabet.length)]!
         output.push(word)
         for (const character of word) {
             const remaining = deficits.get(character)

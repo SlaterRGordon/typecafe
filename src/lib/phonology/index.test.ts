@@ -119,14 +119,15 @@ describe("generatePhonologicalText", () => {
         count: 40,
     }
 
-    it("builds an exact-length passage entirely from novel, allowed spellings", () => {
+    it("mixes natural carriers with novel spellings in an exact-length passage", () => {
         const words = generatePhonologicalText({ ...request, rng: cyclingRng() }).split(" ")
         const corpus = new Set(english10k.words.map((word) => word.toLowerCase().normalize("NFC")))
 
         expect(words).toHaveLength(request.count)
-        expect(words.every((word) => !corpus.has(word))).toBe(true)
+        expect(words.some((word) => corpus.has(word))).toBe(true)
+        expect(words.some((word) => !corpus.has(word))).toBe(true)
         expect(words.every((word) => [...word].every((character) => request.allowedCharacters.includes(character)))).toBe(true)
-        expect(words.every((word) => word.length > 1)).toBe(true)
+        expect(words.every((word) => word.length >= 3 && word.length <= 10)).toBe(true)
     })
 
     it("covers every active key repeatedly and avoids mechanical repetition", () => {
@@ -137,7 +138,37 @@ describe("generatePhonologicalText", () => {
             expect([...text].filter((candidate) => candidate === character).length).toBeGreaterThanOrEqual(2)
         }
         expect(new Set(words).size).toBeGreaterThan(10)
-        words.forEach((word, index) => expect(words.slice(Math.max(0, index - 8), index)).not.toContain(word))
+        words.forEach((word, index) => {
+            if (index > 0) expect(word).not.toBe(words[index - 1])
+        })
+    })
+
+    it("keeps sparse-alphabet output word-shaped with corpus-attested transitions", () => {
+        // The exact active letters from the weak sample that motivated the
+        // whole-word model. The syllable-only engine emitted x/y/u fragments,
+        // repeated vowel collisions, and mostly two-character tokens here.
+        const allowedCharacters = "auyvixjb".split("")
+        const words = generatePhonologicalText({
+            language: "english",
+            corpus: english10k.words,
+            allowedCharacters,
+            count: 80,
+            rng: cyclingRng(),
+        }).split(" ")
+        const corpusBigrams = new Set(english10k.words.flatMap((word) => {
+            const characters = [...word.toLowerCase().normalize("NFC")]
+            return characters.slice(1).map((character, index) => `${characters[index]}${character}`)
+        }))
+
+        expect(words.filter((word) => word.length < 3 || word.length > 10)).toEqual([])
+        expect(words.filter((word) => [...word].some((character) => !allowedCharacters.includes(character)))).toEqual([])
+        expect(words.filter((word) => [...word].slice(1).some((character, index) => !corpusBigrams.has(`${[...word][index]}${character}`)))).toEqual([])
+        words.forEach((word, index) => {
+            if (index > 0) expect(word).not.toBe(words[index - 1])
+        })
+        for (const character of allowedCharacters) {
+            expect([...words.join("")].filter((candidate) => candidate === character).length).toBeGreaterThanOrEqual(2)
+        }
     })
 
     it("is deterministic with an injected random source", () => {

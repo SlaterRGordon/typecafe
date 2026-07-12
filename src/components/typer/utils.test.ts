@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { accentChars, applyTextOptions, ensureSizedLoaded, generateBetterPseudoText, generateNGram, generatePracticePseudoText, generateText, getWords, rankNGrams } from "./utils"
+import { accentChars, applyTextOptions, ensureSizedLoaded, generateBetterPseudoText, generateNGram, generatePracticeText, generateText, getWords, rankNGrams } from "./utils"
 import { TestGramScopes, TestGramSources } from "./types"
 
 const SENTENCE_ENDERS = [".", "?", "!"]
@@ -120,7 +120,7 @@ describe("generateBetterPseudoText", () => {
     it.each(["english", "french", "spanish", "german", "italian", "portuguese", "dutch", "polish"])(
         "guarantees every active key in %s practice text",
         async (language) => {
-            await ensureSizedLoaded(language, "1k")
+            await ensureSizedLoaded(language, "10k")
             // Mirrors Practice's invariant: at least eight letters and two vowels.
             const keys = "asdfjklo".split("")
             const text = generateBetterPseudoText(40, keys, language)
@@ -135,17 +135,21 @@ describe("generateBetterPseudoText", () => {
     )
 })
 
-describe("generatePracticePseudoText", () => {
+describe("generatePracticeText", () => {
     it.each(["english", "french", "spanish", "german", "italian", "portuguese", "dutch", "polish"])(
-        "uses only phonological pseudo-words for %s Practice text",
+        "mixes natural carriers with generated coverage in %s Practice text",
         async (language) => {
             await ensureSizedLoaded(language, "1k")
             const keys = "asdfghjkl".split("")
             const corpus = new Set(getWords(language).map((word) => word.toLowerCase().normalize("NFC")))
-            const words = generatePracticePseudoText(40, keys, language).split(" ")
+            const eligibleNaturalWords = getWords(language).slice(0, 5000).filter((word) =>
+                word.length >= 3 && word.length <= 10 && [...word].every((character) => keys.includes(character)),
+            )
+            const words = generatePracticeText(40, keys, language).split(" ")
 
             expect(words).toHaveLength(40)
-            expect(words.filter((word) => word.length <= 1 || corpus.has(word))).toEqual([])
+            expect(words.filter((word) => word.length < 3 || word.length > 10)).toEqual([])
+            if (eligibleNaturalWords.length > 0) expect(words.some((word) => corpus.has(word))).toBe(true)
             expect(words.every((word) => [...word].every((character) => keys.includes(character)))).toBe(true)
             for (const key of keys) {
                 expect([...words.join("")].filter((character) => character === key).length).toBeGreaterThanOrEqual(2)
