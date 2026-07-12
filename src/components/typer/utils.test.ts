@@ -116,6 +116,20 @@ describe("generateBetterPseudoText", () => {
         const text = generateBetterPseudoText(40, ["o", "u", "i"], "french")
         expect(text.split(" ")).toContain("oui")
     })
+
+    it.each(["english", "french", "spanish", "german", "italian", "portuguese", "dutch", "polish"])(
+        "guarantees every active key in %s practice text",
+        async (language) => {
+            await ensureSizedLoaded(language, "1k")
+            const keys = "asdfghjkl".split("")
+            const text = generateBetterPseudoText(40, keys, language)
+
+            expect(text.split(" ")).toHaveLength(40)
+            for (const key of keys) {
+                expect([...text].filter((char) => char === key).length).toBeGreaterThanOrEqual(2)
+            }
+        },
+    )
 })
 
 describe("generateText", () => {

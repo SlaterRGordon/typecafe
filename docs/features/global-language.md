@@ -98,6 +98,18 @@ weak-key card stays global (consistent with "training progress global", ADR
       layout-dependent), and progress/thresholds are untouched (keyed by level
       name). Practice stays a–z: its whole UI is the QWERTY key board.
 
+- [x] 11 — **Language-shaped Practice fallbacks (2026-07-12).** Restricted-key
+      text now guarantees every active letter appears instead of treating any
+      non-empty real-word pool as sufficient. `src/lib/restrictedText.ts` is the
+      deep module at the generation seam: it prefers real carrier words, then a
+      memoized boundary-aware character model derived from the active language,
+      then observed corpus fragments, and uses an explicit key token only when
+      the selected alphabet has no linguistic path. English, French, Spanish,
+      German, Italian, Portuguese, Dutch, and Polish are covered; Chinese and
+      Hindi retain the existing English fallback pending script-specific design.
+      Corpus and per-alphabet indexes are lazy and memoized so prompt extension
+      does not rebuild them.
+
 ## Out of scope / deferred
 
 - 25k for non-English languages · per-language quotes · per-language coach/
