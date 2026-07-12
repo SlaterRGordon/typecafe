@@ -208,8 +208,13 @@ export const accentsFor = (base: string): string[] => {
 // Chinese and Hindi retain a Latin/English fallback until their script-specific
 // generation is deliberately designed.
 export const generateBetterPseudoText = (count: number, characters: string[], language = "english") => {
-    const corpus = language === "chinese" || language === "hindi" ? getWords("english") : getWords(language)
-    return generateRestrictedText(corpus, characters, count)
+    const phonologyLanguage = language === "chinese" || language === "hindi" ? "english" : language
+    return generateRestrictedText({
+        language: phonologyLanguage,
+        words: getWords(phonologyLanguage),
+        characters,
+        count,
+    })
 }
 
 // Weighted so periods/commas dominate, matching natural prose.

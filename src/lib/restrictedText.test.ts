@@ -13,10 +13,13 @@ const cyclingRng = () => {
 const occurrences = (text: string, target: string): number =>
     [...text].filter((char) => char === target).length
 
+const generate = (corpus: readonly string[], characters: string[], count: number, language = "english") =>
+    generateRestrictedText({ language, words: corpus, characters, count, rng: cyclingRng() })
+
 describe("generateRestrictedText", () => {
     it("returns the requested number of words using only unlocked characters", () => {
         const characters = ["a", "s", "d", "f"]
-        const text = generateRestrictedText(["as", "sad", "fad", "data"], characters, 40, cyclingRng())
+        const text = generate(["as", "sad", "fad", "data"], characters, 40)
 
         expect(text.split(" ")).toHaveLength(40)
         expect([...text].every((char) => char === " " || characters.includes(char))).toBe(true)
@@ -26,37 +29,31 @@ describe("generateRestrictedText", () => {
         // The legacy generator saw `as`/`sad`/`dad`, declared the pool viable,
         // and generated an entire passage without the newly unlocked `f`.
         const characters = ["a", "s", "d", "f"]
-        const text = generateRestrictedText(["as", "sad", "dad", "fast", "safe"], characters, 30, cyclingRng())
+        const text = generate(["as", "sad", "dad", "fast", "safe"], characters, 30)
 
         for (const character of characters) expect(occurrences(text, character)).toBeGreaterThanOrEqual(2)
     })
 
     it("uses real carrier words before fabricating text", () => {
         const corpus = ["as", "sad", "fad", "data"]
-        const text = generateRestrictedText(corpus, ["a", "s", "d", "f"], 20, cyclingRng())
+        const text = generate(corpus, ["a", "s", "d", "f"], 20)
 
         expect(text.split(" ").every((word) => word === "as" || word === "sad" || word === "fad")).toBe(true)
     })
 
-    it("falls back only through spelling fragments observed in the corpus", () => {
-        const corpus = ["stone", "start", "steam", "tone"]
-        const text = generateRestrictedText(corpus, ["s", "t", "o"], 12, cyclingRng())
-        const observedBigrams = new Set(corpus.flatMap((word) =>
-            [...word].slice(0, -1).map((char, index) => char + [...word][index + 1])))
+    it("uses a vowel-bearing phonological fallback instead of an arbitrary fragment", () => {
+        const text = generate(["paper", "maker", "later"], ["p", "a"], 12)
 
-        for (const word of text.split(" ")) {
-            for (let index = 0; index < word.length - 1; index += 1) {
-                expect(observedBigrams.has(word.slice(index, index + 2))).toBe(true)
-            }
-        }
+        expect(text.split(" ").some((word) => word.length > 1 && word.includes("a"))).toBe(true)
+        expect(text.split(" ").every((word) => [...word].every((char) => char === "p" || char === "a"))).toBe(true)
     })
 
     it("handles accented graphemes without stripping or decomposing them", () => {
-        const text = generateRestrictedText(
+        const text = generate(
             ["für", "führen", "früh", "über"],
             ["f", "ü", "r"],
             20,
-            cyclingRng(),
+            "german",
         )
 
         expect(occurrences(text, "ü")).toBeGreaterThanOrEqual(2)
@@ -65,14 +62,14 @@ describe("generateRestrictedText", () => {
 
     it("is deterministic when the caller supplies a seeded random source", () => {
         const corpus = ["as", "sad", "fad", "data"]
-        const first = generateRestrictedText(corpus, ["a", "s", "d", "f"], 30, cyclingRng())
-        const second = generateRestrictedText(corpus, ["a", "s", "d", "f"], 30, cyclingRng())
+        const first = generate(corpus, ["a", "s", "d", "f"], 30)
+        const second = generate(corpus, ["a", "s", "d", "f"], 30)
 
         expect(second).toBe(first)
     })
 
     it("terminates with explicit key tokens when no linguistic path exists", () => {
-        const text = generateRestrictedText(["quick", "water"], ["q", "w"], 20, cyclingRng())
+        const text = generate(["quick", "water"], ["q", "w"], 20)
 
         expect(text.split(" ")).toHaveLength(20)
         expect(text).not.toContain("undefined")
@@ -84,11 +81,11 @@ describe("generateRestrictedText", () => {
         const characters = "abcdefghijklmnopqrstuvwxyz".split("")
         // Warm the memoized corpus model and restricted pool; prompt extension
         // uses the same stable language-array identity in production.
-        generateRestrictedText(english10k.words, characters, 500, cyclingRng())
+        generate(english10k.words, characters, 500)
 
         const started = performance.now()
         for (let index = 0; index < 10; index += 1) {
-            generateRestrictedText(english10k.words, characters, 500, cyclingRng())
+            generate(english10k.words, characters, 500)
         }
         expect(performance.now() - started).toBeLessThan(500)
     })

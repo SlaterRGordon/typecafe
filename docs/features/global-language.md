@@ -100,15 +100,16 @@ weak-key card stays global (consistent with "training progress global", ADR
 
 - [x] 11 — **Language-shaped Practice fallbacks (2026-07-12).** Restricted-key
       text now guarantees every active letter appears instead of treating any
-      non-empty real-word pool as sufficient. `src/lib/restrictedText.ts` is the
-      deep module at the generation seam: it prefers real carrier words, then a
-      memoized boundary-aware character model derived from the active language,
-      then observed corpus fragments, and uses an explicit key token only when
-      the selected alphabet has no linguistic path. English, French, Spanish,
-      German, Italian, Portuguese, Dutch, and Polish are covered; Chinese and
-      Hindi retain the existing English fallback pending script-specific design.
-      Corpus and per-alphabet indexes are lazy and memoized so prompt extension
-      does not rebuild them.
+      non-empty real-word pool as sufficient. `src/lib/phonology/` is the deep
+      module behind the fallback seam: per-language profiles convert graphemes
+      into phoneme segments; the engine derives legal onsets and final codas from
+      the active corpus, syllabifies with maximal onset, and composes only
+      phonologically licensed syllables. `restrictedText.ts` prefers real carrier
+      words and uses an explicit key token only when the selected alphabet has no
+      pronounceable path. English, French, Spanish, German, Italian, Portuguese,
+      Dutch, and Polish are covered; Chinese and Hindi remain excluded pending a
+      script-specific design. Corpus models and per-alphabet pools are lazy and
+      memoized so prompt extension does not rebuild them.
 
 ## Out of scope / deferred
 

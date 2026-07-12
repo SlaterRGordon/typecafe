@@ -123,10 +123,12 @@ describe("generateBetterPseudoText", () => {
             await ensureSizedLoaded(language, "1k")
             const keys = "asdfghjkl".split("")
             const text = generateBetterPseudoText(40, keys, language)
+            const words = text.split(" ")
 
-            expect(text.split(" ")).toHaveLength(40)
+            expect(words).toHaveLength(40)
             for (const key of keys) {
                 expect([...text].filter((char) => char === key).length).toBeGreaterThanOrEqual(2)
+                expect(words.some((word) => word.length > 1 && word.includes(key))).toBe(true)
             }
         },
     )
