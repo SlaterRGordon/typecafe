@@ -77,12 +77,16 @@ test.describe("progress dashboard", () => {
     // One big trend chart, WPM by default, with metric tabs to toggle it.
     await expect(page.getByText("WPM over time", { exact: true })).toBeVisible();
     await expect(page.getByTestId("trend-chart")).toHaveCount(1);
+    await expect(page.getByText("Daily median trend", { exact: true })).toBeVisible();
+    await expect(page.getByText("Daily best trend", { exact: true })).toBeVisible();
     await page.getByTestId("trend-point-0").hover();
-    await expect(page.getByTestId("trend-tooltip")).toContainText("Net WPM");
-    await expect(page.getByTestId("trend-tooltip")).toContainText("Accuracy");
-    await expect(page.getByTestId("trend-tooltip")).toContainText("Consistency");
+    await expect(page.getByTestId("trend-tooltip")).toContainText("Median net WPM");
+    await expect(page.getByTestId("trend-tooltip")).toContainText("Daily best");
+    await expect(page.getByTestId("trend-tooltip")).toContainText("ranked test");
+    await expect(page.getByTestId("trend-tooltip")).toContainText("Average accuracy");
+    await expect(page.getByTestId("trend-tooltip")).toContainText("Average consistency");
     await page.getByTestId("trend-point-0").focus();
-    await expect(page.getByTestId("trend-tooltip")).toContainText("Net WPM");
+    await expect(page.getByTestId("trend-tooltip")).toContainText("Median net WPM");
     const trendTabs = page.getByTestId("trend-tabs");
     await trendTabs.getByRole("button", { name: "Accuracy" }).click();
     await expect(page.getByText("Accuracy over time", { exact: true })).toBeVisible();
@@ -94,6 +98,8 @@ test.describe("progress dashboard", () => {
     await expect(page.getByTestId("trend-tooltip")).toContainText("Consistency");
     await trendTabs.getByRole("button", { name: "WPM" }).click();
     await expect(page.getByText("WPM over time", { exact: true })).toBeVisible();
+    await page.getByTestId("period-switcher").getByRole("button", { name: "7d" }).click();
+    await expect(page.getByText("Daily best trend", { exact: true })).toBeVisible();
 
     // Best WPM is a header chip now (the rest of the stat cells are gone).
     await expect(page.getByTestId("best-wpm-chip")).toContainText("Best");

@@ -11,6 +11,8 @@ interface TrendChartProps {
     // Drawn lighter/dashed so it reads as the ceiling behind the trend.
     secondary?: { t: number; value: number }[]
     secondaryLabel?: string
+    trendLabel?: string
+    pointKind?: "test" | "daily"
     title: string
     // "zero" anchors the y-axis at 0 (WPM); "fit" zooms to the data range
     // (accuracy, which clusters near the top and would look flat from 0).
@@ -140,14 +142,22 @@ export function TrendChart(props: TrendChartProps) {
     const yFor = (value: number) => layout.padding.top + layout.chartHeight - ((value - layout.minY) / (layout.maxY - layout.minY)) * layout.chartHeight
     const activePoint = activeIndex === null ? null : props.points[activeIndex]
     const activeScatterPoint = activeIndex === null ? null : layout.scatter[activeIndex]
-    const tooltipLines = activePoint ? [
-        formatTooltipDate(activePoint.t),
-        `Net WPM ${formatMetric(activePoint.wpm)}`,
-        `Accuracy ${formatMetric(activePoint.accuracy, "%")}`,
-        ...(typeof activePoint.consistency === "number" ? [`Consistency ${formatMetric(activePoint.consistency, "%")}`] : []),
-    ] : []
+    const pointLines = (point: TrendPoint) => props.pointKind === "daily" ? [
+        formatTooltipDate(point.t),
+        `Median net WPM ${formatMetric(point.wpm)}`,
+        ...(typeof point.bestWpm === "number" ? [`Daily best ${formatMetric(point.bestWpm)}`] : []),
+        `${point.tests ?? 1} ranked ${(point.tests ?? 1) === 1 ? "test" : "tests"}`,
+        `Average accuracy ${formatMetric(point.accuracy, "%")}`,
+        ...(typeof point.consistency === "number" ? [`Average consistency ${formatMetric(point.consistency, "%")}`] : []),
+    ] : [
+        formatTooltipDate(point.t),
+        `Net WPM ${formatMetric(point.wpm)}`,
+        `Accuracy ${formatMetric(point.accuracy, "%")}`,
+        ...(typeof point.consistency === "number" ? [`Consistency ${formatMetric(point.consistency, "%")}`] : []),
+    ]
+    const tooltipLines = activePoint ? pointLines(activePoint) : []
     const tooltip = activePoint && activeScatterPoint ? (() => {
-        const width = 176
+        const width = props.pointKind === "daily" ? 208 : 176
         const height = 30 + tooltipLines.length * 16
         const x = Math.min(Math.max(activeScatterPoint.x - width / 2, 6), layout.width - width - 6)
         const y = activeScatterPoint.y - height - 12 >= 6 ? activeScatterPoint.y - height - 12 : activeScatterPoint.y + 14
@@ -157,17 +167,17 @@ export function TrendChart(props: TrendChartProps) {
 
     return (
         <div className="rounded-lg border border-base-content/10 bg-base-100/45 p-4">
-            <div className="mb-3 flex items-center justify-between gap-3">
-                <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+            <div className="mb-3 space-y-2">
+                <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="text-lg font-semibold text-base-content" id={titleId}>{props.title}</div>
-                    {props.secondary && props.secondary.length > 0 && (
-                        <div className="flex items-center gap-3 text-xs text-base-content/60">
-                            <span className="flex items-center gap-1.5"><span className="inline-block h-[2px] w-4 bg-current opacity-90" />Trend</span>
-                            <span className="flex items-center gap-1.5"><span className="inline-block h-[2px] w-4 bg-current opacity-40" style={{ borderTop: "2px dashed currentColor", background: "transparent" }} />{props.secondaryLabel ?? "Best/day"}</span>
-                        </div>
-                    )}
+                    {props.action}
                 </div>
-                {props.action}
+                {props.secondary && props.secondary.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-base-content/60">
+                        <span className="flex items-center gap-1.5"><span className="inline-block h-[2px] w-4 bg-current opacity-90" />{props.trendLabel ?? "Trend"}</span>
+                        <span className="flex items-center gap-1.5"><span className="inline-block h-[2px] w-4 bg-current opacity-40" style={{ borderTop: "2px dashed currentColor", background: "transparent" }} />{props.secondaryLabel ?? "Best/day"}</span>
+                    </div>
+                )}
             </div>
             <svg
                 className="h-auto w-full overflow-visible text-primary"
@@ -177,7 +187,7 @@ export function TrendChart(props: TrendChartProps) {
                 data-testid="trend-chart"
             >
                 <desc id={descId}>
-                    {props.title} over {props.points.length} {props.points.length === 1 ? "test" : "tests"}.
+                    {props.title} over {props.points.length} {props.pointKind === "daily" ? (props.points.length === 1 ? "practiced day" : "practiced days") : (props.points.length === 1 ? "test" : "tests")}.
                 </desc>
                 {layout.yTicks.map((value) => {
                     const y = yFor(value)
@@ -200,12 +210,7 @@ export function TrendChart(props: TrendChartProps) {
                 <g role="list" aria-label={`${props.title} data points`}>
                     {layout.scatter.map((scatterPoint, index) => {
                         const point = props.points[index]
-                        const lines = point ? [
-                            formatTooltipDate(point.t),
-                            `Net WPM ${formatMetric(point.wpm)}`,
-                            `Accuracy ${formatMetric(point.accuracy, "%")}`,
-                            ...(typeof point.consistency === "number" ? [`Consistency ${formatMetric(point.consistency, "%")}`] : []),
-                        ] : []
+                        const lines = point ? pointLines(point) : []
 
                         return (
                             <g
@@ -221,7 +226,15 @@ export function TrendChart(props: TrendChartProps) {
                                 className="outline-none"
                             >
                                 <circle cx={scatterPoint.x} cy={scatterPoint.y} r={Math.max(pointRadius + 9, 14)} fill="transparent" />
-                                <circle cx={scatterPoint.x} cy={scatterPoint.y} r={pointRadius} fill="currentColor" opacity={activeIndex === index ? "0.95" : "0.5"} />
+                                <circle
+                                    cx={scatterPoint.x}
+                                    cy={scatterPoint.y}
+                                    r={pointRadius}
+                                    fill="currentColor"
+                                    opacity={activeIndex === index ? "0.95" : "0.5"}
+                                    stroke="currentColor"
+                                    strokeWidth={activeIndex === index ? 3 : 0}
+                                />
                             </g>
                         )
                     })}

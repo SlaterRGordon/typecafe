@@ -20,6 +20,10 @@ const DAY_MS = 24 * 60 * 60 * 1000
 // older records (and most non-timed tests) don't carry it yet.
 export interface ProgressRecord {
     wpm: number
+    // Exact daily best when this record represents a persisted rollup. Raw test
+    // records omit it because their own WPM is the candidate best.
+    bestWpm?: number
+    tests?: number
     accuracy: number
     consistency?: number
     createdAt: Date
@@ -89,6 +93,33 @@ export function filterByPeriod(records: ProgressRecord[], period: ProgressPeriod
     })
 }
 
+// Calendar-day window used by /progress. "7 days" means today plus the prior
+// six local dates, rather than a trailing 168-hour slice that can touch eight
+// calendar dates. Persisted summary days win over recomputing from createdAt.
+export function filterByCalendarPeriod(
+    records: ProgressRecord[],
+    period: ProgressPeriod,
+    now: Date,
+    utcOffsetMinutes = 0,
+): ProgressRecord[] {
+    if (period === "all") return records.filter((record) => record.createdAt.getTime() <= now.getTime())
+
+    const shiftedNow = new Date(now.getTime() + utcOffsetMinutes * 60 * 1000)
+    const start = new Date(Date.UTC(
+        shiftedNow.getUTCFullYear(),
+        shiftedNow.getUTCMonth(),
+        shiftedNow.getUTCDate() - (period - 1),
+    ))
+    const startDay = dayKey(start)
+    const endDay = dayKey(now, utcOffsetMinutes)
+
+    return records.filter((record) => {
+        if (record.createdAt.getTime() > now.getTime()) return false
+        const day = record.day ?? dayKey(record.createdAt, utcOffsetMinutes)
+        return day >= startDay && day <= endDay
+    })
+}
+
 // ---------------------------------------------------------------------------
 // Averages
 // ---------------------------------------------------------------------------
@@ -124,7 +155,7 @@ export function averageConsistency(records: ProgressRecord[]): number | null {
 }
 
 export function bestWpm(records: ProgressRecord[]): number {
-    return records.reduce((best, r) => Math.max(best, r.wpm), 0)
+    return records.reduce((best, r) => Math.max(best, r.bestWpm ?? r.wpm), 0)
 }
 
 // ---------------------------------------------------------------------------
@@ -340,6 +371,9 @@ export interface TrendPoint {
     wpm: number
     accuracy: number
     consistency?: number
+    // Present on the daily WPM series, where the plotted value is the median.
+    bestWpm?: number
+    tests?: number
 }
 
 export interface TrendSeries {
@@ -395,6 +429,59 @@ export function trendSeries(
         points,
         rollingWpm: rollingAverage(points.map((p) => p.wpm), Math.max(1, effectiveWindow)),
         window: Math.max(1, effectiveWindow),
+    }
+}
+
+export interface DailyWpmSeries {
+    points: TrendPoint[]
+    trend: number[]
+    bestTrend: { t: number; value: number }[]
+}
+
+function dayTimestamp(day: string, utcOffsetMinutes: number): number {
+    const [year, month, date] = day.split("-").map(Number)
+    return Date.UTC(year!, month! - 1, date!, 12) - utcOffsetMinutes * 60 * 1000
+}
+
+// One equally weighted point per practiced local day. The median represents a
+// typical session without letting a grind-heavy day dominate the line; the
+// separate fitted best line keeps the user's ceiling visible and honest.
+export function dailyWpmSeries(
+    records: ProgressRecord[],
+    period: ProgressPeriod,
+    now: Date,
+    utcOffsetMinutes = 0,
+): DailyWpmSeries {
+    const byDay = new Map<string, ProgressRecord[]>()
+    for (const record of filterByCalendarPeriod(records, period, now, utcOffsetMinutes)) {
+        const day = record.day ?? dayKey(record.createdAt, utcOffsetMinutes)
+        const bucket = byDay.get(day)
+        if (bucket) bucket.push(record)
+        else byDay.set(day, [record])
+    }
+
+    const points = Array.from(byDay.entries())
+        .sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)
+        .map(([day, dayRecords]) => ({
+            t: dayTimestamp(day, utcOffsetMinutes),
+            wpm: median(dayRecords.map((record) => record.wpm)),
+            accuracy: averageAccuracy(dayRecords),
+            consistency: averageConsistency(dayRecords) ?? undefined,
+            bestWpm: bestWpm(dayRecords),
+            tests: dayRecords.reduce((total, record) => total + (record.tests ?? 1), 0),
+        }))
+
+    const fit = linearTrend(points.map((point) => point.t), points.map((point) => point.wpm))
+    const trend = points.map((point) => fit.at(point.t))
+    if (points.length < 2) return { points, trend, bestTrend: [] }
+
+    const bestFit = linearTrend(points.map((point) => point.t), points.map((point) => point.bestWpm!))
+    const first = points[0]!.t
+    const last = points[points.length - 1]!.t
+    return {
+        points,
+        trend,
+        bestTrend: [{ t: first, value: bestFit.at(first) }, { t: last, value: bestFit.at(last) }],
     }
 }
 
@@ -524,7 +611,7 @@ export function dayKey(date: Date, utcOffsetMinutes = 0): string {
 export function dailyRollups(records: ProgressRecord[], utcOffsetMinutes = 0): DailyRollup[] {
     const byDay = new Map<string, ProgressRecord[]>()
     for (const record of records) {
-        const key = dayKey(record.createdAt, utcOffsetMinutes)
+        const key = record.day ?? dayKey(record.createdAt, utcOffsetMinutes)
         const bucket = byDay.get(key)
         if (bucket) bucket.push(record)
         else byDay.set(key, [record])
@@ -551,6 +638,8 @@ export function mergeDailyRollups(records: ProgressRecord[], rollups: DailyRollu
         .map((rollup) => ({
             // Version-2 rollups already store canonical net WPM.
             wpm: rollup.avgWpm,
+            bestWpm: rollup.bestWpm,
+            tests: rollup.tests,
             accuracy: rollup.avgAccuracy,
             consistency: rollup.avgConsistency ?? undefined,
             createdAt: new Date(`${rollup.day}T12:00:00.000Z`),
