@@ -1,4 +1,3 @@
-import { globby } from "globby";
 import type { GetServerSidePropsContext } from "next";
 import { prisma } from "~/server/db";
 
@@ -8,9 +7,37 @@ interface User {
     username: string;
 }
 
+// Keep this allowlist explicit. Filesystem discovery accidentally turns dynamic
+// pages such as `/score/[slug]` into crawl URLs, while private/authenticated
+// surfaces should not be advertised as public landing pages.
+export const STATIC_ROUTES = [
+    "/",
+    "/drill",
+    "/train",
+    "/progress",
+    "/leaderboard",
+    "/challenge",
+    "/plan",
+    "/guides",
+    "/how-to-type-faster",
+    "/how-ngrams-work",
+    "/keyboard-layouts",
+    "/how-we-measure",
+    "/support",
+    "/contact",
+    "/privacy-policy",
+    "/terms-and-conditions",
+] as const;
+
 function priorityFor(route: string): { priority: string; changefreq: string } {
-    if (route === "") return { priority: "1.0", changefreq: "daily" };
+    if (route === "/") return { priority: "1.0", changefreq: "daily" };
     if (route.startsWith("/profile/")) return { priority: "0.6", changefreq: "weekly" };
+    if (route === "/guides" || route.startsWith("/how-") || route === "/keyboard-layouts") {
+        return { priority: "0.7", changefreq: "monthly" };
+    }
+    if (["/progress", "/train", "/drill", "/plan"].includes(route)) {
+        return { priority: "0.5", changefreq: "weekly" };
+    }
     return { priority: "0.3", changefreq: "monthly" };
 }
 
@@ -24,22 +51,18 @@ function urlEntry(loc: string, lastmod: string, priority: string, changefreq: st
     </url>`;
 }
 
-function generateSiteMap(staticPages: string[], users: User[]) {
+export function generateSiteMap(staticRoutes: readonly string[], users: User[]) {
     const now = new Date().toISOString();
 
-    const staticEntries = staticPages.map((page) => {
-        const routePath = page
-            .replace('src/pages', '')
-            .replace(/(.tsx|.ts|.jsx|.js)/, '')
-            .replace(/\/index$/, '');
-        const route = routePath === '/index' ? '' : routePath;
+    const staticEntries = staticRoutes.map((route) => {
         const { priority, changefreq } = priorityFor(route);
         return urlEntry(`${EXTERNAL_DATA_URL}${route}`, now, priority, changefreq);
     });
 
-    const profileEntries = users.map(({ username }) =>
-        urlEntry(`${EXTERNAL_DATA_URL}/profile/${encodeURIComponent(username)}`, now, "0.6", "weekly")
-    );
+    const profileEntries = users
+        .map(({ username }) => username.trim())
+        .filter(Boolean)
+        .map((username) => urlEntry(`${EXTERNAL_DATA_URL}/profile/${encodeURIComponent(username)}`, now, "0.6", "weekly"));
 
     // Per-score share pages are noindex,follow (growth-seo §C) - social cards,
     // not search landing pages - so they're deliberately absent here.
@@ -54,20 +77,11 @@ function SiteMap() {
 }
 
 export async function getServerSideProps({ res }: GetServerSidePropsContext) {
-    const staticPages = await globby([
-        'src/pages/**/*{.js,.jsx,.ts,.tsx}',
-        '!src/pages/_*.{js,jsx,ts,tsx}',
-        '!src/pages/api',
-        '!src/pages/**/[*.{js,jsx,ts,tsx}',
-    ]);
-
     const users = await prisma.user.findMany({ select: { username: true } });
 
-    const sanitizedUsers: User[] = users.map((user) => ({
-        username: user.username ?? 'unknown',
-    }));
+    const sanitizedUsers: User[] = users.flatMap((user) => user.username ? [{ username: user.username }] : []);
 
-    const sitemap = generateSiteMap(staticPages, sanitizedUsers);
+    const sitemap = generateSiteMap(STATIC_ROUTES, sanitizedUsers);
 
     res.setHeader('Content-Type', 'text/xml');
     res.write(sitemap);

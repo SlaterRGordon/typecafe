@@ -30,7 +30,12 @@ test.describe("secondary static routes", () => {
   test("sitemap responds successfully", async ({ page }) => {
     const response = await page.goto("/sitemap.xml");
     expect(response?.ok()).toBe(true);
-    await expect(page.locator("body")).toContainText("<urlset");
+    const xml = await response!.text();
+    expect(xml).toContain("<urlset");
+    expect(xml).toContain("https://typecafe.app/guides");
+    expect(xml).toContain("https://typecafe.app/how-we-measure");
+    expect(xml).not.toContain("[slug]");
+    expect(xml).not.toContain("[username]");
   });
 
   test("ships site-wide Organization and WebSite structured data", async ({ page }) => {
