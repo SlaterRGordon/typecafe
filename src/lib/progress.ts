@@ -550,38 +550,25 @@ export function linearTrend(ts: number[], values: number[]): TrendLine {
 }
 
 export interface HeroDelta {
-    // The latest practiced day's median. This is an observed daily value, not
-    // the selected period's fitted endpoint, so switching periods does not
-    // rewrite what "current" means.
+    start: number | null
     current: number
     delta: number | null
     trend: "up" | "down" | "flat"
-    practicedDays: number
-    spanDays: number
 }
 
-// A handful of daily points packed into a weekend is still baseline noise. A
-// directional headline needs both five equally weighted practiced days and a
-// full seven-calendar-date span (first to last day = six intervals).
-export const MIN_TREND_DAYS = 5
-export const MIN_TREND_SPAN_DAYS = 6
-
-// The selected-period change remains the fitted line's endpoint delta, exactly
-// matching the chart. "Current" is deliberately separate: it is the latest
-// observed daily median. Null delta while the baseline is calibrating; flat
-// within ±0.05 WPM once calibrated.
+// Improvement in the selected period is the honest observed change from its
+// first practiced day's median to its latest. Unpracticed calendar dates add no
+// zeroes and impose no activity quota. One practiced day establishes a baseline;
+// the second can show a delta. Flat within ±0.05 WPM.
 export function heroDelta(points: { t: number; wpm: number }[]): HeroDelta {
-    if (points.length === 0) return { current: 0, delta: null, trend: "flat", practicedDays: 0, spanDays: 0 }
+    if (points.length === 0) return { start: null, current: 0, delta: null, trend: "flat" }
 
-    const line = linearTrend(points.map((p) => p.t), points.map((p) => p.wpm))
     const first = points[0]!
     const latest = points[points.length - 1]!
-    const spanDays = Math.max(0, (latest.t - first.t) / DAY_MS)
-    const calibrated = points.length >= MIN_TREND_DAYS && spanDays >= MIN_TREND_SPAN_DAYS
-    const delta = calibrated ? line.at(latest.t) - line.at(first.t) : null
+    const delta = points.length >= 2 ? latest.wpm - first.wpm : null
     const trend = delta === null ? "flat" : delta > 0.05 ? "up" : delta < -0.05 ? "down" : "flat"
 
-    return { current: latest.wpm, delta, trend, practicedDays: points.length, spanDays }
+    return { start: first.wpm, current: latest.wpm, delta, trend }
 }
 
 // ---------------------------------------------------------------------------

@@ -1,12 +1,13 @@
 
 import dynamic from "next/dynamic";
 import { useSession } from "next-auth/react";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { TopNavigation } from "./TopNavigation";
 import { SideNavigation } from "./SideNavigation";
 import { BottomNavigation } from "./BottomNavigation";
 import { HomeCoachTabs } from "../home/HomeCoachTabs";
 import { useApplyColors } from "../colors/applyColors";
+import { OPEN_SIGN_IN_EVENT } from "~/lib/modals";
 
 const SignInModal = dynamic(
     () => import("../SignInModal").then((module) => module.SignInModal),
@@ -30,10 +31,14 @@ export const Navigation = () => {
     const [colorOpen, setColorOpen] = useState(false);
     const needsUsername = status === "authenticated" && !!session?.user && !session.user.username;
 
-    const openSignIn = () => {
+    const openSignIn = useCallback(() => {
         setSignInLoaded(true);
         setSignInOpen(true);
-    };
+    }, []);
+    useEffect(() => {
+        window.addEventListener(OPEN_SIGN_IN_EVENT, openSignIn);
+        return () => window.removeEventListener(OPEN_SIGN_IN_EVENT, openSignIn);
+    }, [openSignIn]);
     const openColors = () => {
         setColorLoaded(true);
         setColorOpen(true);

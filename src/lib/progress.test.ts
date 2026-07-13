@@ -644,44 +644,35 @@ describe("PROGRESS_PERIODS", () => {
 
 describe("heroDelta", () => {
     it("returns a flat zero with no points", () => {
-        expect(heroDelta([])).toEqual({ current: 0, delta: null, trend: "flat", practicedDays: 0, spanDays: 0 })
+        expect(heroDelta([])).toEqual({ start: null, current: 0, delta: null, trend: "flat" })
     })
 
-    it("has a null delta with a single point (no comparison window)", () => {
+    it("uses a single practiced day as the baseline without claiming a delta", () => {
         const hero = heroDelta([{ t: 0, wpm: 50 }])
         expect(hero.delta).toBeNull()
         expect(hero.trend).toBe("flat")
-        expect(hero.current).toBeCloseTo(50)
-        expect(hero.practicedDays).toBe(1)
-        expect(hero.spanDays).toBe(0)
-    })
-
-    it("holds the delta below the practiced-day floor", () => {
-        // The exact new-user trap: 2 points, fast → slow, would headline a big drop.
-        const hero = heroDelta([{ t: 0, wpm: 80 }, { t: DAY_MS, wpm: 50 }])
-        expect(hero.delta).toBeNull()
-        expect(hero.trend).toBe("flat")
+        expect(hero.start).toBe(50)
         expect(hero.current).toBe(50)
     })
 
-    it("holds the delta until practiced days span a full calendar week", () => {
+    it("shows a delta after two practiced days even when they are far apart", () => {
         const hero = heroDelta([
-            { t: 0, wpm: 60 }, { t: DAY_MS, wpm: 58 }, { t: 2 * DAY_MS, wpm: 56 },
-            { t: 3 * DAY_MS, wpm: 54 }, { t: 4 * DAY_MS, wpm: 52 },
+            { t: 0, wpm: 60 },
+            { t: 20 * DAY_MS, wpm: 68 },
         ])
-        expect(hero.delta).toBeNull()
-        expect(hero.current).toBe(52)
-        expect(hero.practicedDays).toBe(5)
-        expect(hero.spanDays).toBe(4)
+        expect(hero.start).toBe(60)
+        expect(hero.current).toBe(68)
+        expect(hero.delta).toBe(8)
+        expect(hero.trend).toBe("up")
     })
 
-    it("reads fitted endpoints while current stays the latest daily median", () => {
+    it("compares observed first and latest medians, not fitted endpoints", () => {
         const hero = heroDelta([
-            { t: 0, wpm: 40 }, { t: 2 * DAY_MS, wpm: 45 }, { t: 3 * DAY_MS, wpm: 50 },
-            { t: 4 * DAY_MS, wpm: 55 }, { t: 6 * DAY_MS, wpm: 58 },
+            { t: 0, wpm: 40 }, { t: DAY_MS, wpm: 80 }, { t: 2 * DAY_MS, wpm: 58 },
         ])
+        expect(hero.start).toBe(40)
         expect(hero.current).toBe(58)
-        expect(hero.delta).toBeGreaterThan(17)
+        expect(hero.delta).toBe(18)
         expect(hero.trend).toBe("up")
     })
 
@@ -690,7 +681,9 @@ describe("heroDelta", () => {
             { t: 0, wpm: 60 }, { t: 2 * DAY_MS, wpm: 55 }, { t: 3 * DAY_MS, wpm: 50 },
             { t: 4 * DAY_MS, wpm: 45 }, { t: 6 * DAY_MS, wpm: 40 },
         ])
-        expect(hero.delta).toBeCloseTo(-21)
+        expect(hero.start).toBe(60)
+        expect(hero.current).toBe(40)
+        expect(hero.delta).toBe(-20)
         expect(hero.trend).toBe("down")
     })
 

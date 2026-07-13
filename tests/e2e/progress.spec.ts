@@ -68,9 +68,8 @@ test.describe("progress dashboard", () => {
     await expect(headline).toBeVisible();
     await expect(headline.getByText(/\+\d/)).toBeVisible();
     await expect(headline.getByText("WPM").first()).toBeVisible();
-    await expect(page.getByTestId("headline-current")).toContainText("Latest practiced day");
-    await expect(page.getByTestId("headline-current")).toContainText("Daily median");
-    await expect(page.getByTestId("headline-trend")).toContainText("30-day trend");
+    await expect(page.getByTestId("headline-start-current")).toContainText("Start");
+    await expect(page.getByTestId("headline-current")).toContainText("Current daily median");
     const latestDaily = await page.getByTestId("headline-current").textContent();
 
     // The practice streak chip shows (the mocked history reaches today).
@@ -102,12 +101,12 @@ test.describe("progress dashboard", () => {
     await expect(page.getByText("WPM over time", { exact: true })).toBeVisible();
     await page.getByTestId("period-switcher").getByRole("button", { name: "7d" }).click();
     await expect(page.getByText("Daily best trend", { exact: true })).toBeVisible();
-    // Current is an observed daily median, so changing the regression window
-    // cannot rewrite it. This fixture has only three recent practiced days, so
-    // the 7-day direction remains in baseline calibration instead of going red.
+    // Current is the latest observed daily median, so changing the period keeps
+    // it stable. Two practiced days are enough for an honest endpoint delta;
+    // skipped calendar dates never count as zero or impose an activity quota.
     await expect(page.getByTestId("headline-current")).toHaveText(latestDaily ?? "");
-    await expect(page.getByTestId("headline-trend")).toContainText("7-day trend");
-    await expect(page.getByTestId("baseline-calibration")).toContainText("Building your baseline");
+    await expect(page.getByTestId("headline-start-current").getByText(/[+-]\d/)).toBeVisible();
+    await expect(page.getByTestId("baseline-calibration")).toHaveCount(0);
 
     // Best WPM is a header chip now (the rest of the stat cells are gone).
     await expect(page.getByTestId("best-wpm-chip")).toContainText("Best");
@@ -250,7 +249,21 @@ test.describe("progress dashboard", () => {
 
     await expect(page.getByTestId("progress-signed-out")).toBeVisible();
     await expect(page.getByText("Your progress, kept forever")).toBeVisible();
+    await page.getByRole("button", { name: "Sign in to track progress" }).click();
+    await expect(page.locator("#signInModal")).toBeChecked();
     await expect(page.getByRole("button", { name: "Take a test first" })).toBeVisible();
+  });
+
+  test("one practiced day builds a baseline; a second is not required on the same week", async ({ page }) => {
+    await page.addInitScript(() => {
+      window.localStorage.setItem("typecafe:progressHistory", JSON.stringify([
+        { wpm: 60, accuracy: 100, t: Date.now() - 24 * 60 * 60 * 1000 },
+      ]));
+    });
+    await gotoProgress(page);
+
+    await expect(page.getByTestId("baseline-calibration")).toContainText("Building baseline");
+    await expect(page.getByTestId("headline-current")).toContainText("60.0");
   });
 
   test("a guest with local history gets the real dashboard plus a keep-it banner", async ({ page }) => {

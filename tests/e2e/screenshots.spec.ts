@@ -725,8 +725,8 @@ test.describe("screenshot tour", () => {
     await page.addInitScript(() => window.localStorage.setItem("typecafe:lastRecapAt", String(Date.now())));
     await page.goto("/progress");
     await expect(page.getByTestId("headline-delta")).toBeVisible();
-    await expect(page.getByTestId("headline-current")).toContainText("Latest practiced day");
-    await expect(page.getByTestId("headline-trend")).toContainText("30-day trend");
+    await expect(page.getByTestId("headline-start-current")).toContainText("Start");
+    await expect(page.getByTestId("headline-current")).toContainText("Current daily median");
     await expect(page.getByText("WPM over time", { exact: true })).toBeVisible();
     await expect(page.getByText("Daily median trend", { exact: true })).toBeVisible();
     await expect(page.getByText("Daily best trend", { exact: true })).toBeVisible();
