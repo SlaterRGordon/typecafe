@@ -26,11 +26,11 @@ describe("applyTextOptions", () => {
         expect(output.split(" ")).toHaveLength(input.split(" ").length)
     })
 
-    it("capitals-only uses hidden natural sentence boundaries", () => {
+    it("capitals-only caps just the leading word, no random mid-stream caps", () => {
         const input = Array.from({ length: 20 }, () => "word").join(" ")
         const output = applyTextOptions(input, false, true, { random: () => 0 })
         const capitalized = output.split(" ").map((word, index) => /^[A-Z]/.test(word) ? index : -1).filter((index) => index >= 0)
-        expect(capitalized).toEqual([0, 7, 14])
+        expect(capitalized).toEqual([0])
     })
 
     it("with punctuation and capitals, capitalizes the first word", () => {
