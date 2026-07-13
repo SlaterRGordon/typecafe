@@ -197,7 +197,8 @@ export function HomeCoachTabs({ className = "", desktop = true, inline = true }:
                 href: finding.href,
                 cta: "Start drill",
                 testId: "home-coach-tab-drill",
-                // Aligned with the rail's "Train" nav entry.
+                // Aligned with the rail's "Progress" nav entry - the finding
+                // is that page's evidence turned into an action.
                 topClassName: "top-[8.5rem]",
                 dismissLabel: "Dismiss drill suggestion",
                 onDismiss: () => {

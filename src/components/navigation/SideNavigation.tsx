@@ -54,15 +54,15 @@ export const SideNavigation = () => {
                     <MaterialNavIcon name="home" className={navIconClass} />
                     <div className={navLabelClass}>Home</div>
                 </Link>
-                {/* Practise */}
-                <Link href="/train" className={getNavButtonClass('/train')} aria-label="Train" title="Train">
-                    <MaterialNavIcon name="fitness_center" className={navIconClass} />
-                    <div className={navLabelClass}>Train</div>
-                </Link>
                 {/* Progress */}
                 <Link href="/progress" className={getNavButtonClass('/progress')} aria-label="Progress" title="Progress">
                     <MaterialNavIcon name="trending_up" className={navIconClass} />
                     <div className={navLabelClass}>Progress</div>
+                </Link>
+                {/* Practise */}
+                <Link href="/train" className={getNavButtonClass('/train')} aria-label="Train" title="Train">
+                    <MaterialNavIcon name="fitness_center" className={navIconClass} />
+                    <div className={navLabelClass}>Train</div>
                 </Link>
                 {/* Daily coaching - the dot marks an unfinished session; it
                     clears when today is done. */}

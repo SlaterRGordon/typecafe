@@ -407,21 +407,21 @@ test.describe("home typing test", () => {
     const nav = page.getByTestId("side-primary-nav");
     const tabBox = await page.getByTestId("home-coach-tab-daily").boundingBox();
     const dailyBox = await nav.getByRole("link", { name: "Daily coaching" }).boundingBox();
-    const trainBox = await nav.getByRole("link", { name: "Train" }).boundingBox();
+    const progressBox = await nav.getByRole("link", { name: "Progress" }).boundingBox();
     expect(tabBox).not.toBeNull();
     expect(dailyBox).not.toBeNull();
-    expect(trainBox).not.toBeNull();
+    expect(progressBox).not.toBeNull();
     // Each flyout is its nav entry's live detail - it sits beside it: the
-    // daily tab beside Daily Coach, the drill tab beside Train.
+    // daily tab beside Daily Coach, the drill tab beside Progress.
     const tabCenterY = tabBox!.y + tabBox!.height / 2;
     const dailyCenterY = dailyBox!.y + dailyBox!.height / 2;
-    const trainCenterY = trainBox!.y + trainBox!.height / 2;
+    const progressCenterY = progressBox!.y + progressBox!.height / 2;
     expect(Math.abs(tabCenterY - dailyCenterY)).toBeLessThanOrEqual(2);
-    expect(Math.abs(tabCenterY - trainCenterY)).toBeGreaterThan(16);
+    expect(Math.abs(tabCenterY - progressCenterY)).toBeGreaterThan(16);
     const drillBox = await page.getByTestId("home-coach-tab-drill").boundingBox();
     expect(drillBox).not.toBeNull();
     const drillCenterY = drillBox!.y + drillBox!.height / 2;
-    expect(Math.abs(drillCenterY - trainCenterY)).toBeLessThanOrEqual(2);
+    expect(Math.abs(drillCenterY - progressCenterY)).toBeLessThanOrEqual(2);
     await page.getByRole("link", { name: "Progress" }).click();
     await expect(page).toHaveURL(/\/progress$/);
     await expect(page.getByTestId("headline-delta")).toBeVisible();

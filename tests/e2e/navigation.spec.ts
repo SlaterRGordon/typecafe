@@ -40,9 +40,10 @@ test.describe("app navigation", () => {
     );
 
     // Daily Challenge is hidden for now (2026-07) - no /challenge entry point.
-    // Daily coaching sits after Progress: practice first, proof, then the plan.
-    expect(labels.slice(0, 5)).toEqual(["Home", "Train", "Progress", "Daily coaching", "Leaderboard"]);
-    expect(icons.slice(0, 5)).toEqual(["home", "fitness_center", "trending_up", "today", "leaderboard"]);
+    // Progress sits right after Home (see where you stand, then act on it);
+    // daily coaching follows Train as the prescription.
+    expect(labels.slice(0, 5)).toEqual(["Home", "Progress", "Train", "Daily coaching", "Leaderboard"]);
+    expect(icons.slice(0, 5)).toEqual(["home", "trending_up", "fitness_center", "today", "leaderboard"]);
     expect(labels).not.toContain("Daily Challenge");
     await expect(nav.locator(".fa-dumbbell")).toHaveCount(0);
   });

@@ -26,13 +26,13 @@ export const BottomNavigation = () => {
                 <Link href="/" className={getNavButtonClass('/')} aria-label="Home" title="Home">
                     <MaterialNavIcon name="home" className={navIconClass} />
                 </Link>
-                {/* Train */}
-                <Link href="/train" className={getNavButtonClass('/train')} aria-label="Train" title="Train">
-                    <MaterialNavIcon name="fitness_center" className={navIconClass} />
-                </Link>
                 {/* Progress */}
                 <Link href="/progress" className={getNavButtonClass('/progress')} aria-label="Progress" title="Progress">
                     <MaterialNavIcon name="trending_up" className={navIconClass} />
+                </Link>
+                {/* Train */}
+                <Link href="/train" className={getNavButtonClass('/train')} aria-label="Train" title="Train">
+                    <MaterialNavIcon name="fitness_center" className={navIconClass} />
                 </Link>
                 {/* Daily coaching - dot marks an unfinished session. */}
                 <Link href="/plan" className={getNavButtonClass('/plan')} aria-label="Daily coaching" title="Daily coaching" data-testid="nav-today">
