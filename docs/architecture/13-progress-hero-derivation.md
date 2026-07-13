@@ -44,6 +44,12 @@ so the headline matches the slope the chart shows). The page's `hero` memo is no
 `heroDelta(series.points)`, and the dead `line` field dropped out of the `wpm`
 memo. 5 tests pin the empty / single-point / rising / falling / flat-band cases.
 
+**Product correction (2026-07-12):** the selected-period delta still reads the
+fitted line's endpoints, but `current` is now the latest observed daily median,
+not the fitted endpoint. The UI labels these as separate facts, so switching
+7d/30d/90d can change the trend without rewriting "Latest practiced day." A
+directional trend is withheld until five practiced days span a full week.
+
 Verified: `tsc` clean; 371 unit tests pass; progress e2e green.
 
 Marginal as predicted — one small derivation, not a trapped module. Done for

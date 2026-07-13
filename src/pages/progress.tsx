@@ -19,6 +19,7 @@ import {
     filterByCalendarPeriod,
     heroDelta,
     linearTrend,
+    MIN_TREND_DAYS,
     mergeDailyRollups,
     personalRecords,
     recordsForLanguage,
@@ -47,72 +48,43 @@ function formatSigned(value: number, digits = 1): string {
 
 type HeroTrend = "up" | "down" | "flat";
 
-// The hero "falling step" line: a start value on the left, the current value on
-// the right, and a connector that slopes down/up or stays flat to encode the
-// 30-day change at a glance. Always rendered (flat when there's no change or not
-// enough history yet) so the hero reads the same in every state. Colors come from
-// theme tokens (success / error / base-content) so it works under any theme.
-function HeroDeltaLine(props: { start: number | null; current: number; delta: number | null; trend: HeroTrend }) {
+// Keep the observed latest day and the selected period's fitted trend visually
+// separate. "Current" must not move when a different regression window is
+// selected; the trend may, and says so explicitly.
+function ProgressHero(props: { current: number; delta: number | null; trend: HeroTrend; period: ProgressPeriod; practicedDays: number }) {
     const color = props.trend === "up" ? "text-success" : props.trend === "down" ? "text-error" : "text-base-content";
-    // viewBox is 100x40; preserveAspectRatio="none" stretches the connector to
-    // fill width, and non-scaling-stroke keeps the line weight constant despite
-    // the stretch. The step is a short, fixed-steepness diagonal near the middle.
-    // Endpoint markers (circle / arrowhead) are overlaid as HTML so the non-
-    // uniform stretch can't squash them; their tops mirror the path's y ends.
-    const geo = props.trend === "down"
-        ? { path: "M0 16 H60 L68 34 H100", leftTop: "40%", rightTop: "85%" }
-        : props.trend === "up"
-            ? { path: "M0 34 H60 L68 16 H100", leftTop: "85%", rightTop: "40%" }
-            : { path: "M0 25 H100", leftTop: "62.5%", rightTop: "62.5%" };
+    const trendLabel = props.period === "all" ? "All-time trend" : `${props.period}-day trend`;
+    const direction = props.trend === "up" ? "Improving" : props.trend === "down" ? "Slowing" : "Steady";
+    const practicedDayLabel = `${props.practicedDays} practiced ${props.practicedDays === 1 ? "day" : "days"}`;
+
     return (
-        <div data-testid="headline-start-current" className="flex items-center gap-3 sm:gap-5">
-            <div className="shrink-0">
-                <div className="font-mono text-xl font-semibold text-base-content/70 sm:text-2xl">
-                    {props.start === null ? "-" : props.start.toFixed(1)}
+        <div data-testid="headline-summary" className="grid gap-5 sm:grid-cols-2 sm:gap-0">
+            <div data-testid="headline-current" className="sm:pr-6">
+                <div className="text-xs font-semibold uppercase tracking-wide text-base-content/55">Latest practiced day</div>
+                <div className="mt-1 flex items-baseline gap-1">
+                    <span className="font-mono text-4xl font-bold text-base-content sm:text-5xl">{props.current.toFixed(1)}</span>
+                    <span className="text-lg font-semibold text-base-content/65">WPM</span>
                 </div>
-                <div className="text-[0.6rem] font-semibold uppercase tracking-wide text-base-content/40">Start</div>
+                <p className="mt-1 text-sm text-base-content/60">Daily median</p>
             </div>
-            <div className={`relative h-14 flex-1 ${color}`}>
-                {props.delta !== null && (
-                    <div 
-                        className={`absolute left-1/2 -translate-x-1/2 font-mono text-2xl font-bold 
-                            ${props.delta > 0 ? "top-[1rem]" : 
-                                props.delta == 0 ? "top-[0rem]" : "top-[-0.5rem]"}
-                        `}>
-                        {formatSigned(props.delta)}
+
+            <div data-testid="headline-trend" className="border-t border-base-content/10 pt-5 sm:border-l sm:border-t-0 sm:pl-6 sm:pt-0">
+                <div className="text-xs font-semibold uppercase tracking-wide text-base-content/55">{trendLabel}</div>
+                {props.delta !== null ? (
+                    <div className={color}>
+                        <div className="mt-1 flex items-baseline gap-2">
+                            <span className="font-mono text-3xl font-bold sm:text-4xl">{formatSigned(props.delta)} WPM</span>
+                        </div>
+                        <p className="mt-1 text-sm font-medium">{direction} across daily medians</p>
+                    </div>
+                ) : (
+                    <div data-testid="baseline-calibration" className="mt-1">
+                        <div className="font-mono text-xl font-bold text-base-content">Building your baseline</div>
+                        <p className="mt-1 text-sm leading-relaxed text-base-content/65">
+                            {practicedDayLabel}. Your trend appears after {MIN_TREND_DAYS} practiced days across a week.
+                        </p>
                     </div>
                 )}
-                <svg viewBox="0 0 100 40" preserveAspectRatio="none" className="absolute inset-0 h-full w-full" aria-hidden="true">
-                    <path
-                        d={geo.path}
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth={2}
-                        strokeOpacity={0.55}
-                        strokeLinejoin="round"
-                        strokeLinecap="round"
-                        vectorEffect="non-scaling-stroke"
-                    />
-                </svg>
-                {/* Start node */}
-                <span
-                    className="absolute left-0 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-current"
-                    style={{ top: geo.leftTop }}
-                    aria-hidden="true"
-                />
-                {/* Direction arrowhead (always points to the current value) */}
-                <span
-                    className="absolute right-0 h-0 w-0 translate-x-1/2 -translate-y-1/2 border-y-[5px] border-l-[8px] border-y-transparent border-l-current"
-                    style={{ top: geo.rightTop }}
-                    aria-hidden="true"
-                />
-            </div>
-            <div className="shrink-0 text-right">
-                <div className="flex items-baseline justify-end gap-1">
-                    <span className="font-mono text-4xl font-bold text-base-content sm:text-5xl">{props.current.toFixed(1)}</span>
-                    <span className="text-lg font-semibold text-base-content/60">WPM</span>
-                </div>
-                <div className="text-[0.6rem] font-semibold uppercase tracking-wide text-base-content/40">Current</div>
             </div>
         </div>
     );
@@ -309,9 +281,9 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
         return { values: nums, trend: fitLine(nums) };
     }, [fitLine, series]);
 
-    // The hero delta reads off the WPM trend line's endpoints, so the headline
-    // number is exactly the slope the chart shows - not a separate noisy
-    // window-average subtraction that flips sign on a single junk test.
+    // The period delta reads the fitted line's endpoints; current is the latest
+    // observed daily median. Keeping those separate makes current stable across
+    // period switches while the selected trend still matches the chart.
     const hero = useMemo(() => heroDelta(dailyWpm.points), [dailyWpm.points]);
     const plateau = useMemo(() => detectPlateau(cleanRecords, now), [cleanRecords, now]);
     const slowTransitions = useMemo(() => worstTransitions(props.transitions), [props.transitions]);
@@ -449,22 +421,20 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
                                 <p className="mt-2 text-base-content/60">Your sessions repeat the same comfortable words. Switch to transition drills to break the ceiling.</p>
                             </div>
                         ) : hero.delta !== null ? (
-                            <HeroDeltaLine
-                                start={hero.start}
+                            <ProgressHero
                                 current={hero.current}
                                 delta={hero.delta}
                                 trend={hero.trend}
+                                period={period}
+                                practicedDays={hero.practicedDays}
                             />
                         ) : hasData ? (
-                            // Enough to chart, but no comparison window yet: a flat line
-                            // off the current average - the hero reads the same shape,
-                            // just with no change to show. The chart and goal below
-                            // carry the rest of the story.
-                            <HeroDeltaLine
-                                start={null}
+                            <ProgressHero
                                 current={hero.current}
                                 delta={null}
                                 trend="flat"
+                                period={period}
+                                practicedDays={hero.practicedDays}
                             />
                         ) : (
                             <>

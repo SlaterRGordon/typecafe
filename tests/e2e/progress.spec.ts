@@ -68,8 +68,10 @@ test.describe("progress dashboard", () => {
     await expect(headline).toBeVisible();
     await expect(headline.getByText(/\+\d/)).toBeVisible();
     await expect(headline.getByText("WPM").first()).toBeVisible();
-    await expect(page.getByTestId("headline-start-current")).toContainText("Start");
-    await expect(page.getByTestId("headline-start-current")).toContainText("Current");
+    await expect(page.getByTestId("headline-current")).toContainText("Latest practiced day");
+    await expect(page.getByTestId("headline-current")).toContainText("Daily median");
+    await expect(page.getByTestId("headline-trend")).toContainText("30-day trend");
+    const latestDaily = await page.getByTestId("headline-current").textContent();
 
     // The practice streak chip shows (the mocked history reaches today).
     await expect(page.getByTestId("streak-chip")).toBeVisible();
@@ -100,6 +102,12 @@ test.describe("progress dashboard", () => {
     await expect(page.getByText("WPM over time", { exact: true })).toBeVisible();
     await page.getByTestId("period-switcher").getByRole("button", { name: "7d" }).click();
     await expect(page.getByText("Daily best trend", { exact: true })).toBeVisible();
+    // Current is an observed daily median, so changing the regression window
+    // cannot rewrite it. This fixture has only three recent practiced days, so
+    // the 7-day direction remains in baseline calibration instead of going red.
+    await expect(page.getByTestId("headline-current")).toHaveText(latestDaily ?? "");
+    await expect(page.getByTestId("headline-trend")).toContainText("7-day trend");
+    await expect(page.getByTestId("baseline-calibration")).toContainText("Building your baseline");
 
     // Best WPM is a header chip now (the rest of the stat cells are gone).
     await expect(page.getByTestId("best-wpm-chip")).toContainText("Best");

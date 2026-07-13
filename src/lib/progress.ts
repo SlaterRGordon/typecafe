@@ -550,32 +550,38 @@ export function linearTrend(ts: number[], values: number[]): TrendLine {
 }
 
 export interface HeroDelta {
-    start: number | null
+    // The latest practiced day's median. This is an observed daily value, not
+    // the selected period's fitted endpoint, so switching periods does not
+    // rewrite what "current" means.
     current: number
     delta: number | null
     trend: "up" | "down" | "flat"
+    practicedDays: number
+    spanDays: number
 }
 
-// Below this many tests a trend line is warmup noise, not signal: a fast first
-// test followed by a slower second would headline a confident "you dropped N
-// WPM" the data can't support. Hold the delta until there's a real sample; the
-// page falls back to a flat current-average hero until then.
-export const MIN_TREND_TESTS = 5
+// A handful of daily points packed into a weekend is still baseline noise. A
+// directional headline needs both five equally weighted practiced days and a
+// full seven-calendar-date span (first to last day = six intervals).
+export const MIN_TREND_DAYS = 5
+export const MIN_TREND_SPAN_DAYS = 6
 
-// The headline 30-day change: the WPM trend line read at its first vs last point,
-// so the number is exactly the slope the chart shows - not a separate window
-// average that flips sign on a single junk test. Null delta until there are
-// MIN_TREND_TESTS points to compare; flat within ±0.05 WPM.
+// The selected-period change remains the fitted line's endpoint delta, exactly
+// matching the chart. "Current" is deliberately separate: it is the latest
+// observed daily median. Null delta while the baseline is calibrating; flat
+// within ±0.05 WPM once calibrated.
 export function heroDelta(points: { t: number; wpm: number }[]): HeroDelta {
-    if (points.length === 0) return { start: null, current: 0, delta: null, trend: "flat" }
+    if (points.length === 0) return { current: 0, delta: null, trend: "flat", practicedDays: 0, spanDays: 0 }
 
     const line = linearTrend(points.map((p) => p.t), points.map((p) => p.wpm))
-    const start = line.at(points[0]!.t)
-    const current = line.at(points[points.length - 1]!.t)
-    const delta = points.length >= MIN_TREND_TESTS ? current - start : null
+    const first = points[0]!
+    const latest = points[points.length - 1]!
+    const spanDays = Math.max(0, (latest.t - first.t) / DAY_MS)
+    const calibrated = points.length >= MIN_TREND_DAYS && spanDays >= MIN_TREND_SPAN_DAYS
+    const delta = calibrated ? line.at(latest.t) - line.at(first.t) : null
     const trend = delta === null ? "flat" : delta > 0.05 ? "up" : delta < -0.05 ? "down" : "flat"
 
-    return { start, current, delta, trend }
+    return { current: latest.wpm, delta, trend, practicedDays: points.length, spanDays }
 }
 
 // ---------------------------------------------------------------------------
