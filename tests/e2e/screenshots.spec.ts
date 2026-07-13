@@ -227,7 +227,8 @@ test.describe("screenshot tour", () => {
     await page.keyboard.press("Escape");
 
     await expect(page.locator("#words .char").first()).toBeVisible();
-    // Numbers sprinkles standalone digit tokens into the prose.
+    // Numbers guarantees realistic numeric tokens without changing the test's
+    // configured token count.
     await expect(page.locator("#words")).toContainText(/[0-9]/);
     await capture(page, testInfo, "24-test-view-punctuation-capitals");
   });
@@ -471,6 +472,10 @@ test.describe("screenshot tour", () => {
     await mockTrpc(page);
     await gotoHome(page);
 
+    await openSettingsMenu(page);
+    await page.getByTestId("settings-menu").getByRole("button", { name: /numbers/ }).click();
+    await page.keyboard.press("Escape");
+
     // Shorten the test to 3 seconds so the completion dashboard appears fast.
     await setToolbarCustomLength(page, "3");
 
@@ -484,6 +489,7 @@ test.describe("screenshot tour", () => {
     // the Unranked badge and no flattery - the save's brag/delta/streak must not
     // render. (The ranked chips are pinned in shared-score.spec.ts.)
     await expect(page.getByText("Unranked")).toBeVisible();
+    await expect(page.getByText("Numbers", { exact: true })).toBeVisible();
     await expect(page.getByTestId("avg-delta")).toHaveCount(0);
     await expect(page.getByTestId("score-streak")).toHaveCount(0);
     await capture(page, testInfo, "13-score-card-after-test");

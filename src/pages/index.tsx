@@ -51,6 +51,7 @@ interface ReMeasureState {
     customLength: boolean;
     punctuation: boolean;
     capitals: boolean;
+    numbers: boolean;
     options: string;
   };
 }
@@ -119,6 +120,7 @@ const Home: NextPage = () => {
     options?: string;
     punctuation?: boolean;
     capitals?: boolean;
+    numbers?: boolean;
     ranked?: boolean;
     createdAt: Date;
     testId?: string;
@@ -295,7 +297,8 @@ const Home: NextPage = () => {
       activeTestLanguage === c.language &&
       customLength === c.customLength &&
       (result.punctuation ?? false) === c.punctuation &&
-      (result.capitals ?? false) === c.capitals
+      (result.capitals ?? false) === c.capitals &&
+      (result.numbers ?? false) === (c.numbers ?? false)
     return matches ? pending : null
   }
 
@@ -349,6 +352,7 @@ const Home: NextPage = () => {
       streak: result.streak,
       punctuation: result.punctuation,
       capitals: result.capitals,
+      numbers: result.numbers,
       ranked: result.ranked,
       layout: activeLayout,
       count,
@@ -394,6 +398,7 @@ const Home: NextPage = () => {
             options: result.levelName ?? "",
             punctuation: result.punctuation,
             capitals: result.capitals,
+            numbers: result.numbers,
             timeline: result.timeline,
             utcOffsetMinutes: -new Date().getTimezoneOffset(),
           },
@@ -449,13 +454,13 @@ const Home: NextPage = () => {
 
       try {
         const { durationSeconds, rawWpm, netWpm, accuracy, totalKeystrokes, correctKeystrokes,
-          incorrectKeystrokes, typedText, typedSegments, worstKeys, brag, wpmSamples, punctuation, capitals, ranked,
+          incorrectKeystrokes, typedText, typedSegments, worstKeys, brag, wpmSamples, punctuation, capitals, numbers, ranked,
           promptText,
         } = restoredScore
         const share = await createShare.mutateAsync({
           testId: test.id,
           snapshot: { durationSeconds, rawWpm, netWpm, accuracy, totalKeystrokes, correctKeystrokes,
-            incorrectKeystrokes, promptText, typedText, typedSegments, worstKeys, brag, avgDelta: test.avgDelta, wpmSamples, punctuation, capitals, ranked, layout: restoredScore.layout },
+            incorrectKeystrokes, promptText, typedText, typedSegments, worstKeys, brag, avgDelta: test.avgDelta, wpmSamples, punctuation, capitals, numbers, ranked, layout: restoredScore.layout },
         })
         const url = `${window.location.origin}/score/${share.slug}`
         setShareUrl(url)
@@ -497,6 +502,7 @@ const Home: NextPage = () => {
     setLanguage(pending.config.language)
     setPunctuation(pending.config.punctuation)
     setCapitals(pending.config.capitals)
+    setNumbers(pending.config.numbers ?? false)
     clearCompletedScore()
     sessionStorage.removeItem("typecafe:pendingScore")
     hasSavedPendingRef.current = false
@@ -534,6 +540,7 @@ const Home: NextPage = () => {
           customLength: completedScore.ranked === false,
           punctuation: completedScore.punctuation ?? false,
           capitals: completedScore.capitals ?? false,
+          numbers: completedScore.numbers ?? false,
           options: completedScore.options ?? "",
         },
       })
@@ -580,6 +587,7 @@ const Home: NextPage = () => {
       setLanguage(config.language)
       setPunctuation(config.punctuation)
       setCapitals(config.capitals)
+      setNumbers(config.numbers ?? false)
       clearCompletedScore()
       sessionStorage.removeItem("typecafe:pendingScore")
       hasSavedPendingRef.current = false
@@ -639,6 +647,7 @@ const Home: NextPage = () => {
       wpmSamples,
       punctuation,
       capitals,
+      numbers,
       ranked,
     } = completedScore
     const baseSnapshot = {
@@ -657,6 +666,7 @@ const Home: NextPage = () => {
       avgDelta,
       punctuation,
       capitals,
+      numbers,
       ranked,
       wpmSamples,
       layout: completedScore.layout,

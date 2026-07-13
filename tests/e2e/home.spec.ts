@@ -778,6 +778,20 @@ test.describe("home typing test", () => {
     await expect(page.getByTestId("toolbar-context").getByRole("button", { name: "25", exact: true })).toHaveAttribute("aria-pressed", "true");
   });
 
+  test("numbers guarantee practice and remain visible on the result", async ({ page }) => {
+    await gotoHome(page);
+    await selectMode(page, "Words");
+    await page.getByTestId("toolbar-context").getByRole("button", { name: "10", exact: true }).click();
+    await openSettingsMenu(page);
+    await page.getByTestId("settings-menu").getByRole("button", { name: /numbers/ }).click();
+    await page.keyboard.press("Escape");
+
+    await expect(page.locator("#words")).toContainText(/\d/);
+    await typeVisibleTestText(page);
+    await expect(page.getByRole("button", { name: "Test Again" })).toBeVisible();
+    await expect(page.getByText("Numbers", { exact: true })).toBeVisible();
+  });
+
   // Honest-review 2026-07 §2: flattery shares the ranking quality bar. A 3s
   // custom test is unranked, and the mocked save still returns a brag, delta,
   // and streak - none of them may render on an unranked card.

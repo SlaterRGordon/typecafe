@@ -99,6 +99,7 @@ model Test {
     options   String
     punctuation Boolean @default(false)
     capitals    Boolean @default(false)
+    numbers     Boolean @default(false)
     ranked      Boolean @default(true)
     // The keyboard layout the test was typed on (actual id, e.g. "qwertz-de") -
     // honesty metadata for score surfaces; aggregation uses statsPoolFor

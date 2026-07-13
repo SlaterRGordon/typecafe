@@ -460,6 +460,7 @@ export const testRouter = createTRPCRouter({
       options: z.string().max(100),
       punctuation: z.boolean().optional(),
       capitals: z.boolean().optional(),
+      numbers: z.boolean().optional(),
       // The keyboard layout the test was typed on (actual id - honesty tag,
       // ledger decision 10). Absent/legacy = qwerty.
       layout: z.string().max(32).optional(),
@@ -513,6 +514,7 @@ export const testRouter = createTRPCRouter({
             options: input.options,
             punctuation: input.punctuation ?? false,
             capitals: input.capitals ?? false,
+            numbers: input.numbers ?? false,
             ranked,
             layout: input.layout ?? "qwerty",
             // Persist the full timeline (locked constraint #2) - evidence for

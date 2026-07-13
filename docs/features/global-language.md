@@ -122,6 +122,18 @@ weak-key card stays global (consistent with "training progress global", ADR
       useful principle behind Keybr's default natural-word mode without copying
       its code or prebuilt language models.
 
+- [x] 12 — **Natural text add-ons (2026-07-12).** Capitalization, punctuation,
+      and numbers no longer share a per-word random sprinkler. Sentence spans
+      drive visible punctuation and hidden capitals-only boundaries; locale data
+      restores canonical country, region, timezone-city, language, month, and
+      weekday casing (including multi-word names), plus Spanish opening marks
+      and French pre-mark spacing. Numeric tokens replace rather than extend
+      word-list text, preserve configured counts, and use integer/year/decimal/
+      time/thousands shapes. General tests guarantee at least one requested rep;
+      targeted Practice/drills quota every selected digit and mark. The numbers
+      flag now persists on Test/share/re-measure metadata and renders on score
+      cards, matching punctuation and capitals.
+
 ## Out of scope / deferred
 
 - 25k for non-English languages · per-language quotes · per-language coach/

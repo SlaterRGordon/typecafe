@@ -45,12 +45,12 @@ export async function generateTestText(config: TestTextConfig, gramLevel: number
         if (subMode === TestSubModes.timed) {
             // A speed-round level drills its own keys at speed; the buffer is large
             // so a 30s run never exhausts it (Text appends more from the same keys).
-            if (level) return applyTextOptions(generateBetterPseudoText(500, level.keys.split(""), base), punctuation, capitals)
-            return applyTextOptions(generateText(500, language), punctuation, capitals, { digits: numberPool })
+            if (level) return applyTextOptions(generateBetterPseudoText(500, level.keys.split(""), base), punctuation, capitals, { language: base })
+            return applyTextOptions(generateText(500, language), punctuation, capitals, { digits: numberPool, language: base })
         }
         if (subMode === TestSubModes.words) {
-            if (level) return applyTextOptions(generateBetterPseudoText(count, level.keys.split(""), base), punctuation, capitals)
-            return applyTextOptions(generateText(count, language), punctuation, capitals, { digits: numberPool })
+            if (level) return applyTextOptions(generateBetterPseudoText(count, level.keys.split(""), base), punctuation, capitals, { language: base })
+            return applyTextOptions(generateText(count, language), punctuation, capitals, { digits: numberPool, language: base })
         }
         return ""
     }
@@ -71,7 +71,7 @@ export async function generateTestText(config: TestTextConfig, gramLevel: number
         // keys). `capitals` stays as the one Capitalize add-on.
         const marks = punctuation ? selectedKeys.filter(isDrillMark) : []
         const digits = numbers ? selectedKeys.filter(isDrillDigit) : []
-        return applyTextOptions(generatePracticeText(500, letters, base), false, capitals, { marks, digits })
+        return applyTextOptions(generatePracticeText(500, letters, base), false, capitals, { marks, digits, language: base, targeted: true })
     }
 
     if (mode === TestModes.ngrams) {
@@ -79,7 +79,7 @@ export async function generateTestText(config: TestTextConfig, gramLevel: number
     }
 
     if (mode === TestModes.relaxed) {
-        return applyTextOptions(generateText(50, language), punctuation, capitals, { digits: numberPool })
+        return applyTextOptions(generateText(50, language), punctuation, capitals, { digits: numberPool, language: base })
     }
 
     return ""

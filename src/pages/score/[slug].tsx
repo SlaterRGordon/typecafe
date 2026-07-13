@@ -462,6 +462,7 @@ const SharedScorePage: NextPage<SharedScorePageProps> = ({ slug, meta }) => {
               options: data.score.options,
               punctuation: snapshot.punctuation ?? data.score.punctuation,
               capitals: snapshot.capitals ?? data.score.capitals,
+              numbers: snapshot.numbers ?? data.score.numbers,
               ranked: snapshot.ranked ?? data.score.ranked,
               createdAt: data.score.createdAt,
               user: data.user ?? undefined,
