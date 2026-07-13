@@ -743,8 +743,8 @@ test.describe("screenshot tour", () => {
     await expect(page.getByText("Daily median trend", { exact: true })).toBeVisible();
     await expect(page.getByText("Daily best trend", { exact: true })).toBeVisible();
     await expect(page.getByTestId("weak-spots")).toContainText("b→r");
-    await expect(page.getByTestId("worst-transitions").locator("li")).toHaveCount(5);
-    await expect(page.getByTestId("records-timeline").locator("li")).toHaveCount(5);
+    await expect(page.getByTestId("worst-transitions").locator("li")).toHaveCount(6);
+    expect(await page.getByTestId("records-timeline").locator("li").count()).toBeGreaterThan(5);
     await expect(page.getByTestId("lifetime-heatmap")).toBeVisible();
     await capture(page, testInfo, "40-progress-dashboard");
     if (!testInfo.project.name.includes("mobile")) {
@@ -754,9 +754,9 @@ test.describe("screenshot tour", () => {
       await page.getByTestId("trend-tabs").getByRole("button", { name: "Consistency" }).click();
       await capture(page, testInfo, "40e-progress-daily-consistency");
       await page.getByTestId("trend-tabs").getByRole("button", { name: "WPM" }).click();
-      await page.getByTestId("transitions-disclosure").click();
-      await page.getByTestId("records-disclosure").click();
-      await capture(page, testInfo, "40c-progress-expanded-lists");
+      await page.getByRole("list", { name: "Slowest transitions" }).evaluate((list) => { list.scrollTop = list.scrollHeight; });
+      await page.getByRole("list", { name: "Personal records" }).evaluate((list) => { list.scrollTop = list.scrollHeight; });
+      await capture(page, testInfo, "40c-progress-scrolled-lists");
     }
     if (!testInfo.project.name.includes("mobile")) {
       const tab = page.getByTestId("home-coach-tab-daily");

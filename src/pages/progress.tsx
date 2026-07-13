@@ -46,8 +46,6 @@ function formatSigned(value: number, digits = 1): string {
 }
 
 type HeroTrend = "up" | "down" | "flat";
-const COLLAPSED_LIST_LIMIT = 5;
-const EXPANDED_LIST_LIMIT = 10;
 
 // The familiar start → current line, now backed by observed daily medians. The
 // first practiced day in the selected period is the start and the latest is
@@ -237,8 +235,6 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
     const [period, setPeriod] = useState<ProgressPeriod>(30);
     const [trendMetric, setTrendMetric] = useState<TrendMetric>("wpm");
     const [shareState, setShareState] = useState<"idle" | "sharing" | "copied">("idle");
-    const [showAllTransitions, setShowAllTransitions] = useState(false);
-    const [showAllRecords, setShowAllRecords] = useState(false);
     // The board the heatmap below renders (and whose stats pool feeds it).
     const [activeBoardLayout] = useLayout();
     // Heatmap layer switches: attempts are stored unfolded (char-keyed), so the
@@ -296,7 +292,7 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
     // selected period → latest practiced day. The chart keeps its fitted trend.
     const hero = useMemo(() => heroDelta(dailyProgress.points), [dailyProgress.points]);
     const plateau = useMemo(() => detectPlateau(cleanRecords, now), [cleanRecords, now]);
-    const slowTransitions = useMemo(() => worstTransitions(props.transitions, EXPANDED_LIST_LIMIT), [props.transitions]);
+    const slowTransitions = useMemo(() => worstTransitions(props.transitions, Infinity), [props.transitions]);
     // The active language's accent chars (loaded on demand; [] for English) -
     // they let weak é/ü/ą show as drillable keys, and gate out keys from other
     // languages/layouts the user isn't currently on.
@@ -490,13 +486,54 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
                             Complete a few tests and your WPM, accuracy, and consistency trend appears here.
                         </div>
                     )}
+
+                    <div data-testid="lifetime-keyboard-card" className="rounded-lg border border-base-content/10 bg-base-100/45 p-3">
+                        <div className="mb-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            {/* "Your keyboard", not "Lifetime": per-key accuracy is a rolling
+                                window of recent attempts (ADR-0005), not an all-time sum. */}
+                            <div className="text-base font-semibold text-base-content">Your keyboard</div>
+                            <KeyHeatmapLegend />
+                        </div>
+                        <div className="flex w-full justify-center overflow-x-auto pb-1">
+                            <KeyHeatmap attempts={props.keyAttempts} size="compact" showPercent={Object.keys(props.keyAttempts).length > 0} shiftLayer={heatmapShift} altgrLayer={heatmapAltgr} className="min-w-fit" testId="lifetime-heatmap" />
+                        </div>
+                        {Object.keys(props.keyAttempts).length === 0 && (
+                            <p className="mt-4 text-center text-sm text-base-content/45">Take more tests to color in your per-key accuracy.</p>
+                        )}
+                        {/* Layer switches sit bottom-left of the board itself - they
+                            change what the board shows, so they live with it. */}
+                        <div className="mt-1 flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-1" data-testid="lifetime-heatmap-layers">
+                                <button
+                                    type="button"
+                                    className={`btn btn-xs normal-case ${heatmapShift ? "btn-primary" : "btn-ghost text-base-content/60"}`}
+                                    aria-pressed={heatmapShift}
+                                    onClick={() => { setHeatmapShift((on) => !on); setHeatmapAltgr(false); }}
+                                >
+                                    ⇧ shift
+                                </button>
+                                {boardHasAltGr && (
+                                    <button
+                                        type="button"
+                                        className={`btn btn-xs normal-case ${heatmapAltgr ? "btn-primary" : "btn-ghost text-base-content/60"}`}
+                                        aria-pressed={heatmapAltgr}
+                                        onClick={() => { setHeatmapAltgr((on) => !on); setHeatmapShift(false); }}
+                                    >
+                                        AltGr
+                                    </button>
+                                )}
+                            </div>
+                            <Link href="/how-we-measure" className="text-xs text-base-content/45 underline-offset-2 hover:text-base-content/70 hover:underline">
+                                How these numbers work →
+                            </Link>
+                        </div>
+                    </div>
                 </div>
 
-                {/* Weak spots → drill, beside the hero + chart. Stretches to fill
-                    the column so its footprint is the same whether sparse or full;
-                    the transitions list scrolls inside when it's long, so the card
-                    never grows taller than the chart beside it. */}
-                <div data-testid="weak-spots" className="flex h-full flex-col gap-3 rounded-xl border border-primary/25 bg-primary/5 p-4 lg:col-span-1">
+                <div className="space-y-4 lg:col-span-1">
+                {/* Weak spots → drill has its own height; long evidence scrolls
+                    inside without changing the rhythm of the left column. */}
+                <div data-testid="weak-spots" className="flex flex-col gap-3 rounded-xl border border-primary/25 bg-primary/5 p-4">
                         <div className="text-lg font-semibold text-base-content">Weak spots → drill</div>
 
                         {/* Center the content so a sparse card reads as balanced, not
@@ -529,8 +566,12 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
                             {slowTransitions.length > 0 && (
                                 <div data-testid="worst-transitions" className="flex min-h-0 flex-col">
                                     <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-base-content/45">Slowest transitions</p>
-                                    <ul className="flex flex-col gap-2 overflow-y-auto pr-1">
-                                        {slowTransitions.slice(0, showAllTransitions ? EXPANDED_LIST_LIMIT : COLLAPSED_LIST_LIMIT).map((t) => (
+                                    <ul
+                                        aria-label="Slowest transitions"
+                                        tabIndex={0}
+                                        className="flex flex-col gap-2 pr-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary lg:max-h-72 lg:overflow-y-auto lg:overscroll-contain"
+                                    >
+                                        {slowTransitions.map((t) => (
                                             <li key={t.pair} className="flex items-center justify-between gap-2 rounded-md border border-base-content/10 bg-base-200/40 px-3 py-2">
                                                 <span className="text-sm text-base-content/90">
                                                     <span className="font-mono font-bold text-base-content">{t.from}→{t.to}</span> · {t.ratio.toFixed(1)}× avg
@@ -544,70 +585,20 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
                                             </li>
                                         ))}
                                     </ul>
-                                    {slowTransitions.length > COLLAPSED_LIST_LIMIT && (
-                                        <button
-                                            type="button"
-                                            data-testid="transitions-disclosure"
-                                            onClick={() => setShowAllTransitions((shown) => !shown)}
-                                            className="mt-2 inline-flex min-h-8 items-center self-start text-xs font-medium text-base-content/60 transition-colors hover:text-base-content focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-                                        >
-                                            {showAllTransitions ? "Show less ↑" : `View ${Math.min(slowTransitions.length, EXPANDED_LIST_LIMIT) - COLLAPSED_LIST_LIMIT} more →`}
-                                        </button>
-                                    )}
                                 </div>
                             )}
                         </div>
                     </div>
-            </div>
 
-            <div className="grid gap-4 lg:grid-cols-3">
-                <div data-testid="lifetime-keyboard-card" className="rounded-lg border border-base-content/10 bg-base-100/45 p-3 lg:col-span-2">
-                    <div className="mb-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        {/* "Your keyboard", not "Lifetime": per-key accuracy is a rolling
-                            window of recent attempts (ADR-0005), not an all-time sum. */}
-                        <div className="text-base font-semibold text-base-content">Your keyboard</div>
-                        <KeyHeatmapLegend />
-                    </div>
-                    <div className="flex w-full justify-center overflow-x-auto pb-1">
-                        <KeyHeatmap attempts={props.keyAttempts} size="compact" showPercent={Object.keys(props.keyAttempts).length > 0} shiftLayer={heatmapShift} altgrLayer={heatmapAltgr} className="min-w-fit" testId="lifetime-heatmap" />
-                    </div>
-                    {Object.keys(props.keyAttempts).length === 0 && (
-                        <p className="mt-4 text-center text-sm text-base-content/45">Take more tests to color in your per-key accuracy.</p>
-                    )}
-                    {/* Layer switches sit bottom-left of the board itself - they
-                        change what the board shows, so they live with it. */}
-                    <div className="mt-1 flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-1" data-testid="lifetime-heatmap-layers">
-                            <button
-                                type="button"
-                                className={`btn btn-xs normal-case ${heatmapShift ? "btn-primary" : "btn-ghost text-base-content/60"}`}
-                                aria-pressed={heatmapShift}
-                                onClick={() => { setHeatmapShift((on) => !on); setHeatmapAltgr(false); }}
-                            >
-                                ⇧ shift
-                            </button>
-                            {boardHasAltGr && (
-                                <button
-                                    type="button"
-                                    className={`btn btn-xs normal-case ${heatmapAltgr ? "btn-primary" : "btn-ghost text-base-content/60"}`}
-                                    aria-pressed={heatmapAltgr}
-                                    onClick={() => { setHeatmapAltgr((on) => !on); setHeatmapShift(false); }}
-                                >
-                                    AltGr
-                                </button>
-                            )}
-                        </div>
-                        <Link href="/how-we-measure" className="text-xs text-base-content/45 underline-offset-2 hover:text-base-content/70 hover:underline">
-                            How these numbers work →
-                        </Link>
-                    </div>
-                </div>
-
-                <div data-testid="records-timeline" className="flex flex-col rounded-lg border border-base-content/10 bg-base-100/45 p-4 lg:col-span-1">
+                <div data-testid="records-timeline" className="flex flex-col rounded-lg border border-base-content/10 bg-base-100/45 p-4">
                     <div className="mb-3 text-lg font-semibold text-base-content">Records</div>
                     {records.length > 0 ? (
-                        <ul className="space-y-2">
-                            {records.slice(0, showAllRecords ? EXPANDED_LIST_LIMIT : COLLAPSED_LIST_LIMIT).map((event) => (
+                        <ul
+                            aria-label="Personal records"
+                            tabIndex={0}
+                            className="space-y-2 pr-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary lg:max-h-72 lg:overflow-y-auto lg:overscroll-contain"
+                        >
+                            {records.map((event) => (
                                 <li key={event.t} className="flex items-center justify-between gap-3 border-b border-base-content/10 pb-2 text-sm last:border-b-0 last:pb-0">
                                     <span className="shrink-0 text-base-content/60">{new Date(event.t).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}</span>
                                     <span className="text-right font-medium text-base-content">
@@ -619,17 +610,8 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
                     ) : (
                         <p className="text-sm text-base-content/45">Your personal bests and first-milestone tests land here as you improve.</p>
                     )}
-                    {records.length > COLLAPSED_LIST_LIMIT && (
-                        <button
-                            type="button"
-                            data-testid="records-disclosure"
-                            onClick={() => setShowAllRecords((shown) => !shown)}
-                            className="mt-2 inline-flex min-h-8 items-center self-start text-xs font-medium text-base-content/60 transition-colors hover:text-base-content focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-                        >
-                            {showAllRecords ? "Show less ↑" : `View ${Math.min(records.length, EXPANDED_LIST_LIMIT) - COLLAPSED_LIST_LIMIT} more →`}
-                        </button>
-                    )}
                 </div>
+            </div>
             </div>
         </div>
     );

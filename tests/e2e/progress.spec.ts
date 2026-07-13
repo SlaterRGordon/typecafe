@@ -155,22 +155,30 @@ test.describe("progress dashboard", () => {
     const transitions = page.getByTestId("worst-transitions");
     await expect(transitions).toContainText("b→r");
     await expect(transitions.getByRole("link", { name: "Drill br" })).toBeVisible();
-    await expect(transitions.locator("li")).toHaveCount(5);
-    const transitionDisclosure = page.getByTestId("transitions-disclosure");
-    await expect(transitionDisclosure).toHaveText("View 1 more →");
-    await transitionDisclosure.click();
     await expect(transitions.locator("li")).toHaveCount(6);
-    await expect(transitionDisclosure).toHaveText("Show less ↑");
+    await expect(page.getByTestId("transitions-disclosure")).toHaveCount(0);
+    const transitionList = transitions.getByRole("list", { name: "Slowest transitions" });
 
-    // Both lists use the same bottom disclosure pattern and expand in place.
+    // Long evidence stays available in an inline scroll region—no disclosure
+    // state or arbitrary result cutoff.
     const records = page.getByTestId("records-timeline");
     await expect(records).toBeVisible();
-    await expect(records.locator("li")).toHaveCount(5);
-    const recordsDisclosure = page.getByTestId("records-disclosure");
-    await expect(recordsDisclosure).toHaveText(/View \d+ more →/);
-    await recordsDisclosure.click();
-    await expect(records.locator("li")).toHaveCount(10);
-    await expect(recordsDisclosure).toHaveText("Show less ↑");
+    expect(await records.locator("li").count()).toBeGreaterThan(5);
+    await expect(page.getByTestId("records-disclosure")).toHaveCount(0);
+    const recordsList = records.getByRole("list", { name: "Personal records" });
+
+    if ((page.viewportSize()?.width ?? 0) >= 1024) {
+      await expect.poll(() => transitionList.evaluate((list) => list.scrollHeight > list.clientHeight)).toBe(true);
+      await expect.poll(() => recordsList.evaluate((list) => list.scrollHeight > list.clientHeight)).toBe(true);
+
+      // The dashboard columns stack independently: the keyboard starts while
+      // the taller drill card is still running beside it, rather than waiting.
+      const keyboardBox = await page.getByTestId("lifetime-keyboard-card").boundingBox();
+      const weakBox = await page.getByTestId("weak-spots").boundingBox();
+      expect(keyboardBox).not.toBeNull();
+      expect(weakBox).not.toBeNull();
+      expect(keyboardBox!.y).toBeLessThan(weakBox!.y + weakBox!.height);
+    }
 
     // Removed in slice 6: the 1-user self-league trap and the on-page challenge.
     await expect(page.getByTestId("self-league-card")).toHaveCount(0);
