@@ -458,6 +458,21 @@ html[data-typing-focus="active"] .typing-focus-global-fade {
     justify-content: center;
 }
 
+.typecafe-key-heatmap[data-kb-size="full"] .typecafe-key-lock {
+    transition: transform 180ms ease, opacity 180ms ease;
+}
+
+.typecafe-key-heatmap[data-kb-size="full"] .typecafe-key-state-locked:hover .typecafe-key-lock,
+.typecafe-key-heatmap[data-kb-size="full"] .typecafe-key-state-locked:focus-visible .typecafe-key-lock {
+    transform: translateY(-2px) rotate(-7deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .typecafe-key-heatmap[data-kb-size="full"] .typecafe-key-lock {
+        transition: none;
+    }
+}
+
 .typecafe-keyboard .kbd:not(.bg-primary):not(.bg-secondary):not(.bg-base-100),
 .typecafe-key-heatmap .kbd:not(.bg-primary):not(.bg-secondary):not(.bg-base-100) {
     background-color: var(--color-base-200, hsl(var(--b2, var(--b1))));

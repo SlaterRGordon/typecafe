@@ -317,17 +317,17 @@ test.describe("screenshot tour", () => {
     await capture(page, testInfo, "32-practice-keyboard-analytics");
 
     // Shift layer: holding Shift peeks the shifted twins (; → :, / → ?); releasing
-    // returns to base. The layout never moves. The settings-line label tracks the
-    // peek too, not just the board.
+    // returns to base. The layout never moves. The keyboard's layer rail tracks
+    // the held peek as well as sticky clicks.
     const shiftLabel = page.getByRole("button", { name: "Show shifted keys (capitals and symbols)" });
-    await expect(shiftLabel).toContainText("shift off");
+    await expect(shiftLabel).toHaveAttribute("aria-pressed", "false");
     await page.keyboard.down("Shift");
     await expect(keyboardKey(":")).toHaveCount(1);
     await expect(keyboardKey(";")).toHaveCount(0);
-    await expect(shiftLabel).toContainText("shift on");
+    await expect(shiftLabel).toHaveAttribute("aria-pressed", "true");
     await page.keyboard.up("Shift");
     await expect(keyboardKey(";")).toHaveCount(1);
-    await expect(shiftLabel).toContainText("shift off");
+    await expect(shiftLabel).toHaveAttribute("aria-pressed", "false");
 
     // The sticky toggle button does the same, but stays put (touch / lingering).
     await page.getByRole("button", { name: "Show shifted keys (capitals and symbols)" }).click();
