@@ -109,7 +109,7 @@ test.describe("daily coaching", () => {
     await expect.poll(() => page.evaluate((key) => window.localStorage.getItem(key), `${DAILY_COACHING_STORAGE_KEY}:guest`)).toBeNull()
   })
 
-  test("a qualifying Test on the home page is adopted as the warm-up", async ({ page }) => {
+  test("a qualifying Test on the home page is adopted as the warm-up and returns to /plan", async ({ page }) => {
     await seedSession(page, GUEST_DAILY_SCOPE, fastSession())
     await mockTrpc(page)
     // 25 words qualifies as the baseline measure (30s timed would stall e2e).
@@ -117,9 +117,11 @@ test.describe("daily coaching", () => {
     await expect(page.locator("#words .char").first()).toBeVisible()
     await typeVisibleTestText(page)
 
-    const banner = page.getByTestId("daily-session-banner")
-    await expect(banner).toContainText("counted for today's coaching")
-    await expect(banner).toContainText("Next: Loosen b→r")
+    // An adopted measure skips the generic score card and lands on the daily
+    // hub, which shows the recorded warm-up and the next step.
+    await expect(page).toHaveURL(/\/plan$/)
+    await expect(page.getByTestId("daily-session-active")).toContainText("1/2 steps")
+    await expect(page.getByTestId("daily-session-active")).toContainText("Loosen b→r")
     const stored = await storedSessions(page, GUEST_DAILY_SCOPE)
     expect(stored[0]?.currentStepIndex).toBe(1)
     expect(stored[0]?.steps[0]?.sets).toHaveLength(1)

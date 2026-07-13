@@ -26,9 +26,7 @@ import {
   readLocalDailySession,
   recordDailySet,
   writeLocalDailySession,
-  type DailyCoachingSession,
 } from "~/lib/dailyCoaching";
-import Link from "next/link";
 import { isPracticeLetter, remapPracticeSelectionByPosition, repairPracticeSelection, smartDrillSelection } from "~/lib/drillKeys";
 import { addAlert } from "~/state/alert/alertSlice";
 import { appendLocalProgress } from "~/lib/progressHistory";
@@ -141,7 +139,6 @@ const Home: NextPage = () => {
   const [gramsHandoffPending, setGramsHandoffPending] = useState(false)
   // The just-finished Test advanced today's coaching session (its measure was
   // adopted); the result card banners the next step. Reset with the card.
-  const [dailyAdvance, setDailyAdvance] = useState<DailyCoachingSession | null>(null)
   useBrowserLayoutEffect(() => {
     if (new URLSearchParams(window.location.search).get("mode") === "grams") setGramsHandoffPending(true)
   }, [])
@@ -310,6 +307,7 @@ const Home: NextPage = () => {
     // Today's coaching adopts a qualifying Test as its measure, however it was
     // launched - the session never demands a run the user just did. Only the
     // eager report records (the persisted upgrade is the same run).
+    let adopted = false
     if (!result.persisted && mode === TestModes.normal && (subMode === TestSubModes.timed || subMode === TestSubModes.words)) {
       const scope = sessionData?.user?.id ?? GUEST_DAILY_SCOPE
       const context = { dateKey: localDateKey(), pool: statsPoolFor(activeLayout), language: globalLanguage }
@@ -320,7 +318,7 @@ const Home: NextPage = () => {
         const advanced = recordDailySet(daily, active.id, { netWpm: result.netWpm, accuracy: result.accuracy })
         if (advanced !== daily) {
           writeLocalDailySession(scope, advanced)
-          setDailyAdvance(advanced)
+          adopted = true
         }
       }
     }
@@ -362,8 +360,17 @@ const Home: NextPage = () => {
       testId: result.testId,
       reMeasure: attemptReMeasureRef.current,
     }
-    setCompletedScore(score)
-    setShareUrl(undefined)
+    if (adopted && !attemptReMeasureRef.current) {
+      // An adopted measure returns straight to the daily hub - /plan shows the
+      // recorded step and what's next. The generic score card with a coaching
+      // banner bolted on read as two competing screens. The score still saves
+      // and the local mirrors below still record. A re-measured run is exempt:
+      // its before→after delta is the payoff and must stay on screen.
+      void router.replace("/plan")
+    } else {
+      setCompletedScore(score)
+      setShareUrl(undefined)
+    }
 
     const consistency = consistencyFromSamples(result.wpmSamples)
 
@@ -474,7 +481,6 @@ const Home: NextPage = () => {
     clearCompletedScore()
     sessionStorage.removeItem("typecafe:pendingScore")
     hasSavedPendingRef.current = false
-    setDailyAdvance(null)
     setRestartSignal((signal) => signal + 1)
   }
 
@@ -607,7 +613,6 @@ const Home: NextPage = () => {
     clearCompletedScore()
     sessionStorage.removeItem("typecafe:pendingScore")
     hasSavedPendingRef.current = false
-    setDailyAdvance(null)
     setGramsHandoffPending(false)
     setRestartSignal((signal) => signal + 1)
     void router.replace("/", undefined, { shallow: true })
@@ -817,28 +822,6 @@ const Home: NextPage = () => {
         )}
         {completedScore ?
           <div className="m-auto flex w-full flex-col items-center gap-3">
-            {dailyAdvance && (
-              // Match the score card's width container so the banner edges line up.
-              <div className="w-full max-w-7xl px-4 sm:px-6">
-                <Link
-                  href={dailyAdvance.status === "completed" ? "/plan" : currentDailyStep(dailyAdvance)?.href ?? "/plan"}
-                  data-testid="daily-session-banner"
-                  className="flex w-full items-center justify-between gap-3 rounded-lg border border-primary/40 bg-primary/10 px-5 py-3 text-sm font-semibold text-base-content transition hover:bg-primary/15"
-                >
-                  {dailyAdvance.status === "completed" ? (
-                    <>
-                      <span>{dailyAdvance.kind === "calibration" ? "That's the map I needed." : "Today's coaching is done."}</span>
-                      <span className="text-primary">{dailyAdvance.kind === "calibration" ? "See what I found →" : "See today's result →"}</span>
-                    </>
-                  ) : (
-                    <>
-                      <span>This Test counted for today&apos;s coaching.</span>
-                      <span className="text-primary">Next: {currentDailyStep(dailyAdvance)?.title} →</span>
-                    </>
-                  )}
-                </Link>
-              </div>
-            )}
             <div className="flex w-full justify-center">
               <ShareableScoreCard
                 score={{
