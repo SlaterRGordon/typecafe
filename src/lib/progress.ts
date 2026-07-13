@@ -556,26 +556,19 @@ export interface HeroDelta {
     trend: "up" | "down" | "flat"
 }
 
-// Below this many tests a trend line is warmup noise, not signal: a fast first
-// test followed by a slower second would headline a confident "you dropped N
-// WPM" the data can't support. Hold the delta until there's a real sample; the
-// page falls back to a flat current-average hero until then.
-export const MIN_TREND_TESTS = 5
-
-// The headline 30-day change: the WPM trend line read at its first vs last point,
-// so the number is exactly the slope the chart shows - not a separate window
-// average that flips sign on a single junk test. Null delta until there are
-// MIN_TREND_TESTS points to compare; flat within ±0.05 WPM.
+// Improvement in the selected period is the honest observed change from its
+// first practiced day's median to its latest. Unpracticed calendar dates add no
+// zeroes and impose no activity quota. One practiced day establishes a baseline;
+// the second can show a delta. Flat within ±0.05 WPM.
 export function heroDelta(points: { t: number; wpm: number }[]): HeroDelta {
     if (points.length === 0) return { start: null, current: 0, delta: null, trend: "flat" }
 
-    const line = linearTrend(points.map((p) => p.t), points.map((p) => p.wpm))
-    const start = line.at(points[0]!.t)
-    const current = line.at(points[points.length - 1]!.t)
-    const delta = points.length >= MIN_TREND_TESTS ? current - start : null
+    const first = points[0]!
+    const latest = points[points.length - 1]!
+    const delta = points.length >= 2 ? latest.wpm - first.wpm : null
     const trend = delta === null ? "flat" : delta > 0.05 ? "up" : delta < -0.05 ? "down" : "flat"
 
-    return { start, current, delta, trend }
+    return { start: first.wpm, current: latest.wpm, delta, trend }
 }
 
 // ---------------------------------------------------------------------------

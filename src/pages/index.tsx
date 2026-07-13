@@ -1,6 +1,5 @@
 import { type NextPage } from "next";
 import Head from "next/head";
-import Link from "next/link";
 import { useRouter } from "next/router";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
@@ -19,6 +18,15 @@ import { useLayout } from "~/hooks/useLayout";
 import { boardFor, sequenceFor, statsPoolFor } from "~/lib/keyboardLayout";
 import { accentsFor, clampSize, composeLanguage, ensureLanguageLoaded, parseLanguage } from "~/components/typer/utils";
 import { withPracticeVowel } from "~/lib/diagnosis";
+import {
+  currentDailyStep,
+  GUEST_DAILY_SCOPE,
+  localDateKey,
+  measureQualifies,
+  readLocalDailySession,
+  recordDailySet,
+  writeLocalDailySession,
+} from "~/lib/dailyCoaching";
 import { isPracticeLetter, remapPracticeSelectionByPosition, repairPracticeSelection, smartDrillSelection } from "~/lib/drillKeys";
 import { addAlert } from "~/state/alert/alertSlice";
 import { appendLocalProgress } from "~/lib/progressHistory";
@@ -125,13 +133,12 @@ const Home: NextPage = () => {
   // inside completion handling); the state drives the drill-view prompt's render.
   const reMeasureRef = useRef<ReMeasureState | null>(null)
   const [reMeasure, setReMeasure] = useState<ReMeasureState | null>(null)
-  // True when this test was launched from a plan step (?return=plan); the result
-  // then offers "Continue plan →" to advance the guided player (Phase 4 §4.4).
-  const [returnToPlan, setReturnToPlan] = useState(false)
   // A /?mode=grams landing (e.g. from progress) would otherwise mount the typer in
   // the persisted words/timed mode and flash a words test before the grams config
   // applies. Hold the typer behind a loader until the handoff lands.
   const [gramsHandoffPending, setGramsHandoffPending] = useState(false)
+  // The just-finished Test advanced today's coaching session (its measure was
+  // adopted); the result card banners the next step. Reset with the card.
   useBrowserLayoutEffect(() => {
     if (new URLSearchParams(window.location.search).get("mode") === "grams") setGramsHandoffPending(true)
   }, [])
@@ -297,6 +304,24 @@ const Home: NextPage = () => {
     // user already dismissed/restarted that card (its eager render set the flag).
     if (result.persisted && !cardActiveRef.current) return
     cardActiveRef.current = true
+    // Today's coaching adopts a qualifying Test as its measure, however it was
+    // launched - the session never demands a run the user just did. Only the
+    // eager report records (the persisted upgrade is the same run).
+    let adopted = false
+    if (!result.persisted && mode === TestModes.normal && (subMode === TestSubModes.timed || subMode === TestSubModes.words)) {
+      const scope = sessionData?.user?.id ?? GUEST_DAILY_SCOPE
+      const context = { dateKey: localDateKey(), pool: statsPoolFor(activeLayout), language: globalLanguage }
+      const daily = readLocalDailySession(scope, context)
+      const active = daily ? currentDailyStep(daily) : null
+      const run = { subMode: subMode === TestSubModes.timed ? "timed" as const : "words" as const, count }
+      if (daily && active && measureQualifies(active.kind, run)) {
+        const advanced = recordDailySet(daily, active.id, { netWpm: result.netWpm, accuracy: result.accuracy })
+        if (advanced !== daily) {
+          writeLocalDailySession(scope, advanced)
+          adopted = true
+        }
+      }
+    }
     // Resolve the re-measure offer once, on the first (eager) report; the later
     // save upgrade reuses it so the before→after strip doesn't vanish.
     if (!result.persisted) {
@@ -335,8 +360,17 @@ const Home: NextPage = () => {
       testId: result.testId,
       reMeasure: attemptReMeasureRef.current,
     }
-    setCompletedScore(score)
-    setShareUrl(undefined)
+    if (adopted && !attemptReMeasureRef.current) {
+      // An adopted measure returns straight to the daily hub - /plan shows the
+      // recorded step and what's next. The generic score card with a coaching
+      // banner bolted on read as two competing screens. The score still saves
+      // and the local mirrors below still record. A re-measured run is exempt:
+      // its before→after delta is the payoff and must stay on screen.
+      void router.replace("/plan")
+    } else {
+      setCompletedScore(score)
+      setShareUrl(undefined)
+    }
 
     const consistency = consistencyFromSamples(result.wpmSamples)
 
@@ -447,7 +481,6 @@ const Home: NextPage = () => {
     clearCompletedScore()
     sessionStorage.removeItem("typecafe:pendingScore")
     hasSavedPendingRef.current = false
-    setReturnToPlan(false)
     setRestartSignal((signal) => signal + 1)
   }
 
@@ -557,7 +590,7 @@ const Home: NextPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router.isReady, router.query.rm])
 
-  // Config handoff (Phase 4 plans): a plan/coach link lands here as
+  // Config handoff: a diagnosis or coaching link lands here as
   // /?mode=timed&count=60, /?mode=words&count=25, or /?mode=grams and starts that
   // configured test, then cleans the URL.
   useEffect(() => {
@@ -580,7 +613,6 @@ const Home: NextPage = () => {
     clearCompletedScore()
     sessionStorage.removeItem("typecafe:pendingScore")
     hasSavedPendingRef.current = false
-    setReturnToPlan(router.query.return === "plan")
     setGramsHandoffPending(false)
     setRestartSignal((signal) => signal + 1)
     void router.replace("/", undefined, { shallow: true })
@@ -790,19 +822,6 @@ const Home: NextPage = () => {
         )}
         {completedScore ?
           <div className="m-auto flex w-full flex-col items-center gap-3">
-            {returnToPlan &&
-              // Match the score card's width container so the banner edges line up.
-              <div className="w-full max-w-7xl px-4 sm:px-6">
-                <Link
-                  href="/plan?step=done"
-                  data-testid="continue-plan"
-                  className="flex w-full items-center justify-between gap-3 rounded-lg border border-primary/40 bg-primary/10 px-5 py-3 text-sm font-semibold text-base-content transition hover:bg-primary/15"
-                >
-                  <span>Step done - back to your plan.</span>
-                  <span className="text-primary">Continue plan →</span>
-                </Link>
-              </div>
-            }
             <div className="flex w-full justify-center">
               <ShareableScoreCard
                 score={{

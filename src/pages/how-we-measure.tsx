@@ -66,7 +66,8 @@ const HowWeMeasure: NextPage = () => {
 
         <DocumentSection title="Progress &amp; Improvement">
           <p>Progress periods use your local calendar. For example, 7d means today plus the previous six local dates, not a trailing 168-hour slice that can touch eight dates.</p>
-          <p>The WPM chart gives every practiced day one vote. Each dot is that day&apos;s median net WPM, and the solid line is a straight least-squares trend through those daily medians. The headline change reads the solid line at its first and last practiced days.</p>
+          <p>The WPM chart gives every practiced day one vote. Each dot is that day&apos;s median net WPM, and the solid line is a straight least-squares trend through those daily medians.</p>
+          <p>The progress headline compares the first practiced day in the selected period with the latest practiced day. Skipped dates do not count as zero and do not block a comparison: one practiced day builds the baseline, and the second can show a change.</p>
           <p>The dashed daily best trend is a separate straight fit through each day&apos;s highest ranked net WPM. Hover or focus a daily dot to see its exact median, daily best, test count, average accuracy, and average consistency.</p>
           <p>Daily averages are built by calculating net WPM for each test first, then averaging those net values. TypeCafe does not estimate net speed from separate daily averages.</p>
           <p>Score cards may show a 30-day improvement after save. That requires at least 3 prior ranked tests in the last 30 days, so the comparison has enough evidence to be useful.</p>

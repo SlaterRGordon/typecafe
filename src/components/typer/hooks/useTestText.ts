@@ -1,7 +1,7 @@
 import { TestModes, TestSubModes } from "../types"
 import type { QuoteLength, TestGramScopes, TestGramSources } from "../types"
 import type { Level } from "../train/levels"
-import { applyTextOptions, ensureQuotesLoaded, ensureSizedLoaded, generateBetterPseudoText, generateNGram, generateQuote, generateText, isDrillDigit, isDrillMark, parseLanguage } from "../utils"
+import { applyTextOptions, ensureQuotesLoaded, ensureSizedLoaded, generateBetterPseudoText, generateNGram, generatePracticeText, generateQuote, generateText, isDrillDigit, isDrillMark, parseLanguage } from "../utils"
 import { ALL_DIGITS, isPracticeLetter } from "~/lib/drillKeys"
 
 export interface TestTextConfig {
@@ -57,6 +57,8 @@ export async function generateTestText(config: TestTextConfig, gramLevel: number
 
     if (mode === TestModes.practice) {
         if (!selectedKeys) return ""
+        const practiceLanguage = base === "chinese" || base === "hindi" ? "english" : base
+        await ensureSizedLoaded(practiceLanguage, "10k")
         // Practice uses ONLY unlocked keys: selected letters build words;
         // numbers/punctuation are injected as drill targets. The selection floor
         // keeps at least eight letters, including two vowels and a consonant.
@@ -69,7 +71,7 @@ export async function generateTestText(config: TestTextConfig, gramLevel: number
         // keys). `capitals` stays as the one Capitalize add-on.
         const marks = punctuation ? selectedKeys.filter(isDrillMark) : []
         const digits = numbers ? selectedKeys.filter(isDrillDigit) : []
-        return applyTextOptions(generateBetterPseudoText(500, letters, base), false, capitals, { marks, digits })
+        return applyTextOptions(generatePracticeText(500, letters, base), false, capitals, { marks, digits })
     }
 
     if (mode === TestModes.ngrams) {

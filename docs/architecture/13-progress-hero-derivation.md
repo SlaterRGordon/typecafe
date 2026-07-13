@@ -44,6 +44,12 @@ so the headline matches the slope the chart shows). The page's `hero` memo is no
 `heroDelta(series.points)`, and the dead `line` field dropped out of the `wpm`
 memo. 5 tests pin the empty / single-point / rising / falling / flat-band cases.
 
+**Product correction (2026-07-12):** the hero now compares observed daily
+medians: the selected period's first practiced day to its latest practiced day.
+Skipped dates neither add zeroes nor impose an activity quota. One practiced day
+builds the baseline; the second can show a delta. The chart retains its separate
+least-squares trend through all visible daily points.
+
 Verified: `tsc` clean; 371 unit tests pass; progress e2e green.
 
 Marginal as predicted — one small derivation, not a trapped module. Done for

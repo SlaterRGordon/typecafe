@@ -1,6 +1,6 @@
 # TypeCafe system map
 
-**Last verified:** 2026-07-11 through commit `169eb56`
+**Last verified:** 2026-07-11 through the daily-coaching slice
 
 **Purpose:** a compact map of the current system. It records stable ownership and
 invariants, then points to code for details. Product history belongs in the
@@ -51,9 +51,7 @@ The app intentionally has no ports/adapters repository seam around tRPC. See
 | `/leaderboard` | competitive Test rankings | `components/scores/LeaderboardList.tsx`, `server/api/routers/test.ts` |
 | `/score/[slug]` | read-only share and beat-my-run flow | `pages/score/[slug].tsx`, `components/scores/ShareableScoreCard.tsx` |
 | `/challenge` | parked daily Challenge, still deep-linkable | `pages/challenge.tsx`, `lib/challenge.ts` |
-| `/plan` | hidden 30-day Plan surface | `pages/plan.tsx`, `lib/plan.ts`, `lib/planSession.ts` |
-
-Release gates live in `src/lib/features.ts`.
+| `/plan` | today's Coaching session detail and proof (Today nav entry) | `pages/plan.tsx`, `lib/dailyCoaching.ts`, `hooks/useDailyCoachingSession.ts` |
 
 ## Test lifecycle
 
@@ -110,11 +108,21 @@ Guest evidence must support the full loop before sign-up (ADR-0001):
 | Per-key attempts | `lib/localSync.ts` | Prisma `PracticeStats` |
 | Transitions | `lib/localTransitions.ts` | Prisma `TransitionStat` |
 | Train progress | `hooks/useTrainProgress.ts` | Prisma `TrainProgress` |
+| Coaching session | `lib/dailyCoaching.ts` | Prisma `CoachingSession` |
 
 `components/GuestImport.tsx` imports all guest evidence on sign-in and clears each
 mirror only after its own successful sync. `hooks/useGuestEvidence.ts` provides a
 shared client read. National layouts share the `qwerty` stats pool; true remaps
 have separate pools (`statsPoolFor`).
+
+`hooks/useDailyCoachingSession.ts` converges the local and account Coaching-session
+snapshots wherever the always-mounted Coaching tab appears. Local mirrors are
+scoped per account (or `guest`) so shared browsers cannot leak sessions across
+accounts; the guest mirror is adopted on sign-in and cleared after the save
+lands. The more-complete snapshot wins locally and on the server, so an offline
+or stale device cannot rewind today's Prescription. Steps complete by adoption
+(`pages/index.tsx` adopts qualifying Tests, `pages/drill.tsx` adopts drills that
+cover the step's target) — never by URL.
 
 Per-key and Transition aggregates are rolling windows, not lifetime totals. See
 [ADR-0005](../adr/0005-rolling-window-aggregates.md). Full timelines remain the
@@ -134,6 +142,7 @@ carry an expiry and expired rows are cleaned during writes. See
 - `transitionStats`: rolling Transition synchronization.
 - `trainProgress`: per-difficulty/per-pool Level progress.
 - `scoreShare`: Test, guest, beat-run, and progress share records.
+- `coachingSession`: frozen dated Prescription snapshots for cross-device resume.
 - `user`: registration, profile reads/updates, account deletion.
 - `type`: TestType lookup.
 - `color`: saved theme configurations.

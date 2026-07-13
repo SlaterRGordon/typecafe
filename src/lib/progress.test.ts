@@ -647,44 +647,50 @@ describe("heroDelta", () => {
         expect(heroDelta([])).toEqual({ start: null, current: 0, delta: null, trend: "flat" })
     })
 
-    it("has a null delta with a single point (no comparison window)", () => {
+    it("uses a single practiced day as the baseline without claiming a delta", () => {
         const hero = heroDelta([{ t: 0, wpm: 50 }])
         expect(hero.delta).toBeNull()
         expect(hero.trend).toBe("flat")
-        expect(hero.start).toBeCloseTo(50)
-        expect(hero.current).toBeCloseTo(50)
+        expect(hero.start).toBe(50)
+        expect(hero.current).toBe(50)
     })
 
-    it("holds the delta below MIN_TREND_TESTS (a fast first test then a slow second)", () => {
-        // The exact new-user trap: 2 points, fast → slow, would headline a big drop.
-        const hero = heroDelta([{ t: 0, wpm: 80 }, { t: 10, wpm: 50 }])
-        expect(hero.delta).toBeNull()
-        expect(hero.trend).toBe("flat")
-        // Current average is still real, so the flat hero can show it.
-        expect(hero.current).toBeGreaterThan(0)
-    })
-
-    it("reads the trend line endpoints for a rising series", () => {
+    it("shows a delta after two practiced days even when they are far apart", () => {
         const hero = heroDelta([
-            { t: 0, wpm: 40 }, { t: 10, wpm: 45 }, { t: 20, wpm: 50 }, { t: 30, wpm: 55 }, { t: 40, wpm: 60 },
+            { t: 0, wpm: 60 },
+            { t: 20 * DAY_MS, wpm: 68 },
         ])
-        expect(hero.start).toBeCloseTo(40)
-        expect(hero.current).toBeCloseTo(60)
-        expect(hero.delta).toBeCloseTo(20)
+        expect(hero.start).toBe(60)
+        expect(hero.current).toBe(68)
+        expect(hero.delta).toBe(8)
+        expect(hero.trend).toBe("up")
+    })
+
+    it("compares observed first and latest medians, not fitted endpoints", () => {
+        const hero = heroDelta([
+            { t: 0, wpm: 40 }, { t: DAY_MS, wpm: 80 }, { t: 2 * DAY_MS, wpm: 58 },
+        ])
+        expect(hero.start).toBe(40)
+        expect(hero.current).toBe(58)
+        expect(hero.delta).toBe(18)
         expect(hero.trend).toBe("up")
     })
 
     it("trends down for a falling series", () => {
         const hero = heroDelta([
-            { t: 0, wpm: 60 }, { t: 10, wpm: 55 }, { t: 20, wpm: 50 }, { t: 30, wpm: 45 }, { t: 40, wpm: 40 },
+            { t: 0, wpm: 60 }, { t: 2 * DAY_MS, wpm: 55 }, { t: 3 * DAY_MS, wpm: 50 },
+            { t: 4 * DAY_MS, wpm: 45 }, { t: 6 * DAY_MS, wpm: 40 },
         ])
-        expect(hero.delta).toBeCloseTo(-20)
+        expect(hero.start).toBe(60)
+        expect(hero.current).toBe(40)
+        expect(hero.delta).toBe(-20)
         expect(hero.trend).toBe("down")
     })
 
     it("is flat within the ±0.05 band", () => {
         const hero = heroDelta([
-            { t: 0, wpm: 50 }, { t: 10, wpm: 50 }, { t: 20, wpm: 50 }, { t: 30, wpm: 50 }, { t: 40, wpm: 50 },
+            { t: 0, wpm: 50 }, { t: 2 * DAY_MS, wpm: 50 }, { t: 3 * DAY_MS, wpm: 50 },
+            { t: 4 * DAY_MS, wpm: 50 }, { t: 6 * DAY_MS, wpm: 50 },
         ])
         expect(hero.delta).toBeCloseTo(0)
         expect(hero.trend).toBe("flat")

@@ -98,6 +98,30 @@ weak-key card stays global (consistent with "training progress global", ADR
       layout-dependent), and progress/thresholds are untouched (keyed by level
       name). Practice stays a–z: its whole UI is the QWERTY key board.
 
+- [x] 11 — **Language-shaped Practice text (2026-07-12).** Restricted-key text
+      guarantees every active letter appears instead of treating any non-empty
+      real-word pool as sufficient. `src/lib/phonology/` is the deep module:
+      per-language profiles convert graphemes into phoneme segments; the engine
+      derives legal onsets and final codas from the active corpus, syllabifies
+      with maximal onset, and composes only phonologically licensed syllables.
+      Its whole-word layer now learns order-4 spelling transitions from the
+      frequency-ranked corpus: Practice prefers natural top-5k carrier words,
+      targets a selected key every other word, and uses 3–10-letter generated
+      forms only where the dictionary cannot provide coverage. Generated forms
+      retain corpus-attested bigrams, a phonological boundary guard, and an
+      eight-word novelty window; natural carriers avoid adjacent repetition.
+      The generator ranks 16 candidates by whole-word transition likelihood,
+      penalizes one-character backoff and repeated chunks, caps inventions at
+      seven letters, and rejects four-vowel/triple-letter runs so locally valid
+      transitions cannot accumulate into conspicuous outliers.
+      Train deliberately remains real-word-first through `restrictedText.ts`.
+      English, French, Spanish, German, Italian, Portuguese, Dutch, and Polish are
+      covered; Chinese and Hindi retain the existing English fallback pending a
+      script-specific design. Corpus models and per-alphabet pools are lazy and
+      memoized so prompt generation does not rebuild them. This mirrors the
+      useful principle behind Keybr's default natural-word mode without copying
+      its code or prebuilt language models.
+
 ## Out of scope / deferred
 
 - 25k for non-English languages · per-language quotes · per-language coach/

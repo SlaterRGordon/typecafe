@@ -65,7 +65,7 @@ test.describe("contact page", () => {
     await page.getByPlaceholder("Your Message").fill("Please do not lose this.");
     await page.getByRole("button", { name: "Send Message" }).click();
 
-    await expect(page.getByText("Failed to send message.")).toBeVisible();
+    await expect(page.getByText("Error sending email")).toBeVisible();
     await expect(page.getByPlaceholder("Your Name")).toHaveValue("Slater");
     await expect(page.getByPlaceholder("Your Email")).toHaveValue("slater@example.com");
     await expect(page.getByPlaceholder("Your Message")).toHaveValue("Please do not lose this.");

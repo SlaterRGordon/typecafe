@@ -1,9 +1,5 @@
-// Single registry of the app's modals and the one place that knows how to read
-// their open state. Modals are uncontrolled daisyUI toggles (checkbox-based,
-// except the username modal which is class-based), so open state lives in the
-// DOM; every consumer must go through here instead of scattering
-// getElementById checks. Add new modals to MODAL_IDS and they are picked up by
-// focus management and shortcut suppression automatically.
+// Single registry of the app's modals and the shared sign-in trigger. Add new
+// modals to MODAL_IDS so focus management and shortcut suppression pick them up.
 export const MODAL_IDS = {
     config: "configModal",
     color: "colorModal",
@@ -12,6 +8,12 @@ export const MODAL_IDS = {
 } as const
 
 export type ModalId = (typeof MODAL_IDS)[keyof typeof MODAL_IDS]
+
+export const OPEN_SIGN_IN_EVENT = "typecafe:open-sign-in"
+
+export function openSignInModal(): void {
+    if (typeof window !== "undefined") window.dispatchEvent(new Event(OPEN_SIGN_IN_EVENT))
+}
 
 export function isModalOpen(id: ModalId): boolean {
     if (typeof document === "undefined") return false
