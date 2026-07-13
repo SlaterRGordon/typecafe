@@ -356,14 +356,6 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex flex-wrap items-center gap-2">
                     <h1 className="font-mono text-3xl font-bold tracking-tight">Progress</h1>
-                    <Chip testId="progress-language-chip" size="md" icon={<i className="fa-solid fa-globe" aria-hidden="true" />}>
-                        {languageMeta(props.language).label}
-                    </Chip>
-                    {/* Names the active board so an empty per-pool heatmap
-                        doesn't read as broken (ledger slice 8). */}
-                    <Chip testId="progress-layout-chip" size="md" icon={<i className="fa-regular fa-keyboard" aria-hidden="true" />}>
-                        {layoutMeta(activeBoardLayout).label}
-                    </Chip>
                     {streak > 0 && (
                         <Chip
                             testId="streak-chip"
@@ -374,6 +366,14 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
                             {streak}-day streak
                         </Chip>
                     )}
+                    <Chip testId="progress-language-chip" size="md" icon={<i className="fa-solid fa-globe" aria-hidden="true" />}>
+                        {languageMeta(props.language).label}
+                    </Chip>
+                    {/* Names the active board so an empty per-pool heatmap
+                        doesn't read as broken (ledger slice 8). */}
+                    <Chip testId="progress-layout-chip" size="md" icon={<i className="fa-regular fa-keyboard" aria-hidden="true" />}>
+                        {layoutMeta(activeBoardLayout).label}
+                    </Chip>
                     {hasData && (
                         <Chip
                             testId="best-wpm-chip"
