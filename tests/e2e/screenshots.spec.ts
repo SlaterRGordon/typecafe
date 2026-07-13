@@ -714,13 +714,23 @@ test.describe("screenshot tour", () => {
 
   test("progress dashboard (authenticated, rich history)", async ({ page }, testInfo) => {
     await mockAuthenticatedSession(page);
-    await mockTrpc(page, { keyStats: [
-      { character: "a", total: 200, correct: 198 },
-      { character: "e", total: 320, correct: 305 },
-      { character: "r", total: 120, correct: 96 },
-      { character: "t", total: 160, correct: 150 },
-      { character: "b", total: 60, correct: 42 },
-    ] });
+    await mockTrpc(page, {
+      keyStats: [
+        { character: "a", total: 200, correct: 198 },
+        { character: "e", total: 320, correct: 305 },
+        { character: "r", total: 120, correct: 96 },
+        { character: "t", total: 160, correct: 150 },
+        { character: "b", total: 60, correct: 42 },
+      ],
+      transitionStats: [
+        { pair: "br", count: 10, totalMs: 5000, errors: 2 },
+        { pair: "io", count: 10, totalMs: 4500, errors: 1 },
+        { pair: "rv", count: 10, totalMs: 4000, errors: 1 },
+        { pair: "dv", count: 10, totalMs: 3500, errors: 1 },
+        { pair: "eb", count: 10, totalMs: 3000, errors: 1 },
+        { pair: "th", count: 1000, totalMs: 100000, errors: 0 },
+      ],
+    });
     // Suppress the weekly recap so this captures the steady-state dashboard.
     await page.addInitScript(() => window.localStorage.setItem("typecafe:lastRecapAt", String(Date.now())));
     await page.goto("/progress");
@@ -733,6 +743,11 @@ test.describe("screenshot tour", () => {
     await expect(page.getByTestId("weak-spots")).toContainText("b→r");
     await expect(page.getByTestId("lifetime-heatmap")).toBeVisible();
     await capture(page, testInfo, "40-progress-dashboard");
+    if (!testInfo.project.name.includes("mobile")) {
+      await page.getByTestId("transitions-disclosure").click();
+      await page.getByTestId("records-disclosure").click();
+      await capture(page, testInfo, "40c-progress-expanded-lists");
+    }
     if (!testInfo.project.name.includes("mobile")) {
       const tab = page.getByTestId("home-coach-tab-daily");
       await expect(tab).toBeVisible();

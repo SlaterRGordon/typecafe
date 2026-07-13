@@ -80,8 +80,10 @@ export function TrendChart(props: TrendChartProps) {
 
     const layout = useMemo(() => {
         const width = 640
-        const height = 260
-        const padding = { top: 20, right: 20, bottom: 34, left: 44 }
+        // The SVG is width-responsive, so its viewBox height is the actual
+        // vertical budget. Keep the plot compact enough for the dashboard fold.
+        const height = 140
+        const padding = { top: 12, right: 20, bottom: 24, left: 44 }
         const chartWidth = width - padding.left - padding.right
         const chartHeight = height - padding.top - padding.bottom
 

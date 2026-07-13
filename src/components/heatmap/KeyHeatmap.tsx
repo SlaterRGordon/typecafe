@@ -12,7 +12,7 @@ import {
 import { boardFor, composedFor, type KeyCap, type Layer } from "~/lib/keyboardLayout"
 import { useLayout } from "~/hooks/useLayout"
 
-export type KeyHeatmapSize = "mini" | "full"
+export type KeyHeatmapSize = "mini" | "compact" | "full"
 
 interface KeyHeatmapProps {
     // Per-key accuracy source: a live session Map or serialized aggregates.
@@ -75,6 +75,7 @@ function LockBadge() {
 
 const ROW_CLASS_BY_SIZE: Record<KeyHeatmapSize, string> = {
     full: "flex justify-center gap-0.5 my-0.5 w-full md:gap-1 md:my-1",
+    compact: "flex justify-center gap-0.5 my-0.5 w-full md:gap-1",
     mini: "flex justify-center gap-0.5 w-full",
 }
 
@@ -83,11 +84,13 @@ const KEY_CLASS_BY_SIZE: Record<KeyHeatmapSize, string> = {
     // data-kb-step - set imperatively by the train board, absent everywhere
     // else, so the pseudo-element resolves to empty content and shows nothing.
     full: "relative kbd kbd-md sm:kbd-lg font-mono after:absolute after:-right-1 after:-top-1.5 after:text-[9px] after:font-bold after:text-primary after:content-[attr(data-kb-step)]",
+    compact: "relative kbd !h-8 !min-h-8 !min-w-10 px-1 font-mono after:absolute after:-right-1 after:-top-1.5 after:text-[9px] after:font-bold after:text-primary after:content-[attr(data-kb-step)]",
     mini: "relative kbd kbd-sm font-mono text-xs",
 }
 
 const SPACE_CLASS_BY_SIZE: Record<KeyHeatmapSize, string> = {
     full: "!min-w-[14rem] sm:!min-w-[17.5rem]",
+    compact: "!min-w-[14rem]",
     mini: "!min-w-[8rem] sm:!min-w-[8rem]",
 }
 
@@ -160,6 +163,12 @@ export function KeyHeatmap(props: KeyHeatmapProps) {
     const rowClass = ROW_CLASS_BY_SIZE[size]
     const keyClass = KEY_CLASS_BY_SIZE[size]
     const spaceClass = SPACE_CLASS_BY_SIZE[size]
+    const labelClass = size === "compact"
+        ? "absolute left-1 top-0.5 text-xs"
+        : "absolute left-1 top-1 text-sm sm:left-1.5 sm:top-1.5 sm:text-base"
+    const percentClass = size === "compact"
+        ? "absolute bottom-0.5 right-1 text-[0.55rem] leading-none drop-shadow-sm"
+        : "absolute bottom-0.5 right-1 text-[0.6rem] leading-none drop-shadow-sm sm:bottom-1 sm:right-1.5 sm:text-xs"
 
     // A dead cell's accuracy aggregates its own tally with every char composed
     // through it (ê rides ^'s cell) - unfolded sources carry composed chars as
@@ -214,8 +223,8 @@ export function KeyHeatmap(props: KeyHeatmapProps) {
         const isLocked = !!lockedKeys?.has(glyph)
         const isDead = !isSpace && !!cap?.dead?.includes(layer)
         const label = isSpace ? "space" : glyph
-        const shiftHint = size === "full" && layer === "base" && cap && cap.shift !== cap.base.toUpperCase() ? cap.shift : ""
-        const altgrHint = size === "full" && layer === "base" && cap?.altgr ? cap.altgr : ""
+        const shiftHint = size !== "mini" && layer === "base" && cap && cap.shift !== cap.base.toUpperCase() ? cap.shift : ""
+        const altgrHint = size !== "mini" && layer === "base" && cap?.altgr ? cap.altgr : ""
 
         return (
             <kbd
@@ -229,7 +238,7 @@ export function KeyHeatmap(props: KeyHeatmapProps) {
                 style={color ? { backgroundColor: color, color: textColor } : undefined}
                 title={`${label}${showAccuracy ? `: ${cell.hasData ? `${cell.accuracy}%` : "no data"}` : ""}${isDead ? " \u2014 dead key (waits for the next press)" : ""}${isLocked ? (interactive ? " (locked \u2014 click to add)" : " (locked)") : ""}`}
             >
-                <span className={`leading-none ${showPercent ? "absolute left-1 top-1 text-sm sm:left-1.5 sm:top-1.5 sm:text-base" : ""}`}>
+                <span className={`leading-none ${showPercent ? labelClass : ""}`}>
                     {isSpace && !showPercent ? "\u00a0" : label}
                 </span>
                 {shiftHint &&
@@ -243,7 +252,7 @@ export function KeyHeatmap(props: KeyHeatmapProps) {
                     </span>
                 }
                 {showPercent &&
-                    <span className="pointer-events-none absolute bottom-0.5 right-1 text-[0.6rem] leading-none drop-shadow-sm sm:bottom-1 sm:right-1.5 sm:text-xs">
+                    <span className={`pointer-events-none ${percentClass}`}>
                         {cell.accuracy}%
                     </span>
                 }

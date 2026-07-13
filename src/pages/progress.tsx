@@ -53,13 +53,13 @@ type HeroTrend = "up" | "down" | "flat";
 // current; skipped calendar dates contribute nothing.
 function HeroDeltaLine(props: { start: number | null; current: number; delta: number | null; trend: HeroTrend }) {
     const color = props.trend === "up" ? "text-success" : props.trend === "down" ? "text-error" : "text-base-content";
-    // labelTop hugs the delta text to the line segment under it: above the low
-    // "up" segment, below the high "down" segment, just above the flat line.
+    // Every sign gets the same reserved label lane above the line. Keeping both
+    // line levels in the lower half means +, -, and 0 can never collide with it.
     const geo = props.trend === "down"
-        ? { path: "M0 16 H60 L68 34 H100", leftTop: "40%", rightTop: "85%", labelTop: "1.2rem" }
+        ? { path: "M0 26 H58 L68 34 H100", leftTop: "65%", rightTop: "85%" }
         : props.trend === "up"
-            ? { path: "M0 34 H60 L68 16 H100", leftTop: "85%", rightTop: "40%", labelTop: "1.3rem" }
-            : { path: "M0 25 H100", leftTop: "62.5%", rightTop: "62.5%", labelTop: "0.5rem" };
+            ? { path: "M0 34 H58 L68 26 H100", leftTop: "85%", rightTop: "65%" }
+            : { path: "M0 34 H100", leftTop: "85%", rightTop: "85%" };
 
     return (
         <div data-testid="headline-start-current" className="flex items-center gap-3 sm:gap-5">
@@ -69,8 +69,8 @@ function HeroDeltaLine(props: { start: number | null; current: number; delta: nu
                 </div>
                 <div className="text-[0.65rem] font-semibold uppercase tracking-wide text-base-content/50">Start</div>
             </div>
-            <div className={`relative h-14 flex-1 ${color}`}>
-                <div className="absolute left-1/2 -translate-x-1/2 whitespace-nowrap text-center" style={{ top: geo.labelTop }}>
+            <div className={`relative h-16 flex-1 ${color}`} data-trend={props.trend}>
+                <div className="absolute left-1/2 top-0 -translate-x-1/2 whitespace-nowrap text-center">
                     {props.delta !== null ? (
                         <div className="font-mono text-2xl font-bold">{formatSigned(props.delta)}</div>
                     ) : (
@@ -167,7 +167,7 @@ function ProgressLoadingSkeleton() {
                                 <SkeletonBlock className="h-8 w-24" />
                             </div>
                         </div>
-                        <div className="relative h-64 overflow-hidden rounded-md border border-base-content/10 bg-base-200/25">
+                        <div className="relative h-48 overflow-hidden rounded-md border border-base-content/10 bg-base-200/25">
                             <SkeletonBlock className="absolute bottom-8 left-8 h-36 w-px" />
                             <SkeletonBlock className="absolute bottom-8 left-8 h-px w-[88%]" />
                             <SkeletonBlock className="absolute left-[16%] top-[54%] h-2 w-2 rounded-full" />
@@ -233,6 +233,8 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
     const [period, setPeriod] = useState<ProgressPeriod>(30);
     const [trendMetric, setTrendMetric] = useState<TrendMetric>("wpm");
     const [shareState, setShareState] = useState<"idle" | "sharing" | "copied">("idle");
+    const [showAllTransitions, setShowAllTransitions] = useState(false);
+    const [showAllRecords, setShowAllRecords] = useState(false);
     // The board the heatmap below renders (and whose stats pool feeds it).
     const [activeBoardLayout] = useLayout();
     // Heatmap layer switches: attempts are stored unfolded (char-keyed), so the
@@ -419,7 +421,7 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
                 spots). The three things that matter, no scrolling. */}
             <div className="grid gap-4 lg:grid-cols-3">
                 <div className="space-y-4 lg:col-span-2">
-                    <div data-testid="headline-delta" className="rounded-xl border border-base-content/10 bg-base-100/45 p-6">
+                    <div data-testid="headline-delta" className="rounded-xl border border-base-content/10 bg-base-100/45 p-4">
                         {plateau.plateaued ? (
                             <div data-testid="plateau-headline">
                                 <div className="font-mono text-3xl font-bold text-base-content">Plateaued for {plateau.weeks} weeks</div>
@@ -491,12 +493,12 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
                     the column so its footprint is the same whether sparse or full;
                     the transitions list scrolls inside when it's long, so the card
                     never grows taller than the chart beside it. */}
-                <div data-testid="weak-spots" className="flex h-full flex-col gap-4 rounded-xl border border-primary/25 bg-primary/5 p-5 lg:col-span-1">
+                <div data-testid="weak-spots" className="flex h-full flex-col gap-3 rounded-xl border border-primary/25 bg-primary/5 p-4 lg:col-span-1">
                         <div className="text-lg font-semibold text-base-content">Weak spots → drill</div>
 
                         {/* Center the content so a sparse card reads as balanced, not
                             top-heavy with a void; a long transitions list scrolls. */}
-                        <div className="flex min-h-0 flex-1 flex-col gap-4">
+                        <div className="flex min-h-0 flex-1 flex-col gap-3">
                             {topWeakKeys.length === 0 && slowTransitions.length === 0 && (
                                 <p data-testid="weak-spots-empty" className="m-auto max-w-[16rem] text-center text-sm text-base-content/45">
                                     Take more tests to reveal your weakest keys and slowest transitions to drill.
@@ -525,7 +527,7 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
                                 <div data-testid="worst-transitions" className="flex min-h-0 flex-col">
                                     <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-base-content/45">Slowest transitions</p>
                                     <ul className="flex flex-col gap-2 overflow-y-auto pr-1">
-                                        {slowTransitions.map((t) => (
+                                        {slowTransitions.slice(0, showAllTransitions ? undefined : 3).map((t) => (
                                             <li key={t.pair} className="flex items-center justify-between gap-2 rounded-md border border-base-content/10 bg-base-200/40 px-3 py-2">
                                                 <span className="text-sm text-base-content/90">
                                                     <span className="font-mono font-bold text-base-content">{t.from}→{t.to}</span> · {t.ratio.toFixed(1)}× avg
@@ -539,6 +541,16 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
                                             </li>
                                         ))}
                                     </ul>
+                                    {slowTransitions.length > 3 && (
+                                        <button
+                                            type="button"
+                                            data-testid="transitions-disclosure"
+                                            onClick={() => setShowAllTransitions((shown) => !shown)}
+                                            className="mt-2 inline-flex min-h-8 items-center self-start text-xs font-medium text-base-content/60 transition-colors hover:text-base-content focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                                        >
+                                            {showAllTransitions ? "Show less ↑" : `View ${slowTransitions.length - 3} more →`}
+                                        </button>
+                                    )}
                                 </div>
                             )}
                         </div>
@@ -546,22 +558,22 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
             </div>
 
             <div className="grid gap-4 lg:grid-cols-3">
-                <div data-testid="lifetime-keyboard-card" className="rounded-lg border border-base-content/10 bg-base-100/45 p-3 sm:p-5 lg:col-span-2">
-                    <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div data-testid="lifetime-keyboard-card" className="rounded-lg border border-base-content/10 bg-base-100/45 p-3 lg:col-span-2">
+                    <div className="mb-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         {/* "Your keyboard", not "Lifetime": per-key accuracy is a rolling
                             window of recent attempts (ADR-0005), not an all-time sum. */}
                         <div className="text-base font-semibold text-base-content">Your keyboard</div>
                         <KeyHeatmapLegend />
                     </div>
                     <div className="flex w-full justify-center overflow-x-auto pb-1">
-                        <KeyHeatmap attempts={props.keyAttempts} size="full" showPercent={Object.keys(props.keyAttempts).length > 0} shiftLayer={heatmapShift} altgrLayer={heatmapAltgr} className="min-w-fit" testId="lifetime-heatmap" />
+                        <KeyHeatmap attempts={props.keyAttempts} size="compact" showPercent={Object.keys(props.keyAttempts).length > 0} shiftLayer={heatmapShift} altgrLayer={heatmapAltgr} className="min-w-fit" testId="lifetime-heatmap" />
                     </div>
                     {Object.keys(props.keyAttempts).length === 0 && (
                         <p className="mt-4 text-center text-sm text-base-content/45">Take more tests to color in your per-key accuracy.</p>
                     )}
                     {/* Layer switches sit bottom-left of the board itself - they
                         change what the board shows, so they live with it. */}
-                    <div className="mt-2 flex items-center justify-between gap-3">
+                    <div className="mt-1 flex items-center justify-between gap-3">
                         <div className="flex items-center gap-1" data-testid="lifetime-heatmap-layers">
                             <button
                                 type="button"
@@ -588,11 +600,11 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
                     </div>
                 </div>
 
-                <div data-testid="records-timeline" className="rounded-lg border border-base-content/10 bg-base-100/45 p-4 lg:col-span-1">
+                <div data-testid="records-timeline" className="flex flex-col rounded-lg border border-base-content/10 bg-base-100/45 p-4 lg:col-span-1">
                     <div className="mb-3 text-lg font-semibold text-base-content">Records</div>
                     {records.length > 0 ? (
                         <ul className="space-y-2">
-                            {records.slice(0, 6).map((event) => (
+                            {records.slice(0, showAllRecords ? 6 : 3).map((event) => (
                                 <li key={event.t} className="flex items-center justify-between gap-3 border-b border-base-content/10 pb-2 text-sm last:border-b-0 last:pb-0">
                                     <span className="shrink-0 text-base-content/60">{new Date(event.t).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}</span>
                                     <span className="text-right font-medium text-base-content">
@@ -603,6 +615,16 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
                         </ul>
                     ) : (
                         <p className="text-sm text-base-content/45">Your personal bests and first-milestone tests land here as you improve.</p>
+                    )}
+                    {records.length > 3 && (
+                        <button
+                            type="button"
+                            data-testid="records-disclosure"
+                            onClick={() => setShowAllRecords((shown) => !shown)}
+                            className="mt-auto inline-flex min-h-8 items-center self-start pt-2 text-xs font-medium text-base-content/60 transition-colors hover:text-base-content focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                        >
+                            {showAllRecords ? "Show less ↑" : `View ${Math.min(records.length, 6) - 3} more →`}
+                        </button>
                     )}
                 </div>
             </div>
