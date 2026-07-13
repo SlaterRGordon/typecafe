@@ -1,11 +1,11 @@
 // Goal-trajectory math (Phase 3 §3.5). Pure, unit-testable. Projects the user's
 // current WPM trend linearly and compares it to the pace needed to hit a target
 // by a date - honest about shortfall, never flattering. Assumptions: a simple
-// least-squares fit over per-test WPM (no weighting, no curve), extrapolated
+// least-squares fit over practiced-day median WPM (no weighting, no curve), extrapolated
 // linearly; real improvement curves bend, so treat the projected date as a
 // straight-line estimate, not a promise.
 
-import type { ProgressRecord } from "./progress"
+import { dailyProgressSeries, type ProgressRecord } from "./progress"
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -31,6 +31,8 @@ export interface Trajectory {
     // WPM/day needed from now to hit the target by the deadline (null if the
     // deadline has passed).
     requiredSlopePerDay: number | null
+    // WPM projected at the deadline, anchored to the latest practiced-day median.
+    projectedWpmAtDeadline: number | null
     onTrack: boolean
 }
 
@@ -52,16 +54,16 @@ function linearFit(points: { x: number; y: number }[]): { slope: number; interce
     return { slope, intercept: my - slope * mx }
 }
 
-export function projectTrajectory(records: ProgressRecord[], goal: Goal, now: Date): Trajectory {
+export function projectTrajectory(records: ProgressRecord[], goal: Goal, now: Date, utcOffsetMinutes = 0): Trajectory {
     const nowMs = now.getTime()
-    // x = days relative to now (past is negative), so the intercept is "now".
-    const points = records.map((r) => ({ x: (r.createdAt.getTime() - nowMs) / DAY_MS, y: r.wpm }))
+    const dailyPoints = dailyProgressSeries(records, "all", now, utcOffsetMinutes).points
+    const points = dailyPoints.map((point) => ({ x: (point.t - nowMs) / DAY_MS, y: point.wpm }))
     const fit = linearFit(points)
 
     const daysToDeadline = (goal.targetDate.getTime() - nowMs) / DAY_MS
 
     if (!fit) {
-        const currentWpm = points.length > 0 ? points[points.length - 1]!.y : 0
+        const currentWpm = dailyPoints.at(-1)?.wpm ?? 0
         return {
             enoughData: false,
             currentWpm,
@@ -73,11 +75,15 @@ export function projectTrajectory(records: ProgressRecord[], goal: Goal, now: Da
             targetDate: goal.targetDate,
             daysToDeadline,
             requiredSlopePerDay: daysToDeadline > 0 ? (goal.targetWpm - currentWpm) / daysToDeadline : null,
+            projectedWpmAtDeadline: null,
             onTrack: false,
         }
     }
 
-    const currentWpm = fit.intercept
+    // "Current" is an observed value, matching the hero; the fit only supplies
+    // the pace. This prevents a noisy fit from claiming the user is below the
+    // daily median they just achieved.
+    const currentWpm = dailyPoints.at(-1)!.wpm
     const slopePerDay = fit.slope
     const gapWpm = goal.targetWpm - currentWpm
 
@@ -89,7 +95,10 @@ export function projectTrajectory(records: ProgressRecord[], goal: Goal, now: Da
 
     const reachesTargetOn = daysToTarget === null ? null : new Date(nowMs + daysToTarget * DAY_MS)
     const requiredSlopePerDay = daysToDeadline > 0 ? gapWpm / daysToDeadline : null
-    const onTrack = gapWpm <= 0 || (daysToTarget !== null && daysToTarget <= daysToDeadline)
+    const projectedWpmAtDeadline = daysToDeadline > 0
+        ? Math.max(0, currentWpm + slopePerDay * daysToDeadline)
+        : null
+    const onTrack = gapWpm <= 0 || (projectedWpmAtDeadline !== null && projectedWpmAtDeadline >= goal.targetWpm)
 
     return {
         enoughData: true,
@@ -102,6 +111,7 @@ export function projectTrajectory(records: ProgressRecord[], goal: Goal, now: Da
         targetDate: goal.targetDate,
         daysToDeadline,
         requiredSlopePerDay,
+        projectedWpmAtDeadline,
         onTrack,
     }
 }

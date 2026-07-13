@@ -15,7 +15,7 @@ import {
     PROGRESS_PERIODS,
     bestWpm,
     currentStreak,
-    dailyWpmSeries,
+    dailyProgressSeries,
     filterByCalendarPeriod,
     heroDelta,
     linearTrend,
@@ -23,7 +23,6 @@ import {
     personalRecords,
     recordsForLanguage,
     rejectOutliers,
-    trendSeries,
     type ProgressPeriod,
     type ProgressRecord,
 } from "~/lib/progress";
@@ -54,10 +53,10 @@ type HeroTrend = "up" | "down" | "flat";
 function HeroDeltaLine(props: { start: number | null; current: number; delta: number | null; trend: HeroTrend }) {
     const color = props.trend === "up" ? "text-success" : props.trend === "down" ? "text-error" : "text-base-content";
     const geo = props.trend === "down"
-        ? { path: "M0 16 H60 L68 34 H100", leftTop: "40%", rightTop: "85%" }
+        ? { path: "M0 18 H54 L70 36 H100", leftTop: "45%", rightTop: "90%", labelTop: "1.9rem", placement: "below-high" }
         : props.trend === "up"
-            ? { path: "M0 34 H60 L68 16 H100", leftTop: "85%", rightTop: "40%" }
-            : { path: "M0 25 H100", leftTop: "62.5%", rightTop: "62.5%" };
+            ? { path: "M0 36 H54 L70 18 H100", leftTop: "90%", rightTop: "45%", labelTop: "0.6rem", placement: "above-low" }
+            : { path: "M0 32 H100", leftTop: "80%", rightTop: "80%", labelTop: "0.8rem", placement: "above-flat" };
 
     return (
         <div data-testid="headline-start-current" className="flex items-center gap-3 sm:gap-5">
@@ -67,8 +66,13 @@ function HeroDeltaLine(props: { start: number | null; current: number; delta: nu
                 </div>
                 <div className="text-[0.65rem] font-semibold uppercase tracking-wide text-base-content/50">Start</div>
             </div>
-            <div className={`relative h-14 flex-1 ${color}`}>
-                <div className="absolute left-1/2 top-[-0.5rem] -translate-x-1/2 whitespace-nowrap text-center">
+            <div className={`relative h-16 flex-1 ${color}`} data-trend={props.trend}>
+                <div
+                    data-testid="headline-delta-value"
+                    data-placement={geo.placement}
+                    className="absolute left-[44%] z-10 -translate-x-1/2 whitespace-nowrap text-center"
+                    style={{ top: geo.labelTop }}
+                >
                     {props.delta !== null ? (
                         <div className="font-mono text-2xl font-bold">{formatSigned(props.delta)}</div>
                     ) : (
@@ -165,7 +169,7 @@ function ProgressLoadingSkeleton() {
                                 <SkeletonBlock className="h-8 w-24" />
                             </div>
                         </div>
-                        <div className="relative h-64 overflow-hidden rounded-md border border-base-content/10 bg-base-200/25">
+                        <div className="relative h-48 overflow-hidden rounded-md border border-base-content/10 bg-base-200/25">
                             <SkeletonBlock className="absolute bottom-8 left-8 h-36 w-px" />
                             <SkeletonBlock className="absolute bottom-8 left-8 h-px w-[88%]" />
                             <SkeletonBlock className="absolute left-[16%] top-[54%] h-2 w-2 rounded-full" />
@@ -255,41 +259,40 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
         () => filterByCalendarPeriod(cleanRecords, period, now, utcOffsetMinutes),
         [cleanRecords, period, now, utcOffsetMinutes],
     );
-    const series = useMemo(() => trendSeries(inPeriod, "all", now), [inPeriod, now]);
-    const dailyWpm = useMemo(
-        () => dailyWpmSeries(cleanRecords, period, now, utcOffsetMinutes),
+    const dailyProgress = useMemo(
+        () => dailyProgressSeries(cleanRecords, period, now, utcOffsetMinutes),
         [cleanRecords, period, now, utcOffsetMinutes],
     );
     const records = useMemo(() => personalRecords(cleanRecords), [cleanRecords]);
 
     // Straight least-squares fit per metric - one readable line instead of a
     // wiggly rolling average, aligned 1:1 with the scatter points.
-    const fitLine = useCallback((values: number[]) => {
-        const line = linearTrend(series.points.map((p) => p.t), values);
-        return series.points.map((p) => line.at(p.t));
-    }, [series.points]);
+    const fitDailyLine = useCallback((values: number[]) => {
+        const line = linearTrend(dailyProgress.points.map((p) => p.t), values);
+        return dailyProgress.points.map((p) => line.at(p.t));
+    }, [dailyProgress.points]);
     const wpm = useMemo(() => {
-        const values = dailyWpm.points.map((p) => p.wpm);
-        return { values, trend: dailyWpm.trend };
-    }, [dailyWpm]);
+        const values = dailyProgress.points.map((p) => p.wpm);
+        return { values, trend: dailyProgress.trend };
+    }, [dailyProgress]);
     const accuracy = useMemo(() => {
-        const values = series.points.map((p) => p.accuracy);
-        return { values, trend: fitLine(values) };
-    }, [fitLine, series]);
+        const values = dailyProgress.points.map((p) => p.accuracy);
+        return { values, trend: fitDailyLine(values) };
+    }, [dailyProgress.points, fitDailyLine]);
     // Consistency only exists on tests recorded since the feature shipped; show the
     // chart once every point in the window has it (no mixing real values with 0s).
     const consistency = useMemo(() => {
-        const values = series.points.map((p) => p.consistency);
+        const values = dailyProgress.points.map((p) => p.consistency);
         if (values.length === 0 || values.some((v) => typeof v !== "number")) return null;
         const nums = values as number[];
-        return { values: nums, trend: fitLine(nums) };
-    }, [fitLine, series]);
+        return { values: nums, trend: fitDailyLine(nums) };
+    }, [dailyProgress.points, fitDailyLine]);
 
     // The hero compares observed daily medians: first practiced day in the
     // selected period → latest practiced day. The chart keeps its fitted trend.
-    const hero = useMemo(() => heroDelta(dailyWpm.points), [dailyWpm.points]);
+    const hero = useMemo(() => heroDelta(dailyProgress.points), [dailyProgress.points]);
     const plateau = useMemo(() => detectPlateau(cleanRecords, now), [cleanRecords, now]);
-    const slowTransitions = useMemo(() => worstTransitions(props.transitions), [props.transitions]);
+    const slowTransitions = useMemo(() => worstTransitions(props.transitions, Infinity), [props.transitions]);
     // The active language's accent chars (loaded on demand; [] for English) -
     // they let weak é/ü/ą show as drillable keys, and gate out keys from other
     // languages/layouts the user isn't currently on.
@@ -319,14 +322,14 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
     ];
     const activeMetric: TrendMetric = trendMetric === "consistency" && !consistency ? "wpm" : trendMetric;
     const trendConfig = {
-        wpm: { title: "WPM over time", points: dailyWpm.points, values: wpm.values, trend: wpm.trend, baseline: "zero" as const, suffix: "", pointKind: "daily" as const, trendLabel: "Daily median trend" },
-        accuracy: { title: "Accuracy over time", points: series.points, values: accuracy.values, trend: accuracy.trend, baseline: "fit" as const, suffix: "%", pointKind: "test" as const, trendLabel: "Trend" },
-        consistency: { title: "Consistency over time", points: series.points, values: consistency?.values ?? [], trend: consistency?.trend ?? [], baseline: "fit" as const, suffix: "%", pointKind: "test" as const, trendLabel: "Trend" },
+        wpm: { title: "WPM over time", points: dailyProgress.points, values: wpm.values, trend: wpm.trend, baseline: "zero" as const, suffix: "", pointKind: "daily" as const, trendLabel: "Daily median trend" },
+        accuracy: { title: "Accuracy over time", points: dailyProgress.points, values: accuracy.values, trend: accuracy.trend, baseline: "fit" as const, suffix: "%", pointKind: "daily" as const, trendLabel: "Daily average trend" },
+        consistency: { title: "Consistency over time", points: dailyProgress.points, values: consistency?.values ?? [], trend: consistency?.trend ?? [], baseline: "fit" as const, suffix: "%", pointKind: "daily" as const, trendLabel: "Daily average trend" },
     }[activeMetric];
 
-    const hasData = dailyWpm.points.length > 0;
+    const hasData = dailyProgress.points.length > 0;
     // A progress card only makes sense with a real delta to brag about.
-    const canShare = !!props.canShare && hero.delta !== null && dailyWpm.points.length > 0;
+    const canShare = !!props.canShare && hero.delta !== null && dailyProgress.points.length > 0;
 
     const shareProgress = async () => {
         if (hero.delta === null) return;
@@ -336,7 +339,7 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
                 snapshot: {
                     deltaWpm: hero.delta,
                     periodLabel: periodShareLabel(period),
-                    points: dailyWpm.points.slice(-2000).map((p) => ({ t: p.t, wpm: p.wpm })),
+                    points: dailyProgress.points.slice(-2000).map((p) => ({ t: p.t, wpm: p.wpm })),
                     streak: streak > 0 ? streak : undefined,
                     username: props.username ?? undefined,
                     generatedAt: Date.now(),
@@ -356,14 +359,6 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex flex-wrap items-center gap-2">
                     <h1 className="font-mono text-3xl font-bold tracking-tight">Progress</h1>
-                    <Chip testId="progress-language-chip" size="md" icon={<i className="fa-solid fa-globe" aria-hidden="true" />}>
-                        {languageMeta(props.language).label}
-                    </Chip>
-                    {/* Names the active board so an empty per-pool heatmap
-                        doesn't read as broken (ledger slice 8). */}
-                    <Chip testId="progress-layout-chip" size="md" icon={<i className="fa-regular fa-keyboard" aria-hidden="true" />}>
-                        {layoutMeta(activeBoardLayout).label}
-                    </Chip>
                     {streak > 0 && (
                         <Chip
                             testId="streak-chip"
@@ -374,6 +369,14 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
                             {streak}-day streak
                         </Chip>
                     )}
+                    <Chip testId="progress-language-chip" size="md" icon={<i className="fa-solid fa-globe" aria-hidden="true" />}>
+                        {languageMeta(props.language).label}
+                    </Chip>
+                    {/* Names the active board so an empty per-pool heatmap
+                        doesn't read as broken (ledger slice 8). */}
+                    <Chip testId="progress-layout-chip" size="md" icon={<i className="fa-regular fa-keyboard" aria-hidden="true" />}>
+                        {layoutMeta(activeBoardLayout).label}
+                    </Chip>
                     {hasData && (
                         <Chip
                             testId="best-wpm-chip"
@@ -417,7 +420,7 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
                 spots). The three things that matter, no scrolling. */}
             <div className="grid gap-4 lg:grid-cols-3">
                 <div className="space-y-4 lg:col-span-2">
-                    <div data-testid="headline-delta" className="rounded-xl border border-base-content/10 bg-base-100/45 p-6">
+                    <div data-testid="headline-delta" className="rounded-xl border border-base-content/10 bg-base-100/45 p-4">
                         {plateau.plateaued ? (
                             <div data-testid="plateau-headline">
                                 <div className="font-mono text-3xl font-bold text-base-content">Plateaued for {plateau.weeks} weeks</div>
@@ -447,7 +450,7 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
                             </>
                         )}
 
-                        {hasData && <GoalCard records={cleanRecords} now={now} />}
+                        {hasData && <GoalCard records={inPeriod} now={now} />}
                     </div>
 
                     {hasData ? (
@@ -458,7 +461,7 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
                             trend={trendConfig.trend}
                             trendLabel={trendConfig.trendLabel}
                             pointKind={trendConfig.pointKind}
-                            secondary={activeMetric === "wpm" && dailyWpm.bestTrend.length >= 2 ? dailyWpm.bestTrend : undefined}
+                            secondary={activeMetric === "wpm" && dailyProgress.bestTrend.length >= 2 ? dailyProgress.bestTrend : undefined}
                             secondaryLabel="Daily best trend"
                             baseline={trendConfig.baseline}
                             valueSuffix={trendConfig.suffix}
@@ -483,18 +486,59 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
                             Complete a few tests and your WPM, accuracy, and consistency trend appears here.
                         </div>
                     )}
+
+                    <div data-testid="lifetime-keyboard-card" className="rounded-lg border border-base-content/10 bg-base-100/45 p-3">
+                        <div className="mb-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            {/* "Your keyboard", not "Lifetime": per-key accuracy is a rolling
+                                window of recent attempts (ADR-0005), not an all-time sum. */}
+                            <div className="text-base font-semibold text-base-content">Your keyboard</div>
+                            <KeyHeatmapLegend />
+                        </div>
+                        <div className="flex w-full justify-center overflow-x-auto pb-1">
+                            <KeyHeatmap attempts={props.keyAttempts} size="compact" showPercent={Object.keys(props.keyAttempts).length > 0} shiftLayer={heatmapShift} altgrLayer={heatmapAltgr} className="min-w-fit" testId="lifetime-heatmap" />
+                        </div>
+                        {Object.keys(props.keyAttempts).length === 0 && (
+                            <p className="mt-4 text-center text-sm text-base-content/45">Take more tests to color in your per-key accuracy.</p>
+                        )}
+                        {/* Layer switches sit bottom-left of the board itself - they
+                            change what the board shows, so they live with it. */}
+                        <div className="mt-1 flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-1" data-testid="lifetime-heatmap-layers">
+                                <button
+                                    type="button"
+                                    className={`btn btn-xs normal-case ${heatmapShift ? "btn-primary" : "btn-ghost text-base-content/60"}`}
+                                    aria-pressed={heatmapShift}
+                                    onClick={() => { setHeatmapShift((on) => !on); setHeatmapAltgr(false); }}
+                                >
+                                    ⇧ shift
+                                </button>
+                                {boardHasAltGr && (
+                                    <button
+                                        type="button"
+                                        className={`btn btn-xs normal-case ${heatmapAltgr ? "btn-primary" : "btn-ghost text-base-content/60"}`}
+                                        aria-pressed={heatmapAltgr}
+                                        onClick={() => { setHeatmapAltgr((on) => !on); setHeatmapShift(false); }}
+                                    >
+                                        AltGr
+                                    </button>
+                                )}
+                            </div>
+                            <Link href="/how-we-measure" className="text-xs text-base-content/45 underline-offset-2 hover:text-base-content/70 hover:underline">
+                                How these numbers work →
+                            </Link>
+                        </div>
+                    </div>
                 </div>
 
-                {/* Weak spots → drill, beside the hero + chart. Stretches to fill
-                    the column so its footprint is the same whether sparse or full;
-                    the transitions list scrolls inside when it's long, so the card
-                    never grows taller than the chart beside it. */}
-                <div data-testid="weak-spots" className="flex h-full flex-col gap-4 rounded-xl border border-primary/25 bg-primary/5 p-5 lg:col-span-1">
+                <div className="space-y-4 lg:col-span-1">
+                {/* Weak spots → drill has its own height; long evidence scrolls
+                    inside without changing the rhythm of the left column. */}
+                <div data-testid="weak-spots" className="flex flex-col gap-3 rounded-xl border border-primary/25 bg-primary/5 p-4">
                         <div className="text-lg font-semibold text-base-content">Weak spots → drill</div>
 
                         {/* Center the content so a sparse card reads as balanced, not
                             top-heavy with a void; a long transitions list scrolls. */}
-                        <div className="flex min-h-0 flex-1 flex-col gap-4">
+                        <div className="flex min-h-0 flex-1 flex-col gap-3">
                             {topWeakKeys.length === 0 && slowTransitions.length === 0 && (
                                 <p data-testid="weak-spots-empty" className="m-auto max-w-[16rem] text-center text-sm text-base-content/45">
                                     Take more tests to reveal your weakest keys and slowest transitions to drill.
@@ -522,7 +566,11 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
                             {slowTransitions.length > 0 && (
                                 <div data-testid="worst-transitions" className="flex min-h-0 flex-col">
                                     <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-base-content/45">Slowest transitions</p>
-                                    <ul className="flex flex-col gap-2 overflow-y-auto pr-1">
+                                    <ul
+                                        aria-label="Slowest transitions"
+                                        tabIndex={0}
+                                        className="flex flex-col gap-2 pr-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary lg:max-h-72 lg:overflow-y-auto lg:overscroll-contain"
+                                    >
                                         {slowTransitions.map((t) => (
                                             <li key={t.pair} className="flex items-center justify-between gap-2 rounded-md border border-base-content/10 bg-base-200/40 px-3 py-2">
                                                 <span className="text-sm text-base-content/90">
@@ -541,56 +589,16 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
                             )}
                         </div>
                     </div>
-            </div>
 
-            <div className="grid gap-4 lg:grid-cols-3">
-                <div data-testid="lifetime-keyboard-card" className="rounded-lg border border-base-content/10 bg-base-100/45 p-3 sm:p-5 lg:col-span-2">
-                    <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        {/* "Your keyboard", not "Lifetime": per-key accuracy is a rolling
-                            window of recent attempts (ADR-0005), not an all-time sum. */}
-                        <div className="text-base font-semibold text-base-content">Your keyboard</div>
-                        <KeyHeatmapLegend />
-                    </div>
-                    <div className="flex w-full justify-center overflow-x-auto pb-1">
-                        <KeyHeatmap attempts={props.keyAttempts} size="full" showPercent={Object.keys(props.keyAttempts).length > 0} shiftLayer={heatmapShift} altgrLayer={heatmapAltgr} className="min-w-fit" testId="lifetime-heatmap" />
-                    </div>
-                    {Object.keys(props.keyAttempts).length === 0 && (
-                        <p className="mt-4 text-center text-sm text-base-content/45">Take more tests to color in your per-key accuracy.</p>
-                    )}
-                    {/* Layer switches sit bottom-left of the board itself - they
-                        change what the board shows, so they live with it. */}
-                    <div className="mt-2 flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-1" data-testid="lifetime-heatmap-layers">
-                            <button
-                                type="button"
-                                className={`btn btn-xs normal-case ${heatmapShift ? "btn-primary" : "btn-ghost text-base-content/60"}`}
-                                aria-pressed={heatmapShift}
-                                onClick={() => { setHeatmapShift((on) => !on); setHeatmapAltgr(false); }}
-                            >
-                                ⇧ shift
-                            </button>
-                            {boardHasAltGr && (
-                                <button
-                                    type="button"
-                                    className={`btn btn-xs normal-case ${heatmapAltgr ? "btn-primary" : "btn-ghost text-base-content/60"}`}
-                                    aria-pressed={heatmapAltgr}
-                                    onClick={() => { setHeatmapAltgr((on) => !on); setHeatmapShift(false); }}
-                                >
-                                    AltGr
-                                </button>
-                            )}
-                        </div>
-                        <Link href="/how-we-measure" className="text-xs text-base-content/45 underline-offset-2 hover:text-base-content/70 hover:underline">
-                            How these numbers work →
-                        </Link>
-                    </div>
-                </div>
-
-                <div data-testid="records-timeline" className="rounded-lg border border-base-content/10 bg-base-100/45 p-4 lg:col-span-1">
+                <div data-testid="records-timeline" className="flex flex-col rounded-lg border border-base-content/10 bg-base-100/45 p-4">
                     <div className="mb-3 text-lg font-semibold text-base-content">Records</div>
                     {records.length > 0 ? (
-                        <ul className="space-y-2">
-                            {records.slice(0, 6).map((event) => (
+                        <ul
+                            aria-label="Personal records"
+                            tabIndex={0}
+                            className="space-y-2 pr-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary lg:max-h-72 lg:overflow-y-auto lg:overscroll-contain"
+                        >
+                            {records.map((event) => (
                                 <li key={event.t} className="flex items-center justify-between gap-3 border-b border-base-content/10 pb-2 text-sm last:border-b-0 last:pb-0">
                                     <span className="shrink-0 text-base-content/60">{new Date(event.t).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}</span>
                                     <span className="text-right font-medium text-base-content">
@@ -603,6 +611,7 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
                         <p className="text-sm text-base-content/45">Your personal bests and first-milestone tests land here as you improve.</p>
                     )}
                 </div>
+            </div>
             </div>
         </div>
     );
@@ -705,7 +714,7 @@ const Progress: NextPage = () => {
                         </div>
                     ) : (
                         // No local history yet - the page is the signup pitch.
-                        <div data-testid="progress-signed-out" className="mt-10 w-full max-w-md space-y-4 text-center">
+                        <div data-testid="progress-signed-out" className="w-full max-w-md self-center space-y-4 text-center">
                             <h1 className="font-mono text-3xl font-bold tracking-tight">Your progress, kept forever</h1>
                             <p className="text-base-content/60">
                                 Sign in to track every test - your WPM trend, accuracy, and the chart that proves you&apos;re getting faster.

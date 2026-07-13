@@ -714,13 +714,25 @@ test.describe("screenshot tour", () => {
 
   test("progress dashboard (authenticated, rich history)", async ({ page }, testInfo) => {
     await mockAuthenticatedSession(page);
-    await mockTrpc(page, { keyStats: [
-      { character: "a", total: 200, correct: 198 },
-      { character: "e", total: 320, correct: 305 },
-      { character: "r", total: 120, correct: 96 },
-      { character: "t", total: 160, correct: 150 },
-      { character: "b", total: 60, correct: 42 },
-    ] });
+    await mockTrpc(page, {
+      keyStats: [
+        { character: "a", total: 200, correct: 198 },
+        { character: "e", total: 320, correct: 305 },
+        { character: "r", total: 120, correct: 96 },
+        { character: "t", total: 160, correct: 150 },
+        { character: "b", total: 60, correct: 42 },
+      ],
+      transitionStats: [
+        { pair: "br", count: 10, totalMs: 5000, errors: 2 },
+        { pair: "io", count: 10, totalMs: 4500, errors: 1 },
+        { pair: "rv", count: 10, totalMs: 4000, errors: 1 },
+        { pair: "dv", count: 10, totalMs: 3500, errors: 1 },
+        { pair: "eb", count: 10, totalMs: 3000, errors: 1 },
+        { pair: "gh", count: 10, totalMs: 2800, errors: 1 },
+        { pair: "th", count: 1000, totalMs: 100000, errors: 0 },
+      ],
+      sameDayProgress: true,
+    });
     // Suppress the weekly recap so this captures the steady-state dashboard.
     await page.addInitScript(() => window.localStorage.setItem("typecafe:lastRecapAt", String(Date.now())));
     await page.goto("/progress");
@@ -731,8 +743,21 @@ test.describe("screenshot tour", () => {
     await expect(page.getByText("Daily median trend", { exact: true })).toBeVisible();
     await expect(page.getByText("Daily best trend", { exact: true })).toBeVisible();
     await expect(page.getByTestId("weak-spots")).toContainText("b→r");
+    await expect(page.getByTestId("worst-transitions").locator("li")).toHaveCount(6);
+    expect(await page.getByTestId("records-timeline").locator("li").count()).toBeGreaterThan(5);
     await expect(page.getByTestId("lifetime-heatmap")).toBeVisible();
     await capture(page, testInfo, "40-progress-dashboard");
+    if (!testInfo.project.name.includes("mobile")) {
+      await page.getByTestId("trend-tabs").getByRole("button", { name: "Accuracy" }).click();
+      await expect(page.getByText("Daily average trend", { exact: true })).toBeVisible();
+      await capture(page, testInfo, "40d-progress-daily-accuracy");
+      await page.getByTestId("trend-tabs").getByRole("button", { name: "Consistency" }).click();
+      await capture(page, testInfo, "40e-progress-daily-consistency");
+      await page.getByTestId("trend-tabs").getByRole("button", { name: "WPM" }).click();
+      await page.getByRole("list", { name: "Slowest transitions" }).evaluate((list) => { list.scrollTop = list.scrollHeight; });
+      await page.getByRole("list", { name: "Personal records" }).evaluate((list) => { list.scrollTop = list.scrollHeight; });
+      await capture(page, testInfo, "40c-progress-scrolled-lists");
+    }
     if (!testInfo.project.name.includes("mobile")) {
       const tab = page.getByTestId("home-coach-tab-daily");
       await expect(tab).toBeVisible();
@@ -832,6 +857,18 @@ test.describe("screenshot tour", () => {
     await tab.hover();
     await expect(page.getByTestId("home-coach-tab-daily-panel")).toBeVisible();
     await capture(page, testInfo, "57-home-daily-coaching-tab");
+  });
+
+  test("home: targeted drill coach tab", async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name.includes("mobile"), "The rail coach tabs are desktop-only.");
+    await mockAuthenticatedSession(page);
+    await mockTrpc(page);
+    await gotoHome(page);
+    const tab = page.getByTestId("home-coach-tab-drill");
+    await expect(tab).toBeVisible();
+    await tab.hover();
+    await expect(page.getByTestId("home-coach-tab-drill-panel")).toBeVisible();
+    await capture(page, testInfo, "69-home-drill-coach-tab");
   });
 
   test("home: guest daily coaching tab", async ({ page }, testInfo) => {

@@ -26,6 +26,12 @@ function formatDate(date: Date): string {
     return date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
 }
 
+function parseGoalDate(value: string): Date {
+    // Date-only strings otherwise parse as UTC and can display as the previous
+    // day locally. A goal runs through the selected local calendar day.
+    return new Date(`${value}T23:59:59.999`)
+}
+
 const clampPct = (value: number) => Math.max(0, Math.min(100, value))
 
 // Goal trajectory (§3.5), folded into the hero: a target WPM + date becomes a
@@ -49,9 +55,9 @@ export function GoalCard(props: { records: ProgressRecord[]; now: Date }) {
 
     const trajectory = useMemo(() => {
         if (!goal) return null
-        const parsed: Goal = { targetWpm: goal.targetWpm, targetDate: new Date(goal.targetDate) }
+        const parsed: Goal = { targetWpm: goal.targetWpm, targetDate: parseGoalDate(goal.targetDate) }
         if (Number.isNaN(parsed.targetDate.getTime())) return null
-        return projectTrajectory(props.records, parsed, props.now)
+        return projectTrajectory(props.records, parsed, props.now, -props.now.getTimezoneOffset())
     }, [goal, props.records, props.now])
 
     const save = () => {
@@ -72,7 +78,7 @@ export function GoalCard(props: { records: ProgressRecord[]; now: Date }) {
     // No goal yet: a one-liner that expands the editor.
     if (!editing && !goal) {
         return (
-            <div data-testid="goal-card" className="mt-4">
+            <div data-testid="goal-card" className="mt-2">
                 <button type="button" onClick={() => setEditing(true)} className="text-sm font-semibold text-primary hover:opacity-85">
                     Set a goal →
                 </button>
@@ -116,23 +122,30 @@ export function GoalCard(props: { records: ProgressRecord[]; now: Date }) {
 
     if (!goal) return null
 
-    // Where the fitted trend lands by the deadline - the "projected" marker.
-    const projectedWpm = trajectory && trajectory.enoughData
-        ? trajectory.currentWpm + trajectory.slopePerDay * trajectory.daysToDeadline
-        : null
+    const projectedWpm = trajectory?.projectedWpmAtDeadline ?? null
     const currentPct = trajectory ? clampPct((trajectory.currentWpm / goal.targetWpm) * 100) : 0
     const projectedPct = projectedWpm !== null ? clampPct((projectedWpm / goal.targetWpm) * 100) : null
+    const status = !trajectory || !trajectory.enoughData
+        ? { text: "Building projection", tone: "text-base-content/60" }
+        : trajectory.gapWpm <= 0
+            ? { text: "Goal reached", tone: "text-success" }
+            : trajectory.onTrack
+                ? { text: `On track${trajectory.reachesTargetOn ? ` · ${formatDate(trajectory.reachesTargetOn)}` : ""}`, tone: "text-success" }
+                : { text: `Behind${projectedWpm !== null ? ` · ${projectedWpm.toFixed(0)} projected` : ""}`, tone: "text-error" }
 
     return (
-        <div data-testid="goal-card" className="mt-4 border-t border-base-content/10 pt-4">
-            <div className="flex items-center justify-between gap-3">
-                <p className="text-sm text-base-content/70">Goal: <span className="font-semibold text-base-content">{goal.targetWpm} WPM</span> by {formatDate(new Date(goal.targetDate))}</p>
-                <button type="button" onClick={() => setEditing(true)} className="text-xs text-base-content/55 hover:text-base-content">Edit</button>
-            </div>
-
+        <div data-testid="goal-card" className="mt-3 flex flex-wrap items-center gap-3 rounded-lg border border-base-content/10 bg-base-200/30 px-3 py-2.5">
+            <p className="shrink-0 text-sm text-base-content/70">Goal: <span className="font-semibold text-base-content">{goal.targetWpm} WPM</span> by {formatDate(parseGoalDate(goal.targetDate))}</p>
             {/* Progress toward the goal, with a marker for where the current pace
                 projects you to land by the deadline. */}
-            <div className="relative mt-3 h-2.5 rounded-full bg-base-content/10">
+            <div
+                className="relative h-2 min-w-28 flex-1 rounded-full bg-base-content/10"
+                role="progressbar"
+                aria-label={`Progress toward ${goal.targetWpm} WPM goal`}
+                aria-valuemin={0}
+                aria-valuemax={goal.targetWpm}
+                aria-valuenow={Math.round(trajectory?.currentWpm ?? 0)}
+            >
                 <div className="absolute inset-y-0 left-0 rounded-full bg-primary" style={{ width: `${currentPct}%` }} />
                 {projectedPct !== null && (
                     <div
@@ -142,27 +155,8 @@ export function GoalCard(props: { records: ProgressRecord[]; now: Date }) {
                     />
                 )}
             </div>
-            <div className="mt-1 flex justify-between text-xs text-base-content/50">
-                <span>{(trajectory?.currentWpm ?? 0).toFixed(0)} now</span>
-                <span>{goal.targetWpm} goal</span>
-            </div>
-
-            {!trajectory || !trajectory.enoughData ? (
-                <p data-testid="goal-status" className="mt-2 text-sm text-base-content/60">Keep testing - once there&apos;s a trend, we&apos;ll project whether you&apos;re on pace.</p>
-            ) : trajectory.gapWpm <= 0 ? (
-                <p data-testid="goal-status" className="mt-2 text-sm font-medium text-success">Already there - you&apos;re averaging {trajectory.currentWpm.toFixed(1)} WPM. Time for a higher target.</p>
-            ) : trajectory.onTrack ? (
-                <p data-testid="goal-status" className="mt-2 text-sm font-medium text-success">
-                    On track - at +{(trajectory.slopePerDay * 7).toFixed(1)} WPM/week you&apos;ll hit {goal.targetWpm} around {trajectory.reachesTargetOn ? formatDate(trajectory.reachesTargetOn) : "soon"}.
-                </p>
-            ) : (
-                <p data-testid="goal-status" className="mt-2 text-sm font-medium text-error">
-                    Behind - {projectedWpm !== null ? `you're projected to reach ~${projectedWpm.toFixed(0)} WPM by ${formatDate(new Date(goal.targetDate))}. ` : ""}
-                    {trajectory.requiredSlopePerDay !== null
-                        ? `Need +${(trajectory.requiredSlopePerDay * 7).toFixed(1)} WPM/week (you're at +${(trajectory.slopePerDay * 7).toFixed(1)}).`
-                        : "That date has passed - pick a new one."}
-                </p>
-            )}
+            <p data-testid="goal-status" className={`shrink-0 text-xs font-medium ${status.tone}`}>{status.text}</p>
+            <button type="button" onClick={() => setEditing(true)} className="min-h-8 shrink-0 text-xs text-base-content/55 hover:text-base-content">Edit</button>
         </div>
     )
 }

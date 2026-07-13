@@ -69,8 +69,8 @@ function formatMetric(value: number, suffix = ""): string {
     return `${value.toFixed(1)}${suffix}`
 }
 
-// Per-test scatter with a rolling-average line - the chart that proves "am I
-// getting faster?" (§3.1.2). Pure presentation; renders for 1, 10, or 1,000 points.
+// Progress scatter with its fitted line - the chart that proves "am I getting
+// faster?" Pure presentation; renders for 1, 10, or 1,000 grouped points.
 export function TrendChart(props: TrendChartProps) {
     const titleId = useId()
     const descId = useId()
@@ -80,8 +80,10 @@ export function TrendChart(props: TrendChartProps) {
 
     const layout = useMemo(() => {
         const width = 640
-        const height = 260
-        const padding = { top: 20, right: 20, bottom: 34, left: 44 }
+        // The SVG is width-responsive, so its viewBox height is the actual
+        // vertical budget. Keep the plot compact enough for the dashboard fold.
+        const height = 140
+        const padding = { top: 12, right: 20, bottom: 24, left: 44 }
         const chartWidth = width - padding.left - padding.right
         const chartHeight = height - padding.top - padding.bottom
 
@@ -172,10 +174,12 @@ export function TrendChart(props: TrendChartProps) {
                     <div className="text-lg font-semibold text-base-content" id={titleId}>{props.title}</div>
                     {props.action}
                 </div>
-                {props.secondary && props.secondary.length > 0 && (
+                {(props.trendLabel || (props.secondary && props.secondary.length > 0)) && (
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-base-content/60">
                         <span className="flex items-center gap-1.5"><span className="inline-block h-[2px] w-4 bg-current opacity-90" />{props.trendLabel ?? "Trend"}</span>
-                        <span className="flex items-center gap-1.5"><span className="inline-block h-[2px] w-4 bg-current opacity-40" style={{ borderTop: "2px dashed currentColor", background: "transparent" }} />{props.secondaryLabel ?? "Best/day"}</span>
+                        {props.secondary && props.secondary.length > 0 && (
+                            <span className="flex items-center gap-1.5"><span className="inline-block h-[2px] w-4 bg-current opacity-40" style={{ borderTop: "2px dashed currentColor", background: "transparent" }} />{props.secondaryLabel ?? "Best/day"}</span>
+                        )}
                     </div>
                 )}
             </div>

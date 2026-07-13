@@ -19,6 +19,7 @@ describe("projectTrajectory", () => {
         expect(t.enoughData).toBe(true)
         expect(t.currentWpm).toBeCloseTo(70, 0)
         expect(t.slopePerDay).toBeCloseTo(1, 3)
+        expect(t.projectedWpmAtDeadline).toBeCloseTo(130, 0)
         // 30 WPM gap at 1/day → ~30 days out.
         expect(t.daysToTarget).toBeCloseTo(30, 0)
         // Reaches it in 30 days, deadline is 60 → on track.
@@ -59,6 +60,21 @@ describe("projectTrajectory", () => {
         expect(t.enoughData).toBe(false)
         expect(t.currentWpm).toBe(70)
         expect(t.requiredSlopePerDay).toBeCloseTo((100 - 70) / 30, 3)
+        expect(t.projectedWpmAtDeadline).toBeNull()
+    })
+
+    it("uses practiced-day medians and anchors current WPM to the latest day", () => {
+        const records = [
+            rec(10, 40), rec(10, 60),
+            rec(0, 65), rec(0, 75),
+        ]
+        const goal: Goal = { targetWpm: 100, targetDate: new Date(NOW.getTime() + 30 * DAY_MS) }
+        const t = projectTrajectory(records, goal, NOW)
+
+        expect(t.currentWpm).toBe(70)
+        expect(t.slopePerDay).toBeCloseTo(2, 3)
+        expect(t.projectedWpmAtDeadline).toBeCloseTo(130, 0)
+        expect(t.onTrack).toBe(true)
     })
 
     it("has a null required pace once the deadline has passed", () => {

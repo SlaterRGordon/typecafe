@@ -58,7 +58,19 @@ test.describe("progress dashboard", () => {
 
   test("a signed-in user with history sees their delta, trends, and weak spots", async ({ page }) => {
     await mockAuthenticatedSession(page);
-    await mockTrpc(page, { keyStats: [{ character: "r", total: 120, correct: 96 }, { character: "e", total: 300, correct: 290 }] });
+    await mockTrpc(page, {
+      keyStats: [{ character: "r", total: 120, correct: 96 }, { character: "e", total: 300, correct: 290 }],
+      transitionStats: [
+        { pair: "br", count: 10, totalMs: 5000, errors: 2 },
+        { pair: "io", count: 10, totalMs: 4500, errors: 1 },
+        { pair: "rv", count: 10, totalMs: 4000, errors: 1 },
+        { pair: "dv", count: 10, totalMs: 3500, errors: 1 },
+        { pair: "eb", count: 10, totalMs: 3000, errors: 1 },
+        { pair: "gh", count: 10, totalMs: 2800, errors: 1 },
+        { pair: "th", count: 1000, totalMs: 100000, errors: 0 },
+      ],
+      sameDayProgress: true,
+    });
     await page.addInitScript(() => window.localStorage.setItem("typecafe:lastRecapAt", String(Date.now())));
     await gotoProgress(page);
 
@@ -67,6 +79,7 @@ test.describe("progress dashboard", () => {
     const headline = page.getByTestId("headline-delta");
     await expect(headline).toBeVisible();
     await expect(headline.getByText(/\+\d/)).toBeVisible();
+    await expect(page.getByTestId("headline-delta-value")).toHaveAttribute("data-placement", "above-low");
     await expect(headline.getByText("WPM").first()).toBeVisible();
     await expect(page.getByTestId("headline-start-current")).toContainText("Start");
     await expect(page.getByTestId("headline-current")).toContainText("Current daily median");
@@ -88,15 +101,20 @@ test.describe("progress dashboard", () => {
     await expect(page.getByTestId("trend-tooltip")).toContainText("Average consistency");
     await page.getByTestId("trend-point-0").focus();
     await expect(page.getByTestId("trend-tooltip")).toContainText("Median net WPM");
+    const dailyPointCount = await page.locator('[data-testid^="trend-point-"]').count();
+    expect(dailyPointCount).toBeGreaterThan(1);
     const trendTabs = page.getByTestId("trend-tabs");
     await trendTabs.getByRole("button", { name: "Accuracy" }).click();
     await expect(page.getByText("Accuracy over time", { exact: true })).toBeVisible();
+    await expect(page.getByText("Daily average trend", { exact: true })).toBeVisible();
+    await expect(page.locator('[data-testid^="trend-point-"]')).toHaveCount(dailyPointCount);
     await page.getByTestId("trend-point-0").hover();
-    await expect(page.getByTestId("trend-tooltip")).toContainText("Accuracy");
+    await expect(page.getByTestId("trend-tooltip")).toContainText("Average accuracy");
     await trendTabs.getByRole("button", { name: "Consistency" }).click();
     await expect(page.getByText("Consistency over time", { exact: true })).toBeVisible();
+    await expect(page.locator('[data-testid^="trend-point-"]')).toHaveCount(dailyPointCount);
     await page.getByTestId("trend-point-0").hover();
-    await expect(page.getByTestId("trend-tooltip")).toContainText("Consistency");
+    await expect(page.getByTestId("trend-tooltip")).toContainText("Average consistency");
     await trendTabs.getByRole("button", { name: "WPM" }).click();
     await expect(page.getByText("WPM over time", { exact: true })).toBeVisible();
     await page.getByTestId("period-switcher").getByRole("button", { name: "7d" }).click();
@@ -137,9 +155,30 @@ test.describe("progress dashboard", () => {
     const transitions = page.getByTestId("worst-transitions");
     await expect(transitions).toContainText("b→r");
     await expect(transitions.getByRole("link", { name: "Drill br" })).toBeVisible();
+    await expect(transitions.locator("li")).toHaveCount(6);
+    await expect(page.getByTestId("transitions-disclosure")).toHaveCount(0);
+    const transitionList = transitions.getByRole("list", { name: "Slowest transitions" });
 
-    // The records timeline still anchors the bottom of the story.
-    await expect(page.getByTestId("records-timeline")).toBeVisible();
+    // Long evidence stays available in an inline scroll region—no disclosure
+    // state or arbitrary result cutoff.
+    const records = page.getByTestId("records-timeline");
+    await expect(records).toBeVisible();
+    expect(await records.locator("li").count()).toBeGreaterThan(5);
+    await expect(page.getByTestId("records-disclosure")).toHaveCount(0);
+    const recordsList = records.getByRole("list", { name: "Personal records" });
+
+    if ((page.viewportSize()?.width ?? 0) >= 1024) {
+      await expect.poll(() => transitionList.evaluate((list) => list.scrollHeight > list.clientHeight)).toBe(true);
+      await expect.poll(() => recordsList.evaluate((list) => list.scrollHeight > list.clientHeight)).toBe(true);
+
+      // The dashboard columns stack independently: the keyboard starts while
+      // the taller drill card is still running beside it, rather than waiting.
+      const keyboardBox = await page.getByTestId("lifetime-keyboard-card").boundingBox();
+      const weakBox = await page.getByTestId("weak-spots").boundingBox();
+      expect(keyboardBox).not.toBeNull();
+      expect(weakBox).not.toBeNull();
+      expect(keyboardBox!.y).toBeLessThan(weakBox!.y + weakBox!.height);
+    }
 
     // Removed in slice 6: the 1-user self-league trap and the on-page challenge.
     await expect(page.getByTestId("self-league-card")).toHaveCount(0);
@@ -208,7 +247,7 @@ test.describe("progress dashboard", () => {
     await goal.getByLabel("Target date").fill(soon);
     await goal.getByRole("button", { name: "Update goal" }).click();
     await expect(page.getByTestId("goal-status")).toContainText("Behind");
-    await expect(page.getByTestId("goal-status")).toContainText("WPM/week");
+    await expect(page.getByTestId("goal-status")).toContainText("projected");
   });
 
   test("a flat trend shows the plateau coach voice", async ({ page }) => {
@@ -254,6 +293,15 @@ test.describe("progress dashboard", () => {
     await expect(page.getByRole("button", { name: "Take a test first" })).toBeVisible();
   });
 
+  test("a falling hero keeps its delta below the high side of the line", async ({ page }) => {
+    await mockAuthenticatedSession(page);
+    await mockTrpc(page, { fallingProgress: true });
+    await gotoProgress(page);
+
+    await expect(page.getByTestId("headline-start-current").locator('[data-trend="down"]')).toBeVisible();
+    await expect(page.getByTestId("headline-delta-value")).toHaveAttribute("data-placement", "below-high");
+  });
+
   test("one practiced day builds a baseline; a second is not required on the same week", async ({ page }) => {
     await page.addInitScript(() => {
       window.localStorage.setItem("typecafe:progressHistory", JSON.stringify([
@@ -263,6 +311,7 @@ test.describe("progress dashboard", () => {
     await gotoProgress(page);
 
     await expect(page.getByTestId("baseline-calibration")).toContainText("Building baseline");
+    await expect(page.getByTestId("headline-delta-value")).toHaveAttribute("data-placement", "above-flat");
     await expect(page.getByTestId("headline-current")).toContainText("60.0");
   });
 

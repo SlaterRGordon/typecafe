@@ -371,7 +371,8 @@ export interface TrendPoint {
     wpm: number
     accuracy: number
     consistency?: number
-    // Present on the daily WPM series, where the plotted value is the median.
+    // Present on the daily progress series, where WPM is the day's median and
+    // the other metrics are daily averages.
     bestWpm?: number
     tests?: number
 }
@@ -432,7 +433,7 @@ export function trendSeries(
     }
 }
 
-export interface DailyWpmSeries {
+export interface DailyProgressSeries {
     points: TrendPoint[]
     trend: number[]
     bestTrend: { t: number; value: number }[]
@@ -443,15 +444,16 @@ function dayTimestamp(day: string, utcOffsetMinutes: number): number {
     return Date.UTC(year!, month! - 1, date!, 12) - utcOffsetMinutes * 60 * 1000
 }
 
-// One equally weighted point per practiced local day. The median represents a
-// typical session without letting a grind-heavy day dominate the line; the
-// separate fitted best line keeps the user's ceiling visible and honest.
-export function dailyWpmSeries(
+// One equally weighted point per practiced local day. Median WPM represents a
+// typical session; accuracy and consistency are averaged within the same day.
+// A grind-heavy day therefore cannot dominate any metric's line. The separate
+// fitted best-WPM line keeps the user's ceiling visible and honest.
+export function dailyProgressSeries(
     records: ProgressRecord[],
     period: ProgressPeriod,
     now: Date,
     utcOffsetMinutes = 0,
-): DailyWpmSeries {
+): DailyProgressSeries {
     const byDay = new Map<string, ProgressRecord[]>()
     for (const record of filterByCalendarPeriod(records, period, now, utcOffsetMinutes)) {
         const day = record.day ?? dayKey(record.createdAt, utcOffsetMinutes)

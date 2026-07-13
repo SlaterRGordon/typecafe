@@ -327,6 +327,76 @@ test.describe("home typing test", () => {
     await expect(panel.getByRole("link", { name: "Start session" })).toHaveAttribute("href", "/?mode=timed&count=30");
   });
 
+  test("signed-in users get a coach tab that drills their slowest transition", async ({ page }, testInfo) => {
+    await mockAuthenticatedSession(page);
+    await mockTrpc(page);
+    await gotoHome(page);
+
+    if (testInfo.project.name.includes("mobile")) {
+      const inlineTab = page.getByTestId("home-coach-tab-drill-inline");
+      await expect(inlineTab).toBeVisible();
+      await expect(inlineTab.getByText("Fix this")).toBeVisible();
+      await expect(inlineTab).toContainText("b->r");
+      await expect(inlineTab.getByRole("link", { name: "Start drill" })).toHaveAttribute("href", "/drill?transitions=br");
+      await inlineTab.getByRole("button", { name: "Dismiss drill suggestion" }).click();
+      await expect(inlineTab).toBeHidden();
+      return;
+    }
+
+    const tab = page.getByTestId("home-coach-tab-drill");
+    await expect(tab).toBeVisible();
+    const collapsedLink = tab.getByRole("link", { name: "Targeted drill" });
+    await expect(collapsedLink).toHaveAttribute("href", "/drill?transitions=br");
+    const collapsedLabel = tab.getByText("Fix this");
+    await expect(collapsedLabel).toBeVisible();
+    await tab.hover();
+    const panel = page.getByTestId("home-coach-tab-drill-panel");
+    await expect(collapsedLink).toHaveCSS("opacity", "0");
+    await expect(panel).toContainText("b->r");
+    await expect(panel).toContainText("2.2x avg");
+    await expect(panel.getByRole("link", { name: "Start drill" })).toHaveAttribute("href", "/drill?transitions=br");
+
+    // Dismissible - and stays gone for the session.
+    await panel.getByRole("button", { name: "Dismiss drill suggestion" }).click();
+    await expect(tab).toBeHidden();
+  });
+
+  test("guests without history see no drill coach tab", async ({ page }) => {
+    await mockTrpc(page);
+    await gotoHome(page);
+    await expect(page.getByTestId("home-coach-tab-drill")).toBeHidden();
+    await expect(page.getByTestId("home-coach-tab-drill-inline")).toBeHidden();
+  });
+
+  test("guests with local history get the drill coach tab", async ({ page }, testInfo) => {
+    // Local-first: same transitions the signed-in mock serves, seeded as guest evidence.
+    await page.addInitScript(() => {
+      window.localStorage.setItem("typecafe:transitionStats", JSON.stringify([
+        { pair: "br", count: 12, totalMs: 4800, errors: 3 },
+        { pair: "th", count: 30, totalMs: 3000, errors: 0 },
+        { pair: "he", count: 25, totalMs: 3000, errors: 0 },
+        { pair: "io", count: 10, totalMs: 3000, errors: 1 },
+      ]));
+    });
+    await mockTrpc(page);
+    await gotoHome(page);
+
+    if (testInfo.project.name.includes("mobile")) {
+      const inlineTab = page.getByTestId("home-coach-tab-drill-inline");
+      await expect(inlineTab).toBeVisible();
+      await expect(inlineTab).toContainText("b->r");
+      await expect(inlineTab.getByRole("link", { name: "Start drill" })).toHaveAttribute("href", "/drill?transitions=br");
+      return;
+    }
+
+    const tab = page.getByTestId("home-coach-tab-drill");
+    await expect(tab).toBeVisible();
+    await tab.hover();
+    const panel = page.getByTestId("home-coach-tab-drill-panel");
+    await expect(panel).toContainText("b->r");
+    await expect(panel.getByRole("link", { name: "Start drill" })).toHaveAttribute("href", "/drill?transitions=br");
+  });
+
   test("desktop coach tabs persist after leaving home", async ({ page }, testInfo) => {
     test.skip(testInfo.project.name.includes("mobile"), "Rail coach tabs are desktop-only.");
     await mockAuthenticatedSession(page);
@@ -336,17 +406,22 @@ test.describe("home typing test", () => {
     await expect(page.getByTestId("home-coach-tab-daily")).toBeVisible();
     const nav = page.getByTestId("side-primary-nav");
     const tabBox = await page.getByTestId("home-coach-tab-daily").boundingBox();
-    const todayBox = await nav.getByRole("link", { name: "Today's coaching" }).boundingBox();
-    const trainBox = await nav.getByRole("link", { name: "Train" }).boundingBox();
+    const dailyBox = await nav.getByRole("link", { name: "Daily coaching" }).boundingBox();
+    const progressBox = await nav.getByRole("link", { name: "Progress" }).boundingBox();
     expect(tabBox).not.toBeNull();
-    expect(todayBox).not.toBeNull();
-    expect(trainBox).not.toBeNull();
-    // The flyout is the Today nav entry's live detail - it sits beside it.
+    expect(dailyBox).not.toBeNull();
+    expect(progressBox).not.toBeNull();
+    // Each flyout is its nav entry's live detail - it sits beside it: the
+    // daily tab beside Daily Coach, the drill tab beside Progress.
     const tabCenterY = tabBox!.y + tabBox!.height / 2;
-    const todayCenterY = todayBox!.y + todayBox!.height / 2;
-    const trainCenterY = trainBox!.y + trainBox!.height / 2;
-    expect(Math.abs(tabCenterY - todayCenterY)).toBeLessThanOrEqual(2);
-    expect(Math.abs(tabCenterY - trainCenterY)).toBeGreaterThan(16);
+    const dailyCenterY = dailyBox!.y + dailyBox!.height / 2;
+    const progressCenterY = progressBox!.y + progressBox!.height / 2;
+    expect(Math.abs(tabCenterY - dailyCenterY)).toBeLessThanOrEqual(2);
+    expect(Math.abs(tabCenterY - progressCenterY)).toBeGreaterThan(16);
+    const drillBox = await page.getByTestId("home-coach-tab-drill").boundingBox();
+    expect(drillBox).not.toBeNull();
+    const drillCenterY = drillBox!.y + drillBox!.height / 2;
+    expect(Math.abs(drillCenterY - progressCenterY)).toBeLessThanOrEqual(2);
     await page.getByRole("link", { name: "Progress" }).click();
     await expect(page).toHaveURL(/\/progress$/);
     await expect(page.getByTestId("headline-delta")).toBeVisible();
