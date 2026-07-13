@@ -66,7 +66,7 @@ interface KeyHeatmapProps {
 // Small padlock marking a key that's excluded from the current drill set.
 function LockBadge() {
     return (
-        <span className="typecafe-key-lock pointer-events-none absolute -left-1 -top-1 z-10 inline-flex h-4 w-4 items-center justify-center rounded-full border border-base-content/20 bg-base-300 text-base-content shadow-sm sm:h-[1.125rem] sm:w-[1.125rem]">
+        <span className="typecafe-key-lock pointer-events-none absolute -left-[0.3rem] -top-[0.3rem] z-10 inline-flex h-4 w-4 items-center justify-center rounded-full border border-base-content/20 bg-base-300 text-base-content shadow-sm sm:h-[1.125rem] sm:w-[1.125rem]">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-2.5 w-2.5" viewBox="0 0 24 24" aria-hidden="true">
                 <path fill="currentColor" d="M6 22q-.825 0-1.413-.588T4 20V10q0-.825.588-1.413T6 8h1V6q0-2.075 1.463-3.538T12 1q2.075 0 3.538 1.463T17 6v2h1q.825 0 1.413.588T20 10v10q0 .825-.588 1.413T18 22H6Zm0-2h12V10H6v10Zm6-3q.825 0 1.413-.588T14 15q0-.825-.588-1.413T12 13q-.825 0-1.413.588T10 15q0 .825.588 1.413T12 17ZM9 8h6V6q0-1.25-.875-2.125T12 3q-1.25 0-2.125.875T9 6v2Z" />
             </svg>
@@ -246,9 +246,9 @@ export function KeyHeatmap(props: KeyHeatmapProps) {
         })
         const tooltip = [
             `${label} key`,
-            interactive ? (isLocked ? "Locked — click to add to this drill" : "Unlocked — click to remove from this drill") : undefined,
+            interactive ? (isLocked ? "Locked - click to add to this drill" : "Unlocked - click to remove from this drill") : undefined,
             ...(showAccuracy ? layerLines : ["Training key"]),
-            isDead ? "Dead key — waits for the next press" : undefined,
+            isDead ? "Dead key - waits for the next press" : undefined,
         ].filter(Boolean).join("\n")
 
         return (
@@ -278,12 +278,12 @@ export function KeyHeatmap(props: KeyHeatmapProps) {
                     {isSpace && !showPercent && !interactive ? "\u00a0" : label}
                 </span>
                 {shiftHint &&
-                    <span aria-hidden="true" className="typecafe-layer-hint pointer-events-none absolute right-0.5 top-0.5 min-w-3 rounded-sm bg-black/20 px-0.5 text-center text-[0.6rem] font-bold leading-3 sm:right-1 sm:top-1 sm:text-[0.7rem]">
+                    <span aria-hidden="true" className="typecafe-layer-hint pointer-events-none absolute right-0 top-0 min-w-3 rounded-sm bg-black/20 p-0.5 text-center text-[0.6rem] font-bold leading-3 sm:right-0.5 sm:top-0.5 sm:text-[0.7rem]">
                         {shiftHint}
                     </span>
                 }
                 {altgrHint &&
-                    <span aria-hidden="true" className="typecafe-layer-hint pointer-events-none absolute bottom-0.5 left-0.5 min-w-3 rounded-sm bg-black/20 px-0.5 text-center text-[0.6rem] font-bold leading-3 sm:bottom-1 sm:left-1 sm:text-[0.7rem]">
+                    <span aria-hidden="true" className="typecafe-layer-hint pointer-events-none absolute bottom-0 left-0 min-w-3 rounded-sm bg-black/20 p-0.5 text-center text-[0.6rem] font-bold leading-3 sm:bottom-0.5 sm:left-0.5 sm:text-[0.7rem]">
                         {altgrHint}
                     </span>
                 }

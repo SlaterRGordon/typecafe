@@ -166,7 +166,7 @@ test.describe("progress dashboard", () => {
     await expect(page.getByTestId("transitions-disclosure")).toHaveCount(0);
     const transitionList = transitions.getByRole("list", { name: "Slowest transitions" });
 
-    // Long evidence stays available in an inline scroll region—no disclosure
+    // Long evidence stays available in an inline scroll region-no disclosure
     // state or arbitrary result cutoff.
     const records = page.getByTestId("records-timeline");
     await expect(records).toBeVisible();

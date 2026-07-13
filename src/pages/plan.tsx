@@ -80,7 +80,7 @@ const DailyCoachingPage: NextPage = () => {
                                             ? <>your <span className="font-mono">{finding.from}→{finding.to}</span> transition is {finding.ratio.toFixed(1)}× slower than your typical one.</>
                                             : <>your weakest keys are <span className="font-mono">{finding.keys.join(" ")}</span>.</>}
                                     </h2>
-                                    <p className="mt-3 text-sm text-base-content/75">Tomorrow&apos;s session targets it — or start on it right now.</p>
+                                    <p className="mt-3 text-sm text-base-content/75">Tomorrow&apos;s session targets it - or start on it right now.</p>
                                     <div className="mt-5 flex flex-col gap-2 sm:flex-row">
                                         <Link href={finding.href} data-testid="daily-first-finding-drill" className={primaryCta}>
                                             Drill it now
@@ -91,7 +91,7 @@ const DailyCoachingPage: NextPage = () => {
                             ) : (
                                 <>
                                     <h2 id="session-complete-title" className="mt-1 text-2xl font-bold text-base-content">Your map is in.</h2>
-                                    <p className="mt-3 text-sm text-base-content/75">No single weakness stands out yet — another Test or two will surface one, and tomorrow&apos;s session picks it up.</p>
+                                    <p className="mt-3 text-sm text-base-content/75">No single weakness stands out yet - another Test or two will surface one, and tomorrow&apos;s session picks it up.</p>
                                     <div className="mt-5 flex flex-col gap-2 sm:flex-row">
                                         <Link href="/" className={primaryCta}>Take another Test</Link>
                                     </div>
@@ -109,7 +109,7 @@ const DailyCoachingPage: NextPage = () => {
                                         {formatMetric(proof.before, proof.unit)} → {formatMetric(proof.after, proof.unit)}
                                     </p>
                                     {!proof.improved && (
-                                        <p className="mt-2 text-sm text-base-content/70">No win today — that happens. The reps still count as evidence.</p>
+                                        <p className="mt-2 text-sm text-base-content/70">No win today - that happens. The reps still count as evidence.</p>
                                     )}
                                 </div>
                             ) : (
@@ -121,14 +121,14 @@ const DailyCoachingPage: NextPage = () => {
                                 <p data-testid="daily-cold-check" className="mt-4 text-sm text-base-content/75">
                                     Cold check on yesterday&apos;s <span className="font-mono font-bold text-base-content">{cold.yesterday.label}</span>:{" "}
                                     <span className="font-semibold text-base-content">{formatMetric(cold.value, cold.unit)}</span>
-                                    {" "}(started at {formatMetric(cold.yesterday.before, cold.unit)} before drilling) —{" "}
+                                    {" "}(started at {formatMetric(cold.yesterday.before, cold.unit)} before drilling) -{" "}
                                     {cold.held ? <span className="font-semibold text-success">the change stuck.</span> : <span className="font-semibold text-warning">it slipped; worth another pass.</span>}
                                 </p>
                             )}
                             {baseline && (
                                 <p className="mt-3 text-sm text-base-content/65">Today&apos;s warm-up: {baseline.netWpm.toFixed(1)} WPM · {baseline.accuracy.toFixed(1)}% accuracy.</p>
                             )}
-                            <p className="mt-3 text-sm text-base-content/65">The real proof is tomorrow&apos;s cold check — your next session opens with it.</p>
+                            <p className="mt-3 text-sm text-base-content/65">The real proof is tomorrow&apos;s cold check - your next session opens with it.</p>
                             <div className="mt-5 flex flex-col gap-2 sm:flex-row">
                                 {focus ? (
                                     <Link href={focus.href} className={primaryCta}>Extra targeted practice</Link>

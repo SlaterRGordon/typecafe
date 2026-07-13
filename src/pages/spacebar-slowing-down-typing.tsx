@@ -53,7 +53,7 @@ const SpacebarGuide: NextPage = () => (
 
       <DocumentSection title="The fix is reading ahead, not hitting harder">
         <p>By the time your thumb presses space, your eyes should already know the next word. Otherwise your hands finish the current word and wait for your brain to supply another instruction.</p>
-        <p>Start gently. Type a short sentence at a pace where you can read one word ahead. Treat the last letter, space, and first letter as one connected movement. The goal is not zero variation—hard words naturally take longer—but the absence of a full stop between ordinary words.</p>
+        <p>Start gently. Type a short sentence at a pace where you can read one word ahead. Treat the last letter, space, and first letter as one connected movement. The goal is not zero variation-hard words naturally take longer-but the absence of a full stop between ordinary words.</p>
       </DocumentSection>
 
       <DocumentSection title="Which thumb should you use?">

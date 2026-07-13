@@ -46,7 +46,7 @@ const TestLengthGuide: NextPage = () => (
 
       <DocumentSection title="What a 60-second test adds">
         <p>A minute asks more of your reading, rhythm, correction habits, and ability to recover after an error. It includes enough word boundaries and key combinations for repeated weaknesses to show themselves. For most people, it is a more stable picture of sustained copy typing.</p>
-        <p>Longer is not automatically purer. A five-minute test includes endurance and comfort, which may be exactly what you care about—or an unwanted variable if you are evaluating a two-minute drill. Match the duration to the question.</p>
+        <p>Longer is not automatically purer. A five-minute test includes endurance and comfort, which may be exactly what you care about-or an unwanted variable if you are evaluating a two-minute drill. Match the duration to the question.</p>
       </DocumentSection>
 
       <DocumentSection title="Your settings matter as much as the clock">
