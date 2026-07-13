@@ -69,7 +69,7 @@ const TransitionGuide: NextPage = () => (
       </DocumentSection>
 
       <DocumentSection title="Measure the movement, then measure the outcome">
-        <p>A transition getting faster is encouraging, but the product outcome is sustainable WPM. Watch both. If a drill improves the pair without moving your daily trend, it may not have been frequent enough to matter—or another bottleneck may now be exposed.</p>
+        <p>A transition getting faster is encouraging, but the product outcome is sustainable WPM. Watch both. If a drill improves the pair without moving your daily trend, it may not have been frequent enough to matter-or another bottleneck may now be exposed.</p>
         <p>That is normal. Diagnosis is not a one-time label. As one weak spot improves, the next limiting movement becomes easier to see.</p>
         <p><Link href="/progress">See whether your drills are moving the daily trend →</Link></p>
       </DocumentSection>

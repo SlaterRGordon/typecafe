@@ -167,7 +167,7 @@ export function createDailySession(input: CreateDailySessionInput): DailyCoachin
             pool: input.pool,
             language: input.language,
             kind: "calibration",
-            reason: "I’m still learning how you type. One longer Test gives me enough repeated keys and transitions to find a stable weakness — you’ll see your first finding the moment you finish.",
+            reason: "I’m still learning how you type. One longer Test gives me enough repeated keys and transitions to find a stable weakness - you’ll see your first finding the moment you finish.",
             estimatedMinutes: 2,
             status: "active",
             currentStepIndex: 0,
@@ -194,14 +194,14 @@ export function createDailySession(input: CreateDailySessionInput): DailyCoachin
         ? `Your ${label} transition is ${finding.ratio.toFixed(1)}× slower than your typical transition.`
         : `Your weakest recent keys are ${label}.`
     const reason = continuing
-        ? `Yesterday you took ${yesterday.label} from ${formatOutcome(yesterday, yesterday.before)} to ${formatOutcome(yesterday, yesterday.after)}. It’s still your best lever — today’s first set is the cold check: did it stick?`
+        ? `Yesterday you took ${yesterday.label} from ${formatOutcome(yesterday, yesterday.before)} to ${formatOutcome(yesterday, yesterday.after)}. It’s still your best lever - today’s first set is the cold check: did it stick?`
         : `${findingReason} Today: a short warm-up Test, then repeat sets on it until you beat your baseline twice.`
 
     const steps: DailyStep[] = [{
         id: `${id}:baseline`,
         kind: "baseline",
         title: "Warm up: 30-second Test",
-        detail: "Any normal Test of 30+ seconds (or 25+ words) counts automatically — no special mode.",
+        detail: "Any normal Test of 30+ seconds (or 25+ words) counts automatically - no special mode.",
         href: "/?mode=timed&count=30",
         sets: [],
     }]
@@ -212,7 +212,7 @@ export function createDailySession(input: CreateDailySessionInput): DailyCoachin
             id: `${id}:recheck`,
             kind: "recheck",
             title: `Cold check ${yesterday.label}`,
-            detail: "One set on yesterday's target before any practice on it — did the change stick?",
+            detail: "One set on yesterday's target before any practice on it - did the change stick?",
             href: targetHref(yesterday.target),
             target: yesterday.target,
             sets: [],
@@ -223,7 +223,7 @@ export function createDailySession(input: CreateDailySessionInput): DailyCoachin
         id: `${id}:focus`,
         kind: "focus",
         title: finding.kind === "transition" ? `Loosen ${label}` : `Clean up ${label}`,
-        detail: "Repeat sets — beat your baseline twice, or stop after three sets.",
+        detail: "Repeat sets - beat your baseline twice, or stop after three sets.",
         href: targetHref(target),
         target,
         sets: [],
@@ -241,7 +241,7 @@ export function createDailySession(input: CreateDailySessionInput): DailyCoachin
             id: `${id}:keys`,
             kind: "focus",
             title: `Clean up ${targetLabel(keysTarget)}`,
-            detail: "Your weakest recent keys. Repeat sets — beat your baseline twice, or stop after three sets.",
+            detail: "Your weakest recent keys. Repeat sets - beat your baseline twice, or stop after three sets.",
             href: targetHref(keysTarget),
             target: keysTarget,
             sets: [],

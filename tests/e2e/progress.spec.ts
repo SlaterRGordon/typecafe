@@ -139,14 +139,21 @@ test.describe("progress dashboard", () => {
     await expect(drillWeak).toBeVisible();
     await expect(drillWeak).toHaveAttribute("href", /keys=r,e/);
     await expect(page.getByTestId("lifetime-keyboard-card")).toContainText("Your keyboard");
-    await expect(page.getByTestId("lifetime-keyboard-card")).toContainText("Lower accuracy");
+    await expect(page.getByTestId("lifetime-keyboard-card")).toContainText("Less");
+    await expect(page.getByTestId("lifetime-keyboard-card")).toContainText("More");
     await expect(page.getByTestId("lifetime-heatmap")).toBeVisible();
-    await expect(page.getByTestId("lifetime-heatmap")).toContainText("80%");
+    const rKey = page.getByTestId("lifetime-heatmap").locator('[data-kb-key="r"]');
+    await expect(rKey).not.toContainText("%");
+    await rKey.hover();
+    await expect(page.getByRole("tooltip")).toContainText("Base r: 80% accuracy");
+    const keyboardHelp = page.getByRole("link", { name: "How keyboard accuracy is calculated" });
+    await keyboardHelp.hover();
+    await expect(page.getByRole("tooltip")).toContainText("rolling accuracy from recent attempts");
     // The heatmap flips layers: shift renders each cell's shifted twin with its
     // own tally (1 → !), and flipping back restores the base glyphs.
     const heatmap = page.getByTestId("lifetime-heatmap");
     await expect(heatmap.locator('[data-kb-key="1"]')).toBeVisible();
-    const shiftLayerButton = page.getByTestId("lifetime-heatmap-layers").getByRole("button", { name: "⇧ shift" });
+    const shiftLayerButton = page.getByTestId("lifetime-heatmap-layers").getByRole("button", { name: "Show shifted keys (capitals and symbols)" });
     await shiftLayerButton.click();
     await expect(heatmap.locator('[data-kb-key="!"]')).toBeVisible();
     await expect(heatmap.locator('[data-kb-key="R"]')).toBeVisible();
@@ -159,7 +166,7 @@ test.describe("progress dashboard", () => {
     await expect(page.getByTestId("transitions-disclosure")).toHaveCount(0);
     const transitionList = transitions.getByRole("list", { name: "Slowest transitions" });
 
-    // Long evidence stays available in an inline scroll region—no disclosure
+    // Long evidence stays available in an inline scroll region-no disclosure
     // state or arbitrary result cutoff.
     const records = page.getByTestId("records-timeline");
     await expect(records).toBeVisible();

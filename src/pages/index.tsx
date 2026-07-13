@@ -99,10 +99,9 @@ const Home: NextPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTestLanguage, globalLanguage, language])
   const [typingFocused, setTypingFocused] = useState(false)
-  // Practice: the shift-layer toggle lives in the settings line but drives the
-  // keyboard board below the test, so the page holds it. Holding physical Shift
-  // peeks the layer (release returns to the sticky toggle) - lifted here so the
-  // settings-line "shift on/off" label reflects the peek too, not just the board.
+  // Practice: the keyboard's layer rail is sticky, while holding physical Shift
+  // peeks the layer (release returns to the sticky toggle). The page owns both so
+  // the rail and the rendered caps always report the same combined state.
   const [shiftToggle, setShiftToggle] = useState(false)
   const [shiftHeld, setShiftHeld] = useState(false)
   // AltGr mirror of the shift layer, for national layouts (@ € ~ µ, Polish
@@ -745,17 +744,6 @@ const Home: NextPage = () => {
               punctuation={punctuation}
               capitals={capitals}
               numbers={numbers}
-              shiftLayer={shiftLayer}
-              onToggleShift={() => {
-                setShiftToggle((on) => !on)
-                setAltgrToggle(false)
-              }}
-              altgrLayer={altgrLayer}
-              onToggleAltgr={() => {
-                setAltgrToggle((on) => !on)
-                setShiftToggle(false)
-              }}
-              hasAltGr={hasAltGr}
               onSmartDrill={handleSmartDrill}
               setCount={setCount}
               setCustomLength={setCustomLength}
@@ -864,6 +852,15 @@ const Home: NextPage = () => {
               baseAttemptsRef={persistedAttemptsRef}
               shiftToggle={shiftLayer}
               altgrToggle={altgrLayer}
+              onToggleShift={() => {
+                setShiftToggle((on) => !on)
+                setAltgrToggle(false)
+              }}
+              onToggleAltgr={() => {
+                setAltgrToggle((on) => !on)
+                setShiftToggle(false)
+              }}
+              hasAltGr={hasAltGr}
               punctuation={punctuation}
               capitals={capitals}
               numbers={numbers}

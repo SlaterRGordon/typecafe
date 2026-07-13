@@ -4,7 +4,8 @@ import { TestModes } from "./types";
 import { getActiveKey, subscribeActiveKey } from "./keySignal";
 import { useDispatch } from "react-redux";
 import { accentsFor, ensureLanguageLoaded, isDrillDigit, isDrillMark } from "./utils";
-import { KeyHeatmap } from "~/components/heatmap/KeyHeatmap";
+import { KeyHeatmap, KeyHeatmapLegend } from "~/components/heatmap/KeyHeatmap";
+import { KeyboardLayerSwitch } from "~/components/heatmap/KeyboardLayerSwitch";
 import { boardFor, composedFor, sequenceFor, keyFor, type Layer } from "~/lib/keyboardLayout";
 import { useLayout } from "~/hooks/useLayout";
 import { useLanguage } from "~/hooks/useLanguage";
@@ -21,12 +22,15 @@ interface KeyboardProps {
     charAttemptsRef: React.MutableRefObject<Map<string, { attempts: number, correct: number }>>,
     baseAttemptsRef?: React.MutableRefObject<Map<string, { attempts: number, correct: number }>>,
     highlightKeys?: string[],
-    // Practice: the combined shift-layer state (sticky settings-line toggle OR a
-    // held-Shift peek) - both owned by the page so the label and board stay in sync.
+    // Practice: the combined shift-layer state (sticky board-rail toggle OR a
+    // held-Shift peek) - both owned by the page so the rail and caps stay in sync.
     shiftToggle?: boolean,
     // Practice: the AltGr layer equivalent (sticky toggle OR held AltGr). Only
     // wired by pages when the active layout has AltGr glyphs.
     altgrToggle?: boolean,
+    onToggleShift?: () => void,
+    onToggleAltgr?: () => void,
+    hasAltGr?: boolean,
     // Practice text add-ons. A toggled-off add-on locks its keys on the board
     // (no marks/digits/capitals in the text regardless of selection); clicking a
     // locked key flips the add-on back on, so nobody digs through the gear menu.
@@ -47,6 +51,7 @@ export const Keyboard = (props: KeyboardProps) => {
     const {
         mode, selectedKeys, setSelectedKeys, charAttemptsRef, baseAttemptsRef, highlightKeys,
         shiftToggle = false, altgrToggle = false,
+        onToggleShift, onToggleAltgr, hasAltGr = false,
         punctuation = false, capitals = false, numbers = false,
         setPunctuation, setCapitals, setNumbers,
     } = props
@@ -191,8 +196,8 @@ export const Keyboard = (props: KeyboardProps) => {
         }
     }, [mode, highlightKeys, layout, heldShift, heldAltgr])
 
-    // Layer state: the pages own the combined toggles (sticky settings-line
-    // buttons OR held-modifier peeks), passed in as shiftToggle/altgrToggle.
+    // Layer state: the page owns the combined sticky rail + held-modifier peeks,
+    // passed in as shiftToggle/altgrToggle.
     const shiftLayer = shiftToggle
     const altgrLayer = altgrToggle
 
@@ -328,12 +333,33 @@ export const Keyboard = (props: KeyboardProps) => {
     }
 
     return (
-        <div ref={boardRef} className="typecafe-keyboard flex flex-col w-full items-center justify-start py-3 pt-2 md:py-4">
+        <div
+            ref={boardRef}
+            className={`typecafe-keyboard flex w-full flex-col items-center justify-start px-2 sm:px-4 ${mode === TestModes.practice ? "pb-3 pt-0" : "py-3 md:py-4"}`}
+        >
             {mode === TestModes.practice ?
-                <div className="flex flex-col">
+                <section
+                    aria-label="Practice keyboard"
+                    className="w-full max-w-3xl"
+                >
+                    <div className="mb-2 mt-8 flex justify-center">
+                        <KeyboardLayerSwitch
+                            shiftLayer={shiftLayer}
+                            altgrLayer={altgrLayer}
+                            hasAltGr={hasAltGr}
+                            onSelectBase={() => {
+                                if (shiftLayer) onToggleShift?.()
+                                if (altgrLayer) onToggleAltgr?.()
+                            }}
+                            onToggleShift={() => onToggleShift?.()}
+                            onToggleAltgr={() => onToggleAltgr?.()}
+                        />
+                    </div>
+
                     <KeyHeatmap
                         size="full"
                         attempts={buildStatsAttempts()}
+                        showPercent={false}
                         lockedKeys={lockedKeys}
                         onKeyClick={handleKeyClicked}
                         followActiveKey
@@ -342,10 +368,24 @@ export const Keyboard = (props: KeyboardProps) => {
                         altgrLayer={altgrLayer}
                         interactiveKeys={interactiveKeys}
                     />
-                    <p className="mt-2 text-center font-mono text-[10px] text-base-content/40">
-                        click a key to lock or unlock it
-                    </p>
-                </div>
+                    <div className="mt-2 flex flex-col gap-2 text-[0.65rem] text-base-content/55 sm:flex-row sm:items-center sm:justify-between sm:text-xs">
+                        <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 sm:justify-start">
+                            <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+                                <span className="h-2 w-2 rounded-full bg-primary" aria-hidden="true" />
+                                unlocked = in drill
+                            </span>
+                            <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+                                <span className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-base-content/20 bg-base-300 text-[0.5rem]" aria-hidden="true">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-2.5 w-2.5" viewBox="0 0 24 24">
+                                        <path fill="currentColor" d="M6 22q-.825 0-1.413-.588T4 20V10q0-.825.588-1.413T6 8h1V6q0-2.075 1.463-3.538T12 1q2.075 0 3.538 1.463T17 6v2h1q.825 0 1.413.588T20 10v10q0 .825-.588 1.413T18 22H6Zm0-2h12V10H6v10ZM9 8h6V6q0-1.25-.875-2.125T12 3q-1.25 0-2.125.875T9 6v2Z" />
+                                    </svg>
+                                </span>
+                                locked = click to add
+                            </span>
+                        </div>
+                        <KeyHeatmapLegend />
+                    </div>
+                </section>
                 :
                 // Non-practice modes (train): the same full physical board as the
                 // heatmap - layered keycaps, corner glyphs, dead styling, ISO

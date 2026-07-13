@@ -276,12 +276,16 @@ test.describe("screenshot tour", () => {
     await selectMode(page, "Practice");
 
     await expect(page.locator(".typecafe-keyboard")).toBeVisible();
+    await expect(page.getByTestId("practice-status-bar")).toBeVisible();
     await capture(page, testInfo, "09-home-practice-keyboard");
 
-    // The merged practice keyboard always shows per-key accuracy + lock state, so
-    // cells carry a "<key>: …" title (a bare-text match would hit the % badge too).
+    // The merged practice keyboard always shows per-key accuracy + lock state.
     const keyboardKey = (key: string) =>
-      page.locator(`.typecafe-keyboard kbd[title^="${key}: "]`);
+      page.locator(`.typecafe-keyboard kbd[data-kb-key="${key}"]`);
+
+    await keyboardKey("e").hover();
+    await expect(page.getByRole("tooltip")).toContainText("Base e:");
+    await capture(page, testInfo, "66-practice-key-tooltip");
 
     // The default nine-key set is repaired to the two-vowel floor on entry
     // (adds "e"), so it renders unlocked; "w" sits outside the set and starts
@@ -312,22 +316,22 @@ test.describe("screenshot tour", () => {
     await page.keyboard.press("Enter");
     await page.keyboard.up("Tab");
 
-    // Accuracy is always visible now - no toggle. The per-key percentages render
-    // directly on the keyboard.
+    // Accuracy is always available now - no toggle. Exact values live in the
+    // per-layer key tooltips so the heatmap face stays readable.
     await capture(page, testInfo, "32-practice-keyboard-analytics");
 
     // Shift layer: holding Shift peeks the shifted twins (; → :, / → ?); releasing
-    // returns to base. The layout never moves. The settings-line label tracks the
-    // peek too, not just the board.
+    // returns to base. The layout never moves. The keyboard's layer rail tracks
+    // the held peek as well as sticky clicks.
     const shiftLabel = page.getByRole("button", { name: "Show shifted keys (capitals and symbols)" });
-    await expect(shiftLabel).toContainText("shift off");
+    await expect(shiftLabel).toHaveAttribute("aria-pressed", "false");
     await page.keyboard.down("Shift");
     await expect(keyboardKey(":")).toHaveCount(1);
     await expect(keyboardKey(";")).toHaveCount(0);
-    await expect(shiftLabel).toContainText("shift on");
+    await expect(shiftLabel).toHaveAttribute("aria-pressed", "true");
     await page.keyboard.up("Shift");
     await expect(keyboardKey(";")).toHaveCount(1);
-    await expect(shiftLabel).toContainText("shift off");
+    await expect(shiftLabel).toHaveAttribute("aria-pressed", "false");
 
     // The sticky toggle button does the same, but stays put (touch / lingering).
     await page.getByRole("button", { name: "Show shifted keys (capitals and symbols)" }).click();
@@ -773,8 +777,11 @@ test.describe("screenshot tour", () => {
     }
     await page.getByTestId("lifetime-keyboard-card").scrollIntoViewIfNeeded();
     await capture(page, testInfo, "40-progress-lifetime-keyboard");
+    await page.getByRole("link", { name: "How keyboard accuracy is calculated" }).hover();
+    await expect(page.getByRole("tooltip")).toContainText("rolling accuracy from recent attempts");
+    await capture(page, testInfo, "40c-progress-keyboard-help-tooltip");
     // The layer switch flips the lifetime heatmap to the shift layer.
-    await page.getByTestId("lifetime-heatmap-layers").getByRole("button", { name: "⇧ shift" }).click();
+    await page.getByTestId("lifetime-heatmap-layers").getByRole("button", { name: "Show shifted keys (capitals and symbols)" }).click();
     await expect(page.getByTestId("lifetime-heatmap").locator('[data-kb-key="R"]')).toBeVisible();
     await capture(page, testInfo, "40b-progress-lifetime-keyboard-shift");
   });

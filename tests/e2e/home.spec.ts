@@ -554,7 +554,7 @@ test.describe("home typing test", () => {
     const board = page.locator(".typecafe-keyboard");
     await expect(board.locator('[data-kb-key="ü"]')).toBeVisible();
     await expect(board.locator('[data-kb-key="ö"]')).toBeVisible();
-    await expect(page.getByRole("button", { name: "Show AltGr keys (accents and symbols)" })).toContainText("altgr off");
+    await expect(page.getByRole("button", { name: "Show AltGr keys (accents and symbols)" })).toHaveAttribute("aria-pressed", "false");
 
     // An explicit pick pins: QWERTY stays through a language change (no AZERTY),
     // and the umlaut keys leave the board.
@@ -992,8 +992,29 @@ test.describe("home typing test", () => {
   test("practice keyboard rings the next expected key as you type", async ({ page }) => {
     await gotoHome(page);
 
+    // Non-keyboard modes keep their established standalone stats + restart layout.
+    await expect(page.getByTestId("practice-status-bar")).toHaveCount(0);
+
     await selectMode(page, "Practice");
     await expect(page.locator(".typecafe-keyboard")).toBeVisible();
+    await expect(page.getByRole("region", { name: "Practice keyboard" })).toBeVisible();
+    await expect(page.getByRole("group", { name: "Keyboard layer" })).toBeVisible();
+    await expect(page.getByTestId("practice-status-bar")).toContainText("wpm");
+    await expect(page.getByTestId("practice-status-bar")).toContainText("accuracy");
+
+    // The layer rail is centered over the board instead of floating off to one side.
+    const practiceRegion = page.getByRole("region", { name: "Practice keyboard" });
+    const regionBox = await practiceRegion.boundingBox();
+    const layerBox = await page.getByRole("group", { name: "Keyboard layer" }).boundingBox();
+    expect(Math.abs(
+      ((regionBox?.x ?? 0) + (regionBox?.width ?? 0) / 2) -
+      ((layerBox?.x ?? 0) + (layerBox?.width ?? 0) / 2),
+    )).toBeLessThan(2);
+    const qKey = page.locator('.typecafe-key-heatmap [data-kb-key="q"]');
+    await expect(qKey).not.toContainText("%");
+    await qKey.hover();
+    await expect(page.getByRole("tooltip")).toContainText("Base q: no data");
+    await expect(page.getByRole("tooltip")).toContainText("Shift Q: no data");
 
     await expect(page.locator("#c0")).toHaveClass(/active-char/);
     const first = await page.locator("#c0").textContent();
@@ -1061,18 +1082,18 @@ test.describe("home typing test", () => {
     const altgr = page.getByRole("button", { name: "Show AltGr keys (accents and symbols)" });
 
     await shift.click();
-    await expect(shift).toContainText("shift on");
-    await expect(altgr).toContainText("altgr off");
+    await expect(shift).toHaveAttribute("aria-pressed", "true");
+    await expect(altgr).toHaveAttribute("aria-pressed", "false");
     await expect(board.locator('[data-kb-key="2"]')).toBeVisible();
 
     await altgr.click();
-    await expect(shift).toContainText("shift off");
-    await expect(altgr).toContainText("altgr on");
+    await expect(shift).toHaveAttribute("aria-pressed", "false");
+    await expect(altgr).toHaveAttribute("aria-pressed", "true");
     await expect(board.locator('[data-kb-key="€"]')).toBeVisible();
 
     await shift.click();
-    await expect(shift).toContainText("shift on");
-    await expect(altgr).toContainText("altgr off");
+    await expect(shift).toHaveAttribute("aria-pressed", "true");
+    await expect(altgr).toHaveAttribute("aria-pressed", "false");
     const digit = board.locator('[data-kb-key="2"]');
     await expect(digit).toHaveAttribute("role", "button");
     await expect(digit.locator("svg")).toHaveCount(1);
@@ -1095,8 +1116,12 @@ test.describe("home typing test", () => {
     // Numbers off (default) → every digit key reads locked; one click unlocks
     // the key AND turns the numbers add-on on.
     const seven = board.locator('[data-kb-key="7"]');
+    await expect(seven).toHaveAttribute("data-kb-state", "locked");
+    await expect(seven).toHaveAttribute("aria-pressed", "false");
     await expect(seven.locator("svg")).toHaveCount(1);
-    await seven.click();
+    await seven.press("Enter");
+    await expect(seven).toHaveAttribute("data-kb-state", "unlocked");
+    await expect(seven).toHaveAttribute("aria-pressed", "true");
     await expect(seven.locator("svg")).toHaveCount(0);
     await expect.poll(settings).toContain('"numbers":true');
 

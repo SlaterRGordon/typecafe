@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react"
 import { hslToHex, readableTextColor } from "~/utils/convertColor"
 import { getActiveKey, subscribeActiveKey } from "~/components/typer/keySignal"
+import { Tooltip } from "~/components/ui/Tooltip"
 import { useSecondaryStyle, useStyle } from "~/utils/hooks/useMutationObserver"
 import {
     HEATMAP_SPACE,
@@ -65,8 +66,8 @@ interface KeyHeatmapProps {
 // Small padlock marking a key that's excluded from the current drill set.
 function LockBadge() {
     return (
-        <span className="pointer-events-none absolute right-0.5 top-0.5 opacity-70">
-            <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" aria-hidden="true">
+        <span className="typecafe-key-lock pointer-events-none absolute -left-[0.3rem] -top-[0.3rem] z-10 inline-flex h-4 w-4 items-center justify-center rounded-full border border-base-content/20 bg-base-300 text-base-content shadow-sm sm:h-[1.125rem] sm:w-[1.125rem]">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-2.5 w-2.5" viewBox="0 0 24 24" aria-hidden="true">
                 <path fill="currentColor" d="M6 22q-.825 0-1.413-.588T4 20V10q0-.825.588-1.413T6 8h1V6q0-2.075 1.463-3.538T12 1q2.075 0 3.538 1.463T17 6v2h1q.825 0 1.413.588T20 10v10q0 .825-.588 1.413T18 22H6Zm0-2h12V10H6v10Zm6-3q.825 0 1.413-.588T14 15q0-.825-.588-1.413T12 13q-.825 0-1.413.588T10 15q0 .825.588 1.413T12 17ZM9 8h6V6q0-1.25-.875-2.125T12 3q-1.25 0-2.125.875T9 6v2Z" />
             </svg>
         </span>
@@ -106,21 +107,21 @@ function useHeatmapColors() {
 
 export function KeyHeatmapLegend() {
     const { lowColor, highColor } = useHeatmapColors()
-    const swatches = [78, 86, 94, 100]
+    const swatches = [78, 84, 90, 96, 100]
 
     return (
-        <div className="flex items-center justify-center gap-2 text-xs font-semibold text-base-content/80 sm:justify-end sm:gap-3 sm:text-sm">
-            <span>Lower accuracy</span>
-            <div className="flex items-center gap-1.5" aria-hidden="true">
+        <div className="flex items-center justify-center gap-2 text-xs text-base-content/55 sm:justify-end" aria-label="Accuracy: less to more">
+            <span>Less</span>
+            <div className="flex items-center gap-1" aria-hidden="true">
                 {swatches.map((accuracy) => (
                     <span
                         key={accuracy}
-                        className="h-5 w-5 rounded border border-white/15 shadow-sm"
+                        className="h-3 w-3 rounded-full"
                         style={{ backgroundColor: accuracyColor(accuracy, lowColor, highColor) }}
                     />
                 ))}
             </div>
-            <span>Higher accuracy</span>
+            <span>More</span>
         </div>
     )
 }
@@ -225,29 +226,64 @@ export function KeyHeatmap(props: KeyHeatmapProps) {
         const label = isSpace ? "space" : glyph
         const shiftHint = size !== "mini" && layer === "base" && cap && cap.shift !== cap.base.toUpperCase() ? cap.shift : ""
         const altgrHint = size !== "mini" && layer === "base" && cap?.altgr ? cap.altgr : ""
+        const activate = () => onKeyClick?.(glyph)
+        const candidates: Array<[string, string | undefined]> = isSpace
+            ? [["Base", HEATMAP_SPACE]]
+            : [
+                ["Base", cap?.base],
+                ["Shift", cap?.shift],
+                ["AltGr", cap?.altgr],
+                ["Shift + AltGr", cap?.shiftAltgr],
+            ]
+        const seenLayerGlyphs = new Set<string>()
+        const layerLines = candidates.flatMap(([name, layerGlyph]) => {
+            if (!layerGlyph || seenLayerGlyphs.has(layerGlyph)) return []
+            seenLayerGlyphs.add(layerGlyph)
+            const tally = attemptFor(layerGlyph)
+            const layerCell = heatmapCell(layerGlyph, tally)
+            const layerLabel = layerGlyph === HEATMAP_SPACE ? "space" : layerGlyph
+            return [`${name} ${layerLabel}: ${layerCell.hasData ? `${layerCell.accuracy}% accuracy · ${tally?.attempts ?? 0} attempts` : "no data"}`]
+        })
+        const tooltip = [
+            `${label} key`,
+            interactive ? (isLocked ? "Locked - click to add to this drill" : "Unlocked - click to remove from this drill") : undefined,
+            ...(showAccuracy ? layerLines : ["Training key"]),
+            isDead ? "Dead key - waits for the next press" : undefined,
+        ].filter(Boolean).join("\n")
 
         return (
+            <Tooltip key={cap?.base ?? "space"} content={tooltip}>
             <kbd
-                key={cap?.base ?? "space"}
                 data-kb-key={glyph}
                 data-kb-cell={cap?.base ?? " "}
                 data-kb-dead={isDead ? "" : undefined}
-                onClick={interactive ? () => onKeyClick!(glyph) : undefined}
+                data-kb-state={interactive ? (isLocked ? "locked" : "unlocked") : undefined}
+                onClick={interactive ? activate : undefined}
+                onKeyDown={interactive ? (event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault()
+                        activate()
+                    }
+                } : undefined}
                 role={interactive ? "button" : undefined}
-                className={`${keyClass} ${isSpace ? spaceClass : ""} ${ringed ? "ring-2 ring-primary ring-offset-1 ring-offset-base-200" : ""} ${interactive ? "cursor-pointer select-none" : ""} ${isLocked ? "opacity-60" : ""}`}
-                style={color ? { backgroundColor: color, color: textColor } : undefined}
-                title={`${label}${showAccuracy ? `: ${cell.hasData ? `${cell.accuracy}%` : "no data"}` : ""}${isDead ? " \u2014 dead key (waits for the next press)" : ""}${isLocked ? (interactive ? " (locked \u2014 click to add)" : " (locked)") : ""}`}
+                tabIndex={interactive ? 0 : undefined}
+                aria-pressed={interactive ? !isLocked : undefined}
+                aria-label={interactive ? `${label} key, ${isLocked ? "locked, click to add to drill" : "unlocked, click to remove from drill"}, ${cell.hasData ? `${cell.accuracy}% accuracy` : "no accuracy data"}` : undefined}
+                className={`${keyClass} ${isSpace ? spaceClass : ""} ${ringed ? "ring-2 ring-primary ring-offset-1 ring-offset-base-200" : ""} ${interactive ? "cursor-pointer select-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary" : ""} ${isLocked ? "typecafe-key-state-locked" : ""}`}
+                // Lock state must never rewrite the heatmap: its icon carries the
+                // state while the measured colour remains byte-for-byte visible.
+                style={color ? { backgroundColor: color, color: textColor, backgroundImage: "none", filter: "none" } : undefined}
             >
                 <span className={`leading-none ${showPercent ? labelClass : ""}`}>
-                    {isSpace && !showPercent ? "\u00a0" : label}
+                    {isSpace && !showPercent && !interactive ? "\u00a0" : label}
                 </span>
                 {shiftHint &&
-                    <span aria-hidden="true" className="pointer-events-none absolute right-1 top-0.5 text-[0.55rem] leading-none opacity-50">
+                    <span aria-hidden="true" className="typecafe-layer-hint pointer-events-none absolute right-0 top-0 min-w-3 rounded-sm bg-black/20 p-0.5 text-center text-[0.6rem] font-bold leading-3 sm:right-0.5 sm:top-0.5 sm:text-[0.7rem]">
                         {shiftHint}
                     </span>
                 }
                 {altgrHint &&
-                    <span aria-hidden="true" className="pointer-events-none absolute bottom-0.5 left-1 text-[0.55rem] leading-none opacity-50">
+                    <span aria-hidden="true" className="typecafe-layer-hint pointer-events-none absolute bottom-0 left-0 min-w-3 rounded-sm bg-black/20 p-0.5 text-center text-[0.6rem] font-bold leading-3 sm:bottom-0.5 sm:left-0.5 sm:text-[0.7rem]">
                         {altgrHint}
                     </span>
                 }
@@ -258,6 +294,7 @@ export function KeyHeatmap(props: KeyHeatmapProps) {
                 }
                 {isLocked && <LockBadge />}
             </kbd>
+            </Tooltip>
         )
     }
 
@@ -266,6 +303,7 @@ export function KeyHeatmap(props: KeyHeatmapProps) {
             ref={rootRef}
             className={`typecafe-key-heatmap flex flex-col items-center gap-[0.25rem] ${props.className ?? ""}`}
             data-testid={props.testId}
+            data-kb-size={size}
         >
             {board.rows.map((row, rowIndex) => (
                 <div key={rowIndex} className={rowClass}>
