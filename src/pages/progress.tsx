@@ -53,11 +53,13 @@ type HeroTrend = "up" | "down" | "flat";
 // current; skipped calendar dates contribute nothing.
 function HeroDeltaLine(props: { start: number | null; current: number; delta: number | null; trend: HeroTrend }) {
     const color = props.trend === "up" ? "text-success" : props.trend === "down" ? "text-error" : "text-base-content";
+    // labelTop hugs the delta text to the line segment under it: above the low
+    // "up" segment, below the high "down" segment, just above the flat line.
     const geo = props.trend === "down"
-        ? { path: "M0 16 H60 L68 34 H100", leftTop: "40%", rightTop: "85%" }
+        ? { path: "M0 16 H60 L68 34 H100", leftTop: "40%", rightTop: "85%", labelTop: "1.2rem" }
         : props.trend === "up"
-            ? { path: "M0 34 H60 L68 16 H100", leftTop: "85%", rightTop: "40%" }
-            : { path: "M0 25 H100", leftTop: "62.5%", rightTop: "62.5%" };
+            ? { path: "M0 34 H60 L68 16 H100", leftTop: "85%", rightTop: "40%", labelTop: "1.3rem" }
+            : { path: "M0 25 H100", leftTop: "62.5%", rightTop: "62.5%", labelTop: "0.5rem" };
 
     return (
         <div data-testid="headline-start-current" className="flex items-center gap-3 sm:gap-5">
@@ -68,7 +70,7 @@ function HeroDeltaLine(props: { start: number | null; current: number; delta: nu
                 <div className="text-[0.65rem] font-semibold uppercase tracking-wide text-base-content/50">Start</div>
             </div>
             <div className={`relative h-14 flex-1 ${color}`}>
-                <div className="absolute left-1/2 top-[-0.5rem] -translate-x-1/2 whitespace-nowrap text-center">
+                <div className="absolute left-1/2 -translate-x-1/2 whitespace-nowrap text-center" style={{ top: geo.labelTop }}>
                     {props.delta !== null ? (
                         <div className="font-mono text-2xl font-bold">{formatSigned(props.delta)}</div>
                     ) : (
