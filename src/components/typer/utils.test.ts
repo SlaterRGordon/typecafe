@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest"
-import { accentChars, applyTextOptions, ensureCasedSentencesLoaded, ensureSizedLoaded, generateBetterPseudoText, generateCasedText, generateNGram, generatePracticeText, generateText, getWords, rankNGrams } from "./utils"
+import { accentChars, applyTextOptions, ensureSizedLoaded, generateBetterPseudoText, generateNGram, generatePracticeText, generateText, getWords, rankNGrams } from "./utils"
 import { TestGramScopes, TestGramSources } from "./types"
-import { PICKER_LANGUAGES } from "~/lib/languageMeta"
 
 const SENTENCE_ENDERS = [".", "?", "!"]
 
@@ -98,19 +97,15 @@ describe("applyTextOptions", () => {
         expect(output).toMatch(/\d,\d{3}/)
     })
 
-    it("does not guess that ordinary word-list nouns are proper nouns", () => {
+    it("capitalizes countries, cities, weekdays and the pronoun I", () => {
         const output = applyTextOptions("travel from canada to new york on monday with i", false, true, {
             language: "english",
             random: () => 0.5,
         })
-        expect(output).toBe("Travel from canada to new york on monday with i")
-    })
-
-    it("preserves authored casing without inventing capitals", () => {
-        const input = "Maria visited Turkey. She cooked turkey in Toronto."
-        expect(applyTextOptions(input, true, true, { canonicalCase: true })).toBe(input)
-        expect(applyTextOptions(input, false, true, { canonicalCase: true }))
-            .toBe("Maria visited Turkey She cooked turkey in Toronto")
+        expect(output).toContain("Canada")
+        expect(output).toContain("New York")
+        expect(output).toContain("Monday")
+        expect(output).toMatch(/\bI\b/)
     })
 
     it("uses Spanish opening punctuation and French punctuation spacing", () => {
@@ -121,30 +116,6 @@ describe("applyTextOptions", () => {
 
         const french = applyTextOptions(input.replaceAll("palabra", "mot"), true, true, { language: "french", random: () => 0.99 })
         expect(french).toMatch(/ [;:?!]/)
-    })
-})
-
-describe("generateCasedText", () => {
-    it("has canonical text for every language offered by the picker", async () => {
-        await ensureCasedSentencesLoaded()
-        const expectedCanonicalWords: Record<string, string> = {
-            english: "Lisbon", french: "Marie", spanish: "María", german: "Montag",
-            italian: "Lunedì", portuguese: "segunda-feira", dutch: "Maandag", polish: "poniedziałek",
-        }
-        expect(PICKER_LANGUAGES.map(({ value }) => value).sort()).toEqual(Object.keys(expectedCanonicalWords).sort())
-        for (const [language, canonicalWord] of Object.entries(expectedCanonicalWords)) {
-            const output = generateCasedText(18, language, () => 0)
-            expect(output.split(" ")).toHaveLength(18)
-            expect(output).toContain(canonicalWord)
-        }
-    })
-
-    it("keeps real names and locale-specific capitalization from the source", async () => {
-        await ensureCasedSentencesLoaded()
-        expect(generateCasedText(12, "english", () => 0))
-            .toBe("Maria moved from Lisbon to Toronto after finishing university in Portugal. On")
-        expect(generateCasedText(12, "german", () => 0))
-            .toContain("Montag reiste Maria von Berlin nach Wien")
     })
 })
 

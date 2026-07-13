@@ -2,7 +2,6 @@ import { expect, test, type Page } from "@playwright/test";
 import { mockAuthenticatedSession, mockTrpc } from "./helpers/trpc";
 import { typeCurrentCharacter, typeVisibleTestText, typeWrongCharacter } from "./helpers/typing";
 import english1k from "../../src/components/typer/languages/english1k.json";
-import casedSentences from "../../src/components/typer/languages/casedSentences.json";
 
 async function gotoHome(page: Page) {
   await page.goto("/");
@@ -791,27 +790,6 @@ test.describe("home typing test", () => {
     await typeVisibleTestText(page);
     await expect(page.getByRole("button", { name: "Test Again" })).toBeVisible();
     await expect(page.getByText("Numbers", { exact: true })).toBeVisible();
-  });
-
-  test("capitals use canonical prose instead of guessing proper nouns", async ({ page }) => {
-    await gotoHome(page);
-    await selectMode(page, "Words");
-    await page.getByTestId("toolbar-context").getByRole("button", { name: "25", exact: true }).click();
-    await openSettingsMenu(page);
-    await page.getByTestId("settings-menu").getByRole("button", { name: /capitals/ }).click();
-    await page.keyboard.press("Escape");
-
-    const passage = page.locator("#words");
-    const canonicalTokens = new Set(casedSentences.english.flatMap((sentence) =>
-      sentence.replace(/[.,;:!?¿¡]/gu, "").split(/\s+/),
-    ));
-    await expect.poll(async () => {
-      const tokens = (await passage.textContent())!.trim().split(/\s+/);
-      return tokens.length === 25 && tokens.every((token) => canonicalTokens.has(token));
-    }).toBe(true);
-    const renderedTokens = (await passage.textContent())!.trim().split(/\s+/);
-    expect(renderedTokens.some((token) => /^\p{Lu}/u.test(token))).toBe(true);
-    expect(renderedTokens.some((token) => /^\p{Ll}/u.test(token))).toBe(true);
   });
 
   // Honest-review 2026-07 §2: flattery shares the ranking quality bar. A 3s

@@ -1,4 +1,5 @@
 import { ENDER_MARKS, MID_MARKS } from "./drillKeys"
+import { capitalizeProperNouns } from "./properNouns"
 
 const SENTENCE_ENDERS = [".", ".", ".", ".", "?", "!"]
 const MID_PUNCTUATION = [",", ",", ",", ";", ":"]
@@ -9,7 +10,6 @@ export interface TextOptionPolicy {
     language?: string
     targeted?: boolean
     random?: () => number
-    canonicalCase?: boolean
 }
 
 const localeFor = (language: string) => ({
@@ -100,20 +100,14 @@ function realisticNumber(pool: string[], punctuation: boolean, random: () => num
     return randomDigits(pool, 1, random)
 }
 
-function applyNumbers(words: string[], digits: string[], punctuation: boolean, targeted: boolean, random: () => number, preserveMarks = false) {
+function applyNumbers(words: string[], digits: string[], punctuation: boolean, targeted: boolean, random: () => number) {
     const pool = [...new Set(digits.filter((digit) => /^\d$/.test(digit)))]
     if (pool.length === 0 || words.length === 0) return
 
     if (!targeted) {
         const count = Math.max(1, Math.round(words.length * 0.1))
         for (const position of shuffledPositions(words.length, count, random, true)) {
-            const number = realisticNumber(pool, punctuation, random)
-            if (!preserveMarks) {
-                words[position] = number
-                continue
-            }
-            const match = words[position]!.match(/^([¿¡]?)(.*?)([.,;:!?]*)$/u)
-            words[position] = `${match?.[1] ?? ""}${number}${match?.[3] ?? ""}`
+            words[position] = realisticNumber(pool, punctuation, random)
         }
         return
     }
@@ -136,9 +130,8 @@ function markSuffix(mark: string, language: string): string {
     return language === "french" && [";", ":", "?", "!"].includes(mark) ? ` ${mark}` : mark
 }
 
-// Compose three independent policies over generated words: sentence/clause
-// punctuation, sentence-start casing, and numeric tokens. Canonically cased
-// sources bypass casing inference and preserve their authored orthography.
+// Compose three independent policies over lowercase generated words:
+// sentence/clause punctuation, sentence/proper-noun casing, and numeric tokens.
 // Numeric tokens replace words so a configured 25-word test remains 25 tokens.
 export function applyTextOptions(
     text: string,
@@ -152,13 +145,6 @@ export function applyTextOptions(
     const random = policy.random ?? Math.random
     const usePunctuation = punctuation || selectedMarks.length > 0
     if (!text || (!usePunctuation && !capitals && digits.length === 0)) return text
-
-    if (policy.canonicalCase) {
-        const canonicalText = punctuation ? text : text.replace(/[.,;:!?¿¡]/gu, "").replace(/\s+/g, " ").trim()
-        const canonicalWords = canonicalText.split(" ")
-        applyNumbers(canonicalWords, digits, punctuation, policy.targeted ?? false, random, punctuation)
-        return canonicalWords.join(" ")
-    }
 
     const words = text.split(" ")
     applyNumbers(words, digits, usePunctuation, policy.targeted ?? false, random)
@@ -176,7 +162,7 @@ export function applyTextOptions(
     const sentenceEnds = visibleEnders.length > 0 ? visibleEnders : naturalSentenceEnds(words.length, random)
     const sentenceStarts = new Set([0, ...sentenceEnds.map((end) => end + 1).filter((start) => start < words.length)])
 
-    let casedWords = words
+    let casedWords = capitals ? capitalizeProperNouns(words, language) : words
     if (capitals) {
         const locale = localeFor(language)
         casedWords = casedWords.map((word, index) => sentenceStarts.has(index) ? capitalize(word, locale) : word)

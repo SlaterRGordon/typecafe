@@ -124,18 +124,15 @@ weak-key card stays global (consistent with "training progress global", ADR
 
 - [x] 12 — **Natural text add-ons (2026-07-12).** Capitalization, punctuation,
       and numbers no longer share a per-word random sprinkler. Sentence spans
-      drive generated punctuation and restricted-key sentence starts. Capitals
-      mode now draws from authored, canonically cased prose for every picker
-      language (English, French, Spanish, German, Italian, Portuguese, Dutch,
-      and Polish), so names and places retain real casing while ordinary nouns
-      are never guessed from a lowercase word list. Turning punctuation off
-      removes marks without altering that authored casing; Spanish opening marks
-      and locale-specific conventions remain in the source. Numeric tokens
-      replace rather than extend text, preserve configured counts, and use
-      integer/year/decimal/time/thousands shapes. General tests guarantee at
-      least one requested rep; targeted Practice/drills quota every selected
-      digit and mark. The numbers flag now persists on Test/share/re-measure
-      metadata and renders on score cards, matching punctuation and capitals.
+      drive visible punctuation and hidden capitals-only boundaries; locale data
+      restores canonical country, region, timezone-city, language, month, and
+      weekday casing (including multi-word names), plus Spanish opening marks
+      and French pre-mark spacing. Numeric tokens replace rather than extend
+      word-list text, preserve configured counts, and use integer/year/decimal/
+      time/thousands shapes. General tests guarantee at least one requested rep;
+      targeted Practice/drills quota every selected digit and mark. The numbers
+      flag now persists on Test/share/re-measure metadata and renders on score
+      cards, matching punctuation and capitals.
 
 ## Out of scope / deferred
 
