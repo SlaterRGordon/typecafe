@@ -43,6 +43,7 @@ export interface ScoreSnapshot {
   streak?: number | null;
   punctuation?: boolean;
   capitals?: boolean;
+  numbers?: boolean;
   ranked?: boolean;
   // The keyboard layout the run was typed on (actual id - ledger decision 10).
   // Score surfaces render this board; absent/legacy = qwerty.
@@ -750,6 +751,7 @@ function DiagnosisPanel(props: { score: ShareableScore }) {
       customLength: s.ranked === false,
       punctuation: s.punctuation ?? false,
       capitals: s.capitals ?? false,
+      numbers: s.numbers ?? false,
       options: s.options ?? "",
     },
   }));
@@ -1040,7 +1042,7 @@ export function ShareableScoreCard(props: ShareableScoreCardProps) {
                 </div>
               }
               <p className="text-sm text-base-content/65">{modeText} / {formatDate(score.createdAt)}</p>
-              {(score.punctuation || score.capitals || score.ranked === false) &&
+              {(score.punctuation || score.capitals || score.numbers || score.ranked === false) &&
                 <div className="mt-2 flex flex-wrap gap-2">
                   {score.punctuation &&
                     <Chip
@@ -1058,6 +1060,15 @@ export function ShareableScoreCard(props: ShareableScoreCardProps) {
                       icon={<i className="fa-solid fa-font" aria-hidden="true" />}
                     >
                       Capitals
+                    </Chip>
+                  }
+                  {score.numbers &&
+                    <Chip
+                      tone="primary"
+                      size="xs"
+                      icon={<i className="fa-solid fa-hashtag" aria-hidden="true" />}
+                    >
+                      Numbers
                     </Chip>
                   }
                   {score.ranked === false &&

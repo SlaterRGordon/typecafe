@@ -20,6 +20,7 @@ export interface TestCompletionResult {
     wpmSamples: WpmSample[],
     punctuation: boolean,
     capitals: boolean,
+    numbers: boolean,
     ranked: boolean,
     levelName?: string,
     // Boss levels: the pacer overtook the typist. A definitive loss regardless of

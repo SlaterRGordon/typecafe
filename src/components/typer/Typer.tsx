@@ -320,13 +320,14 @@ export const Typer = (props: TyperProps) => {
             wpmSamples,
             punctuation,
             capitals,
+            numbers,
             ranked,
             levelName: level?.name,
             pacerCaught: pacerCaughtRef.current,
             typeId: testType?.id,
             persisted: false,
         }
-    }, [recorder, subMode, mode, count, punctuation, capitals, customLength, level, testType?.id, text])
+    }, [recorder, subMode, mode, count, punctuation, capitals, numbers, customLength, level, testType?.id, text])
 
     const isCompletionValid = useCallback((source: CompletionSource) => {
         const attempt = activeAttemptRef.current
@@ -415,6 +416,7 @@ export const Typer = (props: TyperProps) => {
                         options: level ? level.name : "",
                         punctuation,
                         capitals,
+                        numbers,
                         timeline: completion.timeline,
                         utcOffsetMinutes: -new Date().getTimezoneOffset(),
                         challengeDate: props.challengeDate,
@@ -453,7 +455,7 @@ export const Typer = (props: TyperProps) => {
     }, [
         recorder, isCompletionValid, isTimed, pause, getStats, buildCompletion, mode, levelRequirements,
         sessionData, testType, persistCompletion, count, level, punctuation,
-        capitals, props.gramWpmThreshold, props.gramAccuracyThreshold,
+        capitals, numbers, props.gramWpmThreshold, props.gramAccuracyThreshold,
         props.challengeDate, props.failOnMiss, recordPassedLevel, syncCharAttempts, syncTransitions,
     ])
 

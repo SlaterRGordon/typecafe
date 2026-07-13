@@ -19,6 +19,7 @@ export interface CreateTestInput {
     options: string,
     punctuation: boolean,
     capitals: boolean,
+    numbers: boolean,
     timeline: EncodedKeystroke[],
     utcOffsetMinutes?: number,
     challengeDate?: string,

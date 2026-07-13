@@ -20,6 +20,11 @@ const publicRoutes: PublicRoute[] = [
   { path: "/how-to-type-faster", heading: "How to Type Faster" },
   { path: "/how-ngrams-work", heading: "How N-grams Work" },
   { path: "/keyboard-layouts", heading: "Keyboard Layouts Explained" },
+  { path: "/stuck-at-60-70-wpm", heading: "Stuck at 60–70 WPM?" },
+  { path: "/spacebar-slowing-down-typing", heading: "Is Your Spacebar Slowing You Down?" },
+  { path: "/slowest-key-transitions", heading: "Find Your Slowest Key Transitions" },
+  { path: "/15-second-vs-60-second-wpm", heading: "15-Second vs. 60-Second WPM" },
+  { path: "/typing-consistency", heading: "What Typing Consistency Actually Means" },
 ];
 
 test.describe("public routes", () => {

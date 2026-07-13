@@ -7,10 +7,11 @@ import english1k from './languages/english1k.json'
 import { TestGramScopes, TestGramSources, type QuoteLength, type WordSize } from './types'
 // Drillable-key definitions live in lib (single source shared with diagnosis and
 // the drill page); re-exported here for the typer modules that import from utils.
-import { DRILL_MARKS, ENDER_MARKS, MID_MARKS, isDrillMark, isDrillDigit } from '~/lib/drillKeys'
+import { DRILL_MARKS, isDrillMark, isDrillDigit } from '~/lib/drillKeys'
 import { generatePhonologicalText } from '~/lib/phonology'
 import { generateRestrictedText } from '~/lib/restrictedText'
 export { DRILL_MARKS, isDrillMark, isDrillDigit }
+export { applyTextOptions } from '~/lib/textOptions'
 
 interface WordList {
     words: string[],
@@ -230,87 +231,6 @@ export const generatePracticeText = (count: number, characters: string[], langua
         allowedCharacters: characters,
         count,
     })
-}
-
-// Weighted so periods/commas dominate, matching natural prose.
-const SENTENCE_ENDERS = ['.', '.', '.', '.', '?', '!']
-const MID_PUNCTUATION = [',', ',', ',', ';', ':']
-
-const capitalise = (word: string) => word.charAt(0).toUpperCase() + word.slice(1)
-const pick = (choices: string[]) => choices[Math.floor(Math.random() * choices.length)] as string
-
-// A standalone 1–2 digit number token built from the locked drill digits.
-const digitToken = (digits: string[]) => {
-    const len = 1 + Math.floor(Math.random() * 2)
-    let token = ''
-    for (let i = 0; i < len; i++) token += pick(digits)
-    return token
-}
-
-// Layer punctuation, capitalisation and/or drill targets onto generated
-// (lowercase) text.
-// - punctuation: sprinkles sentence-ending and mid-sentence marks between words.
-// - capitals: with punctuation on, capitalises sentence starts; on its own it
-//   capitalises a sprinkle of words so the user still practises the shift key.
-// - drill: Practice's locked number/punctuation keys. Locked marks force
-//   sprinkling restricted to exactly those marks; locked digits get injected as
-//   standalone number tokens, so the weak key gets real reps in natural prose.
-export const applyTextOptions = (
-    text: string,
-    punctuation: boolean,
-    capitals: boolean,
-    drill?: { marks?: string[]; digits?: string[] },
-) => {
-    const lockedMarks = drill?.marks ?? []
-    const digits = drill?.digits ?? []
-    // Locked drill marks force punctuation even if the toggle is off.
-    const usePunct = punctuation || lockedMarks.length > 0
-    if (!text || (!usePunct && !capitals && digits.length === 0)) return text
-
-    // Restrict the sprinkle pools to the locked marks when drilling; otherwise
-    // use the natural prose weighting.
-    const enders = lockedMarks.length ? lockedMarks.filter((m) => ENDER_MARKS.includes(m)) : SENTENCE_ENDERS
-    const mids = lockedMarks.length ? lockedMarks.filter((m) => MID_MARKS.includes(m)) : MID_PUNCTUATION
-
-    const words = text.split(' ')
-    let startsSentence = true
-    const out: string[] = []
-
-    words.forEach((word, index) => {
-        if (!word) { out.push(word); return }
-        let result = word
-        const isLast = index === words.length - 1
-
-        if (capitals) {
-            if (usePunct) {
-                if (startsSentence) result = capitalise(result)
-            } else if (Math.random() < 0.2) {
-                result = capitalise(result)
-            }
-        }
-        startsSentence = false
-
-        if (usePunct && !isLast) {
-            const roll = Math.random()
-            if (enders.length && roll < 0.1) {
-                result += pick(enders)
-                startsSentence = true
-            } else if (mids.length && roll < 0.22) {
-                result += pick(mids)
-            }
-        }
-        out.push(result)
-
-        // Drill number tokens land as their own standalone "words".
-        if (digits.length && !isLast && Math.random() < 0.14) out.push(digitToken(digits))
-    })
-
-    let output = out.join(' ')
-    // Close the passage on a sentence ender when one is available.
-    if (usePunct && enders.length && !enders.includes(output.slice(-1))) {
-        output += lockedMarks.length ? pick(enders) : '.'
-    }
-    return output
 }
 
 export const generateText = (count: number, language: string) => {

@@ -26,13 +26,11 @@ describe("applyTextOptions", () => {
         expect(output.split(" ")).toHaveLength(input.split(" ").length)
     })
 
-    it("capitals-only capitalizes some words on a long enough text", () => {
-        const input = Array.from({ length: 200 }, () => "word").join(" ")
-        const output = applyTextOptions(input, false, true)
-        const capitalized = output.split(" ").filter((w) => /^[A-Z]/.test(w))
-        // ~20% expected; assert a generous band so the test is not flaky.
-        expect(capitalized.length).toBeGreaterThan(10)
-        expect(capitalized.length).toBeLessThan(120)
+    it("capitals-only uses hidden natural sentence boundaries", () => {
+        const input = Array.from({ length: 20 }, () => "word").join(" ")
+        const output = applyTextOptions(input, false, true, { random: () => 0 })
+        const capitalized = output.split(" ").map((word, index) => /^[A-Z]/.test(word) ? index : -1).filter((index) => index >= 0)
+        expect(capitalized).toEqual([0, 7, 14])
     })
 
     it("with punctuation and capitals, capitalizes the first word", () => {
@@ -44,7 +42,7 @@ describe("applyTextOptions", () => {
         const input = "the quick brown fox jumps over the lazy dog and runs away fast now"
         const allowed = new Set([";", ":"])
         for (let i = 0; i < 30; i++) {
-            const output = applyTextOptions(input, false, false, { marks: [";", ":"] })
+            const output = applyTextOptions(input, false, false, { marks: [";", ":"], targeted: true })
             for (const char of output.replace(/[a-z ]/g, "")) {
                 expect(allowed.has(char)).toBe(true)
             }
@@ -53,7 +51,7 @@ describe("applyTextOptions", () => {
 
     it("locked marks force punctuation even when the toggle is off", () => {
         // A '.' ender always closes the passage.
-        const output = applyTextOptions("a b c d e f g h i j", false, false, { marks: ["."] })
+        const output = applyTextOptions("a b c d e f g h i j", false, false, { marks: ["."], targeted: true })
         expect(output.endsWith(".")).toBe(true)
     })
 
@@ -62,7 +60,7 @@ describe("applyTextOptions", () => {
         const allowed = new Set(["5", "7"])
         let sawDigit = false
         for (let i = 0; i < 20; i++) {
-            const output = applyTextOptions(input, false, false, { digits: ["5", "7"] })
+            const output = applyTextOptions(input, false, false, { digits: ["5", "7"], targeted: true })
             for (const char of output) {
                 if (/[0-9]/.test(char)) {
                     sawDigit = true
@@ -71,6 +69,53 @@ describe("applyTextOptions", () => {
             }
         }
         expect(sawDigit).toBe(true)
+    })
+
+    it("guarantees every targeted mark and digit", () => {
+        const input = Array.from({ length: 40 }, (_, index) => `word${String.fromCharCode(97 + index % 20)}`).join(" ")
+        const output = applyTextOptions(input, false, false, {
+            marks: [";", ":", "!"],
+            digits: ["2", "8"],
+            targeted: true,
+            random: () => 0.5,
+        })
+        for (const target of [";", ":", "!", "2", "8"]) expect(output).toContain(target)
+        expect([...output].filter((character) => character === "2").length).toBeGreaterThanOrEqual(2)
+        expect([...output].filter((character) => character === "8").length).toBeGreaterThanOrEqual(2)
+    })
+
+    it("numbers replace words and guarantee a numeric token in a short test", () => {
+        const input = "one two three four five six seven eight nine ten"
+        const output = applyTextOptions(input, false, false, { digits: "0123456789".split(""), random: () => 0.5 })
+        expect(output.split(" ")).toHaveLength(input.split(" ").length)
+        expect(output).toMatch(/\d/)
+    })
+
+    it("uses realistic numeric formats when punctuation is enabled", () => {
+        const input = "one two three four five six seven eight nine ten"
+        const output = applyTextOptions(input, true, false, { digits: "0123456789".split(""), random: () => 0.95 })
+        expect(output).toMatch(/\d,\d{3}/)
+    })
+
+    it("capitalizes countries, cities, weekdays and the pronoun I", () => {
+        const output = applyTextOptions("travel from canada to new york on monday with i", false, true, {
+            language: "english",
+            random: () => 0.5,
+        })
+        expect(output).toContain("Canada")
+        expect(output).toContain("New York")
+        expect(output).toContain("Monday")
+        expect(output).toMatch(/\bI\b/)
+    })
+
+    it("uses Spanish opening punctuation and French punctuation spacing", () => {
+        const input = Array.from({ length: 20 }, () => "palabra").join(" ")
+        const spanish = applyTextOptions(input, true, true, { language: "spanish", random: () => 0.99 })
+        expect(spanish).toMatch(/^¡/)
+        expect(spanish).toContain("!")
+
+        const french = applyTextOptions(input.replaceAll("palabra", "mot"), true, true, { language: "french", random: () => 0.99 })
+        expect(french).toMatch(/ [;:?!]/)
     })
 })
 

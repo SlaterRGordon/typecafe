@@ -191,7 +191,12 @@ const Drill: NextPage = () => {
                 kind: "keys",
                 labels: keys,
                 targets: keys,
-                text: applyTextOptions(compileDrillText({ keys: letters, wordList, length }), false, false, { marks, digits }),
+                text: applyTextOptions(compileDrillText({ keys: letters, wordList, length }), false, false, {
+                    marks,
+                    digits,
+                    language,
+                    targeted: true,
+                }),
             }
         }
 

@@ -34,6 +34,11 @@ test.describe("secondary static routes", () => {
     expect(xml).toContain("<urlset");
     expect(xml).toContain("https://typecafe.app/guides");
     expect(xml).toContain("https://typecafe.app/how-we-measure");
+    expect(xml).toContain("https://typecafe.app/stuck-at-60-70-wpm");
+    expect(xml).toContain("https://typecafe.app/spacebar-slowing-down-typing");
+    expect(xml).toContain("https://typecafe.app/slowest-key-transitions");
+    expect(xml).toContain("https://typecafe.app/15-second-vs-60-second-wpm");
+    expect(xml).toContain("https://typecafe.app/typing-consistency");
     expect(xml).not.toContain("[slug]");
     expect(xml).not.toContain("[username]");
   });
@@ -69,5 +74,14 @@ test.describe("secondary static routes", () => {
     // duplicate of home, so content pages couldn't rank (growth-seo §E).
     expect(html).toContain('rel="canonical" href="https://typecafe.app/how-to-type-faster"');
     await expect(page.getByRole("heading", { name: "How to Type Faster", exact: true })).toBeVisible();
+  });
+
+  test("new guides expose citable article, FAQ, and breadcrumb data", async ({ page }) => {
+    const response = await page.goto("/slowest-key-transitions");
+    const html = (await response?.text()) ?? "";
+    expect(html).toContain('rel="canonical" href="https://typecafe.app/slowest-key-transitions"');
+    expect(html).toContain('"@type":"Article"');
+    expect(html).toContain('"@type":"FAQPage"');
+    expect(html).toContain('"@type":"BreadcrumbList"');
   });
 });

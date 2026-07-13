@@ -297,7 +297,10 @@ export const Text = memo(function Text(props: TextProps) {
             const generated = current.appendKeys
                 ? generateBetterPseudoText(100, current.appendKeys.split(""), parseLanguage(current.language).base)
                 : generateText(100, current.language)
-            const newText = applyTextOptions(generated, current.punctuation, current.capitals, { digits: current.numbers ? ALL_DIGITS : [] })
+            const newText = applyTextOptions(generated, current.punctuation, current.capitals, {
+                digits: current.numbers ? ALL_DIGITS : [],
+                language: parseLanguage(current.language).base,
+            })
             appendNewText(" " + newText)
             currentTextRef.current += " " + newText
         }

@@ -2,6 +2,8 @@ import type { NextPage } from "next";
 import Head from "next/head";
 import Link from "next/link";
 
+import { GUIDES } from "~/lib/guides";
+
 // The guides hub: one index page that lists every guide article as a card, so
 // the nav carries a single stable "Guides" link and adding an article means
 // adding a card here - never a new nav item. As a page that internally links
@@ -9,27 +11,6 @@ import Link from "next/link";
 
 // Single source of truth for the guide list: the cards below, the ItemList
 // JSON-LD, and the side nav's active-state check all read from it.
-export const GUIDES = [
-  {
-    href: "/how-to-type-faster",
-    title: "How to Type Faster",
-    description:
-      "Fix accuracy first, drill the exact keys and transitions that slow you down, and measure the delta. The whole method, step by step.",
-  },
-  {
-    href: "/how-ngrams-work",
-    title: "How N-grams Work",
-    description:
-      "You type in practised bursts like th and ing, not single letters. What an n-gram is, and why drilling them beats grinding random paragraphs.",
-  },
-  {
-    href: "/keyboard-layouts",
-    title: "Keyboard Layouts Explained",
-    description:
-      "QWERTY, Dvorak, Colemak and friends compared: what each layout actually changes, and whether switching makes you faster.",
-  },
-];
-
 const Guides: NextPage = () => {
   // GEO structured data: a CollectionPage with an ItemList gives crawlers and
   // answer engines a clean map of every guide from one URL.
@@ -38,7 +19,7 @@ const Guides: NextPage = () => {
     "@type": "CollectionPage",
     name: "TypeCafe Typing Guides",
     description:
-      "Practical, measurable guides to typing faster: method, n-grams, and keyboard layouts.",
+      "Practical, measurable guides to typing plateaus, key transitions, consistency, test length, n-grams, and keyboard layouts.",
     url: "https://typecafe.app/guides",
     mainEntity: {
       "@type": "ItemList",
