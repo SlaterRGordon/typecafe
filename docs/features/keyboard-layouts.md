@@ -387,11 +387,13 @@ Until tags land, they render the viewer's active layout.
       drillKeys stay a–z.
 - [x] 12 — **Practice key lab redesign** (2026-07-13, owner request): layer
       selection moved from the distant settings line onto the board as a clear
-      Base / Shift / AltGr rail; full-layer glyphs remain the primary labels and
-      base-layer previews grew into readable badges. Locked keys keep the exact
-      heatmap colour and differ only by a lower-right lock. Face percentages
-      moved into richer per-layer tooltips, and the footer names both states
-      plus the accuracy scale.
+      Base / Shift / AltGr rail shared by Practice and Progress; full-layer
+      glyphs remain the primary labels and base-layer previews grew into readable
+      badges. Practice stays on the page's main surface with no extra card/label.
+      Locked keys keep the exact heatmap colour and differ only by a corner lock
+      that sits clear of layer glyphs. Face percentages moved into richer
+      per-layer tooltips on both surfaces, and their accuracy legends now reuse
+      the profile activity chart's Less → five dots → More language.
       Interactive caps gained pressed state, focus treatment, and Enter/Space
       operation. E2e coverage and the screenshot tour pin the redesign.
 

@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { TrendChart } from "~/components/progress/TrendChart";
 import { GoalCard } from "~/components/progress/GoalCard";
 import { KeyHeatmap, KeyHeatmapLegend } from "~/components/heatmap/KeyHeatmap";
+import { KeyboardLayerSwitch } from "~/components/heatmap/KeyboardLayerSwitch";
 import { Chip } from "~/components/ui/Chip";
 import type { KeyAttempt } from "~/lib/heatmap";
 import { useGuestEvidence } from "~/hooks/useGuestEvidence";
@@ -488,41 +489,28 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
                     )}
 
                     <div data-testid="lifetime-keyboard-card" className="rounded-lg border border-base-content/10 bg-base-100/45 p-3">
-                        <div className="mb-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                             {/* "Your keyboard", not "Lifetime": per-key accuracy is a rolling
                                 window of recent attempts (ADR-0005), not an all-time sum. */}
                             <div className="text-base font-semibold text-base-content">Your keyboard</div>
-                            <KeyHeatmapLegend />
+                            <KeyboardLayerSwitch
+                                shiftLayer={heatmapShift}
+                                altgrLayer={heatmapAltgr}
+                                hasAltGr={boardHasAltGr}
+                                onSelectBase={() => { setHeatmapShift(false); setHeatmapAltgr(false); }}
+                                onToggleShift={() => { setHeatmapShift((on) => !on); setHeatmapAltgr(false); }}
+                                onToggleAltgr={() => { setHeatmapAltgr((on) => !on); setHeatmapShift(false); }}
+                                testId="lifetime-heatmap-layers"
+                            />
                         </div>
                         <div className="flex w-full justify-center overflow-x-auto pb-1">
-                            <KeyHeatmap attempts={props.keyAttempts} size="compact" showPercent={Object.keys(props.keyAttempts).length > 0} shiftLayer={heatmapShift} altgrLayer={heatmapAltgr} className="min-w-fit" testId="lifetime-heatmap" />
+                            <KeyHeatmap attempts={props.keyAttempts} size="compact" showPercent={false} shiftLayer={heatmapShift} altgrLayer={heatmapAltgr} className="min-w-fit" testId="lifetime-heatmap" />
                         </div>
                         {Object.keys(props.keyAttempts).length === 0 && (
                             <p className="mt-4 text-center text-sm text-base-content/45">Take more tests to color in your per-key accuracy.</p>
                         )}
-                        {/* Layer switches sit bottom-left of the board itself - they
-                            change what the board shows, so they live with it. */}
-                        <div className="mt-1 flex items-center justify-between gap-3">
-                            <div className="flex items-center gap-1" data-testid="lifetime-heatmap-layers">
-                                <button
-                                    type="button"
-                                    className={`btn btn-xs normal-case ${heatmapShift ? "btn-primary" : "btn-ghost text-base-content/60"}`}
-                                    aria-pressed={heatmapShift}
-                                    onClick={() => { setHeatmapShift((on) => !on); setHeatmapAltgr(false); }}
-                                >
-                                    ⇧ shift
-                                </button>
-                                {boardHasAltGr && (
-                                    <button
-                                        type="button"
-                                        className={`btn btn-xs normal-case ${heatmapAltgr ? "btn-primary" : "btn-ghost text-base-content/60"}`}
-                                        aria-pressed={heatmapAltgr}
-                                        onClick={() => { setHeatmapAltgr((on) => !on); setHeatmapShift(false); }}
-                                    >
-                                        AltGr
-                                    </button>
-                                )}
-                            </div>
+                        <div className="mt-2 flex items-center justify-between gap-3">
+                            <KeyHeatmapLegend />
                             <Link href="/how-we-measure" className="text-xs text-base-content/45 underline-offset-2 hover:text-base-content/70 hover:underline">
                                 How these numbers work →
                             </Link>

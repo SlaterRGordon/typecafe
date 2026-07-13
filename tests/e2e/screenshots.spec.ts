@@ -774,7 +774,7 @@ test.describe("screenshot tour", () => {
     await page.getByTestId("lifetime-keyboard-card").scrollIntoViewIfNeeded();
     await capture(page, testInfo, "40-progress-lifetime-keyboard");
     // The layer switch flips the lifetime heatmap to the shift layer.
-    await page.getByTestId("lifetime-heatmap-layers").getByRole("button", { name: "⇧ shift" }).click();
+    await page.getByTestId("lifetime-heatmap-layers").getByRole("button", { name: "Show shifted keys (capitals and symbols)" }).click();
     await expect(page.getByTestId("lifetime-heatmap").locator('[data-kb-key="R"]')).toBeVisible();
     await capture(page, testInfo, "40b-progress-lifetime-keyboard-shift");
   });

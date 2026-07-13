@@ -4,7 +4,8 @@ import { TestModes } from "./types";
 import { getActiveKey, subscribeActiveKey } from "./keySignal";
 import { useDispatch } from "react-redux";
 import { accentsFor, ensureLanguageLoaded, isDrillDigit, isDrillMark } from "./utils";
-import { KeyHeatmap } from "~/components/heatmap/KeyHeatmap";
+import { KeyHeatmap, KeyHeatmapLegend } from "~/components/heatmap/KeyHeatmap";
+import { KeyboardLayerSwitch } from "~/components/heatmap/KeyboardLayerSwitch";
 import { boardFor, composedFor, sequenceFor, keyFor, type Layer } from "~/lib/keyboardLayout";
 import { useLayout } from "~/hooks/useLayout";
 import { useLanguage } from "~/hooks/useLanguage";
@@ -331,69 +332,25 @@ export const Keyboard = (props: KeyboardProps) => {
         return merged
     }
 
-    const showBaseLayer = !shiftLayer && !altgrLayer
-
     return (
         <div ref={boardRef} className="typecafe-keyboard flex w-full flex-col items-center justify-start px-2 py-3 sm:px-4 md:py-4">
             {mode === TestModes.practice ?
                 <section
                     aria-label="Practice keyboard"
-                    className="w-full max-w-3xl rounded-2xl border border-base-content/10 bg-base-200/35 px-2.5 py-3 shadow-[0_18px_55px_-32px_rgba(0,0,0,0.8)] backdrop-blur-sm sm:px-5 sm:py-4"
+                    className="w-full max-w-3xl"
                 >
-                    <div className="mb-3 flex flex-col gap-3 sm:mb-4 sm:flex-row sm:items-center sm:justify-between">
-                        <div className="flex items-center justify-between gap-3 sm:justify-start">
-                            <div>
-                                <p className="text-[0.65rem] font-bold uppercase tracking-[0.22em] text-primary">Key lab</p>
-                                <p className="mt-0.5 text-xs text-base-content/60">
-                                    <span className="font-semibold text-base-content">{selectedKeys?.length ?? 0} unlocked</span>
-                                    <span aria-hidden="true"> · </span>in this drill
-                                </p>
-                            </div>
-                            <span className="inline-flex items-center gap-1.5 rounded-full border border-base-content/10 bg-base-100/45 px-2.5 py-1 text-[0.65rem] font-semibold text-base-content/60 sm:hidden">
-                                <span className="h-1.5 w-1.5 rounded-full bg-primary shadow-[0_0_0_3px_color-mix(in_oklab,var(--color-primary)_18%,transparent)]" />
-                                live heatmap
-                            </span>
-                        </div>
-
-                        <div
-                            className="grid min-h-11 grid-flow-col auto-cols-fr rounded-xl border border-base-content/10 bg-base-100/40 p-1"
-                            role="group"
-                            aria-label="Keyboard layer"
-                        >
-                            <button
-                                type="button"
-                                aria-pressed={showBaseLayer}
-                                onClick={() => {
-                                    if (shiftLayer) onToggleShift?.()
-                                    if (altgrLayer) onToggleAltgr?.()
-                                }}
-                                className={`min-w-20 cursor-pointer rounded-lg px-3 py-2 text-xs font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${showBaseLayer ? "bg-primary text-primary-content shadow-sm" : "text-base-content/55 hover:bg-base-content/5 hover:text-base-content"}`}
-                            >
-                                Base
-                            </button>
-                            <button
-                                type="button"
-                                aria-pressed={shiftLayer}
-                                aria-label="Show shifted keys (capitals and symbols)"
-                                title="Show shifted keys (capitals & symbols) - or hold Shift"
-                                onClick={onToggleShift}
-                                className={`min-w-20 cursor-pointer rounded-lg px-3 py-2 text-xs font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${shiftLayer ? "bg-primary text-primary-content shadow-sm" : "text-base-content/55 hover:bg-base-content/5 hover:text-base-content"}`}
-                            >
-                                <span aria-hidden="true">⇧ </span>Shift
-                            </button>
-                            {hasAltGr &&
-                                <button
-                                    type="button"
-                                    aria-pressed={altgrLayer}
-                                    aria-label="Show AltGr keys (accents and symbols)"
-                                    title="Show AltGr keys - or hold AltGr"
-                                    onClick={onToggleAltgr}
-                                    className={`min-w-20 cursor-pointer rounded-lg px-3 py-2 text-xs font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${altgrLayer ? "bg-primary text-primary-content shadow-sm" : "text-base-content/55 hover:bg-base-content/5 hover:text-base-content"}`}
-                                >
-                                    AltGr
-                                </button>
-                            }
-                        </div>
+                    <div className="mb-3 flex justify-center sm:justify-end">
+                        <KeyboardLayerSwitch
+                            shiftLayer={shiftLayer}
+                            altgrLayer={altgrLayer}
+                            hasAltGr={hasAltGr}
+                            onSelectBase={() => {
+                                if (shiftLayer) onToggleShift?.()
+                                if (altgrLayer) onToggleAltgr?.()
+                            }}
+                            onToggleShift={() => onToggleShift?.()}
+                            onToggleAltgr={() => onToggleAltgr?.()}
+                        />
                     </div>
 
                     <KeyHeatmap
@@ -408,7 +365,7 @@ export const Keyboard = (props: KeyboardProps) => {
                         altgrLayer={altgrLayer}
                         interactiveKeys={interactiveKeys}
                     />
-                    <div className="mt-3 flex flex-col gap-2 border-t border-base-content/10 pt-3 text-[0.65rem] text-base-content/55 sm:flex-row sm:items-center sm:justify-between sm:text-xs">
+                    <div className="mt-2 flex flex-col gap-2 text-[0.65rem] text-base-content/55 sm:flex-row sm:items-center sm:justify-between sm:text-xs">
                         <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 sm:justify-start">
                             <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
                                 <span className="h-2 w-2 rounded-full bg-primary" aria-hidden="true" />
@@ -423,11 +380,7 @@ export const Keyboard = (props: KeyboardProps) => {
                                 locked = click to add
                             </span>
                         </div>
-                        <div className="flex items-center justify-center gap-2" aria-label="Heatmap: lower accuracy to higher accuracy">
-                            <span>lower accuracy</span>
-                            <span aria-hidden="true" className="h-1.5 w-20 rounded-full bg-gradient-to-r from-primary to-secondary" />
-                            <span>higher</span>
-                        </div>
+                        <KeyHeatmapLegend />
                     </div>
                 </section>
                 :

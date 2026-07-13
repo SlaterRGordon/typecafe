@@ -994,7 +994,7 @@ test.describe("home typing test", () => {
 
     await selectMode(page, "Practice");
     await expect(page.locator(".typecafe-keyboard")).toBeVisible();
-    await expect(page.getByRole("region", { name: "Practice keyboard" })).toContainText("Key lab");
+    await expect(page.getByRole("region", { name: "Practice keyboard" })).toBeVisible();
     await expect(page.getByRole("group", { name: "Keyboard layer" })).toBeVisible();
     const qKey = page.locator('.typecafe-key-heatmap [data-kb-key="q"]');
     await expect(qKey).not.toContainText("%");

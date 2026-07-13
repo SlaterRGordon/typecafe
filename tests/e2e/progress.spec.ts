@@ -139,14 +139,17 @@ test.describe("progress dashboard", () => {
     await expect(drillWeak).toBeVisible();
     await expect(drillWeak).toHaveAttribute("href", /keys=r,e/);
     await expect(page.getByTestId("lifetime-keyboard-card")).toContainText("Your keyboard");
-    await expect(page.getByTestId("lifetime-keyboard-card")).toContainText("Lower accuracy");
+    await expect(page.getByTestId("lifetime-keyboard-card")).toContainText("Less");
+    await expect(page.getByTestId("lifetime-keyboard-card")).toContainText("More");
     await expect(page.getByTestId("lifetime-heatmap")).toBeVisible();
-    await expect(page.getByTestId("lifetime-heatmap")).toContainText("80%");
+    const rKey = page.getByTestId("lifetime-heatmap").locator('[data-kb-key="r"]');
+    await expect(rKey).not.toContainText("%");
+    await expect(rKey).toHaveAttribute("title", /r: 80% accuracy[\s\S]*Base r: 80% accuracy/);
     // The heatmap flips layers: shift renders each cell's shifted twin with its
     // own tally (1 → !), and flipping back restores the base glyphs.
     const heatmap = page.getByTestId("lifetime-heatmap");
     await expect(heatmap.locator('[data-kb-key="1"]')).toBeVisible();
-    const shiftLayerButton = page.getByTestId("lifetime-heatmap-layers").getByRole("button", { name: "⇧ shift" });
+    const shiftLayerButton = page.getByTestId("lifetime-heatmap-layers").getByRole("button", { name: "Show shifted keys (capitals and symbols)" });
     await shiftLayerButton.click();
     await expect(heatmap.locator('[data-kb-key="!"]')).toBeVisible();
     await expect(heatmap.locator('[data-kb-key="R"]')).toBeVisible();
