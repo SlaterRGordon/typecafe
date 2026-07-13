@@ -75,7 +75,7 @@ function LockBadge() {
 
 const ROW_CLASS_BY_SIZE: Record<KeyHeatmapSize, string> = {
     full: "flex justify-center gap-0.5 my-0.5 w-full md:gap-1 md:my-1",
-    compact: "flex justify-center gap-0.5 my-0.5 w-full md:gap-1",
+    compact: "flex justify-center gap-0.5 w-full md:gap-1",
     mini: "flex justify-center gap-0.5 w-full",
 }
 
@@ -84,7 +84,7 @@ const KEY_CLASS_BY_SIZE: Record<KeyHeatmapSize, string> = {
     // data-kb-step - set imperatively by the train board, absent everywhere
     // else, so the pseudo-element resolves to empty content and shows nothing.
     full: "relative kbd kbd-md sm:kbd-lg font-mono after:absolute after:-right-1 after:-top-1.5 after:text-[9px] after:font-bold after:text-primary after:content-[attr(data-kb-step)]",
-    compact: "relative kbd !h-8 !min-h-8 !min-w-10 px-1 font-mono after:absolute after:-right-1 after:-top-1.5 after:text-[9px] after:font-bold after:text-primary after:content-[attr(data-kb-step)]",
+    compact: "relative kbd !h-9 !min-h-9 !min-w-10 px-1 font-mono after:absolute after:-right-1 after:-top-1.5 after:text-[9px] after:font-bold after:text-primary after:content-[attr(data-kb-step)]",
     mini: "relative kbd kbd-sm font-mono text-xs",
 }
 

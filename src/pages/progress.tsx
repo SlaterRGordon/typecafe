@@ -46,19 +46,19 @@ function formatSigned(value: number, digits = 1): string {
 }
 
 type HeroTrend = "up" | "down" | "flat";
+const COLLAPSED_LIST_LIMIT = 5;
+const EXPANDED_LIST_LIMIT = 10;
 
 // The familiar start → current line, now backed by observed daily medians. The
 // first practiced day in the selected period is the start and the latest is
 // current; skipped calendar dates contribute nothing.
 function HeroDeltaLine(props: { start: number | null; current: number; delta: number | null; trend: HeroTrend }) {
     const color = props.trend === "up" ? "text-success" : props.trend === "down" ? "text-error" : "text-base-content";
-    // Every sign gets the same reserved label lane above the line. Keeping both
-    // line levels in the lower half means +, -, and 0 can never collide with it.
     const geo = props.trend === "down"
-        ? { path: "M0 26 H58 L68 34 H100", leftTop: "65%", rightTop: "85%" }
+        ? { path: "M0 18 H54 L70 36 H100", leftTop: "45%", rightTop: "90%", labelTop: "1.9rem", placement: "below-high" }
         : props.trend === "up"
-            ? { path: "M0 34 H58 L68 26 H100", leftTop: "85%", rightTop: "65%" }
-            : { path: "M0 34 H100", leftTop: "85%", rightTop: "85%" };
+            ? { path: "M0 36 H54 L70 18 H100", leftTop: "90%", rightTop: "45%", labelTop: "0.6rem", placement: "above-low" }
+            : { path: "M0 32 H100", leftTop: "80%", rightTop: "80%", labelTop: "0.8rem", placement: "above-flat" };
 
     return (
         <div data-testid="headline-start-current" className="flex items-center gap-3 sm:gap-5">
@@ -69,7 +69,12 @@ function HeroDeltaLine(props: { start: number | null; current: number; delta: nu
                 <div className="text-[0.65rem] font-semibold uppercase tracking-wide text-base-content/50">Start</div>
             </div>
             <div className={`relative h-16 flex-1 ${color}`} data-trend={props.trend}>
-                <div className="absolute left-1/2 top-0 -translate-x-1/2 whitespace-nowrap text-center">
+                <div
+                    data-testid="headline-delta-value"
+                    data-placement={geo.placement}
+                    className="absolute left-[44%] z-10 -translate-x-1/2 whitespace-nowrap text-center"
+                    style={{ top: geo.labelTop }}
+                >
                     {props.delta !== null ? (
                         <div className="font-mono text-2xl font-bold">{formatSigned(props.delta)}</div>
                     ) : (
@@ -291,7 +296,7 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
     // selected period → latest practiced day. The chart keeps its fitted trend.
     const hero = useMemo(() => heroDelta(dailyProgress.points), [dailyProgress.points]);
     const plateau = useMemo(() => detectPlateau(cleanRecords, now), [cleanRecords, now]);
-    const slowTransitions = useMemo(() => worstTransitions(props.transitions), [props.transitions]);
+    const slowTransitions = useMemo(() => worstTransitions(props.transitions, EXPANDED_LIST_LIMIT), [props.transitions]);
     // The active language's accent chars (loaded on demand; [] for English) -
     // they let weak é/ü/ą show as drillable keys, and gate out keys from other
     // languages/layouts the user isn't currently on.
@@ -525,7 +530,7 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
                                 <div data-testid="worst-transitions" className="flex min-h-0 flex-col">
                                     <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-base-content/45">Slowest transitions</p>
                                     <ul className="flex flex-col gap-2 overflow-y-auto pr-1">
-                                        {slowTransitions.slice(0, showAllTransitions ? undefined : 3).map((t) => (
+                                        {slowTransitions.slice(0, showAllTransitions ? EXPANDED_LIST_LIMIT : COLLAPSED_LIST_LIMIT).map((t) => (
                                             <li key={t.pair} className="flex items-center justify-between gap-2 rounded-md border border-base-content/10 bg-base-200/40 px-3 py-2">
                                                 <span className="text-sm text-base-content/90">
                                                     <span className="font-mono font-bold text-base-content">{t.from}→{t.to}</span> · {t.ratio.toFixed(1)}× avg
@@ -539,14 +544,14 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
                                             </li>
                                         ))}
                                     </ul>
-                                    {slowTransitions.length > 3 && (
+                                    {slowTransitions.length > COLLAPSED_LIST_LIMIT && (
                                         <button
                                             type="button"
                                             data-testid="transitions-disclosure"
                                             onClick={() => setShowAllTransitions((shown) => !shown)}
                                             className="mt-2 inline-flex min-h-8 items-center self-start text-xs font-medium text-base-content/60 transition-colors hover:text-base-content focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                                         >
-                                            {showAllTransitions ? "Show less ↑" : `View ${slowTransitions.length - 3} more →`}
+                                            {showAllTransitions ? "Show less ↑" : `View ${Math.min(slowTransitions.length, EXPANDED_LIST_LIMIT) - COLLAPSED_LIST_LIMIT} more →`}
                                         </button>
                                     )}
                                 </div>
@@ -602,7 +607,7 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
                     <div className="mb-3 text-lg font-semibold text-base-content">Records</div>
                     {records.length > 0 ? (
                         <ul className="space-y-2">
-                            {records.slice(0, showAllRecords ? 6 : 3).map((event) => (
+                            {records.slice(0, showAllRecords ? EXPANDED_LIST_LIMIT : COLLAPSED_LIST_LIMIT).map((event) => (
                                 <li key={event.t} className="flex items-center justify-between gap-3 border-b border-base-content/10 pb-2 text-sm last:border-b-0 last:pb-0">
                                     <span className="shrink-0 text-base-content/60">{new Date(event.t).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}</span>
                                     <span className="text-right font-medium text-base-content">
@@ -614,14 +619,14 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
                     ) : (
                         <p className="text-sm text-base-content/45">Your personal bests and first-milestone tests land here as you improve.</p>
                     )}
-                    {records.length > 3 && (
+                    {records.length > COLLAPSED_LIST_LIMIT && (
                         <button
                             type="button"
                             data-testid="records-disclosure"
                             onClick={() => setShowAllRecords((shown) => !shown)}
-                            className="mt-auto inline-flex min-h-8 items-center self-start pt-2 text-xs font-medium text-base-content/60 transition-colors hover:text-base-content focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                            className="mt-2 inline-flex min-h-8 items-center self-start text-xs font-medium text-base-content/60 transition-colors hover:text-base-content focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                         >
-                            {showAllRecords ? "Show less ↑" : `View ${Math.min(records.length, 6) - 3} more →`}
+                            {showAllRecords ? "Show less ↑" : `View ${Math.min(records.length, EXPANDED_LIST_LIMIT) - COLLAPSED_LIST_LIMIT} more →`}
                         </button>
                     )}
                 </div>

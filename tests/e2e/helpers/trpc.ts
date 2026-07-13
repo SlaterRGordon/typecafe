@@ -22,6 +22,8 @@ interface MockTrpcOptions {
   coachingSession?: unknown;
   // Make the progress history flat (a plateau) instead of rising.
   flatProgress?: boolean;
+  // Make the progress history fall so hero sign-specific layout can be tested.
+  fallingProgress?: boolean;
   // Mix timed and words records so /progress filter tests can prove scoping.
   mixedProgress?: boolean;
   // Put pairs of tests on the same practiced day so trend tests can prove that
@@ -154,14 +156,14 @@ function makeScoreSnapshot() {
 
 // A rising WPM history over the last ~60 days, generated relative to now so the
 // /progress headline delta is deterministic (current window beats the prior).
-function makeProgressRecords(flat = false, mixed = false, sameDay = false) {
+function makeProgressRecords(flat = false, mixed = false, sameDay = false, falling = false) {
   const dayMs = 24 * 60 * 60 * 1000;
   const now = Date.now();
   return Array.from({ length: 24 }, (_, i) => {
     const daysAgo = sameDay ? 22 - Math.floor(i / 2) * 2 : 58 - i * 2.5;
     const wordsRecord = mixed && i % 2 === 1;
     return {
-      wpm: flat ? 70 + (i % 2 === 0 ? 0.4 : -0.4) : 58 + i * 1.1,
+      wpm: flat ? 70 + (i % 2 === 0 ? 0.4 : -0.4) : falling ? 84 - i * 1.1 : 58 + i * 1.1,
       // Hold accuracy constant for the flat fixture so the derived net WPM stays
       // flat too (varying accuracy would inject a trend the plateau test rejects).
       accuracy: flat ? 96 : 94 + (i % 5),
@@ -310,7 +312,7 @@ function responseForProcedure(procedure: string, input: ProcedureInput, options:
       return { better: 0, worse: 5, total: 5, percentile: 0 };
     case "test.getProgressRecords":
       if (options.emptyScores) return [];
-      return makeProgressRecords(options.flatProgress, options.mixedProgress, options.sameDayProgress);
+      return makeProgressRecords(options.flatProgress, options.mixedProgress, options.sameDayProgress, options.fallingProgress);
     case "test.getActivityByDate":
       // Recent consecutive days so the profile streak chip has data.
       return Array.from({ length: 5 }, (_, i) => ({

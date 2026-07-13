@@ -66,6 +66,7 @@ test.describe("progress dashboard", () => {
         { pair: "rv", count: 10, totalMs: 4000, errors: 1 },
         { pair: "dv", count: 10, totalMs: 3500, errors: 1 },
         { pair: "eb", count: 10, totalMs: 3000, errors: 1 },
+        { pair: "gh", count: 10, totalMs: 2800, errors: 1 },
         { pair: "th", count: 1000, totalMs: 100000, errors: 0 },
       ],
       sameDayProgress: true,
@@ -78,6 +79,7 @@ test.describe("progress dashboard", () => {
     const headline = page.getByTestId("headline-delta");
     await expect(headline).toBeVisible();
     await expect(headline.getByText(/\+\d/)).toBeVisible();
+    await expect(page.getByTestId("headline-delta-value")).toHaveAttribute("data-placement", "above-low");
     await expect(headline.getByText("WPM").first()).toBeVisible();
     await expect(page.getByTestId("headline-start-current")).toContainText("Start");
     await expect(page.getByTestId("headline-current")).toContainText("Current daily median");
@@ -153,21 +155,21 @@ test.describe("progress dashboard", () => {
     const transitions = page.getByTestId("worst-transitions");
     await expect(transitions).toContainText("b→r");
     await expect(transitions.getByRole("link", { name: "Drill br" })).toBeVisible();
-    await expect(transitions.locator("li")).toHaveCount(3);
-    const transitionDisclosure = page.getByTestId("transitions-disclosure");
-    await expect(transitionDisclosure).toHaveText("View 2 more →");
-    await transitionDisclosure.click();
     await expect(transitions.locator("li")).toHaveCount(5);
+    const transitionDisclosure = page.getByTestId("transitions-disclosure");
+    await expect(transitionDisclosure).toHaveText("View 1 more →");
+    await transitionDisclosure.click();
+    await expect(transitions.locator("li")).toHaveCount(6);
     await expect(transitionDisclosure).toHaveText("Show less ↑");
 
     // Both lists use the same bottom disclosure pattern and expand in place.
     const records = page.getByTestId("records-timeline");
     await expect(records).toBeVisible();
-    await expect(records.locator("li")).toHaveCount(3);
+    await expect(records.locator("li")).toHaveCount(5);
     const recordsDisclosure = page.getByTestId("records-disclosure");
     await expect(recordsDisclosure).toHaveText(/View \d+ more →/);
     await recordsDisclosure.click();
-    await expect(records.locator("li")).toHaveCount(6);
+    await expect(records.locator("li")).toHaveCount(10);
     await expect(recordsDisclosure).toHaveText("Show less ↑");
 
     // Removed in slice 6: the 1-user self-league trap and the on-page challenge.
@@ -283,6 +285,15 @@ test.describe("progress dashboard", () => {
     await expect(page.getByRole("button", { name: "Take a test first" })).toBeVisible();
   });
 
+  test("a falling hero keeps its delta below the high side of the line", async ({ page }) => {
+    await mockAuthenticatedSession(page);
+    await mockTrpc(page, { fallingProgress: true });
+    await gotoProgress(page);
+
+    await expect(page.getByTestId("headline-start-current").locator('[data-trend="down"]')).toBeVisible();
+    await expect(page.getByTestId("headline-delta-value")).toHaveAttribute("data-placement", "below-high");
+  });
+
   test("one practiced day builds a baseline; a second is not required on the same week", async ({ page }) => {
     await page.addInitScript(() => {
       window.localStorage.setItem("typecafe:progressHistory", JSON.stringify([
@@ -292,6 +303,7 @@ test.describe("progress dashboard", () => {
     await gotoProgress(page);
 
     await expect(page.getByTestId("baseline-calibration")).toContainText("Building baseline");
+    await expect(page.getByTestId("headline-delta-value")).toHaveAttribute("data-placement", "above-flat");
     await expect(page.getByTestId("headline-current")).toContainText("60.0");
   });
 
