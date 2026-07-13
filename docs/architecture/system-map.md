@@ -53,7 +53,7 @@ flowchart TD
     Profile --> Train
 
     More["More menu"] --> Guides["/guides — Guides hub"]
-    Guides --> GuideArticles["How to type faster · N-grams · Keyboard layouts"]
+    Guides --> GuideArticles["Plateaus · spacebar timing · key transitions · test length · consistency · N-grams · layouts"]
     More --> Measure["/how-we-measure — Measurement method"]
     More --> Support["/support · /contact"]
     More --> Legal["/privacy-policy · /terms-and-conditions"]

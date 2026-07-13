@@ -1045,6 +1045,26 @@ test.describe("screenshot tour", () => {
     await expect(page.getByRole("heading", { name: "Keyboard Layouts Explained", exact: true })).toBeVisible();
     await capture(page, testInfo, "67-keyboard-layouts");
 
+    await page.goto("/stuck-at-60-70-wpm");
+    await expect(page.getByRole("heading", { name: "Stuck at 60–70 WPM?", exact: true })).toBeVisible();
+    await capture(page, testInfo, "69-stuck-at-60-70-wpm");
+
+    await page.goto("/spacebar-slowing-down-typing");
+    await expect(page.getByRole("heading", { name: "Is Your Spacebar Slowing You Down?", exact: true })).toBeVisible();
+    await capture(page, testInfo, "70-spacebar-slowing-down-typing");
+
+    await page.goto("/slowest-key-transitions");
+    await expect(page.getByRole("heading", { name: "Find Your Slowest Key Transitions", exact: true })).toBeVisible();
+    await capture(page, testInfo, "71-slowest-key-transitions");
+
+    await page.goto("/15-second-vs-60-second-wpm");
+    await expect(page.getByRole("heading", { name: "15-Second vs. 60-Second WPM", exact: true })).toBeVisible();
+    await capture(page, testInfo, "72-15-second-vs-60-second-wpm");
+
+    await page.goto("/typing-consistency");
+    await expect(page.getByRole("heading", { name: "What Typing Consistency Actually Means", exact: true })).toBeVisible();
+    await capture(page, testInfo, "73-typing-consistency");
+
     await page.goto("/privacy-policy");
     await expect(page.getByRole("heading", { name: "Privacy Policy for TypeCafe" })).toBeVisible();
     await capture(page, testInfo, "21-privacy-policy");

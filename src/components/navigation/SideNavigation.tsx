@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Avatar } from "../Avatar";
 import { useRouter } from "next/router";
 import { MaterialNavIcon } from "./MaterialNavIcon";
-import { GUIDES } from "~/pages/guides";
+import { GUIDE_ROUTES } from "~/lib/guides";
 import { useDailySessionBadge } from "~/hooks/useDailyCoachingSession";
 
 // The legal/support links that used to sit in the page footer, now rolled into
@@ -26,7 +26,7 @@ export const SideNavigation = () => {
     const [isExpanded, setIsExpanded] = useState(false);
     const [moreOpen, setMoreOpen] = useState(false);
     // Guide articles keep highlighting "More" even though only the hub is listed.
-    const moreActive = [...MORE_LINKS, ...GUIDES].some((link) => router.pathname.startsWith(link.href));
+    const moreActive = [...MORE_LINKS.map((link) => link.href), ...GUIDE_ROUTES].some((href) => router.pathname.startsWith(href));
     const getNavButtonClass = (href: string) => {
         const isActive = router.pathname === href || (href !== "/" && router.pathname.startsWith(href))
 

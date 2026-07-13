@@ -1,5 +1,6 @@
 import type { GetServerSidePropsContext } from "next";
 import { prisma } from "~/server/db";
+import { GUIDE_ROUTES } from "~/lib/guides";
 
 const EXTERNAL_DATA_URL = "https://typecafe.app";
 
@@ -28,6 +29,11 @@ export const STATIC_ROUTES = [
     "/how-to-type-faster",
     "/how-ngrams-work",
     "/keyboard-layouts",
+    "/stuck-at-60-70-wpm",
+    "/spacebar-slowing-down-typing",
+    "/slowest-key-transitions",
+    "/15-second-vs-60-second-wpm",
+    "/typing-consistency",
     "/how-we-measure",
     "/support",
     "/contact",
@@ -38,7 +44,7 @@ export const STATIC_ROUTES = [
 function priorityFor(route: string): { priority: string; changefreq: string } {
     if (route === "/") return { priority: "1.0", changefreq: "daily" };
     if (route.startsWith("/profile/")) return { priority: "0.6", changefreq: "weekly" };
-    if (route === "/guides" || route.startsWith("/how-") || route === "/keyboard-layouts") {
+    if (route === "/guides" || GUIDE_ROUTES.includes(route)) {
         return { priority: "0.7", changefreq: "monthly" };
     }
     if (["/progress", "/train", "/drill", "/plan"].includes(route)) {
