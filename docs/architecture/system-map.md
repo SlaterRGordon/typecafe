@@ -1,6 +1,6 @@
 # TypeCafe system map
 
-**Last verified:** 2026-07-11 through the daily-coaching slice
+**Last verified:** 2026-07-12 through the independent progress-column slice
 
 **Purpose:** a compact map of the current system. It records stable ownership and
 invariants, then points to code for details. Product history belongs in the
@@ -20,6 +20,57 @@ Measure a Test
 
 Every product review starts with [the vision](../vision.md). Canonical domain
 language lives in [`CONTEXT.md`](../../CONTEXT.md).
+
+## User-facing site map
+
+This is the current information architecture, including the navigation shell and
+the improvement loop between testing, diagnosis, drilling, and proof. API routes,
+OAuth callbacks, and the XML sitemap endpoint are service surfaces rather than
+user-facing destinations.
+
+```mermaid
+flowchart TD
+    Home["/ — Test home"]
+    Progress["/progress — Progress"]
+    Train["/train — Train ladder"]
+    Coach["/plan — Daily Coach"]
+    Leaderboard["/leaderboard — Leaderboard"]
+    Profile["/profile — Your profile"]
+
+    Home --> Score["Test result + diagnosis"]
+    Score --> Drill["/drill — Targeted drill"]
+    Drill --> ReMeasure["/ — Re-measure same setup"]
+    ReMeasure --> Score
+    Score --> Share["/score/[slug] — Share / beat run"]
+
+    Progress --> Drill
+    Progress --> ShareProgress["Progress share"]
+    Coach --> Drill
+    Coach --> Home
+    Train --> TrainTest["Test / level result"]
+    TrainTest --> Train
+    Profile --> Progress
+    Profile --> Train
+
+    More["More menu"] --> Guides["/guides — Guides hub"]
+    Guides --> GuideArticles["How to type faster · N-grams · Keyboard layouts"]
+    More --> Measure["/how-we-measure — Measurement method"]
+    More --> Support["/support · /contact"]
+    More --> Legal["/privacy-policy · /terms-and-conditions"]
+
+    PublicProfile["/profile/[username] — Public profile"]
+    Challenge["/challenge — Parked daily challenge"]
+```
+
+Navigation ownership:
+
+- Primary rail/bottom navigation: Home, Progress, Train, Daily Coach, Leaderboard,
+  and signed-in Profile.
+- The More menu: Guides, Support, Contact, Privacy, Terms, and How we measure.
+- Public/deep-link surfaces: shared scores, public profiles, guide articles, and
+  the parked Challenge route.
+- The shortest improvement path remains `Home → Score/diagnosis → Drill → Home`;
+  Progress and Daily Coach are supporting entry points into the same drill loop.
 
 ## Runtime shape
 
@@ -48,10 +99,15 @@ The app intentionally has no ports/adapters repository seam around tRPC. See
 | `/train` | beginner Level ladder and grading | `pages/train.tsx`, `hooks/useTrainProgress.ts`, `lib/trainProgression.ts`, `lib/trainThresholds.ts` |
 | `/progress` | trends, Delta, weak spots, heatmap, goal | `pages/progress.tsx`, `lib/progress.ts`, `components/progress/` |
 | `/profile` | identity, lifetime proof, activity, Train summary | `pages/profile.tsx`, `components/profile/` |
+| `/profile/[username]` | public profile proof and shareable history | `pages/profile/[username].tsx`, `components/profile/` |
 | `/leaderboard` | competitive Test rankings | `components/scores/LeaderboardList.tsx`, `server/api/routers/test.ts` |
 | `/score/[slug]` | read-only share and beat-my-run flow | `pages/score/[slug].tsx`, `components/scores/ShareableScoreCard.tsx` |
 | `/challenge` | parked daily Challenge, still deep-linkable | `pages/challenge.tsx`, `lib/challenge.ts` |
-| `/plan` | today's Coaching session detail and proof (Today nav entry) | `pages/plan.tsx`, `lib/dailyCoaching.ts`, `hooks/useDailyCoachingSession.ts` |
+| `/plan` | today's Daily Coach session detail and proof | `pages/plan.tsx`, `lib/dailyCoaching.ts`, `hooks/useDailyCoachingSession.ts` |
+| `/guides` | guide index for the measurable typing method | `pages/guides.tsx`, `pages/how-to-type-faster.tsx`, `pages/how-ngrams-work.tsx`, `pages/keyboard-layouts.tsx` |
+| `/how-we-measure` | public explanation of WPM, accuracy, and evidence | `pages/how-we-measure.tsx`, `lib/stats.ts`, `lib/testEvidence.ts` |
+| `/support`, `/contact` | support and contact surfaces | `pages/support.tsx`, `pages/contact.tsx` |
+| `/privacy-policy`, `/terms-and-conditions` | legal and privacy information | `pages/privacy-policy.tsx`, `pages/terms-and-conditions.tsx` |
 
 ## Test lifecycle
 
