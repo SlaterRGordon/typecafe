@@ -1,7 +1,7 @@
 import { TestModes, TestSubModes } from "../types"
 import type { QuoteLength, TestGramScopes, TestGramSources } from "../types"
 import type { Level } from "../train/levels"
-import { applyTextOptions, ensureQuotesLoaded, ensureSizedLoaded, generateBetterPseudoText, generateNGram, generatePracticeText, generateQuote, generateText, isDrillDigit, isDrillMark, parseLanguage } from "../utils"
+import { applyTextOptions, ensureCasedSentencesLoaded, ensureQuotesLoaded, ensureSizedLoaded, generateBetterPseudoText, generateCasedText, generateNGram, generatePracticeText, generateQuote, generateText, isDrillDigit, isDrillMark, parseLanguage } from "../utils"
 import { ALL_DIGITS, isPracticeLetter } from "~/lib/drillKeys"
 
 export interface TestTextConfig {
@@ -40,17 +40,27 @@ export async function generateTestText(config: TestTextConfig, gramLevel: number
 
     const { base, size } = parseLanguage(language)
     await ensureSizedLoaded(base, size)
+    if (capitals && ((mode === TestModes.normal && !level) || mode === TestModes.relaxed)) {
+        await ensureCasedSentencesLoaded()
+    }
+
+    const casedWordText = (wordCount: number) => applyTextOptions(
+        generateCasedText(wordCount, base),
+        punctuation,
+        true,
+        { canonicalCase: true, digits: numberPool, language: base },
+    )
 
     if (mode === TestModes.normal) {
         if (subMode === TestSubModes.timed) {
             // A speed-round level drills its own keys at speed; the buffer is large
             // so a 30s run never exhausts it (Text appends more from the same keys).
             if (level) return applyTextOptions(generateBetterPseudoText(500, level.keys.split(""), base), punctuation, capitals, { language: base })
-            return applyTextOptions(generateText(500, language), punctuation, capitals, { digits: numberPool, language: base })
+            return capitals ? casedWordText(500) : applyTextOptions(generateText(500, language), punctuation, false, { digits: numberPool, language: base })
         }
         if (subMode === TestSubModes.words) {
             if (level) return applyTextOptions(generateBetterPseudoText(count, level.keys.split(""), base), punctuation, capitals, { language: base })
-            return applyTextOptions(generateText(count, language), punctuation, capitals, { digits: numberPool, language: base })
+            return capitals ? casedWordText(count) : applyTextOptions(generateText(count, language), punctuation, false, { digits: numberPool, language: base })
         }
         return ""
     }
@@ -79,7 +89,7 @@ export async function generateTestText(config: TestTextConfig, gramLevel: number
     }
 
     if (mode === TestModes.relaxed) {
-        return applyTextOptions(generateText(50, language), punctuation, capitals, { digits: numberPool, language: base })
+        return capitals ? casedWordText(50) : applyTextOptions(generateText(50, language), punctuation, false, { digits: numberPool, language: base })
     }
 
     return ""

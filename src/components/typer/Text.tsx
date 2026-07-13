@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react"
-import { applyTextOptions, generateBetterPseudoText, generateText, parseLanguage } from "./utils"
+import { applyTextOptions, generateBetterPseudoText, generateCasedText, generateText, parseLanguage } from "./utils"
 import { ALL_DIGITS } from "~/lib/drillKeys"
 import { TestModes, TestSubModes } from "./types"
 import { isAnyModalOpen, isModalOpen, MODAL_IDS } from "~/lib/modals"
@@ -296,8 +296,11 @@ export const Text = memo(function Text(props: TextProps) {
             if (!current.appendsText) return
             const generated = current.appendKeys
                 ? generateBetterPseudoText(100, current.appendKeys.split(""), parseLanguage(current.language).base)
-                : generateText(100, current.language)
+                : current.capitals
+                    ? generateCasedText(100, current.language)
+                    : generateText(100, current.language)
             const newText = applyTextOptions(generated, current.punctuation, current.capitals, {
+                canonicalCase: current.capitals && !current.appendKeys,
                 digits: current.numbers ? ALL_DIGITS : [],
                 language: parseLanguage(current.language).base,
             })

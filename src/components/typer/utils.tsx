@@ -18,6 +18,7 @@ interface WordList {
 }
 
 type QuoteBuckets = { short: string[], medium: string[], long: string[] }
+type CasedSentenceLists = Record<string, string[]>
 
 // Quotes load on demand (the JSON is a few hundred KB) - Quotes is a secondary
 // mode, so it never belongs in the first-paint bundle.
@@ -133,6 +134,40 @@ interface NGrams {
     biGrams: string[],
     triGrams: string[],
     tetraGrams: string[],
+}
+
+// Capitals mode uses authored sentences instead of trying to infer proper nouns
+// from an unannotated word list. That is the only reliable way to distinguish,
+// for example, Turkey the country from turkey the food in every supported locale.
+let casedSentences: CasedSentenceLists | null = null
+let casedSentencesPromise: Promise<void> | null = null
+
+export const ensureCasedSentencesLoaded = (): Promise<void> => {
+    if (casedSentences) return Promise.resolve()
+    casedSentencesPromise ??= import('./languages/casedSentences.json').then((module) => {
+        casedSentences = module.default as CasedSentenceLists
+    })
+    return casedSentencesPromise
+}
+
+// Callers await ensureCasedSentencesLoaded before generation. Complete authored
+// sentences are joined, then clipped to the configured token count so Words mode
+// keeps its exact contract. Avoid an immediate repeated sentence without re-rolls.
+export const generateCasedText = (count: number, language: string, random: () => number = Math.random): string => {
+    if (!casedSentences || count <= 0) return ""
+    const { base } = parseLanguage(language)
+    const sentences = casedSentences[base] ?? casedSentences.english ?? []
+    if (sentences.length === 0) return ""
+
+    const words: string[] = []
+    let previous = -1
+    while (words.length < count) {
+        let index = Math.min(sentences.length - 1, Math.floor(random() * sentences.length))
+        if (index === previous && sentences.length > 1) index = (index + 1) % sentences.length
+        words.push(...sentences[index]!.split(/\s+/))
+        previous = index
+    }
+    return words.slice(0, count).join(" ")
 }
 
 const ngrams: NGrams = {

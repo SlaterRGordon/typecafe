@@ -228,8 +228,10 @@ test.describe("screenshot tour", () => {
 
     await expect(page.locator("#words .char").first()).toBeVisible();
     // Numbers guarantees realistic numeric tokens without changing the test's
-    // configured token count.
+    // configured token count; capitals comes from authored, canonically cased
+    // prose rather than inferred nouns from a lowercase word list.
     await expect(page.locator("#words")).toContainText(/[0-9]/);
+    await expect(page.locator("#words")).toContainText(/[A-ZÀ-ÖØ-Þ][a-zà-öø-ÿ]/);
     await capture(page, testInfo, "24-test-view-punctuation-capitals");
   });
 
