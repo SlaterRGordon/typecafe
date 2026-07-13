@@ -714,7 +714,7 @@ const Progress: NextPage = () => {
                         </div>
                     ) : (
                         // No local history yet - the page is the signup pitch.
-                        <div data-testid="progress-signed-out" className="mt-10 w-full max-w-md space-y-4 text-center">
+                        <div data-testid="progress-signed-out" className="w-full max-w-md self-center space-y-4 text-center">
                             <h1 className="font-mono text-3xl font-bold tracking-tight">Your progress, kept forever</h1>
                             <p className="text-base-content/60">
                                 Sign in to track every test - your WPM trend, accuracy, and the chart that proves you&apos;re getting faster.
