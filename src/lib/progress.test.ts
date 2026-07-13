@@ -7,7 +7,7 @@ import {
     bestWpm,
     currentStreak,
     dailyRollups,
-    dailyWpmSeries,
+    dailyProgressSeries,
     dayKey,
     defaultRollingWindow,
     filterByPeriod,
@@ -487,8 +487,8 @@ describe("dailyRollups", () => {
     })
 })
 
-describe("dailyWpmSeries", () => {
-    it("plots one median point per practiced day and keeps the exact daily best", () => {
+describe("dailyProgressSeries", () => {
+    it("plots one grouped WPM, accuracy, and consistency point per practiced day", () => {
         const records: ProgressRecord[] = [
             { wpm: 50, accuracy: 90, consistency: 70, createdAt: new Date("2026-06-13T09:00:00.000Z") },
             { wpm: 70, accuracy: 100, consistency: 90, createdAt: new Date("2026-06-13T10:00:00.000Z") },
@@ -496,7 +496,7 @@ describe("dailyWpmSeries", () => {
             { wpm: 75, accuracy: 96, consistency: 84, createdAt: new Date("2026-06-14T10:00:00.000Z") },
         ]
 
-        const series = dailyWpmSeries(records, 7, NOW)
+        const series = dailyProgressSeries(records, 7, NOW)
         expect(series.points).toHaveLength(2)
         expect(series.points[0]).toMatchObject({ wpm: 70, bestWpm: 90, tests: 3, accuracy: 95, consistency: 80 })
         expect(series.points[1]).toMatchObject({ wpm: 75, bestWpm: 75, tests: 1 })
@@ -505,7 +505,7 @@ describe("dailyWpmSeries", () => {
     })
 
     it("uses a persisted rollup's average as its representative point and preserves its best", () => {
-        const series = dailyWpmSeries([{
+        const series = dailyProgressSeries([{
             wpm: 64,
             bestWpm: 82,
             tests: 5,

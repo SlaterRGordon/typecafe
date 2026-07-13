@@ -730,6 +730,7 @@ test.describe("screenshot tour", () => {
         { pair: "eb", count: 10, totalMs: 3000, errors: 1 },
         { pair: "th", count: 1000, totalMs: 100000, errors: 0 },
       ],
+      sameDayProgress: true,
     });
     // Suppress the weekly recap so this captures the steady-state dashboard.
     await page.addInitScript(() => window.localStorage.setItem("typecafe:lastRecapAt", String(Date.now())));
@@ -744,6 +745,12 @@ test.describe("screenshot tour", () => {
     await expect(page.getByTestId("lifetime-heatmap")).toBeVisible();
     await capture(page, testInfo, "40-progress-dashboard");
     if (!testInfo.project.name.includes("mobile")) {
+      await page.getByTestId("trend-tabs").getByRole("button", { name: "Accuracy" }).click();
+      await expect(page.getByText("Daily average trend", { exact: true })).toBeVisible();
+      await capture(page, testInfo, "40d-progress-daily-accuracy");
+      await page.getByTestId("trend-tabs").getByRole("button", { name: "Consistency" }).click();
+      await capture(page, testInfo, "40e-progress-daily-consistency");
+      await page.getByTestId("trend-tabs").getByRole("button", { name: "WPM" }).click();
       await page.getByTestId("transitions-disclosure").click();
       await page.getByTestId("records-disclosure").click();
       await capture(page, testInfo, "40c-progress-expanded-lists");

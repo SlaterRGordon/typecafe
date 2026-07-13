@@ -68,6 +68,7 @@ test.describe("progress dashboard", () => {
         { pair: "eb", count: 10, totalMs: 3000, errors: 1 },
         { pair: "th", count: 1000, totalMs: 100000, errors: 0 },
       ],
+      sameDayProgress: true,
     });
     await page.addInitScript(() => window.localStorage.setItem("typecafe:lastRecapAt", String(Date.now())));
     await gotoProgress(page);
@@ -98,15 +99,20 @@ test.describe("progress dashboard", () => {
     await expect(page.getByTestId("trend-tooltip")).toContainText("Average consistency");
     await page.getByTestId("trend-point-0").focus();
     await expect(page.getByTestId("trend-tooltip")).toContainText("Median net WPM");
+    const dailyPointCount = await page.locator('[data-testid^="trend-point-"]').count();
+    expect(dailyPointCount).toBeGreaterThan(1);
     const trendTabs = page.getByTestId("trend-tabs");
     await trendTabs.getByRole("button", { name: "Accuracy" }).click();
     await expect(page.getByText("Accuracy over time", { exact: true })).toBeVisible();
+    await expect(page.getByText("Daily average trend", { exact: true })).toBeVisible();
+    await expect(page.locator('[data-testid^="trend-point-"]')).toHaveCount(dailyPointCount);
     await page.getByTestId("trend-point-0").hover();
-    await expect(page.getByTestId("trend-tooltip")).toContainText("Accuracy");
+    await expect(page.getByTestId("trend-tooltip")).toContainText("Average accuracy");
     await trendTabs.getByRole("button", { name: "Consistency" }).click();
     await expect(page.getByText("Consistency over time", { exact: true })).toBeVisible();
+    await expect(page.locator('[data-testid^="trend-point-"]')).toHaveCount(dailyPointCount);
     await page.getByTestId("trend-point-0").hover();
-    await expect(page.getByTestId("trend-tooltip")).toContainText("Consistency");
+    await expect(page.getByTestId("trend-tooltip")).toContainText("Average consistency");
     await trendTabs.getByRole("button", { name: "WPM" }).click();
     await expect(page.getByText("WPM over time", { exact: true })).toBeVisible();
     await page.getByTestId("period-switcher").getByRole("button", { name: "7d" }).click();
