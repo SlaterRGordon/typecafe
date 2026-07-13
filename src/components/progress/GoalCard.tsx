@@ -26,6 +26,12 @@ function formatDate(date: Date): string {
     return date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
 }
 
+function parseGoalDate(value: string): Date {
+    // Date-only strings otherwise parse as UTC and can display as the previous
+    // day locally. A goal runs through the selected local calendar day.
+    return new Date(`${value}T23:59:59.999`)
+}
+
 const clampPct = (value: number) => Math.max(0, Math.min(100, value))
 
 // Goal trajectory (§3.5), folded into the hero: a target WPM + date becomes a
@@ -49,9 +55,9 @@ export function GoalCard(props: { records: ProgressRecord[]; now: Date }) {
 
     const trajectory = useMemo(() => {
         if (!goal) return null
-        const parsed: Goal = { targetWpm: goal.targetWpm, targetDate: new Date(goal.targetDate) }
+        const parsed: Goal = { targetWpm: goal.targetWpm, targetDate: parseGoalDate(goal.targetDate) }
         if (Number.isNaN(parsed.targetDate.getTime())) return null
-        return projectTrajectory(props.records, parsed, props.now)
+        return projectTrajectory(props.records, parsed, props.now, -props.now.getTimezoneOffset())
     }, [goal, props.records, props.now])
 
     const save = () => {
@@ -116,10 +122,7 @@ export function GoalCard(props: { records: ProgressRecord[]; now: Date }) {
 
     if (!goal) return null
 
-    // Where the fitted trend lands by the deadline - the "projected" marker.
-    const projectedWpm = trajectory && trajectory.enoughData
-        ? trajectory.currentWpm + trajectory.slopePerDay * trajectory.daysToDeadline
-        : null
+    const projectedWpm = trajectory?.projectedWpmAtDeadline ?? null
     const currentPct = trajectory ? clampPct((trajectory.currentWpm / goal.targetWpm) * 100) : 0
     const projectedPct = projectedWpm !== null ? clampPct((projectedWpm / goal.targetWpm) * 100) : null
     const status = !trajectory || !trajectory.enoughData
@@ -132,7 +135,7 @@ export function GoalCard(props: { records: ProgressRecord[]; now: Date }) {
 
     return (
         <div data-testid="goal-card" className="mt-3 flex flex-wrap items-center gap-3 rounded-lg border border-base-content/10 bg-base-200/30 px-3 py-2.5">
-            <p className="shrink-0 text-sm text-base-content/70">Goal: <span className="font-semibold text-base-content">{goal.targetWpm} WPM</span> by {formatDate(new Date(goal.targetDate))}</p>
+            <p className="shrink-0 text-sm text-base-content/70">Goal: <span className="font-semibold text-base-content">{goal.targetWpm} WPM</span> by {formatDate(parseGoalDate(goal.targetDate))}</p>
             {/* Progress toward the goal, with a marker for where the current pace
                 projects you to land by the deadline. */}
             <div

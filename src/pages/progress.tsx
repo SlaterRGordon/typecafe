@@ -449,7 +449,7 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
                             </>
                         )}
 
-                        {hasData && <GoalCard records={cleanRecords} now={now} />}
+                        {hasData && <GoalCard records={inPeriod} now={now} />}
                     </div>
 
                     {hasData ? (
