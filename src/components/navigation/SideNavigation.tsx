@@ -54,17 +54,6 @@ export const SideNavigation = () => {
                     <MaterialNavIcon name="home" className={navIconClass} />
                     <div className={navLabelClass}>Home</div>
                 </Link>
-                {/* Today's coaching - the returning user's front door. The dot
-                    marks an unfinished session; it clears when today is done. */}
-                <Link href="/plan" className={getNavButtonClass('/plan')} aria-label="Today's coaching" title="Today's coaching" data-testid="nav-today">
-                    <span className="relative">
-                        <MaterialNavIcon name="today" className={navIconClass} />
-                        {dailyBadge === "active" &&
-                            <span data-testid="nav-today-dot" aria-hidden="true" className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-primary" />
-                        }
-                    </span>
-                    <div className={navLabelClass}>Today</div>
-                </Link>
                 {/* Practise */}
                 <Link href="/train" className={getNavButtonClass('/train')} aria-label="Train" title="Train">
                     <MaterialNavIcon name="fitness_center" className={navIconClass} />
@@ -74,6 +63,17 @@ export const SideNavigation = () => {
                 <Link href="/progress" className={getNavButtonClass('/progress')} aria-label="Progress" title="Progress">
                     <MaterialNavIcon name="trending_up" className={navIconClass} />
                     <div className={navLabelClass}>Progress</div>
+                </Link>
+                {/* Daily coaching - the dot marks an unfinished session; it
+                    clears when today is done. */}
+                <Link href="/plan" className={getNavButtonClass('/plan')} aria-label="Daily coaching" title="Daily coaching" data-testid="nav-today">
+                    <span className="relative">
+                        <MaterialNavIcon name="today" className={navIconClass} />
+                        {dailyBadge === "active" &&
+                            <span data-testid="nav-today-dot" aria-hidden="true" className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-primary" />
+                        }
+                    </span>
+                    <div className={navLabelClass}>Daily Coach</div>
                 </Link>
                 {/* Daily Challenge hidden for now (2026-07) - /challenge still
                     exists; restore the link from git history when it returns. */}

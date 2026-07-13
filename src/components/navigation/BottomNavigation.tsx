@@ -26,15 +26,6 @@ export const BottomNavigation = () => {
                 <Link href="/" className={getNavButtonClass('/')} aria-label="Home" title="Home">
                     <MaterialNavIcon name="home" className={navIconClass} />
                 </Link>
-                {/* Today's coaching - dot marks an unfinished session. */}
-                <Link href="/plan" className={getNavButtonClass('/plan')} aria-label="Today's coaching" title="Today's coaching" data-testid="nav-today">
-                    <span className="relative">
-                        <MaterialNavIcon name="today" className={navIconClass} />
-                        {dailyBadge === "active" &&
-                            <span data-testid="nav-today-dot" aria-hidden="true" className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-primary" />
-                        }
-                    </span>
-                </Link>
                 {/* Train */}
                 <Link href="/train" className={getNavButtonClass('/train')} aria-label="Train" title="Train">
                     <MaterialNavIcon name="fitness_center" className={navIconClass} />
@@ -42,6 +33,15 @@ export const BottomNavigation = () => {
                 {/* Progress */}
                 <Link href="/progress" className={getNavButtonClass('/progress')} aria-label="Progress" title="Progress">
                     <MaterialNavIcon name="trending_up" className={navIconClass} />
+                </Link>
+                {/* Daily coaching - dot marks an unfinished session. */}
+                <Link href="/plan" className={getNavButtonClass('/plan')} aria-label="Daily coaching" title="Daily coaching" data-testid="nav-today">
+                    <span className="relative">
+                        <MaterialNavIcon name="today" className={navIconClass} />
+                        {dailyBadge === "active" &&
+                            <span data-testid="nav-today-dot" aria-hidden="true" className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-primary" />
+                        }
+                    </span>
                 </Link>
                 {/* Daily Challenge hidden for now (2026-07) - see SideNavigation. */}
                 {/* Leaderboard */}
