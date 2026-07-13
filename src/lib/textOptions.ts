@@ -162,10 +162,14 @@ export function applyTextOptions(
     const sentenceEnds = visibleEnders.length > 0 ? visibleEnders : naturalSentenceEnds(words.length, random)
     const sentenceStarts = new Set([0, ...sentenceEnds.map((end) => end + 1).filter((start) => start < words.length)])
 
+    // Without punctuation there are no sentences, so only proper nouns and a
+    // single leading capital apply; capitalizing hidden mid-stream boundaries
+    // reads as random capitalization.
     let casedWords = capitals ? capitalizeProperNouns(words, language) : words
     if (capitals) {
         const locale = localeFor(language)
-        casedWords = casedWords.map((word, index) => sentenceStarts.has(index) ? capitalize(word, locale) : word)
+        const starts = usePunctuation ? sentenceStarts : new Set([0])
+        casedWords = casedWords.map((word, index) => starts.has(index) ? capitalize(word, locale) : word)
     }
 
     // Spanish questions and exclamations require their opening twin at the

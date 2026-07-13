@@ -124,7 +124,9 @@ weak-key card stays global (consistent with "training progress global", ADR
 
 - [x] 12 — **Natural text add-ons (2026-07-12).** Capitalization, punctuation,
       and numbers no longer share a per-word random sprinkler. Sentence spans
-      drive visible punctuation and hidden capitals-only boundaries; locale data
+      drive visible punctuation and sentence-start casing; capitals without
+      punctuation cap only proper nouns and a single leading word (no random
+      mid-stream caps). Locale data
       restores canonical country, region, timezone-city, language, month, and
       weekday casing (including multi-word names), plus Spanish opening marks
       and French pre-mark spacing. Numeric tokens replace rather than extend
