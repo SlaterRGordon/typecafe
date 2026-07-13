@@ -609,12 +609,35 @@ export const Typer = (props: TyperProps) => {
                             prompt sits right above the live stats with no gap. */}
                         {textNode}
                     </div>
-                    {showStats &&
+                    {showStats && (mode === TestModes.practice ?
+                        <div
+                            data-testid="practice-status-bar"
+                            className="flex items-center justify-center gap-4 font-mono text-xs text-base-content/45 select-none"
+                        >
+                            <p data-testid="live-stats" className="flex items-baseline gap-1.5">
+                                <span data-testid="stat-wpm" className="text-sm font-semibold text-base-content/75">{liveWpmText}</span>
+                                <span>wpm</span>
+                                <span className="mx-1 h-3 w-px self-center bg-base-content/15" aria-hidden="true" />
+                                <span className="inline-flex items-baseline">
+                                    <span data-testid="stat-acc" className="text-sm font-semibold text-base-content/75">{liveAccText}</span>
+                                    <span>%</span>
+                                </span>
+                                <span>accuracy</span>
+                            </p>
+                            <span className="h-4 w-px bg-base-content/15" aria-hidden="true" />
+                            <p className={typingFocusFadeClass(started, "flex items-center gap-1.5 whitespace-nowrap")}>
+                                <kbd className="kbd kbd-xs">tab</kbd> + <kbd className="kbd kbd-xs">enter</kbd>
+                                <span aria-hidden="true">/</span>
+                                <kbd className="kbd kbd-xs">space</kbd>
+                                <span>restart</span>
+                            </p>
+                        </div>
+                        :
                         <p data-testid="live-stats" className="font-mono text-sm text-base-content/45 select-none">
                             <span data-testid="stat-wpm">{liveWpmText}</span> wpm · <span data-testid="stat-acc">{liveAccText}</span>%
                             {mode === TestModes.ngrams && <> · <span data-testid="stat-avg">{liveAvgText}</span> avg</>}
                         </p>
-                    }
+                    )}
                     {isWordCounted &&
                         <div className="w-[280px] pt-3">
                             <div className="h-0.5 overflow-hidden rounded-full bg-base-content/10">
@@ -633,9 +656,11 @@ export const Typer = (props: TyperProps) => {
                             </div>
                         </div>
                     }
-                    <p className={typingFocusFadeClass(started, "mt-6 font-mono text-sm text-base-content/40 select-none")}>
-                        <kbd className="kbd kbd-xs">tab</kbd> + <kbd className="kbd kbd-xs">enter</kbd> / <kbd className="kbd kbd-xs">space</kbd> - restart
-                    </p>
+                    {mode !== TestModes.practice &&
+                        <p className={typingFocusFadeClass(started, "mt-6 font-mono text-sm text-base-content/40 select-none")}>
+                            <kbd className="kbd kbd-xs">tab</kbd> + <kbd className="kbd kbd-xs">enter</kbd> / <kbd className="kbd kbd-xs">space</kbd> - restart
+                        </p>
+                    }
             </>
         </div>
     )

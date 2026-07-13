@@ -333,13 +333,16 @@ export const Keyboard = (props: KeyboardProps) => {
     }
 
     return (
-        <div ref={boardRef} className="typecafe-keyboard flex w-full flex-col items-center justify-start px-2 py-3 sm:px-4 md:py-4">
+        <div
+            ref={boardRef}
+            className={`typecafe-keyboard flex w-full flex-col items-center justify-start px-2 sm:px-4 ${mode === TestModes.practice ? "pb-3 pt-0" : "py-3 md:py-4"}`}
+        >
             {mode === TestModes.practice ?
                 <section
                     aria-label="Practice keyboard"
                     className="w-full max-w-3xl"
                 >
-                    <div className="mb-3 flex justify-center sm:justify-end">
+                    <div className="mb-2 mt-8 flex justify-center">
                         <KeyboardLayerSwitch
                             shiftLayer={shiftLayer}
                             altgrLayer={altgrLayer}

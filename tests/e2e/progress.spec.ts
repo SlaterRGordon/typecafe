@@ -144,7 +144,11 @@ test.describe("progress dashboard", () => {
     await expect(page.getByTestId("lifetime-heatmap")).toBeVisible();
     const rKey = page.getByTestId("lifetime-heatmap").locator('[data-kb-key="r"]');
     await expect(rKey).not.toContainText("%");
-    await expect(rKey).toHaveAttribute("title", /r: 80% accuracy[\s\S]*Base r: 80% accuracy/);
+    await rKey.hover();
+    await expect(page.getByRole("tooltip")).toContainText("Base r: 80% accuracy");
+    const keyboardHelp = page.getByRole("link", { name: "How keyboard accuracy is calculated" });
+    await keyboardHelp.hover();
+    await expect(page.getByRole("tooltip")).toContainText("rolling accuracy from recent attempts");
     // The heatmap flips layers: shift renders each cell's shifted twin with its
     // own tally (1 → !), and flipping back restores the base glyphs.
     const heatmap = page.getByTestId("lifetime-heatmap");

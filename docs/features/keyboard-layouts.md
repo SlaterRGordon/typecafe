@@ -394,6 +394,11 @@ Until tags land, they render the viewer's active layout.
       that sits clear of layer glyphs. Face percentages moved into richer
       per-layer tooltips on both surfaces, and their accuracy legends now reuse
       the profile activity chart's Less → five dots → More language.
+      Practice's stats and restart help share one compact status line, with the
+      layer rail centered directly over the keys; modes without a keyboard keep
+      their existing typer spacing and hierarchy.
+      Key details now use one instant hover/focus tooltip instead of delayed
+      browser titles; Progress reuses it for the keyboard's `?` help link.
       Interactive caps gained pressed state, focus treatment, and Enter/Space
       operation. E2e coverage and the screenshot tour pin the redesign.
 

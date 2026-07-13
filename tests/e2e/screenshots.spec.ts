@@ -276,12 +276,16 @@ test.describe("screenshot tour", () => {
     await selectMode(page, "Practice");
 
     await expect(page.locator(".typecafe-keyboard")).toBeVisible();
+    await expect(page.getByTestId("practice-status-bar")).toBeVisible();
     await capture(page, testInfo, "09-home-practice-keyboard");
 
-    // The merged practice keyboard always shows per-key accuracy + lock state, so
-    // cells carry a "<key>: …" title (a bare-text match would hit the % badge too).
+    // The merged practice keyboard always shows per-key accuracy + lock state.
     const keyboardKey = (key: string) =>
-      page.locator(`.typecafe-keyboard kbd[title^="${key}: "]`);
+      page.locator(`.typecafe-keyboard kbd[data-kb-key="${key}"]`);
+
+    await keyboardKey("e").hover();
+    await expect(page.getByRole("tooltip")).toContainText("Base e:");
+    await capture(page, testInfo, "66-practice-key-tooltip");
 
     // The default nine-key set is repaired to the two-vowel floor on entry
     // (adds "e"), so it renders unlocked; "w" sits outside the set and starts
@@ -312,8 +316,8 @@ test.describe("screenshot tour", () => {
     await page.keyboard.press("Enter");
     await page.keyboard.up("Tab");
 
-    // Accuracy is always visible now - no toggle. The per-key percentages render
-    // directly on the keyboard.
+    // Accuracy is always available now - no toggle. Exact values live in the
+    // per-layer key tooltips so the heatmap face stays readable.
     await capture(page, testInfo, "32-practice-keyboard-analytics");
 
     // Shift layer: holding Shift peeks the shifted twins (; → :, / → ?); releasing
@@ -773,6 +777,9 @@ test.describe("screenshot tour", () => {
     }
     await page.getByTestId("lifetime-keyboard-card").scrollIntoViewIfNeeded();
     await capture(page, testInfo, "40-progress-lifetime-keyboard");
+    await page.getByRole("link", { name: "How keyboard accuracy is calculated" }).hover();
+    await expect(page.getByRole("tooltip")).toContainText("rolling accuracy from recent attempts");
+    await capture(page, testInfo, "40c-progress-keyboard-help-tooltip");
     // The layer switch flips the lifetime heatmap to the shift layer.
     await page.getByTestId("lifetime-heatmap-layers").getByRole("button", { name: "Show shifted keys (capitals and symbols)" }).click();
     await expect(page.getByTestId("lifetime-heatmap").locator('[data-kb-key="R"]')).toBeVisible();

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react"
 import { hslToHex, readableTextColor } from "~/utils/convertColor"
 import { getActiveKey, subscribeActiveKey } from "~/components/typer/keySignal"
+import { Tooltip } from "~/components/ui/Tooltip"
 import { useSecondaryStyle, useStyle } from "~/utils/hooks/useMutationObserver"
 import {
     HEATMAP_SPACE,
@@ -244,15 +245,15 @@ export function KeyHeatmap(props: KeyHeatmapProps) {
             return [`${name} ${layerLabel}: ${layerCell.hasData ? `${layerCell.accuracy}% accuracy · ${tally?.attempts ?? 0} attempts` : "no data"}`]
         })
         const tooltip = [
-            `${label}: ${showAccuracy ? (cell.hasData ? `${cell.accuracy}% accuracy` : "no data") : "training key"}`,
+            `${label} key`,
             interactive ? (isLocked ? "Locked — click to add to this drill" : "Unlocked — click to remove from this drill") : undefined,
-            ...layerLines,
+            ...(showAccuracy ? layerLines : ["Training key"]),
             isDead ? "Dead key — waits for the next press" : undefined,
         ].filter(Boolean).join("\n")
 
         return (
+            <Tooltip key={cap?.base ?? "space"} content={tooltip}>
             <kbd
-                key={cap?.base ?? "space"}
                 data-kb-key={glyph}
                 data-kb-cell={cap?.base ?? " "}
                 data-kb-dead={isDead ? "" : undefined}
@@ -272,7 +273,6 @@ export function KeyHeatmap(props: KeyHeatmapProps) {
                 // Lock state must never rewrite the heatmap: its icon carries the
                 // state while the measured colour remains byte-for-byte visible.
                 style={color ? { backgroundColor: color, color: textColor, backgroundImage: "none", filter: "none" } : undefined}
-                title={tooltip}
             >
                 <span className={`leading-none ${showPercent ? labelClass : ""}`}>
                     {isSpace && !showPercent && !interactive ? "\u00a0" : label}
@@ -294,6 +294,7 @@ export function KeyHeatmap(props: KeyHeatmapProps) {
                 }
                 {isLocked && <LockBadge />}
             </kbd>
+            </Tooltip>
         )
     }
 

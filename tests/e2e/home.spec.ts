@@ -992,13 +992,29 @@ test.describe("home typing test", () => {
   test("practice keyboard rings the next expected key as you type", async ({ page }) => {
     await gotoHome(page);
 
+    // Non-keyboard modes keep their established standalone stats + restart layout.
+    await expect(page.getByTestId("practice-status-bar")).toHaveCount(0);
+
     await selectMode(page, "Practice");
     await expect(page.locator(".typecafe-keyboard")).toBeVisible();
     await expect(page.getByRole("region", { name: "Practice keyboard" })).toBeVisible();
     await expect(page.getByRole("group", { name: "Keyboard layer" })).toBeVisible();
+    await expect(page.getByTestId("practice-status-bar")).toContainText("wpm");
+    await expect(page.getByTestId("practice-status-bar")).toContainText("accuracy");
+
+    // The layer rail is centered over the board instead of floating off to one side.
+    const practiceRegion = page.getByRole("region", { name: "Practice keyboard" });
+    const regionBox = await practiceRegion.boundingBox();
+    const layerBox = await page.getByRole("group", { name: "Keyboard layer" }).boundingBox();
+    expect(Math.abs(
+      ((regionBox?.x ?? 0) + (regionBox?.width ?? 0) / 2) -
+      ((layerBox?.x ?? 0) + (layerBox?.width ?? 0) / 2),
+    )).toBeLessThan(2);
     const qKey = page.locator('.typecafe-key-heatmap [data-kb-key="q"]');
     await expect(qKey).not.toContainText("%");
-    await expect(qKey).toHaveAttribute("title", /Base q: no data[\s\S]*Shift Q: no data/);
+    await qKey.hover();
+    await expect(page.getByRole("tooltip")).toContainText("Base q: no data");
+    await expect(page.getByRole("tooltip")).toContainText("Shift Q: no data");
 
     await expect(page.locator("#c0")).toHaveClass(/active-char/);
     const first = await page.locator("#c0").textContent();

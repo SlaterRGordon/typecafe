@@ -9,6 +9,7 @@ import { GoalCard } from "~/components/progress/GoalCard";
 import { KeyHeatmap, KeyHeatmapLegend } from "~/components/heatmap/KeyHeatmap";
 import { KeyboardLayerSwitch } from "~/components/heatmap/KeyboardLayerSwitch";
 import { Chip } from "~/components/ui/Chip";
+import { Tooltip } from "~/components/ui/Tooltip";
 import type { KeyAttempt } from "~/lib/heatmap";
 import { useGuestEvidence } from "~/hooks/useGuestEvidence";
 import { worstTransitions, type TransitionAggregate } from "~/lib/transitions";
@@ -492,7 +493,18 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
                         <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                             {/* "Your keyboard", not "Lifetime": per-key accuracy is a rolling
                                 window of recent attempts (ADR-0005), not an all-time sum. */}
-                            <div className="text-base font-semibold text-base-content">Your keyboard</div>
+                            <div className="flex items-center gap-1.5">
+                                <div className="text-base font-semibold text-base-content">Your keyboard</div>
+                                <Tooltip content="Colors show your rolling accuracy from recent attempts. Hover any key to compare its Base, Shift, and AltGr layers.">
+                                    <Link
+                                        href="/how-we-measure"
+                                        aria-label="How keyboard accuracy is calculated"
+                                        className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-base-content/25 text-xs font-bold text-base-content/55 hover:border-base-content/45 hover:text-base-content focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                                    >
+                                        ?
+                                    </Link>
+                                </Tooltip>
+                            </div>
                             <KeyboardLayerSwitch
                                 shiftLayer={heatmapShift}
                                 altgrLayer={heatmapAltgr}
@@ -509,11 +521,8 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
                         {Object.keys(props.keyAttempts).length === 0 && (
                             <p className="mt-4 text-center text-sm text-base-content/45">Take more tests to color in your per-key accuracy.</p>
                         )}
-                        <div className="mt-2 flex items-center justify-between gap-3">
+                        <div className="mt-2 flex items-center justify-end gap-3">
                             <KeyHeatmapLegend />
-                            <Link href="/how-we-measure" className="text-xs text-base-content/45 underline-offset-2 hover:text-base-content/70 hover:underline">
-                                How these numbers work →
-                            </Link>
                         </div>
                     </div>
                 </div>
