@@ -3,8 +3,14 @@ import { prisma } from "~/server/db";
 
 const EXTERNAL_DATA_URL = "https://typecafe.app";
 
+// Real lastmod dates. Emitting `new Date()` on every fetch tells Google every
+// page changed "just now" on every crawl, so it learns to ignore the field.
+// Bump this when static/guide content meaningfully changes.
+const STATIC_LASTMOD = "2026-07-12";
+
 interface User {
     username: string;
+    lastmod: string;
 }
 
 // Keep this allowlist explicit. Filesystem discovery accidentally turns dynamic
@@ -52,17 +58,14 @@ function urlEntry(loc: string, lastmod: string, priority: string, changefreq: st
 }
 
 export function generateSiteMap(staticRoutes: readonly string[], users: User[]) {
-    const now = new Date().toISOString();
-
     const staticEntries = staticRoutes.map((route) => {
         const { priority, changefreq } = priorityFor(route);
-        return urlEntry(`${EXTERNAL_DATA_URL}${route}`, now, priority, changefreq);
+        return urlEntry(`${EXTERNAL_DATA_URL}${route}`, STATIC_LASTMOD, priority, changefreq);
     });
 
     const profileEntries = users
-        .map(({ username }) => username.trim())
-        .filter(Boolean)
-        .map((username) => urlEntry(`${EXTERNAL_DATA_URL}/profile/${encodeURIComponent(username)}`, now, "0.6", "weekly"));
+        .filter(({ username }) => username.trim())
+        .map(({ username, lastmod }) => urlEntry(`${EXTERNAL_DATA_URL}/profile/${encodeURIComponent(username.trim())}`, lastmod, "0.6", "weekly"));
 
     // Per-score share pages are noindex,follow (growth-seo §C) - social cards,
     // not search landing pages - so they're deliberately absent here.
@@ -77,9 +80,19 @@ function SiteMap() {
 }
 
 export async function getServerSideProps({ res }: GetServerSidePropsContext) {
-    const users = await prisma.user.findMany({ select: { username: true } });
+    const users = await prisma.user.findMany({
+        select: {
+            username: true,
+            // Latest test = a real "profile last changed" signal, no schema migration needed.
+            tests: { select: { createdAt: true }, orderBy: { createdAt: "desc" }, take: 1 },
+        },
+    });
 
-    const sanitizedUsers: User[] = users.flatMap((user) => user.username ? [{ username: user.username }] : []);
+    const sanitizedUsers: User[] = users.flatMap((user) =>
+        user.username
+            ? [{ username: user.username, lastmod: (user.tests[0]?.createdAt ?? new Date(STATIC_LASTMOD)).toISOString() }]
+            : [],
+    );
 
     const sitemap = generateSiteMap(STATIC_ROUTES, sanitizedUsers);
 
