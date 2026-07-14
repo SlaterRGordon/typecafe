@@ -24,6 +24,7 @@ import {
     mergeDailyRollups,
     personalRecords,
     recordsForLanguage,
+    recordsForPool,
     rejectOutliers,
     type ProgressPeriod,
     type ProgressRecord,
@@ -623,6 +624,10 @@ const Progress: NextPage = () => {
     // other languages show only their own raw records (derived-on-read, no schema
     // change; ADR-0005: rollups are re-aggregatable from timelines if ever split).
     const [language] = useLanguage();
+    // The trend is scoped to the active layout's stats pool as well as the
+    // language (recordsForPool), so a remap layout keeps its own WPM history.
+    const [activeLayout] = useLayout();
+    const pool = statsPoolFor(activeLayout);
     const recordsQuery = api.test.getProgressRecords.useQuery(undefined, {
         enabled: !!sessionData?.user,
     });
@@ -642,21 +647,20 @@ const Progress: NextPage = () => {
                 mode: row.mode,
                 subMode: row.subMode,
                 language: row.language,
+                layout: row.layout,
                 day: row.day,
                 createdAt: new Date(row.createdAt),
             })),
         [recordsQuery.data],
     );
     const records = useMemo(
-        () => recordsForLanguage(mergeDailyRollups(rawRecords, rollupsQuery.data ?? []), language),
-        [rawRecords, rollupsQuery.data, language],
+        () => recordsForPool(recordsForLanguage(mergeDailyRollups(rawRecords, rollupsQuery.data ?? []), language), pool),
+        [rawRecords, rollupsQuery.data, language, pool],
     );
 
     // Lifetime per-key accuracy for the heatmap: DB practice stats when signed
     // in, the localStorage key-stat mirror for guests (useGuestEvidence follows
     // the pool itself). Both read the active layout's stats pool (decision 6).
-    const [activeLayout] = useLayout();
-    const pool = statsPoolFor(activeLayout);
     const practiceStatsQuery = api.practiceStats.get.useQuery({ pool }, { enabled: !!sessionData?.user });
     const dbKeyAttempts = useMemo(() => {
         const out: Record<string, KeyAttempt> = {};
@@ -672,11 +676,11 @@ const Progress: NextPage = () => {
     // banner; a guest with none gets the signup pitch.
     const guest = useGuestEvidence();
     const guestRecords: ProgressRecord[] = useMemo(
-        () => recordsForLanguage(
-            (guest?.progress ?? []).map((e) => ({ wpm: netFromRaw(e.wpm, e.accuracy), accuracy: e.accuracy, consistency: e.c, createdAt: new Date(e.t), language: e.lang })),
+        () => recordsForPool(recordsForLanguage(
+            (guest?.progress ?? []).map((e) => ({ wpm: netFromRaw(e.wpm, e.accuracy), accuracy: e.accuracy, consistency: e.c, createdAt: new Date(e.t), language: e.lang, layout: e.layout })),
             language,
-        ),
-        [guest, language],
+        ), pool),
+        [guest, language, pool],
     );
     const guestKeyAttempts = useMemo(() => {
         const attempts: Record<string, KeyAttempt> = {};

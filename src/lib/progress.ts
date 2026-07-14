@@ -6,6 +6,7 @@
 // of src/lib/stats.ts.
 
 import { baseTypeLanguage } from "./typeLanguage"
+import { DEFAULT_LAYOUT, statsPoolFor } from "./keyboardLayout"
 
 // The period the dashboard's headline delta and trends are scoped to. Numeric
 // values are day counts; "all" means the user's entire history.
@@ -32,6 +33,9 @@ export interface ProgressRecord {
     mode?: number
     subMode?: number
     language?: string
+    // Actual keyboard-layout id the test was typed on (honesty tag). Absent on
+    // rollups and older entries → the qwerty pool, the untagged-legacy default.
+    layout?: string
     // True for records synthesized from a daily rollup (day-averages with no
     // per-test signal) rather than a real test. `day` can't discriminate - raw
     // DB rows carry their summary day too.
@@ -68,6 +72,16 @@ export function filterProgressRecords(records: ProgressRecord[], filters: Progre
 // historical default.
 export function recordsForLanguage(records: ProgressRecord[], language: string): ProgressRecord[] {
     return records.filter((record) => baseTypeLanguage(record.language ?? "english") === language)
+}
+
+// Progress is also scoped to the active stats pool (statsPoolFor), the same
+// dimension key stats and transitions use: a remap layout (Colemak, Dvorak) is
+// a new motor map and gets its own WPM trend, while national layouts share the
+// qwerty pool - switching the *display* board from qwerty to qwertz-de is a
+// correction, not retraining, so it keeps its history (keyboard-layouts.md §6).
+// Untagged records (rollups, older entries) count as the qwerty pool.
+export function recordsForPool(records: ProgressRecord[], pool: string): ProgressRecord[] {
+    return records.filter((record) => statsPoolFor(record.layout ?? DEFAULT_LAYOUT) === pool)
 }
 
 // ---------------------------------------------------------------------------
