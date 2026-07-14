@@ -1081,7 +1081,7 @@ test.describe("home typing test", () => {
 
     // Legend covers all four groups and stays on a single line (no wrap).
     const legend = page.locator(".typecafe-keyboard-legend");
-    for (const text of ["locked = click to add", "accuracy", "high → low", "speed vs your average", "no data yet"]) {
+    for (const text of ["locked = click to add", "accuracy", "high → low", "speed", "no data yet"]) {
       await expect(legend).toContainText(text);
     }
     const box = await legend.boundingBox();

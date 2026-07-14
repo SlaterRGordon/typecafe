@@ -528,7 +528,7 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
                         {/* Roomier own surface than the Practice board, so the legend
                             spreads across the corners instead of one tight line. */}
                         <div className="max-w-full overflow-x-auto pb-1">
-                            <KeyHeatmapLegend className="mt-3 w-full justify-between text-xs" />
+                            <KeyHeatmapLegend className="mt-3 flex-nowrap text-xs" />
                         </div>
                     </div>
                 </div>

@@ -167,7 +167,7 @@ test.describe("progress dashboard", () => {
     // The legend now shares the Practice board's vocabulary (accuracy / speed / no data).
     const keyboardCard = page.getByTestId("lifetime-keyboard-card");
     await expect(keyboardCard).toContainText("high → low");
-    await expect(keyboardCard).toContainText("speed vs your average");
+    await expect(keyboardCard).toContainText("speed");
     await expect(keyboardCard).toContainText("no data yet");
     await expect(page.getByTestId("lifetime-heatmap")).toBeVisible();
     const rKey = page.getByTestId("lifetime-heatmap").locator('[data-kb-key="r"]');

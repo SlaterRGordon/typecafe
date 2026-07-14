@@ -129,7 +129,7 @@ export function KeyHeatmapLegend({ className = "" }: { className?: string }) {
     // (interpolateColor(colour, black, 0.75)), so the legend matches the board.
     const swatchBar = interpolateColor(highColor, "#000000", 0.75)
     return (
-        <div className={`flex flex-wrap items-center gap-x-3 gap-y-1 text-base-content/55 ${className}`}>
+        <div className={`flex flex-wrap items-center gap-x-6 gap-y-1 text-base-content/55 ${className}`}>
             <span className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap">
                 accuracy
                 <span className="inline-flex items-center gap-0.5" aria-hidden="true">
@@ -143,7 +143,7 @@ export function KeyHeatmapLegend({ className = "" }: { className?: string }) {
                 <span className="relative inline-block h-1.5 w-6 overflow-hidden rounded-full border bg-base-content/20" style={{ borderColor: highColor }} aria-hidden="true">
                     <span className="absolute inset-y-0 left-0 w-2/3 rounded-full" style={{ backgroundColor: swatchBar }} />
                 </span>
-                speed vs your average
+                speed
             </span>
             <span className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap">
                 <span className="h-2.5 w-2.5 rounded-[2px]" style={{ backgroundColor: HEATMAP_NO_DATA_COLOR }} aria-hidden="true" />
