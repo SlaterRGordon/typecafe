@@ -565,6 +565,11 @@ test.describe("home typing test", () => {
     await page.getByTestId("nav-language-menu").getByRole("button", { name: "French" }).click();
     await expect(trigger).toHaveText(/^QWERTY$/);
     await expect(board.locator('[data-kb-key="ü"]')).toHaveCount(0);
+
+    // The Auto entry keeps previewing what Auto *would* resolve to (French →
+    // AZERTY), never the pinned QWERTY - a pin doesn't redefine what Auto means.
+    await trigger.click();
+    await expect(page.getByTestId("nav-layout-auto")).toHaveText(/Auto - AZERTY \(FR\)/);
   });
 
   test("detected national layout seeds the language until the user has chosen one", async ({ page }) => {

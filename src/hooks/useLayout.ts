@@ -42,11 +42,12 @@ function readDetected(): string | null {
     return null
 }
 
-// Returns [resolved layout, set stored, stored setting]. The resolved layout is
-// never "auto" - boards and ladders consume it directly; only the nav menu
-// cares about the stored setting (to mark Auto active and preview what it
-// resolves to).
-export function useLayout(): [string, (next: string) => void, string] {
+// Returns [resolved layout, set stored, stored setting, auto preview]. The
+// resolved layout is never "auto" - boards and ladders consume it directly. The
+// nav menu also needs the stored setting (to mark Auto active) and the auto
+// preview: what Auto *would* resolve to independent of any explicit pin, so its
+// label stays honest ("Auto - QWERTY") even while Colemak is selected.
+export function useLayout(): [string, (next: string) => void, string, string] {
     const [language] = useLanguage()
     const [stored, setStored] = useState(AUTO_LAYOUT)
     // Detection is state (not read inline) so the server and first client
@@ -98,6 +99,12 @@ export function useLayout(): [string, (next: string) => void, string] {
         () => resolveLayout(stored, language, detected, locale),
         [stored, language, detected, locale],
     )
+    // What Auto would pick right now, ignoring an explicit pin - the menu's Auto
+    // entry previews this so it always shows the language/detection default.
+    const autoLayout = useMemo(
+        () => resolveLayout(AUTO_LAYOUT, language, detected, locale),
+        [language, detected, locale],
+    )
 
     const update = useCallback((next: string) => {
         setStored(next)
@@ -109,7 +116,7 @@ export function useLayout(): [string, (next: string) => void, string] {
         window.dispatchEvent(new Event(LAYOUT_CHANGED_EVENT))
     }, [])
 
-    return [layout, update, stored]
+    return [layout, update, stored, autoLayout]
 }
 
 function seedLanguageFromDetectedLayout(layout: string): void {
