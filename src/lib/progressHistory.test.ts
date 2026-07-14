@@ -20,6 +20,18 @@ describe("progressHistory", () => {
         appendLocalProgress({ wpm: 60, accuracy: 95, t: 1 }, s)
         appendLocalProgress({ wpm: 70, accuracy: 96, t: 2 }, s)
         expect(readLocalProgress(s).map((e) => e.wpm)).toEqual([60, 70])
+        expect(JSON.parse(s.getItem("typecafe:progressHistory")!)).toEqual([
+            { v: 2, wpm: 60, accuracy: 95, t: 1 },
+            { v: 2, wpm: 70, accuracy: 96, t: 2 },
+        ])
+    })
+
+    it("migrates an unversioned raw-WPM entry to canonical net WPM on read", () => {
+        const s = fakeStorage()
+        s.setItem("typecafe:progressHistory", JSON.stringify([
+            { wpm: 100, accuracy: 90, t: 1 },
+        ]))
+        expect(readLocalProgress(s)).toEqual([{ v: 2, wpm: 80, accuracy: 90, t: 1 }])
     })
 
     it("drops corrupt entries on read (user-editable storage)", () => {
@@ -29,7 +41,9 @@ describe("progressHistory", () => {
             { wpm: "fast", accuracy: 95, t: 2 },
             { nope: true },
         ]))
-        expect(readLocalProgress(s)).toEqual([{ wpm: 60, accuracy: 95, t: 1 }])
+        const [entry] = readLocalProgress(s)
+        expect(entry).toMatchObject({ v: 2, accuracy: 95, t: 1 })
+        expect(entry!.wpm).toBeCloseTo(54)
     })
 
     it("returns [] for missing or non-array storage", () => {
@@ -50,7 +64,7 @@ describe("progressHistory", () => {
 
     it("caps an oversized (hand-edited) storage on read so sync never exceeds the server limit", () => {
         const s = fakeStorage()
-        const oversized = Array.from({ length: 1500 }, (_, i) => ({ wpm: i, accuracy: 95, t: i }))
+        const oversized = Array.from({ length: 1500 }, (_, i) => ({ v: 2, wpm: i, accuracy: 95, t: i }))
         s.setItem("typecafe:progressHistory", JSON.stringify(oversized))
         const all = readLocalProgress(s)
         expect(all).toHaveLength(1000)

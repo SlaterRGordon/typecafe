@@ -2,10 +2,15 @@
 // first test, no account (locked constraint). Signed-in trends read the DB;
 // this serves guests. Entries are validated on read because localStorage is
 // user-editable. Sync-on-signup imports the same shape into DailyUserStat.
+// v2 stores canonical net WPM. Entries without a version are the legacy raw
+// WPM shape and are converted on read using their saved accuracy.
+import { netFromRaw } from "./stats"
+
 const KEY = "typecafe:progressHistory"
 const CAP = 1000
 
 export interface LocalProgressEntry {
+    v: 2
     wpm: number
     accuracy: number
     c?: number // consistency 0-100, optional (older entries lack it)
@@ -13,6 +18,8 @@ export interface LocalProgressEntry {
     lang?: string // base language; older entries lack it → treated as English on read
     layout?: string // actual layout id (honesty tag, ledger decision 10); older entries lack it → qwerty
 }
+
+export type NewLocalProgressEntry = Omit<LocalProgressEntry, "v">
 
 function storage(): Storage | undefined {
     return typeof window === "undefined" ? undefined : window.localStorage
@@ -26,7 +33,11 @@ function sanitize(raw: unknown): LocalProgressEntry | null {
     const c = typeof v.c === "number" && Number.isFinite(v.c) ? v.c : undefined
     const lang = typeof v.lang === "string" ? v.lang : undefined
     const layout = typeof v.layout === "string" ? v.layout : undefined
-    return { wpm: v.wpm as number, accuracy: v.accuracy as number, c, t: v.t as number, lang, layout }
+    const version = v.v
+    if (version !== undefined && version !== 2) return null
+    const accuracy = v.accuracy as number
+    const wpm = version === 2 ? v.wpm as number : netFromRaw(v.wpm as number, accuracy)
+    return { v: 2, wpm, accuracy, c, t: v.t as number, lang, layout }
 }
 
 export function readLocalProgress(s = storage()): LocalProgressEntry[] {
@@ -44,9 +55,9 @@ export function readLocalProgress(s = storage()): LocalProgressEntry[] {
     }
 }
 
-export function appendLocalProgress(entry: LocalProgressEntry, s = storage()): void {
+export function appendLocalProgress(entry: NewLocalProgressEntry, s = storage()): void {
     if (!s) return
-    const next = [...readLocalProgress(s), entry].slice(-CAP)
+    const next = [...readLocalProgress(s), { v: 2 as const, ...entry }].slice(-CAP)
     try {
         s.setItem(KEY, JSON.stringify(next))
     } catch {

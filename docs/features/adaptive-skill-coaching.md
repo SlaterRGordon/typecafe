@@ -543,15 +543,15 @@ slices update e2e coverage and the screenshot tour in the same commit.
 
 ### 0. Measurement trust prerequisite
 
-- [ ] Make canonical net WPM the Progress value for signed-in records by reading
+- [x] Make canonical net WPM the Progress value for signed-in records by reading
       `Test.score`, not raw `Test.speed`; regression-test the router mapping.
-- [ ] Version guest progress entries: old entries are known raw WPM and convert
+- [x] Version guest progress entries: old entries are known raw WPM and convert
       through `netFromRaw(wpm, accuracy)` on read; new entries store net WPM.
-- [ ] Verify DailyUserStat v2, profile proof, Goals, plateaus, Progress shares,
+- [x] Verify DailyUserStat v2, profile proof, Goals, plateaus, Progress shares,
       and Coaching baselines consume the same canonical number.
-- [ ] Replace the unsupported plateau sentence about "comfortable words" with
+- [x] Replace the unsupported plateau sentence about "comfortable words" with
       evidence-safe copy until lexical variety is measured.
-- [ ] Update `/how-we-measure`, unit tests, Progress e2e, and screenshots.
+- [x] Update `/how-we-measure`, unit tests, Progress e2e, and screenshots.
 
 **Acceptance:** a Test with raw 100 WPM / 90% Accuracy appears as 80 WPM on its
 result, guest Progress, signed-in Progress, imported history, share, and Goal.

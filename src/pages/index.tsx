@@ -400,7 +400,7 @@ const Home: NextPage = () => {
     // Mirror guest results locally so /progress is real from the first test
     // (local-first; signed-in users' trends come from the DB instead).
     if (!sessionData?.user && result.ranked) {
-      appendLocalProgress({ wpm: result.speed, accuracy: result.accuracy, c: consistency, t: Date.now(), lang: parseLanguage(activeTestLanguage).base, layout: activeLayout })
+      appendLocalProgress({ wpm: result.netWpm, accuracy: result.accuracy, c: consistency, t: Date.now(), lang: parseLanguage(activeTestLanguage).base, layout: activeLayout })
     }
 
     // Only guests stash a pending score (to save once they sign in). Signed-in

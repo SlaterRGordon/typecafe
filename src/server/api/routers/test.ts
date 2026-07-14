@@ -19,7 +19,7 @@ import {
   peerPercentileForScore,
   starterPeersFromTests,
 } from "~/lib/peerPercentile";
-import { currentStreak, dayKey } from "~/lib/progress";
+import { currentStreak, dayKey, progressRecordFromTest } from "~/lib/progress";
 import { profileProofSummary } from "~/lib/profileProof";
 import {
   globalPercentileBrag,
@@ -51,6 +51,7 @@ const SIGNATURE_BEST_CONFIGS = [
   { key: "words-100", eyebrow: "100 words", subMode: 1, count: 100 },
 ] as const;
 const progressHistoryEntrySchema = z.object({
+  v: z.literal(2).optional(),
   wpm: z.number().min(0),
   accuracy: z.number().min(0).max(100),
   c: z.number().min(0).max(100).optional(),
@@ -639,7 +640,7 @@ export const testRouter = createTRPCRouter({
         orderBy: { createdAt: "desc" },
         take: input?.limit ?? 2000,
         select: {
-          speed: true,
+          score: true,
           accuracy: true,
           consistency: true,
           count: true,
@@ -650,21 +651,7 @@ export const testRouter = createTRPCRouter({
         },
       });
 
-      return rows.reverse().map((row) => ({
-        wpm: row.speed,
-        accuracy: row.accuracy,
-        consistency: row.consistency ?? undefined,
-        count: row.count,
-        day: row.summaryDate.toISOString().slice(0, 10),
-        createdAt: row.createdAt,
-        mode: row.type.mode,
-        subMode: row.type.subMode,
-        language: row.type.language,
-        // Actual layout tag (honesty id); the client scopes the trend by its
-        // stats pool so a remap (Colemak/Dvorak) gets its own WPM history and
-        // national layouts share the qwerty pool (keyboard-layouts.md §6).
-        layout: row.layout,
-      }));
+      return rows.reverse().map(progressRecordFromTest);
     }),
   getActivityByDate: publicProcedure
     .input(z.object({
