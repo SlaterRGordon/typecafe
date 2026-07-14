@@ -23,6 +23,7 @@ import {
     personalRecords,
     rankImprovementLeague,
     recordsForLanguage,
+    recordsForPool,
     rejectOutliers,
     rollingAverage,
     selfLeagueSummary,
@@ -144,6 +145,25 @@ describe("recordsForLanguage", () => {
 
     it("returns nothing for a language with no records", () => {
         expect(recordsForLanguage(records, "german")).toEqual([])
+    })
+})
+
+describe("recordsForPool", () => {
+    const records: ProgressRecord[] = [
+        { wpm: 90, accuracy: 97, createdAt: NOW, layout: "qwerty" },
+        { wpm: 88, accuracy: 96, createdAt: NOW, layout: "qwertz-de" }, // national → qwerty pool
+        { wpm: 25, accuracy: 92, createdAt: NOW, layout: "colemak" }, // remap → own pool
+        { wpm: 30, accuracy: 93, createdAt: NOW, layout: "dvorak" },
+        { wpm: 80, accuracy: 96, createdAt: NOW }, // untagged → qwerty pool
+    ]
+
+    it("pools every national layout (and untagged records) into qwerty", () => {
+        expect(recordsForPool(records, "qwerty").map((r) => r.wpm)).toEqual([90, 88, 80])
+    })
+
+    it("gives each remap layout its own pool", () => {
+        expect(recordsForPool(records, "colemak").map((r) => r.wpm)).toEqual([25])
+        expect(recordsForPool(records, "dvorak").map((r) => r.wpm)).toEqual([30])
     })
 })
 

@@ -401,6 +401,17 @@ Until tags land, they render the viewer's active layout.
       browser titles; Progress reuses it for the keyboard's `?` help link.
       Interactive caps gained pressed state, focus treatment, and Enter/Space
       operation. E2e coverage and the screenshot tour pin the redesign.
+- [x] 13 — **WPM trend scopes by pool** (2026-07-13, owner request): slice 8
+      threaded `statsPoolFor` through the /progress key stats and transitions
+      but left the WPM trend language-only, so a Colemak/Dvorak learner's slow
+      retraining tests polluted their qwerty trend and read as a plateau.
+      `recordsForPool` (pure, decision 6's dimension) now filters the trend by
+      the active pool for both signed-in and guest records: remaps get their own
+      WPM history; national layouts share qwerty; untagged records and
+      DailyUserStat rollups (no pool column) count as the legacy qwerty pool.
+      `Test.layout` is projected into `getProgressRecords`; the existing layout
+      chip already names the pool so an empty remap trend doesn't read as broken.
+      No new UI (qwerty-English output unchanged); e2e pins the rescope.
 
 ## Upgrade paths (deliberate v1 cuts, with their triggers)
 

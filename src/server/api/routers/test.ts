@@ -645,6 +645,7 @@ export const testRouter = createTRPCRouter({
           count: true,
           summaryDate: true,
           createdAt: true,
+          layout: true,
           type: { select: { mode: true, subMode: true, language: true } },
         },
       });
@@ -659,6 +660,10 @@ export const testRouter = createTRPCRouter({
         mode: row.type.mode,
         subMode: row.type.subMode,
         language: row.type.language,
+        // Actual layout tag (honesty id); the client scopes the trend by its
+        // stats pool so a remap (Colemak/Dvorak) gets its own WPM history and
+        // national layouts share the qwerty pool (keyboard-layouts.md §6).
+        layout: row.layout,
       }));
     }),
   getActivityByDate: publicProcedure

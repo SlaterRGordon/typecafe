@@ -8,10 +8,12 @@ import { AUTO_LAYOUT, PICKER_LAYOUTS, layoutMeta } from "~/lib/keyboardLayout";
 // explicit picks below are pinned and grouped standard/alternative
 // (docs/features/keyboard-layouts.md decision 4).
 export const LayoutMenu = () => {
-    const [layout, setLayout, stored] = useLayout();
+    const [layout, setLayout, stored, autoLayout] = useLayout();
     const isAuto = stored === AUTO_LAYOUT;
-    const resolved = layoutMeta(layout);
-    const activeLabel = isAuto ? `Auto - ${resolved.label}` : resolved.label;
+    // Auto always previews what it would resolve to (language/detection default),
+    // never the current explicit pin; the trigger shows the pinned label instead.
+    const autoLabel = layoutMeta(autoLayout).label;
+    const activeLabel = isAuto ? `Auto - ${autoLabel}` : layoutMeta(layout).label;
 
     const group = (kind: "national" | "remap") =>
         PICKER_LAYOUTS.filter((option) => option.kind === kind).map((option) => (
@@ -61,7 +63,7 @@ export const LayoutMenu = () => {
                             event.currentTarget.blur();
                         }}
                     >
-                        Auto - {resolved.label}
+                        Auto - {autoLabel}
                     </button>
                 </li>
                 <li className="menu-title">Standard</li>

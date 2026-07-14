@@ -56,6 +56,31 @@ test.describe("progress dashboard", () => {
     await expect(page.getByText("No tests yet")).toBeVisible();
   });
 
+  test("progress rescopes to the active layout's stats pool", async ({ page }) => {
+    await mockAuthenticatedSession(page);
+    await mockTrpc(page);
+    await page.addInitScript(() => window.localStorage.setItem("typecafe:lastRecapAt", String(Date.now())));
+    await gotoProgress(page);
+
+    // Default qwerty view: the mocked (untagged → qwerty pool) records have history.
+    await expect(page.getByTestId("progress-layout-chip")).toHaveText("QWERTY");
+    await expect(page.getByTestId("headline-delta")).toBeVisible();
+    await expect(page.getByText("No tests yet")).toHaveCount(0);
+
+    // A remap layout is its own motor pool - no Colemak history → empty trend,
+    // even though the same tests populate the qwerty pool. The chip names it.
+    await page.getByTestId("nav-layout-trigger").click();
+    await page.getByTestId("nav-layout-menu").getByRole("button", { name: "Colemak", exact: true }).click();
+    await expect(page.getByTestId("progress-layout-chip")).toHaveText("Colemak");
+    await expect(page.getByText("No tests yet")).toBeVisible();
+
+    // National layouts share the qwerty pool, so the history is back.
+    await page.getByTestId("nav-layout-trigger").click();
+    await page.getByTestId("nav-layout-menu").getByRole("button", { name: "QWERTZ (DE)", exact: true }).click();
+    await expect(page.getByTestId("progress-layout-chip")).toHaveText("QWERTZ (DE)");
+    await expect(page.getByText("No tests yet")).toHaveCount(0);
+  });
+
   test("a signed-in user with history sees their delta, trends, and weak spots", async ({ page }) => {
     await mockAuthenticatedSession(page);
     await mockTrpc(page, {
