@@ -1087,6 +1087,7 @@ test.describe("screenshot tour", () => {
 
     await page.goto("/slowest-key-transitions");
     await expect(page.getByRole("heading", { name: "Find Your Slowest Key Transitions", exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Take a test to reveal your slowest transition" })).toHaveAttribute("href", "/");
     await capture(page, testInfo, "71-slowest-key-transitions");
 
     await page.goto("/15-second-vs-60-second-wpm");

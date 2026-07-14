@@ -65,7 +65,7 @@ const TransitionGuide: NextPage = () => (
           <li>Use short phrases so the pair survives normal rhythm and spaces.</li>
           <li>Re-test in unseen text and check whether its relative delay fell.</li>
         </ol>
-        <p><Link href="/drill">Open the targeted drill surface →</Link></p>
+        <p><Link href="/">Take a test to reveal your slowest transition →</Link></p>
       </DocumentSection>
 
       <DocumentSection title="Measure the movement, then measure the outcome">
