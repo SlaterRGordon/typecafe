@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { aggregateTransitions, mergeTransitions, overallTransitionMeanMs, worstTransitions, TRANSITION_SAMPLE_CAP } from "./transitions"
+import { aggregateTransitions, keySpeedFromTransitions, mergeTransitions, overallTransitionMeanMs, worstTransitions, TRANSITION_SAMPLE_CAP } from "./transitions"
 import type { KeystrokeEvent } from "./keystrokes"
 
 // Build a timeline from (key, gap-since-previous, correct?) tuples.
@@ -22,9 +22,13 @@ describe("aggregateTransitions", () => {
         expect(th.errors).toBe(1) // second "h" was wrong
     })
 
-    it("drops non-letter transitions (space, punctuation)", () => {
-        const evts = events([["a", 0], [" ", 100], ["b", 100], [".", 100], ["c", 100]])
-        expect(aggregateTransitions(evts)).toEqual([])
+    it("tracks space pairs (word boundaries) but drops punctuation/digits", () => {
+        // a-space-b-.-c-1-d : "a "/" b" are tracked; "b."/".c"/"c1"/"1d" are not.
+        const evts = events([["a", 0], [" ", 100], ["b", 120], [".", 100], ["c", 100], ["1", 100], ["d", 100]])
+        const aggs = aggregateTransitions(evts)
+        expect(aggs.find((a) => a.pair === "a ")).toMatchObject({ pair: "a ", count: 1, totalMs: 100 })
+        expect(aggs.find((a) => a.pair === " b")).toMatchObject({ pair: " b", count: 1, totalMs: 120 })
+        expect(aggs.map((a) => a.pair).sort()).toEqual([" b", "a "])
     })
 
     it("drops letter pairs that cannot be drilled with real transition words", () => {
@@ -88,6 +92,42 @@ describe("worstTransitions", () => {
 
     it("returns nothing with no data", () => {
         expect(worstTransitions([])).toEqual([])
+    })
+})
+
+describe("keySpeedFromTransitions", () => {
+    it("attributes latency to the key pressed, count-weighted (not mean-of-means)", () => {
+        // Two ways to land on 'r': after 'b' (rare, slow) and after 't' (common, fast).
+        const aggs = [
+            { pair: "br", count: 2, totalMs: 800, errors: 0 },   // 400ms mean, 2 hits
+            { pair: "tr", count: 18, totalMs: 1800, errors: 0 }, // 100ms mean, 18 hits
+        ]
+        const r = keySpeedFromTransitions(aggs).find((k) => k.key === "r")!
+        // Correct: 2600ms / 20 = 130ms. Mean-of-means (the bug) would be 250ms.
+        expect(r.count).toBe(20)
+        expect(r.meanMs).toBe(130)
+    })
+
+    it("includes word-initial keys via space→k and surfaces the space bar itself", () => {
+        const aggs = [
+            { pair: " t", count: 5, totalMs: 1000, errors: 1 }, // word-initial t
+            { pair: "th", count: 5, totalMs: 500, errors: 0 },
+            { pair: "e ", count: 4, totalMs: 1600, errors: 0 }, // hitting space after 'e'
+        ]
+        const byKey = new Map(keySpeedFromTransitions(aggs).map((k) => [k.key, k]))
+        expect(byKey.get("t")!.meanMs).toBe(200) // 1000 / 5, the word-initial t
+        expect(byKey.get("t")!.errorRate).toBeCloseTo(0.2, 3)
+        expect(byKey.get(" ")!.meanMs).toBe(400) // space-bar launch rhythm, 1600 / 4
+        expect(byKey.get("h")!.count).toBe(5)
+    })
+
+    it("returns slowest key first and ignores empty aggregates", () => {
+        const aggs = [
+            { pair: "th", count: 4, totalMs: 400, errors: 0 }, // h: 100ms
+            { pair: "br", count: 4, totalMs: 1200, errors: 0 }, // r: 300ms
+            { pair: "he", count: 0, totalMs: 0, errors: 0 },
+        ]
+        expect(keySpeedFromTransitions(aggs).map((k) => k.key)).toEqual(["r", "h"])
     })
 })
 

@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { Prisma } from "~/generated/prisma/client";
-import { isTrackableTransitionPair } from "~/lib/drillableTransitions";
+import { isTrackedPair } from "~/lib/drillableTransitions";
 import { TRANSITION_SAMPLE_CAP } from "~/lib/transitions";
 
 // Aggregates are keyed per stats pool (docs/features/keyboard-layouts.md
@@ -34,7 +34,7 @@ export const transitionStatsRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const stats = input.stats
         .map((stat) => ({ ...stat, pair: stat.pair.toLowerCase() }))
-        .filter((stat) => isTrackableTransitionPair(stat.pair));
+        .filter((stat) => isTrackedPair(stat.pair));
       if (stats.length === 0) return { count: 0 };
       const userId = ctx.session.user.id;
       const pool = input.pool ?? "qwerty";

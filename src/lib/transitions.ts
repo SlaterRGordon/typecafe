@@ -4,7 +4,7 @@
 // single test's timeline (to sync) and over a user's lifetime rows (to surface).
 
 import type { KeystrokeEvent } from "./keystrokes"
-import { isTrackableTransitionPair } from "./drillableTransitions"
+import { isTrackableTransitionPair, isTrackedPair } from "./drillableTransitions"
 
 // A pair recurs this many times in the lifetime data before its slowness is
 // signal rather than a fluke.
@@ -19,10 +19,6 @@ export const TRANSITION_SLOW_RATIO = 1.3
 // history. History stays recoverable from the stored keystroke timelines.
 export const TRANSITION_SAMPLE_CAP = 200
 
-function isLetter(ch: string): boolean {
-    return /^[a-z]$/.test(ch)
-}
-
 // Per ordered letter→letter pair: how many times it occurred, the summed
 // inter-key latency, and how often the second key was wrong. The unit a
 // TransitionStat row stores (count, totalMs, errors), so the sync path and the
@@ -34,16 +30,16 @@ export interface TransitionAggregate {
     errors: number
 }
 
-// Roll one test's timeline into per-pair aggregates. Only letter→letter pairs
-// (the drillable ones); space/punctuation transitions are dropped.
+// Roll one test's timeline into per-pair aggregates. Tracked pairs only:
+// letter→letter bigrams plus space pairs (word boundaries); punctuation/digits
+// are dropped. isTrackedPair does the whole filter (charset + real-word gate).
 export function aggregateTransitions(events: KeystrokeEvent[]): TransitionAggregate[] {
     const byPair = new Map<string, TransitionAggregate>()
     for (let i = 1; i < events.length; i++) {
         const from = events[i - 1]!.key.toLowerCase()
         const to = events[i]!.key.toLowerCase()
-        if (!isLetter(from) || !isLetter(to)) continue
         const pair = from + to
-        if (!isTrackableTransitionPair(pair)) continue
+        if (!isTrackedPair(pair)) continue
         const dt = Math.max(events[i]!.t - events[i - 1]!.t, 0)
         const entry = byPair.get(pair) ?? { pair, count: 0, totalMs: 0, errors: 0 }
         entry.count += 1
@@ -126,7 +122,7 @@ export function mergeTransitions(existing: TransitionAggregate[], incoming: Tran
     for (const a of [...existing, ...incoming]) {
         if (a.count <= 0) continue
         const pair = a.pair.toLowerCase()
-        if (!isTrackableTransitionPair(pair)) continue
+        if (!isTrackedPair(pair)) continue
         const entry = byPair.get(pair) ?? { pair, count: 0, totalMs: 0, errors: 0 }
         entry.count += a.count
         entry.totalMs += a.totalMs
@@ -134,4 +130,39 @@ export function mergeTransitions(existing: TransitionAggregate[], incoming: Tran
         byPair.set(pair, entry)
     }
     return Array.from(byPair.values(), capTransitionAggregate)
+}
+
+export interface KeySpeed {
+    key: string // "b", or " " for the space bar
+    meanMs: number
+    count: number
+    errorRate: number // 0..1
+}
+
+// Lifetime per-key typing speed, rolled up from the stored transition aggregates
+// - the corrected form of "combine all *→k". Latency is attributed to the key
+// being *pressed* (the second key of each pair), summed as Σms/Σcount so a common
+// predecessor doesn't get averaged flat against a rare one (mean-of-means would).
+// Word-initial keys are included via space→k now that space pairs are tracked;
+// the space bar itself surfaces as key " " (its speed is word-launch rhythm). No
+// new storage: reads exactly the rows transitionStats/localTransitions already
+// sync. Slowest key first.
+export function keySpeedFromTransitions(aggregates: TransitionAggregate[]): KeySpeed[] {
+    const byKey = new Map<string, { totalMs: number, count: number, errors: number }>()
+    for (const a of aggregates) {
+        if (a.count <= 0) continue
+        const to = a.pair.toLowerCase()[1]
+        if (!to) continue
+        const entry = byKey.get(to) ?? { totalMs: 0, count: 0, errors: 0 }
+        entry.totalMs += a.totalMs
+        entry.count += a.count
+        entry.errors += a.errors
+        byKey.set(to, entry)
+    }
+    return Array.from(byKey, ([key, v]) => ({
+        key,
+        meanMs: v.count ? v.totalMs / v.count : 0,
+        count: v.count,
+        errorRate: v.count ? v.errors / v.count : 0,
+    })).sort((a, b) => b.meanMs - a.meanMs)
 }

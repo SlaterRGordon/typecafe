@@ -10,7 +10,7 @@ export const LOCAL_TRANSITIONS_KEY = "typecafe:transitionStats"
 function sanitize(raw: unknown): TransitionAggregate | null {
     if (!raw || typeof raw !== "object") return null
     const v = raw as Record<string, unknown>
-    if (typeof v.pair !== "string" || !/^[a-z]{2}$/.test(v.pair)) return null
+    if (typeof v.pair !== "string" || !/^[a-z ]{2}$/.test(v.pair)) return null
     const nums = [v.count, v.totalMs, v.errors]
     if (!nums.every((n) => typeof n === "number" && Number.isInteger(n) && n >= 0)) return null
     return { pair: v.pair, count: v.count as number, totalMs: v.totalMs as number, errors: v.errors as number }
