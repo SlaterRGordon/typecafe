@@ -822,6 +822,20 @@ test.describe("home typing test", () => {
     await expect(page.getByText("similar starters")).toHaveCount(0);
   });
 
+  test("an unranked guest test does not enter Progress history", async ({ page }) => {
+    await gotoHome(page);
+    await setToolbarCustomLength(page, "3");
+    await page.locator("#text").click();
+    await expect(page.locator("#c0")).toHaveClass(/active-char/);
+    await typeCurrentCharacter(page);
+
+    await expect(page.getByRole("button", { name: "Test Again" })).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText("Unranked")).toBeVisible();
+    await expect.poll(async () => page.evaluate(() =>
+      window.localStorage.getItem("typecafe:progressHistory"),
+    )).toBeNull();
+  });
+
   test("timed test completes when the timer expires", async ({ page }) => {
     await gotoHome(page);
 
