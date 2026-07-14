@@ -125,11 +125,9 @@ export function KeyHeatmapLegend({ className = "" }: { className?: string }) {
     const { lowColor, highColor } = useHeatmapColors()
     // High → low, so the dots read light (strong) to pink (weak) alongside the label.
     const dots = [100, 96, 92, 86, 80]
-    // The swatch is a mini keycap: a heat colour with the same dark-shade bar the
-    // real keys draw (interpolateColor(colour, black, 0.75)), so the legend colour
-    // matches the bars on the board.
-    const swatchColor = highColor
-    const swatchBar = interpolateColor(swatchColor, "#000000", 0.75)
+    // The filled portion uses the same dark-shade colour the real key bars draw
+    // (interpolateColor(colour, black, 0.75)), so the legend matches the board.
+    const swatchBar = interpolateColor(highColor, "#000000", 0.75)
     return (
         <div className={`flex flex-wrap items-center gap-x-3 gap-y-1 text-base-content/55 ${className}`}>
             <span className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap">
@@ -142,8 +140,8 @@ export function KeyHeatmapLegend({ className = "" }: { className?: string }) {
                 high → low
             </span>
             <span className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap">
-                <span className="relative inline-block h-3.5 w-6 overflow-hidden rounded-[2px]" style={{ backgroundColor: swatchColor }} aria-hidden="true">
-                    <span className="absolute bottom-[2px] left-[3px] h-1 w-2/3 rounded-[2px]" style={{ backgroundColor: swatchBar }} />
+                <span className="relative inline-block h-2 w-6 overflow-hidden rounded-[2px] bg-base-content/20" aria-hidden="true">
+                    <span className="absolute inset-y-0 left-0 w-2/3 rounded-[2px]" style={{ backgroundColor: swatchBar }} />
                 </span>
                 speed vs your average
             </span>
