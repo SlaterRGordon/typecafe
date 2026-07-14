@@ -12,6 +12,7 @@ test.describe("leaderboard filters", () => {
   test("renders mocked scores and switches timed counts", async ({ page }, testInfo) => {
     // Net WPM is the always-visible column; raw + accuracy are hidden below sm.
     await expect(page.getByText("67.29")).toBeVisible();
+    await expect(page.getByRole("link", { name: "testuser" })).toHaveAttribute("href", "/profile/testuser");
     if (!testInfo.project.name.includes("mobile")) {
       await expect(page.getByText("72.35")).toBeVisible();
       await expect(page.getByText("96.50 %")).toBeVisible();

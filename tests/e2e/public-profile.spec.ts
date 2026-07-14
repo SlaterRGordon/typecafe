@@ -56,4 +56,22 @@ test.describe("public profile", () => {
     await expect(train.getByText("32/100 levels")).toBeVisible();
     await expect(train.getByText("71/300 stars")).toBeVisible();
   });
+
+  test("shows an honest not-found state instead of a ghost profile", async ({ page }) => {
+    await mockTrpc(page, { missingProfile: true });
+    await page.goto("/profile/missing-user");
+
+    await expect(page.getByRole("heading", { name: "Profile not found" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Browse leaderboard" })).toHaveAttribute("href", "/leaderboard");
+    await expect(page.getByText("Top speed")).toHaveCount(0);
+  });
+
+  test("shows a retryable failure state when the profile request fails", async ({ page }) => {
+    await mockTrpc(page, { errorProcedures: ["user.getProfileByUsername"] });
+    await page.goto("/profile/testuser");
+
+    await expect(page.getByRole("heading", { name: "Profile unavailable" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Try again" })).toBeVisible();
+    await expect(page.getByText("Top speed")).toHaveCount(0);
+  });
 });

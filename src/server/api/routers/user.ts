@@ -10,6 +10,7 @@ import {
 } from "~/server/api/trpc";
 import {
     profileUpdateSchema,
+    publicUsernameLookupSchema,
     registrationSchema,
     usernameSchema,
 } from "~/lib/userProfile";
@@ -142,7 +143,7 @@ export const userRouter = createTRPCRouter({
         }),
     getProfileByUsername: publicProcedure
         .input(z.object({
-            username: usernameSchema,
+            username: publicUsernameLookupSchema,
         }))
         .query(async ({ ctx, input }) => {
             return ctx.prisma.user.findFirst({

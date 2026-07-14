@@ -16,6 +16,7 @@ interface MockTrpcOptions {
   profileImage?: string | null;
   emptyScores?: boolean;
   invalidShare?: boolean;
+  missingProfile?: boolean;
   // Per-key practice stats for the /progress lifetime heatmap.
   keyStats?: { character: string; total: number; correct: number }[];
   transitionStats?: { pair: string; count: number; totalMs: number; errors: number }[];
@@ -373,7 +374,7 @@ function responseForProcedure(procedure: string, input: ProcedureInput, options:
     case "user.get":
       return currentProfileUser;
     case "user.getProfileByUsername":
-      return profileUser;
+      return options.missingProfile ? null : profileUser;
     case "user.checkUsernameExists":
       return false;
     case "user.registerUser":

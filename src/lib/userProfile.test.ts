@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { emailSchema, passwordSchema, profileLinkSchema, usernameSchema } from "./userProfile"
+import { emailSchema, passwordSchema, profileLinkSchema, publicUsernameLookupSchema, usernameSchema } from "./userProfile"
 
 describe("account validation", () => {
     it("normalizes email and trims route-safe usernames", () => {
@@ -11,6 +11,12 @@ describe("account validation", () => {
         for (const username of ["ab", "with space", "path/name", "name?tab=1", "emoji☕"]) {
             expect(usernameSchema.safeParse(username).success).toBe(false)
         }
+    })
+
+    it("allows legacy usernames only when looking up an existing public profile", () => {
+        expect(publicUsernameLookupSchema.parse(" EA Logic ")).toBe("EA Logic")
+        expect(publicUsernameLookupSchema.safeParse("").success).toBe(false)
+        expect(publicUsernameLookupSchema.safeParse("x".repeat(65)).success).toBe(false)
     })
 
     it("accepts only web profile links", () => {

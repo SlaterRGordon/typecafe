@@ -694,6 +694,13 @@ test.describe("screenshot tour", () => {
     await capture(page, testInfo, "17-profile-public");
   });
 
+  test("public profile not found", async ({ page }, testInfo) => {
+    await mockTrpc(page, { missingProfile: true });
+    await page.goto("/profile/missing-user");
+    await expect(page.getByRole("heading", { name: "Profile not found" })).toBeVisible();
+    await capture(page, testInfo, "17-profile-not-found");
+  });
+
   test("progress dashboard loading skeleton", async ({ page }, testInfo) => {
     let releaseSession = () => {};
     const sessionHold = new Promise<void>((resolve) => {
