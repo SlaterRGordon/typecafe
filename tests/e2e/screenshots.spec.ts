@@ -283,8 +283,10 @@ test.describe("screenshot tour", () => {
     const keyboardKey = (key: string) =>
       page.locator(`.typecafe-keyboard kbd[data-kb-key="${key}"]`);
 
+    // A fresh guest board is under the sample floor everywhere, so keys read the
+    // neutral no-data state until enough keystrokes land.
     await keyboardKey("e").hover();
-    await expect(page.getByRole("tooltip")).toContainText("Base e:");
+    await expect(page.getByRole("tooltip")).toContainText("No data yet");
     await capture(page, testInfo, "66-practice-key-tooltip");
 
     // The default nine-key set is repaired to the two-vowel floor on entry
@@ -692,6 +694,13 @@ test.describe("screenshot tour", () => {
     await capture(page, testInfo, "17-profile-public");
   });
 
+  test("public profile not found", async ({ page }, testInfo) => {
+    await mockTrpc(page, { missingProfile: true });
+    await page.goto("/profile/missing-user");
+    await expect(page.getByRole("heading", { name: "Profile not found" })).toBeVisible();
+    await capture(page, testInfo, "17-profile-not-found");
+  });
+
   test("progress dashboard loading skeleton", async ({ page }, testInfo) => {
     let releaseSession = () => {};
     const sessionHold = new Promise<void>((resolve) => {
@@ -749,6 +758,16 @@ test.describe("screenshot tour", () => {
     await expect(page.getByTestId("headline-delta")).toBeVisible();
     await expect(page.getByTestId("headline-start-current")).toContainText("Start");
     await expect(page.getByTestId("headline-current")).toContainText("Current daily median");
+    if (testInfo.project.name.includes("mobile")) {
+      const card = await page.getByTestId("headline-delta").boundingBox();
+      const current = await page.getByTestId("headline-current").boundingBox();
+      const viewport = page.viewportSize();
+      expect(card).not.toBeNull();
+      expect(current).not.toBeNull();
+      expect(viewport).not.toBeNull();
+      expect(current!.x + current!.width).toBeLessThanOrEqual(card!.x + card!.width);
+      expect(card!.x + card!.width).toBeLessThanOrEqual(viewport!.width);
+    }
     await expect(page.getByText("WPM over time", { exact: true })).toBeVisible();
     await expect(page.getByText("Daily median trend", { exact: true })).toBeVisible();
     await expect(page.getByText("Daily best trend", { exact: true })).toBeVisible();
@@ -1068,6 +1087,7 @@ test.describe("screenshot tour", () => {
 
     await page.goto("/slowest-key-transitions");
     await expect(page.getByRole("heading", { name: "Find Your Slowest Key Transitions", exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Take a test to reveal your slowest transition" })).toHaveAttribute("href", "/");
     await capture(page, testInfo, "71-slowest-key-transitions");
 
     await page.goto("/15-second-vs-60-second-wpm");

@@ -164,13 +164,20 @@ test.describe("progress dashboard", () => {
     await expect(drillWeak).toBeVisible();
     await expect(drillWeak).toHaveAttribute("href", /keys=r,e/);
     await expect(page.getByTestId("lifetime-keyboard-card")).toContainText("Your keyboard");
-    await expect(page.getByTestId("lifetime-keyboard-card")).toContainText("Less");
-    await expect(page.getByTestId("lifetime-keyboard-card")).toContainText("More");
+    // The legend now shares the Practice board's vocabulary (accuracy / speed / no data).
+    const keyboardCard = page.getByTestId("lifetime-keyboard-card");
+    await expect(keyboardCard).toContainText("high → low");
+    await expect(keyboardCard).toContainText("speed");
+    await expect(keyboardCard).toContainText("no data yet");
     await expect(page.getByTestId("lifetime-heatmap")).toBeVisible();
     const rKey = page.getByTestId("lifetime-heatmap").locator('[data-kb-key="r"]');
     await expect(rKey).not.toContainText("%");
+    // Speed bar (Option A): r has lifetime transitions, so its cap carries a bar,
+    // and its tooltip states the avg latency alongside accuracy.
+    await expect(rKey.locator("[data-kb-speed]")).toHaveCount(1);
     await rKey.hover();
     await expect(page.getByRole("tooltip")).toContainText("Base r: 80% accuracy");
+    await expect(page.getByRole("tooltip")).toContainText("Speed:");
     const keyboardHelp = page.getByRole("link", { name: "How keyboard accuracy is calculated" });
     await keyboardHelp.hover();
     await expect(page.getByRole("tooltip")).toContainText("rolling accuracy from recent attempts");
@@ -182,6 +189,8 @@ test.describe("progress dashboard", () => {
     await shiftLayerButton.click();
     await expect(heatmap.locator('[data-kb-key="!"]')).toBeVisible();
     await expect(heatmap.locator('[data-kb-key="R"]')).toBeVisible();
+    // Speed bars are base-layer only (we don't track shifted-glyph speed).
+    await expect(heatmap.locator('[data-kb-speed]')).toHaveCount(0);
     await shiftLayerButton.click();
     await expect(heatmap.locator('[data-kb-key="1"]')).toBeVisible();
     const transitions = page.getByTestId("worst-transitions");
@@ -345,6 +354,28 @@ test.describe("progress dashboard", () => {
     await expect(page.getByTestId("baseline-calibration")).toContainText("Building baseline");
     await expect(page.getByTestId("headline-delta-value")).toHaveAttribute("data-placement", "above-flat");
     await expect(page.getByTestId("headline-current")).toContainText("60.0");
+  });
+
+  test("a large current WPM stays inside the headline card on mobile", async ({ page }, testInfo) => {
+    test.skip(!testInfo.project.name.includes("mobile"), "This guards the narrow-screen layout.");
+    await page.addInitScript(() => {
+      const day = 24 * 60 * 60 * 1000;
+      window.localStorage.setItem("typecafe:progressHistory", JSON.stringify([
+        { wpm: 1000, accuracy: 100, t: Date.now() - day },
+        { wpm: 1129.2, accuracy: 100, t: Date.now() },
+      ]));
+    });
+    await gotoProgress(page);
+
+    const card = await page.getByTestId("headline-delta").boundingBox();
+    const current = await page.getByTestId("headline-current").boundingBox();
+    const viewport = page.viewportSize();
+    expect(card).not.toBeNull();
+    expect(current).not.toBeNull();
+    expect(viewport).not.toBeNull();
+    expect(current!.x + current!.width).toBeLessThanOrEqual(card!.x + card!.width);
+    expect(card!.x + card!.width).toBeLessThanOrEqual(viewport!.width);
+    expect(current!.x + current!.width).toBeLessThanOrEqual(viewport!.width);
   });
 
   test("a guest with local history gets the real dashboard plus a keep-it banner", async ({ page }) => {

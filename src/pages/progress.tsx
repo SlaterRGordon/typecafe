@@ -10,9 +10,9 @@ import { KeyHeatmap, KeyHeatmapLegend } from "~/components/heatmap/KeyHeatmap";
 import { KeyboardLayerSwitch } from "~/components/heatmap/KeyboardLayerSwitch";
 import { Chip } from "~/components/ui/Chip";
 import { Tooltip } from "~/components/ui/Tooltip";
-import type { KeyAttempt } from "~/lib/heatmap";
+import { HEATMAP_CONFIG, type KeyAttempt } from "~/lib/heatmap";
 import { useGuestEvidence } from "~/hooks/useGuestEvidence";
-import { worstTransitions, type TransitionAggregate } from "~/lib/transitions";
+import { keySpeedBars, worstTransitions, type TransitionAggregate } from "~/lib/transitions";
 import {
     PROGRESS_PERIODS,
     bestWpm,
@@ -62,7 +62,7 @@ function HeroDeltaLine(props: { start: number | null; current: number; delta: nu
             : { path: "M0 32 H100", leftTop: "80%", rightTop: "80%", labelTop: "0.8rem", placement: "above-flat" };
 
     return (
-        <div data-testid="headline-start-current" className="flex items-center gap-3 sm:gap-5">
+        <div data-testid="headline-start-current" className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-2 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:gap-x-5">
             <div className="shrink-0">
                 <div className="font-mono text-xl font-semibold text-base-content/70 sm:text-2xl">
                     {props.start === null ? "-" : props.start.toFixed(1)}
@@ -90,7 +90,7 @@ function HeroDeltaLine(props: { start: number | null; current: number; delta: nu
                 <span className="absolute left-0 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-current" style={{ top: geo.leftTop }} aria-hidden="true" />
                 <span className="absolute right-0 h-0 w-0 translate-x-1/2 -translate-y-1/2 border-y-[5px] border-l-[8px] border-y-transparent border-l-current" style={{ top: geo.rightTop }} aria-hidden="true" />
             </div>
-            <div data-testid="headline-current" className="shrink-0 text-right">
+            <div data-testid="headline-current" className="col-span-2 min-w-0 text-right sm:col-span-1">
                 <div className="flex items-baseline justify-end gap-1">
                     <span className="font-mono text-4xl font-bold text-base-content sm:text-5xl">{props.current.toFixed(1)}</span>
                     <span className="text-lg font-semibold text-base-content/60">WPM</span>
@@ -296,6 +296,9 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
     const hero = useMemo(() => heroDelta(dailyProgress.points), [dailyProgress.points]);
     const plateau = useMemo(() => detectPlateau(cleanRecords, now), [cleanRecords, now]);
     const slowTransitions = useMemo(() => worstTransitions(props.transitions, Infinity), [props.transitions]);
+    // Per-key speed bars for the heatmap (Option A) - normalized against the
+    // user's own pace, base layer only inside the component.
+    const speedBars = useMemo(() => keySpeedBars(props.transitions), [props.transitions]);
     // The active language's accent chars (loaded on demand; [] for English) -
     // they let weak é/ü/ą show as drillable keys, and gate out keys from other
     // languages/layouts the user isn't currently on.
@@ -358,7 +361,7 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
     };
 
     return (
-        <div className="w-full max-w-screen-xl space-y-4">
+        <div className="w-full min-w-0 max-w-screen-xl space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex flex-wrap items-center gap-2">
                     <h1 className="font-mono text-3xl font-bold tracking-tight">Progress</h1>
@@ -421,8 +424,8 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
             {/* Above the fold: "am I getting faster?" (the delta + the WPM proof)
                 sits beside the single highest-leverage action (drill your weak
                 spots). The three things that matter, no scrolling. */}
-            <div className="grid gap-4 lg:grid-cols-3">
-                <div className="space-y-4 lg:col-span-2">
+            <div className="grid min-w-0 gap-4 lg:grid-cols-3">
+                <div className="min-w-0 space-y-4 lg:col-span-2">
                     <div data-testid="headline-delta" className="rounded-xl border border-base-content/10 bg-base-100/45 p-4">
                         {plateau.plateaued ? (
                             <div data-testid="plateau-headline">
@@ -517,13 +520,15 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
                             />
                         </div>
                         <div className="flex w-full justify-center overflow-x-auto pb-1">
-                            <KeyHeatmap attempts={props.keyAttempts} size="compact" showPercent={false} shiftLayer={heatmapShift} altgrLayer={heatmapAltgr} className="min-w-fit" testId="lifetime-heatmap" />
+                            <KeyHeatmap attempts={props.keyAttempts} speedBars={speedBars} minSamples={HEATMAP_CONFIG.minSamples} size="compact" showPercent={false} shiftLayer={heatmapShift} altgrLayer={heatmapAltgr} className="min-w-fit" testId="lifetime-heatmap" />
                         </div>
                         {Object.keys(props.keyAttempts).length === 0 && (
                             <p className="mt-4 text-center text-sm text-base-content/45">Take more tests to color in your per-key accuracy.</p>
                         )}
-                        <div className="mt-2 flex items-center justify-end gap-3">
-                            <KeyHeatmapLegend />
+                        {/* Roomier own surface than the Practice board, so the legend
+                            spreads across the corners instead of one tight line. */}
+                        <div className="max-w-full overflow-x-auto pb-1">
+                            <KeyHeatmapLegend className="mt-3 flex-nowrap text-xs" />
                         </div>
                     </div>
                 </div>
@@ -704,7 +709,7 @@ const Progress: NextPage = () => {
                     <ProgressLoadingSkeleton />
                 ) : !sessionData?.user ? (
                     hasAnyGuestProgress ? (
-                        <div className="w-full max-w-screen-xl space-y-4">
+                        <div className="w-full min-w-0 max-w-screen-xl space-y-4">
                             <div data-testid="guest-keep-banner" className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-primary/40 bg-primary/10 px-4 py-3">
                                 <span className="text-sm text-base-content/80">This progress lives on this device only.</span>
                                 <button type="button" onClick={openSignInModal} className="inline-flex cursor-pointer items-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85">

@@ -83,5 +83,6 @@ test.describe("secondary static routes", () => {
     expect(html).toContain('"@type":"Article"');
     expect(html).toContain('"@type":"FAQPage"');
     expect(html).toContain('"@type":"BreadcrumbList"');
+    await expect(page.getByRole("link", { name: "Take a test to reveal your slowest transition" })).toHaveAttribute("href", "/");
   });
 });

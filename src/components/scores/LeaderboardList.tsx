@@ -1,4 +1,4 @@
-import { useRouter } from "next/router";
+import Link from "next/link";
 import { Avatar } from "~/components/Avatar";
 import { TestModes, type TestSubModes } from "~/components/typer/types";
 import { api } from "~/utils/api";
@@ -14,7 +14,6 @@ interface LeaderboardListProps {
 // the window). Net is the headline "WPM"; raw is shown beside it as a secondary
 // reference. Distinct from <Scores>, which lists every test of one user.
 const LeaderboardList = (props: LeaderboardListProps) => {
-    const router = useRouter();
     const { subMode, count, date, language } = props;
 
     const { data: testType } = api.type.get.useQuery({ mode: TestModes.normal, subMode, language });
@@ -24,10 +23,6 @@ const LeaderboardList = (props: LeaderboardListProps) => {
     );
 
     const showEmptyState = !isLoading && rows?.length === 0;
-
-    const navigateProfile = async (username: string) => {
-        await router.push(`/profile/${encodeURIComponent(username)}`);
-    };
 
     return (
         <div id="leaderboard" className="flex basis-0 grow w-full items-stretch justify-center">
@@ -49,10 +44,10 @@ const LeaderboardList = (props: LeaderboardListProps) => {
                                 <div className={`flex w-full justify-stretch px-4 py-4 ${index % 2 == 1 ? "bg-b2" : ""}`} key={row.userId}>
                                     <div className="flex w-[10%] md:[5%] items-center">{row.rank}</div>
                                     <div className="flex basis-0 grow items-center">
-                                        <div className="flex basis-0 grow items-center space-x-3 cursor-pointer" onClick={() => void navigateProfile(row.username)}>
+                                        <Link className="flex basis-0 grow items-center space-x-3" href={`/profile/${encodeURIComponent(row.username)}`}>
                                             <Avatar size={48} image={row.image} name={row.username} />
                                             <div className="font-bold">{row.username}</div>
-                                        </div>
+                                        </Link>
                                     </div>
                                     <div className="flex basis-0 grow items-center font-mono">{row.wpm.toFixed(2)}</div>
                                     <div className="flex basis-0 grow items-center hidden sm:flex font-mono text-base-content/60">{row.rawWpm.toFixed(2)}</div>

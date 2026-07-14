@@ -822,6 +822,20 @@ test.describe("home typing test", () => {
     await expect(page.getByText("similar starters")).toHaveCount(0);
   });
 
+  test("an unranked guest test does not enter Progress history", async ({ page }) => {
+    await gotoHome(page);
+    await setToolbarCustomLength(page, "3");
+    await page.locator("#text").click();
+    await expect(page.locator("#c0")).toHaveClass(/active-char/);
+    await typeCurrentCharacter(page);
+
+    await expect(page.getByRole("button", { name: "Test Again" })).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText("Unranked")).toBeVisible();
+    await expect.poll(async () => page.evaluate(() =>
+      window.localStorage.getItem("typecafe:progressHistory"),
+    )).toBeNull();
+  });
+
   test("timed test completes when the timer expires", async ({ page }) => {
     await gotoHome(page);
 
@@ -1017,9 +1031,11 @@ test.describe("home typing test", () => {
     )).toBeLessThan(2);
     const qKey = page.locator('.typecafe-key-heatmap [data-kb-key="q"]');
     await expect(qKey).not.toContainText("%");
+    // A guest with no history: every key is under the sample floor, so it reads
+    // the neutral no-data state (no heat, no speed bar) and its own tooltip.
+    await expect(qKey.locator("[data-kb-speed]")).toHaveCount(0);
     await qKey.hover();
-    await expect(page.getByRole("tooltip")).toContainText("Base q: no data");
-    await expect(page.getByRole("tooltip")).toContainText("Shift Q: no data");
+    await expect(page.getByRole("tooltip")).toContainText("No data yet - unlock to start drilling");
 
     await expect(page.locator("#c0")).toHaveClass(/active-char/);
     const first = await page.locator("#c0").textContent();
@@ -1032,15 +1048,63 @@ test.describe("home typing test", () => {
     if (second !== first) await expect(firstCell).not.toHaveClass(/ring-primary/);
   });
 
+  test("practice keyboard shows per-key speed bars, the no-data state, and the full legend", async ({ page }) => {
+    await mockAuthenticatedSession(page);
+    await mockTrpc(page, {
+      // Accuracy per key, above the sample floor so these clear the no-data state.
+      keyStats: [
+        { character: "r", total: 40, correct: 34 },
+        { character: "h", total: 40, correct: 40 },
+        { character: "e", total: 60, correct: 58 },
+        { character: "o", total: 30, correct: 27 },
+      ],
+      transitionStats: [
+        { pair: "br", count: 20, totalMs: 8000, errors: 2 }, // r → 400ms
+        { pair: "th", count: 40, totalMs: 4000, errors: 0 }, // h → 100ms
+        { pair: "he", count: 30, totalMs: 3600, errors: 0 }, // e
+        { pair: "io", count: 20, totalMs: 4000, errors: 1 }, // o
+      ],
+    });
+    await gotoHome(page);
+    await selectMode(page, "Practice");
+    const board = page.locator(".typecafe-key-heatmap");
+    await expect(board).toBeVisible();
+
+    // A key with accuracy + speed data carries a bar; its tooltip states WPM.
+    const rKey = board.locator('[data-kb-key="r"]');
+    await expect(rKey.locator("[data-kb-speed]")).toHaveCount(1);
+    await rKey.hover();
+    await expect(page.getByRole("tooltip")).toContainText("WPM");
+
+    // A key with no data shows the neutral state and no bar.
+    await expect(board.locator('[data-kb-key="z"] [data-kb-speed]')).toHaveCount(0);
+
+    // Legend covers all four groups and stays on a single line (no wrap).
+    const legend = page.locator(".typecafe-keyboard-legend");
+    for (const text of ["locked = click to add", "accuracy", "high → low", "speed", "no data yet"]) {
+      await expect(legend).toContainText(text);
+    }
+    const box = await legend.boundingBox();
+    expect(box!.height).toBeLessThan(28);
+
+    // Speed bars are base-layer only: flipping to Shift re-renders without them.
+    await page.getByRole("button", { name: "Show shifted keys (capitals and symbols)" }).click();
+    await expect(board.locator("[data-kb-speed]")).toHaveCount(0);
+  });
+
   // Heatmap cells sweep the full theme gradient, so each derives a legible
   // black/white text color from its own background luminance rather than a
   // fixed white that washed out on light cells (aqua's bright-cyan low end).
   test("practice keyboard keys use legible black/white text on any cell color", async ({ page }) => {
+    // A key with data gets a heat colour; its foreground must be legible black or
+    // white against it. (No-data keys keep the muted default text by design.)
+    await mockAuthenticatedSession(page);
+    await mockTrpc(page, { keyStats: [{ character: "e", total: 40, correct: 30 }] });
     await gotoHome(page);
     await selectMode(page, "Practice");
     await expect(page.locator(".typecafe-keyboard")).toBeVisible();
 
-    const cell = page.locator(".typecafe-key-heatmap [data-kb-key]").first();
+    const cell = page.locator('.typecafe-key-heatmap [data-kb-key="e"]');
     await expect(cell).toBeVisible();
     const color = await cell.evaluate((el) => getComputedStyle(el).color);
     expect(["rgb(0, 0, 0)", "rgb(255, 255, 255)"]).toContain(color);

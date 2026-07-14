@@ -28,6 +28,8 @@ import {
   writeLocalDailySession,
 } from "~/lib/dailyCoaching";
 import { isPracticeLetter, remapPracticeSelectionByPosition, repairPracticeSelection, smartDrillSelection } from "~/lib/drillKeys";
+import { keySpeedBars, type TransitionAggregate } from "~/lib/transitions";
+import { readLocalTransitions } from "~/lib/localTransitions";
 import { addAlert } from "~/state/alert/alertSlice";
 import { appendLocalProgress } from "~/lib/progressHistory";
 import { consistencyFromSamples } from "~/lib/stats";
@@ -198,6 +200,24 @@ const Home: NextPage = () => {
     })
     bumpPersistedStats((version) => version + 1)
   }, [mode, persistedStats])
+
+  // Lifetime per-key speed for the Practice heatmap bars (Option A): DB rows when
+  // signed in, the localStorage mirror for guests - the same source drill/progress
+  // read. Rolled into per-key bars once; recomputed only when the pool or the data
+  // changes.
+  const practicePool = statsPoolFor(activeLayout)
+  const { data: dbTransitions } = api.transitionStats.get.useQuery({ pool: practicePool }, {
+    enabled: mode === TestModes.practice && !!sessionData?.user,
+  })
+  const [localTransitions, setLocalTransitions] = useState<TransitionAggregate[]>([])
+  useEffect(() => {
+    if (mode !== TestModes.practice || sessionData?.user) return
+    setLocalTransitions(readLocalTransitions(practicePool))
+  }, [mode, sessionData?.user, practicePool])
+  const speedBars = useMemo(
+    () => keySpeedBars(sessionData?.user ? (dbTransitions ?? []) : localTransitions),
+    [sessionData?.user, dbTransitions, localTransitions],
+  )
 
   // Keep the ref, the render state, and sessionStorage in lock-step so the offer
   // survives a reload mid-drill and is read consistently everywhere.
@@ -379,7 +399,7 @@ const Home: NextPage = () => {
 
     // Mirror guest results locally so /progress is real from the first test
     // (local-first; signed-in users' trends come from the DB instead).
-    if (!sessionData?.user) {
+    if (!sessionData?.user && result.ranked) {
       appendLocalProgress({ wpm: result.speed, accuracy: result.accuracy, c: consistency, t: Date.now(), lang: parseLanguage(activeTestLanguage).base, layout: activeLayout })
     }
 
@@ -850,6 +870,7 @@ const Home: NextPage = () => {
               setSelectedKeys={setSelectedKeys}
               charAttemptsRef={charAttemptsRef}
               baseAttemptsRef={persistedAttemptsRef}
+              speedBars={speedBars}
               shiftToggle={shiftLayer}
               altgrToggle={altgrLayer}
               onToggleShift={() => {

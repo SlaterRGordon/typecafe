@@ -11,6 +11,10 @@ export const usernameSchema = z.string()
     .max(USERNAME_MAX_LENGTH, `Username must be at most ${USERNAME_MAX_LENGTH} characters.`)
     .regex(/^[a-zA-Z0-9_]+$/, "Use only letters, numbers, and underscores.")
 
+// Public routes must still resolve accounts created before usernames became
+// route-safe. New and edited usernames continue to use the stricter schema.
+export const publicUsernameLookupSchema = z.string().trim().min(1).max(64)
+
 export const emailSchema = z.string()
     .trim()
     .toLowerCase()

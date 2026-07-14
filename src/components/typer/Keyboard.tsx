@@ -6,6 +6,7 @@ import { useDispatch } from "react-redux";
 import { accentsFor, ensureLanguageLoaded, isDrillDigit, isDrillMark } from "./utils";
 import { KeyHeatmap, KeyHeatmapLegend } from "~/components/heatmap/KeyHeatmap";
 import { KeyboardLayerSwitch } from "~/components/heatmap/KeyboardLayerSwitch";
+import { HEATMAP_CONFIG } from "~/lib/heatmap";
 import { boardFor, composedFor, sequenceFor, keyFor, type Layer } from "~/lib/keyboardLayout";
 import { useLayout } from "~/hooks/useLayout";
 import { useLanguage } from "~/hooks/useLanguage";
@@ -21,6 +22,9 @@ interface KeyboardProps {
     setSelectedKeys?: (keys: string[]) => void,
     charAttemptsRef: React.MutableRefObject<Map<string, { attempts: number, correct: number }>>,
     baseAttemptsRef?: React.MutableRefObject<Map<string, { attempts: number, correct: number }>>,
+    // Per-key speed bars for the Practice heatmap, normalized against the user's
+    // own pace (see keySpeedBars). Lifetime data threaded from the page.
+    speedBars?: ReadonlyMap<string, { fraction: number, meanMs: number, wpm: number, count: number }>,
     highlightKeys?: string[],
     // Practice: the combined shift-layer state (sticky board-rail toggle OR a
     // held-Shift peek) - both owned by the page so the rail and caps stay in sync.
@@ -47,9 +51,34 @@ interface KeyboardProps {
 const activeLayer = (shift: boolean, altgr: boolean): Layer =>
     altgr ? (shift ? "shiftAltgr" : "altgr") : shift ? "shift" : "base"
 
+// Small padlock glyph, matching the on-key lock badge.
+const LockGlyph = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-2.5 w-2.5" viewBox="0 0 24 24" aria-hidden="true">
+        <path fill="currentColor" d="M6 22q-.825 0-1.413-.588T4 20V10q0-.825.588-1.413T6 8h1V6q0-2.075 1.463-3.538T12 1q2.075 0 3.538 1.463T17 6v2h1q.825 0 1.413.588T20 10v10q0 .825-.588 1.413T18 22H6Zm0-2h12V10H6v10ZM9 8h6V6q0-1.25-.875-2.125T12 3q-1.25 0-2.125.875T9 6v2Z" />
+    </svg>
+)
+
+// Practice board legend: one non-wrapping row (scrolls horizontally on narrow
+// screens rather than breaking to two lines). Reads left to right: drill
+// membership, then the two overlays the keys carry - accuracy colour and the
+// speed bar - then the no-data state.
+function PracticeKeyboardLegend() {
+    return (
+        <div className="typecafe-keyboard-legend mt-2 flex flex-nowrap items-center gap-x-3 overflow-x-auto whitespace-nowrap text-[0.65rem] text-base-content/55 [scrollbar-width:none] sm:justify-center sm:text-xs">
+            <span className="inline-flex shrink-0 items-center gap-1.5">
+                <span className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-base-content/20 bg-base-300" aria-hidden="true">
+                    <LockGlyph />
+                </span>
+                locked = click to add
+            </span>
+            <KeyHeatmapLegend className="flex-nowrap" />
+        </div>
+    )
+}
+
 export const Keyboard = (props: KeyboardProps) => {
     const {
-        mode, selectedKeys, setSelectedKeys, charAttemptsRef, baseAttemptsRef, highlightKeys,
+        mode, selectedKeys, setSelectedKeys, charAttemptsRef, baseAttemptsRef, speedBars, highlightKeys,
         shiftToggle = false, altgrToggle = false,
         onToggleShift, onToggleAltgr, hasAltGr = false,
         punctuation = false, capitals = false, numbers = false,
@@ -359,6 +388,8 @@ export const Keyboard = (props: KeyboardProps) => {
                     <KeyHeatmap
                         size="full"
                         attempts={buildStatsAttempts()}
+                        speedBars={speedBars}
+                        minSamples={HEATMAP_CONFIG.minSamples}
                         showPercent={false}
                         lockedKeys={lockedKeys}
                         onKeyClick={handleKeyClicked}
@@ -368,23 +399,7 @@ export const Keyboard = (props: KeyboardProps) => {
                         altgrLayer={altgrLayer}
                         interactiveKeys={interactiveKeys}
                     />
-                    <div className="mt-2 flex flex-col gap-2 text-[0.65rem] text-base-content/55 sm:flex-row sm:items-center sm:justify-between sm:text-xs">
-                        <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 sm:justify-start">
-                            <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
-                                <span className="h-2 w-2 rounded-full bg-primary" aria-hidden="true" />
-                                unlocked = in drill
-                            </span>
-                            <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
-                                <span className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-base-content/20 bg-base-300 text-[0.5rem]" aria-hidden="true">
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-2.5 w-2.5" viewBox="0 0 24 24">
-                                        <path fill="currentColor" d="M6 22q-.825 0-1.413-.588T4 20V10q0-.825.588-1.413T6 8h1V6q0-2.075 1.463-3.538T12 1q2.075 0 3.538 1.463T17 6v2h1q.825 0 1.413.588T20 10v10q0 .825-.588 1.413T18 22H6Zm0-2h12V10H6v10ZM9 8h6V6q0-1.25-.875-2.125T12 3q-1.25 0-2.125.875T9 6v2Z" />
-                                    </svg>
-                                </span>
-                                locked = click to add
-                            </span>
-                        </div>
-                        <KeyHeatmapLegend />
-                    </div>
+                    <PracticeKeyboardLegend />
                 </section>
                 :
                 // Non-practice modes (train): the same full physical board as the
