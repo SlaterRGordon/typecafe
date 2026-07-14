@@ -133,7 +133,7 @@ describe("keySpeedFromTransitions", () => {
 })
 
 describe("keySpeedBars", () => {
-    const min = HEATMAP_CONFIG.minSamples
+    const min = HEATMAP_CONFIG.minSpeedSamples
 
     it("fills a key at or above the average pace and scales slower keys down", () => {
         // Overall mean is 200ms. r sits at avg (full), h is faster (full/clamped),

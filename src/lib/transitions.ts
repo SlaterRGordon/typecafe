@@ -186,7 +186,7 @@ export interface KeySpeedBar {
 // bar. Keys below the sample floor are omitted (no bar rather than a misleading
 // one). All the normalization math lives here so the component just draws a
 // width. Empty when no key has data yet (divide-by-zero guard).
-export function keySpeedBars(aggregates: TransitionAggregate[], minCount = HEATMAP_CONFIG.minSamples): Map<string, KeySpeedBar> {
+export function keySpeedBars(aggregates: TransitionAggregate[], minCount = HEATMAP_CONFIG.minSpeedSamples): Map<string, KeySpeedBar> {
     const speeds = keySpeedFromTransitions(aggregates).filter((k) => k.count >= minCount)
     const bars = new Map<string, KeySpeedBar>()
     if (speeds.length === 0) return bars
