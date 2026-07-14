@@ -10,6 +10,7 @@ import {
 } from "~/server/api/trpc";
 import { consumePublicWriteQuota } from "~/server/rateLimit";
 import type { PrismaClient } from "~/generated/prisma/client";
+import { shareWpmSchema } from "~/lib/shareSnapshot";
 
 const GUEST_SHARE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const GUEST_SHARE_LIMIT = 20;
@@ -18,8 +19,8 @@ const GUEST_SHARE_WINDOW_MS = 60 * 60 * 1000;
 const slugSchema = z.string().min(8).max(32).regex(/^[a-zA-Z0-9_-]+$/);
 const scoreSnapshotSchema = z.object({
   durationSeconds: z.number().finite().min(0).max(24 * 60 * 60),
-  rawWpm: z.number().finite().min(0).max(1000),
-  netWpm: z.number().finite().min(0).max(1000),
+  rawWpm: shareWpmSchema,
+  netWpm: shareWpmSchema,
   accuracy: z.number().min(0).max(100),
   totalKeystrokes: z.number().int().min(0).max(50000),
   correctKeystrokes: z.number().int().min(0).max(50000),
@@ -47,7 +48,7 @@ const scoreSnapshotSchema = z.object({
   layout: z.string().max(32).optional(),
   wpmSamples: z.array(z.object({
     elapsedSeconds: z.number().finite().min(0).max(24 * 60 * 60),
-    wpm: z.number().finite().min(0).max(1000),
+    wpm: shareWpmSchema,
   })).max(600),
 });
 
@@ -60,7 +61,7 @@ const guestScoreSnapshotSchema = scoreSnapshotSchema.extend({
   subMode: z.number().int().min(0).max(1),
   language: z.string().min(1).max(40),
   options: z.string().max(100).optional(),
-  speed: z.number().nonnegative().optional(),
+  speed: shareWpmSchema.optional(),
   score: z.number().optional(),
   createdAt: z.number().int().nonnegative(),
 });
