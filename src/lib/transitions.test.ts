@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { aggregateTransitions, keySpeedFromTransitions, mergeTransitions, overallTransitionMeanMs, worstTransitions, TRANSITION_SAMPLE_CAP } from "./transitions"
+import { aggregateTransitions, keySpeedBars, keySpeedFromTransitions, mergeTransitions, overallTransitionMeanMs, worstTransitions, KEY_SPEED_BAR_MIN_COUNT, TRANSITION_SAMPLE_CAP } from "./transitions"
 import type { KeystrokeEvent } from "./keystrokes"
 
 // Build a timeline from (key, gap-since-previous, correct?) tuples.
@@ -128,6 +128,49 @@ describe("keySpeedFromTransitions", () => {
             { pair: "he", count: 0, totalMs: 0, errors: 0 },
         ]
         expect(keySpeedFromTransitions(aggs).map((k) => k.key)).toEqual(["r", "h"])
+    })
+})
+
+describe("keySpeedBars", () => {
+    const min = KEY_SPEED_BAR_MIN_COUNT
+
+    it("puts an average-pace key at a half-full bar, faster fuller, slower emptier", () => {
+        // Overall mean is 200ms. r sits at avg, h is 2x faster, b is far slower.
+        const aggs = [
+            { pair: "tr", count: min, totalMs: 200 * min, errors: 0 }, // r: 200ms == avg
+            { pair: "th", count: min, totalMs: 100 * min, errors: 0 }, // h: 100ms, fast
+            { pair: "ob", count: min, totalMs: 300 * min, errors: 0 }, // b: 300ms, slow
+        ]
+        const bars = keySpeedBars(aggs)
+        expect(bars.get("r")!.fraction).toBeCloseTo(0.5, 2)
+        expect(bars.get("h")!.fraction).toBeGreaterThan(bars.get("r")!.fraction)
+        expect(bars.get("b")!.fraction).toBeLessThan(bars.get("r")!.fraction)
+    })
+
+    it("clamps to [0,1] and never exceeds the ends", () => {
+        const aggs = [
+            { pair: "th", count: min, totalMs: 50 * min, errors: 0 },   // very fast
+            { pair: "ob", count: min, totalMs: 5000 * min, errors: 0 }, // very slow
+        ]
+        const bars = keySpeedBars(aggs)
+        for (const bar of bars.values()) {
+            expect(bar.fraction).toBeGreaterThanOrEqual(0)
+            expect(bar.fraction).toBeLessThanOrEqual(1)
+        }
+    })
+
+    it("omits keys below the sample floor rather than drawing a misleading bar", () => {
+        const aggs = [
+            { pair: "tr", count: min, totalMs: 200 * min, errors: 0 },
+            { pair: "ob", count: min - 1, totalMs: 200 * (min - 1), errors: 0 }, // too thin
+        ]
+        const bars = keySpeedBars(aggs)
+        expect(bars.has("r")).toBe(true)
+        expect(bars.has("b")).toBe(false)
+    })
+
+    it("is empty with no data", () => {
+        expect(keySpeedBars([]).size).toBe(0)
     })
 })
 

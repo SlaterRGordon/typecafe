@@ -169,8 +169,12 @@ test.describe("progress dashboard", () => {
     await expect(page.getByTestId("lifetime-heatmap")).toBeVisible();
     const rKey = page.getByTestId("lifetime-heatmap").locator('[data-kb-key="r"]');
     await expect(rKey).not.toContainText("%");
+    // Speed bar (Option A): r has lifetime transitions, so its cap carries a bar,
+    // and its tooltip states the avg latency alongside accuracy.
+    await expect(rKey.locator("[data-kb-speed]")).toHaveCount(1);
     await rKey.hover();
     await expect(page.getByRole("tooltip")).toContainText("Base r: 80% accuracy");
+    await expect(page.getByRole("tooltip")).toContainText("Speed:");
     const keyboardHelp = page.getByRole("link", { name: "How keyboard accuracy is calculated" });
     await keyboardHelp.hover();
     await expect(page.getByRole("tooltip")).toContainText("rolling accuracy from recent attempts");
@@ -182,6 +186,8 @@ test.describe("progress dashboard", () => {
     await shiftLayerButton.click();
     await expect(heatmap.locator('[data-kb-key="!"]')).toBeVisible();
     await expect(heatmap.locator('[data-kb-key="R"]')).toBeVisible();
+    // Speed bars are base-layer only (we don't track shifted-glyph speed).
+    await expect(heatmap.locator('[data-kb-speed]')).toHaveCount(0);
     await shiftLayerButton.click();
     await expect(heatmap.locator('[data-kb-key="1"]')).toBeVisible();
     const transitions = page.getByTestId("worst-transitions");

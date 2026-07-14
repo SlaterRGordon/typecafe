@@ -12,7 +12,7 @@ import { Chip } from "~/components/ui/Chip";
 import { Tooltip } from "~/components/ui/Tooltip";
 import type { KeyAttempt } from "~/lib/heatmap";
 import { useGuestEvidence } from "~/hooks/useGuestEvidence";
-import { worstTransitions, type TransitionAggregate } from "~/lib/transitions";
+import { keySpeedBars, worstTransitions, type TransitionAggregate } from "~/lib/transitions";
 import {
     PROGRESS_PERIODS,
     bestWpm,
@@ -296,6 +296,9 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
     const hero = useMemo(() => heroDelta(dailyProgress.points), [dailyProgress.points]);
     const plateau = useMemo(() => detectPlateau(cleanRecords, now), [cleanRecords, now]);
     const slowTransitions = useMemo(() => worstTransitions(props.transitions, Infinity), [props.transitions]);
+    // Per-key speed bars for the heatmap (Option A) - normalized against the
+    // user's own pace, base layer only inside the component.
+    const speedBars = useMemo(() => keySpeedBars(props.transitions), [props.transitions]);
     // The active language's accent chars (loaded on demand; [] for English) -
     // they let weak é/ü/ą show as drillable keys, and gate out keys from other
     // languages/layouts the user isn't currently on.
@@ -517,12 +520,15 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
                             />
                         </div>
                         <div className="flex w-full justify-center overflow-x-auto pb-1">
-                            <KeyHeatmap attempts={props.keyAttempts} size="compact" showPercent={false} shiftLayer={heatmapShift} altgrLayer={heatmapAltgr} className="min-w-fit" testId="lifetime-heatmap" />
+                            <KeyHeatmap attempts={props.keyAttempts} speedBars={speedBars} size="compact" showPercent={false} shiftLayer={heatmapShift} altgrLayer={heatmapAltgr} className="min-w-fit" testId="lifetime-heatmap" />
                         </div>
                         {Object.keys(props.keyAttempts).length === 0 && (
                             <p className="mt-4 text-center text-sm text-base-content/45">Take more tests to color in your per-key accuracy.</p>
                         )}
-                        <div className="mt-2 flex items-center justify-end gap-3">
+                        <div className="mt-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                            <span className="text-xs text-base-content/45">
+                                {speedBars.size > 0 ? "Colour = accuracy · bar = speed vs your average (fuller is faster)" : "Colour = accuracy"}
+                            </span>
                             <KeyHeatmapLegend />
                         </div>
                     </div>

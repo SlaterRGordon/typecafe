@@ -29,6 +29,12 @@ interface KeyHeatmapProps {
     // same geometry (layers, dead styling, corner glyphs) as a neutral teaching
     // surface (the train board). Defaults true: every heatmap stays a heatmap.
     showAccuracy?: boolean,
+    // Optional per-key speed overlay (Option A): a thin fill bar inside each
+    // base-layer cap, normalized against the user's own pace (see keySpeedBars).
+    // Colour stays accuracy; the bar adds "fast/slow for you" at a glance. Keyed
+    // by lowercase glyph, with " " for the space bar. Base layer only - we don't
+    // track shifted-glyph speed.
+    speedBars?: ReadonlyMap<string, { fraction: number, meanMs: number, count: number }>,
     // Keys to ring, e.g. the diagnosed keys the user is about to drill.
     highlightKeys?: string[],
     // Practice interaction (all optional - score-card/progress stay read-only):
@@ -129,7 +135,7 @@ export function KeyHeatmapLegend() {
 // A reusable per-key accuracy heatmap. The rendering is intentionally the same
 // primitive for Practice, score-card diagnosis, beat-run compare, and /progress.
 export function KeyHeatmap(props: KeyHeatmapProps) {
-    const { attempts, size = "full", includeSpace = true, highlightKeys, lockedKeys, onKeyClick, currentKey, followActiveKey, shiftLayer, altgrLayer, interactiveKeys } = props
+    const { attempts, size = "full", includeSpace = true, speedBars, highlightKeys, lockedKeys, onKeyClick, currentKey, followActiveKey, shiftLayer, altgrLayer, interactiveKeys } = props
     const [activeLayout] = useLayout()
     const boardLayout = props.layout ?? activeLayout
     const board = boardFor(boardLayout)
@@ -220,6 +226,9 @@ export function KeyHeatmap(props: KeyHeatmapProps) {
         // Derive a legible black/white foreground from the cell's own luminance.
         const textColor = color ? readableTextColor(color) : undefined
         const isCurrent = currentKey != null && glyph === currentKey
+        // Speed bar (Option A): base layer only, and not on the mini score-card
+        // board (no room). Space looks up its own " " key.
+        const speedBar = size !== "mini" && layer === "base" ? speedBars?.get(isSpace ? " " : glyph) : undefined
         const ringed = isCurrent || highlight.has(glyph)
         const isLocked = !!lockedKeys?.has(glyph)
         const isDead = !isSpace && !!cap?.dead?.includes(layer)
@@ -248,6 +257,7 @@ export function KeyHeatmap(props: KeyHeatmapProps) {
             `${label} key`,
             interactive ? (isLocked ? "Locked - click to add to this drill" : "Unlocked - click to remove from this drill") : undefined,
             ...(showAccuracy ? layerLines : ["Training key"]),
+            speedBar ? `Speed: ${Math.round(speedBar.meanMs)}ms avg · ${speedBar.count} samples` : undefined,
             isDead ? "Dead key - waits for the next press" : undefined,
         ].filter(Boolean).join("\n")
 
@@ -290,6 +300,15 @@ export function KeyHeatmap(props: KeyHeatmapProps) {
                 {showPercent &&
                     <span className={`pointer-events-none ${percentClass}`}>
                         {cell.accuracy}%
+                    </span>
+                }
+                {speedBar &&
+                    <span
+                        aria-hidden="true"
+                        data-kb-speed={speedBar.fraction.toFixed(2)}
+                        className="typecafe-key-speed pointer-events-none absolute inset-x-1 bottom-[0.15rem] h-[0.15rem] overflow-hidden rounded-full bg-current/20"
+                    >
+                        <span className="block h-full rounded-full bg-current" style={{ width: `${Math.round(speedBar.fraction * 100)}%` }} />
                     </span>
                 }
                 {isLocked && <LockBadge />}

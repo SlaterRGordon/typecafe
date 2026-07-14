@@ -166,3 +166,40 @@ export function keySpeedFromTransitions(aggregates: TransitionAggregate[]): KeyS
         errorRate: v.count ? v.errors / v.count : 0,
     })).sort((a, b) => b.meanMs - a.meanMs)
 }
+
+// A key needs this many samples before its speed bar is signal rather than a
+// couple of stray keystrokes (the heatmap's "too few samples" guard).
+export const KEY_SPEED_BAR_MIN_COUNT = TRANSITION_MIN_COUNT
+// The bar is normalized against the user's own overall pace: a key typed at their
+// average sits half-full; SPEED_BAR_FAST_RATIO× as fast fills it, SPEED_BAR_SLOW_RATIO×
+// as slow empties it. Symmetric around 1.0 so "average" always reads as half.
+export const SPEED_BAR_FAST_RATIO = 0.5
+export const SPEED_BAR_SLOW_RATIO = 1.5
+
+export interface KeySpeedBar {
+    fraction: number // 0..1 fill: fuller = faster than your average
+    meanMs: number
+    count: number
+}
+
+// Per-key speed bars for the heatmap: each key's lifetime latency mapped to a
+// 0..1 fill relative to the user's overall pace. Keys below the sample floor are
+// omitted (no bar rather than a misleading one). All the normalization math lives
+// here so the component just draws a width.
+export function keySpeedBars(aggregates: TransitionAggregate[], minCount = KEY_SPEED_BAR_MIN_COUNT): Map<string, KeySpeedBar> {
+    const speeds = keySpeedFromTransitions(aggregates).filter((k) => k.count >= minCount)
+    const bars = new Map<string, KeySpeedBar>()
+    if (speeds.length === 0) return bars
+    // Overall pace over the included keys (count-weighted; meanMs·count === totalMs).
+    let totalMs = 0, count = 0
+    for (const k of speeds) { totalMs += k.meanMs * k.count; count += k.count }
+    const overall = count ? totalMs / count : 0
+    if (overall <= 0) return bars
+    const span = SPEED_BAR_SLOW_RATIO - SPEED_BAR_FAST_RATIO
+    for (const k of speeds) {
+        const ratio = k.meanMs / overall
+        const fraction = Math.min(Math.max((SPEED_BAR_SLOW_RATIO - ratio) / span, 0), 1)
+        bars.set(k.key, { fraction, meanMs: k.meanMs, count: k.count })
+    }
+    return bars
+}
