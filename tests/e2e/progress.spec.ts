@@ -356,6 +356,28 @@ test.describe("progress dashboard", () => {
     await expect(page.getByTestId("headline-current")).toContainText("60.0");
   });
 
+  test("a large current WPM stays inside the headline card on mobile", async ({ page }, testInfo) => {
+    test.skip(!testInfo.project.name.includes("mobile"), "This guards the narrow-screen layout.");
+    await page.addInitScript(() => {
+      const day = 24 * 60 * 60 * 1000;
+      window.localStorage.setItem("typecafe:progressHistory", JSON.stringify([
+        { wpm: 1000, accuracy: 100, t: Date.now() - day },
+        { wpm: 1129.2, accuracy: 100, t: Date.now() },
+      ]));
+    });
+    await gotoProgress(page);
+
+    const card = await page.getByTestId("headline-delta").boundingBox();
+    const current = await page.getByTestId("headline-current").boundingBox();
+    const viewport = page.viewportSize();
+    expect(card).not.toBeNull();
+    expect(current).not.toBeNull();
+    expect(viewport).not.toBeNull();
+    expect(current!.x + current!.width).toBeLessThanOrEqual(card!.x + card!.width);
+    expect(card!.x + card!.width).toBeLessThanOrEqual(viewport!.width);
+    expect(current!.x + current!.width).toBeLessThanOrEqual(viewport!.width);
+  });
+
   test("a guest with local history gets the real dashboard plus a keep-it banner", async ({ page }) => {
     // Seed a rising local history (local-first: no account needed).
     const now = Date.now();

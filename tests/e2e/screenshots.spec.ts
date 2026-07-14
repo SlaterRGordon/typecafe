@@ -758,6 +758,16 @@ test.describe("screenshot tour", () => {
     await expect(page.getByTestId("headline-delta")).toBeVisible();
     await expect(page.getByTestId("headline-start-current")).toContainText("Start");
     await expect(page.getByTestId("headline-current")).toContainText("Current daily median");
+    if (testInfo.project.name.includes("mobile")) {
+      const card = await page.getByTestId("headline-delta").boundingBox();
+      const current = await page.getByTestId("headline-current").boundingBox();
+      const viewport = page.viewportSize();
+      expect(card).not.toBeNull();
+      expect(current).not.toBeNull();
+      expect(viewport).not.toBeNull();
+      expect(current!.x + current!.width).toBeLessThanOrEqual(card!.x + card!.width);
+      expect(card!.x + card!.width).toBeLessThanOrEqual(viewport!.width);
+    }
     await expect(page.getByText("WPM over time", { exact: true })).toBeVisible();
     await expect(page.getByText("Daily median trend", { exact: true })).toBeVisible();
     await expect(page.getByText("Daily best trend", { exact: true })).toBeVisible();
