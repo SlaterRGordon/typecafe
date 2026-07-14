@@ -164,8 +164,11 @@ test.describe("progress dashboard", () => {
     await expect(drillWeak).toBeVisible();
     await expect(drillWeak).toHaveAttribute("href", /keys=r,e/);
     await expect(page.getByTestId("lifetime-keyboard-card")).toContainText("Your keyboard");
-    await expect(page.getByTestId("lifetime-keyboard-card")).toContainText("Less");
-    await expect(page.getByTestId("lifetime-keyboard-card")).toContainText("More");
+    // The legend now shares the Practice board's vocabulary (accuracy / speed / no data).
+    const keyboardCard = page.getByTestId("lifetime-keyboard-card");
+    await expect(keyboardCard).toContainText("high → low");
+    await expect(keyboardCard).toContainText("speed vs your average");
+    await expect(keyboardCard).toContainText("no data yet");
     await expect(page.getByTestId("lifetime-heatmap")).toBeVisible();
     const rKey = page.getByTestId("lifetime-heatmap").locator('[data-kb-key="r"]');
     await expect(rKey).not.toContainText("%");

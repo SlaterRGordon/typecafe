@@ -117,23 +117,40 @@ export function useHeatmapColors() {
     }
 }
 
-export function KeyHeatmapLegend() {
+// The shared heatmap legend items: accuracy colour scale (high → low), the speed
+// bar, and the no-data swatch - the same vocabulary the Practice board and the
+// /progress keyboard both read. `className` lets each surface lay them out (one
+// tight row on Practice, spread across the corners on the roomier progress card).
+export function KeyHeatmapLegend({ className = "" }: { className?: string }) {
     const { lowColor, highColor } = useHeatmapColors()
-    const swatches = [78, 84, 90, 96, 100]
-
+    // High → low, so the dots read light (strong) to pink (weak) alongside the label.
+    const dots = [100, 96, 92, 86, 80]
+    // The swatch is a mini keycap: a heat colour with the same dark-shade bar the
+    // real keys draw (interpolateColor(colour, black, 0.75)), so the legend colour
+    // matches the bars on the board.
+    const swatchColor = highColor
+    const swatchBar = interpolateColor(swatchColor, "#000000", 0.75)
     return (
-        <div className="flex items-center justify-center gap-2 text-xs text-base-content/55 sm:justify-end" aria-label="Accuracy: less to more">
-            <span>Less</span>
-            <div className="flex items-center gap-1" aria-hidden="true">
-                {swatches.map((accuracy) => (
-                    <span
-                        key={accuracy}
-                        className="h-3 w-3 rounded-full"
-                        style={{ backgroundColor: accuracyColor(accuracy, lowColor, highColor) }}
-                    />
-                ))}
-            </div>
-            <span>More</span>
+        <div className={`flex flex-wrap items-center gap-x-3 gap-y-1 text-base-content/55 ${className}`}>
+            <span className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap">
+                accuracy
+                <span className="inline-flex items-center gap-0.5" aria-hidden="true">
+                    {dots.map((accuracy) => (
+                        <span key={accuracy} className="h-2 w-2 rounded-full" style={{ backgroundColor: accuracyColor(accuracy, lowColor, highColor) }} />
+                    ))}
+                </span>
+                high → low
+            </span>
+            <span className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap">
+                <span className="relative inline-block h-3.5 w-6 overflow-hidden rounded-[2px]" style={{ backgroundColor: swatchColor }} aria-hidden="true">
+                    <span className="absolute bottom-[2px] left-[3px] h-1 w-2/3 rounded-[2px]" style={{ backgroundColor: swatchBar }} />
+                </span>
+                speed vs your average
+            </span>
+            <span className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap">
+                <span className="h-2.5 w-2.5 rounded-[2px]" style={{ backgroundColor: HEATMAP_NO_DATA_COLOR }} aria-hidden="true" />
+                no data yet
+            </span>
         </div>
     )
 }

@@ -10,7 +10,7 @@ import { KeyHeatmap, KeyHeatmapLegend } from "~/components/heatmap/KeyHeatmap";
 import { KeyboardLayerSwitch } from "~/components/heatmap/KeyboardLayerSwitch";
 import { Chip } from "~/components/ui/Chip";
 import { Tooltip } from "~/components/ui/Tooltip";
-import type { KeyAttempt } from "~/lib/heatmap";
+import { HEATMAP_CONFIG, type KeyAttempt } from "~/lib/heatmap";
 import { useGuestEvidence } from "~/hooks/useGuestEvidence";
 import { keySpeedBars, worstTransitions, type TransitionAggregate } from "~/lib/transitions";
 import {
@@ -520,17 +520,14 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
                             />
                         </div>
                         <div className="flex w-full justify-center overflow-x-auto pb-1">
-                            <KeyHeatmap attempts={props.keyAttempts} speedBars={speedBars} size="compact" showPercent={false} shiftLayer={heatmapShift} altgrLayer={heatmapAltgr} className="min-w-fit" testId="lifetime-heatmap" />
+                            <KeyHeatmap attempts={props.keyAttempts} speedBars={speedBars} minSamples={HEATMAP_CONFIG.minSamples} size="compact" showPercent={false} shiftLayer={heatmapShift} altgrLayer={heatmapAltgr} className="min-w-fit" testId="lifetime-heatmap" />
                         </div>
                         {Object.keys(props.keyAttempts).length === 0 && (
                             <p className="mt-4 text-center text-sm text-base-content/45">Take more tests to color in your per-key accuracy.</p>
                         )}
-                        <div className="mt-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-                            <span className="text-xs text-base-content/45">
-                                {speedBars.size > 0 ? "Colour = accuracy · bar = speed vs your average (fuller is faster)" : "Colour = accuracy"}
-                            </span>
-                            <KeyHeatmapLegend />
-                        </div>
+                        {/* Roomier own surface than the Practice board, so the legend
+                            spreads across the corners instead of one tight line. */}
+                        <KeyHeatmapLegend className="mt-3 w-full justify-between text-xs" />
                     </div>
                 </div>
 

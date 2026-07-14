@@ -4,9 +4,9 @@ import { TestModes } from "./types";
 import { getActiveKey, subscribeActiveKey } from "./keySignal";
 import { useDispatch } from "react-redux";
 import { accentsFor, ensureLanguageLoaded, isDrillDigit, isDrillMark } from "./utils";
-import { KeyHeatmap, useHeatmapColors } from "~/components/heatmap/KeyHeatmap";
+import { KeyHeatmap, KeyHeatmapLegend } from "~/components/heatmap/KeyHeatmap";
 import { KeyboardLayerSwitch } from "~/components/heatmap/KeyboardLayerSwitch";
-import { HEATMAP_CONFIG, HEATMAP_NO_DATA_COLOR, accuracyColor } from "~/lib/heatmap";
+import { HEATMAP_CONFIG } from "~/lib/heatmap";
 import { boardFor, composedFor, sequenceFor, keyFor, type Layer } from "~/lib/keyboardLayout";
 import { useLayout } from "~/hooks/useLayout";
 import { useLanguage } from "~/hooks/useLanguage";
@@ -63,10 +63,6 @@ const LockGlyph = () => (
 // membership, then the two overlays the keys carry - accuracy colour and the
 // speed bar - then the no-data state.
 function PracticeKeyboardLegend() {
-    const { lowColor, highColor } = useHeatmapColors()
-    // High → low accuracy, so the dots read light (strong) to pink (weak),
-    // matching the "high → low" label direction.
-    const dots = [100, 96, 92, 86, 80]
     return (
         <div className="typecafe-keyboard-legend mt-2 flex flex-nowrap items-center gap-x-3 overflow-x-auto whitespace-nowrap text-[0.65rem] text-base-content/55 [scrollbar-width:none] sm:justify-center sm:text-xs">
             <span className="inline-flex shrink-0 items-center gap-1.5">
@@ -75,25 +71,7 @@ function PracticeKeyboardLegend() {
                 </span>
                 locked = click to add
             </span>
-            <span className="inline-flex shrink-0 items-center gap-1.5">
-                accuracy
-                <span className="inline-flex items-center gap-0.5" aria-hidden="true">
-                    {dots.map((accuracy) => (
-                        <span key={accuracy} className="h-2 w-2 rounded-full" style={{ backgroundColor: accuracyColor(accuracy, lowColor, highColor) }} />
-                    ))}
-                </span>
-                high → low
-            </span>
-            <span className="inline-flex shrink-0 items-center gap-1.5">
-                <span className="relative inline-block h-2 w-6 overflow-hidden rounded-[2px] bg-base-content/20" aria-hidden="true">
-                    <span className="absolute inset-y-0 left-0 w-2/3 rounded-[2px] bg-base-content" />
-                </span>
-                speed vs your average
-            </span>
-            <span className="inline-flex shrink-0 items-center gap-1.5">
-                <span className="h-2.5 w-2.5 rounded-[2px]" style={{ backgroundColor: HEATMAP_NO_DATA_COLOR }} aria-hidden="true" />
-                no data yet
-            </span>
+            <KeyHeatmapLegend className="flex-nowrap" />
         </div>
     )
 }
