@@ -39,6 +39,19 @@ export function foldToPhysicalKey(char: string, layout = DEFAULT_LAYOUT): string
     return keyFor(char, layout)
 }
 
+// The one place the heatmap's display thresholds live (spec: single config
+// object). minSamples gates *both* the accuracy heat and the speed bar: below it
+// a key renders the neutral "no data yet" state instead of a colour or a bar.
+// Speed normalization itself is parameter-free - a key's bar fills to its pace
+// relative to the user's average, capped at the average (see keySpeedBars).
+export const HEATMAP_CONFIG = {
+    minSamples: 10,
+} as const
+
+// Neutral fill for a key below the sample floor: a desaturated grey-blue that
+// reads as "not enough data" rather than a heat colour.
+export const HEATMAP_NO_DATA_COLOR = "rgba(120,130,180,0.25)"
+
 // Per-key tally - the single shape every data source (live session refs,
 // localStorage aggregates, a decoded test timeline) reduces to.
 export interface KeyAttempt {

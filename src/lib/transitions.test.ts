@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
-import { aggregateTransitions, keySpeedBars, keySpeedFromTransitions, mergeTransitions, overallTransitionMeanMs, worstTransitions, KEY_SPEED_BAR_MIN_COUNT, TRANSITION_SAMPLE_CAP } from "./transitions"
+import { aggregateTransitions, keySpeedBars, keySpeedFromTransitions, mergeTransitions, overallTransitionMeanMs, worstTransitions, KEY_WPM_NUMERATOR, TRANSITION_SAMPLE_CAP } from "./transitions"
+import { HEATMAP_CONFIG } from "./heatmap"
 import type { KeystrokeEvent } from "./keystrokes"
 
 // Build a timeline from (key, gap-since-previous, correct?) tuples.
@@ -132,28 +133,35 @@ describe("keySpeedFromTransitions", () => {
 })
 
 describe("keySpeedBars", () => {
-    const min = KEY_SPEED_BAR_MIN_COUNT
+    const min = HEATMAP_CONFIG.minSamples
 
-    it("puts an average-pace key at a half-full bar, faster fuller, slower emptier", () => {
-        // Overall mean is 200ms. r sits at avg, h is 2x faster, b is far slower.
+    it("fills a key at or above the average pace and scales slower keys down", () => {
+        // Overall mean is 200ms. r sits at avg (full), h is faster (full/clamped),
+        // b is 2x slower (half).
         const aggs = [
             { pair: "tr", count: min, totalMs: 200 * min, errors: 0 }, // r: 200ms == avg
             { pair: "th", count: min, totalMs: 100 * min, errors: 0 }, // h: 100ms, fast
-            { pair: "ob", count: min, totalMs: 300 * min, errors: 0 }, // b: 300ms, slow
+            { pair: "ob", count: min, totalMs: 400 * min, errors: 0 }, // b: 400ms, 2x slow
         ]
         const bars = keySpeedBars(aggs)
-        expect(bars.get("r")!.fraction).toBeCloseTo(0.5, 2)
-        expect(bars.get("h")!.fraction).toBeGreaterThan(bars.get("r")!.fraction)
-        expect(bars.get("b")!.fraction).toBeLessThan(bars.get("r")!.fraction)
+        // Average = (200+100+400)/3 weighted = 233ms; r (200) is above avg → full.
+        expect(bars.get("r")!.fraction).toBe(1)
+        expect(bars.get("h")!.fraction).toBe(1)          // faster than avg, clamped
+        expect(bars.get("b")!.fraction).toBeLessThan(1)  // slower than avg, partial
+        expect(bars.get("b")!.fraction).toBeGreaterThan(0)
     })
 
-    it("clamps to [0,1] and never exceeds the ends", () => {
+    it("reports effective WPM per key (12000 / meanMs)", () => {
+        const aggs = [{ pair: "tr", count: min, totalMs: 240 * min, errors: 0 }] // r: 240ms
+        expect(keySpeedBars(aggs).get("r")!.wpm).toBe(Math.round(KEY_WPM_NUMERATOR / 240))
+    })
+
+    it("clamps fraction to [0,1] at both extremes", () => {
         const aggs = [
             { pair: "th", count: min, totalMs: 50 * min, errors: 0 },   // very fast
             { pair: "ob", count: min, totalMs: 5000 * min, errors: 0 }, // very slow
         ]
-        const bars = keySpeedBars(aggs)
-        for (const bar of bars.values()) {
+        for (const bar of keySpeedBars(aggs).values()) {
             expect(bar.fraction).toBeGreaterThanOrEqual(0)
             expect(bar.fraction).toBeLessThanOrEqual(1)
         }
@@ -169,7 +177,7 @@ describe("keySpeedBars", () => {
         expect(bars.has("b")).toBe(false)
     })
 
-    it("is empty with no data", () => {
+    it("is empty with no data (divide-by-zero guard)", () => {
         expect(keySpeedBars([]).size).toBe(0)
     })
 })

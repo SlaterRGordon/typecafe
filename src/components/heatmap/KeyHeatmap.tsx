@@ -1,9 +1,10 @@
 import { useEffect, useRef } from "react"
-import { hslToHex, readableTextColor } from "~/utils/convertColor"
+import { hslToHex, interpolateColor, readableTextColor } from "~/utils/convertColor"
 import { getActiveKey, subscribeActiveKey } from "~/components/typer/keySignal"
 import { Tooltip } from "~/components/ui/Tooltip"
 import { useSecondaryStyle, useStyle } from "~/utils/hooks/useMutationObserver"
 import {
+    HEATMAP_NO_DATA_COLOR,
     HEATMAP_SPACE,
     accuracyColor,
     heatmapCell,
@@ -34,7 +35,12 @@ interface KeyHeatmapProps {
     // Colour stays accuracy; the bar adds "fast/slow for you" at a glance. Keyed
     // by lowercase glyph, with " " for the space bar. Base layer only - we don't
     // track shifted-glyph speed.
-    speedBars?: ReadonlyMap<string, { fraction: number, meanMs: number, count: number }>,
+    speedBars?: ReadonlyMap<string, { fraction: number, meanMs: number, wpm: number, count: number }>,
+    // Keys with fewer than this many recorded keystrokes render the neutral
+    // "no data yet" state (no heat colour, no speed bar) instead of a possibly
+    // misleading colour from 2-3 presses. 0 (default) keeps every key coloured -
+    // the score-card/progress behaviour; the Practice board passes the config N.
+    minSamples?: number,
     // Keys to ring, e.g. the diagnosed keys the user is about to drill.
     highlightKeys?: string[],
     // Practice interaction (all optional - score-card/progress stay read-only):
@@ -101,7 +107,7 @@ const SPACE_CLASS_BY_SIZE: Record<KeyHeatmapSize, string> = {
     mini: "!min-w-[8rem] sm:!min-w-[8rem]",
 }
 
-function useHeatmapColors() {
+export function useHeatmapColors() {
     const style = useStyle()
     const secondaryStyle = useSecondaryStyle()
 
@@ -135,7 +141,7 @@ export function KeyHeatmapLegend() {
 // A reusable per-key accuracy heatmap. The rendering is intentionally the same
 // primitive for Practice, score-card diagnosis, beat-run compare, and /progress.
 export function KeyHeatmap(props: KeyHeatmapProps) {
-    const { attempts, size = "full", includeSpace = true, speedBars, highlightKeys, lockedKeys, onKeyClick, currentKey, followActiveKey, shiftLayer, altgrLayer, interactiveKeys } = props
+    const { attempts, size = "full", includeSpace = true, speedBars, minSamples = 0, highlightKeys, lockedKeys, onKeyClick, currentKey, followActiveKey, shiftLayer, altgrLayer, interactiveKeys } = props
     const [activeLayout] = useLayout()
     const boardLayout = props.layout ?? activeLayout
     const board = boardFor(boardLayout)
@@ -218,17 +224,25 @@ export function KeyHeatmap(props: KeyHeatmapProps) {
         // names this glyph, or (no allow-set) we're on the base layer.
         const interactive = !!onKeyClick && (interactiveKeys ? interactiveKeys.has(glyph) : layer === "base")
         const cell = heatmapCell(glyph, attemptFor(glyph))
+        // A key under the sample floor renders the neutral "no data yet" state:
+        // no heat colour, no speed bar, muted label (the lock badge still shows).
+        // minSamples 0 (score card/progress) keeps every key coloured.
+        const noData = showAccuracy && cell.attempts < minSamples
         // Plain boards (train) skip the gradient entirely - the default kbd
         // surface is the "no data" look everywhere.
-        const color = showAccuracy ? accuracyColor(cell.accuracy, lowColor, highColor) : undefined
+        const color = showAccuracy && !noData ? accuracyColor(cell.accuracy, lowColor, highColor) : undefined
         // The cell background sweeps the full theme gradient, so a static text
         // color loses contrast at the extremes (e.g. aqua's bright-cyan low end).
         // Derive a legible black/white foreground from the cell's own luminance.
         const textColor = color ? readableTextColor(color) : undefined
         const isCurrent = currentKey != null && glyph === currentKey
-        // Speed bar (Option A): base layer only, and not on the mini score-card
-        // board (no room). Space looks up its own " " key.
-        const speedBar = size !== "mini" && layer === "base" ? speedBars?.get(isSpace ? " " : glyph) : undefined
+        // Speed bar (Option A): base layer only, not on the mini score-card board
+        // (no room), and only once the key clears the sample floor. Space looks up
+        // its own " " key.
+        const speedBar = size !== "mini" && layer === "base" && !noData ? speedBars?.get(isSpace ? " " : glyph) : undefined
+        // A dark shade of the key's own heat colour, so the bar reads as a subtle
+        // deepening of the cell rather than a hard navy line.
+        const speedBarColor = speedBar && color ? interpolateColor(color, "#000000", 0.75) : undefined
         const ringed = isCurrent || highlight.has(glyph)
         const isLocked = !!lockedKeys?.has(glyph)
         const isDead = !isSpace && !!cap?.dead?.includes(layer)
@@ -253,11 +267,13 @@ export function KeyHeatmap(props: KeyHeatmapProps) {
             const layerLabel = layerGlyph === HEATMAP_SPACE ? "space" : layerGlyph
             return [`${name} ${layerLabel}: ${layerCell.hasData ? `${layerCell.accuracy}% accuracy · ${tally?.attempts ?? 0} attempts` : "no data"}`]
         })
+        const speedLine = speedBar ? `Speed: ${speedBar.wpm} WPM (${Math.round(speedBar.meanMs)}ms) · ${speedBar.count} samples` : undefined
         const tooltip = [
             `${label} key`,
             interactive ? (isLocked ? "Locked - click to add to this drill" : "Unlocked - click to remove from this drill") : undefined,
-            ...(showAccuracy ? layerLines : ["Training key"]),
-            speedBar ? `Speed: ${Math.round(speedBar.meanMs)}ms avg · ${speedBar.count} samples` : undefined,
+            ...(noData ? ["No data yet - unlock to start drilling"]
+                : showAccuracy ? [...layerLines, speedLine].filter((line): line is string => Boolean(line))
+                : ["Training key"]),
             isDead ? "Dead key - waits for the next press" : undefined,
         ].filter(Boolean).join("\n")
 
@@ -282,9 +298,12 @@ export function KeyHeatmap(props: KeyHeatmapProps) {
                 className={`${keyClass} ${isSpace ? spaceClass : ""} ${ringed ? "ring-2 ring-primary ring-offset-1 ring-offset-base-200" : ""} ${interactive ? "cursor-pointer select-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary" : ""} ${isLocked ? "typecafe-key-state-locked" : ""}`}
                 // Lock state must never rewrite the heatmap: its icon carries the
                 // state while the measured colour remains byte-for-byte visible.
-                style={color ? { backgroundColor: color, color: textColor, backgroundImage: "none", filter: "none" } : undefined}
+                // A no-data key gets the neutral grey-blue fill instead of a colour.
+                style={color ? { backgroundColor: color, color: textColor, backgroundImage: "none", filter: "none" }
+                    : noData ? { backgroundColor: HEATMAP_NO_DATA_COLOR, backgroundImage: "none", filter: "none" }
+                    : undefined}
             >
-                <span className={`leading-none ${showPercent ? labelClass : ""}`}>
+                <span className={`leading-none ${showPercent ? labelClass : ""} ${speedBar ? "-translate-y-1.5" : ""} ${noData ? "text-base-content/40" : ""}`}>
                     {isSpace && !showPercent && !interactive ? "\u00a0" : label}
                 </span>
                 {shiftHint &&
@@ -293,7 +312,7 @@ export function KeyHeatmap(props: KeyHeatmapProps) {
                     </span>
                 }
                 {altgrHint &&
-                    <span aria-hidden="true" className="typecafe-layer-hint pointer-events-none absolute bottom-0 left-0 min-w-3 rounded-sm bg-black/20 p-0.5 text-center text-[0.6rem] font-bold leading-3 sm:bottom-0.5 sm:left-0.5 sm:text-[0.7rem]">
+                    <span aria-hidden="true" className="typecafe-layer-hint pointer-events-none absolute bottom-[9px] left-1 text-center text-[0.6rem] font-semibold leading-3 opacity-50 sm:text-[0.7rem]">
                         {altgrHint}
                     </span>
                 }
@@ -302,13 +321,14 @@ export function KeyHeatmap(props: KeyHeatmapProps) {
                         {cell.accuracy}%
                     </span>
                 }
-                {speedBar &&
+                {speedBar && speedBarColor &&
                     <span
                         aria-hidden="true"
                         data-kb-speed={speedBar.fraction.toFixed(2)}
-                        className="typecafe-key-speed pointer-events-none absolute inset-x-1 bottom-[0.15rem] h-[0.15rem] overflow-hidden rounded-full bg-current/20"
+                        className="typecafe-key-speed pointer-events-none absolute inset-x-[7px] bottom-[5px] h-1 overflow-hidden rounded-[2px]"
+                        style={{ backgroundColor: `color-mix(in srgb, ${speedBarColor} 30%, transparent)` }}
                     >
-                        <span className="block h-full rounded-full bg-current" style={{ width: `${Math.round(speedBar.fraction * 100)}%` }} />
+                        <span className="block h-full rounded-[2px]" style={{ width: `${Math.round(speedBar.fraction * 100)}%`, backgroundColor: speedBarColor }} />
                     </span>
                 }
                 {isLocked && <LockBadge />}

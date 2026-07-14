@@ -5,6 +5,7 @@
 
 import type { KeystrokeEvent } from "./keystrokes"
 import { isTrackableTransitionPair, isTrackedPair } from "./drillableTransitions"
+import { HEATMAP_CONFIG } from "./heatmap"
 
 // A pair recurs this many times in the lifetime data before its slowness is
 // signal rather than a fluke.
@@ -167,26 +168,25 @@ export function keySpeedFromTransitions(aggregates: TransitionAggregate[]): KeyS
     })).sort((a, b) => b.meanMs - a.meanMs)
 }
 
-// A key needs this many samples before its speed bar is signal rather than a
-// couple of stray keystrokes (the heatmap's "too few samples" guard).
-export const KEY_SPEED_BAR_MIN_COUNT = TRANSITION_MIN_COUNT
-// The bar is normalized against the user's own overall pace: a key typed at their
-// average sits half-full; SPEED_BAR_FAST_RATIO× as fast fills it, SPEED_BAR_SLOW_RATIO×
-// as slow empties it. Symmetric around 1.0 so "average" always reads as half.
-export const SPEED_BAR_FAST_RATIO = 0.5
-export const SPEED_BAR_SLOW_RATIO = 1.5
+// Effective per-key WPM from mean inter-key latency: 60000ms/min ÷ (5 chars per
+// word × meanMs per char) = 12000 / meanMs.
+export const KEY_WPM_NUMERATOR = 12000
 
 export interface KeySpeedBar {
-    fraction: number // 0..1 fill: fuller = faster than your average
+    fraction: number // 0..1 fill: keySpeed / userAverage, capped at the average
     meanMs: number
+    wpm: number
     count: number
 }
 
-// Per-key speed bars for the heatmap: each key's lifetime latency mapped to a
-// 0..1 fill relative to the user's overall pace. Keys below the sample floor are
-// omitted (no bar rather than a misleading one). All the normalization math lives
-// here so the component just draws a width.
-export function keySpeedBars(aggregates: TransitionAggregate[], minCount = KEY_SPEED_BAR_MIN_COUNT): Map<string, KeySpeedBar> {
+// Per-key speed bars for the heatmap: each key's lifetime pace mapped to a 0..1
+// fill relative to the user's overall average. Fill = keySpeed / averageSpeed
+// clamped to [0,1] - in latency terms speed ∝ 1/ms, so the ratio is
+// overallMeanMs / keyMeanMs, and a key at or above the average pace fills the
+// bar. Keys below the sample floor are omitted (no bar rather than a misleading
+// one). All the normalization math lives here so the component just draws a
+// width. Empty when no key has data yet (divide-by-zero guard).
+export function keySpeedBars(aggregates: TransitionAggregate[], minCount = HEATMAP_CONFIG.minSamples): Map<string, KeySpeedBar> {
     const speeds = keySpeedFromTransitions(aggregates).filter((k) => k.count >= minCount)
     const bars = new Map<string, KeySpeedBar>()
     if (speeds.length === 0) return bars
@@ -195,11 +195,9 @@ export function keySpeedBars(aggregates: TransitionAggregate[], minCount = KEY_S
     for (const k of speeds) { totalMs += k.meanMs * k.count; count += k.count }
     const overall = count ? totalMs / count : 0
     if (overall <= 0) return bars
-    const span = SPEED_BAR_SLOW_RATIO - SPEED_BAR_FAST_RATIO
     for (const k of speeds) {
-        const ratio = k.meanMs / overall
-        const fraction = Math.min(Math.max((SPEED_BAR_SLOW_RATIO - ratio) / span, 0), 1)
-        bars.set(k.key, { fraction, meanMs: k.meanMs, count: k.count })
+        const fraction = Math.min(overall / k.meanMs, 1)
+        bars.set(k.key, { fraction, meanMs: k.meanMs, wpm: Math.round(KEY_WPM_NUMERATOR / k.meanMs), count: k.count })
     }
     return bars
 }

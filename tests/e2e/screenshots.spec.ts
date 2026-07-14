@@ -283,8 +283,10 @@ test.describe("screenshot tour", () => {
     const keyboardKey = (key: string) =>
       page.locator(`.typecafe-keyboard kbd[data-kb-key="${key}"]`);
 
+    // A fresh guest board is under the sample floor everywhere, so keys read the
+    // neutral no-data state until enough keystrokes land.
     await keyboardKey("e").hover();
-    await expect(page.getByRole("tooltip")).toContainText("Base e:");
+    await expect(page.getByRole("tooltip")).toContainText("No data yet");
     await capture(page, testInfo, "66-practice-key-tooltip");
 
     // The default nine-key set is repaired to the two-vowel floor on entry
