@@ -307,12 +307,12 @@ export function KeyHeatmap(props: KeyHeatmapProps) {
                     {isSpace && !showPercent && !interactive ? "\u00a0" : label}
                 </span>
                 {shiftHint &&
-                    <span aria-hidden="true" className="typecafe-layer-hint pointer-events-none absolute right-0 top-0 min-w-3 rounded-sm bg-black/20 p-0.5 text-center text-[0.6rem] font-bold leading-3 sm:right-0.5 sm:top-0.5 sm:text-[0.7rem]">
+                    <span aria-hidden="true" className="typecafe-layer-hint pointer-events-none absolute right-1 top-0.5 text-center text-[0.6rem] font-semibold leading-3 opacity-50 sm:text-[0.7rem]">
                         {shiftHint}
                     </span>
                 }
                 {altgrHint &&
-                    <span aria-hidden="true" className="typecafe-layer-hint pointer-events-none absolute bottom-[9px] left-1 text-center text-[0.6rem] font-semibold leading-3 opacity-50 sm:text-[0.7rem]">
+                    <span aria-hidden="true" className="typecafe-layer-hint pointer-events-none absolute bottom-3 left-1 text-center text-[0.6rem] font-semibold leading-3 opacity-50 sm:text-[0.7rem]">
                         {altgrHint}
                     </span>
                 }
