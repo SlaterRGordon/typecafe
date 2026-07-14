@@ -140,8 +140,8 @@ export function KeyHeatmapLegend({ className = "" }: { className?: string }) {
                 high → low
             </span>
             <span className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap">
-                <span className="relative inline-block h-2 w-6 overflow-hidden rounded-[2px] bg-base-content/20" aria-hidden="true">
-                    <span className="absolute inset-y-0 left-0 w-2/3 rounded-[2px]" style={{ backgroundColor: swatchBar }} />
+                <span className="relative inline-block h-1.5 w-6 overflow-hidden rounded-full border bg-base-content/20" style={{ borderColor: highColor }} aria-hidden="true">
+                    <span className="absolute inset-y-0 left-0 w-2/3 rounded-full" style={{ backgroundColor: swatchBar }} />
                 </span>
                 speed vs your average
             </span>
