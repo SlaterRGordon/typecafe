@@ -2,18 +2,32 @@ import { describe, expect, it } from "vitest"
 import { encodeTimeline, type TestEvidenceEvent } from "./keystrokes"
 import { evaluateTestEvidence } from "./testEvidence"
 
-type EvidenceInput = { key: string, correct: boolean } | { action: "backspace" }
+type EvidenceInput = { key: string, typed?: string, correct: boolean } | { action: "backspace" }
 
 function evidence(events: EvidenceInput[], gapMs = 200) {
     const timedEvents: TestEvidenceEvent[] = events.map((event, index) => (
         "action" in event
             ? { action: "backspace", t: index * gapMs }
-            : { ...event, t: index * gapMs }
+            : { ...event, typed: event.typed ?? (event.correct ? event.key : "?"), t: index * gapMs }
     ))
     return encodeTimeline(timedEvents)
 }
 
 describe("evaluateTestEvidence", () => {
+    it("scores and ranks equivalent legacy and current timelines identically", () => {
+        const legacy = Array.from({ length: 50 }, (_, index) => (
+            [97 + index % 20, index < 45 ? 1 : 0, index === 0 ? 0 : 200] as [number, 0 | 1, number]
+        ))
+        const current = evidence(Array.from({ length: 50 }, (_, index) => ({
+            key: String.fromCharCode(97 + index % 20),
+            correct: index < 45,
+        })))
+
+        const input = { durationSeconds: 10, eligibleForRanking: true }
+        expect(evaluateTestEvidence({ ...input, timeline: current }))
+            .toEqual(evaluateTestEvidence({ ...input, timeline: legacy }))
+    })
+
     it("derives saved metrics from the final replay state", () => {
         const timeline = evidence(Array.from({ length: 50 }, (_, index) => ({
             key: String.fromCharCode(97 + index % 20),

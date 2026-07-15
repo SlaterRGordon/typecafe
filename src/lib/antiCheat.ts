@@ -1,4 +1,4 @@
-import type { EncodedKeystroke } from "./keystrokes"
+import { timelineDeltasMs, type EncodedTimeline } from "./keystrokes"
 
 export type ImpossibleTimelineReason =
     | "too_many_zero_gaps"
@@ -48,10 +48,8 @@ function maxConsecutiveAtOrBelow(values: number[], threshold: number): number {
     return best
 }
 
-export function detectImpossibleTimeline(timeline: EncodedKeystroke[]): ImpossibleTimelineResult {
-    const gaps = timeline
-        .slice(1)
-        .map(([, , dtMs]) => Math.max(0, dtMs))
+export function detectImpossibleTimeline(timeline: EncodedTimeline): ImpossibleTimelineResult {
+    const gaps = timelineDeltasMs(timeline).slice(1)
     const sorted = [...gaps].sort((a, b) => a - b)
     const measuredGaps = gaps.length
     const zeroGapCount = gaps.filter((gap) => gap === 0).length
@@ -97,6 +95,6 @@ export function detectImpossibleTimeline(timeline: EncodedKeystroke[]): Impossib
     return { ...base, impossible: false, reason: null }
 }
 
-export function isRankableTimeline(timeline: EncodedKeystroke[]): boolean {
+export function isRankableTimeline(timeline: EncodedTimeline): boolean {
     return !detectImpossibleTimeline(timeline).impossible
 }

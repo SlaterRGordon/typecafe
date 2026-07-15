@@ -22,7 +22,7 @@ export interface KeystrokeBundle {
 }
 
 export interface KeystrokeRecorder {
-    append(expected: string, correct: boolean, t?: number): void
+    append(expected: string, typed: string, correct: boolean, t?: number): void
     backspace(t?: number): void
     reset(): void
     readonly events: KeystrokeEvent[]
@@ -46,8 +46,8 @@ export function createKeystrokeRecorder(): KeystrokeRecorder {
     let incorrect = 0
 
     return {
-        append(expected, correct, t = Date.now()) {
-            const event = { key: expected, correct, t }
+        append(expected, typed, correct, t = Date.now()) {
+            const event = { key: expected, typed, correct, t }
             events.push(event)
             evidence.push(event)
             position += 1

@@ -558,16 +558,16 @@ result, guest Progress, signed-in Progress, imported history, share, and Goal.
 
 ### 1. Timeline v2 and correction evidence
 
-- [ ] Extend recorder/domain events with actual typed character while keeping
+- [x] Extend recorder/domain events with actual typed character while keeping
       expected character and correctness.
-- [ ] Implement v1/v2 encode/decode compatibility and router validation.
-- [ ] Keep anti-cheat, replay, WPM, Accuracy, Consistency, and ranking behavior
+- [x] Implement v1/v2 encode/decode compatibility and router validation.
+- [x] Keep anti-cheat, replay, WPM, Accuracy, Consistency, and ranking behavior
       equivalent for legacy evidence.
-- [ ] Add pure correction episodes: error -> Backspaces -> corrected character,
+- [x] Add pure correction episodes: error -> Backspaces -> corrected character,
       reaction time, cost, and expected/typed confusion.
-- [ ] Test repeated Backspaces, over-correction, first-key errors, Unicode,
+- [x] Test repeated Backspaces, over-correction, first-key errors, Unicode,
       impossible deltas, and mixed v1/v2 history.
-- [ ] Update privacy copy and ADR 0001 evidence wording in the implementation
+- [x] Update privacy copy and ADR 0001 evidence wording in the implementation
       commit.
 
 **Acceptance:** new incorrect attempts produce confusion/correction evidence;

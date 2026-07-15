@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import type { EncodedKeystroke } from "./keystrokes"
+import { decodeEvidenceTimeline, encodeTimeline, type EncodedKeystroke } from "./keystrokes"
 import { detectImpossibleTimeline, isRankableTimeline } from "./antiCheat"
 
 function timelineFromGaps(gaps: number[]): EncodedKeystroke[] {
@@ -12,6 +12,14 @@ describe("detectImpossibleTimeline", () => {
 
         expect(detectImpossibleTimeline(timeline)).toMatchObject({ impossible: false, reason: null })
         expect(isRankableTimeline(timeline)).toBe(true)
+    })
+
+    it("classifies equivalent v1 and v2 evidence identically", () => {
+        const legacy = timelineFromGaps([110, 95, 130, 90, 160, 125, 105, 115, 140, 100, 155, 120])
+        const current = encodeTimeline(decodeEvidenceTimeline(legacy))
+
+        expect(detectImpossibleTimeline(current)).toEqual(detectImpossibleTimeline(legacy))
+        expect(isRankableTimeline(current)).toBe(isRankableTimeline(legacy))
     })
 
     it("does not punish tiny samples", () => {

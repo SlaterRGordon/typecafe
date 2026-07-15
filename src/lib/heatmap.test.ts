@@ -41,7 +41,7 @@ describe("accuracyColor", () => {
 })
 
 describe("attemptsFromEvents", () => {
-    const ev = (key: string, correct: boolean): KeystrokeEvent => ({ key, correct, t: 0 })
+    const ev = (key: string, correct: boolean): KeystrokeEvent => ({ key, typed: correct ? key : "?", correct, t: 0 })
 
     it("tallies attempts and correct counts per key", () => {
         const attempts = attemptsFromEvents([ev("r", true), ev("r", false), ev("t", true)])
@@ -154,7 +154,7 @@ describe("lookupAttempt", () => {
 })
 
 describe("layout threading", () => {
-    const ev = (key: string, correct: boolean): KeystrokeEvent => ({ key, correct, t: 0 })
+    const ev = (key: string, correct: boolean): KeystrokeEvent => ({ key, typed: correct ? key : "?", correct, t: 0 })
 
     it("foldToPhysicalKey resolves national glyphs only under their layout", () => {
         expect(foldToPhysicalKey("ü", "qwertz-de")).toBe("ü")

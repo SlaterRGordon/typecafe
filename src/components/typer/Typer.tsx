@@ -480,7 +480,7 @@ export const Typer = (props: TyperProps) => {
         typedSegmentsRef.current.push({ ch: attempt.typed, correct: attempt.correct })
         // Hand the committed keystroke to the recorder: it stamps the event,
         // advances the timeline + counts, and tallies the per-character attempt.
-        recorder.append(attempt.expected, attempt.correct)
+        recorder.append(attempt.expected, attempt.typed, attempt.correct)
     }, [recorder])
     // A committed key was walked back; the recorder lowers the net count and
     // records the dip on the timeline (the source for live WPM and the chart).

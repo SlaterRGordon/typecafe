@@ -18,13 +18,13 @@ function events(pairs: [string, number, boolean?][], startAt = 1_000_000): Keyst
     let t = startAt
     return pairs.map(([key, gap, correct = true], i) => {
         if (i > 0) t += gap
-        return { key, correct, t }
+        return { key, typed: correct ? key : "?", correct, t }
     })
 }
 
 // A steady stream of `count` correct keystrokes of `key`, each `gap` ms apart.
 function steady(key: string, count: number, gap: number, startAt = 1_000_000): KeystrokeEvent[] {
-    return Array.from({ length: count }, (_, i) => ({ key, correct: true, t: startAt + i * gap }))
+    return Array.from({ length: count }, (_, i) => ({ key, typed: key, correct: true, t: startAt + i * gap }))
 }
 
 

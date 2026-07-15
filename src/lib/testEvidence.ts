@@ -1,9 +1,9 @@
 import { detectImpossibleTimeline } from "./antiCheat"
-import { decodeEvidenceTimeline, timelineDurationMs, type EncodedKeystroke } from "./keystrokes"
+import { decodeEvidenceTimeline, timelineDurationMs, type EncodedTimeline } from "./keystrokes"
 import { buildWpmSamples, computeStats, consistencyFromSamples, isRankableSample, type Keystroke } from "./stats"
 
 export interface EvaluateTestEvidenceInput {
-    timeline: EncodedKeystroke[]
+    timeline: EncodedTimeline
     // Timed tests use their configured timer. Other tests use the evidence span.
     durationSeconds: number
     eligibleForRanking: boolean

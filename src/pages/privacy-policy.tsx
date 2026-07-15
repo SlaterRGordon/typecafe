@@ -9,7 +9,7 @@ const PrivacyPolicy: NextPage = () => {
     <DocumentPage
       eyebrow="Privacy"
       title="Privacy Policy for TypeCafe"
-      updated="June 8, 2026"
+      updated="July 14, 2026"
       intro="This policy explains what information TypeCafe collects, why it is used, who helps process it, and how you can request changes or deletion. TypeCafe is a typing practice and leaderboard site, so most account data exists to save progress, show scores, and keep the service working."
     >
       <DocumentSection title="Information We Collect">
@@ -17,7 +17,7 @@ const PrivacyPolicy: NextPage = () => {
         <ul>
           <li><strong>Account information:</strong> email address, username, display name, hashed password for credential accounts, OAuth account identifiers, and authentication session data.</li>
           <li><strong>Profile information:</strong> profile picture URL, bio, and profile link. Username, profile picture, bio, profile link, and public score information may be visible to other users.</li>
-          <li><strong>Typing data:</strong> typing scores, speed, accuracy, selected test settings, practice statistics, train progress, and color/theme preferences.</li>
+          <li><strong>Typing data:</strong> typing scores, speed, accuracy, selected test settings, practice statistics, train progress, and compact timing and Backspace timelines for prompted typing tests. For incorrect attempts, the timeline retains the expected and actual mistyped character so TypeCafe can measure correction patterns; correct attempts do not store a duplicate actual character. TypeCafe does not record typing outside its own prompted tests.</li>
           <li><strong>Contact information:</strong> name, email address, and message content when you submit the contact form.</li>
           <li><strong>Technical and usage data:</strong> IP address, browser information, device information, pages visited, timestamps, and diagnostic data collected by hosting, analytics, and security tooling.</li>
           <li><strong>Local device data:</strong> some settings, train progress, and dismissed support prompts may be stored in your browser through localStorage or similar browser storage.</li>
