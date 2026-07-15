@@ -5,12 +5,16 @@ import { readLocalTransitions } from "~/lib/localTransitions"
 import { readLocalProgress, type LocalProgressEntry } from "~/lib/progressHistory"
 import type { TransitionAggregate } from "~/lib/transitions"
 import { statsPoolFor } from "~/lib/keyboardLayout"
+import { DEFAULT_EVIDENCE_HISTORY_LIMIT, normalizeGuestTimelineEvidence, type TimelineEvidence } from "~/lib/evidenceNormalization"
 import { useLayout } from "./useLayout"
+import { useLanguage } from "./useLanguage"
 
 export interface GuestEvidence {
     progress: LocalProgressEntry[]
     keyStats: LocalKeyStat[]
     transitions: TransitionAggregate[]
+    timelines: TimelineEvidence[]
+    timelinesLoaded: boolean
 }
 
 // Fired after a completed test's evidence is written (local mirror for guests,
@@ -29,6 +33,7 @@ export function useGuestEvidence(): GuestEvidence | null {
     const { data: sessionData } = useSession()
     const signedIn = !!sessionData?.user
     const [layout] = useLayout()
+    const [language] = useLanguage()
     const pool = statsPoolFor(layout)
     const [evidence, setEvidence] = useState<GuestEvidence | null>(null)
 
@@ -37,15 +42,34 @@ export function useGuestEvidence(): GuestEvidence | null {
             setEvidence(null)
             return
         }
-        const read = () => setEvidence({
-            progress: readLocalProgress(),
-            keyStats: readLocalKeyStats(pool),
-            transitions: readLocalTransitions(pool),
-        })
+        let active = true
+        const read = () => {
+            const aggregateEvidence = {
+                progress: readLocalProgress(),
+                keyStats: readLocalKeyStats(pool),
+                transitions: readLocalTransitions(pool),
+            }
+            setEvidence((current) => ({
+                ...aggregateEvidence,
+                timelines: current?.timelines ?? [],
+                timelinesLoaded: current?.timelinesLoaded ?? false,
+            }))
+            void import("~/lib/guestEvidenceStore").then(({ readGuestEvidenceTests }) => readGuestEvidenceTests()).then((timelines) => {
+                const normalized = timelines
+                    .map(normalizeGuestTimelineEvidence)
+                    .filter((item) => item.pool === pool && item.language === language)
+                    .sort((a, b) => b.completedAt - a.completedAt)
+                    .slice(0, DEFAULT_EVIDENCE_HISTORY_LIMIT)
+                if (active) setEvidence({ ...aggregateEvidence, timelines: normalized, timelinesLoaded: true })
+            })
+        }
         read()
         window.addEventListener(EVIDENCE_SYNCED_EVENT, read)
-        return () => window.removeEventListener(EVIDENCE_SYNCED_EVENT, read)
-    }, [signedIn, pool])
+        return () => {
+            active = false
+            window.removeEventListener(EVIDENCE_SYNCED_EVENT, read)
+        }
+    }, [signedIn, pool, language])
 
     return evidence
 }

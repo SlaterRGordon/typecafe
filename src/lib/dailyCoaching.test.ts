@@ -63,6 +63,7 @@ describe("daily coaching session", () => {
         expect(session.kind).toBe("calibration")
         expect(session.steps).toHaveLength(1)
         expect(session.steps[0]?.kind).toBe("calibration")
+        expect(session.steps[0]?.context).toBe("diagnostic")
         expect(session.steps[0]?.href).toBe("/?mode=timed&count=60")
     })
 
@@ -71,6 +72,7 @@ describe("daily coaching session", () => {
         expect(session.kind).toBe("targeted")
         expect(session.reason).toContain("r→t")
         expect(session.steps.map((step) => step.kind)).toEqual(["baseline", "focus"])
+        expect(session.steps.map((step) => step.context)).toEqual(["natural", "acquisition"])
         expect(session.steps[0]?.href).toBe("/?mode=timed&count=30")
         expect(session.steps[1]?.target).toEqual({ kind: "transition", pair: "rt" })
     })
@@ -179,6 +181,7 @@ describe("daily coaching session", () => {
         }
         let session = targeted(yesterday)
         expect(session.steps.map((step) => step.kind)).toEqual(["baseline", "recheck", "focus"])
+        expect(session.steps.map((step) => step.context)).toEqual(["natural", "cold", "acquisition"])
         expect(session.steps[1]?.target).toEqual(yesterday.target)
 
         session = recordDailySet(session, session.steps[0]!.id, { netWpm: 70, accuracy: 96, completedAt: 300 })
@@ -207,6 +210,19 @@ describe("daily coaching session", () => {
         expect(parseDailySession({ ...session, reason: "x".repeat(500) })).toBeNull()
         const bloated = { ...session, steps: Array.from({ length: 12 }, () => session.steps[0]) }
         expect(parseDailySession(bloated)).toBeNull()
+    })
+
+    it("normalizes known legacy steps while rejecting a corrupt stored context", () => {
+        const session = targeted()
+        const legacy = {
+            ...session,
+            steps: session.steps.map(({ context: _context, ...step }) => step),
+        }
+        expect(parseDailySession(legacy)?.steps.map((step) => step.context)).toEqual(["natural", "acquisition"])
+        expect(parseDailySession({
+            ...session,
+            steps: session.steps.map((step, index) => index === 0 ? { ...step, context: "unknown" } : step),
+        })).toBeNull()
     })
 
     it("prefers the snapshot with more completed work over a newer empty copy", () => {

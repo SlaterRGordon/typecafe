@@ -2,16 +2,21 @@ import { TRPCError } from "@trpc/server"
 import { z } from "zod"
 import type { Prisma } from "~/generated/prisma/client"
 import { parseDailySession, preferDailySession } from "~/lib/dailyCoaching"
+import { DEFAULT_EVIDENCE_HISTORY_LIMIT, MAX_EVIDENCE_HISTORY_LIMIT } from "~/lib/evidenceNormalization"
+import { STATS_POOLS } from "~/lib/keyboardLayout"
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc"
 
 const contextSchema = z.object({
     dateKey: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-    pool: z.string().min(1).max(32),
+    pool: z.string().refine((pool) => STATS_POOLS.includes(pool), "Unknown stats pool"),
     language: z.string().min(1).max(64),
 })
 
 // Well-formed snapshots are ~2-4KB; anything near this cap is not a session.
 const MAX_SNAPSHOT_BYTES = 16_384
+const historySchema = contextSchema.omit({ dateKey: true }).extend({
+    limit: z.number().int().min(1).max(MAX_EVIDENCE_HISTORY_LIMIT).optional(),
+})
 
 export const coachingSessionRouter = createTRPCRouter({
     getToday: protectedProcedure
@@ -28,7 +33,29 @@ export const coachingSessionRouter = createTRPCRouter({
                 },
                 select: { snapshot: true },
             })
-            return row?.snapshot ?? null
+            const session = parseDailySession(row?.snapshot)
+            return session && session.dateKey === input.dateKey && session.pool === input.pool && session.language === input.language
+                ? session
+                : null
+        }),
+
+    getHistory: protectedProcedure
+        .input(historySchema)
+        .query(async ({ ctx, input }) => {
+            const rows = await ctx.prisma.coachingSession.findMany({
+                where: {
+                    userId: ctx.session.user.id,
+                    pool: input.pool,
+                    language: input.language,
+                },
+                orderBy: { dateKey: "desc" },
+                take: input.limit ?? DEFAULT_EVIDENCE_HISTORY_LIMIT,
+                select: { snapshot: true },
+            })
+            return rows.flatMap((row) => {
+                const session = parseDailySession(row.snapshot)
+                return session && session.pool === input.pool && session.language === input.language ? [session] : []
+            })
         }),
 
     save: protectedProcedure

@@ -592,12 +592,12 @@ never ranks publicly, and is not duplicated by retry.
 
 - [x] Add domain `EvidenceContext`; translate existing modes/routes without
       changing competitive Test types.
-- [ ] Freeze context into new Guest evidence and Coaching snapshots.
-- [ ] Add bounded latest-Timeline query scoped by language and stats pool.
-- [ ] Add bounded Coaching-history query and validate snapshots before return.
-- [ ] Characterize legacy evidence conservatively: ranked normal -> natural,
+- [x] Freeze context into new Guest evidence and Coaching snapshots.
+- [x] Add bounded latest-Timeline query scoped by language and stats pool.
+- [x] Add bounded Coaching-history query and validate snapshots before return.
+- [x] Characterize legacy evidence conservatively: ranked normal -> natural,
       known Coaching steps -> their context, otherwise no Mastery proof.
-- [ ] Test identical guest/DB domain normalization fixtures.
+- [x] Test identical guest/DB domain normalization fixtures.
 
 **Acceptance:** natural, acquisition, Transfer, and Cold samples cannot be
 mistaken for one another across reload or signup.

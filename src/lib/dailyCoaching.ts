@@ -6,6 +6,7 @@
 // improvement. Pure and unit-testable; storage helpers at the bottom.
 
 import { nextDrillFinding, type DrillDelta, type KeyAttempts } from "./drillProgress"
+import { evidenceContextForCoachingStep, parseEvidenceContext, type EvidenceContext } from "./evidenceContext"
 import { composeWeakKeys, worstKeysFromAttempts } from "./stats"
 import type { TransitionAggregate } from "./transitions"
 
@@ -37,6 +38,7 @@ export interface DailySet {
 export interface DailyStep {
     id: string
     kind: DailyStepKind
+    context: EvidenceContext
     title: string
     detail: string
     href: string
@@ -174,6 +176,7 @@ export function createDailySession(input: CreateDailySessionInput): DailyCoachin
             steps: [{
                 id: `${id}:calibration`,
                 kind: "calibration",
+                context: evidenceContextForCoachingStep("calibration"),
                 title: "Map your typing",
                 detail: "One 60-second Test (or 50+ words). Any normal Test that long counts automatically.",
                 href: "/?mode=timed&count=60",
@@ -200,6 +203,7 @@ export function createDailySession(input: CreateDailySessionInput): DailyCoachin
     const steps: DailyStep[] = [{
         id: `${id}:baseline`,
         kind: "baseline",
+        context: evidenceContextForCoachingStep("baseline"),
         title: "Warm up: 30-second Test",
         detail: "Any normal Test of 30+ seconds (or 25+ words) counts automatically - no special mode.",
         href: "/?mode=timed&count=30",
@@ -211,6 +215,7 @@ export function createDailySession(input: CreateDailySessionInput): DailyCoachin
         steps.push({
             id: `${id}:recheck`,
             kind: "recheck",
+            context: evidenceContextForCoachingStep("recheck"),
             title: `Cold check ${yesterday.label}`,
             detail: "One set on yesterday's target before any practice on it - did the change stick?",
             href: targetHref(yesterday.target),
@@ -222,6 +227,7 @@ export function createDailySession(input: CreateDailySessionInput): DailyCoachin
     steps.push({
         id: `${id}:focus`,
         kind: "focus",
+        context: evidenceContextForCoachingStep("focus"),
         title: finding.kind === "transition" ? `Loosen ${label}` : `Clean up ${label}`,
         detail: "Repeat sets - beat your baseline twice, or stop after three sets.",
         href: targetHref(target),
@@ -240,6 +246,7 @@ export function createDailySession(input: CreateDailySessionInput): DailyCoachin
         steps.push({
             id: `${id}:keys`,
             kind: "focus",
+            context: evidenceContextForCoachingStep("focus"),
             title: `Clean up ${targetLabel(keysTarget)}`,
             detail: "Your weakest recent keys. Repeat sets - beat your baseline twice, or stop after three sets.",
             href: targetHref(keysTarget),
@@ -436,9 +443,14 @@ export function parseDailySession(value: unknown): DailyCoachingSession | null {
     for (const item of raw.steps) {
         if (!item || typeof item !== "object") return null
         const step = item as Record<string, unknown>
+        const kind = step.kind as DailyStepKind
+        const context = step.context === undefined
+            ? evidenceContextForCoachingStep(kind)
+            : parseEvidenceContext(step.context)
         if (
             !shortString(step.id) ||
             (step.kind !== "baseline" && step.kind !== "calibration" && step.kind !== "recheck" && step.kind !== "focus") ||
+            !context ||
             !shortString(step.title) || !shortString(step.detail) || !shortString(step.href) ||
             !Array.isArray(step.sets) || step.sets.length > MAX_SETS
         ) return null
@@ -451,7 +463,7 @@ export function parseDailySession(value: unknown): DailyCoachingSession | null {
             sets.push(set)
         }
         steps.push({
-            id: step.id, kind: step.kind, title: step.title, detail: step.detail, href: step.href,
+            id: step.id, kind: step.kind, context, title: step.title, detail: step.detail, href: step.href,
             ...(target ? { target } : {}), sets,
         })
     }
