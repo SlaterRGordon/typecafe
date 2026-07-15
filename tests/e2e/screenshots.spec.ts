@@ -133,6 +133,22 @@ async function finishVisibleTypingTest(page: Page) {
 
 test.describe("screenshot tour", () => {
   test("home: default and mid-test states", async ({ page }, testInfo) => {
+    // A slow first-run keyboard-layout probe may settle after typing starts. It
+    // is cached for the next test boundary, never allowed to replace this prompt.
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, "keyboard", {
+        configurable: true,
+        value: {
+          getLayoutMap: () => new Promise<Map<string, string>>((resolve) => {
+            window.setTimeout(() => resolve(new Map([
+              ["KeyY", "z"],
+              ["KeyZ", "y"],
+              ["Backslash", "#"],
+            ])), 2_000);
+          }),
+        },
+      });
+    });
     await gotoHome(page);
     await capture(page, testInfo, "01-home-default");
 
@@ -140,6 +156,8 @@ test.describe("screenshot tour", () => {
     // error styling.
     await typeCurrentCharacter(page);
     await typeCurrentCharacter(page);
+    await page.waitForTimeout(2_500);
+    await expect(page.locator("#c2")).toHaveClass(/active-char/);
     await page.locator("#text").click();
     await page.keyboard.press("0");
     await capture(page, testInfo, "02-home-mid-test-with-error");

@@ -44,6 +44,8 @@ interface TextProps {
     onBackspace?: () => void,
 }
 
+type TypingKeyEvent = Pick<KeyboardEvent, "key" | "code">
+
 // True for editable form controls. The toolbar and its subpanels live inside
 // #typer, so their inputs would otherwise have focus yanked back to the hidden
 // typing input on click/keystroke/restart - making them un-editable.
@@ -111,6 +113,7 @@ export const Text = memo(function Text(props: TextProps) {
 
     // ref input to focus
     const inputRef = useRef<HTMLInputElement>(null)
+    const handleKeyPressRef = useRef<(event: TypingKeyEvent) => boolean>(() => false)
 
     // Place the caret at the active char's left edge - or the right edge of the
     // last char when the text is fully consumed. Coordinates mirror the pacer's:
@@ -218,6 +221,7 @@ export const Text = memo(function Text(props: TextProps) {
         const handleWindowKeydown = (event: KeyboardEvent) => {
             if (isEditableTarget(event.target)) return
             const input = inputRef.current
+            const shouldForward = event.target === document.body || event.target === document.documentElement
 
             if (isModalOpen(MODAL_IDS.color)) {
                 const nameInput = document.getElementById("nameInput") as HTMLInputElement
@@ -226,6 +230,10 @@ export const Text = memo(function Text(props: TextProps) {
 
             if (!isAnyModalOpen()) {
                 if (input) input.focus({ preventScroll: true })
+                // A tab switch can leave the document body focused. Focusing the
+                // hidden input here does not retarget the key event already in
+                // flight, so commit that first key through the same hot path.
+                if (shouldForward && handleKeyPressRef.current(event)) event.preventDefault()
             } else {
                 if (input) input.blur()
             }
@@ -365,8 +373,8 @@ export const Text = memo(function Text(props: TextProps) {
         onStart()
     }
 
-    const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
-        if (completedRef.current) return
+    const handleKeyPress = (e: TypingKeyEvent): boolean => {
+        if (completedRef.current) return false
 
         const currentPosition = positionRef.current
         const current = activeCharRef.current
@@ -380,17 +388,22 @@ export const Text = memo(function Text(props: TextProps) {
                 nextLetter(true, e.key)
                 // start timer
                 if (currentPosition === 0 && !started) startAttempt()
+                return true
             } else if (e.code == 'Space' || e.key.length == 1) {
                 // Any single printable key (letter, capital, punctuation, symbol) that
                 // does not match the expected character counts as an incorrect attempt -
                 // including on the very first character, which also starts the timer.
                 nextLetter(false, e.key)
                 if (currentPosition === 0 && !started) startAttempt()
+                return true
             } else if (currentPosition > 0 && e.code === 'Backspace') {
                 prevLetter()
+                return true
             }
         }
+        return false
     }
+    handleKeyPressRef.current = handleKeyPress
 
     const nextLetter = (correct: boolean, typed: string) => {
         const currentIndex = positionRef.current

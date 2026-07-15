@@ -101,6 +101,11 @@ const Home: NextPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTestLanguage, globalLanguage, language])
   const [typingFocused, setTypingFocused] = useState(false)
+  const typingFocusedRef = useRef(false)
+  const handleTypingFocusChange = useCallback((focused: boolean) => {
+    typingFocusedRef.current = focused
+    setTypingFocused(focused)
+  }, [])
   // Practice: the keyboard's layer rail is sticky, while holding physical Shift
   // peeks the layer (release returns to the sticky toggle). The page owns both so
   // the rail and the rendered caps always report the same combined state.
@@ -148,6 +153,9 @@ const Home: NextPage = () => {
   const charAttemptsRef = useRef<Map<string, { attempts: number, correct: number }>>(new Map())
   const persistedAttemptsRef = useRef<Map<string, { attempts: number, correct: number }>>(new Map())
   const hasSavedPendingRef = useRef(false)
+  // Invalidates a guest-score import when its restored card is dismissed. The DB
+  // save may finish, but stale work must never update a newer result card.
+  const pendingScoreFlowRef = useRef(0)
   // True while a result card is on screen for the current attempt. Guards the
   // async save upgrade from re-showing the card after the user already restarted.
   const cardActiveRef = useRef(false)
@@ -183,6 +191,12 @@ const Home: NextPage = () => {
   const createShare = api.scoreShare.create.useMutation()
   const createGuestScore = api.scoreShare.createGuestScore.useMutation()
   const saveAfterSignIn = api.test.create.useMutation()
+
+  const cancelPendingScoreImport = () => {
+    pendingScoreFlowRef.current += 1
+    sessionStorage.removeItem("typecafe:pendingScore")
+    hasSavedPendingRef.current = false
+  }
 
   // Rendered nowhere: bumping it just re-renders the Keyboard once when the
   // lifetime stats land, so the heatmap re-reads the freshly filled ref.
@@ -429,8 +443,10 @@ const Home: NextPage = () => {
   }
 
   // When the user signs in (either via OAuth page-reload or in-page modal),
-  // restore their unsaved score, persist it to the DB, auto-create a share
-  // link, copy it to the clipboard, and navigate to the score page.
+  // persist their unsaved guest score to the DB. A full-page OAuth return can
+  // resolve the session after the user has already started a new test, so only
+  // restore the old result card when the typer is still idle. Importing is not
+  // an implicit request to share or navigate away.
   useEffect(() => {
     if (!sessionData?.user) return
     if (hasSavedPendingRef.current) return
@@ -457,39 +473,27 @@ const Home: NextPage = () => {
     }
 
     hasSavedPendingRef.current = true
+    const flow = ++pendingScoreFlowRef.current
 
     const restoredScore = {
       ...pending.score,
       createdAt: new Date(pending.score.createdAt as unknown as string),
     }
 
-    if (!completedScore) {
+    const restoreCard = !completedScore && !typingFocusedRef.current
+    if (restoreCard) {
+      cardActiveRef.current = true
       setCompletedScore(restoredScore)
     }
 
-    void saveAfterSignIn.mutateAsync(pending.createInput).then(async (test) => {
+    void saveAfterSignIn.mutateAsync(pending.createInput).then((test) => {
+      if (pendingScoreFlowRef.current !== flow) return
       sessionStorage.removeItem("typecafe:pendingScore")
-      setCompletedScore((prev) => prev ? { ...prev, testId: test.id, brag: test.brag ?? prev.brag, avgDelta: test.avgDelta ?? prev.avgDelta, streak: test.streak ?? prev.streak } : prev)
-
-      try {
-        const { durationSeconds, rawWpm, netWpm, accuracy, totalKeystrokes, correctKeystrokes,
-          incorrectKeystrokes, typedText, typedSegments, worstKeys, brag, wpmSamples, punctuation, capitals, numbers, ranked,
-          promptText,
-        } = restoredScore
-        const share = await createShare.mutateAsync({
-          testId: test.id,
-          snapshot: { durationSeconds, rawWpm, netWpm, accuracy, totalKeystrokes, correctKeystrokes,
-            incorrectKeystrokes, promptText, typedText, typedSegments, worstKeys, brag, avgDelta: test.avgDelta, wpmSamples, punctuation, capitals, numbers, ranked, layout: restoredScore.layout },
-        })
-        const url = `${window.location.origin}/score/${share.slug}`
-        setShareUrl(url)
-        try { await navigator.clipboard.writeText(url) } catch { /* clipboard blocked */ }
-        void router.push(`/score/${share.slug}`)
-      } catch {
-        // Share creation failed - score is saved, user can share manually
+      if (restoreCard) {
+        setCompletedScore((prev) => prev ? { ...prev, testId: test.id, brag: test.brag ?? prev.brag, avgDelta: test.avgDelta ?? prev.avgDelta, streak: test.streak ?? prev.streak } : prev)
       }
     }).catch(() => {
-      hasSavedPendingRef.current = false
+      if (pendingScoreFlowRef.current === flow) hasSavedPendingRef.current = false
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionData?.user?.id])
@@ -503,8 +507,7 @@ const Home: NextPage = () => {
 
   const requestRestart = () => {
     clearCompletedScore()
-    sessionStorage.removeItem("typecafe:pendingScore")
-    hasSavedPendingRef.current = false
+    cancelPendingScoreImport()
     setRestartSignal((signal) => signal + 1)
   }
 
@@ -523,8 +526,7 @@ const Home: NextPage = () => {
     setCapitals(pending.config.capitals)
     setNumbers(pending.config.numbers ?? false)
     clearCompletedScore()
-    sessionStorage.removeItem("typecafe:pendingScore")
-    hasSavedPendingRef.current = false
+    cancelPendingScoreImport()
     setRestartSignal((signal) => signal + 1)
   }
 
@@ -577,8 +579,7 @@ const Home: NextPage = () => {
 
     // Leave the results view and start the drill on the freshly selected keys.
     clearCompletedScore()
-    sessionStorage.removeItem("typecafe:pendingScore")
-    hasSavedPendingRef.current = false
+    cancelPendingScoreImport()
     setRestartSignal((signal) => signal + 1)
 
     void router.replace("/", undefined, { shallow: true })
@@ -608,8 +609,7 @@ const Home: NextPage = () => {
       setCapitals(config.capitals)
       setNumbers(config.numbers ?? false)
       clearCompletedScore()
-      sessionStorage.removeItem("typecafe:pendingScore")
-      hasSavedPendingRef.current = false
+      cancelPendingScoreImport()
       setRestartSignal((signal) => signal + 1)
     }
 
@@ -638,8 +638,7 @@ const Home: NextPage = () => {
     }
 
     clearCompletedScore()
-    sessionStorage.removeItem("typecafe:pendingScore")
-    hasSavedPendingRef.current = false
+    cancelPendingScoreImport()
     setGramsHandoffPending(false)
     setRestartSignal((signal) => signal + 1)
     void router.replace("/", undefined, { shallow: true })
@@ -833,7 +832,7 @@ const Home: NextPage = () => {
           onTestComplete={onTestComplete}
           eagerResult
           onSavingChange={setIsSavingScore}
-          onTypingFocusChange={setTypingFocused}
+          onTypingFocusChange={handleTypingFocusChange}
           charAttemptsRef={charAttemptsRef}
           hideInterface={!!completedScore}
         />

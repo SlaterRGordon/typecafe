@@ -17,6 +17,10 @@ const KEY = "typecafe:layout"
 export const LAYOUT_DETECTED_KEY = "typecafe:layout-detected"
 export const LAYOUT_CHANGED_EVENT = "typecafe:layout-changed"
 
+function isTypingAttemptActive(): boolean {
+    return document.documentElement.dataset.typingFocus === "active"
+}
+
 function readStored(): string {
     if (typeof window === "undefined") return AUTO_LAYOUT
     try {
@@ -78,7 +82,7 @@ export function useLayout(): [string, (next: string) => void, string, string] {
     useEffect(() => {
         startLayoutDetection((verdict, source) => {
             if (verdict === readDetected()) {
-                seedLanguageFromDetectedLayout(verdict)
+                if (!isTypingAttemptActive()) seedLanguageFromDetectedLayout(verdict)
                 return
             }
             try {
@@ -86,6 +90,10 @@ export function useLayout(): [string, (next: string) => void, string, string] {
             } catch {
                 return // Storage unavailable - nothing cached, nothing to apply.
             }
+            // A probe can resolve after the user has already begun typing.
+            // Cache it, but apply the layout/language only at the next mount;
+            // changing either now would regenerate the active prompt.
+            if (isTypingAttemptActive()) return
             seedLanguageFromDetectedLayout(verdict)
             if (source === "api") window.dispatchEvent(new Event(LAYOUT_CHANGED_EVENT))
         })

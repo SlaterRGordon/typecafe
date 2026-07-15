@@ -822,6 +822,134 @@ test.describe("home typing test", () => {
     await expect(page.getByText("similar starters")).toHaveCount(0);
   });
 
+  test("registers the first keystroke after the typing input loses focus", async ({ page }) => {
+    await gotoHome(page);
+
+    // Returning from another browser tab can leave focus on the document body.
+    // The first printable key must both restore typing focus and count as c0.
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    await expect(page.locator("#input")).not.toBeFocused();
+
+    await typeCurrentCharacter(page);
+
+    await expect(page.locator("#c0")).toHaveClass(/text-base-300/);
+    await expect(page.locator("#c1")).toHaveClass(/active-char/);
+    await expect(page.getByTestId("stat-acc")).toHaveText("100");
+  });
+
+  test("does not replace an active prompt when keyboard detection resolves late", async ({ page }) => {
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, "keyboard", {
+        configurable: true,
+        value: {
+          getLayoutMap: () => new Promise<Map<string, string>>((resolve) => {
+            window.setTimeout(() => resolve(new Map([
+              ["KeyY", "z"],
+              ["KeyZ", "y"],
+              ["Backslash", "#"],
+            ])), 750);
+          }),
+        },
+      });
+    });
+    await gotoHome(page);
+
+    await typeCurrentCharacter(page, 0);
+    await typeCurrentCharacter(page, 1);
+    await expect(page.locator("#c2")).toHaveClass(/active-char/);
+
+    // The detection result is cached for the next mount/test boundary; it must
+    // not switch language/layout and regenerate text underneath this attempt.
+    await page.waitForTimeout(1_000);
+    await expect(page.locator("#c0")).toHaveClass(/text-base-300/);
+    await expect(page.locator("#c1")).toHaveClass(/text-base-300/);
+    await expect(page.locator("#c2")).toHaveClass(/active-char/);
+    await expect(page.getByTestId("typer-toolbar").getByRole("button", { name: "Language: English" })).toBeVisible();
+  });
+
+  test("a pending guest score saves without interrupting a test started before auth resolves", async ({ page }) => {
+    const procedures: string[] = [];
+    await page.route("**/api/auth/session", async (route) => {
+      // Model the full-page return from OAuth: the typer is interactive while
+      // NextAuth is still resolving the newly authenticated session.
+      await new Promise((resolve) => setTimeout(resolve, 1_500));
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          user: {
+            id: "user-1",
+            name: "Test User",
+            email: "test@example.com",
+            username: "testuser",
+            image: null,
+          },
+          expires: "2099-01-01T00:00:00.000Z",
+        }),
+      });
+    });
+    await mockTrpc(page, {
+      delayProcedures: {
+        "test.create": 800,
+      },
+      onProcedure: (procedure) => procedures.push(procedure),
+    });
+    await page.addInitScript(() => {
+      const typedText = "steady hands";
+      window.sessionStorage.setItem("typecafe:pendingScore", JSON.stringify({
+        savedAt: Date.now(),
+        score: {
+          speed: 60,
+          rawWpm: 60,
+          netWpm: 60,
+          accuracy: 100,
+          durationSeconds: 2,
+          totalKeystrokes: typedText.length,
+          correctKeystrokes: typedText.length,
+          incorrectKeystrokes: 0,
+          promptText: typedText,
+          typedText,
+          typedSegments: typedText.split("").map((ch) => ({ ch, correct: true })),
+          worstKeys: [],
+          timeline: [],
+          wpmSamples: [{ elapsedSeconds: 0, wpm: 0 }, { elapsedSeconds: 2, wpm: 60 }],
+          brag: null,
+          layout: "qwerty",
+          count: 2,
+          mode: 0,
+          subMode: 1,
+          language: "english",
+          ranked: false,
+          createdAt: new Date().toISOString(),
+        },
+        createInput: {
+          typeId: "type-normal",
+          count: 2,
+          options: "",
+          punctuation: false,
+          capitals: false,
+          numbers: false,
+          timeline: [],
+        },
+      }));
+    });
+    await page.goto("/");
+
+    await expect(page.locator("#c0")).toHaveClass(/active-char/);
+    await typeCurrentCharacter(page);
+    await typeCurrentCharacter(page);
+    await expect(page.locator("#c2")).toHaveClass(/active-char/);
+
+    // Import the guest score in the background, but leave the in-progress test
+    // alone. In particular, importing is not an implicit request to share it.
+    await expect.poll(() => procedures.filter((procedure) => procedure === "test.create").length).toBe(1);
+    await page.waitForTimeout(1_000);
+    await expect(page).toHaveURL(/\/$/);
+    await expect(page.locator("#c2")).toHaveClass(/active-char/);
+    expect(procedures).not.toContain("scoreShare.create");
+    await expect.poll(() => page.evaluate(() => window.sessionStorage.getItem("typecafe:pendingScore"))).toBeNull();
+  });
+
   test("an unranked guest test does not enter Progress history", async ({ page }) => {
     await gotoHome(page);
     await setToolbarCustomLength(page, "3");
