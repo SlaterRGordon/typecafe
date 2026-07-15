@@ -622,13 +622,13 @@ Weakness.
 
 ### 5. Higher-order evidence: Grams and words
 
-- [ ] Generate trigram/tetragram candidates from within-word natural events.
-- [ ] Enforce Test/word diversity and interruption filtering.
-- [ ] Compute internal excess latency, not synthetic Gram WPM.
-- [ ] Aggregate recurring hard words and shared-Gram word families.
-- [ ] Prune below confidence early and cap candidates per kind/payload.
-- [ ] Add active-language corpus priors using bundled word data.
-- [ ] Show at most one higher-order result Finding with an action.
+- [x] Generate trigram/tetragram candidates from within-word natural events.
+- [x] Enforce Test/word diversity and interruption filtering.
+- [x] Compute internal excess latency, not synthetic Gram WPM.
+- [x] Aggregate recurring hard words and shared-Gram word families.
+- [x] Prune below confidence early and cap candidates per kind/payload.
+- [x] Add active-language corpus priors using bundled word data.
+- [x] Show at most one higher-order result Finding with an action.
 
 **Acceptance:** a personally slow common `tion` across several words can outrank
 its pairs; a one-off slow word cannot become a Finding.

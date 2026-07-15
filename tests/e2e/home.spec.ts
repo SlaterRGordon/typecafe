@@ -1140,6 +1140,25 @@ test.describe("home typing test", () => {
     await expect(page.getByText("Key drill")).toBeVisible();
   });
 
+  test("diagnosis shows only the best supported higher-order pattern with an action", async ({ page }) => {
+    await mockAuthenticatedSession(page);
+    await mockTrpc(page, { timelineEvidence: [higherOrderTimeline(1), higherOrderTimeline(2)] });
+    await gotoHome(page);
+    await setToolbarCustomLength(page, "4");
+    await typeWrongZeroes(page, 50);
+
+    await expect(page.getByRole("button", { name: "Test Again" })).toBeVisible({ timeout: 15_000 });
+    const higherOrder = page.getByTestId("diagnosis-higher-order");
+    await expect(higherOrder).toHaveCount(1);
+    await expect(higherOrder).toContainText("recurring hard words share");
+    const action = higherOrder.getByRole("link", { name: /Drill the .* pattern/ });
+    await expect(action).toHaveAttribute("href", /\/drill\?words=.*(?:action|station).*&rm=/);
+
+    await action.click();
+    await expect(page).toHaveURL(/\/drill\?words=/);
+    await expect(page.getByText("Word drill")).toBeVisible();
+  });
+
   // Regression guard: Practice (and any non-Normal mode) carries a leftover
   // subMode of "timed". Without a Normal-mode gate that drives a decremental
   // countdown to 0 that fires the instant the test starts - rendering a stuck

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { type CSSProperties, type ReactNode, useEffect, useId, useMemo, useRef, useState } from "react";
 
 import { ToolbarMenu } from "~/components/typer/config/ToolbarMenu";
@@ -8,12 +9,17 @@ import { ShareableScoreImage } from "./ShareableScoreImage";
 import { consistencyFromSamples, cumulativeWpmAtTimes, netFromRaw, wpmImprovement } from "~/lib/stats";
 import type { KeyAccuracy, TypedSegment, WpmSample as ScoreWpmSample } from "~/lib/stats";
 import { decodeTimeline } from "~/lib/keystrokes";
-import type { EncodedKeystroke } from "~/lib/keystrokes";
+import type { EncodedTimeline } from "~/lib/keystrokes";
 import { diagnose, toDrillKeys } from "~/lib/diagnosis";
 import { aggregateTransitions, worstTransitions } from "~/lib/transitions";
 import { attemptsFromEvents } from "~/lib/heatmap";
 import { KeyHeatmap } from "~/components/heatmap/KeyHeatmap";
 import { Chip } from "~/components/ui/Chip";
+
+const HigherOrderResultFinding = dynamic(
+  () => import("./HigherOrderResultFinding").then((module) => module.HigherOrderResultFinding),
+  { ssr: false },
+);
 
 export type { TypedSegment, WpmSample as ScoreWpmSample } from "~/lib/stats";
 
@@ -31,10 +37,9 @@ export interface ScoreSnapshot {
   typedText: string;
   typedSegments?: TypedSegment[];
   worstKeys?: KeyAccuracy[];
-  // Compact per-keystroke timeline ([charCode, correct, dtMs]) for the post-test
-  // diagnosis panel. Present on a freshly completed normal test; absent on legacy
-  // or shared snapshots (the panel is owner-only and not shown there anyway).
-  timeline?: EncodedKeystroke[];
+  // Versioned compact per-keystroke timeline for the post-test diagnosis panel.
+  // Present on a freshly completed normal test; absent on legacy/shared snapshots.
+  timeline?: EncodedTimeline;
   brag?: string | null;
   // WPM vs the user's 30-day average at save time (vision §7 - deltas everywhere).
   avgDelta?: number | null;
@@ -431,7 +436,7 @@ interface ChartLine {
   animate?: boolean;
 }
 
-function WpmChart(props: { samples: ScoreWpmSample[]; durationSeconds: number; rawWpm: number; accuracy: number; timeline?: EncodedKeystroke[] }) {
+function WpmChart(props: { samples: ScoreWpmSample[]; durationSeconds: number; rawWpm: number; accuracy: number; timeline?: EncodedTimeline }) {
   const chartTitleId = useId();
   const chartDescriptionId = useId();
   // Which sample the pointer is nearest, for the hover readout. Null = no hover.
@@ -717,12 +722,13 @@ function ReMeasureStrip(props: { beforeWpm: number; afterWpm: number }) {
   );
 }
 
-// Turns the just-completed test's keystroke timeline into up to three honest,
-// actionable findings, each ending in a one-click drill on /drill built from
-// exactly those keys. Owner-only: rendered on the live results card, never on a
-// read-only shared score (which carries no timeline anyway).
+// Turns the just-completed Test plus bounded natural history into a short list
+// of honest, actionable findings. Owner-only: rendered on the live results
+// card, never on a read-only shared score (which carries no timeline anyway).
 function DiagnosisPanel(props: { score: ShareableScore }) {
   const boardLayout = props.score.layout ?? "qwerty";
+  const [hasHigherOrderFinding, setHasHigherOrderFinding] = useState(false);
+
   const { diagnosis, attempts, transitions } = useMemo(() => {
     const events = props.score.timeline ? decodeTimeline(props.score.timeline) : [];
     return {
@@ -737,7 +743,7 @@ function DiagnosisPanel(props: { score: ShareableScore }) {
 
   // Only normal-mode tests carry a per-key timeline; without one there is nothing
   // to diagnose, so the panel stays hidden rather than showing an empty shell.
-  if (!props.score.timeline || props.score.timeline.length === 0) return null;
+  if (!props.score.timeline || decodeTimeline(props.score.timeline).length === 0) return null;
 
   // Carry this exact test's config to /drill so its "Re-measure" CTA can round-trip
   // back home and headline a before→after delta (Phase 1.3, the loop's payoff).
@@ -763,7 +769,7 @@ function DiagnosisPanel(props: { score: ShareableScore }) {
       
       <div className="mb-4 flex items-center gap-2 text-lg font-semibold text-base-content">
         <span>Diagnosis</span>
-        <InfoIcon label="The keys and transitions that cost you the most this test, computed from your keystroke timeline. Each finding opens a targeted drill built from those keys." />
+        <InfoIcon label="The keys, transitions, and recurring patterns supported by this Test and your recent natural typing. Each finding opens a targeted drill." />
       </div>
 
       {diagnosis.tooShort ?
@@ -779,12 +785,12 @@ function DiagnosisPanel(props: { score: ShareableScore }) {
               the right (stacks on mobile) - keeps the panel short. The subtitle
               lives in this column so it lines up with the heatmap's caption. */}
           <div className="flex flex-col gap-4">
-            <p className="text-sm text-base-content/60">What slowed you down this test - and the one-click fix.</p>
+            <p className="text-sm text-base-content/60">What this Test and your recent natural typing reveal - and the one-click fix.</p>
             {(() => {
               // Transitions get their own richer "N× your average" treatment below,
               // so drop the generic slow-transitions finding from this list.
               const keyFindings = diagnosis.findings.filter((f) => f.kind !== "slow-transitions");
-              if (keyFindings.length === 0 && transitions.length === 0) {
+              if (keyFindings.length === 0 && transitions.length === 0 && !hasHigherOrderFinding) {
                 return (
                   <div className="flex flex-col items-start gap-3">
                     <p className="text-base-content/75">No clear weak spots this test - a clean, even run. Keep the pace up.</p>
@@ -796,6 +802,12 @@ function DiagnosisPanel(props: { score: ShareableScore }) {
               }
               return (
                 <>
+                  <HigherOrderResultFinding
+                    score={props.score}
+                    boardLayout={boardLayout}
+                    withReMeasure={withReMeasure}
+                    onFindingChange={setHasHigherOrderFinding}
+                  />
                   {keyFindings.length > 0 &&
                     <ul className="flex flex-col gap-3">
                       {keyFindings.map((finding) => {

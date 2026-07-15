@@ -1,5 +1,6 @@
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 import { mockAuthenticatedSession, mockTrpc } from "./helpers/trpc";
+import { higherOrderTimeline, impactTimeline } from "./helpers/evidence";
 import { typeCurrentCharacter, typeVisibleTestText, typeWrongCharacter } from "./helpers/typing";
 import {
   createDailySession,
@@ -531,7 +532,8 @@ test.describe("screenshot tour", () => {
   });
 
   test("home: post-test diagnosis panel and drill handoff", async ({ page }, testInfo) => {
-    await mockTrpc(page);
+    await mockAuthenticatedSession(page);
+    await mockTrpc(page, { timelineEvidence: [higherOrderTimeline(1), higherOrderTimeline(2)] });
     await gotoHome(page);
 
     // A short custom timed test, long enough to clear the 30-keystroke diagnosis
@@ -542,6 +544,7 @@ test.describe("screenshot tour", () => {
 
     await expect(page.getByRole("button", { name: "Test Again" })).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText("Diagnosis", { exact: true })).toBeVisible();
+    await expect(page.getByTestId("diagnosis-higher-order")).toContainText("tion");
     // The mini per-key heatmap renders alongside the findings (Phase 1.5).
     await expect(page.getByTestId("diagnosis-heatmap")).toBeVisible();
     const diagnosisBox = await page.getByTestId("diagnosis-panel").boundingBox();
@@ -953,7 +956,10 @@ test.describe("screenshot tour", () => {
 
   test("daily coaching (targeted)", async ({ page }, testInfo) => {
     await mockAuthenticatedSession(page);
-    await mockTrpc(page, { keyStats: [{ character: "r", total: 100, correct: 70 }, { character: "t", total: 80, correct: 62 }] });
+    await mockTrpc(page, {
+      keyStats: [{ character: "r", total: 100, correct: 70 }, { character: "t", total: 80, correct: 62 }],
+      timelineEvidence: [impactTimeline(1), impactTimeline(2)],
+    });
     await page.goto("/plan");
     await expect(page.getByTestId("daily-session-active")).toBeVisible();
     await capture(page, testInfo, "48-daily-coaching-targeted");
@@ -1129,6 +1135,7 @@ test.describe("screenshot tour", () => {
 
     await page.goto("/privacy-policy");
     await expect(page.getByRole("heading", { name: "Privacy Policy for TypeCafe" })).toBeVisible();
+    await expect(page.getByText(/actual mistyped character.*does not record typing outside/i)).toBeVisible();
     await capture(page, testInfo, "21-privacy-policy");
 
     await page.goto("/terms-and-conditions");
