@@ -20,6 +20,7 @@ interface MockTrpcOptions {
   // Per-key practice stats for the /progress lifetime heatmap.
   keyStats?: { character: string; total: number; correct: number }[];
   transitionStats?: { pair: string; count: number; totalMs: number; errors: number }[];
+  timelineEvidence?: unknown[];
   coachingSession?: unknown;
   // Make the progress history flat (a plateau) instead of rising.
   flatProgress?: boolean;
@@ -32,6 +33,9 @@ interface MockTrpcOptions {
   // Put pairs of tests on the same practiced day so trend tests can prove that
   // every metric plots daily groups rather than raw attempts.
   sameDayProgress?: boolean;
+  // Confirm only the first guest Timeline on the first import call so the
+  // client retry/confirmed-only clearing path can be exercised.
+  partialGuestEvidenceImport?: boolean;
   // Procedures listed here resolve to a tRPC error instead of data, so tests can
   // exercise client-side failure handling (e.g. a save that fails on the network).
   errorProcedures?: string[];
@@ -215,7 +219,7 @@ function progressRollupsFromEntries(input: ProcedureInput) {
   }));
 }
 
-function responseForProcedure(procedure: string, input: ProcedureInput, options: MockTrpcOptions, state: { importedTrainProgress: boolean; syncedProgressRollups: unknown[]; coachingSession: unknown }) {
+function responseForProcedure(procedure: string, input: ProcedureInput, options: MockTrpcOptions, state: { importedTrainProgress: boolean; syncedProgressRollups: unknown[]; coachingSession: unknown; guestEvidenceImportCalls: number }) {
   switch (procedure) {
     case "type.get":
       return {
@@ -251,6 +255,15 @@ function responseForProcedure(procedure: string, input: ProcedureInput, options:
     }
     case "test.create":
       return { ...makeScore({ ...input, userId: profileUser.id }), brag: "Faster than 72% of similar starters", avgDelta: 3.2, streak: 5 };
+    case "test.importGuestEvidence": {
+      const localIds = Array.isArray(input?.tests)
+        ? input.tests.flatMap((item) => item && typeof item === "object" && typeof (item as { localId?: unknown }).localId === "string" ? [(item as { localId: string }).localId] : [])
+        : [];
+      const confirmedLocalIds = options.partialGuestEvidenceImport && state.guestEvidenceImportCalls++ === 0
+        ? localIds.slice(0, 1)
+        : localIds;
+      return { confirmedLocalIds, rejected: localIds.length - confirmedLocalIds.length };
+    }
     case "test.syncProgressHistory":
       state.syncedProgressRollups = progressRollupsFromEntries(input);
       return { count: Array.isArray(input?.entries) ? input.entries.length : 0, days: state.syncedProgressRollups.length, rollups: state.syncedProgressRollups };
@@ -344,6 +357,8 @@ function responseForProcedure(procedure: string, input: ProcedureInput, options:
         },
       ];
       return makeProgressRecords(options.flatProgress, options.mixedProgress, options.sameDayProgress, options.fallingProgress);
+    case "test.getLatestTimelines":
+      return options.timelineEvidence ?? [];
     case "test.getActivityByDate":
       // Recent consecutive days so the profile streak chip has data.
       return Array.from({ length: 5 }, (_, i) => ({
@@ -592,7 +607,7 @@ function responseForProcedure(procedure: string, input: ProcedureInput, options:
 
 export async function mockTrpc(page: Page, options: MockTrpcOptions = {}) {
   currentProfileUser = { ...profileUser, image: options.profileImage ?? profileUser.image };
-  const state = { importedTrainProgress: false, syncedProgressRollups: [] as unknown[], coachingSession: options.coachingSession ?? null };
+  const state = { importedTrainProgress: false, syncedProgressRollups: [] as unknown[], coachingSession: options.coachingSession ?? null, guestEvidenceImportCalls: 0 };
 
   await page.route("**/api/trpc/**", async (route: Route) => {
     const url = new URL(route.request().url());

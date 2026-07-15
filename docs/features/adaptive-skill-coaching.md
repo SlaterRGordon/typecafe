@@ -575,22 +575,22 @@ old Timelines render and score identically; correct attempts stay compact.
 
 ### 2. Guest full-evidence mirror and import
 
-- [ ] Add native IndexedDB Guest Timeline store with caps, validation, ordered
+- [x] Add native IndexedDB Guest Timeline store with caps, validation, ordered
       eviction, and graceful degradation.
-- [ ] Extend `useGuestEvidence` without leaking IndexedDB mechanics to pages.
-- [ ] Record config, context, time, layout, language, and Timeline for eligible
+- [x] Extend `useGuestEvidence` without leaking IndexedDB mechanics to pages.
+- [x] Record config, context, time, layout, language, and Timeline for eligible
       guest Tests and Drills.
-- [ ] Add bounded idempotent signup import; server re-derives metrics and marks
+- [x] Add bounded idempotent signup import; server re-derives metrics and marks
       imported evidence unranked.
-- [ ] Clear only confirmed batches and retry partial failures.
-- [ ] Add store tests and guest -> signup -> signed-in e2e.
+- [x] Clear only confirmed batches and retry partial failures.
+- [x] Add store tests and guest -> signup -> signed-in e2e.
 
 **Acceptance:** guest correction/Gram evidence analyzes identically after signup,
 never ranks publicly, and is not duplicated by retry.
 
 ### 3. Evidence contexts and historical inputs
 
-- [ ] Add domain `EvidenceContext`; translate existing modes/routes without
+- [x] Add domain `EvidenceContext`; translate existing modes/routes without
       changing competitive Test types.
 - [ ] Freeze context into new Guest evidence and Coaching snapshots.
 - [ ] Add bounded latest-Timeline query scoped by language and stats pool.

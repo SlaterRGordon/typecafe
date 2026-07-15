@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { mockNextAuth } from "./helpers/auth";
 import { mockTrpc } from "./helpers/trpc";
+import { typeVisibleTestText } from "./helpers/typing";
 
 async function openSignInModal(page: Page) {
   await page.goto("/");
@@ -71,6 +72,97 @@ test.describe("auth modal", () => {
 
     await expect(page.locator("#signInModal")).not.toBeChecked();
     await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
+  });
+
+  test("imports guest Timelines on sign up and retries only unconfirmed evidence", async ({ page }) => {
+    const importCalls: Record<string, unknown>[][] = [];
+    await mockNextAuth(page);
+    await mockTrpc(page, {
+      partialGuestEvidenceImport: true,
+      onProcedure: (procedure, input) => {
+        const tests: unknown = input?.tests;
+        if (procedure === "test.importGuestEvidence" && Array.isArray(tests)) {
+          importCalls.push(tests.filter((item): item is Record<string, unknown> => !!item && typeof item === "object"));
+        }
+      },
+    });
+
+    await page.goto("/?mode=words&count=10");
+    await expect(page.locator("#words .char").first()).toBeVisible();
+    await typeVisibleTestText(page);
+    await expect.poll(() => page.evaluate(async () => {
+      const request = indexedDB.open("typecafe", 1);
+      request.onupgradeneeded = () => {
+        if (!request.result.objectStoreNames.contains("guestEvidenceTests")) request.result.createObjectStore("guestEvidenceTests", { keyPath: "localId" });
+      };
+      const database = await new Promise<IDBDatabase>((resolve, reject) => {
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(new Error("Could not open guest evidence", { cause: request.error }));
+      });
+      const countRequest = database.transaction("guestEvidenceTests", "readonly").objectStore("guestEvidenceTests").count();
+      const count = await new Promise<number>((resolve, reject) => {
+        countRequest.onsuccess = () => resolve(countRequest.result);
+        countRequest.onerror = () => reject(new Error("Could not count guest evidence", { cause: countRequest.error }));
+      });
+      database.close();
+      return count;
+    })).toBe(1);
+    await page.evaluate(async () => {
+      const request = indexedDB.open("typecafe", 1);
+      request.onupgradeneeded = () => {
+        if (!request.result.objectStoreNames.contains("guestEvidenceTests")) request.result.createObjectStore("guestEvidenceTests", { keyPath: "localId" });
+      };
+      const database = await new Promise<IDBDatabase>((resolve, reject) => {
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(new Error("Could not open guest evidence", { cause: request.error }));
+      });
+      const read = database.transaction("guestEvidenceTests", "readonly").objectStore("guestEvidenceTests").getAll();
+      const [first] = await new Promise<Array<Record<string, unknown>>>((resolve, reject) => {
+        read.onsuccess = () => resolve(read.result as Array<Record<string, unknown>>);
+        read.onerror = () => reject(new Error("Could not read guest evidence", { cause: read.error }));
+      });
+      if (first) {
+        const write = database.transaction("guestEvidenceTests", "readwrite");
+        write.objectStore("guestEvidenceTests").put({ ...first, localId: `${String(first.localId)}-retry` });
+        await new Promise<void>((resolve, reject) => {
+          write.oncomplete = () => resolve();
+          write.onerror = () => reject(new Error("Could not duplicate guest evidence", { cause: write.error }));
+        });
+      }
+      database.close();
+    });
+
+    await page.locator("[aria-label='Open sign in']").click({ force: true });
+    await page.getByRole("button", { name: "New to TypeCafe? Join Now" }).click();
+    await page.getByPlaceholder("Email").fill("new@example.com");
+    await page.locator("#usernamInput").fill("newuser");
+    await page.getByPlaceholder("Password").fill("Password1");
+    await page.getByRole("button", { name: "Sign Up", exact: true }).click();
+
+    await expect.poll(() => importCalls.length).toBe(2);
+    expect(importCalls[0]).toHaveLength(2);
+    expect(importCalls[1]).toHaveLength(1);
+    expect(importCalls[0]![0]).toMatchObject({
+      context: "natural",
+      config: { mode: 0, subMode: 1, count: 10, layout: "qwerty", language: "english" },
+    });
+    await expect.poll(() => page.evaluate(async () => {
+      const request = indexedDB.open("typecafe", 1);
+      request.onupgradeneeded = () => {
+        if (!request.result.objectStoreNames.contains("guestEvidenceTests")) request.result.createObjectStore("guestEvidenceTests", { keyPath: "localId" });
+      };
+      const database = await new Promise<IDBDatabase>((resolve, reject) => {
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(new Error("Could not open guest evidence", { cause: request.error }));
+      });
+      const countRequest = database.transaction("guestEvidenceTests", "readonly").objectStore("guestEvidenceTests").count();
+      const count = await new Promise<number>((resolve, reject) => {
+        countRequest.onsuccess = () => resolve(countRequest.result);
+        countRequest.onerror = () => reject(new Error("Could not count guest evidence", { cause: countRequest.error }));
+      });
+      database.close();
+      return count;
+    })).toBe(0);
   });
 
   test("submits sign up when pressing Enter in the form", async ({ page }) => {

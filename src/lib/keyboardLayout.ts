@@ -436,6 +436,10 @@ export function statsPoolFor(layout: string): string {
 // sign-in import enumerate the guest mirrors without guessing storage keys.
 export const STATS_POOLS: string[] = [...new Set(LAYOUT_IDS.map(statsPoolFor))]
 
+export function layoutsForStatsPool(pool: string): string[] {
+    return LAYOUT_IDS.filter((layout) => statsPoolFor(layout) === pool)
+}
+
 // ---------------------------------------------------------------------------
 // Setting resolution (ledger decision 4). The stored setting is AUTO_LAYOUT or
 // an explicit layout id; resolution is pure so the auto chain is unit-testable:

@@ -1,4 +1,5 @@
 import { type AppType } from "next/app";
+import dynamic from "next/dynamic";
 import { type Session } from "next-auth";
 import { SessionProvider } from "next-auth/react";
 
@@ -6,7 +7,6 @@ import { api } from "~/utils/api";
 
 import "~/styles/globals.css";
 import Layout from "~/components/Layout";
-import { GuestImport } from "~/components/GuestImport";
 import { store } from '../state/store';
 import { Provider } from 'react-redux';
 import Head from "next/head";
@@ -16,6 +16,13 @@ import { useEffect } from "react";
 import { Analytics } from "@vercel/analytics/next"
 import { SpeedInsights } from "@vercel/speed-insights/next"
 import { SITE_DESCRIPTION, SITE_TITLE } from "~/lib/siteMetadata";
+
+// All guest imports are browser-storage background work. Keep that convergence
+// path out of the first-paint bundle and load it after hydration.
+const GuestImport = dynamic(
+  () => import("~/components/GuestImport").then((module) => module.GuestImport),
+  { ssr: false },
+);
 
 declare global {
   interface Window {

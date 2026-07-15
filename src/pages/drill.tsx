@@ -11,6 +11,7 @@ import { TestGramScopes, TestGramSources, TestModes, TestSubModes } from "~/comp
 import { applyTextOptions, ensureLanguageLoaded, getWords } from "~/components/typer/utils"
 import { useLanguage } from "~/hooks/useLanguage"
 import { compileDrillText } from "~/lib/drill"
+import { evidenceContextForRun } from "~/lib/evidenceContext"
 import {
     currentDailyStep,
     DAILY_COACHING_UPDATED_EVENT,
@@ -33,6 +34,8 @@ import { useLayout } from "~/hooks/useLayout"
 import { isAnyModalOpen } from "~/lib/modals"
 import { aggregateTransitions, mergeTransitions, type TransitionAggregate } from "~/lib/transitions"
 import { api } from "~/utils/api"
+
+const DRILL_EVIDENCE_CONTEXT = evidenceContextForRun({ surface: "drill", mode: TestModes.normal })
 
 type DrillKind = "keys" | "transitions" | "words" | "timed"
 
@@ -461,6 +464,7 @@ const Drill: NextPage = () => {
                                     <Typer
                                         language={language}
                                         mode={TestModes.normal}
+                                        evidenceContext={DRILL_EVIDENCE_CONTEXT}
                                         subMode={config.kind === "timed" ? TestSubModes.timed : TestSubModes.words}
                                         gramSource={TestGramSources.bigrams}
                                         gramScope={TestGramScopes.fifty}

@@ -73,6 +73,25 @@ test.describe("drill page", () => {
     await typeVisibleTestText(page)
 
     await expect(page.getByTestId("drill-result")).toBeVisible()
+    await expect.poll(() => page.evaluate(async () => {
+      const request = indexedDB.open("typecafe", 1)
+      request.onupgradeneeded = () => {
+        if (!request.result.objectStoreNames.contains("guestEvidenceTests")) {
+          request.result.createObjectStore("guestEvidenceTests", { keyPath: "localId" })
+        }
+      }
+      const database = await new Promise<IDBDatabase>((resolve, reject) => {
+        request.onsuccess = () => resolve(request.result)
+        request.onerror = () => reject(new Error("Could not open guest evidence", { cause: request.error }))
+      })
+      const allRequest = database.transaction("guestEvidenceTests", "readonly").objectStore("guestEvidenceTests").getAll()
+      const contexts = await new Promise<string[]>((resolve, reject) => {
+        allRequest.onsuccess = () => resolve((allRequest.result as Array<{ context?: string }>).flatMap((item) => item.context ? [item.context] : []))
+        allRequest.onerror = () => reject(new Error("Could not read guest evidence", { cause: allRequest.error }))
+      })
+      database.close()
+      return contexts
+    })).toContain("acquisition")
     await expect(page.getByRole("link", { name: "Re-measure" })).toHaveAttribute("href", "/?mode=timed&count=30")
     // No lifetime evidence → no delta line. Depending on the generated words,
     // the completed rep may or may not contain enough repeated Transition

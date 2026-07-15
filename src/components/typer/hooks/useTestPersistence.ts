@@ -7,11 +7,13 @@ import { addLocalTransitions } from "~/lib/localTransitions"
 import { EVIDENCE_SYNCED_EVENT } from "~/hooks/useGuestEvidence"
 import { aggregateTransitions } from "~/lib/transitions"
 import { drainSyncedAttempts } from "~/lib/practiceAttempts"
-import type { EncodedKeystroke, KeystrokeEvent } from "~/lib/keystrokes"
+import type { EncodedTimeline, KeystrokeEvent } from "~/lib/keystrokes"
 import { api } from "~/utils/api"
 import { statsPoolFor } from "~/lib/keyboardLayout"
+import type { EvidenceTestConfiguration } from "~/lib/guestEvidence"
+import type { EvidenceContext } from "~/lib/evidenceContext"
 import { useLayout } from "~/hooks/useLayout"
-import type { TestCompletionResult, TestModes } from "../types"
+import type { TestCompletionResult } from "../types"
 
 export interface CreateTestInput {
     typeId: string,
@@ -20,13 +22,14 @@ export interface CreateTestInput {
     punctuation: boolean,
     capitals: boolean,
     numbers: boolean,
-    timeline: EncodedKeystroke[],
+    timeline: EncodedTimeline,
+    context?: EvidenceContext,
     utcOffsetMinutes?: number,
     challengeDate?: string,
 }
 
 interface UseTestPersistenceArgs {
-    mode: TestModes,
+    evidenceContext: EvidenceContext,
     charAttemptsRef: React.MutableRefObject<Map<string, { attempts: number, correct: number }>>,
     onTestComplete?: (result: TestCompletionResult) => void,
     // Show the result instantly instead of waiting for the save round-trip: report
@@ -39,7 +42,7 @@ interface UseTestPersistenceArgs {
 // Owns everything that talks to the server after a test: saving the score (and
 // reporting completion back once the save settles) and syncing per-character
 // practice stats.
-export function useTestPersistence({ charAttemptsRef, onTestComplete, eagerResult = false }: UseTestPersistenceArgs) {
+export function useTestPersistence({ evidenceContext, charAttemptsRef, onTestComplete, eagerResult = false }: UseTestPersistenceArgs) {
     const { data: sessionData } = useSession()
     const dispatch = useDispatch()
     const utils = api.useUtils()
@@ -80,9 +83,24 @@ export function useTestPersistence({ charAttemptsRef, onTestComplete, eagerResul
     const persistCompletion = useCallback((completion: TestCompletionResult, input: CreateTestInput) => {
         pendingCompletionRef.current = completion
         if (eagerResult) onTestComplete?.(completion)
-        createTest.mutate({ ...input, layout })
+        createTest.mutate({ ...input, layout, context: evidenceContext })
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [createTest.mutate, eagerResult, onTestComplete, layout])
+    }, [createTest.mutate, eagerResult, onTestComplete, layout, evidenceContext])
+
+    const persistGuestTimeline = useCallback((completion: TestCompletionResult, config: Omit<EvidenceTestConfiguration, "layout">) => {
+        if (sessionData?.user) return
+        void import("~/lib/guestEvidenceStore").then(({ addGuestEvidenceTest, createGuestEvidenceId }) => (
+            addGuestEvidenceTest({
+                localId: createGuestEvidenceId(),
+                completedAt: Date.now(),
+                context: evidenceContext,
+                config: { ...config, layout },
+                timeline: completion.timeline,
+            })
+        )).then((saved) => {
+            if (saved) window.dispatchEvent(new Event(EVIDENCE_SYNCED_EVENT))
+        })
+    }, [sessionData?.user, evidenceContext, layout])
 
     // Both sync mutations invalidate their lifetime read so always-mounted
     // surfaces (the coach tab) recompute from data that includes this test.
@@ -155,5 +173,5 @@ export function useTestPersistence({ charAttemptsRef, onTestComplete, eagerResul
         syncPracticeStats({ stats, pool })
     }, [charAttemptsRef, sessionData?.user, syncPracticeStats, pool])
 
-    return { sessionData, persistCompletion, syncCharAttempts, syncTransitions, isSaving: createTest.isPending }
+    return { sessionData, persistCompletion, persistGuestTimeline, syncCharAttempts, syncTransitions, isSaving: createTest.isPending }
 }

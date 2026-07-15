@@ -6,13 +6,22 @@ import {
   publicProcedure,
   protectedProcedure,
 } from "~/server/api/trpc";
-import type { PrismaClient } from "~/generated/prisma/client";
+import { encodedTimelineSchema } from "~/server/api/schemas/timeline";
+import { EVIDENCE_CONTEXTS } from "~/lib/evidenceContext";
+import { guestEvidenceImportSchema } from "~/server/api/schemas/guestEvidence";
+import { Prisma, type PrismaClient } from "~/generated/prisma/client";
 import { challengeStreakFromDateKeys, shiftChallengeDateKey } from "~/lib/challenge";
-import { timelineDurationMs, type EncodedKeystroke } from "~/lib/keystrokes";
+import { timelineDurationMs } from "~/lib/keystrokes";
 import { netFromRaw } from "~/lib/stats";
 import { isPresetTestLength } from "~/lib/testConfig";
 import { evaluateTestEvidence } from "~/lib/testEvidence";
 import { baseTypeLanguage } from "~/lib/typeLanguage";
+import { layoutsForStatsPool, STATS_POOLS } from "~/lib/keyboardLayout";
+import {
+  DEFAULT_EVIDENCE_HISTORY_LIMIT,
+  MAX_EVIDENCE_HISTORY_LIMIT,
+  normalizeStoredTimelineEvidence,
+} from "~/lib/evidenceNormalization";
 import { averageNet, bestNetPerUser, netOf } from "~/lib/netScores";
 import {
   peerPercentileBrag,
@@ -36,12 +45,12 @@ import {
 import { publicUserSelect } from "~/server/db/userSelect";
 
 const MAX_PEER_PERCENTILE_TESTS = 20000;
-const encodedKeystrokeSchema = z.tuple([
-  z.number().int().min(0).max(65535),
-  z.union([z.literal(0), z.literal(1), z.literal(2)]),
-  z.number().int().min(0).max(24 * 60 * 60 * 1000),
-]);
 const utcOffsetMinutesSchema = z.number().int().min(-14 * 60).max(14 * 60).optional();
+const evidenceHistoryInputSchema = z.object({
+  language: z.string().min(1).max(64),
+  pool: z.string().refine((pool) => STATS_POOLS.includes(pool), "Unknown stats pool"),
+  limit: z.number().int().min(1).max(MAX_EVIDENCE_HISTORY_LIMIT).optional(),
+});
 
 // The fixed configs surfaced as profile "signature bests": best 15s, best 60s,
 // best 100-word run. subMode 0 = timed, 1 = words; mode 0 = normal.
@@ -468,13 +477,14 @@ export const testRouter = createTRPCRouter({
       // Persisted whole (locked constraint #2). Capped well above the longest
       // legitimate run (a 5000-word custom test ≈ 30k keystrokes) so a hostile
       // payload can't balloon a row.
-      timeline: z.array(encodedKeystrokeSchema).max(50000),
+      timeline: encodedTimelineSchema,
+      context: z.enum(EVIDENCE_CONTEXTS).optional(),
       utcOffsetMinutes: utcOffsetMinutesSchema,
       // YYYY-MM-DD when this is a daily-challenge run.
       challengeDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
     }))
     .mutation(async ({ ctx, input }) => {
-      const timeline = input.timeline as EncodedKeystroke[];
+      const timeline = input.timeline;
       // A test only ranks if it's a substantial, human sample: enough keystrokes
       // and time to be a real attempt (not a stray 1–3 key tap), and not a
       // machine-like timeline. Unranked tests still save - they just don't feed
@@ -499,7 +509,8 @@ export const testRouter = createTRPCRouter({
         eligibleForRanking,
         expectedWordCount: isWords ? input.count : undefined,
       });
-      const { ranked } = evidence;
+      const context = input.context ?? "natural";
+      const ranked = context === "natural" && evidence.ranked;
       const summaryDate = dateFromDayKey(dayKey(new Date(), input.utcOffsetMinutes ?? 0));
       const test = await ctx.prisma.$transaction(async (tx) => {
         const created = await tx.test.create({
@@ -520,7 +531,8 @@ export const testRouter = createTRPCRouter({
             layout: input.layout ?? "qwerty",
             // Persist the full timeline (locked constraint #2) - evidence for
             // replay and re-diagnosis under future heuristics; no reads yet.
-            timeline,
+            timeline: timeline as unknown as Prisma.InputJsonValue,
+            evidenceContext: context,
             summaryDate,
           },
         });
@@ -574,6 +586,77 @@ export const testRouter = createTRPCRouter({
       ]);
 
       return { ...test, brag, avgDelta, streak };
+    }),
+  importGuestEvidence: protectedProcedure
+    .input(guestEvidenceImportSchema)
+    .mutation(async ({ ctx, input }) => {
+      const confirmedLocalIds: string[] = [];
+
+      // Each item commits independently: one unsupported/corrupt configuration
+      // cannot make the client clear evidence that the server did not preserve.
+      for (const item of input.tests) {
+        try {
+          const language = baseTypeLanguage(item.config.language) ?? item.config.language;
+          const testType = await ctx.prisma.testType.findFirst({
+            where: {
+              mode: item.config.mode,
+              subMode: item.config.subMode,
+              language,
+            },
+            select: { id: true },
+          });
+          if (!testType) continue;
+
+          const isTimed = item.config.mode === 0 && item.config.subMode === 0;
+          const isWords = item.config.mode === 0 && item.config.subMode === 1;
+          const evidence = evaluateTestEvidence({
+            timeline: item.timeline,
+            durationSeconds: isTimed ? item.config.count : timelineDurationMs(item.timeline) / 1000,
+            eligibleForRanking: false,
+            expectedWordCount: isWords && item.context === "natural" ? item.config.count : undefined,
+          });
+          const completedAt = new Date(item.completedAt);
+          const summaryDate = dateFromDayKey(dayKey(completedAt, item.config.utcOffsetMinutes));
+
+          await ctx.prisma.test.upsert({
+            where: {
+              userId_guestLocalId: {
+                userId: ctx.session.user.id,
+                guestLocalId: item.localId,
+              },
+            },
+            update: {},
+            create: {
+              userId: ctx.session.user.id,
+              typeId: testType.id,
+              speed: evidence.speed,
+              accuracy: evidence.accuracy,
+              consistency: evidence.consistency,
+              score: evidence.score,
+              count: item.config.count,
+              options: item.config.options,
+              punctuation: item.config.punctuation,
+              capitals: item.config.capitals,
+              numbers: item.config.numbers,
+              ranked: false,
+              layout: item.config.layout,
+              timeline: item.timeline as unknown as Prisma.InputJsonValue,
+              evidenceContext: item.context,
+              guestLocalId: item.localId,
+              summaryDate,
+              createdAt: completedAt,
+            },
+          });
+          confirmedLocalIds.push(item.localId);
+        } catch (error) {
+          console.error("Guest evidence import item failed", error);
+        }
+      }
+
+      return {
+        confirmedLocalIds,
+        rejected: input.tests.length - confirmedLocalIds.length,
+      };
     }),
   syncProgressHistory: protectedProcedure
     .input(z.object({
@@ -652,6 +735,41 @@ export const testRouter = createTRPCRouter({
       });
 
       return rows.reverse().map(progressRecordFromTest);
+    }),
+  getLatestTimelines: protectedProcedure
+    .input(evidenceHistoryInputSchema)
+    .query(async ({ ctx, input }) => {
+      const language = baseTypeLanguage(input.language) ?? input.language;
+      const rows = await ctx.prisma.test.findMany({
+        where: {
+          userId: ctx.session.user.id,
+          timeline: { not: Prisma.DbNull },
+          layout: { in: layoutsForStatsPool(input.pool) },
+          type: { language },
+        },
+        orderBy: { createdAt: "desc" },
+        take: input.limit ?? DEFAULT_EVIDENCE_HISTORY_LIMIT,
+        select: {
+          createdAt: true,
+          evidenceContext: true,
+          ranked: true,
+          count: true,
+          options: true,
+          punctuation: true,
+          capitals: true,
+          numbers: true,
+          layout: true,
+          timeline: true,
+          type: { select: { mode: true, subMode: true, language: true } },
+        },
+      });
+
+      return rows.flatMap((row) => {
+        const timeline = encodedTimelineSchema.safeParse(row.timeline);
+        return timeline.success
+          ? [normalizeStoredTimelineEvidence({ ...row, timeline: timeline.data })]
+          : [];
+      });
     }),
   getActivityByDate: publicProcedure
     .input(z.object({

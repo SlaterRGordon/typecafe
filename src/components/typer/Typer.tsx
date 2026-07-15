@@ -13,6 +13,7 @@ import type { KeystrokeRecorder } from "~/lib/keystrokeRecorder"
 import { isAnyModalOpen } from "~/lib/modals"
 import { isRankableTimeline } from "~/lib/antiCheat"
 import { runWhenIdle } from "~/lib/idle"
+import { evidenceContextForRun, persistsSkillEvidence, type EvidenceContext } from "~/lib/evidenceContext"
 import { publishActiveKey } from "./keySignal"
 import { generateTestText } from "./hooks/useTestText"
 import { useGramProgression } from "./hooks/useGramProgression"
@@ -49,6 +50,7 @@ interface TyperProps {
     pacerWpm?: number,
     // No-miss levels: a single error ends the run and fails it (never persisted).
     failOnMiss?: boolean,
+    evidenceContext?: EvidenceContext,
     onTestComplete?: (result: TestCompletionResult) => void,
     // Render the result instantly and patch in server fields when the save settles
     // (home only - see useTestPersistence). Pairs with onSavingChange for the loader.
@@ -140,8 +142,12 @@ export const Typer = (props: TyperProps) => {
     // fetch types
     const { data: testType } = api.type.get.useQuery({ mode, subMode, language })
 
-    const { sessionData, persistCompletion, syncCharAttempts, syncTransitions, isSaving } = useTestPersistence({
+    const evidenceContext: EvidenceContext = props.evidenceContext ?? evidenceContextForRun({
+        surface: level ? "train" : "test",
         mode,
+    })
+    const { sessionData, persistCompletion, persistGuestTimeline, syncCharAttempts, syncTransitions, isSaving } = useTestPersistence({
+        evidenceContext,
         charAttemptsRef,
         onTestComplete: props.onTestComplete,
         eagerResult: props.eagerResult,
@@ -398,6 +404,9 @@ export const Typer = (props: TyperProps) => {
         const finalIncorrectCount = recorder.incorrectCount
         const finalStats = getStats(finalCharacterCount, finalIncorrectCount)
         const completion = buildCompletion(finalStats, finalCharacterCount, finalIncorrectCount)
+        const passedAttempt = !pacerCaughtRef.current &&
+            !(props.failOnMiss && finalStats.accuracy < 100) &&
+            !(levelRequirements && finalStats.netWpm < levelRequirements.wpm)
 
         window.gtag?.("event", "test_completed", {
             mode,
@@ -410,9 +419,7 @@ export const Typer = (props: TyperProps) => {
             // An overtake (boss) or any error (no-miss) is a loss no matter what net
             // WPM the typed span measured - always the fail path, never persisted.
             if (
-                pacerCaughtRef.current ||
-                (props.failOnMiss && finalStats.accuracy < 100) ||
-                (levelRequirements && finalStats.netWpm < levelRequirements.wpm)
+                !passedAttempt
             ) {
                 onTestCompleteRef.current?.(completion)
             } else {
@@ -425,6 +432,7 @@ export const Typer = (props: TyperProps) => {
                         capitals,
                         numbers,
                         timeline: completion.timeline,
+                        context: evidenceContext,
                         utcOffsetMinutes: -new Date().getTimezoneOffset(),
                         challengeDate: props.challengeDate,
                     })
@@ -456,6 +464,20 @@ export const Typer = (props: TyperProps) => {
             // (owner decision, ADR-0004 reversal): every rep counts toward the
             // lifetime pair data. Grams/practice text stays excluded.
             if (mode === TestModes.normal) syncTransitions(events)
+            const eligibleGuestTimeline = mode === TestModes.normal || mode === TestModes.quotes
+            if (!sessionData?.user && passedAttempt && eligibleGuestTimeline && persistsSkillEvidence(evidenceContext)) {
+                persistGuestTimeline(completion, {
+                    mode,
+                    subMode,
+                    count,
+                    options: level?.name ?? "",
+                    punctuation,
+                    capitals,
+                    numbers,
+                    language,
+                    utcOffsetMinutes: -new Date().getTimezoneOffset(),
+                })
+            }
         })
 
         pacerCaughtRef.current = false
@@ -464,6 +486,7 @@ export const Typer = (props: TyperProps) => {
         sessionData, testType, persistCompletion, count, level, punctuation,
         capitals, numbers, props.gramWpmThreshold, props.gramAccuracyThreshold,
         props.challengeDate, props.failOnMiss, recordPassedLevel, syncCharAttempts, syncTransitions,
+        evidenceContext, persistGuestTimeline, subMode, language,
     ])
 
     // The pacer caught the typist: flag the loss, then run completion (which reads
