@@ -33,7 +33,7 @@ import { useLanguage } from "~/hooks/useLanguage";
 import { useLayout } from "~/hooks/useLayout";
 import { languageMeta } from "~/lib/languageMeta";
 import { boardFor, layoutMeta, statsPoolFor } from "~/lib/keyboardLayout";
-import { composeWeakKeys, netFromRaw, worstKeysFromAttempts } from "~/lib/stats";
+import { composeWeakKeys, worstKeysFromAttempts } from "~/lib/stats";
 import { isDrillableOn } from "~/lib/drillKeys";
 import { accentsFor, ensureLanguageLoaded } from "~/components/typer/utils";
 import { detectPlateau } from "~/lib/trajectory";
@@ -430,7 +430,7 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
                         {plateau.plateaued ? (
                             <div data-testid="plateau-headline">
                                 <div className="font-mono text-3xl font-bold text-base-content">Plateaued for {plateau.weeks} weeks</div>
-                                <p className="mt-2 text-base-content/60">Your sessions repeat the same comfortable words. Switch to transition drills to break the ceiling.</p>
+                                <p className="mt-2 text-base-content/60">Your recent net WPM trend has stayed nearly flat. Drill the weak spot beside it, then re-measure.</p>
                             </div>
                         ) : hero.delta !== null ? (
                             <HeroDeltaLine
@@ -643,9 +643,8 @@ const Progress: NextPage = () => {
     const rawRecords: ProgressRecord[] = useMemo(
         () =>
             (recordsQuery.data ?? []).map((row) => ({
-                // Trends/deltas read net (the canonical WPM), derived from the
-                // stored raw speed + accuracy. Raw isn't surfaced on /progress.
-                wpm: netFromRaw(row.wpm, row.accuracy),
+                // The API's wpm field is Test.score: canonical net WPM.
+                wpm: row.wpm,
                 accuracy: row.accuracy,
                 consistency: row.consistency,
                 count: row.count,
@@ -682,7 +681,7 @@ const Progress: NextPage = () => {
     const guest = useGuestEvidence();
     const guestRecords: ProgressRecord[] = useMemo(
         () => recordsForPool(recordsForLanguage(
-            (guest?.progress ?? []).map((e) => ({ wpm: netFromRaw(e.wpm, e.accuracy), accuracy: e.accuracy, consistency: e.c, createdAt: new Date(e.t), language: e.lang, layout: e.layout })),
+            (guest?.progress ?? []).map((e) => ({ wpm: e.wpm, accuracy: e.accuracy, consistency: e.c, createdAt: new Date(e.t), language: e.lang, layout: e.layout })),
             language,
         ), pool),
         [guest, language, pool],

@@ -25,6 +25,8 @@ interface MockTrpcOptions {
   flatProgress?: boolean;
   // Make the progress history fall so hero sign-specific layout can be tested.
   fallingProgress?: boolean;
+  // Return the canonical acceptance fixture: raw 100 at 90% accuracy = net 80.
+  canonicalNetProgress?: boolean;
   // Mix timed and words records so /progress filter tests can prove scoping.
   mixedProgress?: boolean;
   // Put pairs of tests on the same practiced day so trend tests can prove that
@@ -165,8 +167,8 @@ function makeProgressRecords(flat = false, mixed = false, sameDay = false, falli
     const wordsRecord = mixed && i % 2 === 1;
     return {
       wpm: flat ? 70 + (i % 2 === 0 ? 0.4 : -0.4) : falling ? 84 - i * 1.1 : 58 + i * 1.1,
-      // Hold accuracy constant for the flat fixture so the derived net WPM stays
-      // flat too (varying accuracy would inject a trend the plateau test rejects).
+      // Hold accuracy constant for the flat fixture so only WPM determines the
+      // plateau (varying accuracy is still useful in the other fixtures).
       accuracy: flat ? 96 : 94 + (i % 5),
       consistency: 74 + (i % 8),
       count: wordsRecord ? 25 : 30,
@@ -187,7 +189,9 @@ function progressRollupsFromEntries(input: ProcedureInput) {
     if (!raw || typeof raw !== "object") continue;
     const entry = raw as Record<string, unknown>;
     if (typeof entry.wpm !== "number" || typeof entry.accuracy !== "number" || typeof entry.t !== "number") continue;
-    const netWpm = Math.max(0, entry.wpm * (2 * entry.accuracy / 100 - 1));
+    const netWpm = entry.v === 2
+      ? entry.wpm
+      : Math.max(0, entry.wpm * (2 * entry.accuracy / 100 - 1));
     const day = new Date(entry.t).toISOString().slice(0, 10);
     const current = byDay.get(day) ?? { day, tests: 0, bestWpm: 0, totalWpm: 0, totalAccuracy: 0, totalConsistency: 0, consistencySamples: 0 };
     current.tests += 1;
@@ -313,6 +317,32 @@ function responseForProcedure(procedure: string, input: ProcedureInput, options:
       return { better: 0, worse: 5, total: 5, percentile: 0 };
     case "test.getProgressRecords":
       if (options.emptyScores) return [];
+      if (options.canonicalNetProgress) return [
+        {
+          wpm: 70,
+          accuracy: 90,
+          consistency: 75,
+          count: 30,
+          createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
+          day: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+          mode: 0,
+          subMode: 0,
+          language: "english",
+          layout: "qwerty",
+        },
+        {
+          wpm: 80,
+          accuracy: 90,
+          consistency: 75,
+          count: 30,
+          createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000),
+          day: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+          mode: 0,
+          subMode: 0,
+          language: "english",
+          layout: "qwerty",
+        },
+      ];
       return makeProgressRecords(options.flatProgress, options.mixedProgress, options.sameDayProgress, options.fallingProgress);
     case "test.getActivityByDate":
       // Recent consecutive days so the profile streak chip has data.

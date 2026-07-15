@@ -300,8 +300,27 @@ test.describe("progress dashboard", () => {
     const plateau = page.getByTestId("plateau-headline");
     await expect(plateau).toBeVisible();
     await expect(plateau).toContainText("Plateaued for");
-    await expect(plateau).toContainText("Switch to transition drills to break the ceiling.");
+    await expect(plateau).toContainText("Your recent net WPM trend has stayed nearly flat. Drill the weak spot beside it, then re-measure.");
     await expect(plateau.getByRole("link", { name: "Try transition drills" })).toHaveCount(0);
+  });
+
+  test("signed-in Progress displays the canonical net score without recalculating it", async ({ page }) => {
+    const calls: { procedure: string; input: unknown }[] = [];
+    await mockAuthenticatedSession(page);
+    await mockTrpc(page, {
+      canonicalNetProgress: true,
+      onProcedure: (procedure, input) => calls.push({ procedure, input }),
+    });
+    await page.addInitScript(() => window.localStorage.setItem("typecafe:goal", JSON.stringify({ targetWpm: 100, targetDate: "2027-12-31" })));
+    await gotoProgress(page);
+
+    await expect(page.getByTestId("headline-current")).toContainText("80.0");
+    await expect(page.getByRole("progressbar", { name: "Progress toward 100 WPM goal" })).toHaveAttribute("aria-valuenow", "80");
+    await page.getByTestId("share-progress").click();
+    await expect(page.getByTestId("share-progress")).toHaveText("Link copied");
+    const shareCall = calls.find((call) => call.procedure === "scoreShare.createProgress");
+    const points = (shareCall!.input as { snapshot: { points: Array<{ wpm: number }> } }).snapshot.points;
+    expect(points.at(-1)!.wpm).toBe(80);
   });
 
   test("a signed-in user can share a progress card", async ({ page }) => {
@@ -346,14 +365,14 @@ test.describe("progress dashboard", () => {
   test("one practiced day builds a baseline; a second is not required on the same week", async ({ page }) => {
     await page.addInitScript(() => {
       window.localStorage.setItem("typecafe:progressHistory", JSON.stringify([
-        { wpm: 60, accuracy: 100, t: Date.now() - 24 * 60 * 60 * 1000 },
+        { wpm: 100, accuracy: 90, t: Date.now() - 24 * 60 * 60 * 1000 },
       ]));
     });
     await gotoProgress(page);
 
     await expect(page.getByTestId("baseline-calibration")).toContainText("Building baseline");
     await expect(page.getByTestId("headline-delta-value")).toHaveAttribute("data-placement", "above-flat");
-    await expect(page.getByTestId("headline-current")).toContainText("60.0");
+    await expect(page.getByTestId("headline-current")).toContainText("80.0");
   });
 
   test("a large current WPM stays inside the headline card on mobile", async ({ page }, testInfo) => {
@@ -410,7 +429,7 @@ test.describe("progress dashboard", () => {
       const day = 24 * 60 * 60 * 1000;
       window.localStorage.setItem("typecafe:lastRecapAt", String(Date.now()));
       window.localStorage.setItem("typecafe:progressHistory", JSON.stringify([
-        { wpm: 62, accuracy: 94, c: 72, t: Date.now() - 6 * day },
+        { wpm: 100, accuracy: 90, c: 72, t: Date.now() - 6 * day },
         { wpm: 68, accuracy: 96, c: 78, t: Date.now() - 4 * day },
       ]));
     });
@@ -419,7 +438,9 @@ test.describe("progress dashboard", () => {
 
     await expect.poll(async () => page.evaluate(() => window.localStorage.getItem("typecafe:progressHistory"))).toBeNull();
     expect(calls).toHaveLength(1);
-    expect(calls[0]!.input).toMatchObject({ entries: expect.arrayContaining([expect.objectContaining({ wpm: 62 })]) });
+    const importedEntries = (calls[0]!.input as { entries: Array<{ v: number; wpm: number }> }).entries;
+    expect(importedEntries[0]).toMatchObject({ v: 2 });
+    expect(importedEntries[0]!.wpm).toBe(80);
     await expect(page.getByTestId("trend-chart").first()).toBeVisible();
     await expect(page.getByText("No tests yet")).toHaveCount(0);
   });

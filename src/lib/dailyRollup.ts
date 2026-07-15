@@ -11,6 +11,7 @@ export const DAILY_STAT_METRIC_VERSION = 2
 
 // One progress entry as stored by guests (localStorage) or replayed on sync.
 export interface ProgressEntry {
+    v?: 2 // absent = legacy raw WPM; v2 = canonical net WPM
     wpm: number
     accuracy: number
     c?: number // consistency 0-100, optional (older entries lack it)
@@ -57,7 +58,7 @@ export function aggregateProgressHistory(
         const key = dayKey(new Date(entry.t), utcOffsetMinutes)
         const current = byDay.get(key)
         const consistency = typeof entry.c === "number" && Number.isFinite(entry.c) ? entry.c : null
-        const netWpm = netFromRaw(entry.wpm, entry.accuracy)
+        const netWpm = entry.v === 2 ? entry.wpm : netFromRaw(entry.wpm, entry.accuracy)
 
         if (!current) {
             byDay.set(key, {

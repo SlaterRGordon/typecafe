@@ -70,6 +70,7 @@ const HowWeMeasure: NextPage = () => {
           <p>The progress headline compares the first practiced day in the selected period with the latest practiced day. Skipped dates do not count as zero and do not block a comparison: one practiced day builds the baseline, and the second can show a change.</p>
           <p>The dashed daily best trend is a separate straight fit through each day&apos;s highest ranked net WPM. Hover or focus a daily dot to see its exact median, daily best, test count, average accuracy, and average consistency.</p>
           <p>Daily averages are built by calculating net WPM for each test first, then averaging those net values. TypeCafe does not estimate net speed from separate daily averages.</p>
+          <p>Signed-in progress reads each saved test&apos;s canonical net score. Guest history is versioned on the device: new entries store net WPM, while older unversioned raw-WPM entries are converted once from their saved accuracy before they appear in Progress or sync to an account.</p>
           <p>Score cards may show a 30-day improvement after save. That requires at least 3 prior ranked tests in the last 30 days, so the comparison has enough evidence to be useful.</p>
         </DocumentSection>
 

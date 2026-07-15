@@ -30,6 +30,14 @@ describe("aggregateProgressHistory", () => {
         expect(d1.consistencySamples).toBe(2)
     })
 
+    it("preserves v2 net WPM instead of penalizing it a second time", () => {
+        const [agg] = aggregateProgressHistory([
+            { v: 2, wpm: 80, accuracy: 90, t: day1 },
+        ])
+        expect(agg!.bestWpm).toBe(80)
+        expect(agg!.totalWpm).toBe(80)
+    })
+
     it("skips entries without a finite consistency from the consistency average", () => {
         const [agg] = aggregateProgressHistory([
             { wpm: 60, accuracy: 90, t: day1 },

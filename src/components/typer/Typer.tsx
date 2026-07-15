@@ -146,6 +146,13 @@ export const Typer = (props: TyperProps) => {
         onTestComplete: props.onTestComplete,
         eagerResult: props.eagerResult,
     })
+    // Authentication can resolve after the user starts typing. Keep the latest
+    // persistence destination without making that session change look like a
+    // test-config change that restarts the prompt.
+    const syncCharAttemptsRef = useRef(syncCharAttempts)
+    useEffect(() => {
+        syncCharAttemptsRef.current = syncCharAttempts
+    }, [syncCharAttempts])
 
     // Surface the save's in-flight state so the result card can show a loader while
     // the server-derived fields (share link, brag, delta, streak) are still coming.
@@ -211,7 +218,7 @@ export const Typer = (props: TyperProps) => {
             if (seq === restartSeqRef.current) {
                 // Off the restart frame: the sync round-trip/localStorage write
                 // must not delay the fresh text paint (typing-feel §3).
-                if (mode !== TestModes.ngrams) runWhenIdle(syncCharAttempts)
+                if (mode !== TestModes.ngrams) runWhenIdle(() => syncCharAttemptsRef.current())
 
                 // A daily challenge uses fixed seeded text - same for every client,
                 // never regenerated or appended.
@@ -248,7 +255,7 @@ export const Typer = (props: TyperProps) => {
                 onRestartRef.current?.()
             }
         }, 0)
-    }, [recorder, count, gramCombination, gramLevel, gramRepetition, gramScope, gramSource, syncCharAttempts, language, quoteLength, level, mode, pause, punctuation, capitals, numbers, selectedKeys, setInitialTime, subMode, props.fixedText])
+    }, [recorder, count, gramCombination, gramLevel, gramRepetition, gramScope, gramSource, language, quoteLength, level, mode, pause, punctuation, capitals, numbers, selectedKeys, setInitialTime, subMode, props.fixedText])
 
     useEffect(() => {
         handleRestart()

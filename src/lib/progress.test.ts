@@ -21,6 +21,7 @@ import {
     mergeDailyRollups,
     periodStart,
     personalRecords,
+    progressRecordFromTest,
     rankImprovementLeague,
     recordsForLanguage,
     recordsForPool,
@@ -33,6 +34,23 @@ import {
 
 const NOW = new Date("2026-06-14T12:00:00.000Z")
 const DAY_MS = 24 * 60 * 60 * 1000
+
+describe("progressRecordFromTest", () => {
+    it("maps canonical Test.score instead of raw Test.speed", () => {
+        const storedTest = {
+            speed: 100,
+            score: 80,
+            accuracy: 90,
+            consistency: 75,
+            count: 30,
+            summaryDate: new Date("2026-06-14T00:00:00.000Z"),
+            createdAt: NOW,
+            layout: "qwerty",
+            type: { mode: 0, subMode: 0, language: "english" },
+        }
+        expect(progressRecordFromTest(storedTest).wpm).toBe(80)
+    })
+})
 
 // A record `daysAgo` before NOW with the given wpm (and optional accuracy/consistency).
 function rec(daysAgo: number, wpm: number, accuracy = 95, consistency?: number): ProgressRecord {

@@ -42,6 +42,33 @@ export interface ProgressRecord {
     rollup?: boolean
 }
 
+// The persistence-to-domain boundary for signed-in progress. Test.speed remains
+// available as explanatory raw speed, but Test.score is the canonical net WPM
+// consumed by every Progress calculation and surface.
+export function progressRecordFromTest(row: {
+    score: number
+    accuracy: number
+    consistency: number | null
+    count: number
+    summaryDate: Date
+    createdAt: Date
+    layout: string
+    type: { mode: number; subMode: number; language: string }
+}): ProgressRecord {
+    return {
+        wpm: row.score,
+        accuracy: row.accuracy,
+        consistency: row.consistency ?? undefined,
+        count: row.count,
+        day: row.summaryDate.toISOString().slice(0, 10),
+        createdAt: row.createdAt,
+        mode: row.type.mode,
+        subMode: row.type.subMode,
+        language: row.type.language,
+        layout: row.layout,
+    }
+}
+
 export type ProgressModeFilter = "all" | "timed" | "words" | "practice" | "grams" | "relaxed"
 
 export interface ProgressFilters {
