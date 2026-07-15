@@ -19,6 +19,7 @@ import {
     type YesterdayOutcome,
 } from "./dailyCoaching"
 import type { TransitionAggregate } from "./transitions"
+import type { SkillCandidate } from "./skillEvidence"
 
 const context = { dateKey: "2026-07-11", pool: "qwerty", language: "english" }
 
@@ -27,6 +28,23 @@ const slowTransitions: TransitionAggregate[] = [
     { pair: "rt", count: 12, totalMs: 4800, errors: 1 },
     { pair: "th", count: 12, totalMs: 1800, errors: 0 },
 ]
+
+const impactRecommendation: SkillCandidate = {
+    id: "transition:latency:br",
+    target: { kind: "transition", pair: "br", metric: "latency" },
+    metric: "ms",
+    direction: "lower",
+    observed: 140,
+    baseline: 100,
+    sampleCount: 40,
+    distinctTests: 2,
+    distinctWords: 4,
+    frequencyPer1000: 100,
+    confidence: 1,
+    recencyWeight: 0.9,
+    impactMsPer1000: 3_600,
+    reason: { code: "transition_latency_above_baseline", pair: "br", observedMs: 140, baselineMs: 100, ratio: 1.4 },
+}
 
 const improvedSet = (after: number) => ({
     netWpm: 70,
@@ -210,6 +228,25 @@ describe("daily coaching session", () => {
         expect(parseDailySession({ ...session, reason: "x".repeat(500) })).toBeNull()
         const bloated = { ...session, steps: Array.from({ length: 12 }, () => session.steps[0]) }
         expect(parseDailySession(bloated)).toBeNull()
+    })
+
+    it("uses one Impact-ranked primary target without an unrelated key step", () => {
+        const attempts = new Map([
+            ["q", { attempts: 20, correct: 10 }],
+            ["z", { attempts: 20, correct: 12 }],
+        ])
+        const session = createDailySession({
+            ...context,
+            attempts,
+            transitions: slowTransitions,
+            recommendation: impactRecommendation,
+            now: 100,
+        })
+
+        expect(session.reason).toContain("3.6s per 1,000 characters")
+        expect(session.steps.map((step) => step.target).filter(Boolean)).toEqual([
+            { kind: "transition", pair: "br" },
+        ])
     })
 
     it("normalizes known legacy steps while rejecting a corrupt stored context", () => {

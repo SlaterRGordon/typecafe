@@ -604,17 +604,17 @@ mistaken for one another across reload or signup.
 
 ### 4. Deep evidence module v1
 
-- [ ] Create `analyzeTypingEvidence` with robust preparation, quality,
+- [x] Create `analyzeTypingEvidence` with robust preparation, quality,
       confidence, Impact, and stable tie-breaking.
-- [ ] Generate key latency/accuracy, Transition latency/accuracy, and correction
+- [x] Generate key latency/accuracy, Transition latency/accuracy, and correction
       candidates.
-- [ ] Use Transition error rate in recommendations.
-- [ ] Separate natural baseline from acquisition response despite ADR 0004's
+- [x] Use Transition error rate in recommendations.
+- [x] Separate natural baseline from acquisition response despite ADR 0004's
       shared rolling aggregates.
-- [ ] Return reason codes/data; React owns prose.
-- [ ] Replace pair-first selection in Daily Coach/Home, retaining a legacy
+- [x] Return reason codes/data; React owns prose.
+- [x] Replace pair-first selection in Daily Coach/Home, retaining a legacy
       fallback for thin history.
-- [ ] Publish thresholds and Impact on `/how-we-measure`.
+- [x] Publish thresholds and Impact on `/how-we-measure`.
 
 **Acceptance:** a common 1.4x pair can outrank a rare 2x pair; a high-error,
 normal-speed pair can become a Target; Drill errors cannot invent a natural

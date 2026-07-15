@@ -16,7 +16,7 @@ function events(spec: Array<[key: string, correct: boolean, dtMs: number]>): Key
     let t = 0
     return spec.map(([key, correct, dtMs]) => {
         t += dtMs
-        return { key, correct, t }
+        return { key, typed: correct ? key : "?", correct, t }
     })
 }
 

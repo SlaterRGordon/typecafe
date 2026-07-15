@@ -5,8 +5,9 @@
 // same-day global-WPM delta - two warm 30s samples prove warm-up, not
 // improvement. Pure and unit-testable; storage helpers at the bottom.
 
-import { nextDrillFinding, type DrillDelta, type KeyAttempts } from "./drillProgress"
+import { drillFindingFromCandidate, nextDrillFinding, type DrillDelta, type KeyAttempts } from "./drillProgress"
 import { evidenceContextForCoachingStep, parseEvidenceContext, type EvidenceContext } from "./evidenceContext"
+import type { SkillCandidate } from "./skillEvidence"
 import { composeWeakKeys, worstKeysFromAttempts } from "./stats"
 import type { TransitionAggregate } from "./transitions"
 
@@ -82,6 +83,7 @@ export interface DailySessionContext {
 export interface CreateDailySessionInput extends DailySessionContext {
     attempts: KeyAttempts
     transitions: TransitionAggregate[]
+    recommendation?: SkillCandidate | null
     yesterday?: YesterdayOutcome | null
     now?: number
 }
@@ -158,7 +160,8 @@ function formatOutcome(outcome: YesterdayOutcome, value: number): string {
 export function createDailySession(input: CreateDailySessionInput): DailyCoachingSession {
     const id = sessionId(input)
     const now = input.now ?? Date.now()
-    const finding = nextDrillFinding(input.transitions, input.attempts)
+    const finding = drillFindingFromCandidate(input.recommendation ?? null)
+        ?? nextDrillFinding(input.transitions, input.attempts)
     const yesterday = input.yesterday ?? undefined
 
     if (!finding) {
@@ -193,9 +196,22 @@ export function createDailySession(input: CreateDailySessionInput): DailyCoachin
     const label = targetLabel(target)
     const continuing = yesterday && sameTarget(target, yesterday.target)
 
-    const findingReason = finding.kind === "transition"
-        ? `Your ${label} transition is ${finding.ratio.toFixed(1)}× slower than your typical transition.`
-        : `Your weakest recent keys are ${label}.`
+    const evidenceReason = finding.evidence?.reason
+    const impactSeconds = finding.evidence ? finding.evidence.impactMsPer1000 / 1_000 : null
+    const impact = impactSeconds == null ? "" : ` That costs about ${impactSeconds.toFixed(1)}s per 1,000 characters.`
+    const findingReason = evidenceReason?.code === "transition_latency_above_baseline"
+        ? `Your ${label} transition is ${evidenceReason.ratio.toFixed(1)}× slower than your typical transition.${impact}`
+        : evidenceReason?.code === "transition_error_rate_high"
+            ? `Your ${label} transition missed ${evidenceReason.errorRatePct.toFixed(0)}% of recent natural attempts.${impact}`
+            : evidenceReason?.code === "key_latency_above_baseline"
+                ? `Your ${label} key arrives ${evidenceReason.ratio.toFixed(1)}× slower than your typical key.${impact}`
+                : evidenceReason?.code === "key_accuracy_below_threshold"
+                    ? `Your ${label} key was ${evidenceReason.accuracyPct.toFixed(0)}% accurate in recent natural typing.${impact}`
+                    : evidenceReason?.code === "correction_confusion_recurs"
+                        ? `You corrected ${evidenceReason.typed} when ${evidenceReason.expected} was expected ${evidenceReason.errors} times.${impact}`
+                        : finding.kind === "transition"
+                            ? `Your ${label} transition is ${finding.ratio.toFixed(1)}× slower than your typical transition.`
+                            : `Your weakest recent keys are ${label}.`
     const reason = continuing
         ? `Yesterday you took ${yesterday.label} from ${formatOutcome(yesterday, yesterday.before)} to ${formatOutcome(yesterday, yesterday.after)}. It’s still your best lever - today’s first set is the cold check: did it stick?`
         : `${findingReason} Today: a short warm-up Test, then repeat sets on it until you beat your baseline twice.`
@@ -238,7 +254,7 @@ export function createDailySession(input: CreateDailySessionInput): DailyCoachin
     // The day's second lever: the worst two keys, after the transition work.
     // Only when the main target is a transition (a keys finding already is key
     // work) - the transition trains flow, the keys train accuracy.
-    const weakKeys = finding.kind === "transition"
+    const weakKeys = finding.kind === "transition" && !finding.evidence
         ? composeWeakKeys(worstKeysFromAttempts(input.attempts, Infinity)).slice(0, 2).map((entry) => entry.key)
         : []
     if (weakKeys.length > 0) {

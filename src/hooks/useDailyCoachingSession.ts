@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useSession } from "next-auth/react"
-import { accentsFor, ensureLanguageLoaded } from "~/components/typer/utils"
+import { accentsFor, ensureLanguageLoaded, getWords } from "~/components/typer/utils"
 import {
     clearLocalDailySessions,
     createDailySession,
@@ -18,8 +18,9 @@ import {
     type DailyCoachingSession,
 } from "~/lib/dailyCoaching"
 import { isDrillableOn } from "~/lib/drillKeys"
-import { nextDrillFinding, type DrillFinding } from "~/lib/drillProgress"
+import { drillFindingFromCandidate, nextDrillFinding, type DrillFinding } from "~/lib/drillProgress"
 import { statsPoolFor } from "~/lib/keyboardLayout"
+import { analyzeTypingEvidence } from "~/lib/skillEvidence"
 import { api } from "~/utils/api"
 import { useGuestEvidence } from "./useGuestEvidence"
 import { useLanguage } from "./useLanguage"
@@ -87,6 +88,10 @@ export function useDailyCoachingSession(): DailyCoaching {
 
     const practiceStats = api.practiceStats.get.useQuery({ pool }, { enabled: signedIn })
     const transitions = api.transitionStats.get.useQuery({ pool }, { enabled: signedIn })
+    const timelines = api.test.getLatestTimelines.useQuery(
+        { language, pool },
+        { enabled: signedIn, retry: false },
+    )
     const remote = api.coachingSession.getToday.useQuery(
         { dateKey, pool, language },
         { enabled: signedIn, retry: false },
@@ -102,17 +107,26 @@ export function useDailyCoachingSession(): DailyCoaching {
         return {
             attempts,
             transitions: signedIn ? transitions.data ?? [] : guest?.transitions ?? [],
+            timelines: signedIn ? timelines.data ?? [] : guest?.timelines ?? [],
         }
-    }, [accentChars, guest, layout, practiceStats.data, signedIn, transitions.data])
+    }, [accentChars, guest, layout, practiceStats.data, signedIn, timelines.data, transitions.data])
+
+    const analysis = useMemo(
+        () => evidence ? analyzeTypingEvidence({ timelines: evidence.timelines, corpusWords: getWords(language) }) : null,
+        [evidence, language],
+    )
 
     const finding = useMemo(
-        () => evidence ? nextDrillFinding(evidence.transitions, evidence.attempts) : null,
-        [evidence],
+        () => evidence
+            ? drillFindingFromCandidate(analysis?.recommendation ?? null)
+                ?? nextDrillFinding(evidence.transitions, evidence.attempts)
+            : null,
+        [analysis?.recommendation, evidence],
     )
 
     const evidenceLoading = authStatus === "loading" || !accentChars || (signedIn
-        ? practiceStats.isLoading || transitions.isLoading
-        : guest === null)
+        ? practiceStats.isLoading || transitions.isLoading || timelines.isLoading
+        : guest === null || !guest.timelinesLoaded)
     const remoteLoading = signedIn && remote.isLoading
 
     useEffect(() => {
@@ -131,10 +145,15 @@ export function useDailyCoachingSession(): DailyCoaching {
             readLocalDailySession(scope, { ...context, dateKey: previousDateKey(dateKey) })
             ?? (signedIn ? readLocalDailySession(GUEST_DAILY_SCOPE, { ...context, dateKey: previousDateKey(dateKey) }) : null),
         )
-        const next = existing ?? createDailySession({ ...context, ...evidence, yesterday })
+        const next = existing ?? createDailySession({
+            ...context,
+            ...evidence,
+            recommendation: analysis?.recommendation ?? null,
+            yesterday,
+        })
         if (!sameSession(local, next)) writeLocalDailySession(scope, next)
         setDailySession((current) => sameSession(current, next) ? current : next)
-    }, [dateKey, evidence, evidenceLoading, language, pool, remote.data, remoteLoading, scope, signedIn])
+    }, [analysis?.recommendation, dateKey, evidence, evidenceLoading, language, pool, remote.data, remoteLoading, scope, signedIn])
 
     useEffect(() => {
         const syncFromStorage = () => {

@@ -1,12 +1,13 @@
 import { type NextPage } from "next";
 import Head from "next/head";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/router";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useDispatch } from "react-redux";
 import { FirstVisitPromise } from "~/components/home/FirstVisitPromise";
-import { HomeCoachTabs } from "~/components/home/HomeCoachTabs";
-import { ShareableScoreCard, type ScoreSnapshot } from "~/components/scores/ShareableScoreCard";
+import { LazyHomeCoachTabs } from "~/components/home/LazyHomeCoachTabs";
+import type { ScoreSnapshot } from "~/components/scores/ShareableScoreCard";
 import { Keyboard } from "~/components/typer/Keyboard";
 import { Typer, type TestCompletionResult } from "~/components/typer/Typer";
 import { ModeBar } from "~/components/typer/config/ModeBar";
@@ -35,6 +36,13 @@ import { appendLocalProgress } from "~/lib/progressHistory";
 import { consistencyFromSamples } from "~/lib/stats";
 import { api } from "~/utils/api";
 import { SITE_DESCRIPTION } from "~/lib/siteMetadata";
+
+// The result card is impossible before a Test completes; keep its sharing and
+// diagnosis UI out of the initial typing bundle.
+const ShareableScoreCard = dynamic(
+  () => import("~/components/scores/ShareableScoreCard").then((module) => module.ShareableScoreCard),
+  { ssr: false },
+);
 
 // Runs synchronously before paint on the client so we can suppress the typer's
 // first (stale-mode) render before it ever shows; falls back to useEffect on the
@@ -740,7 +748,7 @@ const Home: NextPage = () => {
             the minimal test-first hero (growth-seo §E). */}
         <h1 className="sr-only">TypeCafe - the typing coach that makes you faster</h1>
         {!completedScore && !fullscreen &&
-          <HomeCoachTabs className={typingFocusFadeClass(typingFocused, "")} desktop={false} />
+          <LazyHomeCoachTabs className={typingFocusFadeClass(typingFocused, "")} desktop={false} />
         }
         {!completedScore &&
           <div data-testid="typing-focus-home-controls" className={typingFocusFadeClass(typingFocused, "w-full")}>

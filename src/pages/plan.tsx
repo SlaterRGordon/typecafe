@@ -12,7 +12,29 @@ import {
     stepGoalMet,
     type DailyStep,
 } from "~/lib/dailyCoaching"
-import type { DrillDelta } from "~/lib/drillProgress"
+import type { DrillDelta, DrillFinding } from "~/lib/drillProgress"
+
+function findingHeadline(finding: DrillFinding): React.ReactNode {
+    const reason = finding.evidence?.reason
+    if (reason?.code === "transition_latency_above_baseline") {
+        return <>your <span className="font-mono">{reason.pair[0]}→{reason.pair[1]}</span> transition is {reason.ratio.toFixed(1)}× slower than your typical one.</>
+    }
+    if (reason?.code === "transition_error_rate_high") {
+        return <>your <span className="font-mono">{reason.pair[0]}→{reason.pair[1]}</span> transition misses {reason.errorRatePct.toFixed(0)}% of natural attempts.</>
+    }
+    if (reason?.code === "key_latency_above_baseline") {
+        return <>your <span className="font-mono">{reason.key}</span> key arrives {reason.ratio.toFixed(1)}× slower than your typical key.</>
+    }
+    if (reason?.code === "key_accuracy_below_threshold") {
+        return <>your <span className="font-mono">{reason.key}</span> key is {reason.accuracyPct.toFixed(0)}% accurate in natural typing.</>
+    }
+    if (reason?.code === "correction_confusion_recurs") {
+        return <>you corrected <span className="font-mono">{reason.typed}</span> for <span className="font-mono">{reason.expected}</span> {reason.errors} times.</>
+    }
+    return finding.kind === "transition"
+        ? <>your <span className="font-mono">{finding.from}→{finding.to}</span> transition is {finding.ratio.toFixed(1)}× slower than your typical one.</>
+        : <>your weakest keys are <span className="font-mono">{finding.keys.join(" ")}</span>.</>
+}
 
 function formatMetric(value: number, unit: "ms" | "%"): string {
     return unit === "ms" ? `${Math.round(value)}ms` : `${value.toFixed(1)}%`
@@ -76,9 +98,7 @@ const DailyCoachingPage: NextPage = () => {
                             {finding ? (
                                 <>
                                     <h2 id="session-complete-title" className="mt-1 text-2xl font-bold text-base-content">
-                                        Found it: {finding.kind === "transition"
-                                            ? <>your <span className="font-mono">{finding.from}→{finding.to}</span> transition is {finding.ratio.toFixed(1)}× slower than your typical one.</>
-                                            : <>your weakest keys are <span className="font-mono">{finding.keys.join(" ")}</span>.</>}
+                                        Found it: {findingHeadline(finding)}
                                     </h2>
                                     <p className="mt-3 text-sm text-base-content/75">Tomorrow&apos;s session targets it - or start on it right now.</p>
                                     <div className="mt-5 flex flex-col gap-2 sm:flex-row">

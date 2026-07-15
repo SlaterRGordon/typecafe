@@ -18,6 +18,7 @@ test.describe("secondary static routes", () => {
   test("privacy and terms pages expose contact links without horizontal overflow", async ({ page }) => {
     await page.goto("/privacy-policy");
     await expect(page.getByRole("heading", { name: "Privacy Policy for TypeCafe" })).toBeVisible();
+    await expect(page.getByText(/actual mistyped character.*does not record typing outside/i)).toBeVisible();
     await expect(page.getByRole("link", { name: "https://typecafe.app/contact" })).toHaveAttribute("href", "https://typecafe.app/contact");
     await expectNoHorizontalOverflow(page);
 

@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { mockAuthenticatedSession, mockTrpc } from "./helpers/trpc";
 import { typeCurrentCharacter, typeVisibleTestText, typeWrongCharacter } from "./helpers/typing";
+import { higherOrderTimeline, impactTimeline } from "./helpers/evidence";
 import english1k from "../../src/components/typer/languages/english1k.json";
 
 async function gotoHome(page: Page) {
@@ -843,6 +844,34 @@ test.describe("home typing test", () => {
     await expect(page.getByTestId("avg-delta")).toHaveCount(0);
     await expect(page.getByTestId("score-streak")).toHaveCount(0);
     await expect(page.getByText("similar starters")).toHaveCount(0);
+  });
+
+  test("Home and Today use the same Impact-ranked Timeline finding", async ({ page }, testInfo) => {
+    await mockAuthenticatedSession(page);
+    await mockTrpc(page, {
+      // The aggregate fallback would choose rare io (2x slower). Timeline cost
+      // chooses common br (1.4x slower), proving the new selector won.
+      transitionStats: [
+        { pair: "th", count: 100, totalMs: 10_000, errors: 0 },
+        { pair: "br", count: 40, totalMs: 5_600, errors: 0 },
+        { pair: "io", count: 8, totalMs: 1_600, errors: 0 },
+      ],
+      timelineEvidence: [impactTimeline(1), impactTimeline(2)],
+    });
+    await gotoHome(page);
+
+    const tab = page.getByTestId(testInfo.project.name.includes("mobile")
+      ? "home-coach-tab-drill-inline"
+      : "home-coach-tab-drill");
+    await expect(tab).toBeVisible();
+    if (!testInfo.project.name.includes("mobile")) await tab.hover();
+    await expect(tab).toContainText("b->r");
+    await expect(tab).toContainText("per 1k chars");
+    await expect(tab.getByRole("link", { name: "Start drill" })).toHaveAttribute("href", "/drill?transitions=br");
+
+    await page.goto("/plan");
+    await expect(page.locator("#main")).toContainText("b→r");
+    await expect(page.locator("#main")).toContainText("per 1,000 characters");
   });
 
   test("registers the first keystroke after the typing input loses focus", async ({ page }) => {

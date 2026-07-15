@@ -1,20 +1,35 @@
 import Link from "next/link"
-import { useSession } from "next-auth/react"
 import { useRouter } from "next/router"
 import { useEffect, useMemo, useState } from "react"
 import { MaterialNavIcon } from "~/components/navigation/MaterialNavIcon"
 import { useDailyCoachingSession } from "~/hooks/useDailyCoachingSession"
 import { currentDailyStep, stepGoalMet } from "~/lib/dailyCoaching"
-import { nextDrillFinding } from "~/lib/drillProgress"
-import { useGuestEvidence } from "~/hooks/useGuestEvidence"
-import { useLanguage } from "~/hooks/useLanguage"
-import { useLayout } from "~/hooks/useLayout"
-import { isDrillableOn } from "~/lib/drillKeys"
-import { statsPoolFor } from "~/lib/keyboardLayout"
-import { accentsFor, ensureLanguageLoaded } from "~/components/typer/utils"
-import { api } from "~/utils/api"
+import type { DrillFinding } from "~/lib/drillProgress"
 
 const NEXT_ACTION_DISMISS_KEY = "typecafe:nextActionDismissed"
+
+function findingBody(finding: DrillFinding): React.ReactNode {
+    const reason = finding.evidence?.reason
+    const impact = finding.evidence ? (finding.evidence.impactMsPer1000 / 1_000).toFixed(1) : null
+    if (reason?.code === "transition_latency_above_baseline") {
+        return <>Your <span className="font-mono font-bold text-base-content">{reason.pair[0]}-&gt;{reason.pair[1]}</span> transition is {reason.ratio.toFixed(1)}x slower (~{impact}s per 1k chars).</>
+    }
+    if (reason?.code === "transition_error_rate_high") {
+        return <>Your <span className="font-mono font-bold text-base-content">{reason.pair[0]}-&gt;{reason.pair[1]}</span> transition misses {reason.errorRatePct.toFixed(0)}% of natural attempts (~{impact}s per 1k chars).</>
+    }
+    if (reason?.code === "key_latency_above_baseline") {
+        return <>Your <span className="font-mono font-bold text-base-content">{reason.key}</span> key arrives {reason.ratio.toFixed(1)}x slower (~{impact}s per 1k chars).</>
+    }
+    if (reason?.code === "key_accuracy_below_threshold") {
+        return <>Your <span className="font-mono font-bold text-base-content">{reason.key}</span> key is {reason.accuracyPct.toFixed(0)}% accurate (~{impact}s per 1k chars).</>
+    }
+    if (reason?.code === "correction_confusion_recurs") {
+        return <>You corrected <span className="font-mono font-bold text-base-content">{reason.typed}</span> for <span className="font-mono font-bold text-base-content">{reason.expected}</span> {reason.errors} times (~{impact}s per 1k chars).</>
+    }
+    return finding.kind === "transition"
+        ? <>Your slowest jump is <span className="font-mono font-bold text-base-content">{finding.from}-&gt;{finding.to}</span> ({finding.ratio.toFixed(1)}x avg).</>
+        : <>Your weakest keys are <span className="font-mono font-bold text-base-content">{finding.keys.join(" ")}</span>.</>
+}
 
 type CoachTab = {
     key: "daily" | "drill"
@@ -119,10 +134,8 @@ function InlineCoachTab({ tab }: { tab: CoachTab }) {
 
 export function HomeCoachTabs({ className = "", desktop = true, inline = true }: HomeCoachTabsProps) {
     const router = useRouter()
-    const { data: authSession, status: sessionStatus } = useSession()
-    const signedIn = sessionStatus === "authenticated" && !!authSession?.user
     const [sideNavExpanded, setSideNavExpanded] = useState(false)
-    const { session, loading } = useDailyCoachingSession()
+    const { session, loading, finding } = useDailyCoachingSession()
     const [dismissedFinding, setDismissedFinding] = useState(() => {
         try { return localStorage.getItem(NEXT_ACTION_DISMISS_KEY); } catch { return null; }
     })
@@ -134,22 +147,6 @@ export function HomeCoachTabs({ className = "", desktop = true, inline = true }:
         window.addEventListener("typecafe:side-nav-expanded", onSideNavExpanded)
         return () => window.removeEventListener("typecafe:side-nav-expanded", onSideNavExpanded)
     }, [])
-
-    // Coach evidence follows the active layout's stats pool (ledger decision 6).
-    const [activeLayout] = useLayout()
-    const pool = statsPoolFor(activeLayout)
-    const transitionsQuery = api.transitionStats.get.useQuery({ pool }, { enabled: signedIn })
-    const practiceStatsQuery = api.practiceStats.get.useQuery({ pool }, { enabled: signedIn })
-    const guestEvidence = useGuestEvidence()
-    // The active language's accents let a weak é surface - and keys from other
-    // languages/layouts stay out of the suggestion.
-    const [language] = useLanguage()
-    const [accentChars, setAccentChars] = useState<string[]>([])
-    useEffect(() => {
-        let alive = true
-        void ensureLanguageLoaded(language).then(() => { if (alive) setAccentChars(accentsFor(language)); })
-        return () => { alive = false }
-    }, [language])
 
     const tabs = useMemo<CoachTab[]>(() => {
         const nextTabs: CoachTab[] = []
@@ -174,26 +171,15 @@ export function HomeCoachTabs({ className = "", desktop = true, inline = true }:
             })
         }
 
-        // The standing weak-spot drill: same finding priority for both sources,
-        // signed-in reads the DB, guests read their local-first evidence
-        // (ADR-0001). No history → no tab.
-        const transitions = signedIn ? transitionsQuery.data ?? [] : guestEvidence?.transitions ?? []
-        const rawAttempts = signedIn
-            ? new Map((practiceStatsQuery.data ?? []).map((s) => [s.character, { attempts: s.total, correct: s.correct }]))
-            : new Map((guestEvidence?.keyStats ?? []).map((s) => [s.key, { attempts: s.attempts, correct: s.correct }]))
-        // Only suggest keys drillable on the current language/layout.
-        const attempts = new Map([...rawAttempts].filter(([key]) => isDrillableOn(key, activeLayout, accentChars)))
-
-        const finding = nextDrillFinding(transitions, attempts)
+        // Today and Home consume the same Impact-ranked finding. The coaching
+        // hook retains the rolling-aggregate selector only for thin history.
         if (finding && dismissedFinding !== finding.id) {
             const findingId = finding.id
             nextTabs.push({
                 key: "drill",
                 label: "Fix this",
                 eyebrow: "Targeted drill",
-                body: finding.kind === "transition"
-                    ? <>Your slowest jump is <span className="font-mono font-bold text-base-content">{finding.from}-&gt;{finding.to}</span> ({finding.ratio.toFixed(1)}x avg).</>
-                    : <>Your weakest keys are <span className="font-mono font-bold text-base-content">{finding.keys.join(" ")}</span>.</>,
+                body: findingBody(finding),
                 href: finding.href,
                 cta: "Start drill",
                 testId: "home-coach-tab-drill",
@@ -209,7 +195,7 @@ export function HomeCoachTabs({ className = "", desktop = true, inline = true }:
         }
 
         return nextTabs
-    }, [accentChars, activeLayout, dismissedFinding, guestEvidence, practiceStatsQuery.data, session, signedIn, transitionsQuery.data])
+    }, [dismissedFinding, finding, session])
 
     if (loading || tabs.length === 0) return null
 

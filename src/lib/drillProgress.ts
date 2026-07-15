@@ -4,6 +4,7 @@
 
 import type { KeystrokeEvent } from "./keystrokes"
 import type { LocalKeyStat } from "./localSync"
+import type { SkillCandidate } from "./skillEvidence"
 import { composeWeakKeys, worstKeysFromAttempts } from "./stats"
 import { aggregateTransitions, overallTransitionMeanMs, worstTransitions, TRANSITION_MIN_COUNT, type TransitionAggregate } from "./transitions"
 
@@ -13,8 +14,47 @@ export type KeyAttempts = Map<string, { attempts: number, correct: number }>
 // (the coach's real edge), weakest keys as the fallback. `id` is the dismissal
 // token the coach tab stores; `href` is the drill deep-link.
 export type DrillFinding =
-    | { kind: "transition", id: string, href: string, pair: string, from: string, to: string, ratio: number }
-    | { kind: "keys", id: string, href: string, keys: string[] }
+    | { kind: "transition", id: string, href: string, pair: string, from: string, to: string, ratio: number, evidence?: SkillCandidate }
+    | { kind: "keys", id: string, href: string, keys: string[], evidence?: SkillCandidate }
+
+// Query strings and the legacy DrillTarget wire shape stay outside the deep
+// evidence module. Correction Findings use the expected-key drill until Slice 7
+// gives the drill compiler a target-general correction policy.
+export function drillFindingFromCandidate(candidate: SkillCandidate | null): DrillFinding | null {
+    if (!candidate) return null
+    const target = candidate.target
+    if (target.kind === "transition") {
+        return {
+            kind: "transition",
+            id: candidate.id,
+            href: `/drill?transitions=${encodeURIComponent(target.pair)}`,
+            pair: target.pair,
+            from: target.pair[0]!,
+            to: target.pair[1]!,
+            ratio: candidate.reason.code === "transition_latency_above_baseline" ? candidate.reason.ratio : 1,
+            evidence: candidate,
+        }
+    }
+    if (target.kind === "key") {
+        return {
+            kind: "keys",
+            id: candidate.id,
+            href: `/drill?keys=${target.keys.map(encodeURIComponent).join(",")}`,
+            keys: target.keys,
+            evidence: candidate,
+        }
+    }
+    if (target.kind === "correction") {
+        return {
+            kind: "keys",
+            id: candidate.id,
+            href: `/drill?keys=${encodeURIComponent(target.expected)}`,
+            keys: [target.expected],
+            evidence: candidate,
+        }
+    }
+    return null
+}
 
 // `exclude` drops the just-drilled target so a post-drill "next" never
 // re-suggests the drill the user only just finished.
