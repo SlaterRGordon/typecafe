@@ -97,12 +97,14 @@ describe("applyTextOptions", () => {
         expect(output).toMatch(/\d,\d{3}/)
     })
 
-    it("capitalizes countries, cities, weekdays and the pronoun I", () => {
-        const output = applyTextOptions("travel from canada to new york on monday with i", false, true, {
+    it("capitalizes countries, states, initialisms, cities, weekdays and the pronoun I", () => {
+        const output = applyTextOptions("travel from australia through texas to new york on monday with nasa and i", false, true, {
             language: "english",
             random: () => 0.5,
         })
-        expect(output).toContain("Canada")
+        expect(output).toContain("Australia")
+        expect(output).toContain("Texas")
+        expect(output).toContain("NASA")
         expect(output).toContain("New York")
         expect(output).toContain("Monday")
         expect(output).toMatch(/\bI\b/)

@@ -134,7 +134,10 @@ weak-key card stays global (consistent with "training progress global", ADR
       time/thousands shapes. General tests guarantee at least one requested rep;
       targeted Practice/drills quota every selected digit and mark. The numbers
       flag now persists on Test/share/re-measure metadata and renders on score
-      cards, matching punctuation and capitals.
+      cards, matching punctuation and capitals. English canonical casing also
+      covers state/territory names and unambiguous initialisms that `Intl` cannot
+      derive (with explicit country fallbacks so browser ICU differences cannot
+      lowercase names such as Australia).
 
 ## Out of scope / deferred
 

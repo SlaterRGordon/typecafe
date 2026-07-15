@@ -797,6 +797,29 @@ test.describe("home typing test", () => {
     await expect(page.getByText("Numbers", { exact: true })).toBeVisible();
   });
 
+  test("capitals recover country, state, and initialism casing in the typing surface", async ({ page }) => {
+    // Keep the generated 5k prompt on four known corpus indexes so the browser
+    // path proves canonical casing without depending on a lucky random draw.
+    await page.addInitScript(() => {
+      const values = [656, 558, 1016, 3589].map((index) => (index + 0.5) / 4971);
+      let call = 0;
+      Math.random = () => values[call++ % values.length]!;
+    });
+    await gotoHome(page);
+
+    await page.getByTestId("typer-toolbar").getByRole("button", { name: /^Language: English/ }).click();
+    await page.getByTestId("language-menu").getByRole("button", { name: "English 5k", exact: true }).click();
+    await openSettingsMenu(page);
+    await page.getByTestId("settings-menu").getByRole("button", { name: /capitals/ }).click();
+    await page.keyboard.press("Escape");
+
+    const prompt = page.locator("#words");
+    await expect(prompt).toContainText("Australia");
+    await expect(prompt).toContainText("Texas");
+    await expect(prompt).toContainText("PDF");
+    await expect(prompt).toContainText("NASA");
+  });
+
   // Honest-review 2026-07 §2: flattery shares the ranking quality bar. A 3s
   // custom test is unranked, and the mocked save still returns a brag, delta,
   // and streak - none of them may render on an unranked card.

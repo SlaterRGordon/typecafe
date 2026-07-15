@@ -237,7 +237,16 @@ test.describe("screenshot tour", () => {
   });
 
   test("timed mode: punctuation, capitals and numbers test view", async ({ page }, testInfo) => {
+    // Cycle through known 5k entries so the tour visibly covers canonical
+    // country, state, and initialism casing instead of relying on random luck.
+    await page.addInitScript(() => {
+      const values = [656, 558, 1016, 3589].map((index) => (index + 0.5) / 4971);
+      let call = 0;
+      Math.random = () => values[call++ % values.length]!;
+    });
     await gotoHome(page);
+    await page.getByTestId("typer-toolbar").getByRole("button", { name: /^Language: English/ }).click();
+    await page.getByTestId("language-menu").getByRole("button", { name: "English 5k", exact: true }).click();
     await openSettingsMenu(page);
     await page.getByTestId("settings-menu").getByRole("button", { name: /punctuation/ }).click();
     await page.getByTestId("settings-menu").getByRole("button", { name: /capitals/ }).click();
@@ -248,6 +257,8 @@ test.describe("screenshot tour", () => {
     // Numbers guarantees realistic numeric tokens without changing the test's
     // configured token count.
     await expect(page.locator("#words")).toContainText(/[0-9]/);
+    await expect(page.locator("#words")).toContainText(/Australia|Texas/);
+    await expect(page.locator("#words")).toContainText(/PDF|NASA/);
     await capture(page, testInfo, "24-test-view-punctuation-capitals");
   });
 
