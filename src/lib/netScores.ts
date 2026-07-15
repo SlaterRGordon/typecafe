@@ -1,19 +1,18 @@
-// Net-WPM aggregation over stored Test rows. Net WPM - the canonical headline
-// metric - isn't persisted; it's derived on read via netFromRaw (see stats.ts).
-// Every ranking/averaging surface used to re-derive it inline in the test router;
-// concentrating those reductions here makes them unit-testable over plain row
-// arrays, without a Prisma mock.
+// Net-WPM aggregation for callers that intentionally select raw Test fields.
+// Test.score now persists canonical net WPM, but several historical
+// ranking/averaging paths still operate on speed + accuracy. Concentrating that
+// compatibility derivation here keeps their reductions unit-testable over plain
+// row arrays without a Prisma mock.
 
 import { netFromRaw } from "./stats"
 
-// The raw fields net WPM is derived from. Any Test row select that includes
-// speed + accuracy satisfies it.
+// The raw compatibility fields net WPM can be derived from.
 export interface NetRow {
     speed: number
     accuracy: number
 }
 
-// Net WPM for a single row - derived on read from the persisted raw speed + accuracy.
+// Net WPM for a raw row that did not select the persisted canonical score.
 export function netOf(row: NetRow): number {
     return netFromRaw(row.speed, row.accuracy)
 }
