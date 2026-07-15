@@ -71,7 +71,7 @@ function PracticeKeyboardLegend() {
                 </span>
                 locked = click to add
             </span>
-            <KeyHeatmapLegend className="flex-nowrap" />
+            <KeyHeatmapLegend className="!flex-nowrap gap-x-3" />
         </div>
     )
 }
