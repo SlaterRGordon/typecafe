@@ -4,7 +4,6 @@ import {
     LAYOUT_IDS,
     LAYOUTS,
     boardFor,
-    classifyMovement,
     composedFor,
     glyphAt,
     keyFor,
@@ -14,6 +13,7 @@ import {
     sequenceFor,
     statsPoolFor,
 } from "./keyboardLayout"
+import { classifyMovement } from "./movementClassification"
 import { HEATMAP_ROWS } from "./heatmap"
 import { levels } from "~/components/typer/train/levels"
 

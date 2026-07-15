@@ -1,6 +1,10 @@
 import { isDrillableKey } from "./drillKeys"
+import type { CoachingTarget, DrillPolicy } from "./coachingTarget"
 
 export interface CompileDrillTextInput {
+    target?: CoachingTarget,
+    policy?: DrillPolicy,
+    seenWords?: string[],
     keys?: string[],
     transitions?: string[],
     // Specific words to drill verbatim (e.g. the words a test stumbled on). When
@@ -19,6 +23,12 @@ export interface DrillWordCandidate {
 
 const DEFAULT_LENGTH = 80
 const TOP_POOL_MIN = 24
+export const DRILL_SAMPLE_QUOTAS: Record<DrillPolicy, number> = {
+    acquisition: 12,
+    transfer: 6,
+    cold: 6,
+}
+export const CHECK_CARRIER_DENSITY_CAP = 0.35
 
 // Any-letter words (not just [a-z]): non-English word lists carry accented
 // words (é, ü, ł …) and dropping them would gut the pool - nearly half of the
@@ -192,11 +202,118 @@ function buildText(pool: string[], length: number, rng: () => number): string {
     return words.join(" ")
 }
 
+function occurrences(word: string, needle: string): number {
+    if (!needle) return 0
+    let count = 0
+    for (let index = 0; index + needle.length <= word.length; index += 1) {
+        if (word.slice(index, index + needle.length) === needle) count += 1
+    }
+    return count
+}
+
+function targetOccurrences(word: string, target: CoachingTarget): number {
+    if (target.kind === "key") return countChars(word, new Set(target.keys))
+    if (target.kind === "transition") return countPair(word, target.pair)
+    if (target.kind === "gram") return occurrences(word, target.gram)
+    if (target.kind === "word") {
+        if (target.sharedGram) return occurrences(word, target.sharedGram)
+        return target.words.includes(word) ? 1 : 0
+    }
+    if (target.kind === "movement") return target.anchors.reduce((sum, anchor) => sum + occurrences(word, anchor), 0)
+    if (target.kind === "correction") return occurrences(word, target.expected)
+    return 0
+}
+
+function targetCarrierPool(target: CoachingTarget, wordList: string[], policy: DrillPolicy, seenWords: readonly string[]): string[] {
+    const seen = new Set(seenWords.map((word) => word.toLocaleLowerCase()))
+    const corpus = genericWords(wordList).filter((word) => policy === "acquisition" || !seen.has(word))
+    let carriers: string[]
+    if (target.kind === "word" && !target.sharedGram) {
+        carriers = target.words.map(normalizeWord).filter((word): word is string => word !== null)
+    } else {
+        carriers = corpus.filter((word) => targetOccurrences(word, target) > 0)
+    }
+    if (carriers.length > 0) {
+        return carriers.sort((a, b) => targetOccurrences(b, target) - targetOccurrences(a, target) || a.length - b.length || a.localeCompare(b))
+    }
+    if (target.kind === "transition") return fallbackTransitionTokens([target.pair])
+    if (target.kind === "movement") return fallbackTransitionTokens(target.anchors)
+    if (target.kind === "gram") return [target.gram, `${target.gram}a`, `a${target.gram}`]
+    if (target.kind === "correction") return fallbackKeyTokens([target.expected])
+    if (target.kind === "key") return fallbackKeyTokens(target.keys)
+    return target.kind === "word" ? target.words : []
+}
+
+function compileTargetDrillText(
+    target: CoachingTarget,
+    policy: DrillPolicy,
+    wordList: string[],
+    seenWords: readonly string[],
+    length: number,
+    rng: () => number,
+): string {
+    if (target.kind === "endurance") return buildText(genericWords(wordList), length, rng)
+    const carriers = targetCarrierPool(target, wordList, policy, seenWords)
+    if (carriers.length === 0) return ""
+    const movementCarriers = target.kind === "movement"
+        ? target.anchors.map((anchor) => carriers.find((word) => word.includes(anchor))).filter((word): word is string => !!word)
+        : []
+    if (policy === "acquisition") {
+        const required = [...new Set(movementCarriers)].slice(0, length)
+        const rest = buildText(carriers, length - required.length, rng).split(" ").filter(Boolean)
+        return [...required, ...rest].join(" ")
+    }
+
+    const seen = new Set(seenWords.map((word) => word.toLocaleLowerCase()))
+    const generic = genericWords(wordList).filter((word) => !seen.has(word) && targetOccurrences(word, target) === 0)
+    const carrierSlots = Math.max(1, Math.min(length, Math.floor(length * CHECK_CARRIER_DENSITY_CAP)))
+    const quota = DRILL_SAMPLE_QUOTAS[policy]
+    const selectedCarriers: string[] = [...new Set(movementCarriers)].slice(0, carrierSlots)
+    let samples = selectedCarriers.reduce((sum, word) => sum + targetOccurrences(word, target), 0)
+    let previous: string | undefined
+    while (selectedCarriers.length < carrierSlots && samples < quota) {
+        const next = choose(carriers, rng, previous)
+        if (!next) break
+        selectedCarriers.push(next)
+        samples += targetOccurrences(next, target)
+        previous = next
+    }
+    while (selectedCarriers.length < carrierSlots) {
+        const next = choose(carriers, rng, previous)
+        if (!next) break
+        selectedCarriers.push(next)
+        previous = next
+    }
+    const fillers = buildText(generic.length > 0 ? generic : carriers, Math.max(0, length - selectedCarriers.length), rng).split(" ").filter(Boolean)
+    const output: string[] = []
+    let carrierIndex = 0
+    let fillerIndex = 0
+    const interval = Math.max(1, Math.floor(length / Math.max(selectedCarriers.length, 1)))
+    while (output.length < length) {
+        if (carrierIndex < selectedCarriers.length && output.length % interval === 0) output.push(selectedCarriers[carrierIndex++]!)
+        else if (fillerIndex < fillers.length) output.push(fillers[fillerIndex++]!)
+        else if (carrierIndex < selectedCarriers.length) output.push(selectedCarriers[carrierIndex++]!)
+        else break
+    }
+    return output.join(" ")
+}
+
 export function compileDrillText(input: CompileDrillTextInput): string {
     const length = Math.max(0, Math.floor(input.length ?? DEFAULT_LENGTH))
     if (length === 0) return ""
 
     const rng = input.rng ?? Math.random
+
+    if (input.target) {
+        return compileTargetDrillText(
+            input.target,
+            input.policy ?? "acquisition",
+            input.wordList,
+            input.seenWords ?? [],
+            length,
+            rng,
+        )
+    }
 
     // Verbatim word drill: cycle the given words (deduped, letters-only) to fill
     // the length. buildText already avoids immediate repeats.

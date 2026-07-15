@@ -12,6 +12,8 @@ import { applyTextOptions, ensureLanguageLoaded, getWords } from "~/components/t
 import { useLanguage } from "~/hooks/useLanguage"
 import { compileDrillText } from "~/lib/drill"
 import { evidenceContextForRun } from "~/lib/evidenceContext"
+import { parseCoachingTargetQuery, targetAccuracyPolicy, targetDisplayLabel } from "~/lib/coachingTarget"
+import type { EvidenceContext } from "~/lib/evidenceContext"
 import {
     currentDailyStep,
     DAILY_COACHING_UPDATED_EVENT,
@@ -47,6 +49,9 @@ interface DrillConfig {
     text: string,
     // Duration for a timed drill (warm-up); absent for word drills.
     seconds?: number,
+    evidenceContext: EvidenceContext,
+    eyebrow?: string,
+    accuracyGoalPct?: number,
 }
 
 interface LifetimeEvidence {
@@ -164,6 +169,37 @@ const Drill: NextPage = () => {
         const words = parseWords(router.query.words)
         const seconds = parseSeconds(router.query.seconds)
         const wordList = getWords(language)
+        const coaching = parseCoachingTargetQuery(router.query)
+
+        if (coaching && !coaching.legacy && coaching.target.kind !== "endurance") {
+            const target = coaching.target
+            const accuracyPolicy = targetAccuracyPolicy(target)
+            const kind: DrillKind = target.kind === "transition"
+                ? "transitions"
+                : target.kind === "key" || target.kind === "correction" ? "keys" : "words"
+            const targets = target.kind === "transition"
+                ? [target.pair]
+                : target.kind === "key"
+                    ? target.keys
+                    : target.kind === "correction" ? [target.expected] : []
+            return {
+                kind,
+                labels: [targetDisplayLabel(target)],
+                targets,
+                text: compileDrillText({
+                    target,
+                    policy: coaching.policy,
+                    seenWords: coaching.seenWords,
+                    wordList,
+                    length,
+                }),
+                evidenceContext: coaching.policy,
+                eyebrow: target.kind === "movement"
+                    ? "Movement drill"
+                    : target.kind === "gram" ? "Pattern drill" : accuracyPolicy ? "Accuracy drill" : undefined,
+                ...(accuracyPolicy ? { accuracyGoalPct: accuracyPolicy.goalPct } : {}),
+            }
+        }
 
         if (words.length > 0) {
             return {
@@ -171,6 +207,7 @@ const Drill: NextPage = () => {
                 labels: words,
                 targets: words,
                 text: compileDrillText({ words, wordList, length }),
+                evidenceContext: DRILL_EVIDENCE_CONTEXT,
             }
         }
 
@@ -180,6 +217,7 @@ const Drill: NextPage = () => {
                 labels: transitions.map(transitionLabel),
                 targets: transitions,
                 text: compileDrillText({ transitions, wordList, length }),
+                evidenceContext: DRILL_EVIDENCE_CONTEXT,
             }
         }
 
@@ -200,16 +238,17 @@ const Drill: NextPage = () => {
                     language,
                     targeted: true,
                 }),
+                evidenceContext: DRILL_EVIDENCE_CONTEXT,
             }
         }
 
         // A timed warm-up: a generic timed test, no target keys.
         if (seconds > 0) {
-            return { kind: "timed", labels: [`${seconds}s`], targets: [], text: "", seconds }
+            return { kind: "timed", labels: [`${seconds}s`], targets: [], text: "", seconds, evidenceContext: DRILL_EVIDENCE_CONTEXT }
         }
 
         return null
-    }, [router.isReady, langReady, language, router.query.keys, router.query.length, router.query.transitions, router.query.words, router.query.seconds])
+    }, [router.isReady, langReady, language, router.query])
 
     const restartDrill = () => {
         setCompleted(null)
@@ -246,6 +285,7 @@ const Drill: NextPage = () => {
     // rep required, so a restart never strands the user without a way forward.
     const headerStat = useMemo(() => {
         if (!config) return null
+        if (config.accuracyGoalPct) return `Accuracy goal: ${config.accuracyGoalPct}%. Slow down; a clean sample matters more than speed.`
         if (config.kind === "transitions") {
             for (const pair of config.targets) {
                 const base = transitionBaseline(pair, baseline.transitions)
@@ -408,7 +448,7 @@ const Drill: NextPage = () => {
                                     <div className="flex items-start justify-between gap-3">
                                         <div>
                                             <p className="text-xs font-semibold uppercase tracking-wide text-primary">
-                                                {config.kind === "transitions" ? "Transition drill" : config.kind === "words" ? "Word drill" : config.kind === "timed" ? "Timed warm-up" : "Key drill"}
+                                                {config.eyebrow ?? (config.kind === "transitions" ? "Transition drill" : config.kind === "words" ? "Word drill" : config.kind === "timed" ? "Timed warm-up" : "Key drill")}
                                             </p>
                                             <h1 className="mt-1 font-mono text-2xl font-bold text-base-content">
                                                 {config.labels.join(", ")}
@@ -464,7 +504,7 @@ const Drill: NextPage = () => {
                                     <Typer
                                         language={language}
                                         mode={TestModes.normal}
-                                        evidenceContext={DRILL_EVIDENCE_CONTEXT}
+                                        evidenceContext={config.evidenceContext}
                                         subMode={config.kind === "timed" ? TestSubModes.timed : TestSubModes.words}
                                         gramSource={TestGramSources.bigrams}
                                         gramScope={TestGramScopes.fifty}

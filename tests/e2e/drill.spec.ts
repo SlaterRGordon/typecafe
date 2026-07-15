@@ -144,6 +144,34 @@ test.describe("drill page", () => {
     await expect(page.getByTestId("drill-next")).toHaveCount(0)
   })
 
+  test("Transfer pattern checks use novel bounded-density carriers and survive reload", async ({ page }) => {
+    await mockTrpc(page)
+    await page.goto("/drill?target=gram&gram=tion&policy=transfer&seen=action,station&length=30")
+
+    await expect(page.getByText("Pattern drill")).toBeVisible()
+    await expect(page.getByRole("heading", { name: "tion" })).toBeVisible()
+    const words = (await page.locator("#words").innerText()).trim().split(/\s+/)
+    const carriers = words.filter((word) => word.includes("tion"))
+    expect(words).toHaveLength(30)
+    expect(carriers.length).toBeGreaterThanOrEqual(6)
+    expect(carriers.length).toBeLessThanOrEqual(10)
+    expect(words).not.toContain("action")
+    expect(words).not.toContain("station")
+
+    await page.reload()
+    await expect(page.getByText("Pattern drill")).toBeVisible()
+    await expect(page).toHaveURL(/target=gram.*gram=tion.*policy=transfer.*seen=action%2Cstation|target=gram.*gram=tion.*policy=transfer.*seen=action,station/)
+  })
+
+  test("inaccurate correction Targets use a no-rush accuracy policy", async ({ page }) => {
+    await mockTrpc(page)
+    await page.goto("/drill?target=correction&correction=q,x&policy=acquisition&length=12")
+
+    await expect(page.getByText("Accuracy drill")).toBeVisible()
+    await expect(page.getByTestId("drill-header-stat")).toContainText("Accuracy goal: 100%")
+    await expect(page.getByTestId("drill-header-stat")).toContainText("Slow down")
+  })
+
   test("forwards a diagnosis re-measure token into the Re-measure CTA", async ({ page }) => {
     await page.addInitScript(() => {
       window.localStorage.setItem("typecafe:keyStats", JSON.stringify([

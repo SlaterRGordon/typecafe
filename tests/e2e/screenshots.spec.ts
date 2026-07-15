@@ -1037,6 +1037,14 @@ test.describe("screenshot tour", () => {
     await capture(page, testInfo, "56-drill-surface");
   });
 
+  test("varied pattern check", async ({ page }, testInfo) => {
+    await mockTrpc(page);
+    await page.goto("/drill?target=gram&gram=tion&policy=transfer&seen=action,station&length=30");
+    await expect(page.getByText("Pattern drill")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "tion" })).toBeVisible();
+    await capture(page, testInfo, "73-varied-pattern-check");
+  });
+
   test("shared progress card", async ({ page }, testInfo) => {
     await mockTrpc(page);
     await page.goto("/score/progress-test-share");
@@ -1094,6 +1102,7 @@ test.describe("screenshot tour", () => {
     await expect(page.getByText(/replayed on the server from the full keystroke and backspace timeline/i)).toBeVisible();
     await expect(page.getByText(/calculating net WPM for each test first/i)).toBeVisible();
     await expect(page.getByText(/classifies the expected layout geometry, not the finger/i)).toBeVisible();
+    await expect(page.getByText(/Transfer and Cold checks target at least 6 samples/i)).toBeVisible();
     await capture(page, testInfo, "55-how-we-measure");
 
     await page.goto("/guides");

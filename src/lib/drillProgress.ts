@@ -5,6 +5,7 @@
 import type { KeystrokeEvent } from "./keystrokes"
 import type { LocalKeyStat } from "./localSync"
 import type { SkillCandidate } from "./skillEvidence"
+import { targetAction } from "./coachingTarget"
 import { composeWeakKeys, worstKeysFromAttempts } from "./stats"
 import { aggregateTransitions, overallTransitionMeanMs, worstTransitions, TRANSITION_MIN_COUNT, type TransitionAggregate } from "./transitions"
 
@@ -18,8 +19,8 @@ export type DrillFinding =
     | { kind: "keys", id: string, href: string, keys: string[], evidence?: SkillCandidate }
 
 // Query strings and the legacy DrillTarget wire shape stay outside the deep
-// evidence module. Correction Findings use the expected-key drill until Slice 7
-// gives the drill compiler a target-general correction policy.
+// evidence module. The target adapter owns canonical links and preserves old
+// key/Transition/word deep links.
 export function drillFindingFromCandidate(candidate: SkillCandidate | null): DrillFinding | null {
     if (!candidate) return null
     const target = candidate.target
@@ -48,7 +49,7 @@ export function drillFindingFromCandidate(candidate: SkillCandidate | null): Dri
         return {
             kind: "keys",
             id: candidate.id,
-            href: `/drill?keys=${encodeURIComponent(target.expected)}`,
+            href: targetAction(target).href,
             keys: [target.expected],
             evidence: candidate,
         }

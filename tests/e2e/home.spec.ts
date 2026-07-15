@@ -1152,10 +1152,10 @@ test.describe("home typing test", () => {
     await expect(higherOrder).toHaveCount(1);
     await expect(higherOrder).toContainText("recurring hard words share");
     const action = higherOrder.getByRole("link", { name: /Drill the .* pattern/ });
-    await expect(action).toHaveAttribute("href", /\/drill\?words=.*(?:action|station).*&rm=/);
+    await expect(action).toHaveAttribute("href", /\/drill\?target=(?:gram|word).*policy=acquisition.*&rm=/);
 
     await action.click();
-    await expect(page).toHaveURL(/\/drill\?words=/);
+    await expect(page).toHaveURL(/\/drill\?target=(?:gram|word)/);
     await expect(page.getByText("Word drill")).toBeVisible();
   });
 

@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest"
-import { buildKeyDrillPool, compileDrillText, rankDrillWords } from "./drill"
+import { buildKeyDrillPool, CHECK_CARRIER_DENSITY_CAP, compileDrillText, DRILL_SAMPLE_QUOTAS, rankDrillWords } from "./drill"
+import { targetAction, type CoachingTarget } from "./coachingTarget"
 
 const steadyRng = () => 0
 const cyclingRng = () => {
@@ -146,5 +147,53 @@ describe("compileDrillText", () => {
 
         expect(words).toHaveLength(5)
         expect(words.every((word) => word.includes("q"))).toBe(true)
+    })
+
+    test("saturates acquisition but caps varied checks with novel carriers and a qualified quota", () => {
+        const wordList = ["action", "station", "motion", "nation", "portion", "section", "option", "the", "and", "with", "from", "have", "your", "more", "will", "home", "time", "work", "page", "good"]
+        const target: CoachingTarget = { kind: "gram", gram: "tion" }
+        const acquisition = compileDrillText({ target, policy: "acquisition", wordList, length: 30, rng: cyclingRng() }).split(" ")
+
+        expect(acquisition.every((word) => word.includes("tion"))).toBe(true)
+        expect(acquisition.filter((word) => word.includes("tion"))).toHaveLength(30)
+        for (const policy of ["transfer", "cold"] as const) {
+            const check = compileDrillText({ target, policy, seenWords: ["Action", "Station"], wordList, length: 30, rng: cyclingRng() }).split(" ")
+            const carriers = check.filter((word) => word.includes("tion"))
+            expect(carriers.length).toBeGreaterThanOrEqual(DRILL_SAMPLE_QUOTAS[policy])
+            expect(carriers.length / check.length).toBeLessThanOrEqual(CHECK_CARRIER_DENSITY_CAP)
+            expect(check).not.toContain("action")
+            expect(check).not.toContain("station")
+        }
+    })
+
+    test("compiles content and an action for every domain Target", () => {
+        const wordList = ["quick", "quiet", "question", "action", "station", "motion", "from", "dream", "swing", "aqua", "the", "and", "with", "home"]
+        const targets: CoachingTarget[] = [
+            { kind: "key", keys: ["q"], metric: "accuracy" },
+            { kind: "transition", pair: "ti", metric: "latency" },
+            { kind: "gram", gram: "tion" },
+            { kind: "word", words: ["quick", "quiet"], sharedGram: "qui" },
+            { kind: "movement", movement: "row-reach", anchors: ["fr", "dr", "sw", "aq"] },
+            { kind: "correction", expected: "q", typed: "x" },
+            { kind: "endurance", shortSeconds: 30, longSeconds: 60 },
+        ]
+
+        for (const target of targets) {
+            expect(compileDrillText({ target, policy: "acquisition", wordList, length: 20, rng: cyclingRng() }), target.kind).not.toBe("")
+            expect(targetAction(target).href, target.kind).not.toBe("")
+        }
+    })
+
+    test("movement practice includes several concrete anchor sequences", () => {
+        const target: CoachingTarget = { kind: "movement", movement: "row-reach", anchors: ["fr", "dr", "sw", "aq"] }
+        const text = compileDrillText({
+            target,
+            policy: "acquisition",
+            wordList: ["from", "dream", "swing", "aqua", "the", "with"],
+            length: 12,
+            rng: cyclingRng(),
+        })
+
+        for (const anchor of target.anchors) expect(text).toContain(anchor)
     })
 })

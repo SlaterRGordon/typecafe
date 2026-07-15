@@ -7,8 +7,10 @@ import { discoversWeakness, type EvidenceContext } from "./evidenceContext"
 import type { TimelineEvidence } from "./evidenceNormalization"
 import { isTrackableTransitionPair } from "./drillableTransitions"
 import { decodeEvidenceTimeline, timelineDurationMs, type KeystrokeEvent, type TestEvidenceEvent } from "./keystrokes"
-import { classifyMovement, type MovementKind } from "./keyboardLayout"
+import { classifyMovement, type MovementKind } from "./movementClassification"
 import { evaluateTestEvidence } from "./testEvidence"
+import type { CoachingTarget } from "./coachingTarget"
+export type { CoachingTarget } from "./coachingTarget"
 
 export const SKILL_EVIDENCE_THRESHOLDS = {
     interruptionMaxMs: 2_000,
@@ -51,15 +53,6 @@ export const SKILL_EVIDENCE_THRESHOLDS = {
     materialImpactMsPer1000: 25,
     oldestVolumeWeight: 0.5,
 } as const
-
-export type CoachingTarget =
-    | { kind: "key", keys: string[], metric: "accuracy" | "latency" }
-    | { kind: "transition", pair: string, metric: "latency" | "accuracy" }
-    | { kind: "gram", gram: string }
-    | { kind: "word", words: string[], sharedGram?: string }
-    | { kind: "movement", movement: MovementKind, anchors: string[] }
-    | { kind: "correction", expected: string, typed: string }
-    | { kind: "endurance", shortSeconds: number, longSeconds: number }
 
 export type SkillReason =
     | { code: "key_latency_above_baseline", key: string, observedMs: number, baselineMs: number, ratio: number }

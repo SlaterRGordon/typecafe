@@ -20,7 +20,7 @@ import {
 import { isDrillableOn } from "~/lib/drillKeys"
 import { drillFindingFromCandidate, nextDrillFinding, type DrillFinding } from "~/lib/drillProgress"
 import { statsPoolFor } from "~/lib/keyboardLayout"
-import { analyzeTypingEvidence } from "~/lib/skillEvidence"
+import type { SkillAnalysis } from "~/lib/skillEvidence"
 import { api } from "~/utils/api"
 import { useGuestEvidence } from "./useGuestEvidence"
 import { useLanguage } from "./useLanguage"
@@ -111,10 +111,29 @@ export function useDailyCoachingSession(): DailyCoaching {
         }
     }, [accentChars, guest, layout, practiceStats.data, signedIn, timelines.data, transitions.data])
 
-    const analysis = useMemo(
-        () => evidence ? analyzeTypingEvidence({ timelines: evidence.timelines, corpusWords: getWords(language) }) : null,
-        [evidence, language],
-    )
+    const [analysisState, setAnalysisState] = useState<{
+        timelines: unknown
+        language: string
+        value: SkillAnalysis
+    } | null>(null)
+    useEffect(() => {
+        let active = true
+        if (evidence) {
+            void import("~/lib/skillEvidence").then(({ analyzeTypingEvidence }) => {
+                if (active) {
+                    setAnalysisState({
+                        timelines: evidence.timelines,
+                        language,
+                        value: analyzeTypingEvidence({ timelines: evidence.timelines, corpusWords: getWords(language) }),
+                    })
+                }
+            })
+        }
+        return () => { active = false }
+    }, [evidence, language])
+    const analysis = analysisState?.timelines === evidence?.timelines && analysisState?.language === language
+        ? analysisState.value
+        : null
 
     const finding = useMemo(
         () => evidence
@@ -126,7 +145,7 @@ export function useDailyCoachingSession(): DailyCoaching {
 
     const evidenceLoading = authStatus === "loading" || !accentChars || (signedIn
         ? practiceStats.isLoading || transitions.isLoading || timelines.isLoading
-        : guest === null || !guest.timelinesLoaded)
+        : guest === null || !guest.timelinesLoaded) || (evidence !== null && analysis === null)
     const remoteLoading = signedIn && remote.isLoading
 
     useEffect(() => {

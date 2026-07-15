@@ -648,15 +648,15 @@ geometry; unmatched short/long Tests produce no endurance claim.
 
 ### 7. Target-general Drill and Check compilation
 
-- [ ] Expand the domain Target and legacy query parser without breaking existing
+- [x] Expand the domain Target and legacy query parser without breaking existing
       key, Transition, word, and re-measure links.
-- [ ] Make `compileDrillText` accept Target plus acquisition/Transfer/Cold policy.
-- [ ] Guarantee sample quotas and novel carrier words for checks.
-- [ ] Give acquisition and varied checks different density caps.
-- [ ] Add accuracy policy for inaccurate Transition/correction Targets.
-- [ ] Add movement carriers using several concrete sequences.
-- [ ] Add matched endurance handoff to the normal Test surface.
-- [ ] Ensure every returned Target can compile content and an action.
+- [x] Make `compileDrillText` accept Target plus acquisition/Transfer/Cold policy.
+- [x] Guarantee sample quotas and novel carrier words for checks.
+- [x] Give acquisition and varied checks different density caps.
+- [x] Add accuracy policy for inaccurate Transition/correction Targets.
+- [x] Add movement carriers using several concrete sequences.
+- [x] Add matched endurance handoff to the normal Test surface.
+- [x] Ensure every returned Target can compile content and an action.
 
 **Acceptance:** acquisition saturates; Transfer/Cold use unseen, natural-looking
 carriers with qualified samples; reload preserves frozen Target/policy.

@@ -11,6 +11,7 @@ import { baseTypeLanguage } from "~/lib/typeLanguage";
 import { api } from "~/utils/api";
 import { TestModes } from "~/components/typer/types";
 import type { ShareableScore } from "./ShareableScoreCard";
+import { targetAction } from "~/lib/coachingTarget";
 
 interface HigherOrderResultFindingProps {
   score: ShareableScore;
@@ -122,7 +123,7 @@ export function HigherOrderResultFinding({
           Across recent natural typing, recurring hard words share <span className="font-mono font-bold">{target.sharedGram}</span>: {words.join(", ")}.
         </>
       : <>Across recent natural typing, a hard word recurred: <span className="font-mono font-bold">{words[0]}</span>.</>;
-  const href = `/drill?words=${words.map(encodeURIComponent).join(",")}`;
+  const href = targetAction(target, "acquisition", { seenWords: words }).href;
 
   return (
     <ul data-testid="diagnosis-higher-order" className="flex flex-col gap-3">
