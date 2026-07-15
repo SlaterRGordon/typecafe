@@ -635,13 +635,13 @@ its pairs; a one-off slow word cannot become a Finding.
 
 ### 6. Movement and endurance evidence
 
-- [ ] Add prescribed movement classification behind `keyboardLayout.ts`: hand,
+- [x] Add prescribed movement classification behind `keyboardLayout.ts`: hand,
       assigned finger, row change, same-finger, reach, and roll direction.
-- [ ] Require four concrete sequences for a movement candidate.
-- [ ] Say "this movement" or "these keys," never claim an observed finger.
-- [ ] Add matched Test-family endurance and punctuation/capital/number costs.
-- [ ] Keep language, pool, Test kind, and options fixed in comparisons.
-- [ ] Defer key-up/hold/overlap capture as a later upgrade.
+- [x] Require four concrete sequences for a movement candidate.
+- [x] Say "this movement" or "these keys," never claim an observed finger.
+- [x] Add matched Test-family endurance and punctuation/capital/number costs.
+- [x] Keep language, pool, Test kind, and options fixed in comparisons.
+- [x] Defer key-up/hold/overlap capture as a later upgrade.
 
 **Acceptance:** QWERTY and Colemak classify the same text through their own
 geometry; unmatched short/long Tests produce no endurance claim.

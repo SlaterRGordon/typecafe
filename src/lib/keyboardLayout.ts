@@ -30,6 +30,31 @@ export interface Board {
     readonly rows: ReadonlyArray<readonly KeyCap[]>
 }
 
+export type Hand = "left" | "right"
+export type AssignedFinger = "pinky" | "ring" | "middle" | "index"
+export type RollDirection = "inward" | "outward" | "none"
+export type MovementKind = "same-finger" | "row-reach" | "inward-roll" | "outward-roll"
+
+export interface PrescribedKeyPosition {
+    readonly row: number
+    readonly column: number
+    readonly hand: Hand
+    readonly assignedFinger: AssignedFinger
+}
+
+// Layout geometry describes the conventional assignment, never which finger a
+// person actually used. `kind` is the mutually-exclusive coaching class; the
+// remaining fields retain the concrete geometry for diagnostics and tests.
+export interface MovementClassification {
+    readonly from: PrescribedKeyPosition
+    readonly to: PrescribedKeyPosition
+    readonly rowChange: number
+    readonly sameFinger: boolean
+    readonly reach: boolean
+    readonly roll: RollDirection
+    readonly kind: MovementKind | null
+}
+
 // One keystroke of a teaching sequence: which physical key (named by its base
 // glyph) plus the modifiers held. `dead` marks a dead-key press awaiting the
 // next stroke - the board renders those as numbered steps.
@@ -290,6 +315,7 @@ interface Geometry {
     readonly deadToComposed: Map<string, string[]>
     // Direct and dead-composed chars → keystroke sequence.
     readonly charToSteps: Map<string, Step[]>
+    readonly positionByBase: Map<string, PrescribedKeyPosition>
 }
 
 const LAYER_MODS: Record<Layer, Pick<Step, "shift" | "altgr">> = {
@@ -306,9 +332,15 @@ function buildGeometry(id: string, spec: LayoutSpec): Geometry {
     const composedToKey = new Map<string, string>()
     const deadToComposed = new Map<string, string[]>()
     const charToSteps = new Map<string, Step[]>()
+    const positionByBase = new Map<string, PrescribedKeyPosition>()
 
-    for (const row of board.rows) {
-        for (const cap of row) {
+    board.rows.forEach((row, rowIndex) => {
+        const hasLeadingNumberKey = rowIndex === 0 && !/^\d$/u.test(row[0]?.base ?? "") && /^\d$/u.test(row[1]?.base ?? "")
+        const isoBottomOffset = rowIndex === 3 && board.shape === "iso" ? 1 : 0
+        row.forEach((cap, capIndex) => {
+            const column = capIndex - (hasLeadingNumberKey || isoBottomOffset ? 1 : 0)
+            const { hand, assignedFinger } = prescribedAssignment(column)
+            positionByBase.set(cap.base, { row: rowIndex, column, hand, assignedFinger })
             if (!capByBase.has(cap.base)) capByBase.set(cap.base, cap)
             for (const layer of LAYERS) {
                 const glyph = cap[layer]
@@ -322,8 +354,8 @@ function buildGeometry(id: string, spec: LayoutSpec): Geometry {
                     charToSteps.set(glyph, [{ key: cap.base, ...LAYER_MODS[layer] }])
                 }
             }
-        }
-    }
+        })
+    })
 
     // Dead-key composition: every composable char gets a two-step sequence
     // (dead press, then base) and folds onto the dead key's cell. Direct keys
@@ -347,7 +379,18 @@ function buildGeometry(id: string, spec: LayoutSpec): Geometry {
         }
     }
 
-    return { board, capByBase, charToKey, composedToKey, deadToComposed, charToSteps }
+    return { board, capByBase, charToKey, composedToKey, deadToComposed, charToSteps, positionByBase }
+}
+
+function prescribedAssignment(column: number): Pick<PrescribedKeyPosition, "hand" | "assignedFinger"> {
+    if (column <= 0) return { hand: "left", assignedFinger: "pinky" }
+    if (column === 1) return { hand: "left", assignedFinger: "ring" }
+    if (column === 2) return { hand: "left", assignedFinger: "middle" }
+    if (column <= 4) return { hand: "left", assignedFinger: "index" }
+    if (column <= 6) return { hand: "right", assignedFinger: "index" }
+    if (column === 7) return { hand: "right", assignedFinger: "middle" }
+    if (column === 8) return { hand: "right", assignedFinger: "ring" }
+    return { hand: "right", assignedFinger: "pinky" }
 }
 
 const GEOMETRY: Record<string, Geometry> = Object.fromEntries(
@@ -422,6 +465,41 @@ export function sequenceFor(char: string, layout: string): Step[] {
         }
     }
     return []
+}
+
+const FINGER_RANK: Record<AssignedFinger, number> = {
+    pinky: 0,
+    ring: 1,
+    middle: 2,
+    index: 3,
+}
+
+export function classifyMovement(fromChar: string, toChar: string, layout: string): MovementClassification | null {
+    const geometry = geometryFor(layout)
+    const fromKey = keyFor(fromChar, layout)
+    const toKey = keyFor(toChar, layout)
+    if (!fromKey || !toKey || fromKey === " " || toKey === " ") return null
+    const from = geometry.positionByBase.get(fromKey)
+    const to = geometry.positionByBase.get(toKey)
+    if (!from || !to) return null
+
+    const rowChange = to.row - from.row
+    const sameHand = from.hand === to.hand
+    const sameFinger = sameHand && from.assignedFinger === to.assignedFinger
+    const reach = rowChange !== 0
+    const rankChange = FINGER_RANK[to.assignedFinger] - FINGER_RANK[from.assignedFinger]
+    const roll: RollDirection = !sameHand || rankChange === 0
+        ? "none"
+        : rankChange > 0 ? "inward" : "outward"
+    const kind: MovementKind | null = sameFinger
+        ? "same-finger"
+        : reach
+            ? "row-reach"
+            : roll === "inward"
+                ? "inward-roll"
+                : roll === "outward" ? "outward-roll" : null
+
+    return { from, to, rowChange, sameFinger, reach, roll, kind }
 }
 
 // The storage dimension for per-key/transition/train aggregates (ledger

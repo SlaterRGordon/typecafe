@@ -104,6 +104,27 @@ function correctionTimeline(testId: number, episodes: number): TimelineEvidence 
     return { ...pairTimeline(testId, [], "natural"), timeline: encodeTimeline([...events, ...decodedNormal]), completedAt: 1_752_500_000_000 + testId + offset }
 }
 
+function timedRun(
+    testId: number,
+    seconds: number,
+    netWpm: number,
+    options: Partial<Pick<TimelineEvidence, "punctuation" | "capitals" | "numbers" | "language" | "pool" | "options">> = {},
+): TimelineEvidence {
+    const characterCount = Math.round(netWpm * 5 * seconds / 60)
+    const phrase = "the quick brown fox jumps over the lazy dog "
+    const events: TestEvidenceEvent[] = []
+    for (let index = 0; index < characterCount; index += 1) {
+        const key = phrase[index % phrase.length]!
+        events.push({ key, typed: key, correct: true, t: index * 20 })
+    }
+    return {
+        ...pairTimeline(testId, []),
+        count: seconds,
+        ...options,
+        timeline: encodeTimeline(events),
+    }
+}
+
 describe("analyzeTypingEvidence", () => {
     it("ranks common cost above rarer raw slowness", () => {
         const timelines = [1, 2].map((testId) => pairTimeline(testId, [
@@ -303,5 +324,72 @@ describe("analyzeTypingEvidence", () => {
         expect(grams.some((candidate) => candidate.id === "gram:3:𝕒bc")).toBe(true)
         expect(grams.filter((candidate) => candidate.target.kind === "gram").length)
             .toBeLessThanOrEqual(16)
+    })
+
+    it("requires four concrete sequences before reporting a slow prescribed movement", () => {
+        const movements = [
+            { pair: "fr", gap: 170, repeats: 8 },
+            { pair: "de", gap: 170, repeats: 8 },
+            { pair: "sw", gap: 170, repeats: 8 },
+            { pair: "aq", gap: 170, repeats: 8 },
+        ]
+        const timelines = [1, 2].map((testId) => pairTimeline(testId, [...baseline(100), ...movements]))
+        const candidate = analyzeTypingEvidence({ timelines }).candidates
+            .find((item) => item.id === "movement:same-finger")
+
+        expect(candidate).toMatchObject({
+            target: { kind: "movement", movement: "same-finger" },
+            sampleCount: 64,
+            reason: { code: "movement_latency_high" },
+        })
+        expect(candidate?.target.kind === "movement" ? candidate.target.anchors : []).toHaveLength(4)
+
+        const thin = [1, 2].map((testId) => pairTimeline(testId, [...baseline(100), ...movements.slice(0, 3)]))
+        expect(analyzeTypingEvidence({ timelines: thin }).candidates.some((item) => item.target.kind === "movement")).toBe(false)
+    })
+
+    it("derives endurance only from matched short and long Test families", () => {
+        const matched = [
+            ...[1, 2, 3].map((id) => timedRun(id, 30, 60)),
+            ...[4, 5, 6].map((id) => timedRun(id, 60, 45)),
+        ]
+        const endurance = analyzeTypingEvidence({ timelines: matched }).candidates
+            .find((item) => item.target.kind === "endurance")
+
+        expect(endurance).toMatchObject({
+            target: { kind: "endurance", shortSeconds: 30, longSeconds: 60 },
+            metric: "wpm",
+            observed: 45,
+            baseline: 60,
+            reason: { code: "endurance_fade", gapWpm: 15 },
+        })
+
+        const unmatched = [
+            ...matched.slice(0, 3),
+            timedRun(4, 60, 45, { options: "different-family" }),
+            timedRun(5, 60, 45, { language: "french" }),
+            timedRun(6, 60, 45, { pool: "colemak" }),
+        ]
+        expect(analyzeTypingEvidence({ timelines: unmatched }).candidates.some((item) => item.target.kind === "endurance")).toBe(false)
+    })
+
+    it("computes punctuation, capital, and number costs only from matched families", () => {
+        const timelines: TimelineEvidence[] = []
+        let id = 1
+        for (const kind of ["punctuation", "capitals", "numbers"] as const) {
+            for (let repeat = 0; repeat < 3; repeat += 1) {
+                timelines.push(timedRun(id++, 30, 60, { options: kind }))
+                timelines.push(timedRun(id++, 30, kind === "punctuation" ? 48 : kind === "capitals" ? 50 : 52, {
+                    options: kind,
+                    [kind]: true,
+                }))
+            }
+        }
+
+        expect(analyzeTypingEvidence({ timelines }).testFamilyCosts).toEqual([
+            expect.objectContaining({ kind: "punctuation", gapWpm: 12, baselineTests: 3, enabledTests: 3 }),
+            expect.objectContaining({ kind: "capitals", gapWpm: 10, baselineTests: 3, enabledTests: 3 }),
+            expect.objectContaining({ kind: "numbers", gapWpm: 8, baselineTests: 3, enabledTests: 3 }),
+        ])
     })
 })

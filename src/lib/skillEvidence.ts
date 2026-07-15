@@ -6,7 +6,9 @@ import { correctionEpisodes } from "./corrections"
 import { discoversWeakness, type EvidenceContext } from "./evidenceContext"
 import type { TimelineEvidence } from "./evidenceNormalization"
 import { isTrackableTransitionPair } from "./drillableTransitions"
-import { decodeEvidenceTimeline, type KeystrokeEvent, type TestEvidenceEvent } from "./keystrokes"
+import { decodeEvidenceTimeline, timelineDurationMs, type KeystrokeEvent, type TestEvidenceEvent } from "./keystrokes"
+import { classifyMovement, type MovementKind } from "./keyboardLayout"
+import { evaluateTestEvidence } from "./testEvidence"
 
 export const SKILL_EVIDENCE_THRESHOLDS = {
     interruptionMaxMs: 2_000,
@@ -34,6 +36,14 @@ export const SKILL_EVIDENCE_THRESHOLDS = {
     maxGramCandidatesPerSize: 8,
     maxWordCandidates: 8,
     maxTargetWords: 6,
+    movementMinSamples: 30,
+    movementMinSequences: 4,
+    enduranceMinTestsPerLength: 3,
+    enduranceShortMaxSeconds: 30,
+    enduranceLongMinSeconds: 60,
+    enduranceMinGapWpm: 1,
+    optionCostMinTests: 3,
+    optionCostMinGapWpm: 1,
     correctionMinErrors: 3,
     correctionMinTests: 2,
     correctionFallbackLatencyMultiplier: 3,
@@ -47,7 +57,7 @@ export type CoachingTarget =
     | { kind: "transition", pair: string, metric: "latency" | "accuracy" }
     | { kind: "gram", gram: string }
     | { kind: "word", words: string[], sharedGram?: string }
-    | { kind: "movement", movement: string, anchors: string[] }
+    | { kind: "movement", movement: MovementKind, anchors: string[] }
     | { kind: "correction", expected: string, typed: string }
     | { kind: "endurance", shortSeconds: number, longSeconds: number }
 
@@ -59,6 +69,8 @@ export type SkillReason =
     | { code: "correction_confusion_recurs", expected: string, typed: string, errors: number, errorRatePct: number }
     | { code: "gram_internal_latency_high", gram: string, observedMs: number, baselineMs: number, excessMs: number, carrierWords: string[] }
     | { code: "word_internal_latency_high", words: string[], observedMs: number, baselineMs: number, sharedGram?: string }
+    | { code: "movement_latency_high", movement: MovementKind, observedMs: number, baselineMs: number, anchors: string[] }
+    | { code: "endurance_fade", shortSeconds: number, longSeconds: number, shortWpm: number, longWpm: number, gapWpm: number }
 
 export interface AcquisitionResponse {
     context: "acquisition"
@@ -69,7 +81,7 @@ export interface AcquisitionResponse {
 export interface SkillCandidate {
     id: string
     target: CoachingTarget
-    metric: "ms" | "%"
+    metric: "ms" | "%" | "wpm"
     direction: "lower" | "higher"
     observed: number
     baseline: number
@@ -116,6 +128,16 @@ export interface SkillAnalysis {
     recommendation: SkillCandidate | null
     mastery: MasteryRecord[]
     recap: SkillRecap
+    testFamilyCosts: TestFamilyCost[]
+}
+
+export interface TestFamilyCost {
+    kind: "punctuation" | "capitals" | "numbers"
+    baselineWpm: number
+    enabledWpm: number
+    gapWpm: number
+    baselineTests: number
+    enabledTests: number
 }
 
 export interface SkillEvidenceInput {
@@ -135,6 +157,8 @@ interface ArrivalSample {
     word: string
     context: EvidenceContext
     recencyWeight: number
+    movement: MovementKind | null
+    sequence: string
 }
 
 interface AttemptSample {
@@ -405,6 +429,7 @@ function prepareEvidence(timelines: readonly TimelineEvidence[]): PreparedEviden
                 else {
                     const predecessor = normalizedKey(previous.key)
                     const pair = predecessor + key
+                    const movement = classifyMovement(predecessor, key, timeline.layout)?.kind ?? null
                     arrivals.push({
                         key,
                         predecessor,
@@ -415,6 +440,8 @@ function prepareEvidence(timelines: readonly TimelineEvidence[]): PreparedEviden
                         word: wordByEvent.get(event) ?? "",
                         context,
                         recencyWeight,
+                        movement,
+                        sequence: pair,
                     })
                 }
             }
@@ -850,6 +877,190 @@ function higherOrderCandidates(
     return candidates
 }
 
+interface NaturalRunSample {
+    testId: number
+    count: number
+    mode: number
+    subMode: number
+    options: string
+    punctuation: boolean
+    capitals: boolean
+    numbers: boolean
+    language: string
+    pool: string
+    netWpm: number
+}
+
+function naturalRunSamples(timelines: readonly TimelineEvidence[]): NaturalRunSample[] {
+    const runs: NaturalRunSample[] = []
+    timelines.forEach((timeline, testId) => {
+        if (timeline.context !== "natural" || timeline.mode !== 0) return
+        const durationSeconds = timeline.subMode === 0
+            ? timeline.count
+            : timelineDurationMs(timeline.timeline) / 1_000
+        if (durationSeconds <= 0) return
+        const netWpm = evaluateTestEvidence({
+            timeline: timeline.timeline,
+            durationSeconds,
+            eligibleForRanking: false,
+        }).netWpm
+        if (!Number.isFinite(netWpm) || netWpm <= 0) return
+        runs.push({
+            testId,
+            count: timeline.count,
+            mode: timeline.mode,
+            subMode: timeline.subMode,
+            options: timeline.options,
+            punctuation: timeline.punctuation,
+            capitals: timeline.capitals,
+            numbers: timeline.numbers,
+            language: timeline.language,
+            pool: timeline.pool,
+            netWpm,
+        })
+    })
+    return runs
+}
+
+function runFamilyKey(run: NaturalRunSample, omitted?: TestFamilyCost["kind"] | "count"): string {
+    return JSON.stringify([
+        run.language,
+        run.pool,
+        run.mode,
+        run.subMode,
+        omitted === "count" ? null : run.count,
+        run.options,
+        omitted === "punctuation" ? null : run.punctuation,
+        omitted === "capitals" ? null : run.capitals,
+        omitted === "numbers" ? null : run.numbers,
+    ])
+}
+
+function matchedRunEvidence(timelines: readonly TimelineEvidence[], evidence: PreparedEvidence): {
+    candidates: SkillCandidate[]
+    testFamilyCosts: TestFamilyCost[]
+} {
+    const runs = naturalRunSamples(timelines)
+    const candidates: SkillCandidate[] = []
+    const enduranceFamilies = grouped(
+        runs.filter((run) => run.subMode === 0),
+        (run) => runFamilyKey(run, "count"),
+    )
+    for (const family of enduranceFamilies.values()) {
+        const bySeconds = grouped(family, (run) => String(run.count))
+        const shortLengths = [...bySeconds.keys()].map(Number).filter((seconds) => seconds <= SKILL_EVIDENCE_THRESHOLDS.enduranceShortMaxSeconds)
+        const longLengths = [...bySeconds.keys()].map(Number).filter((seconds) => seconds >= SKILL_EVIDENCE_THRESHOLDS.enduranceLongMinSeconds)
+        for (const shortSeconds of shortLengths) {
+            const short = bySeconds.get(String(shortSeconds)) ?? []
+            if (short.length < SKILL_EVIDENCE_THRESHOLDS.enduranceMinTestsPerLength) continue
+            for (const longSeconds of longLengths) {
+                const long = bySeconds.get(String(longSeconds)) ?? []
+                if (long.length < SKILL_EVIDENCE_THRESHOLDS.enduranceMinTestsPerLength) continue
+                const shortWpm = median(short.map((run) => run.netWpm))
+                const longWpm = median(long.map((run) => run.netWpm))
+                const gapWpm = shortWpm - longWpm
+                if (gapWpm < SKILL_EVIDENCE_THRESHOLDS.enduranceMinGapWpm || longWpm <= 0) continue
+                const candidateConfidence = clamp01(Math.min(short.length, long.length) / (SKILL_EVIDENCE_THRESHOLDS.enduranceMinTestsPerLength * 2))
+                const impactMsPer1000 = (12_000_000 / longWpm - 12_000_000 / shortWpm) * candidateConfidence
+                const candidate = createCandidate({
+                    id: `endurance:${shortSeconds}:${longSeconds}:${runFamilyKey(short[0]!, "count")}`,
+                    target: { kind: "endurance", shortSeconds, longSeconds },
+                    metric: "wpm",
+                    direction: "higher",
+                    observed: longWpm,
+                    baseline: shortWpm,
+                    sampleCount: short.length + long.length,
+                    distinctTests: distinct([...short, ...long].map((run) => run.testId)),
+                    distinctWords: 0,
+                    frequencyPer1000: 1,
+                    confidence: candidateConfidence,
+                    recencyWeight: 1,
+                    impactMsPer1000,
+                    reason: { code: "endurance_fade", shortSeconds, longSeconds, shortWpm, longWpm, gapWpm },
+                }, evidence)
+                if (candidate) candidates.push(candidate)
+            }
+        }
+    }
+
+    const testFamilyCosts: TestFamilyCost[] = []
+    for (const kind of ["punctuation", "capitals", "numbers"] as const) {
+        const families = grouped(runs, (run) => runFamilyKey(run, kind))
+        for (const family of families.values()) {
+            const baseline = family.filter((run) => !run[kind])
+            const enabled = family.filter((run) => run[kind])
+            if (
+                baseline.length < SKILL_EVIDENCE_THRESHOLDS.optionCostMinTests ||
+                enabled.length < SKILL_EVIDENCE_THRESHOLDS.optionCostMinTests
+            ) continue
+            const baselineWpm = median(baseline.map((run) => run.netWpm))
+            const enabledWpm = median(enabled.map((run) => run.netWpm))
+            const gapWpm = baselineWpm - enabledWpm
+            if (gapWpm < SKILL_EVIDENCE_THRESHOLDS.optionCostMinGapWpm) continue
+            testFamilyCosts.push({
+                kind,
+                baselineWpm,
+                enabledWpm,
+                gapWpm,
+                baselineTests: baseline.length,
+                enabledTests: enabled.length,
+            })
+        }
+    }
+    testFamilyCosts.sort((a, b) => b.gapWpm - a.gapWpm || a.kind.localeCompare(b.kind))
+    return { candidates, testFamilyCosts }
+}
+
+function movementCandidates(evidence: PreparedEvidence, arrivals: readonly ArrivalSample[], baselineMs: number): SkillCandidate[] {
+    if (baselineMs <= 0) return []
+    const candidates: SkillCandidate[] = []
+    const byMovement = grouped(arrivals.filter((sample) => sample.movement !== null), (sample) => sample.movement!)
+    for (const [rawMovement, samples] of byMovement) {
+        const movement = rawMovement as MovementKind
+        const sequences = grouped(samples, (sample) => sample.sequence)
+        if (
+            samples.length < SKILL_EVIDENCE_THRESHOLDS.movementMinSamples ||
+            sequences.size < SKILL_EVIDENCE_THRESHOLDS.movementMinSequences
+        ) continue
+        const observedMs = median(samples.map((sample) => sample.dtMs))
+        if (
+            observedMs - baselineMs < SKILL_EVIDENCE_THRESHOLDS.latencyNoiseFloorMs ||
+            observedMs / baselineMs < SKILL_EVIDENCE_THRESHOLDS.transitionLatencyMinRatio
+        ) continue
+        const anchors = [...sequences]
+            .sort((a, b) => median(b[1].map((sample) => sample.dtMs)) - median(a[1].map((sample) => sample.dtMs)) || a[0].localeCompare(b[0]))
+            .slice(0, SKILL_EVIDENCE_THRESHOLDS.maxTargetWords)
+            .map(([sequence]) => sequence)
+        const candidateConfidence = confidence(
+            samples.length,
+            SKILL_EVIDENCE_THRESHOLDS.movementMinSamples,
+            sequences.size,
+            SKILL_EVIDENCE_THRESHOLDS.movementMinSequences,
+        )
+        const naturalSamples = samples.filter((sample) => sample.context === "natural")
+        const frequency = frequencyPer1000(naturalSamples.length || samples.length, evidence.frequencyCharacters)
+        const recencyWeight = sampleRecency(samples)
+        const candidate = createCandidate({
+            id: `movement:${movement}`,
+            target: { kind: "movement", movement, anchors },
+            metric: "ms",
+            direction: "lower",
+            observed: observedMs,
+            baseline: baselineMs,
+            sampleCount: samples.length,
+            distinctTests: distinct(samples.map((sample) => sample.testId)),
+            distinctWords: distinct(samples.map((sample) => sample.word).filter(Boolean)),
+            frequencyPer1000: frequency,
+            confidence: candidateConfidence,
+            recencyWeight,
+            impactMsPer1000: (observedMs - baselineMs) * frequency * candidateConfidence * recencyWeight,
+            reason: { code: "movement_latency_high", movement, observedMs, baselineMs, anchors },
+        }, evidence)
+        if (candidate) candidates.push(candidate)
+    }
+    return candidates
+}
+
 export function analyzeTypingEvidence(input: SkillEvidenceInput): SkillAnalysis {
     const evidence = prepareEvidence(input.timelines)
     const discoveryArrivals = evidence.arrivals.filter((sample) => discoversWeakness(sample.context))
@@ -862,8 +1073,11 @@ export function analyzeTypingEvidence(input: SkillEvidenceInput): SkillAnalysis 
         ? median(discoveryCorrections.map((sample) => sample.costMs))
         : baselineMs * SKILL_EVIDENCE_THRESHOLDS.correctionFallbackLatencyMultiplier
     const candidates: SkillCandidate[] = []
+    const matchedRuns = matchedRunEvidence(input.timelines, evidence)
 
     candidates.push(...higherOrderCandidates(evidence, baselineMs, input.corpusWords ?? []))
+    candidates.push(...movementCandidates(evidence, discoveryArrivals, baselineMs))
+    candidates.push(...matchedRuns.candidates)
 
     const arrivalsByKey = grouped(discoveryArrivals.filter((sample) => isTargetableKey(sample.key)), (sample) => sample.key)
     const attemptsByKey = grouped(discoveryAttempts.filter((sample) => isTargetableKey(sample.key)), (sample) => sample.key)
@@ -1051,5 +1265,6 @@ export function analyzeTypingEvidence(input: SkillEvidenceInput): SkillAnalysis 
         recommendation: candidates[0] ?? null,
         mastery: [],
         recap: { retained: [], due: null, regressed: null },
+        testFamilyCosts: matchedRuns.testFamilyCosts,
     }
 }
