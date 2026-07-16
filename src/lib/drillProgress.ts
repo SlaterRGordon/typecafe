@@ -121,7 +121,8 @@ export interface DrillDelta {
     label: string
     before: number
     after: number
-    unit: "ms" | "%"
+    unit: "ms" | "%" | "wpm"
+    direction?: "lower" | "higher"
     improved: boolean
 }
 

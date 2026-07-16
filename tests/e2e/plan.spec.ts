@@ -32,12 +32,18 @@ function fastSession(options: { baselineDone?: boolean, yesterday?: YesterdayOut
   })
   session = {
     ...session,
-    steps: session.steps.map((step) => step.kind === "focus" || step.kind === "recheck"
-      ? { ...step, href: `${step.href.split("&length=")[0]}&length=4` }
+    steps: session.steps.map((step) => step.kind === "focus" || step.kind === "recheck" || step.kind === "transfer"
+      ? { ...step, href: `${step.href.split("&length=")[0]}&length=${step.kind === "focus" ? 4 : 20}` }
       : step),
   }
   if (options.baselineDone) {
-    session = recordDailySet(session, session.steps[0]!.id, { netWpm: 60, accuracy: 95, completedAt: Date.now() })
+    const cold = session.steps.find((step) => step.kind === "recheck")
+    if (cold) session = recordDailySet(session, cold.id, {
+      netWpm: 60, accuracy: 95, completedAt: Date.now(), targetSamples: 6,
+      targetDelta: { label: options.yesterday!.label, before: options.yesterday!.before, after: options.yesterday!.after, unit: options.yesterday!.unit, improved: true },
+    })
+    const baseline = session.steps.find((step) => step.kind === "baseline")!
+    session = recordDailySet(session, baseline.id, { netWpm: 60, accuracy: 95, completedAt: Date.now() })
   }
   return session
 }
@@ -64,9 +70,10 @@ test.describe("daily coaching", () => {
 
     await expect(page.getByRole("heading", { name: "Today's coaching" })).toBeVisible()
     await expect(page.getByText(/b→r transition is .* slower/)).toBeVisible()
-    const prescription = page.getByRole("region", { name: "Warm up → focus sets" })
-    await expect(prescription.getByText("Warm up: 30-second Test")).toBeVisible()
-    await expect(prescription.getByText("Loosen b→r")).toBeVisible()
+    const prescription = page.getByRole("region", { name: "Cold if due → measure → acquire → Transfer" })
+    await expect(prescription.getByText("Warm measure: 30-second Test")).toBeVisible()
+    await expect(prescription.getByText("Acquire b→r")).toBeVisible()
+    await expect(prescription.getByText("Transfer b→r")).toBeVisible()
     // The warm-up runs on the real Test surface, not a special mode.
     await expect(page.getByTestId("daily-session-start")).toHaveAttribute("href", "/?mode=timed&count=30")
     await expect(page.getByRole("button", { name: /skip/i })).toHaveCount(0)
@@ -87,9 +94,9 @@ test.describe("daily coaching", () => {
     await mockTrpc(page, { coachingSession: fastSession({ baselineDone: true }) })
     await page.goto("/plan")
 
-    await expect(page.getByTestId("daily-session-active")).toContainText("1/2 steps")
+    await expect(page.getByTestId("daily-session-active")).toContainText("1/3 steps")
     await expect(page.getByTestId("daily-session-start")).toContainText("Resume session")
-    await expect(page.getByTestId("daily-session-active")).toContainText("Loosen b→r")
+    await expect(page.getByTestId("daily-session-active")).toContainText("Acquire b→r")
   })
 
   test("adopts the guest session into the account on sign in and clears the guest mirror", async ({ page }) => {
@@ -120,8 +127,8 @@ test.describe("daily coaching", () => {
     // An adopted measure skips the generic score card and lands on the daily
     // hub, which shows the recorded warm-up and the next step.
     await expect(page).toHaveURL(/\/plan$/)
-    await expect(page.getByTestId("daily-session-active")).toContainText("1/2 steps")
-    await expect(page.getByTestId("daily-session-active")).toContainText("Loosen b→r")
+    await expect(page.getByTestId("daily-session-active")).toContainText("1/3 steps")
+    await expect(page.getByTestId("daily-session-active")).toContainText("Acquire b→r")
     const stored = await storedSessions(page, GUEST_DAILY_SCOPE)
     expect(stored[0]?.currentStepIndex).toBe(1)
     expect(stored[0]?.steps[0]?.sets).toHaveLength(1)
@@ -145,7 +152,13 @@ test.describe("daily coaching", () => {
     await expect(page.getByTestId("drill-typer")).toBeVisible()
     await typeVisibleTestText(page)
 
-    await expect(strip).toContainText("set 3 of up to 3")
+    await expect(page.getByTestId("daily-session-continue")).toContainText("Next: Transfer b→r")
+      .catch(async () => {
+        await page.getByTestId("daily-session-continue").click()
+        await expect(page.getByTestId("drill-typer")).toBeVisible()
+        await typeVisibleTestText(page)
+        await expect(page.getByTestId("daily-session-continue")).toContainText("Next: Transfer b→r")
+      })
     await page.getByTestId("daily-session-continue").click()
     await expect(page.getByTestId("drill-typer")).toBeVisible()
     await typeVisibleTestText(page)
@@ -159,11 +172,11 @@ test.describe("daily coaching", () => {
 
     // The done card leads with the target metric measured across the sets.
     await page.getByTestId("daily-session-continue").click()
-    await expect(page.getByTestId("daily-session-complete")).toContainText("b→r · baseline → best set")
+    await expect(page.getByTestId("daily-session-complete")).toContainText("b→r · baseline → Transfer")
     await expect(page.getByTestId("daily-proof")).toContainText(/ms → \d+ms/)
   })
 
-  test("a slow-transition day with weak keys prescribes both levers", async ({ page }) => {
+  test("an Impact-ranked day keeps one primary Target", async ({ page }) => {
     await mockAuthenticatedSession(page)
     await mockTrpc(page, {
       keyStats: [
@@ -174,9 +187,9 @@ test.describe("daily coaching", () => {
     })
     await page.goto("/plan")
 
-    const prescription = page.getByRole("region", { name: "Warm up → focus sets" })
-    await expect(prescription.getByText("Loosen b→r")).toBeVisible()
-    await expect(prescription.getByText("Clean up q z")).toBeVisible()
+    const prescription = page.getByRole("region", { name: "Cold if due → measure → acquire → Transfer" })
+    await expect(prescription.getByText("Acquire b→r")).toBeVisible()
+    await expect(prescription.getByText("Clean up q z")).toHaveCount(0)
     await expect(page.getByTestId("daily-session-active")).toContainText("0/3 steps")
   })
 
@@ -185,25 +198,23 @@ test.describe("daily coaching", () => {
     // recheck→focus handoff is a client-side nav within /drill; it must reset
     // the completed card instead of showing the recheck's result on the focus.
     const yesterday: YesterdayOutcome = {
-      label: "q z", target: { kind: "keys", keys: ["q", "z"] }, unit: "%", before: 82, after: 91,
+      label: "q z", target: { kind: "key", keys: ["q", "z"], metric: "accuracy" }, unit: "%", before: 82, after: 91, minimumChange: 1,
     }
-    const session = fastSession({ baselineDone: true, yesterday })
-    expect(session.steps.map((step) => step.kind)).toEqual(["baseline", "recheck", "focus"])
+    const session = fastSession({ yesterday })
+    expect(session.steps.map((step) => step.kind)).toEqual(["recheck", "baseline", "focus", "transfer"])
     await seedSession(page, GUEST_DAILY_SCOPE, session)
     await mockTrpc(page)
 
-    await page.goto(session.steps[1]!.href)
+    await page.goto(session.steps[0]!.href)
     await expect(page.getByTestId("drill-typer")).toBeVisible()
     await typeVisibleTestText(page)
 
     const next = page.getByTestId("daily-session-continue")
-    await expect(next).toContainText("Next: Loosen b→r")
+    await expect(next).toContainText("Next: Warm measure: 30-second Test")
     await next.click()
 
-    await expect(page).toHaveURL(/transitions=br/)
-    await expect(page.getByTestId("drill-typer")).toBeVisible()
-    await expect(page.getByTestId("drill-result")).toHaveCount(0)
-    await expect(page.getByTestId("daily-session-strip")).toContainText("Step 3 of 3")
+    await expect(page).toHaveURL("http://127.0.0.1:3000/")
+    await expect(page.locator("#words .char").first()).toBeVisible()
   })
 
   test("query parameters alone cannot claim progress", async ({ page }) => {
@@ -211,7 +222,7 @@ test.describe("daily coaching", () => {
     await mockTrpc(page)
     await page.goto("/plan?step=done")
 
-    await expect(page.getByTestId("daily-session-active")).toContainText("0/2 steps")
+    await expect(page.getByTestId("daily-session-active")).toContainText("0/3 steps")
     const stored = await storedSessions(page, GUEST_DAILY_SCOPE)
     expect(stored[0]?.currentStepIndex).toBe(0)
     expect(stored[0]?.steps.every((step) => step.sets.length === 0)).toBe(true)
@@ -219,10 +230,10 @@ test.describe("daily coaching", () => {
 
   test("a completed day leads with the target metric and yesterday's cold check", async ({ page }) => {
     const yesterday: YesterdayOutcome = {
-      label: "b→r", target: { kind: "transition", pair: "br" }, unit: "ms", before: 410, after: 350,
+      label: "b→r", target: { kind: "transition", pair: "br", metric: "latency" }, unit: "ms", before: 410, after: 350, minimumChange: 10,
     }
     let session = fastSession({ baselineDone: true, yesterday })
-    const focusId = session.steps[session.steps.length - 1]!.id
+    const focusId = session.steps.find((step) => step.kind === "focus")!.id
     session = recordDailySet(session, focusId, {
       netWpm: 62, accuracy: 96, completedAt: Date.now(),
       targetDelta: { label: "b→r", before: 400, after: 340, unit: "ms", improved: true },
@@ -231,15 +242,20 @@ test.describe("daily coaching", () => {
       netWpm: 63, accuracy: 96, completedAt: Date.now(),
       targetDelta: { label: "b→r", before: 400, after: 330, unit: "ms", improved: true },
     })
+    const transferId = session.steps.find((step) => step.kind === "transfer")!.id
+    session = recordDailySet(session, transferId, {
+      netWpm: 64, accuracy: 97, completedAt: Date.now(), targetSamples: 6,
+      targetDelta: { label: "b→r", before: 400, after: 350, unit: "ms", improved: true },
+    })
     expect(session.status).toBe("completed")
     await seedSession(page, GUEST_DAILY_SCOPE, session)
     await mockTrpc(page)
     await page.goto("/plan")
 
     // Hero: the target's baseline → best set, not a global WPM delta.
-    await expect(page.getByTestId("daily-proof")).toContainText("400ms → 330ms")
+    await expect(page.getByTestId("daily-proof")).toContainText("400ms → 350ms")
     await expect(page.getByTestId("daily-cold-check")).toContainText("the change stuck")
-    await expect(page.getByTestId("daily-session-complete")).toContainText("tomorrow's cold check")
+    await expect(page.getByTestId("daily-session-complete")).toContainText("eligible for a later cold check")
     await expect(page.getByRole("link", { name: "Extra targeted practice" })).toBeVisible()
     await expect(page.getByRole("button", { name: /start day/i })).toHaveCount(0)
     // A finished day clears the coach tab - completing it clears the notification.

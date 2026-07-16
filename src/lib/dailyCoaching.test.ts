@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest"
 import {
     clearLocalDailySessions,
-    coldCheck,
     completedSetCount,
     createDailySession,
     focusProof,
@@ -13,260 +12,261 @@ import {
     previousDateKey,
     readLocalDailySession,
     recordDailySet,
+    transferProof,
     writeLocalDailySession,
     yesterdayOutcomeFrom,
     type DailyCoachingSession,
     type YesterdayOutcome,
 } from "./dailyCoaching"
-import type { TransitionAggregate } from "./transitions"
+import { measureDailyStepSet } from "./dailyCoachingMeasurement"
+import { encodeTimeline, type TestEvidenceEvent } from "./keystrokes"
 import type { SkillCandidate } from "./skillEvidence"
+import type { TransitionAggregate } from "./transitions"
 
 const context = { dateKey: "2026-07-11", pool: "qwerty", language: "english" }
-
-// r→t is 400ms vs th 150ms - a stable slow transition finding.
 const slowTransitions: TransitionAggregate[] = [
-    { pair: "rt", count: 12, totalMs: 4800, errors: 1 },
-    { pair: "th", count: 12, totalMs: 1800, errors: 0 },
+    { pair: "rt", count: 12, totalMs: 4_800, errors: 1 },
+    { pair: "th", count: 12, totalMs: 1_800, errors: 0 },
 ]
 
-const impactRecommendation: SkillCandidate = {
+const recommendation: SkillCandidate = {
     id: "transition:latency:br",
     target: { kind: "transition", pair: "br", metric: "latency" },
     metric: "ms",
     direction: "lower",
-    observed: 140,
-    baseline: 100,
+    observed: 400,
+    baseline: 150,
     sampleCount: 40,
-    distinctTests: 2,
-    distinctWords: 4,
+    distinctTests: 3,
+    distinctWords: 8,
     frequencyPer1000: 100,
-    confidence: 1,
+    confidence: 0.9,
     recencyWeight: 0.9,
     impactMsPer1000: 3_600,
-    reason: { code: "transition_latency_above_baseline", pair: "br", observedMs: 140, baselineMs: 100, ratio: 1.4 },
+    reason: { code: "transition_latency_above_baseline", pair: "br", observedMs: 400, baselineMs: 150, ratio: 400 / 150 },
 }
 
-const improvedSet = (after: number) => ({
+const set = (after: number, improved = after <= 380) => ({
     netWpm: 70,
     accuracy: 96,
-    completedAt: 200,
-    targetDelta: { label: "r→t", before: 400, after, unit: "ms" as const, improved: after < 400 },
+    completedAt: 200 + after,
+    targetSamples: 12,
+    targetDelta: { label: "b→r", before: 400, after, unit: "ms" as const, improved },
 })
 
-function targeted(yesterday?: YesterdayOutcome) {
-    return createDailySession({ ...context, attempts: new Map(), transitions: slowTransitions, yesterday, now: 100 })
+function targeted(options: { yesterday?: YesterdayOutcome, candidate?: SkillCandidate } = {}) {
+    return createDailySession({
+        ...context,
+        attempts: new Map(),
+        transitions: slowTransitions,
+        recommendation: options.candidate ?? recommendation,
+        yesterday: options.yesterday,
+        now: 100,
+    })
 }
 
 function storage(): Storage {
     const values = new Map<string, string>()
     return {
-        get length() { return values.size },
-        clear: () => values.clear(),
-        getItem: (key) => values.get(key) ?? null,
-        key: (index) => [...values.keys()][index] ?? null,
-        removeItem: (key) => { values.delete(key) },
-        setItem: (key, value) => { values.set(key, value) },
+        get length() { return values.size }, clear: () => values.clear(),
+        getItem: (key) => values.get(key) ?? null, key: (index) => [...values.keys()][index] ?? null,
+        removeItem: (key) => { values.delete(key) }, setItem: (key, value) => { values.set(key, value) },
     }
 }
 
-describe("daily coaching session", () => {
+function transitionTimeline(occurrences: number, deltaMs: number) {
+    const events: TestEvidenceEvent[] = []
+    let time = 0
+    for (let index = 0; index < occurrences; index += 1) {
+        events.push({ key: "b", typed: "b", correct: true, t: time })
+        time += deltaMs
+        events.push({ key: "r", typed: "r", correct: true, t: time })
+        time += deltaMs
+        events.push({ key: " ", typed: " ", correct: true, t: time })
+        time += deltaMs
+    }
+    return encodeTimeline(events)
+}
+
+describe("daily coaching Transfer loop", () => {
     it("computes local date keys and midnight rollover", () => {
         expect(msUntilNextLocalDate(new Date(2026, 6, 11, 23, 59, 30))).toBe(30_000)
         expect(previousDateKey("2026-07-01")).toBe("2026-06-30")
         expect(localDateKey(new Date(2026, 0, 2))).toBe("2026-01-02")
     })
 
-    it("prescribes a single calibration Test when evidence is thin", () => {
+    it("prescribes calibration only when no supported Target exists", () => {
         const session = createDailySession({ ...context, attempts: new Map(), transitions: [], now: 100 })
         expect(session.kind).toBe("calibration")
-        expect(session.steps).toHaveLength(1)
-        expect(session.steps[0]?.kind).toBe("calibration")
-        expect(session.steps[0]?.context).toBe("diagnostic")
-        expect(session.steps[0]?.href).toBe("/?mode=timed&count=60")
+        expect(session.version).toBe(3)
+        expect(session.steps.map((step) => step.context)).toEqual(["diagnostic"])
     })
 
-    it("prescribes warm-up plus focus sets for a stable slow transition", () => {
+    it("freezes the Impact recommendation and adds a distinct Transfer check", () => {
         const session = targeted()
-        expect(session.kind).toBe("targeted")
-        expect(session.reason).toContain("r→t")
-        expect(session.steps.map((step) => step.kind)).toEqual(["baseline", "focus"])
-        expect(session.steps.map((step) => step.context)).toEqual(["natural", "acquisition"])
-        expect(session.steps[0]?.href).toBe("/?mode=timed&count=30")
-        expect(session.steps[1]?.target).toEqual({ kind: "transition", pair: "rt" })
+        expect(session.steps.map((step) => step.context)).toEqual(["natural", "acquisition", "transfer"])
+        expect(session.steps.map((step) => step.kind)).toEqual(["baseline", "focus", "transfer"])
+        expect(session.prescription).toMatchObject({
+            id: recommendation.id,
+            target: recommendation.target,
+            baseline: 400,
+            weaknessThreshold: 150,
+            minimumChange: 20,
+            sampleCount: 40,
+            reasonCode: "transition_latency_above_baseline",
+        })
+        expect(session.steps[1]?.href).toContain("policy=acquisition")
+        expect(session.steps[2]?.href).toContain("policy=transfer")
+        expect(session.estimatedMinutes).toBeGreaterThanOrEqual(5)
+        expect(session.estimatedMinutes).toBeLessThanOrEqual(8)
     })
 
-    it("adds a worst-two-keys step after a transition focus", () => {
-        const attempts = new Map([
-            ["q", { attempts: 12, correct: 8 }], // 66.7% - worst
-            ["z", { attempts: 10, correct: 8 }], // 80% - second worst
-            ["p", { attempts: 10, correct: 9 }], // 90% - third, cut by the two-key cap
-            ["e", { attempts: 40, correct: 40 }], // perfect - never a target
-        ])
-        const session = createDailySession({ ...context, attempts, transitions: slowTransitions, now: 100 })
-        expect(session.steps.map((step) => step.kind)).toEqual(["baseline", "focus", "focus"])
-        expect(session.steps[1]?.target).toEqual({ kind: "transition", pair: "rt" })
-        expect(session.steps[2]?.target).toEqual({ kind: "keys", keys: ["q", "z"] })
-        expect(session.steps[2]?.href).toBe("/drill?keys=q,z&length=30")
-
-        // Both focus steps must finish before the day completes; the headline
-        // proof still comes from the primary (transition) focus.
-        let run = recordDailySet(session, session.steps[0]!.id, { netWpm: 70, accuracy: 96, completedAt: 200 })
-        run = recordDailySet(run, run.steps[1]!.id, improvedSet(320))
-        run = recordDailySet(run, run.steps[1]!.id, improvedSet(310))
-        expect(run.status).toBe("active")
-        expect(run.currentStepIndex).toBe(2)
-        const keysSet = {
-            netWpm: 60, accuracy: 92, completedAt: 300,
-            targetDelta: { label: "q z", before: 72, after: 90, unit: "%" as const, improved: true },
+    it("puts a due Cold check first, before warm measure or acquisition", () => {
+        const yesterday: YesterdayOutcome = {
+            label: "q z",
+            target: { kind: "key", keys: ["q", "z"], metric: "accuracy" },
+            unit: "%",
+            before: 82,
+            after: 91,
+            minimumChange: 4.1,
         }
-        run = recordDailySet(run, run.steps[2]!.id, keysSet)
-        run = recordDailySet(run, run.steps[2]!.id, { ...keysSet, completedAt: 310 })
-        expect(run.status).toBe("completed")
-        expect(focusProof(run)?.label).toBe("r→t")
+        const session = targeted({ yesterday })
+        expect(session.steps.map((step) => step.context)).toEqual(["cold", "natural", "acquisition", "transfer"])
+        expect(session.steps[0]?.href).toContain("policy=cold")
+        expect(session.steps[0]?.requiresTargetSample).toBe(true)
     })
 
-    it("keeps a keys-only day to a single focus step", () => {
-        const attempts = new Map([
-            ["q", { attempts: 12, correct: 8 }],
-            ["z", { attempts: 10, correct: 8 }],
-        ])
-        const session = createDailySession({ ...context, attempts, transitions: [], now: 100 })
-        expect(session.steps.filter((step) => step.kind === "focus")).toHaveLength(1)
-    })
+    it("preserves two acquisition wins or three sets, then requires Transfer", () => {
+        let session = targeted()
+        session = recordDailySet(session, session.steps[0]!.id, { netWpm: 70, accuracy: 96, completedAt: 150 })
+        session = recordDailySet(session, session.steps[1]!.id, set(360))
+        session = recordDailySet(session, session.steps[1]!.id, set(350))
+        expect(session.status).toBe("active")
+        expect(session.steps[session.currentStepIndex]?.kind).toBe("transfer")
+        expect(focusProof(session)?.after).toBe(350)
+        expect(transferProof(session)).toBeNull()
+        expect(yesterdayOutcomeFrom(session)).toBeNull()
 
-    it("qualifies measures by length, not launch path", () => {
-        expect(measureQualifies("baseline", { subMode: "timed", count: 30 })).toBe(true)
-        expect(measureQualifies("baseline", { subMode: "timed", count: 15 })).toBe(false)
-        expect(measureQualifies("baseline", { subMode: "words", count: 25 })).toBe(true)
-        expect(measureQualifies("calibration", { subMode: "timed", count: 60 })).toBe(true)
-        expect(measureQualifies("calibration", { subMode: "timed", count: 30 })).toBe(false)
-        expect(measureQualifies("focus", { subMode: "timed", count: 60 })).toBe(false)
-    })
-
-    it("records only the active step and completes the baseline in one set", () => {
-        const session = targeted()
-        const ignored = recordDailySet(session, session.steps[1]!.id, { netWpm: 70, accuracy: 96, completedAt: 200 })
+        // A completed run without qualified target coverage cannot advance.
+        const ignored = recordDailySet(session, session.steps[2]!.id, { netWpm: 75, accuracy: 99, completedAt: 500 })
         expect(ignored).toBe(session)
 
-        const next = recordDailySet(session, session.steps[0]!.id, { netWpm: 70, accuracy: 96, completedAt: 200 })
-        expect(next.currentStepIndex).toBe(1)
-        expect(next.steps[0]?.sets).toHaveLength(1)
-    })
-
-    it("ends the focus step at two improved sets", () => {
-        let session = targeted()
-        session = recordDailySet(session, session.steps[0]!.id, { netWpm: 70, accuracy: 96, completedAt: 200 })
-        const focusId = session.steps[1]!.id
-        session = recordDailySet(session, focusId, improvedSet(320))
-        expect(session.status).toBe("active")
-        session = recordDailySet(session, focusId, improvedSet(310))
+        session = recordDailySet(session, session.steps[2]!.id, set(410, false))
         expect(session.status).toBe("completed")
-        expect(focusProof(session)?.after).toBe(310)
+        expect(transferProof(session)?.improved).toBe(false)
+        expect(yesterdayOutcomeFrom(session)).toBeNull()
     })
 
-    it("caps an unimproving focus step at three sets", () => {
-        let session = targeted()
-        session = recordDailySet(session, session.steps[0]!.id, { netWpm: 70, accuracy: 96, completedAt: 200 })
-        const focusId = session.steps[1]!.id
-        for (const after of [420, 430, 410]) session = recordDailySet(session, focusId, improvedSet(after))
-        expect(session.status).toBe("completed")
-        // Best set is still slower than the 400ms baseline - never claim a win.
-        expect(focusProof(session)?.improved).toBe(false)
-    })
-
-    it("summarizes a finished day for tomorrow and cold-checks a continued target", () => {
-        let session = targeted()
-        session = recordDailySet(session, session.steps[0]!.id, { netWpm: 70, accuracy: 96, completedAt: 200 })
-        const focusId = session.steps[1]!.id
-        session = recordDailySet(session, focusId, improvedSet(320))
-        session = recordDailySet(session, focusId, improvedSet(310))
-
-        const yesterday = yesterdayOutcomeFrom(session)
-        expect(yesterday).toEqual({ label: "r→t", target: { kind: "transition", pair: "rt" }, unit: "ms", before: 400, after: 310 })
-
-        // Same target still worst → no recheck step; first focus set is the cold check.
-        let today = targeted(yesterday!)
-        expect(today.steps.map((step) => step.kind)).toEqual(["baseline", "focus"])
-        expect(today.reason).toContain("did it stick")
-        today = recordDailySet(today, today.steps[0]!.id, { netWpm: 70, accuracy: 96, completedAt: 300 })
-        today = recordDailySet(today, today.steps[1]!.id, improvedSet(350))
-        expect(coldCheck(today)).toMatchObject({ value: 350, held: true })
-    })
-
-    it("adds a cold-check step when yesterday's target moved on", () => {
-        const yesterday: YesterdayOutcome = {
-            label: "q z", target: { kind: "keys", keys: ["q", "z"] }, unit: "%", before: 82, after: 91,
-        }
-        let session = targeted(yesterday)
-        expect(session.steps.map((step) => step.kind)).toEqual(["baseline", "recheck", "focus"])
-        expect(session.steps.map((step) => step.context)).toEqual(["natural", "cold", "acquisition"])
-        expect(session.steps[1]?.target).toEqual(yesterday.target)
-
-        session = recordDailySet(session, session.steps[0]!.id, { netWpm: 70, accuracy: 96, completedAt: 300 })
-        session = recordDailySet(session, session.steps[1]!.id, {
-            netWpm: 70, accuracy: 96, completedAt: 310,
-            targetDelta: { label: "q z", before: 91, after: 79, unit: "%", improved: false },
+    it("measures Transfer against the frozen baseline and enforces six samples", () => {
+        const session = targeted()
+        const transfer = session.steps[2]!
+        expect(measureDailyStepSet(session, transfer, { timeline: transitionTimeline(5, 100), netWpm: 70 })).toBeNull()
+        expect(measureDailyStepSet(session, transfer, { timeline: transitionTimeline(6, 100), netWpm: 70 })).toMatchObject({
+            targetSamples: 6,
+            targetDelta: { before: 400, after: 100, unit: "ms", improved: true },
         })
-        // 79% is below yesterday's 82% starting point - the gain slipped.
-        expect(coldCheck(session)).toMatchObject({ value: 79, held: false })
     })
 
-    it("round-trips storage per scope and never leaks across scopes", () => {
+    it("carries higher-order and endurance Targets through the same frozen loop", () => {
+        const gramCandidate: SkillCandidate = {
+            ...recommendation,
+            id: "gram:4:tion",
+            target: { kind: "gram", gram: "tion" },
+            observed: 400,
+            baseline: 200,
+            reason: {
+                code: "gram_internal_latency_high", gram: "tion", observedMs: 400,
+                baselineMs: 200, excessMs: 200, carrierWords: ["action", "station"],
+            },
+        }
+        const gram = targeted({ candidate: gramCandidate })
+        expect(gram.steps[1]?.href).toContain("target=gram")
+        expect(gram.steps[2]?.href).toContain("seen=action,station")
+        expect(gram.steps[2]?.href).toContain("policy=transfer")
+
+        const enduranceCandidate: SkillCandidate = {
+            ...recommendation,
+            id: "endurance:30:60",
+            target: { kind: "endurance", shortSeconds: 30, longSeconds: 60 },
+            metric: "wpm",
+            direction: "higher",
+            observed: 60,
+            baseline: 75,
+            reason: { code: "endurance_fade", shortSeconds: 30, longSeconds: 60, shortWpm: 75, longWpm: 60, gapWpm: 15 },
+        }
+        const endurance = targeted({ candidate: enduranceCandidate })
+        const measured = measureDailyStepSet(endurance, endurance.steps[2]!, {
+            timeline: encodeTimeline([]),
+            netWpm: 65,
+        })
+        expect(endurance.steps[2]?.href).toContain("target=endurance")
+        expect(measured?.targetDelta).toMatchObject({ before: 60, after: 65, unit: "wpm", improved: true })
+    })
+
+    it("creates tomorrow's cold outcome only from improved Transfer", () => {
+        let session = targeted()
+        session = recordDailySet(session, session.steps[0]!.id, { netWpm: 70, accuracy: 96, completedAt: 150 })
+        for (const after of [420, 410, 405]) session = recordDailySet(session, session.steps[1]!.id, set(after, false))
+        session = recordDailySet(session, session.steps[2]!.id, set(350, true))
+        expect(yesterdayOutcomeFrom(session)).toEqual({
+            label: "b→r", target: recommendation.target, unit: "ms", before: 400, after: 350, minimumChange: 20,
+        })
+    })
+
+    it("selects a regressed Target before the highest-Impact new Target", () => {
+        const regressed: SkillCandidate = {
+            ...recommendation,
+            id: "key:accuracy:q",
+            target: { kind: "key", keys: ["q"], metric: "accuracy" },
+            metric: "%",
+            direction: "higher",
+            observed: 80,
+            baseline: 95,
+            reason: { code: "key_accuracy_below_threshold", key: "q", accuracyPct: 80, errorRatePct: 20 },
+        }
+        const session = createDailySession({
+            ...context, attempts: new Map(), transitions: slowTransitions,
+            recommendation, regressedRecommendation: regressed, now: 100,
+        })
+        expect(session.prescription?.id).toBe(regressed.id)
+    })
+
+    it("translates v2 snapshots without adding steps to an active legacy day", () => {
+        const session = targeted()
+        const legacy = {
+            ...session,
+            version: 2,
+            prescription: undefined,
+            steps: session.steps.slice(0, 2).map((step) => ({
+                ...step,
+                context: undefined,
+                target: step.target?.kind === "transition" ? { kind: "transition", pair: step.target.pair } : step.target,
+            })),
+        }
+        const parsed = parseDailySession(legacy)
+        expect(parsed?.version).toBe(3)
+        expect(parsed?.steps).toHaveLength(2)
+        expect(parsed?.steps[1]?.target).toEqual({ kind: "transition", pair: "br", metric: "latency" })
+    })
+
+    it("round-trips scoped storage and prefers the snapshot with more work", () => {
         const store = storage()
         const session = targeted()
         writeLocalDailySession("user-a", session, store)
         expect(readLocalDailySession("user-a", context, store)).toEqual(session)
         expect(readLocalDailySession("guest", context, store)).toBeNull()
+        const progressed = recordDailySet(session, session.steps[0]!.id, { netWpm: 60, accuracy: 95, completedAt: 200 })
+        const newerEmpty: DailyCoachingSession = { ...session, updatedAt: 300 }
+        expect(completedSetCount(progressed)).toBe(1)
+        expect(preferDailySession(progressed, newerEmpty)).toBe(progressed)
         clearLocalDailySessions("user-a", store)
         expect(readLocalDailySession("user-a", context, store)).toBeNull()
     })
 
-    it("rejects corrupt and oversized snapshots", () => {
-        const session = targeted()
-        expect(parseDailySession(session)).toEqual(session)
-        expect(parseDailySession({ ...session, status: "completed" })).toBeNull()
-        expect(parseDailySession({ ...session, reason: "x".repeat(500) })).toBeNull()
-        const bloated = { ...session, steps: Array.from({ length: 12 }, () => session.steps[0]) }
-        expect(parseDailySession(bloated)).toBeNull()
-    })
-
-    it("uses one Impact-ranked primary target without an unrelated key step", () => {
-        const attempts = new Map([
-            ["q", { attempts: 20, correct: 10 }],
-            ["z", { attempts: 20, correct: 12 }],
-        ])
-        const session = createDailySession({
-            ...context,
-            attempts,
-            transitions: slowTransitions,
-            recommendation: impactRecommendation,
-            now: 100,
-        })
-
-        expect(session.reason).toContain("3.6s per 1,000 characters")
-        expect(session.steps.map((step) => step.target).filter(Boolean)).toEqual([
-            { kind: "transition", pair: "br" },
-        ])
-    })
-
-    it("normalizes known legacy steps while rejecting a corrupt stored context", () => {
-        const session = targeted()
-        const legacy = {
-            ...session,
-            steps: session.steps.map(({ context: _context, ...step }) => step),
-        }
-        expect(parseDailySession(legacy)?.steps.map((step) => step.context)).toEqual(["natural", "acquisition"])
-        expect(parseDailySession({
-            ...session,
-            steps: session.steps.map((step, index) => index === 0 ? { ...step, context: "unknown" } : step),
-        })).toBeNull()
-    })
-
-    it("prefers the snapshot with more completed work over a newer empty copy", () => {
-        const base = targeted()
-        const progressed = recordDailySet(base, base.steps[0]!.id, { netWpm: 60, accuracy: 95, completedAt: 200 })
-        const newerEmpty: DailyCoachingSession = { ...base, updatedAt: 300 }
-        expect(completedSetCount(progressed)).toBe(1)
-        expect(preferDailySession(progressed, newerEmpty)).toBe(progressed)
+    it("qualifies warm measures by length, not launch path", () => {
+        expect(measureQualifies("baseline", { subMode: "timed", count: 30 })).toBe(true)
+        expect(measureQualifies("baseline", { subMode: "words", count: 25 })).toBe(true)
+        expect(measureQualifies("calibration", { subMode: "timed", count: 60 })).toBe(true)
+        expect(measureQualifies("transfer", { subMode: "timed", count: 60 })).toBe(false)
     })
 })

@@ -10,6 +10,7 @@ import {
     focusStep,
     FOCUS_SETS_GOAL,
     stepGoalMet,
+    transferProof,
     type DailyStep,
 } from "~/lib/dailyCoaching"
 import type { DrillDelta, DrillFinding } from "~/lib/drillProgress"
@@ -36,11 +37,11 @@ function findingHeadline(finding: DrillFinding): React.ReactNode {
         : <>your weakest keys are <span className="font-mono">{finding.keys.join(" ")}</span>.</>
 }
 
-function formatMetric(value: number, unit: "ms" | "%"): string {
-    return unit === "ms" ? `${Math.round(value)}ms` : `${value.toFixed(1)}%`
+function formatMetric(value: number, unit: "ms" | "%" | "wpm"): string {
+    return unit === "ms" ? `${Math.round(value)}ms` : unit === "wpm" ? `${value.toFixed(1)} WPM` : `${value.toFixed(1)}%`
 }
 
-function stepSummary(step: DailyStep): string | null {
+function stepSummary(step: DailyStep, direction?: "lower" | "higher"): string | null {
     if (step.sets.length === 0) return null
     if (step.kind === "baseline" || step.kind === "calibration") {
         const set = step.sets[0]!
@@ -48,7 +49,9 @@ function stepSummary(step: DailyStep): string | null {
     }
     const deltas = step.sets.map((set) => set.targetDelta).filter((d): d is DrillDelta => !!d)
     if (deltas.length === 0) return `${step.sets.length} ${step.sets.length === 1 ? "set" : "sets"}`
-    const best = deltas.reduce((a, b) => a.unit === "ms" ? (b.after < a.after ? b : a) : (b.after > a.after ? b : a))
+    const best = deltas.reduce((a, b) => (direction ?? a.direction ?? (a.unit === "ms" ? "lower" : "higher")) === "lower"
+        ? (b.after < a.after ? b : a)
+        : (b.after > a.after ? b : a))
     return `${step.sets.length} ${step.sets.length === 1 ? "set" : "sets"} · best ${formatMetric(best.after, best.unit)}`
 }
 
@@ -68,7 +71,8 @@ const DailyCoachingPage: NextPage = () => {
 
     const active = currentDailyStep(session)
     const stepsDone = session.steps.filter(stepGoalMet).length
-    const proof = focusProof(session)
+    const acquisitionProof = focusProof(session)
+    const proof = transferProof(session) ?? (session.prescription ? null : acquisitionProof)
     const cold = coldCheck(session)
     const baseline = baselineResult(session)
     const focus = focusStep(session)
@@ -124,17 +128,22 @@ const DailyCoachingPage: NextPage = () => {
                             <h2 id="session-complete-title" className="mt-1 text-2xl font-bold text-base-content">You did the work today.</h2>
                             {proof ? (
                                 <div className="mt-5 rounded-lg border border-base-content/10 bg-base-100/35 p-4">
-                                    <p className="text-xs font-semibold uppercase text-base-content/55">{proof.label} · baseline → best set</p>
+                                    <p className="text-xs font-semibold uppercase text-base-content/55">{proof.label} · baseline → Transfer</p>
                                     <p data-testid="daily-proof" className={`mt-1 font-mono text-3xl font-bold ${proof.improved ? "text-success" : "text-base-content"}`}>
                                         {formatMetric(proof.before, proof.unit)} → {formatMetric(proof.after, proof.unit)}
                                     </p>
-                                    {!proof.improved && (
-                                        <p className="mt-2 text-sm text-base-content/70">No win today - that happens. The reps still count as evidence.</p>
-                                    )}
+                                    <p className={`mt-2 text-sm ${proof.improved ? "text-success" : "text-base-content/70"}`}>
+                                        {proof.improved ? "The change showed up in varied text." : "The warm practice did not transfer yet. That is useful evidence, not Mastery."}
+                                    </p>
                                 </div>
                             ) : (
                                 <p className="mt-4 text-sm text-base-content/75">
                                     Sets logged, but not enough reps landed on the target to measure a change honestly.
+                                </p>
+                            )}
+                            {acquisitionProof && session.prescription && (
+                                <p className="mt-3 text-sm text-base-content/65">
+                                    Best acquisition set: {formatMetric(acquisitionProof.after, acquisitionProof.unit)} from {formatMetric(acquisitionProof.before, acquisitionProof.unit)}.
                                 </p>
                             )}
                             {cold && (
@@ -148,7 +157,9 @@ const DailyCoachingPage: NextPage = () => {
                             {baseline && (
                                 <p className="mt-3 text-sm text-base-content/65">Today&apos;s warm-up: {baseline.netWpm.toFixed(1)} WPM · {baseline.accuracy.toFixed(1)}% accuracy.</p>
                             )}
-                            <p className="mt-3 text-sm text-base-content/65">The real proof is tomorrow&apos;s cold check - your next session opens with it.</p>
+                            <p className="mt-3 text-sm text-base-content/65">
+                                {proof?.improved ? "This Transfer result is eligible for a later cold check." : "A cold check is earned only after a qualified Transfer improvement."}
+                            </p>
                             <div className="mt-5 flex flex-col gap-2 sm:flex-row">
                                 {focus ? (
                                     <Link href={focus.href} className={primaryCta}>Extra targeted practice</Link>
@@ -184,7 +195,7 @@ const DailyCoachingPage: NextPage = () => {
                             <div>
                                 <p className="text-xs font-bold uppercase tracking-wide text-base-content/50">Today&apos;s prescription</p>
                                 <h2 id="session-steps-title" className="mt-1 text-xl font-bold text-base-content">
-                                    {session.kind === "calibration" ? "Measure once, then target" : "Warm up → focus sets"}
+                                    {session.kind === "calibration" ? "Measure once, then target" : "Cold if due → measure → acquire → Transfer"}
                                 </h2>
                             </div>
                             <span className="text-sm text-base-content/55">Frozen for today</span>
@@ -193,7 +204,7 @@ const DailyCoachingPage: NextPage = () => {
                             {session.steps.map((item, index) => {
                                 const isDone = stepGoalMet(item)
                                 const isActive = session.status === "active" && index === session.currentStepIndex
-                                const summary = stepSummary(item)
+                                const summary = stepSummary(item, session.prescription?.direction)
                                 return (
                                     <li key={item.id} className={`flex gap-3 rounded-lg border p-4 ${isActive ? "border-primary/35 bg-primary/5" : "border-base-content/10 bg-base-100/25"}`}>
                                         <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-sm font-bold ${isDone ? "border-success/50 bg-success/15 text-success" : isActive ? "border-primary bg-primary text-primary-content" : "border-base-content/20 text-base-content/45"}`} aria-hidden="true">

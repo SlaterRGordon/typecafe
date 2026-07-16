@@ -19,15 +19,8 @@ import { useLayout } from "~/hooks/useLayout";
 import { boardFor, sequenceFor, statsPoolFor } from "~/lib/keyboardLayout";
 import { accentsFor, clampSize, composeLanguage, ensureLanguageLoaded, parseLanguage } from "~/components/typer/utils";
 import { withPracticeVowel } from "~/lib/diagnosis";
-import {
-  currentDailyStep,
-  GUEST_DAILY_SCOPE,
-  localDateKey,
-  measureQualifies,
-  readLocalDailySession,
-  recordDailySet,
-  writeLocalDailySession,
-} from "~/lib/dailyCoaching";
+import { parseEvidenceContext, type EvidenceContext } from "~/lib/evidenceContext";
+import type * as DailyCoachingModule from "~/lib/dailyCoaching";
 import { isPracticeLetter, remapPracticeSelectionByPosition, repairPracticeSelection, smartDrillSelection } from "~/lib/drillKeys";
 import { keySpeedBars, type TransitionAggregate } from "~/lib/transitions";
 import { readLocalTransitions } from "~/lib/localTransitions";
@@ -172,6 +165,17 @@ const Home: NextPage = () => {
   const attemptReMeasureRef = useRef<{ beforeWpm: number } | undefined>(undefined)
   const { data: sessionData } = useSession()
   const router = useRouter()
+  const queryCoachingContext: EvidenceContext | null = router.query.target === "endurance"
+    ? parseEvidenceContext(Array.isArray(router.query.policy) ? router.query.policy[0] : router.query.policy) ?? "natural"
+    : null
+  const [coachingRunContext, setCoachingRunContext] = useState<EvidenceContext | null>(null)
+  const coachingEvidenceContext = coachingRunContext ?? queryCoachingContext ?? "natural"
+  const dailyCoachingRef = useRef<typeof DailyCoachingModule | null>(null)
+  useEffect(() => {
+    let active = true
+    void import("~/lib/dailyCoaching").then((module) => { if (active) dailyCoachingRef.current = module })
+    return () => { active = false }
+  }, [])
   const [activeLayout] = useLayout()
   const priorPracticeLayout = useRef(activeLayout)
   useEffect(() => {
@@ -352,14 +356,34 @@ const Home: NextPage = () => {
     // launched - the session never demands a run the user just did. Only the
     // eager report records (the persisted upgrade is the same run).
     let adopted = false
-    if (!result.persisted && mode === TestModes.normal && (subMode === TestSubModes.timed || subMode === TestSubModes.words)) {
+    if (!result.persisted && dailyCoachingRef.current && mode === TestModes.normal && (subMode === TestSubModes.timed || subMode === TestSubModes.words)) {
+      const {
+        currentDailyStep,
+        GUEST_DAILY_SCOPE,
+        localDateKey,
+        measureQualifies,
+        measureEnduranceDailyStep,
+        readLocalDailySession,
+        recordDailySet,
+        writeLocalDailySession,
+      } = dailyCoachingRef.current
       const scope = sessionData?.user?.id ?? GUEST_DAILY_SCOPE
       const context = { dateKey: localDateKey(), pool: statsPoolFor(activeLayout), language: globalLanguage }
       const daily = readLocalDailySession(scope, context)
       const active = daily ? currentDailyStep(daily) : null
       const run = { subMode: subMode === TestSubModes.timed ? "timed" as const : "words" as const, count }
-      if (daily && active && measureQualifies(active.kind, run)) {
-        const advanced = recordDailySet(daily, active.id, { netWpm: result.netWpm, accuracy: result.accuracy })
+      if (daily && active && (measureQualifies(active.kind, run) || (
+        active.target?.kind === "endurance" && active.context === coachingEvidenceContext &&
+        coachingRunContext !== null
+      ))) {
+        const measured = active.target?.kind === "endurance"
+          ? measureEnduranceDailyStep(daily, active, result.netWpm)
+          : null
+        const advanced = recordDailySet(daily, active.id, {
+          netWpm: result.netWpm,
+          accuracy: result.accuracy,
+          ...(measured ?? {}),
+        })
         if (advanced !== daily) {
           writeLocalDailySession(scope, advanced)
           adopted = true
@@ -633,6 +657,10 @@ const Home: NextPage = () => {
     const mode = router.query.mode
     if (mode !== "timed" && mode !== "words" && mode !== "grams") return
 
+    if (router.query.target === "endurance") {
+      setCoachingRunContext(parseEvidenceContext(Array.isArray(router.query.policy) ? router.query.policy[0] : router.query.policy) ?? "acquisition")
+    }
+
     if (mode === "grams") {
       updateSetting("mode", TestModes.ngrams)
     } else {
@@ -819,6 +847,7 @@ const Home: NextPage = () => {
           language={activeTestLanguage}
           quoteLength={quoteLength}
           mode={mode}
+          evidenceContext={coachingEvidenceContext}
           subMode={subMode}
           selectedKeys={selectedKeys}
           setSelectedKeys={setSelectedKeys}

@@ -310,7 +310,7 @@ test.describe("home typing test", () => {
     if (testInfo.project.name.includes("mobile")) {
       const inlineTab = page.getByTestId("home-coach-tab-daily-inline");
       await expect(inlineTab).toBeVisible();
-      await expect(inlineTab).toContainText("Warm up: 30-second Test");
+      await expect(inlineTab).toContainText("Warm measure: 30-second Test");
       await expect(inlineTab.getByRole("link", { name: "Start session" })).toHaveAttribute("href", "/?mode=timed&count=30");
       return;
     }
@@ -319,12 +319,12 @@ test.describe("home typing test", () => {
     await expect(tab).toBeVisible();
     const collapsedLink = tab.getByRole("link", { name: "Today's coaching" });
     await expect(collapsedLink).toHaveAttribute("href", "/?mode=timed&count=30");
-    await expect(tab.getByText("0/2")).toBeVisible();
+    await expect(tab.getByText("0/3")).toBeVisible();
     await tab.hover();
     const panel = page.getByTestId("home-coach-tab-daily-panel");
     await expect(collapsedLink).toHaveCSS("opacity", "0");
-    await expect(panel).toContainText("Warm up: 30-second Test");
-    await expect(panel).toContainText("about 4 min");
+    await expect(panel).toContainText("Warm measure: 30-second Test");
+    await expect(panel).toContainText("about 6 min");
     await expect(panel.getByRole("link", { name: "Start session" })).toHaveAttribute("href", "/?mode=timed&count=30");
   });
 
@@ -430,7 +430,7 @@ test.describe("home typing test", () => {
     const tab = page.getByTestId("home-coach-tab-daily");
     await expect(tab).toBeVisible();
     await tab.hover();
-    await expect(page.getByTestId("home-coach-tab-daily-panel")).toContainText("Warm up: 30-second Test");
+    await expect(page.getByTestId("home-coach-tab-daily-panel")).toContainText("Warm measure: 30-second Test");
   });
 
   // Honest-review #1 (honest-review-2026-07.md): a zero-history visitor must
@@ -485,7 +485,7 @@ test.describe("home typing test", () => {
     if (testInfo.project.name.includes("mobile")) {
       const inlineTab = page.getByTestId("home-coach-tab-daily-inline");
       await expect(inlineTab).toBeVisible();
-      await expect(inlineTab).toContainText("Warm up: 30-second Test");
+      await expect(inlineTab).toContainText("Warm measure: 30-second Test");
       return;
     }
 
@@ -493,7 +493,7 @@ test.describe("home typing test", () => {
     await expect(tab).toBeVisible();
     await tab.hover();
     const panel = page.getByTestId("home-coach-tab-daily-panel");
-    await expect(panel).toContainText("Warm up: 30-second Test");
+    await expect(panel).toContainText("Warm measure: 30-second Test");
     const stored: unknown = await page.evaluate(() => JSON.parse(window.localStorage.getItem("typecafe:dailyCoaching:guest") ?? "[]") as unknown);
     expect(Array.isArray(stored)).toBe(true);
     const first = (stored as Array<{ kind?: string, reason?: string }>)[0];

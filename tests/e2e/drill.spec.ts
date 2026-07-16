@@ -316,7 +316,7 @@ test.describe("drill page", () => {
       const tab = page.getByTestId("home-coach-tab-daily")
       await tab.hover()
       const panel = page.getByTestId("home-coach-tab-daily-panel")
-      await expect(panel).toContainText("Warm up: 30-second Test")
+      await expect(panel).toContainText("Warm measure: 30-second Test")
     }
   })
 

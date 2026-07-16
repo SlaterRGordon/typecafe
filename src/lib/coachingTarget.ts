@@ -36,6 +36,48 @@ export interface TargetAccuracyPolicy {
 const MOVEMENTS: readonly MovementKind[] = ["same-finger", "row-reach", "inward-roll", "outward-roll"]
 const MAX_ITEMS = 8
 
+export function parseCoachingTarget(value: unknown): CoachingTarget | null {
+    if (!value || typeof value !== "object") return null
+    const raw = value as Record<string, unknown>
+    if (raw.kind === "key" && Array.isArray(raw.keys) && raw.keys.length > 0 && raw.keys.length <= MAX_ITEMS &&
+        raw.keys.every((key): key is string => typeof key === "string" && (isDrillableKey(key) || isPracticeLetter(key))) &&
+        (raw.metric === "accuracy" || raw.metric === "latency")) {
+        return { kind: "key", keys: raw.keys, metric: raw.metric }
+    }
+    if (raw.kind === "transition" && typeof raw.pair === "string" && [...raw.pair].length === 2 &&
+        (raw.metric === "accuracy" || raw.metric === "latency")) {
+        return { kind: "transition", pair: raw.pair, metric: raw.metric }
+    }
+    if (raw.kind === "gram" && typeof raw.gram === "string" && [...raw.gram].length >= 3 && [...raw.gram].length <= 4) {
+        return { kind: "gram", gram: raw.gram }
+    }
+    if (raw.kind === "word" && Array.isArray(raw.words) && raw.words.length > 0 && raw.words.length <= MAX_ITEMS &&
+        raw.words.every((word): word is string => typeof word === "string" && /^\p{L}+$/u.test(word)) &&
+        (raw.sharedGram === undefined || (typeof raw.sharedGram === "string" && /^\p{L}+$/u.test(raw.sharedGram)))) {
+        return { kind: "word", words: raw.words, ...(raw.sharedGram ? { sharedGram: raw.sharedGram } : {}) }
+    }
+    if (raw.kind === "movement" && MOVEMENTS.includes(raw.movement as MovementKind) && Array.isArray(raw.anchors) &&
+        raw.anchors.length >= 4 && raw.anchors.length <= MAX_ITEMS &&
+        raw.anchors.every((anchor): anchor is string => typeof anchor === "string" && [...anchor].length === 2)) {
+        return { kind: "movement", movement: raw.movement as MovementKind, anchors: raw.anchors }
+    }
+    if (raw.kind === "correction" && typeof raw.expected === "string" && typeof raw.typed === "string" &&
+        (isDrillableKey(raw.expected) || isPracticeLetter(raw.expected)) &&
+        (isDrillableKey(raw.typed) || isPracticeLetter(raw.typed))) {
+        return { kind: "correction", expected: raw.expected, typed: raw.typed }
+    }
+    if (raw.kind === "endurance" && Number.isInteger(raw.shortSeconds) && Number.isInteger(raw.longSeconds) &&
+        (raw.shortSeconds as number) > 0 && (raw.longSeconds as number) > (raw.shortSeconds as number) &&
+        (raw.longSeconds as number) <= 600) {
+        return { kind: "endurance", shortSeconds: raw.shortSeconds as number, longSeconds: raw.longSeconds as number }
+    }
+    return null
+}
+
+export function sameCoachingTarget(a: CoachingTarget | undefined, b: CoachingTarget | undefined): boolean {
+    return !!a && !!b && JSON.stringify(a) === JSON.stringify(b)
+}
+
 function first(value: QueryValue): string {
     return Array.isArray(value) ? value[0] ?? "" : value ?? ""
 }

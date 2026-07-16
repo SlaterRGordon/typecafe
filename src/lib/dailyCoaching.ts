@@ -1,39 +1,30 @@
-// The daily coaching session (docs/features/daily-coaching.md). One dated
-// prescription per language/stats pool: warm-up Test, then repeated sets on the
-// best target - plus a worst-two-keys pass when the main target is a
-// transition. Proof is the target metric (and tomorrow's cold check), never a
-// same-day global-WPM delta - two warm 30s samples prove warm-up, not
-// improvement. Pure and unit-testable; storage helpers at the bottom.
+// One dated, frozen Coaching Prescription per language/stats pool. A targeted
+// day checks due work cold, measures warm, acquires one Target, then verifies it
+// in varied text. Only the target metric can prove Transfer; global WPM stays
+// supporting context unless endurance itself is the Target.
 
-import { drillFindingFromCandidate, nextDrillFinding, type DrillDelta, type KeyAttempts } from "./drillProgress"
+import type { CoachingTarget, DrillPolicy } from "./coachingTarget"
+import { parseCoachingTarget, sameCoachingTarget, targetAction, targetDisplayLabel } from "./coachingTarget"
+import type { DrillDelta, KeyAttempts } from "./drillProgress"
+import { nextDrillFinding } from "./drillProgress"
 import { evidenceContextForCoachingStep, parseEvidenceContext, type EvidenceContext } from "./evidenceContext"
 import type { SkillCandidate } from "./skillEvidence"
-import { composeWeakKeys, worstKeysFromAttempts } from "./stats"
 import type { TransitionAggregate } from "./transitions"
 
 export const DAILY_COACHING_STORAGE_KEY = "typecafe:dailyCoaching"
 export const DAILY_COACHING_UPDATED_EVENT = "typecafe:daily-coaching-updated"
-// Storage is scoped per account (or "guest") so a shared browser can never
-// leak one account's session into another - see writeLocalDailySession.
 export const GUEST_DAILY_SCOPE = "guest"
 
 export type DailySessionKind = "calibration" | "targeted"
 export type DailySessionStatus = "active" | "completed"
-// baseline/calibration complete on the real Test surface (adopted from any
-// qualifying completion); recheck/focus complete on /drill.
-export type DailyStepKind = "baseline" | "calibration" | "recheck" | "focus"
+export type DailyStepKind = "baseline" | "calibration" | "recheck" | "focus" | "transfer"
 
-export type DrillTarget =
-    | { kind: "transition", pair: string }
-    | { kind: "keys", keys: string[] }
-
-// One completed rep. targetDelta is present when the rep had enough samples on
-// the target to measure honestly (drillProgress thresholds).
 export interface DailySet {
     completedAt: number
     netWpm: number
     accuracy: number
     targetDelta?: DrillDelta
+    targetSamples?: number
 }
 
 export interface DailyStep {
@@ -43,22 +34,43 @@ export interface DailyStep {
     title: string
     detail: string
     href: string
-    target?: DrillTarget
+    target?: CoachingTarget
+    // Absent on translated v2 snapshots. New Transfer/Cold steps require a
+    // qualified target sample before they can advance.
+    requiresTargetSample?: boolean
     sets: DailySet[]
 }
 
-// Yesterday's focus outcome, frozen into today's session at creation so the
-// cold check can compare against it without re-reading old snapshots.
+export interface FrozenRecommendation {
+    id: string
+    target: CoachingTarget
+    metric: "ms" | "%" | "wpm"
+    direction: "lower" | "higher"
+    // Target performance before today's practice, not the generic comparator.
+    baseline: number
+    weaknessThreshold: number
+    minimumChange: number
+    impactMsPer1000: number
+    confidence: number
+    sampleCount: number
+    distinctTests: number
+    distinctWords: number
+    reasonCode: string
+    reason: string
+    seenWords: string[]
+}
+
 export interface YesterdayOutcome {
     label: string
-    target: DrillTarget
-    unit: "ms" | "%"
+    target: CoachingTarget
+    unit: "ms" | "%" | "wpm"
     before: number
     after: number
+    minimumChange: number
 }
 
 export interface DailyCoachingSession {
-    version: 2
+    version: 3
     id: string
     dateKey: string
     pool: string
@@ -69,6 +81,7 @@ export interface DailyCoachingSession {
     status: DailySessionStatus
     currentStepIndex: number
     steps: DailyStep[]
+    prescription?: FrozenRecommendation
     yesterday?: YesterdayOutcome
     createdAt: number
     updatedAt: number
@@ -84,18 +97,18 @@ export interface CreateDailySessionInput extends DailySessionContext {
     attempts: KeyAttempts
     transitions: TransitionAggregate[]
     recommendation?: SkillCandidate | null
+    // Slice 9 will derive this from history. The selection seam is frozen now:
+    // due Cold work is first, then regression, then the highest-Impact pick.
+    regressedRecommendation?: SkillCandidate | null
     yesterday?: YesterdayOutcome | null
     now?: number
 }
 
-// A focus step ends when the user beats their baseline twice, or after three
-// sets - whichever comes first. Enough reps to plausibly move a motor pattern,
-// bounded so a bad day still ends.
 export const FOCUS_SETS_GOAL = 3
 export const FOCUS_IMPROVED_GOAL = 2
 
 const DATE_KEY_RE = /^\d{4}-\d{2}-\d{2}$/
-const MAX_STEPS = 4
+const MAX_STEPS = 5
 const MAX_SETS = 12
 const MAX_STRING = 400
 
@@ -117,36 +130,24 @@ export function msUntilNextLocalDate(date = new Date()): number {
 }
 
 function sessionId(context: DailySessionContext): string {
-    return [context.dateKey, context.pool, context.language]
-        .map((part) => encodeURIComponent(part))
-        .join(":")
+    return [context.dateKey, context.pool, context.language].map(encodeURIComponent).join(":")
 }
 
-export function targetLabel(target: DrillTarget): string {
-    if (target.kind === "transition") return `${target.pair[0]}→${target.pair[1]}`
-    return target.keys.join(" ")
+export function targetLabel(target: CoachingTarget): string {
+    return targetDisplayLabel(target)
 }
 
-export function targetHref(target: DrillTarget): string {
-    if (target.kind === "transition") return `/drill?transitions=${target.pair}&length=30`
-    return `/drill?keys=${target.keys.join(",")}&length=30`
+export function targetHref(target: CoachingTarget, policy: DrillPolicy = "acquisition", seenWords: readonly string[] = []): string {
+    return targetAction(target, policy, { length: 30, seenWords }).href
 }
 
-function sameTarget(a: DrillTarget | undefined, b: DrillTarget | undefined): boolean {
-    if (!a || !b) return false
-    if (a.kind === "transition") return b.kind === "transition" && a.pair === b.pair
-    return b.kind === "keys" && a.keys.length === b.keys.length && a.keys.every((key, i) => b.keys[i] === key)
+export function targetMatchesDrill(
+    step: Pick<DailyStep, "target" | "context">,
+    drill: { target?: CoachingTarget, policy: DrillPolicy },
+): boolean {
+    return !!step.target && sameCoachingTarget(step.target, drill.target) && step.context === drill.policy
 }
 
-// Does the drill the user is actually running cover this step's target? The
-// prescription counts drills by what they train, not by how they were launched.
-export function targetMatchesDrill(target: DrillTarget, drill: { kind: "keys" | "transitions", targets: string[] }): boolean {
-    if (target.kind === "transition") return drill.kind === "transitions" && drill.targets.includes(target.pair)
-    return drill.kind === "keys" && target.keys.every((key) => drill.targets.includes(key))
-}
-
-// A normal-mode Test qualifies as the day's measure when it is long enough to
-// be signal. Adopted from any completion - no special launch path required.
 export function measureQualifies(kind: DailyStepKind, run: { subMode: "timed" | "words", count: number }): boolean {
     if (kind === "baseline") return run.subMode === "timed" ? run.count >= 30 : run.count >= 25
     if (kind === "calibration") return run.subMode === "timed" ? run.count >= 60 : run.count >= 50
@@ -154,139 +155,139 @@ export function measureQualifies(kind: DailyStepKind, run: { subMode: "timed" | 
 }
 
 function formatOutcome(outcome: YesterdayOutcome, value: number): string {
-    return outcome.unit === "ms" ? `${Math.round(value)}ms` : `${value.toFixed(1)}%`
+    return outcome.unit === "ms" ? `${Math.round(value)}ms` : outcome.unit === "wpm" ? `${value.toFixed(1)} WPM` : `${value.toFixed(1)}%`
+}
+
+function reasonForCandidate(candidate: SkillCandidate): string {
+    const label = targetLabel(candidate.target)
+    const impact = ` That costs about ${(candidate.impactMsPer1000 / 1_000).toFixed(1)}s per 1,000 characters.`
+    const reason = candidate.reason
+    if (reason.code === "transition_latency_above_baseline") return `Your ${label} transition is ${reason.ratio.toFixed(1)}× slower than your typical transition.${impact}`
+    if (reason.code === "transition_error_rate_high") return `Your ${label} transition missed ${reason.errorRatePct.toFixed(0)}% of recent natural attempts.${impact}`
+    if (reason.code === "key_latency_above_baseline") return `Your ${label} key arrives ${reason.ratio.toFixed(1)}× slower than your typical key.${impact}`
+    if (reason.code === "key_accuracy_below_threshold") return `Your ${label} key was ${reason.accuracyPct.toFixed(0)}% accurate in recent natural typing.${impact}`
+    if (reason.code === "correction_confusion_recurs") return `You corrected ${reason.typed} when ${reason.expected} was expected ${reason.errors} times.${impact}`
+    if (reason.code === "gram_internal_latency_high") return `The ${label} pattern is costing the most time across several words.${impact}`
+    if (reason.code === "word_internal_latency_high") return `${label} is your highest-Impact recurring word pattern.${impact}`
+    if (reason.code === "movement_latency_high") return `This movement across ${reason.anchors.slice(0, 3).join(", ")} is slower than your usual flow.${impact}`
+    return `Your longer matched Tests fade by ${reason.gapWpm.toFixed(1)} WPM.${impact}`
+}
+
+function seenWordsFor(candidate: SkillCandidate): string[] {
+    if (candidate.reason.code === "gram_internal_latency_high") return candidate.reason.carrierWords.slice(0, 40)
+    if (candidate.reason.code === "word_internal_latency_high") return candidate.reason.words.slice(0, 40)
+    return []
+}
+
+function freezeCandidate(candidate: SkillCandidate): FrozenRecommendation {
+    const noiseFloor = candidate.metric === "ms" ? 10 : 1
+    return {
+        id: candidate.id,
+        target: candidate.target,
+        metric: candidate.metric,
+        direction: candidate.direction,
+        baseline: candidate.observed,
+        weaknessThreshold: candidate.baseline,
+        minimumChange: Math.max(noiseFloor, Math.abs(candidate.observed) * 0.05),
+        impactMsPer1000: candidate.impactMsPer1000,
+        confidence: candidate.confidence,
+        sampleCount: candidate.sampleCount,
+        distinctTests: candidate.distinctTests,
+        distinctWords: candidate.distinctWords,
+        reasonCode: candidate.reason.code,
+        reason: reasonForCandidate(candidate),
+        seenWords: seenWordsFor(candidate),
+    }
+}
+
+function legacyPrescription(input: CreateDailySessionInput): FrozenRecommendation | null {
+    const finding = nextDrillFinding(input.transitions, input.attempts)
+    if (!finding) return null
+    if (finding.kind === "transition") {
+        const aggregate = input.transitions.find((item) => item.pair === finding.pair)
+        if (!aggregate?.count) return null
+        const observed = aggregate.totalMs / aggregate.count
+        const target: CoachingTarget = { kind: "transition", pair: finding.pair, metric: "latency" }
+        return {
+            id: finding.id, target, metric: "ms", direction: "lower", baseline: observed,
+            weaknessThreshold: observed / finding.ratio, minimumChange: Math.max(10, observed * 0.05),
+            impactMsPer1000: 0, confidence: 0.5, sampleCount: aggregate.count,
+            distinctTests: 0, distinctWords: 0, reasonCode: "legacy_transition_latency",
+            reason: `Your ${targetLabel(target)} transition is ${finding.ratio.toFixed(1)}× slower than your typical transition.`,
+            seenWords: [],
+        }
+    }
+    const totals = finding.keys.reduce((sum, key) => {
+        const value = input.attempts.get(key)
+        return { attempts: sum.attempts + (value?.attempts ?? 0), correct: sum.correct + (value?.correct ?? 0) }
+    }, { attempts: 0, correct: 0 })
+    if (!totals.attempts) return null
+    const observed = totals.correct / totals.attempts * 100
+    const target: CoachingTarget = { kind: "key", keys: finding.keys, metric: "accuracy" }
+    return {
+        id: finding.id, target, metric: "%", direction: "higher", baseline: observed,
+        weaknessThreshold: 95, minimumChange: Math.max(1, observed * 0.05), impactMsPer1000: 0,
+        confidence: 0.5, sampleCount: totals.attempts, distinctTests: 0, distinctWords: 0,
+        reasonCode: "legacy_key_accuracy", reason: `Your weakest recent keys are ${finding.keys.join(" ")}.`, seenWords: [],
+    }
 }
 
 export function createDailySession(input: CreateDailySessionInput): DailyCoachingSession {
     const id = sessionId(input)
     const now = input.now ?? Date.now()
-    const finding = drillFindingFromCandidate(input.recommendation ?? null)
-        ?? nextDrillFinding(input.transitions, input.attempts)
+    const selected = input.regressedRecommendation ?? input.recommendation ?? null
+    const prescription = selected ? freezeCandidate(selected) : legacyPrescription(input)
     const yesterday = input.yesterday ?? undefined
 
-    if (!finding) {
+    if (!prescription) {
         return {
-            version: 2,
-            id,
-            dateKey: input.dateKey,
-            pool: input.pool,
-            language: input.language,
+            version: 3, id, dateKey: input.dateKey, pool: input.pool, language: input.language,
             kind: "calibration",
-            reason: "I’m still learning how you type. One longer Test gives me enough repeated keys and transitions to find a stable weakness - you’ll see your first finding the moment you finish.",
-            estimatedMinutes: 2,
-            status: "active",
-            currentStepIndex: 0,
+            reason: "I’m still learning how you type. One longer Test gives me enough repeated keys and transitions to find a stable weakness — you’ll see your first finding the moment you finish.",
+            estimatedMinutes: 2, status: "active", currentStepIndex: 0,
             steps: [{
-                id: `${id}:calibration`,
-                kind: "calibration",
-                context: evidenceContextForCoachingStep("calibration"),
-                title: "Map your typing",
-                detail: "One 60-second Test (or 50+ words). Any normal Test that long counts automatically.",
-                href: "/?mode=timed&count=60",
-                sets: [],
+                id: `${id}:calibration`, kind: "calibration", context: evidenceContextForCoachingStep("calibration"),
+                title: "Map your typing", detail: "One 60-second Test (or 50+ words). Any normal Test that long counts automatically.",
+                href: "/?mode=timed&count=60", sets: [],
             }],
-            createdAt: now,
-            updatedAt: now,
+            createdAt: now, updatedAt: now,
         }
     }
 
-    const target: DrillTarget = finding.kind === "transition"
-        ? { kind: "transition", pair: finding.pair }
-        : { kind: "keys", keys: finding.keys }
+    const target = prescription.target
     const label = targetLabel(target)
-    const continuing = yesterday && sameTarget(target, yesterday.target)
+    const coldLead = yesterday
+        ? ` First, check ${yesterday.label} cold against yesterday's ${formatOutcome(yesterday, yesterday.before)} baseline.`
+        : ""
+    const reason = `${prescription.reason}${coldLead} Then acquire ${label} in focused sets and prove it in varied text.`
+    const steps: DailyStep[] = []
 
-    const evidenceReason = finding.evidence?.reason
-    const impactSeconds = finding.evidence ? finding.evidence.impactMsPer1000 / 1_000 : null
-    const impact = impactSeconds == null ? "" : ` That costs about ${impactSeconds.toFixed(1)}s per 1,000 characters.`
-    const findingReason = evidenceReason?.code === "transition_latency_above_baseline"
-        ? `Your ${label} transition is ${evidenceReason.ratio.toFixed(1)}× slower than your typical transition.${impact}`
-        : evidenceReason?.code === "transition_error_rate_high"
-            ? `Your ${label} transition missed ${evidenceReason.errorRatePct.toFixed(0)}% of recent natural attempts.${impact}`
-            : evidenceReason?.code === "key_latency_above_baseline"
-                ? `Your ${label} key arrives ${evidenceReason.ratio.toFixed(1)}× slower than your typical key.${impact}`
-                : evidenceReason?.code === "key_accuracy_below_threshold"
-                    ? `Your ${label} key was ${evidenceReason.accuracyPct.toFixed(0)}% accurate in recent natural typing.${impact}`
-                    : evidenceReason?.code === "correction_confusion_recurs"
-                        ? `You corrected ${evidenceReason.typed} when ${evidenceReason.expected} was expected ${evidenceReason.errors} times.${impact}`
-                        : finding.kind === "transition"
-                            ? `Your ${label} transition is ${finding.ratio.toFixed(1)}× slower than your typical transition.`
-                            : `Your weakest recent keys are ${label}.`
-    const reason = continuing
-        ? `Yesterday you took ${yesterday.label} from ${formatOutcome(yesterday, yesterday.before)} to ${formatOutcome(yesterday, yesterday.after)}. It’s still your best lever - today’s first set is the cold check: did it stick?`
-        : `${findingReason} Today: a short warm-up Test, then repeat sets on it until you beat your baseline twice.`
-
-    const steps: DailyStep[] = [{
-        id: `${id}:baseline`,
-        kind: "baseline",
-        context: evidenceContextForCoachingStep("baseline"),
-        title: "Warm up: 30-second Test",
-        detail: "Any normal Test of 30+ seconds (or 25+ words) counts automatically - no special mode.",
-        href: "/?mode=timed&count=30",
-        sets: [],
-    }]
-
-    // Yesterday's target moved on? Still check it cold - retention is the proof.
-    if (yesterday && !continuing) {
+    if (yesterday) {
         steps.push({
-            id: `${id}:recheck`,
-            kind: "recheck",
-            context: evidenceContextForCoachingStep("recheck"),
-            title: `Cold check ${yesterday.label}`,
-            detail: "One set on yesterday's target before any practice on it - did the change stick?",
-            href: targetHref(yesterday.target),
-            target: yesterday.target,
-            sets: [],
+            id: `${id}:recheck`, kind: "recheck", context: "cold", title: `Cold check ${yesterday.label}`,
+            detail: "One varied set before practice. It counts only with enough target samples.",
+            href: targetHref(yesterday.target, "cold"), target: yesterday.target, requiresTargetSample: true, sets: [],
         })
     }
-
     steps.push({
-        id: `${id}:focus`,
-        kind: "focus",
-        context: evidenceContextForCoachingStep("focus"),
-        title: finding.kind === "transition" ? `Loosen ${label}` : `Clean up ${label}`,
-        detail: "Repeat sets - beat your baseline twice, or stop after three sets.",
-        href: targetHref(target),
-        target,
-        sets: [],
+        id: `${id}:baseline`, kind: "baseline", context: "natural", title: "Warm measure: 30-second Test",
+        detail: "Any normal Test of 30+ seconds (or 25+ words) counts automatically.", href: "/?mode=timed&count=30", sets: [],
+    })
+    steps.push({
+        id: `${id}:focus`, kind: "focus", context: "acquisition", title: `Acquire ${label}`,
+        detail: "Focused sets: clear the frozen improvement threshold twice, or stop after three sets.",
+        href: targetHref(target, "acquisition", prescription.seenWords), target, sets: [],
+    })
+    steps.push({
+        id: `${id}:transfer`, kind: "transfer", context: "transfer", title: `Transfer ${label}`,
+        detail: "One varied set with new carriers. Warm practice alone cannot prove this step.",
+        href: targetHref(target, "transfer", prescription.seenWords), target, requiresTargetSample: true, sets: [],
     })
 
-    // The day's second lever: the worst two keys, after the transition work.
-    // Only when the main target is a transition (a keys finding already is key
-    // work) - the transition trains flow, the keys train accuracy.
-    const weakKeys = finding.kind === "transition" && !finding.evidence
-        ? composeWeakKeys(worstKeysFromAttempts(input.attempts, Infinity)).slice(0, 2).map((entry) => entry.key)
-        : []
-    if (weakKeys.length > 0) {
-        const keysTarget: DrillTarget = { kind: "keys", keys: weakKeys }
-        steps.push({
-            id: `${id}:keys`,
-            kind: "focus",
-            context: evidenceContextForCoachingStep("focus"),
-            title: `Clean up ${targetLabel(keysTarget)}`,
-            detail: "Your weakest recent keys. Repeat sets - beat your baseline twice, or stop after three sets.",
-            href: targetHref(keysTarget),
-            target: keysTarget,
-            sets: [],
-        })
-    }
-
     return {
-        version: 2,
-        id,
-        dateKey: input.dateKey,
-        pool: input.pool,
-        language: input.language,
-        kind: "targeted",
-        reason,
-        // Roughly: warm-up ~1.5 min, each drill step ~1-2 min of short sets.
-        estimatedMinutes: 2 + steps.length,
-        status: "active",
-        currentStepIndex: 0,
-        steps,
-        ...(yesterday ? { yesterday } : {}),
-        createdAt: now,
-        updatedAt: now,
+        version: 3, id, dateKey: input.dateKey, pool: input.pool, language: input.language,
+        kind: "targeted", reason, estimatedMinutes: yesterday ? 7 : 6, status: "active", currentStepIndex: 0,
+        steps, prescription, ...(yesterday ? { yesterday } : {}), createdAt: now, updatedAt: now,
     }
 }
 
@@ -296,17 +297,18 @@ export function currentDailyStep(session: DailyCoachingSession): DailyStep | nul
 }
 
 export function stepGoalMet(step: DailyStep): boolean {
-    if (step.kind !== "focus") return step.sets.length >= 1
-    const improved = step.sets.filter((set) => set.targetDelta?.improved).length
-    return improved >= FOCUS_IMPROVED_GOAL || step.sets.length >= FOCUS_SETS_GOAL
+    if (step.kind === "focus") {
+        const improved = step.sets.filter((set) => set.targetDelta?.improved).length
+        return improved >= FOCUS_IMPROVED_GOAL || step.sets.length >= FOCUS_SETS_GOAL
+    }
+    if (step.requiresTargetSample) return step.sets.some((set) => !!set.targetDelta)
+    return step.sets.length >= 1
 }
 
 export function completedSetCount(session: DailyCoachingSession): number {
     return session.steps.reduce((sum, step) => sum + step.sets.length, 0)
 }
 
-// Append one verified rep to the active step; advance when its goal is met.
-// Only the active step records - a no-op for anything else.
 export function recordDailySet(
     session: DailyCoachingSession,
     stepId: string,
@@ -316,6 +318,7 @@ export function recordDailySet(
     const active = currentDailyStep(session)
     if (!active || active.id !== stepId) return session
     if (!Number.isFinite(set.netWpm) || !Number.isFinite(set.accuracy)) return session
+    if (active.requiresTargetSample && !set.targetDelta) return session
     if (active.sets.length >= MAX_SETS) return session
 
     const completedAt = set.completedAt ?? Date.now()
@@ -326,11 +329,8 @@ export function recordDailySet(
     const nextIndex = stepDone ? session.currentStepIndex + 1 : session.currentStepIndex
     const done = nextIndex >= steps.length
     return {
-        ...session,
-        steps,
-        status: done ? "completed" : "active",
-        currentStepIndex: done ? steps.length - 1 : nextIndex,
-        updatedAt: completedAt,
+        ...session, steps, status: done ? "completed" : "active",
+        currentStepIndex: done ? steps.length - 1 : nextIndex, updatedAt: completedAt,
     }
 }
 
@@ -338,54 +338,78 @@ export function focusStep(session: DailyCoachingSession): DailyStep | null {
     return session.steps.find((step) => step.kind === "focus") ?? null
 }
 
+export function transferStep(session: DailyCoachingSession): DailyStep | null {
+    return session.steps.find((step) => step.kind === "transfer") ?? null
+}
+
 export function baselineResult(session: DailyCoachingSession): DailySet | null {
-    const step = session.steps.find((s) => s.kind === "baseline" || s.kind === "calibration")
+    const step = session.steps.find((item) => item.kind === "baseline" || item.kind === "calibration")
     return step?.sets[0] ?? null
 }
 
-// The day's honest target result: the best measured set against the lifetime
-// baseline captured when it ran. Null when no set had enough target reps -
-// never claim a win that isn't there.
-export function focusProof(session: DailyCoachingSession): DrillDelta | null {
-    const step = focusStep(session)
+function bestDelta(session: DailyCoachingSession, step: DailyStep | null): DrillDelta | null {
     if (!step) return null
-    const deltas = step.sets.map((set) => set.targetDelta).filter((d): d is DrillDelta => !!d)
-    if (deltas.length === 0) return null
-    return deltas.reduce((best, next) => {
-        if (best.unit !== next.unit) return best
-        return best.unit === "ms" ? (next.after < best.after ? next : best) : (next.after > best.after ? next : best)
-    })
+    const deltas = step.sets.map((set) => set.targetDelta).filter((delta): delta is DrillDelta => !!delta)
+    if (!deltas.length) return null
+    const direction = session.prescription?.direction ?? (deltas[0]!.unit === "ms" ? "lower" : "higher")
+    return deltas.reduce((best, next) => direction === "lower"
+        ? (next.after < best.after ? next : best)
+        : (next.after > best.after ? next : best))
 }
 
-// Summarize a finished (or partial) session for tomorrow's cold check.
+export function focusProof(session: DailyCoachingSession): DrillDelta | null {
+    return bestDelta(session, focusStep(session))
+}
+
+export function transferProof(session: DailyCoachingSession): DrillDelta | null {
+    return bestDelta(session, transferStep(session))
+}
+
 export function yesterdayOutcomeFrom(session: DailyCoachingSession | null): YesterdayOutcome | null {
     if (!session) return null
-    const step = focusStep(session)
-    const proof = session.status === "completed" || (step && stepGoalMet(step)) ? focusProof(session) : null
-    if (!step?.target || !proof) return null
-    return { label: proof.label, target: step.target, unit: proof.unit, before: proof.before, after: proof.after }
+    const step = transferStep(session)
+    const proof = step && stepGoalMet(step) ? transferProof(session) : null
+    if (!step?.target || !proof?.improved) return null
+    return {
+        label: proof.label, target: step.target, unit: proof.unit, before: proof.before, after: proof.after,
+        minimumChange: session.prescription?.minimumChange ?? 0,
+    }
 }
 
 export interface ColdCheckResult {
     value: number
-    unit: "ms" | "%"
-    // Still better than where yesterday started - the improvement was retained.
+    unit: "ms" | "%" | "wpm"
     held: boolean
     yesterday: YesterdayOutcome
 }
 
-// Today's cold read on yesterday's target: the recheck set, or - when today
-// continues the same target - the first focus set. Null until it's typed.
 export function coldCheck(session: DailyCoachingSession): ColdCheckResult | null {
     const yesterday = session.yesterday
     if (!yesterday) return null
     const recheck = session.steps.find((step) => step.kind === "recheck")
-    const focus = focusStep(session)
-    const source = recheck ?? (focus && sameTarget(focus.target, yesterday.target) ? focus : null)
-    const delta = source?.sets[0]?.targetDelta
+    const delta = recheck?.sets[0]?.targetDelta
     if (!delta || delta.unit !== yesterday.unit) return null
-    const held = yesterday.unit === "ms" ? delta.after < yesterday.before : delta.after > yesterday.before
+    const held = yesterday.unit === "ms"
+        ? delta.after <= yesterday.before - yesterday.minimumChange
+        : delta.after >= yesterday.before + yesterday.minimumChange
     return { value: delta.after, unit: yesterday.unit, held, yesterday }
+}
+
+export function measureEnduranceDailyStep(
+    session: DailyCoachingSession,
+    step: DailyStep,
+    netWpm: number,
+): Pick<DailySet, "targetDelta" | "targetSamples"> | null {
+    const prescription = session.prescription
+    if (!prescription || step.target?.kind !== "endurance" || !sameCoachingTarget(step.target, prescription.target)) return null
+    const improved = netWpm >= prescription.baseline + prescription.minimumChange
+    return {
+        targetSamples: 1,
+        targetDelta: {
+            label: targetLabel(step.target), before: prescription.baseline, after: netWpm,
+            unit: "wpm", direction: "higher", improved,
+        },
+    }
 }
 
 function finiteNumber(value: unknown): value is number {
@@ -396,26 +420,32 @@ function shortString(value: unknown): value is string {
     return typeof value === "string" && value.length <= MAX_STRING
 }
 
-function parseTarget(value: unknown): DrillTarget | null {
+function parseLegacyTarget(value: unknown): CoachingTarget | null {
+    const current = parseCoachingTarget(value)
+    if (current) return current
     if (!value || typeof value !== "object") return null
     const raw = value as Record<string, unknown>
-    if (raw.kind === "transition" && typeof raw.pair === "string" && raw.pair.length === 2) {
-        return { kind: "transition", pair: raw.pair }
+    if (raw.kind === "transition" && typeof raw.pair === "string" && [...raw.pair].length === 2) {
+        return { kind: "transition", pair: raw.pair, metric: "latency" }
     }
-    if (
-        raw.kind === "keys" && Array.isArray(raw.keys) && raw.keys.length > 0 && raw.keys.length <= 8 &&
-        raw.keys.every((key): key is string => typeof key === "string" && key.length === 1)
-    ) return { kind: "keys", keys: raw.keys }
+    if (raw.kind === "keys" && Array.isArray(raw.keys) && raw.keys.length > 0 && raw.keys.length <= 8 &&
+        raw.keys.every((key): key is string => typeof key === "string" && [...key].length === 1)) {
+        return { kind: "key", keys: raw.keys, metric: "accuracy" }
+    }
     return null
 }
 
 function parseDelta(value: unknown): DrillDelta | undefined {
     if (!value || typeof value !== "object") return undefined
-    const d = value as Record<string, unknown>
-    if (
-        shortString(d.label) && finiteNumber(d.before) && finiteNumber(d.after) &&
-        (d.unit === "ms" || d.unit === "%") && typeof d.improved === "boolean"
-    ) return { label: d.label, before: d.before, after: d.after, unit: d.unit, improved: d.improved }
+    const delta = value as Record<string, unknown>
+    if (shortString(delta.label) && finiteNumber(delta.before) && finiteNumber(delta.after) &&
+        (delta.unit === "ms" || delta.unit === "%" || delta.unit === "wpm") &&
+        (delta.direction === undefined || delta.direction === "lower" || delta.direction === "higher") && typeof delta.improved === "boolean") {
+        return {
+            label: delta.label, before: delta.before, after: delta.after, unit: delta.unit,
+            ...(delta.direction ? { direction: delta.direction } : {}), improved: delta.improved,
+        }
+    }
     return undefined
 }
 
@@ -425,35 +455,59 @@ function parseSet(value: unknown): DailySet | null {
     if (!finiteNumber(raw.completedAt) || !finiteNumber(raw.netWpm) || !finiteNumber(raw.accuracy)) return null
     const targetDelta = parseDelta(raw.targetDelta)
     if (raw.targetDelta !== undefined && !targetDelta) return null
-    return { completedAt: raw.completedAt, netWpm: raw.netWpm, accuracy: raw.accuracy, ...(targetDelta ? { targetDelta } : {}) }
+    if (raw.targetSamples !== undefined && (!Number.isInteger(raw.targetSamples) || (raw.targetSamples as number) < 0)) return null
+    return {
+        completedAt: raw.completedAt, netWpm: raw.netWpm, accuracy: raw.accuracy,
+        ...(targetDelta ? { targetDelta } : {}), ...(raw.targetSamples !== undefined ? { targetSamples: raw.targetSamples as number } : {}),
+    }
 }
 
 function parseYesterday(value: unknown): YesterdayOutcome | null {
     if (!value || typeof value !== "object") return null
     const raw = value as Record<string, unknown>
-    const target = parseTarget(raw.target)
-    if (
-        !target || !shortString(raw.label) || (raw.unit !== "ms" && raw.unit !== "%") ||
-        !finiteNumber(raw.before) || !finiteNumber(raw.after)
-    ) return null
-    return { label: raw.label, target, unit: raw.unit, before: raw.before, after: raw.after }
+    const target = parseLegacyTarget(raw.target)
+    if (!target || !shortString(raw.label) || (raw.unit !== "ms" && raw.unit !== "%" && raw.unit !== "wpm") ||
+        !finiteNumber(raw.before) || !finiteNumber(raw.after) ||
+        (raw.minimumChange !== undefined && (!finiteNumber(raw.minimumChange) || raw.minimumChange < 0))) return null
+    return {
+        label: raw.label, target, unit: raw.unit, before: raw.before, after: raw.after,
+        minimumChange: (raw.minimumChange as number | undefined) ?? 0,
+    }
+}
+
+function parsePrescription(value: unknown): FrozenRecommendation | null {
+    if (!value || typeof value !== "object") return null
+    const raw = value as Record<string, unknown>
+    const target = parseCoachingTarget(raw.target)
+    if (!target || !shortString(raw.id) || (raw.metric !== "ms" && raw.metric !== "%" && raw.metric !== "wpm") ||
+        (raw.direction !== "lower" && raw.direction !== "higher") || !finiteNumber(raw.baseline) ||
+        !finiteNumber(raw.weaknessThreshold) || !finiteNumber(raw.minimumChange) || raw.minimumChange < 0 ||
+        !finiteNumber(raw.impactMsPer1000) || !finiteNumber(raw.confidence) || !Number.isInteger(raw.sampleCount) ||
+        !Number.isInteger(raw.distinctTests) || !Number.isInteger(raw.distinctWords) || !shortString(raw.reasonCode) ||
+        !shortString(raw.reason) || !Array.isArray(raw.seenWords) || raw.seenWords.length > 40 ||
+        !raw.seenWords.every((word): word is string => typeof word === "string" && word.length <= 80)) return null
+    return {
+        id: raw.id, target, metric: raw.metric, direction: raw.direction, baseline: raw.baseline,
+        weaknessThreshold: raw.weaknessThreshold, minimumChange: raw.minimumChange,
+        impactMsPer1000: raw.impactMsPer1000, confidence: raw.confidence,
+        sampleCount: raw.sampleCount as number, distinctTests: raw.distinctTests as number, distinctWords: raw.distinctWords as number,
+        reasonCode: raw.reasonCode, reason: raw.reason, seenWords: raw.seenWords,
+    }
 }
 
 export function parseDailySession(value: unknown): DailyCoachingSession | null {
     if (!value || typeof value !== "object") return null
     const raw = value as Record<string, unknown>
-    if (
-        raw.version !== 2 || !shortString(raw.id) || typeof raw.dateKey !== "string" || !DATE_KEY_RE.test(raw.dateKey) ||
-        !shortString(raw.pool) || !shortString(raw.language) ||
-        (raw.kind !== "calibration" && raw.kind !== "targeted") ||
-        !shortString(raw.reason) || !finiteNumber(raw.estimatedMinutes) ||
-        (raw.status !== "active" && raw.status !== "completed") ||
+    if ((raw.version !== 2 && raw.version !== 3) || !shortString(raw.id) || typeof raw.dateKey !== "string" || !DATE_KEY_RE.test(raw.dateKey) ||
+        !shortString(raw.pool) || !shortString(raw.language) || (raw.kind !== "calibration" && raw.kind !== "targeted") ||
+        !shortString(raw.reason) || !finiteNumber(raw.estimatedMinutes) || (raw.status !== "active" && raw.status !== "completed") ||
         !Number.isInteger(raw.currentStepIndex) || !finiteNumber(raw.createdAt) || !finiteNumber(raw.updatedAt) ||
-        !Array.isArray(raw.steps) || raw.steps.length === 0 || raw.steps.length > MAX_STEPS
-    ) return null
+        !Array.isArray(raw.steps) || raw.steps.length === 0 || raw.steps.length > MAX_STEPS) return null
 
     const yesterday = raw.yesterday === undefined ? undefined : parseYesterday(raw.yesterday)
     if (raw.yesterday !== undefined && !yesterday) return null
+    const prescription = raw.prescription === undefined ? undefined : parsePrescription(raw.prescription)
+    if (raw.prescription !== undefined && !prescription) return null
 
     const steps: DailyStep[] = []
     for (const item of raw.steps) {
@@ -461,16 +515,12 @@ export function parseDailySession(value: unknown): DailyCoachingSession | null {
         const step = item as Record<string, unknown>
         const kind = step.kind as DailyStepKind
         const context = step.context === undefined
-            ? evidenceContextForCoachingStep(kind)
+            ? kind === "transfer" ? "transfer" : evidenceContextForCoachingStep(kind)
             : parseEvidenceContext(step.context)
-        if (
-            !shortString(step.id) ||
-            (step.kind !== "baseline" && step.kind !== "calibration" && step.kind !== "recheck" && step.kind !== "focus") ||
-            !context ||
-            !shortString(step.title) || !shortString(step.detail) || !shortString(step.href) ||
-            !Array.isArray(step.sets) || step.sets.length > MAX_SETS
-        ) return null
-        const target = step.target === undefined ? undefined : parseTarget(step.target)
+        if (!shortString(step.id) || !["baseline", "calibration", "recheck", "focus", "transfer"].includes(kind) || !context ||
+            !shortString(step.title) || !shortString(step.detail) || !shortString(step.href) || !Array.isArray(step.sets) || step.sets.length > MAX_SETS ||
+            (step.requiresTargetSample !== undefined && typeof step.requiresTargetSample !== "boolean")) return null
+        const target = step.target === undefined ? undefined : parseLegacyTarget(step.target)
         if (step.target !== undefined && !target) return null
         const sets: DailySet[] = []
         for (const rawSet of step.sets) {
@@ -479,38 +529,25 @@ export function parseDailySession(value: unknown): DailyCoachingSession | null {
             sets.push(set)
         }
         steps.push({
-            id: step.id, kind: step.kind, context, title: step.title, detail: step.detail, href: step.href,
-            ...(target ? { target } : {}), sets,
+            id: step.id, kind, context, title: step.title, detail: step.detail, href: step.href,
+            ...(target ? { target } : {}), ...(step.requiresTargetSample ? { requiresTargetSample: true } : {}), sets,
         })
     }
 
     const currentStepIndex = raw.currentStepIndex as number
     if (currentStepIndex < 0 || currentStepIndex >= steps.length) return null
-    // Progress must be internally consistent: everything before the active step
-    // met its goal, nothing after it has started, done sessions met every goal.
     if (raw.status === "completed") {
         if (!steps.every(stepGoalMet)) return null
     } else {
-        if (!steps.slice(0, currentStepIndex).every(stepGoalMet)) return null
-        if (stepGoalMet(steps[currentStepIndex]!)) return null
-        if (!steps.slice(currentStepIndex + 1).every((step) => step.sets.length === 0)) return null
+        if (!steps.slice(0, currentStepIndex).every(stepGoalMet) || stepGoalMet(steps[currentStepIndex]!) ||
+            !steps.slice(currentStepIndex + 1).every((step) => step.sets.length === 0)) return null
     }
 
     return {
-        version: 2,
-        id: raw.id,
-        dateKey: raw.dateKey,
-        pool: raw.pool,
-        language: raw.language,
-        kind: raw.kind,
-        reason: raw.reason,
-        estimatedMinutes: raw.estimatedMinutes,
-        status: raw.status,
-        currentStepIndex,
-        steps,
-        ...(yesterday ? { yesterday } : {}),
-        createdAt: raw.createdAt,
-        updatedAt: raw.updatedAt,
+        version: 3, id: raw.id, dateKey: raw.dateKey, pool: raw.pool, language: raw.language,
+        kind: raw.kind, reason: raw.reason, estimatedMinutes: raw.estimatedMinutes, status: raw.status,
+        currentStepIndex, steps, ...(prescription ? { prescription } : {}), ...(yesterday ? { yesterday } : {}),
+        createdAt: raw.createdAt, updatedAt: raw.updatedAt,
     }
 }
 
@@ -531,16 +568,12 @@ function readAll(scope: string, storage?: Storage): DailyCoachingSession[] {
         const raw = target.getItem(storageKeyFor(scope))
         const values: unknown = raw ? JSON.parse(raw) : []
         if (!Array.isArray(values)) return []
-        return values.map(parseDailySession).filter((value): value is DailyCoachingSession => value !== null)
-    } catch {
-        return []
-    }
+        return values.map(parseDailySession).filter((item): item is DailyCoachingSession => item !== null)
+    } catch { return [] }
 }
 
 export function readLocalDailySession(scope: string, context: DailySessionContext, storage?: Storage): DailyCoachingSession | null {
-    return readAll(scope, storage).find((session) =>
-        session.dateKey === context.dateKey && session.pool === context.pool && session.language === context.language,
-    ) ?? null
+    return readAll(scope, storage).find((session) => session.dateKey === context.dateKey && session.pool === context.pool && session.language === context.language) ?? null
 }
 
 export function writeLocalDailySession(scope: string, session: DailyCoachingSession, storage?: Storage): void {
@@ -550,28 +583,18 @@ export function writeLocalDailySession(scope: string, session: DailyCoachingSess
     sessions.push(session)
     sessions.sort((a, b) => b.updatedAt - a.updatedAt)
     try {
-        // Keep a few days per scope: today plus yesterday (for the cold check).
         target.setItem(storageKeyFor(scope), JSON.stringify(sessions.slice(0, 8)))
         if (!storage && typeof window !== "undefined") window.dispatchEvent(new Event(DAILY_COACHING_UPDATED_EVENT))
-    } catch {
-        // Storage can be blocked; the live session still works for this render.
-    }
+    } catch { /* blocked storage leaves the live session usable */ }
 }
 
-// Clears one scope's local mirror - the guest scope after its session has been
-// adopted into a signed-in account (mirrors GuestImport's clear-after-sync).
 export function clearLocalDailySessions(scope: string, storage?: Storage): void {
     const target = resolveStorage(storage)
     if (!target) return
     try { target.removeItem(storageKeyFor(scope)) } catch { /* blocked storage */ }
 }
 
-// Convergence rule shared by client and server: most completed work wins,
-// updatedAt breaks ties. An offline/stale device can never rewind progress.
-export function preferDailySession(
-    local: DailyCoachingSession | null,
-    remote: DailyCoachingSession | null,
-): DailyCoachingSession | null {
+export function preferDailySession(local: DailyCoachingSession | null, remote: DailyCoachingSession | null): DailyCoachingSession | null {
     if (!local) return remote
     if (!remote) return local
     if (local.id !== remote.id) return local.updatedAt >= remote.updatedAt ? local : remote

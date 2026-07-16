@@ -974,17 +974,23 @@ test.describe("screenshot tour", () => {
 
   // A guest daily session mid-flight, seeded straight into the local mirror.
   function guestDailySession(): DailyCoachingSession {
-    const session = createDailySession({
+    let session = createDailySession({
       dateKey: localDateKey(), pool: "qwerty", language: "english",
       attempts: new Map(),
       transitions: [
         { pair: "br", count: 12, totalMs: 4800, errors: 1 },
         { pair: "th", count: 12, totalMs: 1800, errors: 0 },
       ],
-      yesterday: { label: "b→r", target: { kind: "transition", pair: "br" }, unit: "ms", before: 410, after: 350 },
+      yesterday: { label: "b→r", target: { kind: "transition", pair: "br", metric: "latency" }, unit: "ms", before: 410, after: 350, minimumChange: 10 },
       now: Date.now(),
     });
-    return recordDailySet(session, session.steps[0]!.id, { netWpm: 62.4, accuracy: 96.1, completedAt: Date.now() });
+    const cold = session.steps.find((step) => step.kind === "recheck")!;
+    session = recordDailySet(session, cold.id, {
+      netWpm: 62, accuracy: 96, completedAt: Date.now(), targetSamples: 6,
+      targetDelta: { label: "b→r", before: 410, after: 350, unit: "ms", improved: true },
+    });
+    const baseline = session.steps.find((step) => step.kind === "baseline")!;
+    return recordDailySet(session, baseline.id, { netWpm: 62.4, accuracy: 96.1, completedAt: Date.now() });
   }
 
   async function seedGuestDailySession(page: Page, session: DailyCoachingSession) {
@@ -995,7 +1001,7 @@ test.describe("screenshot tour", () => {
 
   test("daily coaching (complete, with cold check)", async ({ page }, testInfo) => {
     let session = guestDailySession();
-    const focusId = session.steps[session.steps.length - 1]!.id;
+    const focusId = session.steps.find((step) => step.kind === "focus")!.id;
     session = recordDailySet(session, focusId, {
       netWpm: 63, accuracy: 96.4, completedAt: Date.now(),
       targetDelta: { label: "b→r", before: 400, after: 345, unit: "ms", improved: true },
@@ -1003,6 +1009,11 @@ test.describe("screenshot tour", () => {
     session = recordDailySet(session, focusId, {
       netWpm: 64, accuracy: 96.8, completedAt: Date.now(),
       targetDelta: { label: "b→r", before: 400, after: 331, unit: "ms", improved: true },
+    });
+    const transferId = session.steps.find((step) => step.kind === "transfer")!.id;
+    session = recordDailySet(session, transferId, {
+      netWpm: 64, accuracy: 97, completedAt: Date.now(), targetSamples: 6,
+      targetDelta: { label: "b→r", before: 400, after: 340, unit: "ms", improved: true },
     });
     await seedGuestDailySession(page, session);
     await page.goto("/plan");

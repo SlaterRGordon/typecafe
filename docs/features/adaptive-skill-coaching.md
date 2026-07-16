@@ -663,13 +663,13 @@ carriers with qualified samples; reload preserves frozen Target/policy.
 
 ### 8. Daily Coach Transfer loop
 
-- [ ] Select due -> regressed -> highest Impact -> calibration.
-- [ ] Freeze recommendation, baseline, thresholds, and reason in a backward-
+- [x] Select due -> regressed -> highest Impact -> calibration.
+- [x] Freeze recommendation, baseline, thresholds, and reason in a backward-
       compatible Coaching snapshot version.
-- [ ] Add Transfer after acquisition and adopt only verified context/coverage.
-- [ ] Preserve two wins or three acquisition sets.
-- [ ] Keep median session within 5-8 minutes.
-- [ ] Update Today/Home/Drill, desktop/mobile e2e, and screenshots.
+- [x] Add Transfer after acquisition and adopt only verified context/coverage.
+- [x] Preserve two wins or three acquisition sets.
+- [x] Keep median session within 5-8 minutes.
+- [x] Update Today/Home/Drill, desktop/mobile e2e, and screenshots.
 
 **Acceptance:** warm acquisition improvement without Transfer improvement is
 practice progress, not Mastery; today's Prescription never changes underneath

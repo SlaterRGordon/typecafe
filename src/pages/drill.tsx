@@ -12,7 +12,7 @@ import { applyTextOptions, ensureLanguageLoaded, getWords } from "~/components/t
 import { useLanguage } from "~/hooks/useLanguage"
 import { compileDrillText } from "~/lib/drill"
 import { evidenceContextForRun } from "~/lib/evidenceContext"
-import { parseCoachingTargetQuery, targetAccuracyPolicy, targetDisplayLabel } from "~/lib/coachingTarget"
+import { parseCoachingTargetQuery, targetAccuracyPolicy, targetDisplayLabel, type CoachingTarget, type DrillPolicy } from "~/lib/coachingTarget"
 import type { EvidenceContext } from "~/lib/evidenceContext"
 import {
     currentDailyStep,
@@ -26,6 +26,7 @@ import {
     writeLocalDailySession,
     type DailyCoachingSession,
 } from "~/lib/dailyCoaching"
+import { measureDailyStepSet } from "~/lib/dailyCoachingMeasurement"
 import { isDrillMark, isDrillDigit, isDrillableKey, isPracticeLetter } from "~/lib/drillKeys"
 import { attemptsFromEvents, keyDrillDelta, keysBaseline, mergeAttempts, nextDrillFinding, transitionBaseline, transitionDrillDelta, type DrillDelta, type DrillFinding } from "~/lib/drillProgress"
 import { decodeTimeline } from "~/lib/keystrokes"
@@ -52,6 +53,8 @@ interface DrillConfig {
     evidenceContext: EvidenceContext,
     eyebrow?: string,
     accuracyGoalPct?: number,
+    coachingTarget?: CoachingTarget,
+    policy: DrillPolicy,
 }
 
 interface LifetimeEvidence {
@@ -115,13 +118,15 @@ function transitionLabel(pair: string) {
 function DeltaLine({ delta }: { delta: DrillDelta }) {
     const diff = delta.unit === "ms" ? Math.round(Math.abs(delta.after - delta.before)) : Math.abs(delta.after - delta.before)
     const flat = delta.unit === "ms" ? diff === 0 : diff < 0.05
+    const direction = delta.direction ?? (delta.unit === "ms" ? "lower" : "higher")
+    const movedInImprovingDirection = direction === "lower" ? delta.after < delta.before : delta.after > delta.before
     const change = flat
         ? "even with"
         : delta.unit === "ms"
-            ? `${diff}ms ${delta.improved ? "faster" : "slower"} than`
-            : `${diff.toFixed(1)} pts ${delta.improved ? "above" : "below"}`
-    const rep = delta.unit === "ms" ? `${Math.round(delta.after)}ms` : `${delta.after.toFixed(1)}%`
-    const lifetime = delta.unit === "ms" ? `${Math.round(delta.before)}ms` : `${delta.before.toFixed(1)}%`
+            ? `${diff}ms ${movedInImprovingDirection ? "faster" : "slower"} than`
+            : `${diff.toFixed(1)} ${delta.unit === "wpm" ? "WPM" : "pts"} ${delta.after > delta.before ? "above" : "below"}`
+    const rep = delta.unit === "ms" ? `${Math.round(delta.after)}ms` : delta.unit === "wpm" ? `${delta.after.toFixed(1)} WPM` : `${delta.after.toFixed(1)}%`
+    const lifetime = delta.unit === "ms" ? `${Math.round(delta.before)}ms` : delta.unit === "wpm" ? `${delta.before.toFixed(1)} WPM` : `${delta.before.toFixed(1)}%`
     return (
         <p data-testid="drill-delta" className="mt-4 text-sm text-base-content/75">
             <span className="font-mono font-bold text-base-content">{delta.label}</span>{": "}
@@ -171,7 +176,7 @@ const Drill: NextPage = () => {
         const wordList = getWords(language)
         const coaching = parseCoachingTargetQuery(router.query)
 
-        if (coaching && !coaching.legacy && coaching.target.kind !== "endurance") {
+        if (coaching && coaching.target.kind !== "endurance") {
             const target = coaching.target
             const accuracyPolicy = targetAccuracyPolicy(target)
             const kind: DrillKind = target.kind === "transition"
@@ -194,6 +199,8 @@ const Drill: NextPage = () => {
                     length,
                 }),
                 evidenceContext: coaching.policy,
+                coachingTarget: target,
+                policy: coaching.policy,
                 eyebrow: target.kind === "movement"
                     ? "Movement drill"
                     : target.kind === "gram" ? "Pattern drill" : accuracyPolicy ? "Accuracy drill" : undefined,
@@ -208,6 +215,7 @@ const Drill: NextPage = () => {
                 targets: words,
                 text: compileDrillText({ words, wordList, length }),
                 evidenceContext: DRILL_EVIDENCE_CONTEXT,
+                policy: "acquisition",
             }
         }
 
@@ -218,6 +226,8 @@ const Drill: NextPage = () => {
                 targets: transitions,
                 text: compileDrillText({ transitions, wordList, length }),
                 evidenceContext: DRILL_EVIDENCE_CONTEXT,
+                coachingTarget: { kind: "transition", pair: transitions[0]!, metric: "latency" },
+                policy: "acquisition",
             }
         }
 
@@ -239,12 +249,14 @@ const Drill: NextPage = () => {
                     targeted: true,
                 }),
                 evidenceContext: DRILL_EVIDENCE_CONTEXT,
+                coachingTarget: { kind: "key", keys, metric: "accuracy" },
+                policy: "acquisition",
             }
         }
 
         // A timed warm-up: a generic timed test, no target keys.
         if (seconds > 0) {
-            return { kind: "timed", labels: [`${seconds}s`], targets: [], text: "", seconds, evidenceContext: DRILL_EVIDENCE_CONTEXT }
+            return { kind: "timed", labels: [`${seconds}s`], targets: [], text: "", seconds, evidenceContext: DRILL_EVIDENCE_CONTEXT, policy: "acquisition" }
         }
 
         return null
@@ -336,12 +348,21 @@ const Drill: NextPage = () => {
         return { delta, next }
     }, [completed, config, baseline])
 
+    const dailyMeasurement = useMemo(() => {
+        if (!completed || !dailySession) return null
+        const active = currentDailyStep(dailySession)
+        return active ? measureDailyStepSet(dailySession, active, {
+            timeline: completed.timeline,
+            netWpm: completed.netWpm,
+        }) : null
+    }, [completed, dailySession])
+
     // Client-side navigation can swap the drill target without remounting this
     // page (a coaching next-step link, the coach tab flyout). A new target must
     // start fresh: drop the previous rep's result card (so the typer shows, not
     // a stale "Drill complete") and re-arm the coaching strip. recordedSetRef is
     // deliberately kept - the old rep must never record against the new step.
-    const targetKey = config ? `${config.kind}:${config.targets.join(",")}` : null
+    const targetKey = config ? `${config.kind}:${JSON.stringify(config.coachingTarget)}:${config.policy}` : null
     useEffect(() => {
         recordedHereRef.current = false
         setCompleted(null)
@@ -358,8 +379,10 @@ const Drill: NextPage = () => {
         const read = () => {
             const stored = readLocalDailySession(dailyScope, { dateKey: localDateKey(), pool, language })
             const active = stored ? currentDailyStep(stored) : null
-            const matches = !!(active?.target && config && (config.kind === "keys" || config.kind === "transitions") &&
-                targetMatchesDrill(active.target, { kind: config.kind, targets: config.targets }))
+            const matches = !!(active?.target && config && targetMatchesDrill(active, {
+                target: config.coachingTarget,
+                policy: config.policy,
+            }))
             setDailySession(matches || recordedHereRef.current ? stored : null)
         }
         read()
@@ -377,27 +400,28 @@ const Drill: NextPage = () => {
         const next = recordDailySet(dailySession, active.id, {
             netWpm: completed.netWpm,
             accuracy: completed.accuracy,
-            ...(outcome?.delta ? { targetDelta: outcome.delta } : {}),
+            ...(dailyMeasurement ?? (!dailySession.prescription && outcome?.delta ? { targetDelta: outcome.delta } : {})),
         })
         if (next === dailySession) return
         recordedHereRef.current = true
         writeLocalDailySession(dailyScope, next)
         setDailySession(next)
-    }, [completed, dailySession, dailyScope, outcome?.delta])
+    }, [completed, dailyMeasurement, dailySession, dailyScope, outcome?.delta])
 
     // Append this rep's delta.after to the session trail. The lifetime baseline
     // moves too (reps sync into it - ADR-0004 reversal), but slowly once the
     // pair has history; the trail shows each rep landing.
     const recordedRepRef = useRef<TestCompletionResult["timeline"] | null>(null)
     useEffect(() => {
-        if (!completed || !outcome?.delta) return
+        const delta = dailyMeasurement?.targetDelta ?? (!dailySession?.prescription ? outcome?.delta : null)
+        if (!completed || !delta) return
         // The eager completion is re-reported once the save settles with the same
         // timeline array (spread copy) - reference equality dedupes the rep.
         if (recordedRepRef.current === completed.timeline) return
         recordedRepRef.current = completed.timeline
-        const after = outcome.delta.after
+        const after = delta.after
         setSessionReps((reps) => [...reps, after])
-    }, [completed, outcome])
+    }, [completed, dailyMeasurement?.targetDelta, dailySession?.prescription, outcome?.delta])
 
     const wordCount = config?.text.split(" ").filter(Boolean).length ?? DEFAULT_DRILL_WORDS
 
@@ -408,8 +432,10 @@ const Drill: NextPage = () => {
     const reMeasureHref = rmToken ? `/?rm=${encodeURIComponent(rmToken)}` : "/?mode=timed&count=30"
     const dailyActiveStep = dailySession ? currentDailyStep(dailySession) : null
     // Still the same step after this rep → the primary action is another set.
-    const dailyNeedsMoreSets = !!(dailyActiveStep?.target && config && (config.kind === "keys" || config.kind === "transitions") &&
-        targetMatchesDrill(dailyActiveStep.target, { kind: config.kind, targets: config.targets }))
+    const dailyNeedsMoreSets = !!(dailyActiveStep?.target && config && targetMatchesDrill(dailyActiveStep, {
+        target: config.coachingTarget,
+        policy: config.policy,
+    }))
 
     // Full-page navigation, like Re-measure: the drill page must remount so the
     // new target compiles fresh text and the baseline re-snapshots.
@@ -459,8 +485,9 @@ const Drill: NextPage = () => {
                                                 </p>
                                             )}
                                             {sessionReps.length > 0 && (() => {
-                                                const fmt = (v: number) => config.kind === "transitions" ? `${Math.round(v)}ms` : `${v.toFixed(1)}%`
-                                                const best = config.kind === "transitions" ? Math.min(...sessionReps) : Math.max(...sessionReps)
+                                                const metric = dailySession?.prescription?.metric ?? (config.kind === "transitions" ? "ms" : "%")
+                                                const fmt = (v: number) => metric === "ms" ? `${Math.round(v)}ms` : metric === "wpm" ? `${v.toFixed(1)} WPM` : `${v.toFixed(1)}%`
+                                                const best = dailySession?.prescription?.direction === "lower" || metric === "ms" ? Math.min(...sessionReps) : Math.max(...sessionReps)
                                                 const last = sessionReps[sessionReps.length - 1]!
                                                 return (
                                                     <p data-testid="drill-session" className="mt-1 text-sm text-base-content/70">
@@ -546,7 +573,8 @@ const Drill: NextPage = () => {
                                             <p className="mt-1 font-mono text-3xl font-bold text-base-content">{config.kind === "timed" ? `${config.seconds}s` : wordCount}</p>
                                         </div>
                                     </div>
-                                    {outcome?.delta && <DeltaLine delta={outcome.delta} />}
+                                    {(dailyMeasurement?.targetDelta ?? (!dailySession?.prescription ? outcome?.delta : null)) &&
+                                        <DeltaLine delta={(dailyMeasurement?.targetDelta ?? outcome?.delta)!} />}
                                     <div className="mt-5 flex flex-col gap-2 sm:flex-row">
                                         {dailySession ? (
                                             dailySession.status === "completed" ? (
