@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest"
 import type { EvidenceContext } from "./evidenceContext"
 import type { TimelineEvidence } from "./evidenceNormalization"
 import { encodeTimeline, type TestEvidenceEvent } from "./keystrokes"
-import { analyzeTypingEvidence } from "./skillEvidence"
+import { analyzeTypingEvidence, currentTimelineSupportsHigherOrderCandidate } from "./skillEvidence"
 
 type PairSpec = { pair: string, gap: number, repeats: number, incorrectEvery?: number }
 type WordSpec = { word: string, gaps: number[], repeats?: number }
@@ -274,6 +274,37 @@ describe("analyzeTypingEvidence", () => {
         expect(analysis.recommendation?.impactMsPer1000).toBeGreaterThan(
             analysis.candidates.find((candidate) => candidate.id === "transition:latency:ti")?.impactMsPer1000 ?? Infinity,
         )
+    })
+
+    it("requires the current score timeline to reproduce a historical higher-order weakness", () => {
+        const carriers = ["action", "station", "motion", "nation", "portion"]
+        const history = [1, 2].map((testId) => wordTimeline(testId, [
+            ...rhythmWords,
+            ...carriers.map((word) => ({
+                word,
+                gaps: [...word].slice(1).map((_, index) => index >= [...word].length - 4 ? 160 : 100),
+            })),
+        ]))
+        const candidate = analyzeTypingEvidence({ timelines: history, corpusWords: carriers })
+            .candidates.find((item) => item.id === "gram:4:tion")
+        expect(candidate).toBeDefined()
+
+        const unrelated = wordTimeline(3, [
+            ...rhythmWords,
+            { word: "quasar", gaps: [100, 100, 100, 100, 100], repeats: 3 },
+        ])
+        const cleanTarget = wordTimeline(4, [
+            ...rhythmWords,
+            { word: "action", gaps: [100, 100, 100, 100, 100], repeats: 3 },
+        ])
+        const slowTarget = wordTimeline(5, [
+            ...rhythmWords,
+            { word: "action", gaps: [100, 100, 160, 160, 160], repeats: 3 },
+        ])
+
+        expect(currentTimelineSupportsHigherOrderCandidate(candidate!, unrelated)).toBe(false)
+        expect(currentTimelineSupportsHigherOrderCandidate(candidate!, cleanTarget)).toBe(false)
+        expect(currentTimelineSupportsHigherOrderCandidate(candidate!, slowTarget)).toBe(true)
     })
 
     it("requires recurring words across Tests and filters interrupted samples", () => {

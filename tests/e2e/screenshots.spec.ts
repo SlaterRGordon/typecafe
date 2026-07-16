@@ -544,7 +544,8 @@ test.describe("screenshot tour", () => {
 
     await expect(page.getByRole("button", { name: "Test Again" })).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText("Diagnosis", { exact: true })).toBeVisible();
-    await expect(page.getByTestId("diagnosis-higher-order")).toContainText("tion");
+    // Recent history alone must not leak a stale pattern into this score card.
+    await expect(page.getByTestId("diagnosis-higher-order")).toHaveCount(0);
     // The mini per-key heatmap renders alongside the findings (Phase 1.5).
     await expect(page.getByTestId("diagnosis-heatmap")).toBeVisible();
     const diagnosisBox = await page.getByTestId("diagnosis-panel").boundingBox();

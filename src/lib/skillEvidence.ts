@@ -140,6 +140,39 @@ export interface SkillEvidenceInput {
     corpusWords?: readonly string[]
 }
 
+// A live score card may use recent natural history to establish that a
+// higher-order Target recurs, but the card still describes the Test that just
+// finished. Require that run to contain the Target and reproduce the latency
+// weakness before surfacing the historical candidate.
+export function currentTimelineSupportsHigherOrderCandidate(
+    candidate: SkillCandidate,
+    timeline: TimelineEvidence,
+): boolean {
+    if (candidate.target.kind !== "gram" && candidate.target.kind !== "word") return false
+
+    const evidence = prepareEvidence([timeline])
+    const arrivals = evidence.arrivals.filter((sample) => discoversWeakness(sample.context))
+    const baselineMs = median(arrivals.map((sample) => sample.dtMs))
+    if (baselineMs <= 0) return false
+
+    if (candidate.target.kind === "gram") {
+        const gram = candidate.target.gram
+        const samples = evidence.grams.filter((sample) => sample.gram === gram)
+        if (samples.length === 0) return false
+        const observedMs = median(samples.map((sample) => sample.internalMs))
+        const targetBaselineMs = baselineMs * ([...gram].length - 1)
+        return observedMs - targetBaselineMs >= SKILL_EVIDENCE_THRESHOLDS.latencyNoiseFloorMs &&
+            observedMs / targetBaselineMs >= SKILL_EVIDENCE_THRESHOLDS.higherOrderLatencyMinRatio
+    }
+
+    const targetWords = new Set(candidate.target.words)
+    const samples = evidence.words.filter((sample) => targetWords.has(sample.word))
+    if (samples.length === 0) return false
+    const observedMs = median(samples.map((sample) => sample.internalMs / sample.arrivals))
+    return observedMs - baselineMs >= SKILL_EVIDENCE_THRESHOLDS.latencyNoiseFloorMs &&
+        observedMs / baselineMs >= SKILL_EVIDENCE_THRESHOLDS.higherOrderLatencyMinRatio
+}
+
 interface ArrivalSample {
     key: string
     predecessor: string

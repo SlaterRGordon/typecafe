@@ -1140,7 +1140,7 @@ test.describe("home typing test", () => {
     await expect(page.getByText("Key drill")).toBeVisible();
   });
 
-  test("diagnosis shows only the best supported higher-order pattern with an action", async ({ page }) => {
+  test("diagnosis does not leak a history-only higher-order pattern into this score", async ({ page }) => {
     await mockAuthenticatedSession(page);
     await mockTrpc(page, { timelineEvidence: [higherOrderTimeline(1), higherOrderTimeline(2)] });
     await gotoHome(page);
@@ -1149,14 +1149,8 @@ test.describe("home typing test", () => {
 
     await expect(page.getByRole("button", { name: "Test Again" })).toBeVisible({ timeout: 15_000 });
     const higherOrder = page.getByTestId("diagnosis-higher-order");
-    await expect(higherOrder).toHaveCount(1);
-    await expect(higherOrder).toContainText("recurring hard words share");
-    const action = higherOrder.getByRole("link", { name: /Drill the .* pattern/ });
-    await expect(action).toHaveAttribute("href", /\/drill\?target=(?:gram|word).*policy=acquisition.*&rm=/);
-
-    await action.click();
-    await expect(page).toHaveURL(/\/drill\?target=(?:gram|word)/);
-    await expect(page.getByText("Word drill")).toBeVisible();
+    await expect(higherOrder).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Drill the tion pattern" })).toHaveCount(0);
   });
 
   // Regression guard: Practice (and any non-Normal mode) carries a leftover

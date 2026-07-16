@@ -74,9 +74,10 @@ export function HigherOrderResultFinding({
     const timelines = histories.some((timeline) => JSON.stringify(timeline.timeline) === encodedCurrent)
       ? histories
       : [current, ...histories];
-    void import("~/lib/skillEvidence").then(({ analyzeTypingEvidence }) => {
+    void import("~/lib/skillEvidence").then(({ analyzeTypingEvidence, currentTimelineSupportsHigherOrderCandidate }) => {
       const next = analyzeTypingEvidence({ timelines, corpusWords }).candidates.find((candidate) =>
-        candidate.target.kind === "gram" || candidate.target.kind === "word",
+        (candidate.target.kind === "gram" || candidate.target.kind === "word") &&
+        currentTimelineSupportsHigherOrderCandidate(candidate, current),
       ) ?? null;
       if (!active) return;
       setFinding(next);
