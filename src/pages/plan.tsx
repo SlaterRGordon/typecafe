@@ -148,7 +148,7 @@ const DailyCoachingPage: NextPage = () => {
                             )}
                             {cold && (
                                 <p data-testid="daily-cold-check" className="mt-4 text-sm text-base-content/75">
-                                    Cold check on yesterday&apos;s <span className="font-mono font-bold text-base-content">{cold.yesterday.label}</span>:{" "}
+                                    Cold check on an earlier <span className="font-mono font-bold text-base-content">{cold.yesterday.label}</span> gain:{" "}
                                     <span className="font-semibold text-base-content">{formatMetric(cold.value, cold.unit)}</span>
                                     {" "}(started at {formatMetric(cold.yesterday.before, cold.unit)} before drilling) -{" "}
                                     {cold.held ? <span className="font-semibold text-success">the change stuck.</span> : <span className="font-semibold text-warning">it slipped; worth another pass.</span>}

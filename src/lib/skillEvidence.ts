@@ -9,7 +9,8 @@ import { isTrackableTransitionPair } from "./drillableTransitions"
 import { decodeEvidenceTimeline, timelineDurationMs, type KeystrokeEvent, type TestEvidenceEvent } from "./keystrokes"
 import { classifyMovement, type MovementKind } from "./movementClassification"
 import { evaluateTestEvidence } from "./testEvidence"
-import type { CoachingTarget } from "./coachingTarget"
+import { sameCoachingTarget, type CoachingTarget } from "./coachingTarget"
+import type { DailyCoachingSession, FrozenRecommendation } from "./dailyCoaching"
 export type { CoachingTarget } from "./coachingTarget"
 
 export const SKILL_EVIDENCE_THRESHOLDS = {
@@ -52,6 +53,12 @@ export const SKILL_EVIDENCE_THRESHOLDS = {
     latencyNoiseFloorMs: 10,
     materialImpactMsPer1000: 25,
     oldestVolumeWeight: 0.5,
+} as const
+
+export const MASTERY_CHECK_INTERVALS = {
+    afterTransferLocalDays: 1,
+    afterFirstHeldPracticedDays: 3,
+    afterLaterHeldPracticedDays: 7,
 } as const
 
 export type SkillReason =
@@ -102,11 +109,28 @@ export interface EvidenceQuality {
     interrupted: boolean
 }
 
-// Reserved output shapes for the later Mastery/Recap slices. Keeping them at
-// the public seam now prevents callers from reaching around the analysis module.
+export interface TargetProof {
+    target: CoachingTarget
+    metric: "ms" | "%" | "wpm"
+    baseline: number
+    bestAcquisition?: number
+    transfer?: number
+    cold?: number
+    improvedInTransfer: boolean
+    heldCold: boolean | null
+    sampleCounts: { baseline: number, transfer: number, cold: number }
+}
+
 export interface MasteryRecord {
+    id: string
     target: CoachingTarget
     state: "training" | "transferred" | "retained" | "due" | "regressed"
+    prescription: FrozenRecommendation
+    proof: TargetProof
+    prescribedDate: string
+    lastEvidenceDate: string
+    heldColdChecks: number
+    practicedDaysUntilDue: number | null
 }
 
 export interface SkillRecap {
@@ -138,6 +162,11 @@ export interface SkillEvidenceInput {
     // Frequency-ranked words for the active language. Persistence and loading
     // stay outside this pure module; analysis derives bounded priors on demand.
     corpusWords?: readonly string[]
+    // Parsed, same-language/pool Coaching snapshots. Mastery is derived on read;
+    // callers retain ownership of persistence and scoping.
+    sessions?: readonly DailyCoachingSession[]
+    todayDateKey?: string
+    scope?: { language: string, pool: string }
 }
 
 // A live score card may use recent natural history to establish that a
@@ -1087,6 +1116,154 @@ function movementCandidates(evidence: PreparedEvidence, arrivals: readonly Arriv
     return candidates
 }
 
+function completedCoachingSets(session: DailyCoachingSession): number {
+    return session.steps.reduce((sum, step) => sum + step.sets.length, 0)
+}
+
+function bestStepValue(
+    session: DailyCoachingSession,
+    kind: "focus" | "transfer",
+): { value: number, samples: number, improved: boolean } | null {
+    const step = session.steps.find((item) => item.kind === kind)
+    const deltas = step?.sets.flatMap((set) => set.targetDelta
+        ? [{ delta: set.targetDelta, samples: set.targetSamples ?? 0 }]
+        : []) ?? []
+    if (deltas.length === 0) return null
+    const direction = session.prescription?.direction ?? (deltas[0]!.delta.unit === "ms" ? "lower" : "higher")
+    const best = deltas.reduce((current, next) => direction === "lower"
+        ? (next.delta.after < current.delta.after ? next : current)
+        : (next.delta.after > current.delta.after ? next : current))
+    return { value: best.delta.after, samples: best.samples, improved: best.delta.improved }
+}
+
+function heldAgainstFrozenBaseline(session: DailyCoachingSession): { value: number, samples: number, held: boolean } | null {
+    const expected = session.yesterday
+    const step = session.steps.find((item) => item.kind === "recheck")
+    const set = step?.sets.find((item) => item.targetDelta)
+    const delta = set?.targetDelta
+    if (!expected || !delta || delta.unit !== expected.unit) return null
+    const held = expected.unit === "ms"
+        ? delta.after <= expected.before - expected.minimumChange
+        : delta.after >= expected.before + expected.minimumChange
+    return { value: delta.after, samples: set?.targetSamples ?? 0, held }
+}
+
+function recordTargetKey(record: Pick<MasteryRecord, "target">): string {
+    return JSON.stringify(record.target)
+}
+
+function deriveMastery(
+    sessions: readonly DailyCoachingSession[],
+    candidates: readonly SkillCandidate[],
+    todayDateKey: string | undefined,
+): { mastery: MasteryRecord[], recap: SkillRecap } {
+    const ordered = [...sessions]
+        .sort((a, b) => a.dateKey.localeCompare(b.dateKey) || a.createdAt - b.createdAt)
+    const records: MasteryRecord[] = []
+
+    for (const session of ordered) {
+        const prescription = session.prescription
+        if (prescription) {
+            const acquisition = bestStepValue(session, "focus")
+            const transfer = bestStepValue(session, "transfer")
+            records.push({
+                id: `${session.id}:${prescription.id}`,
+                target: prescription.target,
+                state: transfer?.improved ? "transferred" : "training",
+                prescription,
+                proof: {
+                    target: prescription.target,
+                    metric: prescription.metric,
+                    baseline: prescription.baseline,
+                    ...(acquisition ? { bestAcquisition: acquisition.value } : {}),
+                    ...(transfer ? { transfer: transfer.value } : {}),
+                    improvedInTransfer: transfer?.improved ?? false,
+                    heldCold: null,
+                    sampleCounts: {
+                        baseline: prescription.sampleCount,
+                        transfer: transfer?.samples ?? 0,
+                        cold: 0,
+                    },
+                },
+                prescribedDate: session.dateKey,
+                lastEvidenceDate: transfer ? session.dateKey : session.dateKey,
+                heldColdChecks: 0,
+                practicedDaysUntilDue: transfer?.improved ? 1 : null,
+            })
+        }
+
+        const cold = heldAgainstFrozenBaseline(session)
+        const coldTarget = session.yesterday?.target
+        if (!cold || !coldTarget) continue
+        // A delayed check belongs to the newest earlier episode for this Target.
+        // Same-day focused work can never manufacture retained state.
+        const record = [...records].reverse().find((item) =>
+            item.prescribedDate < session.dateKey &&
+            item.proof.improvedInTransfer &&
+            sameCoachingTarget(item.target, coldTarget),
+        )
+        if (!record) continue
+        record.proof.cold = cold.value
+        record.proof.heldCold = cold.held
+        record.proof.sampleCounts.cold = cold.samples
+        record.lastEvidenceDate = session.dateKey
+        if (cold.held) {
+            record.heldColdChecks += 1
+            record.state = "retained"
+            record.practicedDaysUntilDue = record.heldColdChecks === 1
+                ? MASTERY_CHECK_INTERVALS.afterFirstHeldPracticedDays
+                : MASTERY_CHECK_INTERVALS.afterLaterHeldPracticedDays
+        } else {
+            record.state = "regressed"
+            record.practicedDaysUntilDue = null
+        }
+    }
+
+    const practicedDates = [...new Set(ordered
+        .filter((session) => completedCoachingSets(session) > 0)
+        .map((session) => session.dateKey))]
+    const latestByTarget = new Map<string, MasteryRecord>()
+    for (const record of records) latestByTarget.set(recordTargetKey(record), record)
+
+    for (const record of latestByTarget.values()) {
+        if (record.state === "transferred" && todayDateKey && todayDateKey > record.lastEvidenceDate) {
+            record.state = "due"
+            record.practicedDaysUntilDue = 0
+        } else if (record.state === "retained" && record.practicedDaysUntilDue) {
+            const interval = record.practicedDaysUntilDue
+            const completedAfter = practicedDates.filter((date) => date > record.lastEvidenceDate && (!todayDateKey || date < todayDateKey)).length
+            // The upcoming session is itself the next practiced day. A 3-day
+            // interval is therefore due after two intervening practiced days.
+            const remaining = Math.max(0, interval - completedAfter - 1)
+            record.practicedDaysUntilDue = remaining
+            if (remaining === 0) record.state = "due"
+        }
+
+        if ((record.state === "retained" || (record.state === "due" && record.heldColdChecks > 0)) &&
+            candidates.some((candidate) => sameCoachingTarget(candidate.target, record.target))) {
+            record.state = "regressed"
+            record.practicedDaysUntilDue = null
+        }
+    }
+
+    const mastery = records.sort((a, b) =>
+        b.prescribedDate.localeCompare(a.prescribedDate) || b.id.localeCompare(a.id))
+    const due = mastery.filter((record) => record.state === "due")
+        .sort((a, b) => a.lastEvidenceDate.localeCompare(b.lastEvidenceDate) ||
+            b.prescription.impactMsPer1000 - a.prescription.impactMsPer1000 || a.id.localeCompare(b.id))[0] ?? null
+    const candidateRank = (record: MasteryRecord) => {
+        const index = candidates.findIndex((candidate) => sameCoachingTarget(candidate.target, record.target))
+        return index < 0 ? Number.MAX_SAFE_INTEGER : index
+    }
+    const regressed = mastery.filter((record) => record.state === "regressed")
+        .sort((a, b) => candidateRank(a) - candidateRank(b) ||
+            b.prescription.impactMsPer1000 - a.prescription.impactMsPer1000 || a.id.localeCompare(b.id))[0] ?? null
+    return {
+        mastery,
+        recap: { retained: mastery.filter((record) => record.state === "retained"), due, regressed },
+    }
+}
+
 export function analyzeTypingEvidence(input: SkillEvidenceInput): SkillAnalysis {
     const evidence = prepareEvidence(input.timelines)
     const discoveryArrivals = evidence.arrivals.filter((sample) => discoversWeakness(sample.context))
@@ -1282,6 +1459,11 @@ export function analyzeTypingEvidence(input: SkillEvidenceInput): SkillAnalysis 
     }
 
     candidates.sort(stableCandidateSort)
+    const scope = input.scope
+    const scopedSessions = scope
+        ? (input.sessions ?? []).filter((session) => session.language === scope.language && session.pool === scope.pool)
+        : input.sessions ?? []
+    const history = deriveMastery(scopedSessions, candidates, input.todayDateKey)
     evidence.quality.status = evidence.quality.discoveryTimelines === 0
         ? "none"
         : candidates.length > 0 ? "ready" : "thin"
@@ -1289,8 +1471,8 @@ export function analyzeTypingEvidence(input: SkillEvidenceInput): SkillAnalysis 
         quality: evidence.quality,
         candidates,
         recommendation: candidates[0] ?? null,
-        mastery: [],
-        recap: { retained: [], due: null, regressed: null },
+        mastery: history.mastery,
+        recap: history.recap,
         testFamilyCosts: matchedRuns.testFamilyCosts,
     }
 }

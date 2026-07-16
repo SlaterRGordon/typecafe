@@ -4,6 +4,7 @@ import {
   DAILY_COACHING_STORAGE_KEY,
   GUEST_DAILY_SCOPE,
   localDateKey,
+  previousDateKey,
   recordDailySet,
   type DailyCoachingSession,
   type YesterdayOutcome,
@@ -46,6 +47,25 @@ function fastSession(options: { baselineDone?: boolean, yesterday?: YesterdayOut
     session = recordDailySet(session, baseline.id, { netWpm: 60, accuracy: 95, completedAt: Date.now() })
   }
   return session
+}
+
+function transferredSession(dateKey: string): DailyCoachingSession {
+  let session = createDailySession({
+    dateKey, pool: "qwerty", language: "english",
+    attempts: new Map(), transitions: SLOW_TRANSITIONS, now: Date.now() - 86_400_000,
+  })
+  const baseline = session.steps.find((step) => step.kind === "baseline")!
+  session = recordDailySet(session, baseline.id, { netWpm: 60, accuracy: 96 })
+  const focus = session.steps.find((step) => step.kind === "focus")!
+  for (const after of [370, 360]) session = recordDailySet(session, focus.id, {
+    netWpm: 62, accuracy: 97, targetSamples: 8,
+    targetDelta: { label: "b→r", before: 400, after, unit: "ms", improved: true },
+  })
+  const transfer = session.steps.find((step) => step.kind === "transfer")!
+  return recordDailySet(session, transfer.id, {
+    netWpm: 63, accuracy: 98, targetSamples: 8,
+    targetDelta: { label: "b→r", before: 400, after: 350, unit: "ms", improved: true },
+  })
 }
 
 async function seedSession(page: Page, scope: string, session: DailyCoachingSession) {
@@ -97,6 +117,18 @@ test.describe("daily coaching", () => {
     await expect(page.getByTestId("daily-session-active")).toContainText("1/3 steps")
     await expect(page.getByTestId("daily-session-start")).toContainText("Resume session")
     await expect(page.getByTestId("daily-session-active")).toContainText("Acquire b→r")
+  })
+
+  test("derives a due Cold check from cross-device Coaching history", async ({ page }) => {
+    const history = transferredSession(previousDateKey(localDateKey()))
+    await mockAuthenticatedSession(page)
+    await mockTrpc(page, { coachingHistory: [history] })
+    await page.goto("/plan")
+
+    const prescription = page.getByRole("region", { name: "Cold if due → measure → acquire → Transfer" })
+    await expect(prescription.getByText(/Cold check b→r/)).toBeVisible()
+    await expect(page.getByText(/against its frozen 400ms baseline/)).toBeVisible()
+    await expect(page.getByTestId("daily-session-active")).toContainText("0/4 steps")
   })
 
   test("adopts the guest session into the account on sign in and clears the guest mirror", async ({ page }) => {
@@ -228,7 +260,7 @@ test.describe("daily coaching", () => {
     expect(stored[0]?.steps.every((step) => step.sets.length === 0)).toBe(true)
   })
 
-  test("a completed day leads with the target metric and yesterday's cold check", async ({ page }) => {
+  test("a completed day leads with the target metric and its earlier cold check", async ({ page }) => {
     const yesterday: YesterdayOutcome = {
       label: "b→r", target: { kind: "transition", pair: "br", metric: "latency" }, unit: "ms", before: 410, after: 350, minimumChange: 10,
     }

@@ -12,7 +12,9 @@ import {
     parseDailySession,
     preferDailySession,
     previousDateKey,
+    readLocalDailyHistory,
     readLocalDailySession,
+    targetLabel,
     writeLocalDailySession,
     yesterdayOutcomeFrom,
     type DailyCoachingSession,
@@ -28,6 +30,21 @@ import { useLayout } from "./useLayout"
 
 function sameSession(a: DailyCoachingSession | null, b: DailyCoachingSession | null): boolean {
     return JSON.stringify(a) === JSON.stringify(b)
+}
+
+function mergeHistory(...groups: readonly (readonly DailyCoachingSession[])[]): DailyCoachingSession[] {
+    const byId = new Map<string, DailyCoachingSession>()
+    for (const session of groups.flat()) {
+        const preferred = preferDailySession(byId.get(session.id) ?? null, session)
+        if (preferred) byId.set(session.id, preferred)
+    }
+    return [...byId.values()].sort((a, b) => b.dateKey.localeCompare(a.dateKey) || b.updatedAt - a.updatedAt)
+}
+
+function sameHistory(a: readonly DailyCoachingSession[], b: readonly DailyCoachingSession[]): boolean {
+    return a.length === b.length && a.every((session, index) =>
+        session.id === b[index]?.id && session.updatedAt === b[index]?.updatedAt &&
+        completedSetCount(session) === completedSetCount(b[index]!))
 }
 
 export interface DailyCoaching {
@@ -96,7 +113,34 @@ export function useDailyCoachingSession(): DailyCoaching {
         { dateKey, pool, language },
         { enabled: signedIn, retry: false },
     )
+    const remoteHistory = api.coachingSession.getHistory.useQuery(
+        { pool, language },
+        { enabled: signedIn, retry: false },
+    )
     const save = api.coachingSession.save.useMutation()
+    const [localHistory, setLocalHistory] = useState<DailyCoachingSession[]>([])
+
+    useEffect(() => {
+        const read = () => {
+            const next = mergeHistory(
+                readLocalDailyHistory(scope, { pool, language }),
+                signedIn ? readLocalDailyHistory(GUEST_DAILY_SCOPE, { pool, language }) : [],
+            )
+            setLocalHistory((current) => sameHistory(current, next) ? current : next)
+        }
+        read()
+        window.addEventListener(DAILY_COACHING_UPDATED_EVENT, read)
+        window.addEventListener("storage", read)
+        return () => {
+            window.removeEventListener(DAILY_COACHING_UPDATED_EVENT, read)
+            window.removeEventListener("storage", read)
+        }
+    }, [language, pool, scope, signedIn])
+
+    const coachingHistory = useMemo(
+        () => mergeHistory(localHistory, remoteHistory.data ?? []),
+        [localHistory, remoteHistory.data],
+    )
 
     const evidence = useMemo(() => {
         if (!accentChars) return null
@@ -113,7 +157,9 @@ export function useDailyCoachingSession(): DailyCoaching {
 
     const [analysisState, setAnalysisState] = useState<{
         timelines: unknown
+        sessions: unknown
         language: string
+        dateKey: string
         value: SkillAnalysis
     } | null>(null)
     useEffect(() => {
@@ -123,15 +169,24 @@ export function useDailyCoachingSession(): DailyCoaching {
                 if (active) {
                     setAnalysisState({
                         timelines: evidence.timelines,
+                        sessions: coachingHistory,
                         language,
-                        value: analyzeTypingEvidence({ timelines: evidence.timelines, corpusWords: getWords(language) }),
+                        dateKey,
+                        value: analyzeTypingEvidence({
+                            timelines: evidence.timelines,
+                            corpusWords: getWords(language),
+                            sessions: coachingHistory,
+                            todayDateKey: dateKey,
+                            scope: { language, pool },
+                        }),
                     })
                 }
             })
         }
         return () => { active = false }
-    }, [evidence, language])
-    const analysis = analysisState?.timelines === evidence?.timelines && analysisState?.language === language
+    }, [coachingHistory, dateKey, evidence, language, pool])
+    const analysis = analysisState?.timelines === evidence?.timelines && analysisState?.sessions === coachingHistory &&
+        analysisState?.language === language && analysisState.dateKey === dateKey
         ? analysisState.value
         : null
 
@@ -144,7 +199,7 @@ export function useDailyCoachingSession(): DailyCoaching {
     )
 
     const evidenceLoading = authStatus === "loading" || !accentChars || (signedIn
-        ? practiceStats.isLoading || transitions.isLoading || timelines.isLoading
+        ? practiceStats.isLoading || transitions.isLoading || timelines.isLoading || remoteHistory.isLoading
         : guest === null || !guest.timelinesLoaded) || (evidence !== null && analysis === null)
     const remoteLoading = signedIn && remote.isLoading
 
@@ -158,21 +213,32 @@ export function useDailyCoachingSession(): DailyCoaching {
         if (carried) carriedGuestRef.current = true
         const server = parseDailySession(remote.data)
         const existing = preferDailySession(preferDailySession(local, carried), server)
-        // ponytail: yesterday is read from this device's mirror only - a
-        // cross-device cold check would need a getRecent server read.
-        const yesterday = yesterdayOutcomeFrom(
+        // Compatibility fallback for v2 snapshots that predate frozen proof;
+        // current snapshots derive due work from bounded local/server history.
+        const legacyYesterday = yesterdayOutcomeFrom(
             readLocalDailySession(scope, { ...context, dateKey: previousDateKey(dateKey) })
             ?? (signedIn ? readLocalDailySession(GUEST_DAILY_SCOPE, { ...context, dateKey: previousDateKey(dateKey) }) : null),
         )
+        const due = analysis?.recap.due
+        const yesterday = due ? {
+            label: targetLabel(due.target),
+            target: due.target,
+            unit: due.prescription.metric,
+            before: due.proof.baseline,
+            after: due.proof.cold ?? due.proof.transfer ?? due.proof.baseline,
+            minimumChange: due.prescription.minimumChange,
+        } : legacyYesterday
         const next = existing ?? createDailySession({
             ...context,
             ...evidence,
             recommendation: analysis?.recommendation ?? null,
+            regressedPrescription: analysis?.recap.regressed?.prescription ?? null,
+            duePrescription: due?.prescription ?? null,
             yesterday,
         })
         if (!sameSession(local, next)) writeLocalDailySession(scope, next)
         setDailySession((current) => sameSession(current, next) ? current : next)
-    }, [analysis?.recommendation, dateKey, evidence, evidenceLoading, language, pool, remote.data, remoteLoading, scope, signedIn])
+    }, [analysis, dateKey, evidence, evidenceLoading, language, pool, remote.data, remoteLoading, scope, signedIn])
 
     useEffect(() => {
         const syncFromStorage = () => {

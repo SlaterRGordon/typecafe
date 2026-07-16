@@ -97,9 +97,15 @@ export interface CreateDailySessionInput extends DailySessionContext {
     attempts: KeyAttempts
     transitions: TransitionAggregate[]
     recommendation?: SkillCandidate | null
-    // Slice 9 will derive this from history. The selection seam is frozen now:
-    // due Cold work is first, then regression, then the highest-Impact pick.
+    // Historical derivation feeds a qualifying regression back through normal
+    // Impact ranking before this frozen Prescription is created.
     regressedRecommendation?: SkillCandidate | null
+    // A regressed historical Target already has a frozen measurement contract.
+    // Reuse it instead of reconstructing a candidate from sparse Cold evidence.
+    regressedPrescription?: FrozenRecommendation | null
+    // A due Target is a valid fallback Prescription when no current Weakness is
+    // supported; the user should check the gain, not be sent to calibration.
+    duePrescription?: FrozenRecommendation | null
     yesterday?: YesterdayOutcome | null
     now?: number
 }
@@ -236,7 +242,15 @@ export function createDailySession(input: CreateDailySessionInput): DailyCoachin
     const id = sessionId(input)
     const now = input.now ?? Date.now()
     const selected = input.regressedRecommendation ?? input.recommendation ?? null
-    const prescription = selected ? freezeCandidate(selected) : legacyPrescription(input)
+    const candidatePrescription = selected ? freezeCandidate(selected) : null
+    // Regression re-enters normal Impact ranking; it is not permanently pinned
+    // ahead of a more costly current Weakness.
+    const rankedPrescription = input.regressedPrescription &&
+        (!candidatePrescription || input.regressedPrescription.impactMsPer1000 >= candidatePrescription.impactMsPer1000)
+        ? input.regressedPrescription
+        : candidatePrescription
+    const prescription = rankedPrescription ??
+        input.duePrescription ?? legacyPrescription(input)
     const yesterday = input.yesterday ?? undefined
 
     if (!prescription) {
@@ -257,7 +271,7 @@ export function createDailySession(input: CreateDailySessionInput): DailyCoachin
     const target = prescription.target
     const label = targetLabel(target)
     const coldLead = yesterday
-        ? ` First, check ${yesterday.label} cold against yesterday's ${formatOutcome(yesterday, yesterday.before)} baseline.`
+        ? ` First, check ${yesterday.label} cold against its frozen ${formatOutcome(yesterday, yesterday.before)} baseline.`
         : ""
     const reason = `${prescription.reason}${coldLead} Then acquire ${label} in focused sets and prove it in varied text.`
     const steps: DailyStep[] = []
@@ -576,6 +590,16 @@ export function readLocalDailySession(scope: string, context: DailySessionContex
     return readAll(scope, storage).find((session) => session.dateKey === context.dateKey && session.pool === context.pool && session.language === context.language) ?? null
 }
 
+export function readLocalDailyHistory(
+    scope: string,
+    context: Pick<DailySessionContext, "pool" | "language">,
+    storage?: Storage,
+): DailyCoachingSession[] {
+    return readAll(scope, storage)
+        .filter((session) => session.pool === context.pool && session.language === context.language)
+        .sort((a, b) => b.dateKey.localeCompare(a.dateKey) || b.updatedAt - a.updatedAt)
+}
+
 export function writeLocalDailySession(scope: string, session: DailyCoachingSession, storage?: Storage): void {
     const target = resolveStorage(storage)
     if (!target) return
@@ -583,7 +607,9 @@ export function writeLocalDailySession(scope: string, session: DailyCoachingSess
     sessions.push(session)
     sessions.sort((a, b) => b.updatedAt - a.updatedAt)
     try {
-        target.setItem(storageKeyFor(scope), JSON.stringify(sessions.slice(0, 8)))
+        // Thirty bounded snapshots cover the 1/3/7-practiced-day schedule while
+        // remaining comfortably below normal localStorage limits.
+        target.setItem(storageKeyFor(scope), JSON.stringify(sessions.slice(0, 30)))
         if (!storage && typeof window !== "undefined") window.dispatchEvent(new Event(DAILY_COACHING_UPDATED_EVENT))
     } catch { /* blocked storage leaves the live session usable */ }
 }

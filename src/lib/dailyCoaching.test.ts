@@ -213,7 +213,7 @@ describe("daily coaching Transfer loop", () => {
         })
     })
 
-    it("selects a regressed Target before the highest-Impact new Target", () => {
+    it("uses regression as the tie-break when Impact is equal", () => {
         const regressed: SkillCandidate = {
             ...recommendation,
             id: "key:accuracy:q",
@@ -229,6 +229,37 @@ describe("daily coaching Transfer loop", () => {
             recommendation, regressedRecommendation: regressed, now: 100,
         })
         expect(session.prescription?.id).toBe(regressed.id)
+    })
+
+    it("re-ranks a lower-Impact regression instead of pinning it", () => {
+        const regressed = targeted().prescription!
+        const session = createDailySession({
+            ...context,
+            attempts: new Map(),
+            transitions: slowTransitions,
+            recommendation,
+            regressedPrescription: { ...regressed, id: "old-regression", impactMsPer1000: 100 },
+            now: 100,
+        })
+        expect(session.prescription?.id).toBe(recommendation.id)
+    })
+
+    it("uses a due Target instead of calibration when no current Weakness is supported", () => {
+        const due = targeted().prescription!
+        const yesterday: YesterdayOutcome = {
+            label: "b→r", target: due.target, unit: "ms", before: due.baseline, after: 350, minimumChange: due.minimumChange,
+        }
+        const session = createDailySession({
+            ...context,
+            attempts: new Map(),
+            transitions: [],
+            duePrescription: due,
+            yesterday,
+            now: 100,
+        })
+        expect(session.kind).toBe("targeted")
+        expect(session.steps[0]?.kind).toBe("recheck")
+        expect(session.prescription?.id).toBe(due.id)
     })
 
     it("translates v2 snapshots without adding steps to an active legacy day", () => {

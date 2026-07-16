@@ -1115,6 +1115,7 @@ test.describe("screenshot tour", () => {
     await expect(page.getByText(/calculating net WPM for each test first/i)).toBeVisible();
     await expect(page.getByText(/classifies the expected layout geometry, not the finger/i)).toBeVisible();
     await expect(page.getByText(/Transfer and Cold checks target at least 6 samples/i)).toBeVisible();
+    await expect(page.getByText(/first held Cold check returns after 3 practiced days/i)).toBeVisible();
     await capture(page, testInfo, "55-how-we-measure");
 
     await page.goto("/guides");

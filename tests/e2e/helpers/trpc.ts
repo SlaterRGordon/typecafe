@@ -22,6 +22,7 @@ interface MockTrpcOptions {
   transitionStats?: { pair: string; count: number; totalMs: number; errors: number }[];
   timelineEvidence?: unknown[];
   coachingSession?: unknown;
+  coachingHistory?: unknown[];
   // Make the progress history flat (a plateau) instead of rising.
   flatProgress?: boolean;
   // Make the progress history fall so hero sign-specific layout can be tested.
@@ -413,6 +414,8 @@ function responseForProcedure(procedure: string, input: ProcedureInput, options:
       return { count: Array.isArray(input?.stats) ? input.stats.length : 0 };
     case "coachingSession.getToday":
       return state.coachingSession;
+    case "coachingSession.getHistory":
+      return options.coachingHistory ?? [];
     case "coachingSession.save":
       state.coachingSession = input?.snapshot ?? null;
       return state.coachingSession;

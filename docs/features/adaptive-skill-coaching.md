@@ -677,12 +677,12 @@ the user.
 
 ### 9. Mastery derivation and due checks
 
-- [ ] Derive training/transferred/retained/due/regressed from snapshots and
+- [x] Derive training/transferred/retained/due/regressed from snapshots and
       natural evidence; store no permanent completion flag.
-- [ ] Schedule next-day, 3-practiced-day, and 7-practiced-day checks.
-- [ ] Prioritize due checks and re-rank missed Cold Targets.
-- [ ] Scope Mastery correctly across languages and layout pools.
-- [ ] Test vacations, missed days, repeated Targets, partial sessions, layout
+- [x] Schedule next-day, 3-practiced-day, and 7-practiced-day checks.
+- [x] Prioritize due checks and re-rank missed Cold Targets.
+- [x] Scope Mastery correctly across languages and layout pools.
+- [x] Test vacations, missed days, repeated Targets, partial sessions, layout
       changes, and regression.
 
 **Acceptance:** no retained state without delayed qualified evidence; time away

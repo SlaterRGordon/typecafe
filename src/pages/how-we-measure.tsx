@@ -14,7 +14,7 @@ import { STANCE_THRESHOLDS } from "~/lib/stance";
 import { PLATEAU_CONFIG } from "~/lib/trajectory";
 import { TRANSITION_MIN_COUNT, TRANSITION_SLOW_RATIO, TRANSITION_SAMPLE_CAP } from "~/lib/transitions";
 import { KEY_ATTEMPT_CAP } from "~/lib/practiceAttempts";
-import { SKILL_EVIDENCE_THRESHOLDS } from "~/lib/skillEvidence";
+import { MASTERY_CHECK_INTERVALS, SKILL_EVIDENCE_THRESHOLDS } from "~/lib/skillEvidence";
 import { CHECK_CARRIER_DENSITY_CAP, DRILL_SAMPLE_QUOTAS } from "~/lib/drill";
 
 const HowWeMeasure: NextPage = () => {
@@ -30,7 +30,7 @@ const HowWeMeasure: NextPage = () => {
       <DocumentPage
         eyebrow="Measurement"
         title="How TypeCafe Measures Typing"
-        updated="July 14, 2026"
+        updated="July 15, 2026"
         intro="TypeCafe is a typing coach, so the numbers have to be boringly honest. This page explains the formulas and thresholds used on score cards, progress charts, coach notes, and ranked surfaces."
       >
         <DocumentSection title="Words Per Minute">
@@ -113,6 +113,7 @@ const HowWeMeasure: NextPage = () => {
             <li><strong>Endurance:</strong> a short/long gap needs at least {SKILL_EVIDENCE_THRESHOLDS.enduranceMinTestsPerLength} natural Tests at each duration, with language, layout stats pool, Test kind, options, punctuation, capitals, and numbers held fixed. Short Tests are at most {SKILL_EVIDENCE_THRESHOLDS.enduranceShortMaxSeconds}s, long Tests are at least {SKILL_EVIDENCE_THRESHOLDS.enduranceLongMinSeconds}s, and the median gap must reach {SKILL_EVIDENCE_THRESHOLDS.enduranceMinGapWpm} WPM.</li>
             <li><strong>Option costs:</strong> punctuation, capital, and number costs compare at least {SKILL_EVIDENCE_THRESHOLDS.optionCostMinTests} matched natural Tests on each side, changing only that option. Gaps below {SKILL_EVIDENCE_THRESHOLDS.optionCostMinGapWpm} WPM stay hidden.</li>
             <li><strong>Practice and checks:</strong> acquisition text targets at least {DRILL_SAMPLE_QUOTAS.acquisition} supported samples and may saturate the Target. Transfer and Cold checks target at least {DRILL_SAMPLE_QUOTAS.transfer} samples in unseen carrier words while limiting Target carriers to {Math.round(CHECK_CARRIER_DENSITY_CAP * 100)}% of the text. Inaccurate Transition and correction Targets use a no-rush 100% Accuracy goal.</li>
+            <li><strong>Mastery and due checks:</strong> focused acquisition alone never proves Mastery. An improved varied-text Transfer becomes due for a Cold check on the next local day. A first held Cold check returns after {MASTERY_CHECK_INTERVALS.afterFirstHeldPracticedDays} practiced days; later held checks return after {MASTERY_CHECK_INTERVALS.afterLaterHeldPracticedDays}. Skipped days do not count, and a missed Cold check re-enters normal Impact ranking.</li>
             <li><strong>Confidence:</strong> rises with sample count and required Test, word, or predecessor diversity, and is capped at 1. Recency follows typed volume rather than wall-clock time, so a vacation does not erase evidence.</li>
           </ul>
           <p>Only natural and diagnostic Timelines can discover a weakness. Focused Drill attempts are kept separately as acquisition response: they can show that practice changed, but they cannot invent a natural weakness or prove transfer.</p>
