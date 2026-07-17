@@ -488,9 +488,11 @@ classification explains practice but is not itself the practice material.
 
 Keep the existing WPM Delta, Goal, Trend, and keyboard proof on the left and
 replace the legacy aggregate "Weak spots" column with one adaptive Coach column.
-At wide desktop sizes the Coach receives roughly 40-45% of the content width;
-Records move below the primary dashboard instead of competing with the next
-action. The colours remain theme tokens, not a hard-coded Coach palette.
+At wide desktop sizes the Coach receives roughly 40-45% of the content width.
+Remove Records from Progress entirely: milestone chronology does not explain why
+the user improved or what to do next, while the WPM chart already preserves the
+useful speed history. The colours remain theme tokens, not a hard-coded Coach
+palette.
 
 The Coach column has two related but distinct jobs:
 
@@ -547,8 +549,7 @@ On desktop, row selection uses the upper-card master/detail interaction and the
 recent history may scroll within the Coach column. On mobile, tapping a row
 expands the same detail inline beneath it; do not make the user scroll back to an
 off-screen upper card and do not create a nested scrolling region. Mobile order
-is WPM proof -> Coach next action -> Trend -> coaching history -> keyboard ->
-Records.
+is WPM proof -> Coach next action -> Trend -> coaching history -> keyboard.
 
 The Progress period selector continues to scope WPM/Goal proof. The Coach
 history remains an explicitly bounded recent skill history unless a future
@@ -750,27 +751,28 @@ neither erases proof nor creates a wall of overdue checks.
 
 ### 10. Progress Mastery history and Recap
 
-- [ ] Extract a read-only shared evidence/history analysis hook for Daily Coach
+- [x] Extract a read-only shared evidence/history analysis hook for Daily Coach
       and Progress; rendering Progress must not create or freeze a session.
-- [ ] Add a pure Progress projection that groups repeated Target episodes,
+- [x] Add a pure Progress projection that groups repeated Target episodes,
       selects the real next action, chooses state-specific proof stages, and
       formats lower-is-better/higher-is-better metrics consistently.
-- [ ] Replace legacy "Weak spots" with `Coach · Next action` and add bounded
-      "What your practice changed" history above Records.
-- [ ] Add desktop master/detail inspection with `Back to next action`; selection
+- [x] Replace legacy "Weak spots" with `Coach · Next action`, add bounded
+      "What your practice changed" history, and remove Records from Progress.
+- [x] Add desktop master/detail inspection with `Back to next action`; selection
       must never mutate today's frozen Prescription or hide the coach priority.
-- [ ] Add mobile inline Target detail and disclosure with no nested scrolling.
-- [ ] Give every due/regressed state a Check/Refresh action; due Cold checks go
+- [x] Add mobile inline Target detail and disclosure with no nested scrolling.
+- [x] Give every due/regressed state a Check/Refresh action; due Cold checks go
       through `/plan`, while retained/transferred rows show proof rather than
       prescribing redundant Drill work.
-- [ ] Reject unsupported UI claims: summed seconds saved, WPM attributed to
+- [x] Reject unsupported UI claims: summed seconds saved, WPM attributed to
       Drills, permanent "fixed" counts, reversed chronology arrows, and
       underived duration promises.
-- [ ] Upgrade and wire Recap; persist dismiss timing locally.
-- [ ] Add compact Home return line when Recap or a due Target exists.
-- [ ] Wire Stance only when it changes acquisition policy.
-- [ ] Wire endurance only with matched evidence/action.
-- [ ] Add unit, accessibility, desktop/mobile e2e, and screenshots.
+- [x] Upgrade and wire Recap; persist dismiss timing locally.
+- [x] Add compact Home return line when Recap or a due Target exists.
+- [x] Keep Stance absent until it changes acquisition policy.
+- [x] Allow endurance through Progress only with the existing matched-evidence
+      candidate and actionable Coach route.
+- [x] Add unit, accessibility, desktop/mobile e2e, and screenshots.
 
 **Acceptance:** a returning user can answer what improved, whether it held, and
 what to do next without interpreting a chart. They can inspect another Target's

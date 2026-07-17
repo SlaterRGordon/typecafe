@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest"
 import { RECAP_INTERVAL_MS, buildRecap, isRecapDue } from "./recap"
 import type { ProgressRecord } from "./progress"
+import type { DailyCoachingSession } from "./dailyCoaching"
+import type { MasteryRecord, SkillAnalysis } from "./skillEvidence"
 
 const NOW = new Date("2026-06-15T12:00:00.000Z")
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -47,5 +49,24 @@ describe("buildRecap", () => {
         expect(recap.weekDeltaWpm).toBeNull()
         expect(recap.testsThisWeek).toBe(1)
         expect(recap.focus).toBeNull()
+    })
+
+    it("adds retained proof, completed sessions, and the next due action without attributing WPM", () => {
+        const retained = {
+            target: { kind: "transition", pair: "er", metric: "latency" },
+            proof: { metric: "ms", baseline: 340, cold: 290 },
+        } as MasteryRecord
+        const due = {
+            target: { kind: "gram", gram: "tion" }, state: "due",
+        } as MasteryRecord
+        const analysis = {
+            recap: { retained: [retained], due, regressed: null },
+            recommendation: null,
+        } as SkillAnalysis
+        const sessions = [{ status: "completed" }, { status: "active" }] as DailyCoachingSession[]
+        const recap = buildRecap([rec(1, 70)], {}, NOW, 0, { analysis, sessions })
+        expect(recap.coachingSessions).toBe(1)
+        expect(recap.retained).toEqual({ label: "e→r", baseline: 340, latest: 290, metric: "ms" })
+        expect(recap.action).toEqual({ label: "tion", state: "due", href: "/plan" })
     })
 })

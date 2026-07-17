@@ -10,6 +10,21 @@ async function gotoHome(page: Page) {
   await expect(page.locator("#words .char").first()).toBeVisible();
 }
 
+test("Home offers a compact return to a due recent recap", async ({ page }) => {
+  await mockAuthenticatedSession(page);
+  await mockTrpc(page);
+  await page.goto("/");
+
+  const reminder = page.getByTestId("home-coach-tab-recap");
+  if ((page.viewportSize()?.width ?? 0) >= 768) {
+    await expect(reminder).toBeVisible();
+    await reminder.hover();
+    await expect(page.getByTestId("home-coach-tab-recap-panel").getByRole("link", { name: "View recap" })).toHaveAttribute("href", "/progress");
+  } else {
+    await expect(page.getByTestId("home-coach-tab-recap-inline").getByRole("link", { name: "View recap" })).toHaveAttribute("href", "/progress");
+  }
+});
+
 // Mode switches inline on the main page; everything else lives in the modal.
 // Quotes is now a text source in the language picker rather than a mode button.
 async function selectQuotesLanguage(page: Page) {

@@ -1,5 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { mockAuthenticatedSession, mockTrpc } from "./helpers/trpc";
+import { progressCoachingHistory } from "./helpers/coachingFixtures";
+import { DAILY_COACHING_STORAGE_KEY, GUEST_DAILY_SCOPE } from "../../src/lib/dailyCoaching";
 
 async function gotoProgress(page: Page) {
   await page.goto("/progress");
@@ -81,7 +83,7 @@ test.describe("progress dashboard", () => {
     await expect(page.getByText("No tests yet")).toHaveCount(0);
   });
 
-  test("a signed-in user with history sees their delta, trends, and weak spots", async ({ page }) => {
+  test("a signed-in user with history sees their delta, trends, and adaptive Coach", async ({ page }) => {
     await mockAuthenticatedSession(page);
     await mockTrpc(page, {
       keyStats: [{ character: "r", total: 120, correct: 96 }, { character: "e", total: 300, correct: 290 }],
@@ -95,6 +97,7 @@ test.describe("progress dashboard", () => {
         { pair: "th", count: 1000, totalMs: 100000, errors: 0 },
       ],
       sameDayProgress: true,
+      coachingHistory: progressCoachingHistory(),
     });
     await page.addInitScript(() => window.localStorage.setItem("typecafe:lastRecapAt", String(Date.now())));
     await gotoProgress(page);
@@ -154,15 +157,13 @@ test.describe("progress dashboard", () => {
     // Best WPM is a header chip now (the rest of the stat cells are gone).
     await expect(page.getByTestId("best-wpm-chip")).toContainText("Best");
 
-    // Weak spots → drill (§6.4): top weak keys + slowest transitions, each → /drill.
-    const weak = page.getByTestId("weak-spots");
-    await expect(weak).toBeVisible();
-    // r (80%) is weaker than e (96.7%), so it leads the weakest-keys CTA - the
-    // keys show as chips above the button; the button just carries the action,
-    // and the drill href preserves their order.
-    const drillWeak = weak.getByRole("link", { name: /Drill weakest keys/ });
-    await expect(drillWeak).toBeVisible();
-    await expect(drillWeak).toHaveAttribute("href", /keys=r,e/);
+    const coach = page.getByTestId("progress-coach");
+    await expect(coach).toContainText("Coach · Next action");
+    await expect(coach).toContainText("See whether your tion gain held");
+    await expect(coach.getByRole("link", { name: "Start Cold check" }).first()).toHaveAttribute("href", "/plan");
+    await expect(coach).toContainText("Baseline 520 ms");
+    await expect(coach).toContainText("Transfer 455 ms");
+    await expect(page.getByTestId("records-timeline")).toHaveCount(0);
     await expect(page.getByTestId("lifetime-keyboard-card")).toContainText("Your keyboard");
     // The legend now shares the Practice board's vocabulary (accuracy / speed / no data).
     const keyboardCard = page.getByTestId("lifetime-keyboard-card");
@@ -193,32 +194,12 @@ test.describe("progress dashboard", () => {
     await expect(heatmap.locator('[data-kb-speed]')).toHaveCount(0);
     await shiftLayerButton.click();
     await expect(heatmap.locator('[data-kb-key="1"]')).toBeVisible();
-    const transitions = page.getByTestId("worst-transitions");
-    await expect(transitions).toContainText("b→r");
-    await expect(transitions.getByRole("link", { name: "Drill br" })).toBeVisible();
-    await expect(transitions.locator("li")).toHaveCount(6);
-    await expect(page.getByTestId("transitions-disclosure")).toHaveCount(0);
-    const transitionList = transitions.getByRole("list", { name: "Slowest transitions" });
-
-    // Long evidence stays available in an inline scroll region-no disclosure
-    // state or arbitrary result cutoff.
-    const records = page.getByTestId("records-timeline");
-    await expect(records).toBeVisible();
-    expect(await records.locator("li").count()).toBeGreaterThan(5);
-    await expect(page.getByTestId("records-disclosure")).toHaveCount(0);
-    const recordsList = records.getByRole("list", { name: "Personal records" });
-
     if ((page.viewportSize()?.width ?? 0) >= 1024) {
-      await expect.poll(() => transitionList.evaluate((list) => list.scrollHeight > list.clientHeight)).toBe(true);
-      await expect.poll(() => recordsList.evaluate((list) => list.scrollHeight > list.clientHeight)).toBe(true);
-
-      // The dashboard columns stack independently: the keyboard starts while
-      // the taller drill card is still running beside it, rather than waiting.
       const keyboardBox = await page.getByTestId("lifetime-keyboard-card").boundingBox();
-      const weakBox = await page.getByTestId("weak-spots").boundingBox();
+      const coachBox = await coach.boundingBox();
       expect(keyboardBox).not.toBeNull();
-      expect(weakBox).not.toBeNull();
-      expect(keyboardBox!.y).toBeLessThan(weakBox!.y + weakBox!.height);
+      expect(coachBox).not.toBeNull();
+      expect(coachBox!.width).toBeGreaterThan(keyboardBox!.width * 0.55);
     }
 
     // Removed in slice 6: the 1-user self-league trap and the on-page challenge.
@@ -300,8 +281,63 @@ test.describe("progress dashboard", () => {
     const plateau = page.getByTestId("plateau-headline");
     await expect(plateau).toBeVisible();
     await expect(plateau).toContainText("Plateaued for");
-    await expect(plateau).toContainText("Your recent net WPM trend has stayed nearly flat. Drill the weak spot beside it, then re-measure.");
+    await expect(plateau).toContainText("Your recent net WPM trend has stayed nearly flat. Follow the Coach action, then re-measure.");
     await expect(plateau.getByRole("link", { name: "Try transition drills" })).toHaveCount(0);
+  });
+
+  test("shows a bounded recap and persists its dismiss timing locally", async ({ page }) => {
+    await mockAuthenticatedSession(page);
+    await mockTrpc(page, { coachingHistory: progressCoachingHistory() });
+    await gotoProgress(page);
+
+    const recap = page.getByTestId("progress-recap");
+    await expect(recap).toBeVisible();
+    await expect(recap).toContainText("coaching sessions completed");
+    await expect(recap).toContainText("Retained: e→r");
+    await expect(recap.getByRole("link", { name: "Check tion" })).toHaveAttribute("href", "/plan");
+    await recap.getByRole("button", { name: "Dismiss recent recap" }).click();
+    await expect(recap).toHaveCount(0);
+    await expect.poll(() => page.evaluate(() => Number(window.localStorage.getItem("typecafe:lastRecapAt")))).toBeGreaterThan(0);
+    await page.reload();
+    await expect(page.getByTestId("progress-recap")).toHaveCount(0);
+  });
+
+  test("inspects another Target without changing or saving the Coach next action", async ({ page }) => {
+    const calls: string[] = [];
+    await mockAuthenticatedSession(page);
+    await mockTrpc(page, {
+      coachingHistory: progressCoachingHistory(),
+      onProcedure: (procedure) => calls.push(procedure),
+    });
+    await page.addInitScript(() => window.localStorage.setItem("typecafe:lastRecapAt", String(Date.now())));
+    await gotoProgress(page);
+
+    const coach = page.getByTestId("progress-coach");
+    await expect(coach).toContainText("See whether your tion gain held");
+    const erRow = coach.getByRole("button", { name: /e→r/ });
+    await erRow.focus();
+    await erRow.press("Enter");
+    await expect(erRow).toHaveAttribute("aria-expanded", "true");
+
+    if ((page.viewportSize()?.width ?? 0) >= 1024) {
+      const detail = page.getByTestId("coach-detail");
+      await expect(detail).toContainText("Target detail");
+      await expect(detail).toContainText("Your e→r gain held");
+      await expect(detail.getByRole("list", { name: "e→r qualifying episodes" }).getByRole("listitem")).toHaveCount(2);
+      await detail.getByRole("button", { name: "Back to next action: tion" }).click();
+      await expect(detail).toContainText("See whether your tion gain held");
+    } else {
+      await expect(page.getByTestId("coach-inline-detail")).toContainText("No extra Drill is prescribed");
+      await expect(page.getByTestId("coach-inline-detail").getByRole("list", { name: "e→r qualifying episodes" }).getByRole("listitem")).toHaveCount(2);
+      await expect(page.getByTestId("coach-detail")).toContainText("See whether your tion gain held");
+    }
+
+    await erRow.click();
+    await page.getByTestId("coach-history-filters").getByRole("button", { name: "Needs action" }).click();
+    await expect(page.getByTestId("coach-inline-detail")).toHaveCount(0);
+    await expect(page.getByTestId("coach-detail")).toContainText("See whether your tion gain held");
+    expect(calls).not.toContain("coachingSession.save");
+    await expect(page.getByTestId("records-timeline")).toHaveCount(0);
   });
 
   test("signed-in Progress displays the canonical net score without recalculating it", async ({ page }) => {
@@ -401,15 +437,18 @@ test.describe("progress dashboard", () => {
     // Seed a rising local history (local-first: no account needed).
     const now = Date.now();
     const day = 24 * 60 * 60 * 1000;
-    await page.addInitScript(({ now, day }) => {
+    const coachingHistory = progressCoachingHistory();
+    await page.addInitScript(({ now, day, coachingHistory, coachingKey }) => {
       const entries = Array.from({ length: 12 }, (_, i) => ({ wpm: 55 + i * 1.5, accuracy: 95, t: now - (28 - i * 2.5) * day }));
       window.localStorage.setItem("typecafe:progressHistory", JSON.stringify(entries));
-    }, { now, day });
+      window.localStorage.setItem(coachingKey, JSON.stringify(coachingHistory));
+    }, { now, day, coachingHistory, coachingKey: `${DAILY_COACHING_STORAGE_KEY}:${encodeURIComponent(GUEST_DAILY_SCOPE)}` });
 
     await gotoProgress(page);
 
     await expect(page.getByTestId("guest-keep-banner")).toBeVisible();
     await expect(page.getByTestId("trend-chart").first()).toBeVisible();
+    await expect(page.getByTestId("progress-coach")).toContainText("See whether your tion gain held");
     await expect(page.getByTestId("progress-signed-out")).toHaveCount(0);
   });
 

@@ -2,6 +2,7 @@ import { expect, test, type Page, type TestInfo } from "@playwright/test";
 import { mockAuthenticatedSession, mockTrpc } from "./helpers/trpc";
 import { higherOrderTimeline, impactTimeline } from "./helpers/evidence";
 import { typeCurrentCharacter, typeVisibleTestText, typeWrongCharacter } from "./helpers/typing";
+import { progressCoachingHistory } from "./helpers/coachingFixtures";
 import {
   createDailySession,
   DAILY_COACHING_STORAGE_KEY,
@@ -784,6 +785,7 @@ test.describe("screenshot tour", () => {
         { pair: "th", count: 1000, totalMs: 100000, errors: 0 },
       ],
       sameDayProgress: true,
+      coachingHistory: progressCoachingHistory(),
     });
     // Suppress the weekly recap so this captures the steady-state dashboard.
     await page.addInitScript(() => window.localStorage.setItem("typecafe:lastRecapAt", String(Date.now())));
@@ -804,9 +806,8 @@ test.describe("screenshot tour", () => {
     await expect(page.getByText("WPM over time", { exact: true })).toBeVisible();
     await expect(page.getByText("Daily median trend", { exact: true })).toBeVisible();
     await expect(page.getByText("Daily best trend", { exact: true })).toBeVisible();
-    await expect(page.getByTestId("weak-spots")).toContainText("b→r");
-    await expect(page.getByTestId("worst-transitions").locator("li")).toHaveCount(6);
-    expect(await page.getByTestId("records-timeline").locator("li").count()).toBeGreaterThan(5);
+    await expect(page.getByTestId("progress-coach")).toContainText("See whether your tion gain held");
+    await expect(page.getByTestId("records-timeline")).toHaveCount(0);
     await expect(page.getByTestId("lifetime-heatmap")).toBeVisible();
     await capture(page, testInfo, "40-progress-dashboard");
     if (!testInfo.project.name.includes("mobile")) {
@@ -816,16 +817,9 @@ test.describe("screenshot tour", () => {
       await page.getByTestId("trend-tabs").getByRole("button", { name: "Consistency" }).click();
       await capture(page, testInfo, "40e-progress-daily-consistency");
       await page.getByTestId("trend-tabs").getByRole("button", { name: "WPM" }).click();
-      await page.getByRole("list", { name: "Slowest transitions" }).evaluate((list) => { list.scrollTop = list.scrollHeight; });
-      await page.getByRole("list", { name: "Personal records" }).evaluate((list) => { list.scrollTop = list.scrollHeight; });
-      await capture(page, testInfo, "40c-progress-scrolled-lists");
-    }
-    if (!testInfo.project.name.includes("mobile")) {
-      const tab = page.getByTestId("home-coach-tab-daily");
-      await expect(tab).toBeVisible();
-      await tab.hover();
-      await expect(page.getByTestId("home-coach-tab-daily-panel")).toBeVisible();
-      await capture(page, testInfo, "62-progress-daily-coaching-tab");
+      await page.getByTestId("progress-coach").getByRole("button", { name: /e→r/ }).click();
+      await expect(page.getByTestId("coach-detail")).toContainText("Target detail");
+      await capture(page, testInfo, "40c-progress-target-detail");
     }
     await page.getByTestId("lifetime-keyboard-card").scrollIntoViewIfNeeded();
     await capture(page, testInfo, "40-progress-lifetime-keyboard");
