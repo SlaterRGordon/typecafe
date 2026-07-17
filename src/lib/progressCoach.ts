@@ -17,15 +17,23 @@ export interface ProgressCoachStage {
 
 export interface ProgressCoachTrend {
     label: string
+    arrow: "up" | "down"
     outcome: "good" | "bad" | "neutral"
 }
 
-export type ProgressImpactTone = "urgent" | "material" | "minor"
+export type ProgressImpactTone = "urgent" | "material" | "moderate" | "minor"
 
-/** Stable display bands for estimated cost; never re-colour a small cost red just because it leads a short list. */
-export function progressImpactTone(impactMsPer1000: number | null): ProgressImpactTone {
-    if ((impactMsPer1000 ?? 0) >= 2_000) return "urgent"
-    if ((impactMsPer1000 ?? 0) >= 1_000) return "material"
+/**
+ * Four display bands for estimated cost. Relative rank spreads a meaningful
+ * shortlist across the theme palette, while absolute floors prevent a tiny
+ * lone Target from appearing urgent merely because it leads an empty list.
+ */
+export function progressImpactTone(impactMsPer1000: number | null, leadingImpactMsPer1000 = impactMsPer1000 ?? 0): ProgressImpactTone {
+    const impact = impactMsPer1000 ?? 0
+    const ratio = leadingImpactMsPer1000 > 0 ? impact / leadingImpactMsPer1000 : 0
+    if (impact >= 1_200 && ratio >= 0.75) return "urgent"
+    if (impact >= 700 && ratio >= 0.45) return "material"
+    if (impact >= 300 && ratio >= 0.20) return "moderate"
     return "minor"
 }
 
@@ -218,18 +226,22 @@ function stagesFor(proof: TargetProof): ProgressCoachStage[] {
     return stages
 }
 
-function trendFor(stages: readonly ProgressCoachStage[], direction: "lower" | "higher" | null, metric: "ms" | "%" | "wpm" | null): ProgressCoachTrend | null {
-    if (stages.length < 2 || !direction || !metric) return null
-    const delta = stages.at(-1)!.numericValue - stages[0]!.numericValue
+function trendBetween(before: number, after: number, direction: "lower" | "higher", metric: "ms" | "%" | "wpm"): ProgressCoachTrend {
+    const delta = after - before
     const rounded = metric === "ms" ? Math.round(delta) : Math.round(delta * 10) / 10
-    const sign = rounded > 0 ? "+" : rounded < 0 ? "−" : ""
     const amount = Math.abs(rounded).toFixed(metric === "ms" ? 0 : 1)
     const suffix = metric === "%" ? " pp" : metric === "wpm" ? " WPM" : " ms"
     const improved = direction === "lower" ? delta < 0 : delta > 0
     return {
-        label: `${sign}${amount}${suffix}`,
+        label: `${amount}${suffix}`,
+        arrow: delta >= 0 ? "up" : "down",
         outcome: delta === 0 ? "neutral" : improved ? "good" : "bad",
     }
+}
+
+function trendFor(stages: readonly ProgressCoachStage[], direction: "lower" | "higher" | null, metric: "ms" | "%" | "wpm" | null): ProgressCoachTrend | null {
+    if (stages.length < 2 || !direction || !metric) return null
+    return trendBetween(stages[0]!.numericValue, stages.at(-1)!.numericValue, direction, metric)
 }
 
 function directionFor(prescription: FrozenRecommendation): "lower" | "higher" {
@@ -359,7 +371,7 @@ function candidateTarget(candidate: SkillCandidate): ProgressCoachTarget {
             ? `Estimated impact ${(candidate.impactMsPer1000 / 1_000).toFixed(1)}s per 1,000 characters`
             : null,
         impactMsPer1000: candidate.impactMsPer1000 > 0 ? candidate.impactMsPer1000 : null,
-        trend: null,
+        trend: trendBetween(candidate.baseline, candidate.observed, candidate.direction, candidate.metric),
         episodes: [],
     }
 }

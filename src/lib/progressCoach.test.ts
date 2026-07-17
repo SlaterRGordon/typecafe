@@ -45,11 +45,12 @@ function analysis(mastery: MasteryRecord[], candidates: SkillCandidate[] = []): 
 }
 
 describe("projectProgressCoach", () => {
-    it("uses stable estimated-cost bands for impact colour", () => {
-        expect(progressImpactTone(2_900)).toBe("urgent")
-        expect(progressImpactTone(1_400)).toBe("material")
-        expect(progressImpactTone(700)).toBe("minor")
-        expect(progressImpactTone(100)).toBe("minor")
+    it("uses four impact bands without making a tiny leading Target look urgent", () => {
+        expect(progressImpactTone(2_900, 2_900)).toBe("urgent")
+        expect(progressImpactTone(1_400, 2_900)).toBe("material")
+        expect(progressImpactTone(700, 2_900)).toBe("moderate")
+        expect(progressImpactTone(100, 2_900)).toBe("minor")
+        expect(progressImpactTone(100, 100)).toBe("minor")
     })
 
     it("groups repeated episodes and keeps proof in chronological stage order", () => {
@@ -67,6 +68,7 @@ describe("projectProgressCoach", () => {
         const result = projectProgressCoach(analysis([], [candidate()]), null)
         expect(result.targets[0]).toMatchObject({ label: "b→r", state: "needs-work", statusLabel: "Needs work" })
         expect(result.targets[0]!.stages).toEqual([{ key: "recent", label: "Recent", value: "140 ms", numericValue: 140, sampleCount: 20 }])
+        expect(result.targets[0]!.trend).toEqual({ label: "40 ms", arrow: "up", outcome: "bad" })
         expect(result.targets[0]!.action).toMatchObject({ label: "Practice this transition" })
         expect(result.targets[0]!.action!.href).toContain("/drill?target=transition")
         expect(result.nextAction).toMatchObject({ label: "b→r", statusLabel: "Next Target", action: { href: "/plan", label: "Open today’s plan" } })
@@ -187,7 +189,7 @@ describe("projectProgressCoach", () => {
         expect(row.stages.map((stage) => `${stage.label} ${stage.value}`)).toEqual([
             "Baseline 88.0%", "Practice 94.0%", "Transfer 95.0%", "Cold 96.0%",
         ])
-        expect(row.trend).toEqual({ label: "+8.0 pp", outcome: "good" })
+        expect(row.trend).toEqual({ label: "8.0 pp", arrow: "up", outcome: "good" })
     })
 
     it("projects aligned Target presentation instead of generic taxonomy labels", () => {

@@ -119,7 +119,8 @@ test.describe("progress dashboard", () => {
     await expect(targets).toContainText("b→r");
     await expect(targets).toContainText("Transition");
     await expect(targets).toContainText("b→r pause is slow");
-    await expect(targets).toContainText("Needs work");
+    await expect(targets).toContainText("focus");
+    await expect(targets.getByText("Needs work", { exact: true })).toHaveCount(0);
     const targetFilters = page.getByTestId("coach-target-filters");
     await expect(targetFilters.getByRole("button", { name: /Transitions/ })).toBeVisible();
     await expect(targetFilters.getByRole("button", { name: /Keys/ })).toBeVisible();
@@ -131,6 +132,10 @@ test.describe("progress dashboard", () => {
     const brPractice = brButton.locator("../..").getByRole("link", { name: "Practice this transition" });
     await expect(brPractice).toHaveAttribute("href", /transitions=br/);
     if ((page.viewportSize()?.width ?? 0) >= 1024) await expect(brPractice).toHaveCSS("opacity", "1");
+    if ((page.viewportSize()?.width ?? 0) >= 1024) {
+      await expect.poll(async () => brPractice.evaluate((element) => getComputedStyle(element).backgroundColor))
+        .not.toBe("rgba(0, 0, 0, 0)");
+    }
     await expect(page.getByTestId("progress-recap")).toHaveCount(0);
     if ((page.viewportSize()?.width ?? 0) >= 1024) {
       const left = await page.getByTestId("progress-left-column").boundingBox();

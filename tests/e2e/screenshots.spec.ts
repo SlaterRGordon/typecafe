@@ -806,7 +806,7 @@ test.describe("screenshot tour", () => {
     await expect(page.getByText("Daily median trend", { exact: true })).toBeVisible();
     await expect(page.getByText("Daily best trend", { exact: true })).toBeVisible();
     await expect(page.getByTestId("progress-coach")).toContainText("See whether your tion gain held");
-    await expect(page.getByTestId("progress-coach")).toContainText("Needs work");
+    await expect(page.getByTestId("progress-coach")).toContainText("focus");
     await expect(page.getByTestId("records-timeline")).toHaveCount(0);
     await expect(page.getByTestId("lifetime-heatmap")).toBeVisible();
     await capture(page, testInfo, "40-progress-dashboard");

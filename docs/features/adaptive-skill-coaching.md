@@ -801,6 +801,9 @@ neither erases proof nor creates a wall of overdue checks.
       plain-language Target kind plus diagnosis, Recent/Trend/Worth columns,
       impact colour, and family filters aligned with the section title. Row
       inspection continues to drive the Coach detail without changing priority.
+- [x] Derive a four-step Target-impact palette from the active keyboard theme
+      and reuse it for keycaps, inset row edges, Worth bars, and the legend.
+      Reserve row status labels for the current `focus` and `transferred` proof.
 
 **Acceptance:** a returning user can answer what improved, whether it held, and
 what to do next without interpreting a chart. They can inspect another Target's

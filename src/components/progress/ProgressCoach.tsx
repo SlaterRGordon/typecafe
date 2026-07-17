@@ -1,5 +1,7 @@
 import Link from "next/link"
 import { useMemo, useState, type ReactNode } from "react"
+import { useHeatmapColors } from "~/components/heatmap/KeyHeatmap"
+import { accuracyColor } from "~/lib/heatmap"
 import {
     filterProgressCoachTargets,
     progressImpactTone,
@@ -8,6 +10,7 @@ import {
     type ProgressCoachTarget,
     type ProgressImpactTone,
 } from "~/lib/progressCoach"
+import { readableTextColor } from "~/utils/convertColor"
 
 interface ProgressCoachProps {
     projection: ProgressCoachProjection | null
@@ -22,25 +25,12 @@ const FILTERS: { key: ProgressCoachFilter, label: string }[] = [
     { key: "movement", label: "Movements" },
 ]
 
-const WORTH_TONE: Record<ProgressImpactTone, { text: string, border: string, cap: string, bar: string }> = {
-    urgent: {
-        text: "text-error",
-        border: "border-l-error",
-        cap: "border-error/70 bg-error/45 text-base-content",
-        bar: "bg-error",
-    },
-    material: {
-        text: "text-warning",
-        border: "border-l-warning",
-        cap: "border-warning/70 bg-warning/40 text-base-content",
-        bar: "bg-warning",
-    },
-    minor: {
-        text: "text-success",
-        border: "border-l-success",
-        cap: "border-success/70 bg-success/40 text-base-content",
-        bar: "bg-success",
-    },
+const IMPACT_TONES: readonly ProgressImpactTone[] = ["urgent", "material", "moderate", "minor"]
+const IMPACT_ACCURACY: Record<ProgressImpactTone, number> = {
+    urgent: 80,
+    material: 87,
+    moderate: 94,
+    minor: 100,
 }
 
 function stateTone(target: ProgressCoachTarget): string {
@@ -57,6 +47,14 @@ function trendTone(target: ProgressCoachTarget): string {
     return "text-base-content/40"
 }
 
+function rowStatus(target: ProgressCoachTarget): { label: string, className: string } | null {
+    if (target.isNextAction && target.action) return { label: "focus", className: "text-primary" }
+    if (target.state === "transferred" || target.state === "retained") {
+        return { label: "transferred", className: "text-success" }
+    }
+    return null
+}
+
 function worthLabel(target: ProgressCoachTarget): string {
     return target.impactMsPer1000 === null
         ? "—"
@@ -67,7 +65,7 @@ function usesArrow(target: ProgressCoachTarget): boolean {
     return target.target?.kind === "transition" || target.target?.kind === "movement" || target.target?.kind === "correction"
 }
 
-function TargetGlyph({ target, tone, compact = false }: { target: ProgressCoachTarget, tone: ProgressImpactTone, compact?: boolean }) {
+function TargetGlyph({ target, color, compact = false }: { target: ProgressCoachTarget, color: string, compact?: boolean }) {
     const keys = target.visualKeys
     if (keys.length === 0) {
         return <span className="font-mono text-sm font-semibold text-primary">{target.label}</span>
@@ -78,7 +76,16 @@ function TargetGlyph({ target, tone, compact = false }: { target: ProgressCoachT
             {keys.map((key, index) => (
                 <span key={`${key}-${index}`} className="contents">
                     {index > 0 && usesArrow(target) && <span aria-hidden="true" className="text-xs text-base-content/45">→</span>}
-                    <span aria-hidden="true" className={`inline-flex ${capSize} items-center justify-center rounded-md border font-mono font-semibold shadow-sm ${WORTH_TONE[tone].cap}`}>
+                    <span
+                        aria-hidden="true"
+                        className={`inline-flex ${capSize} items-center justify-center rounded-md border font-mono font-semibold shadow-sm`}
+                        style={{
+                            backgroundColor: color,
+                            borderColor: color,
+                            color: readableTextColor(color),
+                            boxShadow: `inset 0 -2px 0 color-mix(in srgb, ${color} 55%, black)`,
+                        }}
+                    >
                         {key}
                     </span>
                 </span>
@@ -87,7 +94,7 @@ function TargetGlyph({ target, tone, compact = false }: { target: ProgressCoachT
     )
 }
 
-function CoachHeadline({ target, tone }: { target: ProgressCoachTarget, tone: ProgressImpactTone }) {
+function CoachHeadline({ target, color }: { target: ProgressCoachTarget, color: string }) {
     if (!target.target) return <h2 className="text-xl font-bold leading-tight text-base-content">{target.headline}</h2>
     const before: Record<Exclude<ProgressCoachTarget["state"], "calibrating">, string> = {
         "needs-work": target.metric === "%" ? "Sharpen" : "Speed up",
@@ -102,9 +109,9 @@ function CoachHeadline({ target, tone }: { target: ProgressCoachTarget, tone: Pr
             <span className="sr-only">{target.headline}</span>
             <span aria-hidden="true" className="flex flex-wrap items-center gap-2">
                 <span>{before[target.state as Exclude<ProgressCoachTarget["state"], "calibrating">]}</span>
-                <TargetGlyph target={target} tone={tone} compact />
+                <TargetGlyph target={target} color={color} compact />
                 {target.state === "due" && <span>held</span>}
-                {target.impactMsPer1000 !== null && <span className={`font-mono text-base ${WORTH_TONE[tone].text}`}>{worthLabel(target)}</span>}
+                {target.impactMsPer1000 !== null && <span className="font-mono text-base" style={{ color }}>{worthLabel(target)}</span>}
             </span>
         </h2>
     )
@@ -123,12 +130,17 @@ function ProofLine({ target }: { target: ProgressCoachTarget }) {
                     <span><span className="text-base-content/40">{last.label}</span> <strong className="text-base-content/85">{last.value}</strong></span>
                 </>
             )}
-            {target.trend && <span className={`font-semibold ${trendTone(target)}`}>{target.trend.label}</span>}
+            {target.trend && (
+                <span className={`inline-flex items-center gap-1 font-semibold ${trendTone(target)}`}>
+                    <span aria-hidden="true">{target.trend.arrow === "up" ? "▲" : "▼"}</span>
+                    {target.trend.label}
+                </span>
+            )}
         </div>
     )
 }
 
-function CoachSummary({ target, tone, contextLabel, action, extra }: { target: ProgressCoachTarget, tone: ProgressImpactTone, contextLabel: string, action: ReactNode, extra?: ReactNode }) {
+function CoachSummary({ target, color, contextLabel, action, extra }: { target: ProgressCoachTarget, color: string, contextLabel: string, action: ReactNode, extra?: ReactNode }) {
     return (
         <div className="flex min-w-0 flex-1 items-center justify-between gap-4">
             <div className="min-w-0">
@@ -137,7 +149,7 @@ function CoachSummary({ target, tone, contextLabel, action, extra }: { target: P
                     <span>Coach · {contextLabel}</span>
                     <span className={stateTone(target)}>{target.statusLabel}</span>
                 </div>
-                <CoachHeadline target={target} tone={tone} />
+                <CoachHeadline target={target} color={color} />
                 <ProofLine target={target} />
                 <p className="mt-1.5 line-clamp-2 text-xs leading-relaxed text-base-content/55 lg:sr-only">{target.detail}</p>
                 {extra}
@@ -163,6 +175,10 @@ export function ProgressCoach({ projection, loading }: ProgressCoachProps) {
     const [filter, setFilter] = useState<ProgressCoachFilter>("all")
     const [selectedId, setSelectedId] = useState<string | null>(null)
     const [showAllTargets, setShowAllTargets] = useState(false)
+    const { lowColor, highColor } = useHeatmapColors()
+    const impactPalette = useMemo(() => Object.fromEntries(
+        IMPACT_TONES.map((tone) => [tone, accuracyColor(IMPACT_ACCURACY[tone], lowColor, highColor)]),
+    ) as Record<ProgressImpactTone, string>, [highColor, lowColor])
     const rows = useMemo(
         () => projection ? filterProgressCoachTargets(projection.targets, filter) : [],
         [filter, projection],
@@ -189,8 +205,8 @@ export function ProgressCoach({ projection, loading }: ProgressCoachProps) {
         )
     }
 
-    const detailTone = progressImpactTone(detail.impactMsPer1000)
-    const nextTone = progressImpactTone(projection.nextAction.impactMsPer1000)
+    const detailTone = progressImpactTone(detail.impactMsPer1000, maxImpact)
+    const nextTone = progressImpactTone(projection.nextAction.impactMsPer1000, maxImpact)
 
     return (
         <section data-testid="progress-coach" className="overflow-hidden rounded-xl border border-primary/25 bg-base-100/45 lg:flex lg:h-full lg:min-h-0 lg:flex-col">
@@ -209,7 +225,7 @@ export function ProgressCoach({ projection, loading }: ProgressCoachProps) {
                     )}
                     <CoachSummary
                         target={detail}
-                        tone={detailTone}
+                        color={impactPalette[detailTone]}
                         contextLabel={selected ? "Target detail" : hasNextAction ? "Next action" : "Latest result"}
                         action={<ActionLink target={detail} compact />}
                         extra={selected && detail.episodes.length > 1 ? (
@@ -224,7 +240,7 @@ export function ProgressCoach({ projection, loading }: ProgressCoachProps) {
                     />
                 </div>
                 <div className="lg:hidden">
-                    <CoachSummary target={projection.nextAction} tone={nextTone} contextLabel={hasNextAction ? "Next action" : "Latest result"} action={null} />
+                    <CoachSummary target={projection.nextAction} color={impactPalette[nextTone]} contextLabel={hasNextAction ? "Next action" : "Latest result"} action={null} />
                     <div className="mt-3"><ActionLink target={projection.nextAction} /></div>
                 </div>
             </div>
@@ -254,7 +270,7 @@ export function ProgressCoach({ projection, loading }: ProgressCoachProps) {
                     </div>
                 </div>
 
-                <div className="hidden grid-cols-[minmax(0,1fr)_4.25rem_3.75rem_6.25rem] gap-2 border-y border-base-content/10 px-3 py-2 font-mono text-[0.6rem] uppercase tracking-[0.1em] text-base-content/40 lg:grid">
+                <div className="hidden grid-cols-[minmax(0,1fr)_4.25rem_4.25rem_7.75rem] gap-2 border-y border-base-content/10 px-3 py-2 font-mono text-[0.6rem] uppercase tracking-[0.1em] text-base-content/40 lg:grid">
                     <span>Target</span><span className="text-right">Recent</span><span className="text-right">Trend</span><span className="text-right">Worth</span>
                 </div>
 
@@ -267,26 +283,31 @@ export function ProgressCoach({ projection, loading }: ProgressCoachProps) {
                         <ul aria-label="Recent typing Targets" className="divide-y divide-base-content/10">
                             {rows.map((row, index) => {
                                 const expanded = selectedId === row.id
-                                const tone = progressImpactTone(row.impactMsPer1000)
+                                const tone = progressImpactTone(row.impactMsPer1000, maxImpact)
+                                const color = impactPalette[tone]
+                                const status = rowStatus(row)
                                 const latest = row.stages.at(-1)
                                 const fill = maxImpact > 0 ? Math.max(4, Math.round(((row.impactMsPer1000 ?? 0) / maxImpact) * 100)) : 0
                                 return (
-                                    <li key={row.id} data-testid={`coach-target-row-${row.id}`} className={`group relative border-l-2 ${WORTH_TONE[tone].border} ${index >= 5 && !showAllTargets ? "hidden lg:list-item" : ""}`}>
-                                        <div className={`relative px-3 transition ${expanded ? "bg-base-content/7" : row.isNextAction ? "bg-primary/7" : "hover:bg-base-content/5"} lg:grid lg:grid-cols-[minmax(0,1fr)_6.25rem]`}>
+                                    <li key={row.id} data-testid={`coach-target-row-${row.id}`} className={`group relative ${index >= 5 && !showAllTargets ? "hidden lg:list-item" : ""}`}>
+                                        <span aria-hidden="true" className="absolute bottom-2 left-0 top-2 z-10 w-0.5 rounded-r-full" style={{ backgroundColor: color }} />
+                                        <div className={`relative px-3 transition ${expanded ? "bg-base-content/7" : row.isNextAction ? "bg-primary/7" : "hover:bg-base-content/5"} lg:grid lg:grid-cols-[minmax(0,1fr)_7.75rem]`}>
                                             <button
                                                 type="button"
                                                 aria-expanded={expanded}
                                                 onClick={() => setSelectedId(expanded ? null : row.id)}
-                                                className="grid min-h-[4.25rem] w-full min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 py-2 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary lg:col-span-1 lg:grid-cols-[minmax(0,1fr)_4.25rem_3.75rem]"
+                                                className="grid min-h-[4.25rem] w-full min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 py-2 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary lg:col-span-1 lg:grid-cols-[minmax(0,1fr)_4.25rem_4.25rem]"
                                             >
                                                 <span className="grid min-w-0 grid-cols-[7rem_minmax(0,1fr)] items-center">
-                                                    <TargetGlyph target={row} tone={tone} />
+                                                    <TargetGlyph target={row} color={color} />
                                                     <span className="min-w-0">
                                                         <span className="flex items-center gap-1.5">
                                                             <span className="truncate text-xs font-semibold text-base-content">{row.typeLabel}</span>
-                                                            <span className={`flex shrink-0 items-center gap-1 text-[0.6rem] ${stateTone(row)}`}>
-                                                                <span className="h-1 w-1 rounded-full bg-current" />{row.statusLabel}
-                                                            </span>
+                                                            {status && (
+                                                                <span className={`flex shrink-0 items-center gap-1 text-[0.6rem] ${status.className}`}>
+                                                                    <span className="h-1 w-1 rounded-full bg-current" />{status.label}
+                                                                </span>
+                                                            )}
                                                         </span>
                                                         <span className="mt-1 block truncate font-mono text-[0.62rem] text-base-content/40">{row.description}</span>
                                                     </span>
@@ -295,20 +316,24 @@ export function ProgressCoach({ projection, loading }: ProgressCoachProps) {
                                                     <span className="lg:hidden">{worthLabel(row)}</span>
                                                     <span className="hidden lg:inline">{latest?.value ?? "—"}</span>
                                                 </span>
-                                                <span className={`hidden text-right font-mono text-[0.65rem] font-semibold lg:block ${trendTone(row)}`}>{row.trend?.label ?? "—"}</span>
+                                                <span className={`hidden items-center justify-end gap-1 text-right font-mono text-[0.65rem] font-semibold lg:flex ${trendTone(row)}`}>
+                                                    {row.trend ? (
+                                                        <><span aria-hidden="true">{row.trend.arrow === "up" ? "▲" : "▼"}</span><span>{row.trend.label}</span></>
+                                                    ) : "—"}
+                                                </span>
                                             </button>
                                             <div className="relative hidden min-h-[4.25rem] items-center justify-end lg:flex">
                                                 <span className={`flex items-center gap-1.5 transition-opacity ${row.action ? "group-hover:opacity-0 group-focus-within:opacity-0" : ""}`}>
                                                     <span className="h-1.5 w-9 overflow-hidden rounded-full bg-base-content/10">
-                                                        <span className={`block h-full rounded-full ${WORTH_TONE[tone].bar}`} style={{ width: `${fill}%` }} />
+                                                        <span className="block h-full rounded-full" style={{ width: `${fill}%`, backgroundColor: color }} />
                                                     </span>
-                                                    <span className={`whitespace-nowrap font-mono text-[0.62rem] ${WORTH_TONE[tone].text}`}>{worthLabel(row)}</span>
+                                                    <span className="whitespace-nowrap font-mono text-[0.62rem] text-base-content">{worthLabel(row)}</span>
                                                 </span>
                                                 {row.action && (
                                                     <Link
                                                         href={row.action.href}
                                                         aria-label={row.action.label}
-                                                        className="absolute right-0 inline-flex min-h-8 items-center rounded-md border border-primary/45 px-2 text-[0.65rem] font-semibold text-primary opacity-0 transition hover:bg-primary/10 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                                                        className="absolute right-0 inline-flex min-h-8 items-center rounded-md bg-primary px-2 text-[0.65rem] font-semibold text-primary-content opacity-0 shadow-sm transition hover:bg-primary/80 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                                                     >
                                                         {row.state === "due" ? "Check" : row.state === "regressed" ? "Refresh" : "Practice"}
                                                     </Link>
@@ -353,7 +378,11 @@ export function ProgressCoach({ projection, loading }: ProgressCoachProps) {
                 )}
 
                 <div className="hidden items-center justify-between border-t border-base-content/10 px-3 py-2 font-mono text-[0.6rem] text-base-content/40 lg:flex">
-                    <span className="flex items-center gap-1">worth fixing <span className="h-1.5 w-2 rounded-sm bg-error" /><span className="h-1.5 w-2 rounded-sm bg-warning" /><span className="h-1.5 w-2 rounded-sm bg-success" /> doing fine</span>
+                    <span className="flex items-center gap-1">
+                        worth fixing
+                        {IMPACT_TONES.map((tone) => <span key={tone} className="h-1.5 w-2 rounded-sm" style={{ backgroundColor: impactPalette[tone] }} />)}
+                        doing fine
+                    </span>
                     <span><span className="text-success">improving</span> · <span className="text-error">slipping</span></span>
                 </div>
             </div>
