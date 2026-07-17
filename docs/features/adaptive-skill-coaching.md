@@ -488,7 +488,8 @@ classification explains practice but is not itself the practice material.
 
 Keep the existing WPM Delta, Goal, Trend, and keyboard proof on the left and
 replace the legacy aggregate "Weak spots" column with one adaptive Coach column.
-At wide desktop sizes the Coach receives roughly 40-45% of the content width.
+At wide desktop sizes the proof and Coach columns use an even split so Target
+diagnoses, filters, deltas, and actions stay on their intended rows.
 Remove Records from Progress entirely: milestone chronology does not explain why
 the user improved or what to do next, while the WPM chart already preserves the
 useful speed history. The colours remain theme tokens, not a hard-coded Coach

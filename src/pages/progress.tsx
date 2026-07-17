@@ -420,7 +420,7 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
             </div>
 
             <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-12 lg:items-stretch">
-                <div ref={leftColumnRef} data-testid="progress-left-column" className="contents min-w-0 lg:col-span-7 lg:block lg:space-y-4">
+                <div ref={leftColumnRef} data-testid="progress-left-column" className="contents min-w-0 lg:col-span-6 lg:block lg:space-y-4">
                     <div data-testid="headline-delta" className="order-1 rounded-xl border border-base-content/10 bg-base-100/45 p-4">
                         {plateau.plateaued ? (
                             <div data-testid="plateau-headline">
@@ -532,7 +532,7 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
 
                 <div
                     data-testid="progress-coach-column"
-                    className="order-2 min-h-0 lg:col-span-5 lg:h-[var(--progress-coach-height)]"
+                    className="order-2 min-h-0 lg:col-span-6 lg:h-[var(--progress-coach-height)]"
                     style={coachColumnStyle}
                 >
                     <ProgressCoach projection={props.coach} loading={props.coachLoading} />

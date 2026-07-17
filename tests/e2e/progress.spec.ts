@@ -137,6 +137,7 @@ test.describe("progress dashboard", () => {
       const right = await page.getByTestId("progress-coach-column").boundingBox();
       expect(left).not.toBeNull();
       expect(right).not.toBeNull();
+      expect(Math.abs(left!.width - right!.width)).toBeLessThanOrEqual(2);
       expect(Math.abs(left!.height - right!.height)).toBeLessThanOrEqual(2);
       const targetScroll = page.getByTestId("coach-target-scroll");
       await expect(targetScroll).toHaveCSS("overflow-y", "auto");

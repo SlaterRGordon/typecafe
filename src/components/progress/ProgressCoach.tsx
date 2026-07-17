@@ -26,19 +26,19 @@ const WORTH_TONE: Record<ProgressImpactTone, { text: string, border: string, cap
     urgent: {
         text: "text-error",
         border: "border-l-error",
-        cap: "border-error/50 bg-error/20 text-error",
+        cap: "border-error/70 bg-error/45 text-base-content",
         bar: "bg-error",
     },
     material: {
         text: "text-warning",
         border: "border-l-warning",
-        cap: "border-warning/50 bg-warning/20 text-warning",
+        cap: "border-warning/70 bg-warning/40 text-base-content",
         bar: "bg-warning",
     },
     minor: {
         text: "text-success",
         border: "border-l-success",
-        cap: "border-success/50 bg-success/20 text-success",
+        cap: "border-success/70 bg-success/40 text-base-content",
         bar: "bg-success",
     },
 }
@@ -74,7 +74,7 @@ function TargetGlyph({ target, tone, compact = false }: { target: ProgressCoachT
     }
     const capSize = compact ? "h-7 min-w-7 px-1.5 text-sm" : "h-6 min-w-6 px-1 text-xs"
     return (
-        <span className="flex w-28 shrink-0 items-center gap-1" aria-label={target.label}>
+        <span className={`flex shrink-0 items-center gap-1 ${compact ? "w-auto" : "w-28"}`} aria-label={target.label}>
             {keys.map((key, index) => (
                 <span key={`${key}-${index}`} className="contents">
                     {index > 0 && usesArrow(target) && <span aria-hidden="true" className="text-xs text-base-content/45">→</span>}
@@ -139,7 +139,7 @@ function CoachSummary({ target, tone, contextLabel, action, extra }: { target: P
                 </div>
                 <CoachHeadline target={target} tone={tone} />
                 <ProofLine target={target} />
-                <p className="mt-1.5 line-clamp-2 text-xs leading-relaxed text-base-content/55">{target.detail}</p>
+                <p className="mt-1.5 line-clamp-2 text-xs leading-relaxed text-base-content/55 lg:sr-only">{target.detail}</p>
                 {extra}
             </div>
             {action}
@@ -272,7 +272,7 @@ export function ProgressCoach({ projection, loading }: ProgressCoachProps) {
                                 const fill = maxImpact > 0 ? Math.max(4, Math.round(((row.impactMsPer1000 ?? 0) / maxImpact) * 100)) : 0
                                 return (
                                     <li key={row.id} data-testid={`coach-target-row-${row.id}`} className={`group relative border-l-2 ${WORTH_TONE[tone].border} ${index >= 5 && !showAllTargets ? "hidden lg:list-item" : ""}`}>
-                                        <div className={`relative px-3 transition ${expanded ? "bg-base-content/7" : "hover:bg-base-content/5"} ${row.isNextAction ? "ring-1 ring-inset ring-warning/45" : ""} lg:grid lg:grid-cols-[minmax(0,1fr)_6.25rem]`}>
+                                        <div className={`relative px-3 transition ${expanded ? "bg-base-content/7" : row.isNextAction ? "bg-primary/7" : "hover:bg-base-content/5"} lg:grid lg:grid-cols-[minmax(0,1fr)_6.25rem]`}>
                                             <button
                                                 type="button"
                                                 aria-expanded={expanded}
