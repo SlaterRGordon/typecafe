@@ -21,7 +21,7 @@ Measure a Test
   -> Transfer check in varied text
   -> Cold check on a later day
   -> record Mastery or regression
-  -> show the proof in Progress and the weekly Recap
+  -> show the proof in Progress
 ```
 
 The user-facing promise is:
@@ -318,7 +318,7 @@ and user-safe reason codes. It does not own persistence, tRPC, React copy,
 text compilation, query parsing, or analytics delivery.
 
 The deletion test passes: without it, these rules would reappear in Diagnosis,
-Daily Coach, Progress, Recap, and profile callers. Tests exercise this public
+Daily Coach, Progress, and profile callers. Tests exercise this public
 interface; internal helpers stay private unless a second real caller appears.
 
 ### Supporting deep modules
@@ -349,7 +349,7 @@ flowchart TD
     Corpus["bundled language data"] --> Analysis
     Analysis --> Diagnosis["Test Diagnosis"]
     Analysis --> Coach["frozen Prescription"]
-    Analysis --> Progress["Progress + Recap"]
+    Analysis --> Progress["Progress Coach + Your targets"]
     Coach --> Drill["acquisition / Transfer / Cold"]
     Drill --> Typer
 ```
@@ -484,7 +484,7 @@ classification explains practice but is not itself the practice material.
 - State whether Transfer improved and an earlier Cold check held.
 - State the next check without promising tomorrow's Target.
 
-### Progress and Recap
+### Progress
 
 Keep the existing WPM Delta, Goal, Trend, and keyboard proof on the left and
 replace the legacy aggregate "Weak spots" column with one adaptive Coach column.
@@ -500,32 +500,45 @@ The Coach column has two related but distinct jobs:
    prospective priority in the same order as session creation: due Cold check,
    regressed Target, highest-Impact supported Target, then calibration. This is
    the Target selected by the coach, not merely the first history row.
-2. **Target detail.** Selecting a row in "What your practice changed" temporarily
+2. **Target detail.** Selecting a row in "Your targets" temporarily
    projects that Target's proof into the upper card. This is inspection only: it
    never changes today's frozen Prescription, recommendation order, Mastery, or
    persisted evidence. The card becomes `Target detail` and keeps an explicit
    `Back to next action` control naming the real coach priority.
 
-The history row selected for inspection gets a neutral selection treatment. The
+The Target row selected for inspection gets a neutral selection treatment. The
 actual next action keeps its semantic due/regressed accent even while another
 row is inspected, so selection cannot masquerade as reprioritization. If a
-history filter hides the inspected row, reset the detail card to the next action.
+filter hides the inspected row, reset the detail card to the next action.
 
-Add one bounded "What your practice changed" history, not a new route:
+Add one bounded "Your targets" list, not separate Weakness and Coaching-history
+surfaces:
 
-- group repeated episodes by stable Target identity and show the latest state;
+- merge current supported weaknesses from ordinary natural Tests with coached
+  Mastery by stable Target identity, producing no duplicate row;
+- show an uncoached weakness as `Needs work` with its recent observed metric and
+  a direct practice action, so Coach participation is optional;
+- when coached proof exists for the same Target, preserve its latest Mastery
+  state and expandable qualifying episodes;
 - expand a Target to inspect older qualifying Coaching episodes;
-- default to recent history and label it `Recent` rather than claiming all-time
-  coverage from the bounded Timeline/Coaching reads;
+- label current natural evidence `Recent` rather than claiming all-time coverage
+  from the bounded Timeline/Coaching reads;
 - prefer `All`, `Needs action`, and `Held` filters over engine-kind tabs that
   cannot cleanly cover correction, movement, word, and endurance Targets;
+- order due, regressed, current Needs-work (Impact-ranked), training,
+  transferred, then retained Targets;
 - show at most five rows before disclosure on narrow screens;
 - no badges, XP, permanent "fixed" language, or completion percentage.
+
+Do not add a separate Recent Recap card or Home reminder. It repeats the Delta,
+Coach action, and Target proof already visible on Progress without adding a new
+decision.
 
 Each projected state has one evidence-safe comparison and action:
 
 | State | Proof shown | Action |
 |---|---|---|
+| `needs-work` | recent supported natural evidence | direct Target practice; guided Coach remains available above |
 | `training` | frozen baseline -> best acquisition, labelled practice rather than proof | `Continue` -> `/plan` |
 | `transferred` | frozen baseline -> qualified Transfer | `View proof`; state when its Cold check becomes eligible |
 | `retained` | frozen baseline -> latest held Cold check | `View proof`; do not prescribe redundant Drill work |
@@ -546,21 +559,16 @@ the rendered session actually derives it. Safe summary counts include completed
 Coaching sessions, latest-unique retained gains, and checks currently due.
 
 On desktop, row selection uses the upper-card master/detail interaction and the
-recent history may scroll within the Coach column. On mobile, tapping a row
+recent Target list may scroll within the Coach column. On mobile, tapping a row
 expands the same detail inline beneath it; do not make the user scroll back to an
 off-screen upper card and do not create a nested scrolling region. Mobile order
-is WPM proof -> Coach next action -> Trend -> coaching history -> keyboard.
+is WPM proof -> Coach next action -> Trend -> Your targets -> keyboard.
 
-The Progress period selector continues to scope WPM/Goal proof. The Coach
-history remains an explicitly bounded recent skill history unless a future
+The Progress period selector continues to scope WPM/Goal proof. The Target list
+remains an explicitly bounded recent skill view unless a future
 unbounded read makes an `All` claim true. Keep global WPM proof separate from
 Target proof: the page must never imply that its WPM Delta was caused by the
 Drills shown beside it.
-
-Upgrade the existing unused Recap to show comparable WPM Delta, sessions
-completed, one retained improvement, one due/regressed action, Streak, and
-fallback highest-Impact Weakness. Render it on Progress and as a compact Home
-return line; no email or cron.
 
 Wire Stance only when it changes acquisition policy. Show an endurance gap only
 after matched samples, with an action into an endurance Target session.
@@ -580,8 +588,6 @@ or target ids:
 | `cold_check_completed` | kind, held, practiced-day delay |
 | `coaching_completed` | minutes, sets, Transfer/Cold outcomes |
 | `mastery_state_changed` | kind, from state, to state |
-| `recap_shown` | has Delta, retained proof, action |
-| `recap_action_clicked` | action kind |
 
 **North-star:** retained Target improvement per active Coaching minute.
 
@@ -590,8 +596,8 @@ practiced-day retention, minutes to retained Target, natural Impact reduction,
 regression by Target kind, and calibration yield.
 
 Product metrics: session start/completion, next-day return after improved
-Transfer, return when Cold is due, D7 return after first retained Target, Recap
-action, and guest signup after retained proof.
+Transfer, return when Cold is due, D7 return after first retained Target, direct
+Target-practice action, and guest signup after retained proof.
 
 Guardrails: Diagnosis action rate, 5-8 minute median session, no unsupported
 claims, one canonical WPM, no typing-path/first-paint regression, and no Test
@@ -749,15 +755,15 @@ the user.
 **Acceptance:** no retained state without delayed qualified evidence; time away
 neither erases proof nor creates a wall of overdue checks.
 
-### 10. Progress Mastery history and Recap
+### 10. Progress Targets and Mastery history
 
 - [x] Extract a read-only shared evidence/history analysis hook for Daily Coach
       and Progress; rendering Progress must not create or freeze a session.
-- [x] Add a pure Progress projection that groups repeated Target episodes,
-      selects the real next action, chooses state-specific proof stages, and
-      formats lower-is-better/higher-is-better metrics consistently.
+- [x] Add a pure Progress projection that merges supported current weaknesses
+      and repeated Mastery episodes by Target identity, selects the real next
+      action, chooses state-specific proof stages, and formats metrics consistently.
 - [x] Replace legacy "Weak spots" with `Coach · Next action`, add bounded
-      "What your practice changed" history, and remove Records from Progress.
+      `Your targets`, and remove Records from Progress.
 - [x] Add desktop master/detail inspection with `Back to next action`; selection
       must never mutate today's frozen Prescription or hide the coach priority.
 - [x] Add mobile inline Target detail and disclosure with no nested scrolling.
@@ -767,8 +773,8 @@ neither erases proof nor creates a wall of overdue checks.
 - [x] Reject unsupported UI claims: summed seconds saved, WPM attributed to
       Drills, permanent "fixed" counts, reversed chronology arrows, and
       underived duration promises.
-- [x] Upgrade and wire Recap; persist dismiss timing locally.
-- [x] Add compact Home return line when Recap or a due Target exists.
+- [x] Remove the duplicate Recent Recap card and Home reminder after product
+      review; Progress Delta, Coach, and `Your targets` own those answers.
 - [x] Keep Stance absent until it changes acquisition policy.
 - [x] Allow endurance through Progress only with the existing matched-evidence
       candidate and actionable Coach route.
@@ -816,7 +822,7 @@ npx playwright test tests/e2e/screenshots.spec.ts
 | Movement | every layout, ISO/ANSI, remaps | layout isolation |
 | Transfer | novelty, quota, metric direction | acquisition -> Transfer proof |
 | Mastery | delay, due, held, missed, regression | day-1/day-2 fixtures |
-| Recap | cadence, proof/action fallbacks | dismiss and return |
+| Progress Targets | source merge, identity, ordering, proof/action fallbacks | inspect and practise |
 
 Use deterministic domain fixture builders instead of long inline arrays. Tests
 cross the public module interface; private scoring helpers do not become exports
@@ -900,7 +906,7 @@ user can:
 3. acquire it through focused practice;
 4. prove it in varied text;
 5. return to a delayed Cold check;
-6. see retained, due, or regressed evidence in Progress/Recap;
+6. see current, retained, due, or regressed evidence in Progress;
 7. carry the same evidence through signup;
 8. trust one documented definition for every WPM and Target metric;
 9. complete the loop without paid services, cron, or an LLM.

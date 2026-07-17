@@ -786,9 +786,8 @@ test.describe("screenshot tour", () => {
       ],
       sameDayProgress: true,
       coachingHistory: progressCoachingHistory(),
+      timelineEvidence: [impactTimeline(1), impactTimeline(2)],
     });
-    // Suppress the weekly recap so this captures the steady-state dashboard.
-    await page.addInitScript(() => window.localStorage.setItem("typecafe:lastRecapAt", String(Date.now())));
     await page.goto("/progress");
     await expect(page.getByTestId("headline-delta")).toBeVisible();
     await expect(page.getByTestId("headline-start-current")).toContainText("Start");
@@ -807,6 +806,7 @@ test.describe("screenshot tour", () => {
     await expect(page.getByText("Daily median trend", { exact: true })).toBeVisible();
     await expect(page.getByText("Daily best trend", { exact: true })).toBeVisible();
     await expect(page.getByTestId("progress-coach")).toContainText("See whether your tion gain held");
+    await expect(page.getByTestId("progress-coach")).toContainText("Needs work");
     await expect(page.getByTestId("records-timeline")).toHaveCount(0);
     await expect(page.getByTestId("lifetime-heatmap")).toBeVisible();
     await capture(page, testInfo, "40-progress-dashboard");
@@ -835,7 +835,6 @@ test.describe("screenshot tour", () => {
   test("progress dashboard (plateau coach voice)", async ({ page }, testInfo) => {
     await mockAuthenticatedSession(page);
     await mockTrpc(page, { flatProgress: true });
-    await page.addInitScript(() => window.localStorage.setItem("typecafe:lastRecapAt", String(Date.now())));
     await page.goto("/progress");
     await expect(page.getByTestId("plateau-headline")).toBeVisible();
     // The plateau headline is the single coach voice here - the stance card must
@@ -848,7 +847,6 @@ test.describe("screenshot tour", () => {
     await mockAuthenticatedSession(page);
     await mockTrpc(page);
     await page.addInitScript(() => {
-      window.localStorage.setItem("typecafe:lastRecapAt", String(Date.now()));
       window.localStorage.setItem("typecafe:goal", JSON.stringify({ targetWpm: 100, targetDate: "2027-12-31" }));
     });
     await page.goto("/progress");

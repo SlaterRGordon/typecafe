@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { mockAuthenticatedSession, mockTrpc } from "./helpers/trpc";
 import { progressCoachingHistory } from "./helpers/coachingFixtures";
+import { impactTimeline } from "./helpers/evidence";
 import { DAILY_COACHING_STORAGE_KEY, GUEST_DAILY_SCOPE } from "../../src/lib/dailyCoaching";
 
 async function gotoProgress(page: Page) {
@@ -44,7 +45,6 @@ test.describe("progress dashboard", () => {
   test("progress rescopes to the global language", async ({ page }) => {
     await mockAuthenticatedSession(page);
     await mockTrpc(page);
-    await page.addInitScript(() => window.localStorage.setItem("typecafe:lastRecapAt", String(Date.now())));
     await gotoProgress(page);
 
     // Default English view: the mocked records are English, so there is history.
@@ -61,7 +61,6 @@ test.describe("progress dashboard", () => {
   test("progress rescopes to the active layout's stats pool", async ({ page }) => {
     await mockAuthenticatedSession(page);
     await mockTrpc(page);
-    await page.addInitScript(() => window.localStorage.setItem("typecafe:lastRecapAt", String(Date.now())));
     await gotoProgress(page);
 
     // Default qwerty view: the mocked (untagged → qwerty pool) records have history.
@@ -98,8 +97,8 @@ test.describe("progress dashboard", () => {
       ],
       sameDayProgress: true,
       coachingHistory: progressCoachingHistory(),
+      timelineEvidence: [impactTimeline(1), impactTimeline(2)],
     });
-    await page.addInitScript(() => window.localStorage.setItem("typecafe:lastRecapAt", String(Date.now())));
     await gotoProgress(page);
 
     // The headline delta is the largest number on the page and answers
@@ -115,6 +114,14 @@ test.describe("progress dashboard", () => {
 
     // The practice streak chip shows (the mocked history reaches today).
     await expect(page.getByTestId("streak-chip")).toBeVisible();
+    const targets = page.getByTestId("progress-coach");
+    await expect(targets).toContainText("Your targets");
+    await expect(targets).toContainText("b→r");
+    await expect(targets).toContainText("Needs work");
+    const brButton = targets.getByRole("button", { name: /b→r/ });
+    if ((page.viewportSize()?.width ?? 0) < 640) await brButton.click();
+    await expect(brButton.locator("../..").getByRole("link", { name: "Practice this transition" })).toHaveAttribute("href", /transitions=br/);
+    await expect(page.getByTestId("progress-recap")).toHaveCount(0);
 
     // One big trend chart, WPM by default, with metric tabs to toggle it.
     await expect(page.getByText("WPM over time", { exact: true })).toBeVisible();
@@ -226,7 +233,6 @@ test.describe("progress dashboard", () => {
   test("progress combines all modes and lengths with no filter controls", async ({ page }) => {
     await mockAuthenticatedSession(page);
     await mockTrpc(page, { mixedProgress: true });
-    await page.addInitScript(() => window.localStorage.setItem("typecafe:lastRecapAt", String(Date.now())));
     await gotoProgress(page);
 
     // Mode/length filters are gone - every test rolls into one combined view.
@@ -249,7 +255,6 @@ test.describe("progress dashboard", () => {
   test("setting a goal projects an honest trajectory", async ({ page }) => {
     await mockAuthenticatedSession(page);
     await mockTrpc(page);
-    await page.addInitScript(() => window.localStorage.setItem("typecafe:lastRecapAt", String(Date.now())));
     await gotoProgress(page);
 
     // Demoted to a one-liner: expand it before setting a goal.
@@ -275,7 +280,6 @@ test.describe("progress dashboard", () => {
   test("a flat trend shows the plateau coach voice", async ({ page }) => {
     await mockAuthenticatedSession(page);
     await mockTrpc(page, { flatProgress: true });
-    await page.addInitScript(() => window.localStorage.setItem("typecafe:lastRecapAt", String(Date.now())));
     await gotoProgress(page);
 
     const plateau = page.getByTestId("plateau-headline");
@@ -285,31 +289,14 @@ test.describe("progress dashboard", () => {
     await expect(plateau.getByRole("link", { name: "Try transition drills" })).toHaveCount(0);
   });
 
-  test("shows a bounded recap and persists its dismiss timing locally", async ({ page }) => {
-    await mockAuthenticatedSession(page);
-    await mockTrpc(page, { coachingHistory: progressCoachingHistory() });
-    await gotoProgress(page);
-
-    const recap = page.getByTestId("progress-recap");
-    await expect(recap).toBeVisible();
-    await expect(recap).toContainText("coaching sessions completed");
-    await expect(recap).toContainText("Retained: e→r");
-    await expect(recap.getByRole("link", { name: "Check tion" })).toHaveAttribute("href", "/plan");
-    await recap.getByRole("button", { name: "Dismiss recent recap" }).click();
-    await expect(recap).toHaveCount(0);
-    await expect.poll(() => page.evaluate(() => Number(window.localStorage.getItem("typecafe:lastRecapAt")))).toBeGreaterThan(0);
-    await page.reload();
-    await expect(page.getByTestId("progress-recap")).toHaveCount(0);
-  });
-
   test("inspects another Target without changing or saving the Coach next action", async ({ page }) => {
     const calls: string[] = [];
     await mockAuthenticatedSession(page);
     await mockTrpc(page, {
       coachingHistory: progressCoachingHistory(),
+      timelineEvidence: [impactTimeline(1), impactTimeline(2)],
       onProcedure: (procedure) => calls.push(procedure),
     });
-    await page.addInitScript(() => window.localStorage.setItem("typecafe:lastRecapAt", String(Date.now())));
     await gotoProgress(page);
 
     const coach = page.getByTestId("progress-coach");
@@ -333,7 +320,7 @@ test.describe("progress dashboard", () => {
     }
 
     await erRow.click();
-    await page.getByTestId("coach-history-filters").getByRole("button", { name: "Needs action" }).click();
+    await page.getByTestId("coach-target-filters").getByRole("button", { name: "Needs action" }).click();
     await expect(page.getByTestId("coach-inline-detail")).toHaveCount(0);
     await expect(page.getByTestId("coach-detail")).toContainText("See whether your tion gain held");
     expect(calls).not.toContain("coachingSession.save");
@@ -466,7 +453,6 @@ test.describe("progress dashboard", () => {
     // and rot the test (this one broke exactly 30 days after it was written).
     await page.addInitScript(() => {
       const day = 24 * 60 * 60 * 1000;
-      window.localStorage.setItem("typecafe:lastRecapAt", String(Date.now()));
       window.localStorage.setItem("typecafe:progressHistory", JSON.stringify([
         { wpm: 100, accuracy: 90, c: 72, t: Date.now() - 6 * day },
         { wpm: 68, accuracy: 96, c: 78, t: Date.now() - 4 * day },

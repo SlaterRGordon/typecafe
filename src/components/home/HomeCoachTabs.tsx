@@ -5,10 +5,8 @@ import { MaterialNavIcon } from "~/components/navigation/MaterialNavIcon"
 import { useDailyCoachingSession } from "~/hooks/useDailyCoachingSession"
 import { currentDailyStep, stepGoalMet } from "~/lib/dailyCoaching"
 import type { DrillFinding } from "~/lib/drillProgress"
-import { isRecapDue } from "~/lib/recap"
 
 const NEXT_ACTION_DISMISS_KEY = "typecafe:nextActionDismissed"
-const LAST_RECAP_KEY = "typecafe:lastRecapAt"
 
 function findingBody(finding: DrillFinding): React.ReactNode {
     const reason = finding.evidence?.reason
@@ -34,7 +32,7 @@ function findingBody(finding: DrillFinding): React.ReactNode {
 }
 
 type CoachTab = {
-    key: "daily" | "drill" | "recap"
+    key: "daily" | "drill"
     label: string
     eyebrow: string
     body: React.ReactNode
@@ -141,15 +139,6 @@ export function HomeCoachTabs({ className = "", desktop = true, inline = true }:
     const [dismissedFinding, setDismissedFinding] = useState(() => {
         try { return localStorage.getItem(NEXT_ACTION_DISMISS_KEY); } catch { return null; }
     })
-    const [recapDue, setRecapDue] = useState(false)
-
-    useEffect(() => {
-        try {
-            const raw = localStorage.getItem(LAST_RECAP_KEY)
-            const last = raw === null ? null : Number(raw)
-            setRecapDue(isRecapDue(Number.isFinite(last) ? last : null, Date.now()))
-        } catch { setRecapDue(false) }
-    }, [])
 
     useEffect(() => {
         const onSideNavExpanded = (event: Event) => {
@@ -205,26 +194,8 @@ export function HomeCoachTabs({ className = "", desktop = true, inline = true }:
             })
         }
 
-        if (recapDue && (finding || session?.status === "completed")) {
-            nextTabs.push({
-                key: "recap",
-                label: "Recap",
-                eyebrow: "Recent proof",
-                body: <>Your recent WPM comparison and Coach evidence are ready on Progress.</>,
-                href: "/progress",
-                cta: "View recap",
-                testId: "home-coach-tab-recap",
-                topClassName: "top-[20.5rem]",
-                dismissLabel: "Dismiss recap reminder",
-                onDismiss: () => {
-                    setRecapDue(false)
-                    try { localStorage.setItem(LAST_RECAP_KEY, String(Date.now())) } catch { /* localStorage unavailable */ }
-                },
-            })
-        }
-
         return nextTabs
-    }, [dismissedFinding, finding, recapDue, session])
+    }, [dismissedFinding, finding, session])
 
     if (loading || tabs.length === 0) return null
 

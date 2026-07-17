@@ -1,7 +1,7 @@
 import Link from "next/link"
 import { useMemo, useState } from "react"
 import {
-    filterProgressCoachHistory,
+    filterProgressCoachTargets,
     type ProgressCoachFilter,
     type ProgressCoachProjection,
     type ProgressCoachTarget,
@@ -29,12 +29,12 @@ function stateTone(target: ProgressCoachTarget): string {
 export function ProgressCoach({ projection, loading }: ProgressCoachProps) {
     const [filter, setFilter] = useState<ProgressCoachFilter>("all")
     const [selectedId, setSelectedId] = useState<string | null>(null)
-    const [showAllHistory, setShowAllHistory] = useState(false)
+    const [showAllTargets, setShowAllTargets] = useState(false)
     const rows = useMemo(
-        () => projection ? filterProgressCoachHistory(projection.history, filter) : [],
+        () => projection ? filterProgressCoachTargets(projection.targets, filter) : [],
         [filter, projection],
     )
-    const selected = projection?.history.find((row) => row.id === selectedId) ?? null
+    const selected = projection?.targets.find((row) => row.id === selectedId) ?? null
     const detail = selected ?? projection?.nextAction ?? null
 
     if (loading || !projection || !detail) {
@@ -128,10 +128,10 @@ export function ProgressCoach({ projection, loading }: ProgressCoachProps) {
             <div className="border-t border-base-content/10 p-4 sm:p-5">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                        <h2 className="text-lg font-semibold text-base-content">What your practice changed</h2>
-                        <p className="text-xs text-base-content/45">Recent history · up to {projection.historyLimit} Targets</p>
+                        <h2 className="text-lg font-semibold text-base-content">Your targets</h2>
+                        <p className="text-xs text-base-content/45">Recent evidence and practice · up to {projection.targetLimit}</p>
                     </div>
-                    <div data-testid="coach-history-filters" className="flex w-fit gap-1 rounded-lg border border-base-content/15 bg-base-200/50 p-1">
+                    <div data-testid="coach-target-filters" className="flex w-fit gap-1 rounded-lg border border-base-content/15 bg-base-200/50 p-1">
                         {FILTERS.map((item) => (
                             <button
                                 key={item.key}
@@ -139,7 +139,7 @@ export function ProgressCoach({ projection, loading }: ProgressCoachProps) {
                                 aria-pressed={filter === item.key}
                                 onClick={() => {
                                     setFilter(item.key)
-                                    setShowAllHistory(false)
+                                    setShowAllTargets(false)
                                     if (selected && item.key !== "all" && selected.filter !== item.key) setSelectedId(null)
                                 }}
                                 className={`min-h-8 rounded-md px-2.5 text-xs font-medium transition-colors ${filter === item.key ? "bg-primary text-primary-content shadow-sm" : "text-base-content/70 hover:bg-base-content/5"}`}
@@ -151,15 +151,15 @@ export function ProgressCoach({ projection, loading }: ProgressCoachProps) {
                 </div>
 
                 {rows.length === 0 ? (
-                    <p data-testid="coach-history-empty" className="py-8 text-center text-sm text-base-content/45">
-                        {projection.history.length === 0 ? "Finish a coaching Target to build proof history here." : "No recent Targets match this filter."}
+                    <p data-testid="coach-targets-empty" className="py-8 text-center text-sm text-base-content/45">
+                        {projection.targets.length === 0 ? "Take a longer Test to find supported Targets." : "No recent Targets match this filter."}
                     </p>
                 ) : (
-                    <ul aria-label="Recent coaching Target history" className="mt-3 divide-y divide-base-content/10">
+                    <ul aria-label="Recent typing Targets" className="mt-3 divide-y divide-base-content/10">
                         {rows.map((row, index) => {
                             const expanded = selectedId === row.id
                             return (
-                                <li key={row.id} data-testid={`coach-history-row-${row.id}`} className={`relative py-2 ${index >= 5 && !showAllHistory ? "hidden lg:list-item" : ""} ${row.isNextAction ? "border-l-2 border-warning pl-2" : ""}`}>
+                                <li key={row.id} data-testid={`coach-target-row-${row.id}`} className={`relative py-2 ${index >= 5 && !showAllTargets ? "hidden lg:list-item" : ""} ${row.isNextAction ? "border-l-2 border-warning pl-2" : ""}`}>
                                     <div className={`flex items-center gap-2 rounded-lg border px-2 py-2 transition ${expanded ? "border-base-content/35 bg-base-content/5" : "border-transparent hover:bg-base-content/5"}`}>
                                         <button
                                             type="button"
@@ -174,11 +174,15 @@ export function ProgressCoach({ projection, loading }: ProgressCoachProps) {
                                                 </span>
                                                 <span className={`shrink-0 text-xs font-semibold ${stateTone(row)}`}>{row.statusLabel}</span>
                                             </span>
-                                            {row.stages.length >= 2 && (
+                                            {row.stages.length > 0 && (
                                                 <span className="mt-1 flex flex-wrap items-center gap-1 text-xs text-base-content/55">
                                                     <span>{row.stages[0]!.label} {row.stages[0]!.value}</span>
-                                                    <span aria-hidden="true">→</span>
-                                                    <span>{row.stages.at(-1)!.label} {row.stages.at(-1)!.value}</span>
+                                                    {row.stages.length > 1 && (
+                                                        <>
+                                                            <span aria-hidden="true">→</span>
+                                                            <span>{row.stages.at(-1)!.label} {row.stages.at(-1)!.value}</span>
+                                                        </>
+                                                    )}
                                                 </span>
                                             )}
                                         </button>
@@ -227,12 +231,12 @@ export function ProgressCoach({ projection, loading }: ProgressCoachProps) {
                     <button
                         type="button"
                         onClick={() => {
-                            if (showAllHistory && selected && rows.findIndex((row) => row.id === selected.id) >= 5) setSelectedId(null)
-                            setShowAllHistory((expanded) => !expanded)
+                            if (showAllTargets && selected && rows.findIndex((row) => row.id === selected.id) >= 5) setSelectedId(null)
+                            setShowAllTargets((expanded) => !expanded)
                         }}
                         className="mt-2 min-h-11 w-full rounded-md border border-base-content/15 px-3 text-sm font-semibold text-base-content/70 lg:hidden"
                     >
-                        {showAllHistory ? "Show fewer Targets" : `Show ${rows.length - 5} more Targets`}
+                        {showAllTargets ? "Show fewer Targets" : `Show ${rows.length - 5} more Targets`}
                     </button>
                 )}
             </div>

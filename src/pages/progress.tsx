@@ -7,7 +7,6 @@ import { useCallback, useMemo, useState } from "react";
 import { TrendChart } from "~/components/progress/TrendChart";
 import { GoalCard } from "~/components/progress/GoalCard";
 import { ProgressCoach } from "~/components/progress/ProgressCoach";
-import { ProgressRecap } from "~/components/progress/ProgressRecap";
 import { KeyHeatmap, KeyHeatmapLegend } from "~/components/heatmap/KeyHeatmap";
 import { KeyboardLayerSwitch } from "~/components/heatmap/KeyboardLayerSwitch";
 import { Chip } from "~/components/ui/Chip";
@@ -39,8 +38,6 @@ import { api } from "~/utils/api";
 import { openSignInModal } from "~/lib/modals";
 import { useCoachingEvidence } from "~/hooks/useCoachingEvidence";
 import { projectProgressCoach, type ProgressCoachProjection } from "~/lib/progressCoach";
-import type { SkillAnalysis } from "~/lib/skillEvidence";
-import type { DailyCoachingSession } from "~/lib/dailyCoaching";
 
 function periodLabel(period: ProgressPeriod): string {
     return period === "all" ? "All" : `${period}d`;
@@ -236,7 +233,7 @@ function ProgressLoadingSkeleton() {
     );
 }
 
-const ProgressDashboard = (props: { language: string; records: ProgressRecord[]; keyAttempts: Record<string, KeyAttempt>; transitions: TransitionAggregate[]; coach: ProgressCoachProjection | null; coachAnalysis: SkillAnalysis | null; coachHistory: DailyCoachingSession[]; coachLoading: boolean; canShare?: boolean; username?: string | null }) => {
+const ProgressDashboard = (props: { language: string; records: ProgressRecord[]; keyAttempts: Record<string, KeyAttempt>; transitions: TransitionAggregate[]; coach: ProgressCoachProjection | null; coachLoading: boolean; canShare?: boolean; username?: string | null }) => {
     const [period, setPeriod] = useState<ProgressPeriod>(30);
     const [trendMetric, setTrendMetric] = useState<TrendMetric>("wpm");
     const [shareState, setShareState] = useState<"idle" | "sharing" | "copied">("idle");
@@ -518,7 +515,6 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
                     <ProgressCoach projection={props.coach} loading={props.coachLoading} />
                 </div>
             </div>
-            <ProgressRecap records={cleanRecords} keyAttempts={props.keyAttempts} analysis={props.coachAnalysis} sessions={props.coachHistory} />
         </div>
     );
 };
@@ -623,7 +619,7 @@ const Progress: NextPage = () => {
                                     Sign in to keep it forever
                                 </button>
                             </div>
-                            <ProgressDashboard language={language} records={guestRecords} keyAttempts={guestKeyAttempts} transitions={guestTransitions} coach={coachProjection} coachAnalysis={coaching.analysis} coachHistory={coaching.history} coachLoading={coaching.loading} />
+                            <ProgressDashboard language={language} records={guestRecords} keyAttempts={guestKeyAttempts} transitions={guestTransitions} coach={coachProjection} coachLoading={coaching.loading} />
                         </div>
                     ) : (
                         // No local history yet - the page is the signup pitch.
@@ -643,7 +639,7 @@ const Progress: NextPage = () => {
                         </div>
                     )
                 ) : (
-                    <ProgressDashboard language={language} records={records} keyAttempts={dbKeyAttempts} transitions={dbTransitions} coach={coachProjection} coachAnalysis={coaching.analysis} coachHistory={coaching.history} coachLoading={coaching.loading} canShare username={sessionData.user.username ?? sessionData.user.name} />
+                    <ProgressDashboard language={language} records={records} keyAttempts={dbKeyAttempts} transitions={dbTransitions} coach={coachProjection} coachLoading={coaching.loading} canShare username={sessionData.user.username ?? sessionData.user.name} />
                 )}
             </div>
         </>

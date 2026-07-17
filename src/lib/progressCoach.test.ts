@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest"
+import type { CoachingTarget } from "./coachingTarget"
 import type { DailyCoachingSession, FrozenRecommendation } from "./dailyCoaching"
-import { filterProgressCoachHistory, projectProgressCoach } from "./progressCoach"
-import type { MasteryRecord, SkillAnalysis } from "./skillEvidence"
+import { filterProgressCoachTargets, projectProgressCoach } from "./progressCoach"
+import type { MasteryRecord, SkillAnalysis, SkillCandidate } from "./skillEvidence"
 
 const prescription: FrozenRecommendation = {
     id: "transition:tion", target: { kind: "gram", gram: "tion" }, metric: "ms", direction: "lower",
@@ -24,10 +25,20 @@ function record(id: string, state: MasteryRecord["state"], target = prescription
     }
 }
 
-function analysis(mastery: MasteryRecord[]): SkillAnalysis {
+function candidate(target: CoachingTarget = { kind: "transition", pair: "br", metric: "latency" }, impactMsPer1000 = 1_400): SkillCandidate {
+    const pair = target.kind === "transition" ? target.pair : "br"
+    return {
+        id: JSON.stringify(target), target, metric: "ms", direction: "lower", observed: 140, baseline: 100,
+        sampleCount: 20, distinctTests: 2, distinctWords: 8, frequencyPer1000: 10, confidence: 0.9,
+        recencyWeight: 1, impactMsPer1000,
+        reason: { code: "transition_latency_above_baseline", pair, observedMs: 140, baselineMs: 100, ratio: 1.4 },
+    }
+}
+
+function analysis(mastery: MasteryRecord[], candidates: SkillCandidate[] = []): SkillAnalysis {
     return {
         quality: { status: "ready", analyzedTimelines: 2, discoveryTimelines: 2, naturalTimelines: 2, acquisitionTimelines: 0, discoveryCharacters: 1000, usableLatencySamples: 100, excludedNonPositiveGaps: 0, excludedInterruptionGaps: 0, interrupted: false },
-        candidates: [], recommendation: null, mastery,
+        candidates, recommendation: candidates[0] ?? null, mastery,
         recap: { retained: mastery.filter((item) => item.state === "retained"), due: mastery.find((item) => item.state === "due") ?? null, regressed: mastery.find((item) => item.state === "regressed") ?? null },
         testFamilyCosts: [],
     }
@@ -38,20 +49,50 @@ describe("projectProgressCoach", () => {
         const old = record("tion-old", "transferred")
         const latest = record("tion-new", "retained")
         const result = projectProgressCoach(analysis([latest, old]), null)
-        expect(result.history).toHaveLength(1)
-        expect(result.history[0]).toMatchObject({ label: "tion", state: "retained", episodeCount: 2 })
-        expect(result.history[0]!.episodes).toHaveLength(2)
-        expect(result.history[0]!.stages.map((stage) => stage.label)).toEqual(["Baseline", "Practice", "Transfer", "Cold"])
-        expect(result.history[0]!.stages.map((stage) => stage.value)).toEqual(["520 ms", "440 ms", "455 ms", "460 ms"])
+        expect(result.targets).toHaveLength(1)
+        expect(result.targets[0]).toMatchObject({ label: "tion", state: "retained", episodeCount: 2 })
+        expect(result.targets[0]!.episodes).toHaveLength(2)
+        expect(result.targets[0]!.stages.map((stage) => stage.label)).toEqual(["Baseline", "Practice", "Transfer", "Cold"])
+        expect(result.targets[0]!.stages.map((stage) => stage.value)).toEqual(["520 ms", "440 ms", "455 ms", "460 ms"])
     })
 
-    it("selects a due Target as the next action without changing history priority", () => {
+    it("includes a supported ordinary weakness with direct practice independent of Coach", () => {
+        const result = projectProgressCoach(analysis([], [candidate()]), null)
+        expect(result.targets[0]).toMatchObject({ label: "b→r", state: "needs-work", statusLabel: "Needs work" })
+        expect(result.targets[0]!.stages).toEqual([{ key: "recent", label: "Recent", value: "140 ms", sampleCount: 20 }])
+        expect(result.targets[0]!.action).toMatchObject({ label: "Practice this transition" })
+        expect(result.targets[0]!.action!.href).toContain("/drill?target=transition")
+        expect(result.nextAction).toMatchObject({ label: "b→r", statusLabel: "Next Target", action: { href: "/plan", label: "Open today’s plan" } })
+    })
+
+    it("merges matching current weakness and coached proof into one Target row", () => {
+        const current = candidate({ kind: "transition", pair: "br", metric: "latency" })
+        const regressed = record("br-new", "regressed", current.target)
+        const result = projectProgressCoach(analysis([regressed], [current]), null)
+        expect(result.targets).toHaveLength(1)
+        expect(result.targets[0]).toMatchObject({ label: "b→r", state: "regressed", episodeCount: 1 })
+        expect(result.targets[0]!.stages.at(-1)).toMatchObject({ label: "Recent", value: "140 ms" })
+    })
+
+    it("orders due, regressed, detected, training, transferred, then held Targets", () => {
+        const rows = [
+            record("held-new", "retained", { kind: "key", keys: ["z"], metric: "latency" }),
+            record("transfer-new", "transferred", { kind: "gram", gram: "ing" }),
+            record("train-new", "training", { kind: "key", keys: ["q"], metric: "latency" }),
+            record("regress-new", "regressed", { kind: "transition", pair: "er", metric: "latency" }),
+            record("due-new", "due"),
+        ]
+        const result = projectProgressCoach(analysis(rows, [candidate()]), null)
+        expect(result.targets.map((row) => row.state)).toEqual(["due", "regressed", "needs-work", "training", "transferred", "retained"])
+    })
+
+    it("selects a due Target as the next action without changing Target filtering", () => {
         const due = record("tion-new", "due")
         const held = record("er-new", "retained", { kind: "transition", pair: "er", metric: "latency" })
         const result = projectProgressCoach(analysis([held, due]), null)
         expect(result.nextAction).toMatchObject({ label: "tion", state: "due", isNextAction: true })
         expect(result.nextAction.action).toEqual({ href: "/plan", label: "Start Cold check" })
-        expect(filterProgressCoachHistory(result.history, "held").map((row) => row.label)).toEqual(["e→r"])
+        expect(filterProgressCoachTargets(result.targets, "held").map((row) => row.label)).toEqual(["e→r"])
     })
 
     it("uses the frozen current session Target ahead of another due row", () => {
@@ -65,7 +106,7 @@ describe("projectProgressCoach", () => {
         } satisfies DailyCoachingSession
         const result = projectProgressCoach(analysis([due, current]), session)
         expect(result.nextAction.label).toBe("e→r")
-        expect(result.history.find((row) => row.label === "tion")?.isNextAction).toBe(false)
+        expect(result.targets.find((row) => row.label === "tion")?.isNextAction).toBe(false)
     })
 
     it("formats higher-is-better Accuracy proof without reversing chronology", () => {
@@ -74,7 +115,7 @@ describe("projectProgressCoach", () => {
         accuracy.proof = {
             ...accuracy.proof, metric: "%", baseline: 88, bestAcquisition: 94, transfer: 95, cold: 96,
         }
-        const row = projectProgressCoach(analysis([accuracy]), null).history[0]!
+        const row = projectProgressCoach(analysis([accuracy]), null).targets[0]!
         expect(row.direction).toBe("higher")
         expect(row.stages.map((stage) => `${stage.label} ${stage.value}`)).toEqual([
             "Baseline 88.0%", "Practice 94.0%", "Transfer 95.0%", "Cold 96.0%",
