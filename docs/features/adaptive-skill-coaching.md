@@ -508,8 +508,8 @@ continuous card:
 2. **Target detail.** Selecting a row in "Your targets" temporarily
    projects that Target's proof into the upper card. This is inspection only: it
    never changes today's frozen Prescription, recommendation order, Mastery, or
-   persisted evidence. The card becomes `Target detail` and keeps an explicit
-   `Back to next action` control naming the real coach priority.
+   persisted evidence. The card becomes `Target detail`; selecting the row again
+   restores the real coach priority without adding another control to the strip.
 
 The Target row selected for inspection gets a neutral selection treatment. The
 actual next action keeps its semantic due/regressed accent even while another
@@ -787,7 +787,7 @@ neither erases proof nor creates a wall of overdue checks.
       calibration must never appear beside an actionable Target row.
 - [x] Replace legacy "Weak spots" with `Coach · Next action`, add bounded
       `Your targets`, and remove Records from Progress.
-- [x] Add desktop master/detail inspection with `Back to next action`; selection
+- [x] Add desktop master/detail inspection with row-toggle return to next action; selection
       must never mutate today's frozen Prescription or hide the coach priority;
       match left-column height and scroll only the Target list.
 - [x] Add mobile inline Target detail and disclosure with no nested scrolling.

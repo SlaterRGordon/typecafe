@@ -353,15 +353,18 @@ test.describe("progress dashboard", () => {
       await expect(detail).toContainText("Target detail");
       await expect(detail).toContainText("Your e→r gain held");
       await expect(detail.getByRole("list", { name: "e→r qualifying episodes" }).getByRole("listitem")).toHaveCount(2);
-      await detail.getByRole("button", { name: "Back to next action: tion" }).click();
+      await expect(detail.getByRole("button", { name: /Back to/ })).toHaveCount(0);
+      await erRow.click();
+      await expect(erRow).toHaveAttribute("aria-expanded", "false");
       await expect(detail).toContainText("See whether your tion gain held");
     } else {
       await expect(page.getByTestId("coach-inline-detail")).toContainText("No extra Drill is prescribed");
       await expect(page.getByTestId("coach-inline-detail").getByRole("list", { name: "e→r qualifying episodes" }).getByRole("listitem")).toHaveCount(2);
       await expect(page.getByTestId("coach-detail")).toContainText("See whether your tion gain held");
+      await erRow.click();
+      await expect(erRow).toHaveAttribute("aria-expanded", "false");
     }
 
-    await erRow.click();
     await page.getByTestId("coach-target-filters").getByRole("button", { name: /Keys/ }).click();
     await expect(page.getByTestId("coach-inline-detail")).toHaveCount(0);
     await expect(page.getByTestId("coach-detail")).toContainText("See whether your tion gain held");

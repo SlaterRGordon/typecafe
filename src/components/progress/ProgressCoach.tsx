@@ -214,17 +214,6 @@ export function ProgressCoach({ projection, loading }: ProgressCoachProps) {
         <div data-testid="progress-coach" className="flex flex-col gap-3 lg:min-h-0">
             <section data-testid="coach-detail" aria-live="polite" className="rounded-xl border border-primary/25 bg-base-100/45 p-4 lg:shrink-0">
                 <div className="hidden lg:block">
-                    {selected && (
-                        <div className="mb-2 flex justify-end">
-                            <button
-                                type="button"
-                                onClick={() => setSelectedId(null)}
-                                className="text-xs font-semibold text-primary underline-offset-2 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-                            >
-                                Back to {hasNextAction ? "next action" : "latest result"}: {projection.nextAction.label}
-                            </button>
-                        </div>
-                    )}
                     <CoachSummary
                         target={detail}
                         color={impactPalette[detailTone]}
