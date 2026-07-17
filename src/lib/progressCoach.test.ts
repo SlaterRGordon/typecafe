@@ -65,6 +65,16 @@ describe("projectProgressCoach", () => {
         expect(result.nextAction).toMatchObject({ label: "b→r", statusLabel: "Next Target", action: { href: "/plan", label: "Open today’s plan" } })
     })
 
+    it("never calibrates beside a visible actionable Target when recommendation state lags", () => {
+        const lagging = analysis([], [candidate()])
+        lagging.recommendation = null
+
+        const result = projectProgressCoach(lagging, null)
+
+        expect(result.targets).toHaveLength(1)
+        expect(result.nextAction).toMatchObject({ label: "b→r", state: "needs-work", statusLabel: "Next Target" })
+    })
+
     it("merges matching current weakness and coached proof into one Target row", () => {
         const current = candidate({ kind: "transition", pair: "br", metric: "latency" })
         const regressed = record("br-new", "regressed", current.target)
@@ -103,6 +113,46 @@ describe("projectProgressCoach", () => {
         expect(result.nextAction).toMatchObject({ label: "r", state: "transferred", statusLabel: "Transferred", action: null })
         expect(result.nextAction.headline).toBe("r improved in varied text")
         expect(result.targets[0]?.isNextAction).toBe(false)
+    })
+
+    it("keeps a just-completed Target visible when current weaknesses fill the bounded list", () => {
+        const target: CoachingTarget = { kind: "key", keys: ["r"], metric: "accuracy" }
+        const transferred = record("r-new", "transferred", target)
+        transferred.prescription = { ...transferred.prescription, target, metric: "%", direction: "higher", baseline: 88 }
+        transferred.proof = { ...transferred.proof, target, metric: "%", baseline: 88, bestAcquisition: 94, transfer: 100 }
+        const recommended = candidate(target, 9_000)
+        const crowded = "oiutlcdbhgkwvzxq".split("").map((key, index) =>
+            candidate({ kind: "key", keys: [key], metric: "accuracy" }, 8_000 - index * 100))
+        const session = {
+            version: 3, id: "today", dateKey: "2026-07-16", pool: "qwerty", language: "english", kind: "targeted",
+            reason: "", estimatedMinutes: 6, status: "completed", currentStepIndex: 2,
+            steps: [], prescription: transferred.prescription, createdAt: 1, updatedAt: 2,
+        } satisfies DailyCoachingSession
+
+        const result = projectProgressCoach(analysis([transferred], [recommended, ...crowded]), session)
+
+        expect(result.nextAction).toMatchObject({ label: "r", state: "transferred", statusLabel: "Transferred" })
+        expect(result.nextAction.headline).toBe("r improved in varied text")
+        expect(result.targets.find((row) => row.label === "r")).toMatchObject({ state: "transferred" })
+        expect(result.targets.filter((row) => row.state === "needs-work")).toHaveLength(12)
+    })
+
+    it("surfaces comparable Target families after the leading Impact-ranked weaknesses", () => {
+        const candidates = [
+            candidate({ kind: "key", keys: ["a"], metric: "accuracy" }, 1_000),
+            candidate({ kind: "key", keys: ["b"], metric: "accuracy" }, 900),
+            candidate({ kind: "key", keys: ["c"], metric: "accuracy" }, 800),
+            candidate({ kind: "key", keys: ["d"], metric: "accuracy" }, 700),
+            candidate({ kind: "transition", pair: "ab", metric: "latency" }, 350),
+            candidate({ kind: "gram", gram: "tion" }, 260),
+            candidate({ kind: "movement", movement: "same-finger", anchors: ["ed"] }, 100),
+        ]
+
+        const result = projectProgressCoach(analysis([], candidates), null)
+
+        expect(result.targets.slice(0, 6).map((row) => row.label)).toEqual(["a", "b", "c", "a→b", "tion", "d"])
+        expect(result.targets.findIndex((row) => row.label === "this movement"))
+            .toBeGreaterThan(result.targets.findIndex((row) => row.label === "d"))
     })
 
     it("uses the frozen current session Target ahead of another due row", () => {

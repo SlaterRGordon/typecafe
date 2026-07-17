@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { mockAuthenticatedSession, mockTrpc } from "./helpers/trpc";
 import { completedKeyAccuracySession, progressCoachingHistory } from "./helpers/coachingFixtures";
-import { impactTimeline } from "./helpers/evidence";
+import { crowdedAccuracyTimeline, impactTimeline } from "./helpers/evidence";
 import { DAILY_COACHING_STORAGE_KEY, GUEST_DAILY_SCOPE } from "../../src/lib/dailyCoaching";
 
 async function gotoProgress(page: Page) {
@@ -343,6 +343,7 @@ test.describe("progress dashboard", () => {
     await mockTrpc(page, {
       coachingSession: completedKeyAccuracySession(),
       coachingHistory: [],
+      timelineEvidence: [crowdedAccuracyTimeline(1), crowdedAccuracyTimeline(2)],
     });
     await gotoProgress(page);
 
@@ -351,6 +352,8 @@ test.describe("progress dashboard", () => {
     await expect(coach).toContainText("r improved in varied text");
     await expect(coach).toContainText("Transferred");
     await expect(coach).not.toContainText("Map your typing to find a stable Target");
+    await expect(coach).toContainText("Estimated Impact first");
+    await expect(coach).toContainText(/~\d+\.\d+s \/ 1k chars/);
   });
 
   test("signed-in Progress displays the canonical net score without recalculating it", async ({ page }) => {

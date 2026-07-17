@@ -527,8 +527,13 @@ surfaces:
   from the bounded Timeline/Coaching reads;
 - prefer `All`, `Needs action`, and `Held` filters over engine-kind tabs that
   cannot cleanly cover correction, movement, word, and endurance Targets;
-- order due, regressed, current Needs-work (Impact-ranked), training,
-  transferred, then retained Targets;
+- order due, regressed, current Needs-work, training, transferred, then retained
+  Targets. Keep the first three current weaknesses strictly Impact-ranked, then
+  surface the strongest still-unseen Target family only when its Impact is at
+  least 25% of the leader; fill the remaining current-weakness shortlist by
+  Impact and cap it at 12. This gives comparable Transitions, patterns,
+  movements, corrections, or endurance a visible route without promoting a
+  negligible Finding above a materially costlier one;
 - show at most five rows before disclosure on narrow screens;
 - no badges, XP, permanent "fixed" language, or completion percentage.
 
@@ -767,6 +772,10 @@ neither erases proof nor creates a wall of overdue checks.
 - [x] Add a pure Progress projection that merges supported current weaknesses
       and repeated Mastery episodes by Target identity, selects the real next
       action, chooses state-specific proof stages, and formats metrics consistently.
+- [x] Reserve bounded-list space for coached proof, keep a completed same-Target
+      result ahead of prospective work, and diversify the current-weakness
+      shortlist only across Target families with comparable estimated Impact;
+      calibration must never appear beside an actionable Target row.
 - [x] Replace legacy "Weak spots" with `Coach · Next action`, add bounded
       `Your targets`, and remove Records from Progress.
 - [x] Add desktop master/detail inspection with `Back to next action`; selection

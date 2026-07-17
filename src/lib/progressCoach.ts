@@ -37,6 +37,7 @@ export interface ProgressCoachTarget {
     filter: ProgressCoachCategory
     lastEvidenceDate: string | null
     impact: string | null
+    impactMsPer1000: number | null
     episodes: ProgressCoachEpisode[]
 }
 
@@ -47,9 +48,53 @@ export interface ProgressCoachProjection {
 }
 
 const TARGET_LIMIT = 30
+const CURRENT_WEAKNESS_LIMIT = 12
+const LEADING_IMPACT_TARGETS = 3
+const COMPARABLE_FAMILY_RATIO = 0.25
+
+type ProgressTargetFamily = "key" | "transition" | "pattern" | "movement" | "correction" | "endurance"
 
 function targetKey(target: CoachingTarget): string {
     return JSON.stringify(target)
+}
+
+function targetFamily(target: CoachingTarget): ProgressTargetFamily {
+    if (target.kind === "gram" || target.kind === "word") return "pattern"
+    return target.kind
+}
+
+/**
+ * Keep the leading Targets honest to Impact, then surface the best comparable
+ * Target from another supported family before filling the rest by Impact.
+ * This prevents a long run of one evidence kind from hiding useful alternatives
+ * without promoting a tiny pattern above a weakness that costs orders more.
+ */
+function selectCurrentWeaknesses(candidates: readonly SkillCandidate[], limit: number): SkillCandidate[] {
+    if (limit <= 0 || candidates.length === 0) return []
+    const ranked = [...candidates].sort((a, b) => b.impactMsPer1000 - a.impactMsPer1000
+        || b.frequencyPer1000 - a.frequencyPer1000
+        || b.confidence - a.confidence
+        || a.id.localeCompare(b.id))
+    const selected = ranked.slice(0, Math.min(LEADING_IMPACT_TARGETS, limit))
+    const selectedIds = new Set(selected.map((candidate) => candidate.id))
+    const selectedFamilies = new Set(selected.map((candidate) => targetFamily(candidate.target)))
+    const comparableFloor = ranked[0]!.impactMsPer1000 * COMPARABLE_FAMILY_RATIO
+
+    for (const candidate of ranked) {
+        if (selected.length >= limit || candidate.impactMsPer1000 < comparableFloor) break
+        const family = targetFamily(candidate.target)
+        if (selectedIds.has(candidate.id) || selectedFamilies.has(family)) continue
+        selected.push(candidate)
+        selectedIds.add(candidate.id)
+        selectedFamilies.add(family)
+    }
+    for (const candidate of ranked) {
+        if (selected.length >= limit) break
+        if (selectedIds.has(candidate.id)) continue
+        selected.push(candidate)
+        selectedIds.add(candidate.id)
+    }
+    return selected
 }
 
 function metricValue(value: number, metric: "ms" | "%" | "wpm"): string {
@@ -150,6 +195,7 @@ function rowFromRecord(record: MasteryRecord, records: readonly MasteryRecord[],
         impact: record.prescription.impactMsPer1000 > 0
             ? `Estimated impact ${(record.prescription.impactMsPer1000 / 1_000).toFixed(1)}s per 1,000 characters`
             : null,
+        impactMsPer1000: record.prescription.impactMsPer1000 > 0 ? record.prescription.impactMsPer1000 : null,
         episodes: [...records]
             .sort((a, b) => b.lastEvidenceDate.localeCompare(a.lastEvidenceDate) || b.id.localeCompare(a.id))
             .map((episode) => ({
@@ -203,6 +249,7 @@ function candidateTarget(candidate: SkillCandidate): ProgressCoachTarget {
         impact: candidate.impactMsPer1000 > 0
             ? `Estimated impact ${(candidate.impactMsPer1000 / 1_000).toFixed(1)}s per 1,000 characters`
             : null,
+        impactMsPer1000: candidate.impactMsPer1000 > 0 ? candidate.impactMsPer1000 : null,
         episodes: [],
     }
 }
@@ -241,6 +288,7 @@ function calibrationTarget(): ProgressCoachTarget {
         filter: "needs-action",
         lastEvidenceDate: null,
         impact: null,
+        impactMsPer1000: null,
         episodes: [],
     }
 }
@@ -268,10 +316,19 @@ export function projectProgressCoach(
         analysis.candidates.find((candidate) => sameCoachingTarget(candidate.target, records[0]!.target)) ?? null,
     ))
     const masteryIds = new Set(masteryTargets.map((row) => row.id))
-    const detectedTargets = analysis.candidates
+    const availableCandidates = analysis.candidates
         .filter((candidate) => !masteryIds.has(targetKey(candidate.target)))
+    // Coached proof is durable evidence, so current weakness volume must never
+    // crowd it out of the bounded list. This also keeps a just-completed Target
+    // available to the latest-result card.
+    const currentWeaknessCapacity = Math.min(
+        CURRENT_WEAKNESS_LIMIT,
+        Math.max(0, TARGET_LIMIT - Math.min(TARGET_LIMIT, masteryTargets.length)),
+    )
+    const selectedCandidates = selectCurrentWeaknesses(availableCandidates, currentWeaknessCapacity)
+    const detectedTargets = selectedCandidates
         .map(candidateTarget)
-    const impactById = new Map(analysis.candidates.map((candidate) => [targetKey(candidate.target), candidate.impactMsPer1000]))
+    const currentWeaknessRank = new Map(selectedCandidates.map((candidate, index) => [targetKey(candidate.target), index]))
     const statePriority: Record<ProgressCoachState, number> = {
         due: 0,
         regressed: 1,
@@ -283,7 +340,9 @@ export function projectProgressCoach(
     }
     const targets = [...masteryTargets, ...detectedTargets]
         .sort((a, b) => statePriority[a.state] - statePriority[b.state]
-            || (impactById.get(b.id) ?? 0) - (impactById.get(a.id) ?? 0)
+            || (a.state === "needs-work" && b.state === "needs-work"
+                ? (currentWeaknessRank.get(a.id) ?? Number.MAX_SAFE_INTEGER) - (currentWeaknessRank.get(b.id) ?? Number.MAX_SAFE_INTEGER)
+                : 0)
             || (b.lastEvidenceDate ?? "").localeCompare(a.lastEvidenceDate ?? "")
             || a.label.localeCompare(b.label))
         .slice(0, TARGET_LIMIT)
@@ -292,13 +351,26 @@ export function projectProgressCoach(
     const priorityRow = activeRow
         ?? (analysis.recap.due ? targets.find((row) => row.target && sameCoachingTarget(row.target, analysis.recap.due!.target)) : null)
         ?? (analysis.recap.regressed ? targets.find((row) => row.target && sameCoachingTarget(row.target, analysis.recap.regressed!.target)) : null)
-        ?? (analysis.recommendation ? targets.find((row) => row.target && sameCoachingTarget(row.target, analysis.recommendation!.target)) : null)
+    const completedResult = session?.status === "completed" && session.prescription
+        ? targets.find((row) => row.target && row.state !== "needs-work" && sameCoachingTarget(row.target, session.prescription!.target))
+        : null
+    const prospectiveRow = (analysis.recommendation
+        ? targets.find((row) => row.state === "needs-work" && row.target && sameCoachingTarget(row.target, analysis.recommendation!.target))
+        : null)
+        // A recommendation can be absorbed by same-Target Mastery, and bounded
+        // or asynchronously refreshed evidence can briefly disagree. A visible
+        // actionable Target is still better than the contradictory calibration.
+        ?? targets.find((row) => row.state === "needs-work")
     const latestResult = [...targets]
         .filter((row) => row.state === "transferred" || row.state === "retained")
         .sort((a, b) => (b.lastEvidenceDate ?? "").localeCompare(a.lastEvidenceDate ?? "") || a.label.localeCompare(b.label))[0]
         ?? targets.find((row) => row.state === "training")
     const nextAction = priorityRow
         ? nextActionFrom(priorityRow)
+        : completedResult
+            ? { ...completedResult, isNextAction: true }
+            : prospectiveRow
+                ? nextActionFrom(prospectiveRow)
         : latestResult
             ? { ...latestResult, isNextAction: true }
             : calibrationTarget()

@@ -77,3 +77,50 @@ export function higherOrderTimeline(testId: number): TimelineEvidence {
     timeline: encodeTimeline(events),
   };
 }
+
+// Reproduces a mature evidence pool where one completed key-Accuracy Target is
+// surrounded by many other supported key and transition weaknesses. `r` is
+// deliberately the highest-Impact candidate so its same-Target Mastery row
+// exercises the Progress projection's bounded-list invariant.
+export function crowdedAccuracyTimeline(testId: number): TimelineEvidence {
+  const events: TestEvidenceEvent[] = [];
+  let t = 0;
+  const addPair = (to: string, repeats: number) => {
+    for (let index = 0; index < repeats; index += 1) {
+      t += 100;
+      events.push({ key: "e", typed: "e", correct: true, t });
+      t += 100;
+      const correct = index % 5 !== 0;
+      events.push({ key: to, typed: correct ? to : "x", correct, t });
+      t += 100;
+      events.push({ key: " ", typed: " ", correct: true, t });
+    }
+  };
+  for (const gap of [80, 100, 120]) {
+    for (let index = 0; index < 20; index += 1) {
+      t += 100;
+      events.push({ key: "t", typed: "t", correct: true, t });
+      t += gap;
+      events.push({ key: "h", typed: "h", correct: true, t });
+      t += 100;
+      events.push({ key: " ", typed: " ", correct: true, t });
+    }
+  }
+  addPair("r", 30);
+  for (const key of [..."oiutlcdbgwvzkqypf"]) addPair(key, 10);
+  return {
+    completedAt: Date.now() + testId,
+    context: "natural",
+    mode: 0,
+    subMode: 0,
+    count: 60,
+    options: "",
+    punctuation: false,
+    capitals: false,
+    numbers: false,
+    layout: "qwerty",
+    pool: "qwerty",
+    language: "english",
+    timeline: encodeTimeline(events),
+  };
+}

@@ -131,7 +131,7 @@ export function ProgressCoach({ projection, loading }: ProgressCoachProps) {
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                         <h2 className="text-lg font-semibold text-base-content">Your targets</h2>
-                        <p className="text-xs text-base-content/45">Recent evidence and practice · up to {projection.targetLimit}</p>
+                        <p className="text-xs text-base-content/45">Estimated Impact first · comparable Target kinds mixed in</p>
                     </div>
                     <div data-testid="coach-target-filters" className="flex w-fit gap-1 rounded-lg border border-base-content/15 bg-base-200/50 p-1">
                         {FILTERS.map((item) => (
@@ -185,6 +185,9 @@ export function ProgressCoach({ projection, loading }: ProgressCoachProps) {
                                                             <span aria-hidden="true">→</span>
                                                             <span>{row.stages.at(-1)!.label} {row.stages.at(-1)!.value}</span>
                                                         </>
+                                                    )}
+                                                    {row.state === "needs-work" && row.impactMsPer1000 !== null && (
+                                                        <span className="ml-1 text-base-content/45">· ~{(row.impactMsPer1000 / 1_000).toFixed(1)}s / 1k chars</span>
                                                     )}
                                                 </span>
                                             )}

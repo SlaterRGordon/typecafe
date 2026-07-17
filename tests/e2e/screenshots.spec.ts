@@ -1,6 +1,6 @@
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 import { mockAuthenticatedSession, mockTrpc } from "./helpers/trpc";
-import { higherOrderTimeline, impactTimeline } from "./helpers/evidence";
+import { crowdedAccuracyTimeline, higherOrderTimeline, impactTimeline } from "./helpers/evidence";
 import { typeCurrentCharacter, typeVisibleTestText, typeWrongCharacter } from "./helpers/typing";
 import { completedKeyAccuracySession, progressCoachingHistory } from "./helpers/coachingFixtures";
 import {
@@ -837,6 +837,7 @@ test.describe("screenshot tour", () => {
     await mockTrpc(page, {
       coachingSession: completedKeyAccuracySession(),
       coachingHistory: [],
+      timelineEvidence: [crowdedAccuracyTimeline(1), crowdedAccuracyTimeline(2)],
     });
     await page.goto("/progress");
     await expect(page.getByTestId("progress-coach")).toContainText("Coach · Latest result");
