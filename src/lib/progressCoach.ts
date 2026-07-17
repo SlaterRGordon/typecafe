@@ -455,7 +455,6 @@ export function projectProgressCoach(
     const selectedCandidates = selectCurrentWeaknesses(availableCandidates, currentWeaknessCapacity)
     const detectedTargets = selectedCandidates
         .map(candidateTarget)
-    const currentWeaknessRank = new Map(selectedCandidates.map((candidate, index) => [targetKey(candidate.target), index]))
     const statePriority: Record<ProgressCoachState, number> = {
         due: 0,
         regressed: 1,
@@ -466,10 +465,8 @@ export function projectProgressCoach(
         calibrating: 6,
     }
     const targets = [...masteryTargets, ...detectedTargets]
-        .sort((a, b) => statePriority[a.state] - statePriority[b.state]
-            || (a.state === "needs-work" && b.state === "needs-work"
-                ? (currentWeaknessRank.get(a.id) ?? Number.MAX_SAFE_INTEGER) - (currentWeaknessRank.get(b.id) ?? Number.MAX_SAFE_INTEGER)
-                : 0)
+        .sort((a, b) => (b.impactMsPer1000 ?? -1) - (a.impactMsPer1000 ?? -1)
+            || statePriority[a.state] - statePriority[b.state]
             || (b.lastEvidenceDate ?? "").localeCompare(a.lastEvidenceDate ?? "")
             || a.label.localeCompare(b.label))
         .slice(0, TARGET_LIMIT)

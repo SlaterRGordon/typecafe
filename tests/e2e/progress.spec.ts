@@ -329,12 +329,23 @@ test.describe("progress dashboard", () => {
 
     const coach = page.getByTestId("progress-coach");
     await expect(coach).toContainText("See whether your tion gain held");
+    const coachDetail = coach.getByTestId("coach-detail");
+    const targetsSurface = coach.getByTestId("coach-targets");
+    await expect(coachDetail).toBeVisible();
+    await expect(targetsSurface).toBeVisible();
+    await expect.poll(async () => {
+      const [detailBox, targetsBox] = await Promise.all([coachDetail.boundingBox(), targetsSurface.boundingBox()]);
+      return detailBox && targetsBox ? targetsBox.y > detailBox.y + detailBox.height : false;
+    }).toBe(true);
     const erRow = coach.getByRole("button", { name: /e→r/ });
     await erRow.focus();
     await erRow.press("Enter");
     await expect(erRow).toHaveAttribute("aria-expanded", "true");
+    await expect(erRow.locator("xpath=ancestor::li[1]")).toHaveAttribute("data-selected", "");
 
     if ((page.viewportSize()?.width ?? 0) >= 1024) {
+      await expect(targetsSurface.getByRole("list", { name: "Recent typing Targets" }).locator(":scope > li").first()).toContainText("tion");
+      await expect(targetsSurface.getByTestId("coach-trend-legend")).toContainText(/▲▼ improving\s*·\s*▲▼ slipping/);
       const detail = page.getByTestId("coach-detail");
       await expect(detail).toContainText("Target detail");
       await expect(detail).toContainText("Your e→r gain held");

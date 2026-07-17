@@ -495,7 +495,9 @@ the user improved or what to do next, while the WPM chart already preserves the
 useful speed history. The colours remain theme tokens, not a hard-coded Coach
 palette.
 
-The Coach column has two related but distinct jobs:
+The Coach column has two related but distinct jobs, presented as separate
+surfaces so the prescribed action and the inspectable ledger do not read as one
+continuous card:
 
 1. **Next action.** Its default `Coach · Next action` state shows the frozen or
    prospective priority in the same order as session creation: due Cold check,
@@ -530,8 +532,11 @@ surfaces:
   for the common inspect-and-practise paths. `All` remains the complete view and
   continues to include correction and endurance Targets without forcing those
   less-common kinds into misleading categories;
-- order due, regressed, current Needs-work, training, transferred, then retained
-  Targets. Keep the first three current weaknesses strictly Impact-ranked, then
+- order the entire displayed list by estimated Impact, including today's frozen
+  focus and coached Mastery rows. This display order does not change Coach
+  priority: due, regressed, and today's frozen Prescription still choose the
+  action independently. Keep the first three current weaknesses strictly
+  Impact-ranked, then
   surface the strongest still-unseen Target family only when its Impact is at
   least 25% of the leader; fill the remaining current-weakness shortlist by
   Impact and cap it at 12. This gives comparable Transitions, patterns,

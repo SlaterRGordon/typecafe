@@ -93,7 +93,7 @@ describe("projectProgressCoach", () => {
         expect(result.targets[0]!.stages.at(-1)).toMatchObject({ label: "Recent", value: "140 ms" })
     })
 
-    it("orders due, regressed, detected, training, transferred, then held Targets", () => {
+    it("orders the entire Target list by estimated worth across mastery states", () => {
         const rows = [
             record("held-new", "retained", { kind: "key", keys: ["z"], metric: "latency" }),
             record("transfer-new", "transferred", { kind: "gram", gram: "ing" }),
@@ -101,8 +101,12 @@ describe("projectProgressCoach", () => {
             record("regress-new", "regressed", { kind: "transition", pair: "er", metric: "latency" }),
             record("due-new", "due"),
         ]
+        rows.forEach((row, index) => {
+            row.prescription = { ...row.prescription, impactMsPer1000: 1_000 + index * 1_000 }
+        })
         const result = projectProgressCoach(analysis(rows, [candidate()]), null)
-        expect(result.targets.map((row) => row.state)).toEqual(["due", "regressed", "needs-work", "training", "transferred", "retained"])
+        expect(result.targets.map((row) => row.state)).toEqual(["due", "regressed", "training", "transferred", "needs-work", "retained"])
+        expect(result.targets.map((row) => row.impactMsPer1000)).toEqual([5_000, 4_000, 3_000, 2_000, 1_400, 1_000])
     })
 
     it("selects a due Target as the next action and filters by Target family", () => {
@@ -159,7 +163,7 @@ describe("projectProgressCoach", () => {
 
         const result = projectProgressCoach(analysis([], candidates), null)
 
-        expect(result.targets.slice(0, 6).map((row) => row.label)).toEqual(["a", "b", "c", "a→b", "tion", "d"])
+        expect(result.targets.slice(0, 6).map((row) => row.label)).toEqual(["a", "b", "c", "d", "a→b", "tion"])
         expect(result.targets.findIndex((row) => row.label === "this movement"))
             .toBeGreaterThan(result.targets.findIndex((row) => row.label === "d"))
     })
@@ -173,8 +177,10 @@ describe("projectProgressCoach", () => {
             steps: [{ id: "focus", kind: "focus", context: "acquisition", title: "Acquire", detail: "", href: "/", target: current.target, sets: [] }],
             prescription: current.prescription, createdAt: 1, updatedAt: 1,
         } satisfies DailyCoachingSession
+        current.prescription = { ...current.prescription, impactMsPer1000: 5_000 }
         const result = projectProgressCoach(analysis([due, current]), session)
         expect(result.nextAction.label).toBe("e→r")
+        expect(result.targets[0]).toMatchObject({ label: "e→r", state: "training", impactMsPer1000: 5_000 })
         expect(result.targets.find((row) => row.label === "tion")?.isNextAction).toBe(false)
     })
 
