@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 import type { CoachingTarget } from "./coachingTarget"
 import type { DailyCoachingSession, FrozenRecommendation } from "./dailyCoaching"
-import { filterProgressCoachTargets, projectProgressCoach } from "./progressCoach"
+import { filterProgressCoachTargets, progressImpactTone, projectProgressCoach } from "./progressCoach"
 import type { MasteryRecord, SkillAnalysis, SkillCandidate } from "./skillEvidence"
 
 const prescription: FrozenRecommendation = {
@@ -45,6 +45,13 @@ function analysis(mastery: MasteryRecord[], candidates: SkillCandidate[] = []): 
 }
 
 describe("projectProgressCoach", () => {
+    it("uses stable estimated-cost bands for impact colour", () => {
+        expect(progressImpactTone(2_900)).toBe("urgent")
+        expect(progressImpactTone(1_400)).toBe("material")
+        expect(progressImpactTone(700)).toBe("minor")
+        expect(progressImpactTone(100)).toBe("minor")
+    })
+
     it("groups repeated episodes and keeps proof in chronological stage order", () => {
         const old = record("tion-old", "transferred")
         const latest = record("tion-new", "retained")
@@ -59,7 +66,7 @@ describe("projectProgressCoach", () => {
     it("includes a supported ordinary weakness with direct practice independent of Coach", () => {
         const result = projectProgressCoach(analysis([], [candidate()]), null)
         expect(result.targets[0]).toMatchObject({ label: "b→r", state: "needs-work", statusLabel: "Needs work" })
-        expect(result.targets[0]!.stages).toEqual([{ key: "recent", label: "Recent", value: "140 ms", sampleCount: 20 }])
+        expect(result.targets[0]!.stages).toEqual([{ key: "recent", label: "Recent", value: "140 ms", numericValue: 140, sampleCount: 20 }])
         expect(result.targets[0]!.action).toMatchObject({ label: "Practice this transition" })
         expect(result.targets[0]!.action!.href).toContain("/drill?target=transition")
         expect(result.nextAction).toMatchObject({ label: "b→r", statusLabel: "Next Target", action: { href: "/plan", label: "Open today’s plan" } })
@@ -96,13 +103,13 @@ describe("projectProgressCoach", () => {
         expect(result.targets.map((row) => row.state)).toEqual(["due", "regressed", "needs-work", "training", "transferred", "retained"])
     })
 
-    it("selects a due Target as the next action without changing Target filtering", () => {
+    it("selects a due Target as the next action and filters by Target family", () => {
         const due = record("tion-new", "due")
         const held = record("er-new", "retained", { kind: "transition", pair: "er", metric: "latency" })
         const result = projectProgressCoach(analysis([held, due]), null)
         expect(result.nextAction).toMatchObject({ label: "tion", state: "due", isNextAction: true })
         expect(result.nextAction.action).toEqual({ href: "/plan", label: "Start Cold check" })
-        expect(filterProgressCoachTargets(result.targets, "held").map((row) => row.label)).toEqual(["e→r"])
+        expect(filterProgressCoachTargets(result.targets, "transition").map((row) => row.label)).toEqual(["e→r"])
     })
 
     it("shows the latest transferred result instead of calibration after coaching completes", () => {
@@ -180,5 +187,31 @@ describe("projectProgressCoach", () => {
         expect(row.stages.map((stage) => `${stage.label} ${stage.value}`)).toEqual([
             "Baseline 88.0%", "Practice 94.0%", "Transfer 95.0%", "Cold 96.0%",
         ])
+        expect(row.trend).toEqual({ label: "+8.0 pp", outcome: "good" })
+    })
+
+    it("projects aligned Target presentation instead of generic taxonomy labels", () => {
+        const movement = candidate({ kind: "movement", movement: "same-finger", anchors: ["nm", "un", "ju", "my"] }, 800)
+        movement.reason = { code: "movement_latency_high", movement: "same-finger", observedMs: 140, baselineMs: 100, anchors: ["nm", "un", "ju", "my"] }
+        const correction = candidate({ kind: "correction", expected: "r", typed: "t" }, 700)
+        correction.reason = { code: "correction_confusion_recurs", expected: "r", typed: "t", errors: 4, errorRatePct: 20 }
+
+        const result = projectProgressCoach(analysis([], [movement, correction]), null)
+        const movementRow = result.targets.find((row) => row.family === "movement")!
+        const correctionRow = result.targets.find((row) => row.family === "correction")!
+
+        expect(movementRow).toMatchObject({
+            typeLabel: "Movement",
+            description: "n→m · same-finger runs slow",
+            visualKeys: ["n", "m"],
+            filter: "movement",
+        })
+        expect(correctionRow).toMatchObject({
+            typeLabel: "Correction",
+            description: "t is repeatedly corrected to r",
+            visualKeys: ["t", "r"],
+            filter: "other",
+        })
+        expect(filterProgressCoachTargets(result.targets, "movement")).toEqual([movementRow])
     })
 })

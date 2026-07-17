@@ -525,8 +525,10 @@ surfaces:
 - expand a Target to inspect older qualifying Coaching episodes;
 - label current natural evidence `Recent` rather than claiming all-time coverage
   from the bounded Timeline/Coaching reads;
-- prefer `All`, `Needs action`, and `Held` filters over engine-kind tabs that
-  cannot cleanly cover correction, movement, word, and endurance Targets;
+- use compact `All`, `Transitions`, `Keys`, `Patterns`, and `Movements` filters
+  for the common inspect-and-practise paths. `All` remains the complete view and
+  continues to include correction and endurance Targets without forcing those
+  less-common kinds into misleading categories;
 - order due, regressed, current Needs-work, training, transferred, then retained
   Targets. Keep the first three current weaknesses strictly Impact-ranked, then
   surface the strongest still-unseen Target family only when its Impact is at
@@ -794,6 +796,10 @@ neither erases proof nor creates a wall of overdue checks.
 - [x] Allow endurance through Progress only with the existing matched-evidence
       candidate and actionable Coach route.
 - [x] Add unit, accessibility, desktop/mobile e2e, and screenshots.
+- [x] Present Targets as an aligned evidence ledger: fixed-width key visuals,
+      plain-language Target kind plus diagnosis, Recent/Trend/Worth columns,
+      impact colour, and family filters aligned with the section title. Row
+      inspection continues to drive the Coach detail without changing priority.
 
 **Acceptance:** a returning user can answer what improved, whether it held, and
 what to do next without interpreting a chart. They can inspect another Target's

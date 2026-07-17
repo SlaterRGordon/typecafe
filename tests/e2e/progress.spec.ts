@@ -117,10 +117,20 @@ test.describe("progress dashboard", () => {
     const targets = page.getByTestId("progress-coach");
     await expect(targets).toContainText("Your targets");
     await expect(targets).toContainText("b→r");
+    await expect(targets).toContainText("Transition");
+    await expect(targets).toContainText("b→r pause is slow");
     await expect(targets).toContainText("Needs work");
+    const targetFilters = page.getByTestId("coach-target-filters");
+    await expect(targetFilters.getByRole("button", { name: /Transitions/ })).toBeVisible();
+    await expect(targetFilters.getByRole("button", { name: /Keys/ })).toBeVisible();
+    await expect(targetFilters.getByRole("button", { name: /Patterns/ })).toBeVisible();
+    await expect(targetFilters.getByRole("button", { name: /Movements/ })).toBeVisible();
     const brButton = targets.getByRole("button", { name: /b→r/ });
     if ((page.viewportSize()?.width ?? 0) < 640) await brButton.click();
-    await expect(brButton.locator("../..").getByRole("link", { name: "Practice this transition" })).toHaveAttribute("href", /transitions=br/);
+    else await brButton.hover();
+    const brPractice = brButton.locator("../..").getByRole("link", { name: "Practice this transition" });
+    await expect(brPractice).toHaveAttribute("href", /transitions=br/);
+    if ((page.viewportSize()?.width ?? 0) >= 1024) await expect(brPractice).toHaveCSS("opacity", "1");
     await expect(page.getByTestId("progress-recap")).toHaveCount(0);
     if ((page.viewportSize()?.width ?? 0) >= 1024) {
       const left = await page.getByTestId("progress-left-column").boundingBox();
@@ -130,8 +140,9 @@ test.describe("progress dashboard", () => {
       expect(Math.abs(left!.height - right!.height)).toBeLessThanOrEqual(2);
       const targetScroll = page.getByTestId("coach-target-scroll");
       await expect(targetScroll).toHaveCSS("overflow-y", "auto");
-      const scrollSize = await targetScroll.evaluate((element) => ({ client: element.clientHeight, content: element.scrollHeight }));
-      expect(scrollSize.content).toBeGreaterThan(scrollSize.client);
+      await expect(targets.getByText("Recent", { exact: true })).toBeVisible();
+      await expect(targets.getByText("Trend", { exact: true })).toBeVisible();
+      await expect(targets.getByText("Worth", { exact: true })).toBeVisible();
     }
 
     // One big trend chart, WPM by default, with metric tabs to toggle it.
@@ -331,7 +342,7 @@ test.describe("progress dashboard", () => {
     }
 
     await erRow.click();
-    await page.getByTestId("coach-target-filters").getByRole("button", { name: "Needs action" }).click();
+    await page.getByTestId("coach-target-filters").getByRole("button", { name: /Keys/ }).click();
     await expect(page.getByTestId("coach-inline-detail")).toHaveCount(0);
     await expect(page.getByTestId("coach-detail")).toContainText("See whether your tion gain held");
     expect(calls).not.toContain("coachingSession.save");
@@ -352,7 +363,7 @@ test.describe("progress dashboard", () => {
     await expect(coach).toContainText("r improved in varied text");
     await expect(coach).toContainText("Transferred");
     await expect(coach).not.toContainText("Map your typing to find a stable Target");
-    await expect(coach).toContainText("Estimated Impact first");
+    await expect(coach).toContainText("ranked by estimated worth");
     await expect(coach).toContainText(/~\d+\.\d+s \/ 1k chars/);
   });
 

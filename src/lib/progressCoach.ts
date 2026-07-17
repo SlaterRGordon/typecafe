@@ -3,14 +3,30 @@ import { sameCoachingTarget, targetAction, targetDisplayLabel, type CoachingTarg
 import type { MasteryRecord, SkillAnalysis, SkillCandidate, SkillReason, TargetProof } from "./skillEvidence"
 
 export type ProgressCoachState = MasteryRecord["state"] | "needs-work" | "calibrating"
-export type ProgressCoachFilter = "all" | "needs-action" | "held"
+export type ProgressCoachFilter = "all" | "transition" | "key" | "pattern" | "movement"
+export type ProgressTargetFamily = Exclude<ProgressCoachFilter, "all"> | "correction" | "endurance"
 type ProgressCoachCategory = Exclude<ProgressCoachFilter, "all"> | "other"
 
 export interface ProgressCoachStage {
     key: "baseline" | "practice" | "transfer" | "cold" | "recent"
     label: "Baseline" | "Practice" | "Transfer" | "Cold" | "Recent"
     value: string
+    numericValue: number
     sampleCount: number
+}
+
+export interface ProgressCoachTrend {
+    label: string
+    outcome: "good" | "bad" | "neutral"
+}
+
+export type ProgressImpactTone = "urgent" | "material" | "minor"
+
+/** Stable display bands for estimated cost; never re-colour a small cost red just because it leads a short list. */
+export function progressImpactTone(impactMsPer1000: number | null): ProgressImpactTone {
+    if ((impactMsPer1000 ?? 0) >= 2_000) return "urgent"
+    if ((impactMsPer1000 ?? 0) >= 1_000) return "material"
+    return "minor"
 }
 
 export interface ProgressCoachEpisode {
@@ -24,6 +40,10 @@ export interface ProgressCoachTarget {
     id: string
     target: CoachingTarget | null
     label: string
+    family: ProgressTargetFamily | null
+    typeLabel: string
+    description: string
+    visualKeys: string[]
     state: ProgressCoachState
     statusLabel: string
     headline: string
@@ -38,6 +58,7 @@ export interface ProgressCoachTarget {
     lastEvidenceDate: string | null
     impact: string | null
     impactMsPer1000: number | null
+    trend: ProgressCoachTrend | null
     episodes: ProgressCoachEpisode[]
 }
 
@@ -52,10 +73,84 @@ const CURRENT_WEAKNESS_LIMIT = 12
 const LEADING_IMPACT_TARGETS = 3
 const COMPARABLE_FAMILY_RATIO = 0.25
 
-type ProgressTargetFamily = "key" | "transition" | "pattern" | "movement" | "correction" | "endurance"
-
 function targetKey(target: CoachingTarget): string {
     return JSON.stringify(target)
+}
+
+function movementLabel(movement: Extract<CoachingTarget, { kind: "movement" }>["movement"]): string {
+    if (movement === "same-finger") return "same-finger"
+    if (movement === "row-reach") return "row-reach"
+    if (movement === "inward-roll") return "inward-roll"
+    return "outward-roll"
+}
+
+function targetPresentation(target: CoachingTarget): Pick<ProgressCoachTarget, "family" | "typeLabel" | "description" | "visualKeys" | "filter"> {
+    const family = targetFamily(target)
+    if (target.kind === "key") return {
+        family,
+        typeLabel: "Key",
+        description: target.metric === "accuracy"
+            ? `low accuracy on ${target.keys.join(", ")}`
+            : `${target.keys.join(", ")} arrives slowly`,
+        visualKeys: target.keys.slice(0, 4),
+        filter: "key",
+    }
+    if (target.kind === "transition") {
+        const [from = "", to = ""] = [...target.pair]
+        return {
+            family,
+            typeLabel: "Transition",
+            description: target.metric === "accuracy"
+                ? `low ${to} accuracy after ${from}`
+                : `${from}→${to} pause is slow`,
+            visualKeys: [from, to].filter(Boolean),
+            filter: "transition",
+        }
+    }
+    if (target.kind === "gram") return {
+        family,
+        typeLabel: "Pattern",
+        description: `pause inside ${target.gram}`,
+        visualKeys: [...target.gram].slice(0, 4),
+        filter: "pattern",
+    }
+    if (target.kind === "word") {
+        const visual = target.sharedGram ?? target.words[0] ?? ""
+        return {
+            family,
+            typeLabel: "Pattern",
+            description: target.sharedGram
+                ? `slow rhythm around ${target.sharedGram}`
+                : "slow rhythm across these words",
+            visualKeys: [...visual].slice(0, 4),
+            filter: "pattern",
+        }
+    }
+    if (target.kind === "movement") {
+        const anchor = target.anchors[0] ?? ""
+        const anchorLabel = [...anchor].join("→")
+        return {
+            family,
+            typeLabel: "Movement",
+            description: `${anchorLabel}${anchorLabel ? " · " : ""}${movementLabel(target.movement)} runs slow`,
+            visualKeys: [...anchor].slice(0, 2),
+            filter: "movement",
+        }
+    }
+    if (target.kind === "correction") return {
+        family,
+        typeLabel: "Correction",
+        description: `${target.typed} is repeatedly corrected to ${target.expected}`,
+        visualKeys: [target.typed, target.expected],
+        filter: "other",
+    }
+    return {
+        family,
+        typeLabel: "Endurance",
+        description: `speed fades on ${target.longSeconds}s tests`,
+        visualKeys: [],
+        filter: "other",
+    }
 }
 
 function targetFamily(target: CoachingTarget): ProgressTargetFamily {
@@ -108,54 +203,64 @@ function stagesFor(proof: TargetProof): ProgressCoachStage[] {
         key: "baseline",
         label: "Baseline",
         value: metricValue(proof.baseline, proof.metric),
+        numericValue: proof.baseline,
         sampleCount: proof.sampleCounts.baseline,
     }]
     if (proof.bestAcquisition !== undefined) stages.push({
-        key: "practice", label: "Practice", value: metricValue(proof.bestAcquisition, proof.metric), sampleCount: 0,
+        key: "practice", label: "Practice", value: metricValue(proof.bestAcquisition, proof.metric), numericValue: proof.bestAcquisition, sampleCount: 0,
     })
     if (proof.transfer !== undefined) stages.push({
-        key: "transfer", label: "Transfer", value: metricValue(proof.transfer, proof.metric), sampleCount: proof.sampleCounts.transfer,
+        key: "transfer", label: "Transfer", value: metricValue(proof.transfer, proof.metric), numericValue: proof.transfer, sampleCount: proof.sampleCounts.transfer,
     })
     if (proof.cold !== undefined) stages.push({
-        key: "cold", label: "Cold", value: metricValue(proof.cold, proof.metric), sampleCount: proof.sampleCounts.cold,
+        key: "cold", label: "Cold", value: metricValue(proof.cold, proof.metric), numericValue: proof.cold, sampleCount: proof.sampleCounts.cold,
     })
     return stages
+}
+
+function trendFor(stages: readonly ProgressCoachStage[], direction: "lower" | "higher" | null, metric: "ms" | "%" | "wpm" | null): ProgressCoachTrend | null {
+    if (stages.length < 2 || !direction || !metric) return null
+    const delta = stages.at(-1)!.numericValue - stages[0]!.numericValue
+    const rounded = metric === "ms" ? Math.round(delta) : Math.round(delta * 10) / 10
+    const sign = rounded > 0 ? "+" : rounded < 0 ? "−" : ""
+    const amount = Math.abs(rounded).toFixed(metric === "ms" ? 0 : 1)
+    const suffix = metric === "%" ? " pp" : metric === "wpm" ? " WPM" : " ms"
+    const improved = direction === "lower" ? delta < 0 : delta > 0
+    return {
+        label: `${sign}${amount}${suffix}`,
+        outcome: delta === 0 ? "neutral" : improved ? "good" : "bad",
+    }
 }
 
 function directionFor(prescription: FrozenRecommendation): "lower" | "higher" {
     return prescription.direction
 }
 
-function statusCopy(state: MasteryRecord["state"], label: string, record: MasteryRecord): Pick<ProgressCoachTarget, "statusLabel" | "headline" | "detail" | "filter"> {
+function statusCopy(state: MasteryRecord["state"], label: string, record: MasteryRecord): Pick<ProgressCoachTarget, "statusLabel" | "headline" | "detail"> {
     if (state === "due") return {
         statusLabel: "Check due",
         headline: `See whether your ${label} gain held`,
         detail: "A delayed Cold check is due. Do it before warm practice so the result can advance Mastery.",
-        filter: "needs-action",
     }
     if (state === "regressed") return {
         statusLabel: "Needs a refresh",
         headline: `Refresh ${label}`,
         detail: "Recent natural evidence crossed the frozen weakness threshold again. Rebuild the Target, then prove Transfer in varied text.",
-        filter: "needs-action",
     }
     if (state === "retained") return {
         statusLabel: "Held",
         headline: `Your ${label} gain held`,
         detail: `${record.heldColdChecks} delayed Cold ${record.heldColdChecks === 1 ? "check has" : "checks have"} held. No extra Drill is prescribed right now.${record.practicedDaysUntilDue ? ` Next check in ${record.practicedDaysUntilDue} practiced ${record.practicedDaysUntilDue === 1 ? "day" : "days"}.` : ""}`,
-        filter: "held",
     }
     if (state === "transferred") return {
         statusLabel: "Transferred",
         headline: `${label} improved in varied text`,
         detail: "The gain transferred beyond focused practice. Its Cold check becomes eligible on the next practiced day.",
-        filter: "other",
     }
     return {
         statusLabel: "In training",
         headline: `Keep building ${label}`,
         detail: "Focused practice has started, but varied Transfer evidence has not cleared the frozen threshold yet.",
-        filter: "needs-action",
     }
 }
 
@@ -177,12 +282,14 @@ function rowFromRecord(record: MasteryRecord, records: readonly MasteryRecord[],
     const isCurrentTarget = !!currentTarget && sameCoachingTarget(record.target, currentTarget)
     const stages = stagesFor(record.proof)
     if (record.state === "regressed" && record.proof.cold === undefined && candidate?.metric === record.proof.metric) {
-        stages.push({ key: "recent", label: "Recent", value: metricValue(candidate.observed, candidate.metric), sampleCount: candidate.sampleCount })
+        stages.push({ key: "recent", label: "Recent", value: metricValue(candidate.observed, candidate.metric), numericValue: candidate.observed, sampleCount: candidate.sampleCount })
     }
+    const presentation = targetPresentation(record.target)
     return {
         id: targetKey(record.target),
         target: record.target,
         label,
+        ...presentation,
         state: record.state,
         ...copy,
         stages,
@@ -196,6 +303,7 @@ function rowFromRecord(record: MasteryRecord, records: readonly MasteryRecord[],
             ? `Estimated impact ${(record.prescription.impactMsPer1000 / 1_000).toFixed(1)}s per 1,000 characters`
             : null,
         impactMsPer1000: record.prescription.impactMsPer1000 > 0 ? record.prescription.impactMsPer1000 : null,
+        trend: trendFor(stages, directionFor(record.prescription), record.proof.metric),
         episodes: [...records]
             .sort((a, b) => b.lastEvidenceDate.localeCompare(a.lastEvidenceDate) || b.id.localeCompare(a.id))
             .map((episode) => ({
@@ -228,28 +336,30 @@ function candidateSeenWords(candidate: SkillCandidate): readonly string[] | unde
 function candidateTarget(candidate: SkillCandidate): ProgressCoachTarget {
     const label = targetDisplayLabel(candidate.target)
     const action = targetAction(candidate.target, "acquisition", { length: 30, seenWords: candidateSeenWords(candidate) })
+    const presentation = targetPresentation(candidate.target)
     return {
         id: targetKey(candidate.target),
         target: candidate.target,
         label,
+        ...presentation,
         state: "needs-work",
         statusLabel: "Needs work",
         headline: `Work on ${label}`,
         detail: candidateDetail(candidate.reason),
         stages: [{
-            key: "recent", label: "Recent", value: metricValue(candidate.observed, candidate.metric), sampleCount: candidate.sampleCount,
+            key: "recent", label: "Recent", value: metricValue(candidate.observed, candidate.metric), numericValue: candidate.observed, sampleCount: candidate.sampleCount,
         }],
         direction: candidate.direction,
         metric: candidate.metric,
         action: { href: action.href, label: action.label },
         episodeCount: 0,
         isNextAction: false,
-        filter: "needs-action",
         lastEvidenceDate: null,
         impact: candidate.impactMsPer1000 > 0
             ? `Estimated impact ${(candidate.impactMsPer1000 / 1_000).toFixed(1)}s per 1,000 characters`
             : null,
         impactMsPer1000: candidate.impactMsPer1000 > 0 ? candidate.impactMsPer1000 : null,
+        trend: null,
         episodes: [],
     }
 }
@@ -275,6 +385,10 @@ function calibrationTarget(): ProgressCoachTarget {
         id: "calibration",
         target: null,
         label: "Calibration",
+        family: null,
+        typeLabel: "Calibration",
+        description: "Take a longer Test to rank a stable Target",
+        visualKeys: [],
         state: "calibrating",
         statusLabel: "Building evidence",
         headline: "Map your typing to find a stable Target",
@@ -285,10 +399,11 @@ function calibrationTarget(): ProgressCoachTarget {
         action: { href: "/plan", label: "Start mapping Test" },
         episodeCount: 0,
         isNextAction: true,
-        filter: "needs-action",
+        filter: "other",
         lastEvidenceDate: null,
         impact: null,
         impactMsPer1000: null,
+        trend: null,
         episodes: [],
     }
 }
