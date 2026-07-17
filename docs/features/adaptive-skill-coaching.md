@@ -486,20 +486,80 @@ classification explains practice but is not itself the practice material.
 
 ### Progress and Recap
 
-Add one "What your practice changed" surface above records, not a new route:
+Keep the existing WPM Delta, Goal, Trend, and keyboard proof on the left and
+replace the legacy aggregate "Weak spots" column with one adaptive Coach column.
+At wide desktop sizes the Coach receives roughly 40-45% of the content width;
+Records move below the primary dashboard instead of competing with the next
+action. The colours remain theme tokens, not a hard-coded Coach palette.
 
-- latest retained Target with baseline -> Transfer -> Cold;
-- due Target with `Check it`;
-- regressed Target with `Refresh it`;
-- retained Targets in the selected period;
-- bounded, collapsible recent history;
-- no badges, XP, or completion percentage.
+The Coach column has two related but distinct jobs:
 
-Keep weak spots as "what to work on now" and Mastery history as "what focused
-work changed." Upgrade the existing unused Recap to show comparable WPM Delta,
-sessions completed, one retained improvement, one due/regressed action, Streak,
-and fallback highest-Impact Weakness. Render it on Progress and as a compact
-Home return line; no email or cron.
+1. **Next action.** Its default `Coach · Next action` state shows the frozen or
+   prospective priority in the same order as session creation: due Cold check,
+   regressed Target, highest-Impact supported Target, then calibration. This is
+   the Target selected by the coach, not merely the first history row.
+2. **Target detail.** Selecting a row in "What your practice changed" temporarily
+   projects that Target's proof into the upper card. This is inspection only: it
+   never changes today's frozen Prescription, recommendation order, Mastery, or
+   persisted evidence. The card becomes `Target detail` and keeps an explicit
+   `Back to next action` control naming the real coach priority.
+
+The history row selected for inspection gets a neutral selection treatment. The
+actual next action keeps its semantic due/regressed accent even while another
+row is inspected, so selection cannot masquerade as reprioritization. If a
+history filter hides the inspected row, reset the detail card to the next action.
+
+Add one bounded "What your practice changed" history, not a new route:
+
+- group repeated episodes by stable Target identity and show the latest state;
+- expand a Target to inspect older qualifying Coaching episodes;
+- default to recent history and label it `Recent` rather than claiming all-time
+  coverage from the bounded Timeline/Coaching reads;
+- prefer `All`, `Needs action`, and `Held` filters over engine-kind tabs that
+  cannot cleanly cover correction, movement, word, and endurance Targets;
+- show at most five rows before disclosure on narrow screens;
+- no badges, XP, permanent "fixed" language, or completion percentage.
+
+Each projected state has one evidence-safe comparison and action:
+
+| State | Proof shown | Action |
+|---|---|---|
+| `training` | frozen baseline -> best acquisition, labelled practice rather than proof | `Continue` -> `/plan` |
+| `transferred` | frozen baseline -> qualified Transfer | `View proof`; state when its Cold check becomes eligible |
+| `retained` | frozen baseline -> latest held Cold check | `View proof`; do not prescribe redundant Drill work |
+| `due` | frozen baseline -> latest qualifying Transfer/Cold result | `Check it` -> `/plan` so the delayed result can advance Mastery |
+| `regressed` | prior retained proof -> failed Cold or matched current natural evidence | `Refresh it`; use `/plan` when it is today's Target, otherwise honest acquisition practice |
+
+Comparisons always read chronologically left-to-right. Metric direction, colour,
+icon, and status copy explain whether the change was good; arrow direction never
+reverses. Name the stages (`Baseline`, `Transfer`, `Cold`, or `Recent`) and show
+like with like: milliseconds for latency, percentage points for Accuracy/error
+rate, and WPM only for endurance. Acquisition may be supporting context but can
+never be styled as retained proof.
+
+A single Target may state its estimated `impactMsPer1000`, with "estimated" in
+the copy. Do not sum Impact across overlapping Targets, attribute global WPM to
+Drills, call retained Targets "fixed," or promise a fixed action duration unless
+the rendered session actually derives it. Safe summary counts include completed
+Coaching sessions, latest-unique retained gains, and checks currently due.
+
+On desktop, row selection uses the upper-card master/detail interaction and the
+recent history may scroll within the Coach column. On mobile, tapping a row
+expands the same detail inline beneath it; do not make the user scroll back to an
+off-screen upper card and do not create a nested scrolling region. Mobile order
+is WPM proof -> Coach next action -> Trend -> coaching history -> keyboard ->
+Records.
+
+The Progress period selector continues to scope WPM/Goal proof. The Coach
+history remains an explicitly bounded recent skill history unless a future
+unbounded read makes an `All` claim true. Keep global WPM proof separate from
+Target proof: the page must never imply that its WPM Delta was caused by the
+Drills shown beside it.
+
+Upgrade the existing unused Recap to show comparable WPM Delta, sessions
+completed, one retained improvement, one due/regressed action, Streak, and
+fallback highest-Impact Weakness. Render it on Progress and as a compact Home
+return line; no email or cron.
 
 Wire Stance only when it changes acquisition policy. Show an endurance gap only
 after matched samples, with an action into an endurance Target session.
@@ -690,8 +750,22 @@ neither erases proof nor creates a wall of overdue checks.
 
 ### 10. Progress Mastery history and Recap
 
-- [ ] Add "What your practice changed" with retained/due/regressed history.
-- [ ] Give every due/regressed state a Check/Refresh action.
+- [ ] Extract a read-only shared evidence/history analysis hook for Daily Coach
+      and Progress; rendering Progress must not create or freeze a session.
+- [ ] Add a pure Progress projection that groups repeated Target episodes,
+      selects the real next action, chooses state-specific proof stages, and
+      formats lower-is-better/higher-is-better metrics consistently.
+- [ ] Replace legacy "Weak spots" with `Coach · Next action` and add bounded
+      "What your practice changed" history above Records.
+- [ ] Add desktop master/detail inspection with `Back to next action`; selection
+      must never mutate today's frozen Prescription or hide the coach priority.
+- [ ] Add mobile inline Target detail and disclosure with no nested scrolling.
+- [ ] Give every due/regressed state a Check/Refresh action; due Cold checks go
+      through `/plan`, while retained/transferred rows show proof rather than
+      prescribing redundant Drill work.
+- [ ] Reject unsupported UI claims: summed seconds saved, WPM attributed to
+      Drills, permanent "fixed" counts, reversed chronology arrows, and
+      underived duration promises.
 - [ ] Upgrade and wire Recap; persist dismiss timing locally.
 - [ ] Add compact Home return line when Recap or a due Target exists.
 - [ ] Wire Stance only when it changes acquisition policy.
@@ -699,7 +773,11 @@ neither erases proof nor creates a wall of overdue checks.
 - [ ] Add unit, accessibility, desktop/mobile e2e, and screenshots.
 
 **Acceptance:** a returning user can answer what improved, whether it held, and
-what to do next without interpreting a chart.
+what to do next without interpreting a chart. They can inspect another Target's
+proof without changing the coach's recommendation; returning to the next action
+restores the same frozen priority and action. Every displayed comparison is
+metric-correct, chronological, stage-labelled, and identical for guest and
+signed-in evidence.
 
 ### 11. Funnel instrumentation and guarded rollout
 
