@@ -129,9 +129,25 @@ export function useCoachingEvidence(): CoachingEvidenceRead {
         }
     }, [language, pool, scope, signedIn])
 
+    const localToday = useMemo(
+        () => readLocalDailySession(scope, { dateKey, pool, language })
+            ?? (signedIn ? readLocalDailySession(GUEST_DAILY_SCOPE, { dateKey, pool, language }) : null)
+            ?? localHistory.find((session) => session.dateKey === dateKey && session.pool === pool && session.language === language)
+            ?? null,
+        [dateKey, language, localHistory, pool, scope, signedIn],
+    )
+    const parsedRemoteToday = useMemo(() => parseDailySession(remoteToday.data), [remoteToday.data])
+    const currentSession = useMemo(
+        () => preferDailySession(localToday, parsedRemoteToday),
+        [localToday, parsedRemoteToday],
+    )
+
     const history = useMemo(
-        () => mergeHistory(localHistory, remoteHistory.data ?? []),
-        [localHistory, remoteHistory.data],
+        // getToday and getHistory are independently cached. Include the live
+        // snapshot explicitly so a just-completed Target cannot disappear from
+        // Mastery while the bounded history query is still catching up.
+        () => mergeHistory(localHistory, remoteHistory.data ?? [], currentSession ? [currentSession] : []),
+        [currentSession, localHistory, remoteHistory.data],
     )
 
     const evidence = useMemo<CoachingEvidence | null>(() => {
@@ -180,15 +196,6 @@ export function useCoachingEvidence(): CoachingEvidenceRead {
         ? analysisState.value
         : null
 
-    const localToday = readLocalDailySession(scope, { dateKey, pool, language })
-    const carriedToday = signedIn && !localToday
-        ? readLocalDailySession(GUEST_DAILY_SCOPE, { dateKey, pool, language })
-        : null
-    const parsedRemoteToday = parseDailySession(remoteToday.data)
-    const currentSession = preferDailySession(
-        preferDailySession(localToday, carriedToday),
-        parsedRemoteToday,
-    )
     const loading = authStatus === "loading" || !accentChars || (signedIn
         ? practiceStats.isLoading || transitions.isLoading || timelines.isLoading || remoteHistory.isLoading || remoteToday.isLoading
         : guest === null || !guest.timelinesLoaded) || (evidence !== null && analysis === null)

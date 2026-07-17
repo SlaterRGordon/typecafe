@@ -3,7 +3,7 @@ import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { useSession } from "next-auth/react";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { TrendChart } from "~/components/progress/TrendChart";
 import { GoalCard } from "~/components/progress/GoalCard";
 import { ProgressCoach } from "~/components/progress/ProgressCoach";
@@ -237,6 +237,8 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
     const [period, setPeriod] = useState<ProgressPeriod>(30);
     const [trendMetric, setTrendMetric] = useState<TrendMetric>("wpm");
     const [shareState, setShareState] = useState<"idle" | "sharing" | "copied">("idle");
+    const leftColumnRef = useRef<HTMLDivElement>(null);
+    const [coachHeight, setCoachHeight] = useState<number | null>(null);
     // The board the heatmap below renders (and whose stats pool feeds it).
     const [activeBoardLayout] = useLayout();
     // Heatmap layer switches: attempts are stored unfolded (char-keyed), so the
@@ -249,6 +251,23 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
     const now = useMemo(() => new Date(), []);
     const utcOffsetMinutes = -now.getTimezoneOffset();
     const createProgressShare = api.scoreShare.createProgress.useMutation();
+
+    useEffect(() => {
+        const leftColumn = leftColumnRef.current;
+        if (!leftColumn || typeof ResizeObserver === "undefined") return;
+        const update = () => {
+            const height = Math.ceil(leftColumn.getBoundingClientRect().height);
+            if (height > 0) setCoachHeight((current) => current === height ? current : height);
+        };
+        update();
+        const observer = new ResizeObserver(update);
+        observer.observe(leftColumn);
+        return () => observer.disconnect();
+    }, []);
+    const coachColumnStyle = useMemo<React.CSSProperties | undefined>(
+        () => coachHeight ? { "--progress-coach-height": `${coachHeight}px` } as React.CSSProperties : undefined,
+        [coachHeight],
+    );
 
     // Drop junk tests (stopped typing, key-mash restarts) once, up front, so the
     // delta, trend line, records and best chip are all computed from clean data.
@@ -400,8 +419,8 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
                 </div>
             </div>
 
-            <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-12 lg:items-start">
-                <div className="contents min-w-0 lg:col-span-7 lg:block lg:space-y-4">
+            <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-12 lg:items-stretch">
+                <div ref={leftColumnRef} data-testid="progress-left-column" className="contents min-w-0 lg:col-span-7 lg:block lg:space-y-4">
                     <div data-testid="headline-delta" className="order-1 rounded-xl border border-base-content/10 bg-base-100/45 p-4">
                         {plateau.plateaued ? (
                             <div data-testid="plateau-headline">
@@ -511,7 +530,11 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
                     </div>
                 </div>
 
-                <div className="order-2 lg:col-span-5">
+                <div
+                    data-testid="progress-coach-column"
+                    className="order-2 min-h-0 lg:col-span-5 lg:h-[var(--progress-coach-height)]"
+                    style={coachColumnStyle}
+                >
                     <ProgressCoach projection={props.coach} loading={props.coachLoading} />
                 </div>
             </div>

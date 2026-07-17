@@ -95,6 +95,16 @@ describe("projectProgressCoach", () => {
         expect(filterProgressCoachTargets(result.targets, "held").map((row) => row.label)).toEqual(["e→r"])
     })
 
+    it("shows the latest transferred result instead of calibration after coaching completes", () => {
+        const transferred = record("r-new", "transferred", { kind: "key", keys: ["r"], metric: "accuracy" })
+        transferred.prescription = { ...transferred.prescription, metric: "%", direction: "higher", baseline: 88 }
+        transferred.proof = { ...transferred.proof, metric: "%", baseline: 88, bestAcquisition: 95, transfer: 96 }
+        const result = projectProgressCoach(analysis([transferred]), null)
+        expect(result.nextAction).toMatchObject({ label: "r", state: "transferred", statusLabel: "Transferred", action: null })
+        expect(result.nextAction.headline).toBe("r improved in varied text")
+        expect(result.targets[0]?.isNextAction).toBe(false)
+    })
+
     it("uses the frozen current session Target ahead of another due row", () => {
         const due = record("tion-new", "due")
         const current = record("er-new", "training", { kind: "transition", pair: "er", metric: "latency" })

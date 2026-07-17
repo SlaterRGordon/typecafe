@@ -293,10 +293,18 @@ export function projectProgressCoach(
         ?? (analysis.recap.due ? targets.find((row) => row.target && sameCoachingTarget(row.target, analysis.recap.due!.target)) : null)
         ?? (analysis.recap.regressed ? targets.find((row) => row.target && sameCoachingTarget(row.target, analysis.recap.regressed!.target)) : null)
         ?? (analysis.recommendation ? targets.find((row) => row.target && sameCoachingTarget(row.target, analysis.recommendation!.target)) : null)
-    const nextAction = priorityRow ? nextActionFrom(priorityRow) : calibrationTarget()
+    const latestResult = [...targets]
+        .filter((row) => row.state === "transferred" || row.state === "retained")
+        .sort((a, b) => (b.lastEvidenceDate ?? "").localeCompare(a.lastEvidenceDate ?? "") || a.label.localeCompare(b.label))[0]
+        ?? targets.find((row) => row.state === "training")
+    const nextAction = priorityRow
+        ? nextActionFrom(priorityRow)
+        : latestResult
+            ? { ...latestResult, isNextAction: true }
+            : calibrationTarget()
     return {
         nextAction,
-        targets: targets.map((row) => ({ ...row, isNextAction: row.id === nextAction.id })),
+        targets: targets.map((row) => ({ ...row, isNextAction: !!nextAction.action && row.id === nextAction.id })),
         targetLimit: TARGET_LIMIT,
     }
 }

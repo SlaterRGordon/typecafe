@@ -2,7 +2,7 @@ import { expect, test, type Page, type TestInfo } from "@playwright/test";
 import { mockAuthenticatedSession, mockTrpc } from "./helpers/trpc";
 import { higherOrderTimeline, impactTimeline } from "./helpers/evidence";
 import { typeCurrentCharacter, typeVisibleTestText, typeWrongCharacter } from "./helpers/typing";
-import { progressCoachingHistory } from "./helpers/coachingFixtures";
+import { completedKeyAccuracySession, progressCoachingHistory } from "./helpers/coachingFixtures";
 import {
   createDailySession,
   DAILY_COACHING_STORAGE_KEY,
@@ -830,6 +830,18 @@ test.describe("screenshot tour", () => {
     await page.getByTestId("lifetime-heatmap-layers").getByRole("button", { name: "Show shifted keys (capitals and symbols)" }).click();
     await expect(page.getByTestId("lifetime-heatmap").locator('[data-kb-key="R"]')).toBeVisible();
     await capture(page, testInfo, "40b-progress-lifetime-keyboard-shift");
+  });
+
+  test("progress dashboard (completed Target latest result)", async ({ page }, testInfo) => {
+    await mockAuthenticatedSession(page);
+    await mockTrpc(page, {
+      coachingSession: completedKeyAccuracySession(),
+      coachingHistory: [],
+    });
+    await page.goto("/progress");
+    await expect(page.getByTestId("progress-coach")).toContainText("Coach · Latest result");
+    await expect(page.getByTestId("progress-coach")).toContainText("r improved in varied text");
+    await capture(page, testInfo, "40f-progress-completed-target");
   });
 
   test("progress dashboard (plateau coach voice)", async ({ page }, testInfo) => {

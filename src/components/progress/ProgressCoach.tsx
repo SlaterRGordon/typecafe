@@ -36,6 +36,8 @@ export function ProgressCoach({ projection, loading }: ProgressCoachProps) {
     )
     const selected = projection?.targets.find((row) => row.id === selectedId) ?? null
     const detail = selected ?? projection?.nextAction ?? null
+    const hasNextAction = !!projection?.nextAction.action
+    const coachLabel = hasNextAction ? "Coach · Next action" : "Coach · Latest result"
 
     if (loading || !projection || !detail) {
         return (
@@ -48,12 +50,12 @@ export function ProgressCoach({ projection, loading }: ProgressCoachProps) {
     }
 
     return (
-        <section data-testid="progress-coach" className="overflow-hidden rounded-xl border border-primary/25 bg-base-100/45">
-            <div data-testid="coach-detail" aria-live="polite" className="p-4 sm:p-5">
+        <section data-testid="progress-coach" className="overflow-hidden rounded-xl border border-primary/25 bg-base-100/45 lg:flex lg:h-full lg:min-h-0 lg:flex-col">
+            <div data-testid="coach-detail" aria-live="polite" className="p-4 sm:p-5 lg:shrink-0">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                     <p className="text-xs font-bold uppercase tracking-wide text-base-content/55">
-                        <span className="hidden lg:inline">{selected ? "Target detail" : "Coach · Next action"}</span>
-                        <span className="lg:hidden">Coach · Next action</span>
+                        <span className="hidden lg:inline">{selected ? "Target detail" : coachLabel}</span>
+                        <span className="lg:hidden">{coachLabel}</span>
                     </p>
                     {selected && (
                         <button
@@ -61,7 +63,7 @@ export function ProgressCoach({ projection, loading }: ProgressCoachProps) {
                             onClick={() => setSelectedId(null)}
                             className="hidden text-xs font-semibold text-primary underline-offset-2 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary lg:inline"
                         >
-                            Back to next action: {projection.nextAction.label}
+                            Back to {hasNextAction ? "next action" : "latest result"}: {projection.nextAction.label}
                         </button>
                     )}
                 </div>
@@ -125,7 +127,7 @@ export function ProgressCoach({ projection, loading }: ProgressCoachProps) {
                 )}
             </div>
 
-            <div className="border-t border-base-content/10 p-4 sm:p-5">
+            <div className="border-t border-base-content/10 p-4 sm:p-5 lg:flex lg:min-h-0 lg:flex-1 lg:flex-col">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                         <h2 className="text-lg font-semibold text-base-content">Your targets</h2>
@@ -151,14 +153,15 @@ export function ProgressCoach({ projection, loading }: ProgressCoachProps) {
                 </div>
 
                 {rows.length === 0 ? (
-                    <p data-testid="coach-targets-empty" className="py-8 text-center text-sm text-base-content/45">
+                    <p data-testid="coach-targets-empty" className="py-8 text-center text-sm text-base-content/45 lg:flex lg:flex-1 lg:items-center lg:justify-center">
                         {projection.targets.length === 0 ? "Take a longer Test to find supported Targets." : "No recent Targets match this filter."}
                     </p>
                 ) : (
-                    <ul aria-label="Recent typing Targets" className="mt-3 divide-y divide-base-content/10">
-                        {rows.map((row, index) => {
-                            const expanded = selectedId === row.id
-                            return (
+                    <div data-testid="coach-target-scroll" className="mt-3 min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-1">
+                        <ul aria-label="Recent typing Targets" className="divide-y divide-base-content/10">
+                            {rows.map((row, index) => {
+                                const expanded = selectedId === row.id
+                                return (
                                 <li key={row.id} data-testid={`coach-target-row-${row.id}`} className={`relative py-2 ${index >= 5 && !showAllTargets ? "hidden lg:list-item" : ""} ${row.isNextAction ? "border-l-2 border-warning pl-2" : ""}`}>
                                     <div className={`flex items-center gap-2 rounded-lg border px-2 py-2 transition ${expanded ? "border-base-content/35 bg-base-content/5" : "border-transparent hover:bg-base-content/5"}`}>
                                         <button
@@ -223,9 +226,10 @@ export function ProgressCoach({ projection, loading }: ProgressCoachProps) {
                                         </div>
                                     )}
                                 </li>
-                            )
-                        })}
-                    </ul>
+                                )
+                            })}
+                        </ul>
+                    </div>
                 )}
                 {rows.length > 5 && (
                     <button

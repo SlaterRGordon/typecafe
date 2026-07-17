@@ -64,3 +64,37 @@ export function progressCoachingHistory(): DailyCoachingSession[] {
     transferredSession("er-old", 8, er, "e→r", 360, 330),
   ]
 }
+
+export function completedKeyAccuracySession(): DailyCoachingSession {
+  const target: CoachingTarget = { kind: "key", keys: ["r"], metric: "accuracy" }
+  const date = localDateKey()
+  const now = Date.now()
+  const frozen: FrozenRecommendation = {
+    id: "key:accuracy:r", target, metric: "%", direction: "higher", baseline: 88,
+    weaknessThreshold: 95, minimumChange: 4, impactMsPer1000: 900,
+    confidence: 0.8, sampleCount: 40, distinctTests: 2, distinctWords: 8,
+    reasonCode: "key_accuracy_below_threshold", reason: "Your r key was 88% accurate in recent natural typing.", seenWords: [],
+  }
+  return {
+    version: 3, id: `${date}:key-accuracy-r`, dateKey: date, pool: "qwerty", language: "english",
+    kind: "targeted", reason: frozen.reason, estimatedMinutes: 6, status: "completed", currentStepIndex: 2,
+    steps: [
+      {
+        id: "r:baseline", kind: "baseline", context: "natural", title: "Warm measure", detail: "", href: "/",
+        sets: [{ completedAt: now - 2_000, netWpm: 64, accuracy: 96 }],
+      },
+      {
+        id: "r:focus", kind: "focus", context: "acquisition", title: "Acquire r", detail: "", href: "/drill", target,
+        sets: [
+          { completedAt: now - 1_500, netWpm: 65, accuracy: 97, targetSamples: 10, targetDelta: { label: "r", before: 88, after: 94, unit: "%", direction: "higher", improved: true } },
+          { completedAt: now - 1_000, netWpm: 66, accuracy: 98, targetSamples: 10, targetDelta: { label: "r", before: 88, after: 95, unit: "%", direction: "higher", improved: true } },
+        ],
+      },
+      {
+        id: "r:transfer", kind: "transfer", context: "transfer", title: "Transfer r", detail: "", href: "/drill", target, requiresTargetSample: true,
+        sets: [{ completedAt: now - 500, netWpm: 67, accuracy: 98, targetSamples: 8, targetDelta: { label: "r", before: 88, after: 96, unit: "%", direction: "higher", improved: true } }],
+      },
+    ],
+    prescription: frozen, createdAt: now - 3_000, updatedAt: now - 500,
+  }
+}

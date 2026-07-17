@@ -498,8 +498,10 @@ The Coach column has two related but distinct jobs:
 
 1. **Next action.** Its default `Coach · Next action` state shows the frozen or
    prospective priority in the same order as session creation: due Cold check,
-   regressed Target, highest-Impact supported Target, then calibration. This is
-   the Target selected by the coach, not merely the first history row.
+   regressed Target, then highest-Impact supported Target. If today's work just
+   transferred and no action is due, show `Coach · Latest result`; use calibration
+   only when neither a current Target nor coached proof exists. This is the Target
+   selected by the coach, not merely the first list row.
 2. **Target detail.** Selecting a row in "Your targets" temporarily
    projects that Target's proof into the upper card. This is inspection only: it
    never changes today's frozen Prescription, recommendation order, Mastery, or
@@ -558,11 +560,13 @@ Drills, call retained Targets "fixed," or promise a fixed action duration unless
 the rendered session actually derives it. Safe summary counts include completed
 Coaching sessions, latest-unique retained gains, and checks currently due.
 
-On desktop, row selection uses the upper-card master/detail interaction and the
-recent Target list may scroll within the Coach column. On mobile, tapping a row
-expands the same detail inline beneath it; do not make the user scroll back to an
-off-screen upper card and do not create a nested scrolling region. Mobile order
-is WPM proof -> Coach next action -> Trend -> Your targets -> keyboard.
+On desktop, row selection uses the upper-card master/detail interaction. Match
+the Coach column to the measured height of the complete left proof column and
+scroll only the Target rows beneath the fixed detail/header region. On mobile,
+tapping a row expands the same detail inline beneath it; do not make the user
+scroll back to an off-screen upper card and do not create a nested scrolling
+region. Mobile order is WPM proof -> Coach next action -> Trend -> Your targets
+-> keyboard.
 
 The Progress period selector continues to scope WPM/Goal proof. The Target list
 remains an explicitly bounded recent skill view unless a future
@@ -758,14 +762,16 @@ neither erases proof nor creates a wall of overdue checks.
 ### 10. Progress Targets and Mastery history
 
 - [x] Extract a read-only shared evidence/history analysis hook for Daily Coach
-      and Progress; rendering Progress must not create or freeze a session.
+      and Progress; rendering Progress must not create or freeze a session, and
+      today's live snapshot must be merged while bounded history catches up.
 - [x] Add a pure Progress projection that merges supported current weaknesses
       and repeated Mastery episodes by Target identity, selects the real next
       action, chooses state-specific proof stages, and formats metrics consistently.
 - [x] Replace legacy "Weak spots" with `Coach · Next action`, add bounded
       `Your targets`, and remove Records from Progress.
 - [x] Add desktop master/detail inspection with `Back to next action`; selection
-      must never mutate today's frozen Prescription or hide the coach priority.
+      must never mutate today's frozen Prescription or hide the coach priority;
+      match left-column height and scroll only the Target list.
 - [x] Add mobile inline Target detail and disclosure with no nested scrolling.
 - [x] Give every due/regressed state a Check/Refresh action; due Cold checks go
       through `/plan`, while retained/transferred rows show proof rather than

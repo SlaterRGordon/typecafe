@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { mockAuthenticatedSession, mockTrpc } from "./helpers/trpc";
-import { progressCoachingHistory } from "./helpers/coachingFixtures";
+import { completedKeyAccuracySession, progressCoachingHistory } from "./helpers/coachingFixtures";
 import { impactTimeline } from "./helpers/evidence";
 import { DAILY_COACHING_STORAGE_KEY, GUEST_DAILY_SCOPE } from "../../src/lib/dailyCoaching";
 
@@ -122,6 +122,17 @@ test.describe("progress dashboard", () => {
     if ((page.viewportSize()?.width ?? 0) < 640) await brButton.click();
     await expect(brButton.locator("../..").getByRole("link", { name: "Practice this transition" })).toHaveAttribute("href", /transitions=br/);
     await expect(page.getByTestId("progress-recap")).toHaveCount(0);
+    if ((page.viewportSize()?.width ?? 0) >= 1024) {
+      const left = await page.getByTestId("progress-left-column").boundingBox();
+      const right = await page.getByTestId("progress-coach-column").boundingBox();
+      expect(left).not.toBeNull();
+      expect(right).not.toBeNull();
+      expect(Math.abs(left!.height - right!.height)).toBeLessThanOrEqual(2);
+      const targetScroll = page.getByTestId("coach-target-scroll");
+      await expect(targetScroll).toHaveCSS("overflow-y", "auto");
+      const scrollSize = await targetScroll.evaluate((element) => ({ client: element.clientHeight, content: element.scrollHeight }));
+      expect(scrollSize.content).toBeGreaterThan(scrollSize.client);
+    }
 
     // One big trend chart, WPM by default, with metric tabs to toggle it.
     await expect(page.getByText("WPM over time", { exact: true })).toBeVisible();
@@ -325,6 +336,21 @@ test.describe("progress dashboard", () => {
     await expect(page.getByTestId("coach-detail")).toContainText("See whether your tion gain held");
     expect(calls).not.toContain("coachingSession.save");
     await expect(page.getByTestId("records-timeline")).toHaveCount(0);
+  });
+
+  test("shows today's completed Target while bounded coaching history catches up", async ({ page }) => {
+    await mockAuthenticatedSession(page);
+    await mockTrpc(page, {
+      coachingSession: completedKeyAccuracySession(),
+      coachingHistory: [],
+    });
+    await gotoProgress(page);
+
+    const coach = page.getByTestId("progress-coach");
+    await expect(coach).toContainText("Coach · Latest result");
+    await expect(coach).toContainText("r improved in varied text");
+    await expect(coach).toContainText("Transferred");
+    await expect(coach).not.toContainText("Map your typing to find a stable Target");
   });
 
   test("signed-in Progress displays the canonical net score without recalculating it", async ({ page }) => {
