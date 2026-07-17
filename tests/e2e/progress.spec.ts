@@ -140,10 +140,13 @@ test.describe("progress dashboard", () => {
     if ((page.viewportSize()?.width ?? 0) >= 1024) {
       const left = await page.getByTestId("progress-left-column").boundingBox();
       const right = await page.getByTestId("progress-coach-column").boundingBox();
+      const targetsBox = await targets.getByTestId("coach-targets").boundingBox();
       expect(left).not.toBeNull();
       expect(right).not.toBeNull();
+      expect(targetsBox).not.toBeNull();
       expect(Math.abs(left!.width - right!.width)).toBeLessThanOrEqual(2);
-      expect(Math.abs(left!.height - right!.height)).toBeLessThanOrEqual(2);
+      expect(Math.abs(left!.height - targetsBox!.height)).toBeLessThanOrEqual(2);
+      expect(right!.height).toBeGreaterThan(left!.height);
       const targetScroll = page.getByTestId("coach-target-scroll");
       await expect(targetScroll).toHaveCSS("overflow-y", "auto");
       await expect(targets.getByText("Recent", { exact: true })).toBeVisible();

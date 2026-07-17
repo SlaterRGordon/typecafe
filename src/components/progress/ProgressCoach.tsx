@@ -211,7 +211,7 @@ export function ProgressCoach({ projection, loading }: ProgressCoachProps) {
     const nextTone = progressImpactTone(projection.nextAction.impactMsPer1000, maxImpact)
 
     return (
-        <div data-testid="progress-coach" className="flex flex-col gap-3 lg:h-full lg:min-h-0">
+        <div data-testid="progress-coach" className="flex flex-col gap-3 lg:min-h-0">
             <section data-testid="coach-detail" aria-live="polite" className="rounded-xl border border-primary/25 bg-base-100/45 p-4 lg:shrink-0">
                 <div className="hidden lg:block">
                     {selected && (
@@ -247,7 +247,7 @@ export function ProgressCoach({ projection, loading }: ProgressCoachProps) {
                 </div>
             </section>
 
-            <section data-testid="coach-targets" className="overflow-hidden rounded-xl border border-base-content/10 bg-base-100/45 lg:flex lg:min-h-0 lg:flex-1 lg:flex-col">
+            <section data-testid="coach-targets" className="overflow-hidden rounded-xl border border-base-content/10 bg-base-100/45 lg:flex lg:h-[var(--progress-coach-height)] lg:min-h-0 lg:flex-none lg:flex-col">
                 <div className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="min-w-0">
                         <h2 className="text-base font-semibold text-base-content">Your targets</h2>

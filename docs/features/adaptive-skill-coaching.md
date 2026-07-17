@@ -574,8 +574,9 @@ the rendered session actually derives it. Safe summary counts include completed
 Coaching sessions, latest-unique retained gains, and checks currently due.
 
 On desktop, row selection uses the upper-card master/detail interaction. Match
-the Coach column to the measured height of the complete left proof column and
-scroll only the Target rows beneath the fixed detail/header region. On mobile,
+the Your targets surface to the measured height of the complete left proof
+column and scroll only its Target rows beneath the fixed header/footer; the
+separate Coach surface sits above it. On mobile,
 tapping a row expands the same detail inline beneath it; do not make the user
 scroll back to an off-screen upper card and do not create a nested scrolling
 region. Mobile order is WPM proof -> Coach next action -> Trend -> Your targets
