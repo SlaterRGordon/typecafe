@@ -119,7 +119,8 @@ test.describe("progress dashboard", () => {
     await expect(targets).toContainText("b→r");
     await expect(targets).toContainText("Transition");
     await expect(targets).toContainText("b→r pause is slow");
-    await expect(targets.getByText("Needs work", { exact: true })).toHaveCount(0);
+    // "Needs work" belongs to the detail card's status only, never to the rows.
+    await expect(targets.getByText("Needs work", { exact: true })).toHaveCount(1);
     const targetFilters = page.getByTestId("coach-target-filters");
     await expect(targetFilters.getByRole("button", { name: /Transitions/ })).toBeVisible();
     await expect(targetFilters.getByRole("button", { name: /Keys/ })).toBeVisible();
@@ -148,7 +149,7 @@ test.describe("progress dashboard", () => {
       expect(right!.height).toBeGreaterThan(left!.height);
       const targetScroll = page.getByTestId("coach-target-scroll");
       await expect(targetScroll).toHaveCSS("overflow-y", "auto");
-      await expect(targets.getByText("Recent ability", { exact: true })).toBeVisible();
+      await expect(targets.getByText("Ability", { exact: true })).toBeVisible();
       await expect(targets.getByText("Progress", { exact: true })).toBeVisible();
       await expect(targets.getByText("Worth", { exact: true })).toBeVisible();
     }
@@ -198,11 +199,15 @@ test.describe("progress dashboard", () => {
     await expect(coach).toContainText("Target detail");
     await expect(coach).not.toContainText("Coach ·");
     if ((page.viewportSize()?.width ?? 0) >= 1024) {
+      // Detail defaults to the top live weakness; selecting a coached row
+      // swaps in its historical proof.
+      await expect(coach).toContainText("Work on b→r");
+      await coach.getByRole("button", { name: /^tion Pattern/ }).click();
       await expect(coach).toContainText("Practise tion again");
       await expect(coach.getByRole("link", { name: "Practice this pattern" }).first()).toHaveAttribute("href", /\/drill\?target=gram/);
       await expect(coach).toContainText("Baseline 520 ms");
       await expect(coach).toContainText("Recent 455 ms");
-      await expect(coach.getByTestId("target-practice-summary")).toContainText("drills completed");
+      await expect(coach.getByTestId("coach-detail").getByTestId("target-practice-summary")).toContainText("drills completed");
     } else {
       await expect(page.getByTestId("coach-inline-detail")).toContainText("Recent 140 ms");
       await expect(page.getByTestId("coach-inline-detail").getByRole("link", { name: "Practice this transition" })).toBeVisible();
@@ -337,7 +342,7 @@ test.describe("progress dashboard", () => {
     await gotoProgress(page);
 
     const coach = page.getByTestId("progress-coach");
-    await expect(coach).toContainText("Practise tion again");
+    await expect(coach).toContainText("Work on b→r");
     const coachDetail = coach.getByTestId("coach-detail");
     const targetsSurface = coach.getByTestId("coach-targets");
     if ((page.viewportSize()?.width ?? 0) >= 1024) await expect(coachDetail).toBeVisible();
@@ -356,27 +361,27 @@ test.describe("progress dashboard", () => {
     await expect(erRow.locator("xpath=ancestor::li[1]")).toHaveAttribute("data-selected", "");
 
     if ((page.viewportSize()?.width ?? 0) >= 1024) {
-      await expect(targetsSurface.getByRole("list", { name: "Recent typing Targets" }).locator(":scope > li").first()).toContainText("tion");
+      await expect(targetsSurface.getByRole("list", { name: "Recent typing Targets" }).locator(":scope > li").first()).toContainText("b→r");
       await expect(targetsSurface.getByTestId("coach-trend-legend")).toContainText("improving");
       await expect(targetsSurface.getByTestId("coach-trend-legend")).toContainText("slipping");
       const detail = page.getByTestId("coach-detail");
       await expect(detail).toContainText("Target detail");
       await expect(detail).toContainText("Your e→r gain held");
-      await expect(detail.getByRole("list", { name: "e→r qualifying episodes" }).getByRole("listitem")).toHaveCount(2);
+      await expect(detail).toContainText("Baseline 340 ms");
+      await expect(detail).toContainText("Recent 290 ms");
       await expect(detail.getByRole("button", { name: /Back to/ })).toHaveCount(0);
       await erRow.click();
       await expect(erRow).toHaveAttribute("aria-expanded", "false");
-      await expect(detail).toContainText("Practise tion again");
+      await expect(detail).toContainText("Work on b→r");
     } else {
-      await expect(page.getByTestId("coach-inline-detail")).toContainText("You can still practise this Target");
-      await expect(page.getByTestId("coach-inline-detail").getByRole("list", { name: "e→r qualifying episodes" }).getByRole("listitem")).toHaveCount(2);
+      await expect(page.getByTestId("coach-inline-detail")).toContainText("gain held across");
       await erRow.click();
       await expect(erRow).toHaveAttribute("aria-expanded", "false");
     }
 
     await page.getByTestId("coach-target-filters").getByRole("button", { name: /Keys/ }).click();
     await expect(page.getByTestId("coach-inline-detail")).toHaveCount(0);
-    await expect(page.getByTestId("coach-detail")).toContainText("Practise tion again");
+    await expect(page.getByTestId("coach-detail")).toContainText("Work on b→r");
     expect(calls).not.toContain("coachingSession.save");
     await expect(page.getByTestId("records-timeline")).toHaveCount(0);
   });

@@ -557,8 +557,8 @@ const Progress: NextPage = () => {
     const pool = statsPoolFor(activeLayout);
     const coaching = useCoachingEvidence();
     const coachProjection = useMemo(
-        () => coaching.analysis ? projectProgressCoach(coaching.analysis, coaching.currentSession) : null,
-        [coaching.analysis, coaching.currentSession],
+        () => coaching.analysis ? projectProgressCoach(coaching.analysis) : null,
+        [coaching.analysis],
     );
     const recordsQuery = api.test.getProgressRecords.useQuery(undefined, {
         enabled: !!sessionData?.user,

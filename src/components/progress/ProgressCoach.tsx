@@ -143,7 +143,7 @@ function ProofLine({ target }: { target: ProgressCoachTarget }) {
 }
 
 function PracticeLine({ target }: { target: ProgressCoachTarget }) {
-    if (!target.practice) return <p className="mt-2 text-xs text-base-content/45">No focused drills completed for this Target yet.</p>
+    if (!target.practice) return <p className="mt-2 text-xs text-base-content/45">No drills for this Target yet.</p>
     const drills = target.practice.completedDrills
     return (
         <p data-testid="target-practice-summary" className="mt-2 text-xs text-base-content/55">
@@ -155,7 +155,7 @@ function PracticeLine({ target }: { target: ProgressCoachTarget }) {
     )
 }
 
-function CoachSummary({ target, color, contextLabel, action, extra }: { target: ProgressCoachTarget, color: string, contextLabel: string, action: ReactNode, extra?: ReactNode }) {
+function CoachSummary({ target, color, contextLabel, action }: { target: ProgressCoachTarget, color: string, contextLabel: string, action: ReactNode }) {
     return (
         <div className="flex min-w-0 flex-1 items-center justify-between gap-4">
             <div className="min-w-0">
@@ -168,7 +168,6 @@ function CoachSummary({ target, color, contextLabel, action, extra }: { target: 
                 <ProofLine target={target} />
                 <PracticeLine target={target} />
                 <p className="mt-1.5 line-clamp-2 text-xs leading-relaxed text-base-content/55 lg:sr-only">{target.detail}</p>
-                {extra}
             </div>
             {action}
         </div>
@@ -229,26 +228,17 @@ export function ProgressCoach({ projection, loading }: ProgressCoachProps) {
                         color={impactPalette[detailTone]}
                         contextLabel="Target detail"
                         action={<ActionLink target={detail} compact />}
-                        extra={selected && detail.episodes.length > 1 ? (
-                            <ul className="mt-2 flex flex-wrap gap-1.5 text-[0.65rem] text-base-content/50" aria-label={`${detail.label} qualifying episodes`}>
-                                {detail.episodes.map((episode) => (
-                                    <li key={episode.id} className="rounded border border-base-content/10 px-1.5 py-1">
-                                        {episode.date} · {episode.statusLabel} · {episode.stages[0]?.value} → {episode.stages.at(-1)?.value}
-                                    </li>
-                                ))}
-                            </ul>
-                        ) : null}
                     />
                 </div>
             </section>
 
             <section data-testid="coach-targets" className="overflow-hidden rounded-xl border border-base-content/10 bg-base-100/45 lg:flex lg:h-[var(--progress-coach-height)] lg:min-h-0 lg:flex-none lg:flex-col">
-                <div className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="min-w-0">
+                <div className="flex flex-col gap-2.5 px-4 py-3">
+                    <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
                         <h2 className="text-base font-semibold text-base-content">Your targets</h2>
-                        <p className="mt-0.5 whitespace-nowrap text-[0.65rem] text-base-content/45">ranked by estimated worth · select a row or practise directly</p>
+                        <p className="text-[0.65rem] text-base-content/45">ranked by estimated worth</p>
                     </div>
-                    <div data-testid="coach-target-filters" className="flex w-fit max-w-full shrink-0 gap-0.5 overflow-x-auto rounded-md border border-base-content/15 bg-base-200/50 p-0.5">
+                    <div data-testid="coach-target-filters" className="flex gap-1 overflow-x-auto rounded-lg border border-base-content/10 bg-base-200/50 p-1">
                         {FILTERS.map((item) => (
                             <button
                                 key={item.key}
@@ -259,7 +249,7 @@ export function ProgressCoach({ projection, loading }: ProgressCoachProps) {
                                     setShowAllTargets(false)
                                     if (selected && item.key !== "all" && selected.filter !== item.key) setSelectedId(null)
                                 }}
-                                className={`min-h-7 whitespace-nowrap rounded px-2 text-[0.65rem] font-medium transition-colors ${filter === item.key ? "bg-primary text-primary-content shadow-sm" : "text-base-content/65 hover:bg-base-content/5"}`}
+                                className={`min-h-8 flex-1 whitespace-nowrap rounded-md px-2 text-[0.65rem] font-medium transition-colors ${filter === item.key ? "bg-primary text-primary-content shadow-sm" : "text-base-content/65 hover:bg-base-content/5"}`}
                             >
                                 {item.label} <span className="font-mono text-[0.6rem] opacity-70">{counts.get(item.key)}</span>
                             </button>
@@ -268,7 +258,7 @@ export function ProgressCoach({ projection, loading }: ProgressCoachProps) {
                 </div>
 
                 <div className="hidden grid-cols-[minmax(0,1fr)_5.25rem_8.25rem_8.25rem] gap-2 border-y border-base-content/10 px-3 py-2 font-mono text-[0.6rem] uppercase tracking-[0.1em] text-base-content/40 lg:grid">
-                    <span>Target</span><span className="text-center">Recent ability</span><span className="text-center">Progress</span><span className="text-center">Worth</span>
+                    <span>Target</span><span className="text-center">Ability</span><span className="text-center">Progress</span><span className="text-center">Worth</span>
                 </div>
 
                 {rows.length === 0 ? (
@@ -321,9 +311,11 @@ export function ProgressCoach({ projection, loading }: ProgressCoachProps) {
                                             </button>
                                             <div className="relative hidden min-h-[4.25rem] items-center justify-center lg:flex">
                                                 <span className={`flex flex-col items-center justify-center gap-1 transition-opacity ${row.action ? "group-hover:opacity-0 group-focus-within:opacity-0" : ""}`}>
-                                                    <span className="h-1.5 w-10 overflow-hidden rounded-full bg-base-content/10">
-                                                        <span className="block h-full rounded-full" style={{ width: `${fill}%`, backgroundColor: color }} />
-                                                    </span>
+                                                    {row.impactMsPer1000 !== null && (
+                                                        <span className="h-1.5 w-10 overflow-hidden rounded-full bg-base-content/10">
+                                                            <span className="block h-full rounded-full" style={{ width: `${fill}%`, backgroundColor: color }} />
+                                                        </span>
+                                                    )}
                                                     <span className="whitespace-nowrap font-mono text-[0.62rem] text-base-content">{worthLabel(row)}</span>
                                                 </span>
                                                 {row.action && (
@@ -342,16 +334,6 @@ export function ProgressCoach({ projection, loading }: ProgressCoachProps) {
                                                 <p className="text-sm text-base-content/70">{row.detail}</p>
                                                 <ProofLine target={row} />
                                                 <PracticeLine target={row} />
-                                                {row.episodes.length > 1 && (
-                                                    <ul className="mt-3 space-y-1 border-t border-base-content/10 pt-2 text-xs text-base-content/60" aria-label={`${row.label} qualifying episodes`}>
-                                                        {row.episodes.map((episode) => (
-                                                            <li key={episode.id} className="flex flex-wrap justify-between gap-2">
-                                                                <span>{episode.date} · {episode.statusLabel}</span>
-                                                                <span>{episode.stages[0]?.value} → {episode.stages.at(-1)?.value}</span>
-                                                            </li>
-                                                        ))}
-                                                    </ul>
-                                                )}
                                                 {row.action && <div className="mt-3"><ActionLink target={row} /></div>}
                                             </div>
                                         )}

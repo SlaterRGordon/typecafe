@@ -838,9 +838,27 @@ improved, not merely whether users clicked the new UI.
       Progress.
 - [ ] Add an optional Coaching tab only when it can express a useful daily drill
       goal using the same Target ledger and evidence model.
+- [x] Bound discovery (natural/diagnostic) and response (acquisition/transfer/
+      cold) timelines in separate windows so drill volume can never evict the
+      natural evidence behind ranking, frequency, and recency weighting.
+- [x] Attribute drill volume and drill values to the Target a drill was
+      launched for via a persisted Target token on acquisition runs; untagged
+      runs attribute to nothing.
+- [x] Show practice trends drill-vs-drill (first vs latest run) and make Worth
+      the live remaining cost: a coached Target whose weakness no longer
+      registers shows no Worth instead of its frozen prescription impact.
+- [x] Remove daily-coach artifacts from Target detail (episode chips,
+      practised-day scheduling copy), tighten status copy, and move the Target
+      filters onto their own full-width row.
 
 **Acceptance:** completing a 100% drill records practice but cannot make the
 Target row read 100% unless recent representative attempts also support 100%.
+Practising a Target never raises any Target's estimated worth by itself.
+
+**Deferred (owner decision 2026-07-17):** transfer/cold checking is not ported
+to target-first practice yet; mastery states beyond `training` are reachable
+only through historical Daily Coach sessions and render as read-only history.
+Revisit with the optional Coaching tab item above.
 
 ## Verification matrix
 

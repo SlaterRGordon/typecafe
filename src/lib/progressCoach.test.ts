@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest"
+﻿import { describe, expect, it } from "vitest"
 import type { CoachingTarget } from "./coachingTarget"
-import type { DailyCoachingSession, FrozenRecommendation } from "./dailyCoaching"
+import type { FrozenRecommendation } from "./dailyCoaching"
 import { filterProgressCoachTargets, progressImpactTone, projectProgressCoach } from "./progressCoach"
 import type { MasteryRecord, SkillAnalysis, SkillCandidate } from "./skillEvidence"
 
@@ -57,17 +57,16 @@ describe("projectProgressCoach", () => {
     it("groups repeated episodes while keeping drill performance out of ability stages", () => {
         const old = record("tion-old", "transferred")
         const latest = record("tion-new", "retained")
-        const result = projectProgressCoach(analysis([latest, old]), null)
+        const result = projectProgressCoach(analysis([latest, old]))
         expect(result.targets).toHaveLength(1)
         expect(result.targets[0]).toMatchObject({ label: "tion", state: "retained", episodeCount: 2 })
-        expect(result.targets[0]!.episodes).toHaveLength(2)
         expect(result.targets[0]!.stages.map((stage) => stage.label)).toEqual(["Baseline", "Recent"])
         expect(result.targets[0]!.stages.map((stage) => stage.value)).toEqual(["520 ms", "460 ms"])
         expect(result.targets[0]!.practice).toEqual({ completedDrills: 4, sampleCount: 24, value: "440 ms" })
     })
 
     it("includes a supported ordinary weakness with direct practice independent of Coach", () => {
-        const result = projectProgressCoach(analysis([], [candidate()]), null)
+        const result = projectProgressCoach(analysis([], [candidate()]))
         expect(result.targets[0]).toMatchObject({ label: "b→r", state: "needs-work", statusLabel: "Needs work" })
         expect(result.targets[0]!.stages).toEqual([{ key: "recent", label: "Recent", value: "140 ms", numericValue: 140, sampleCount: 20 }])
         expect(result.targets[0]!.trend).toBeNull()
@@ -83,21 +82,34 @@ describe("projectProgressCoach", () => {
         accuracy.direction = "higher"
         accuracy.observed = 92
         accuracy.baseline = 95
-        accuracy.response = { context: "acquisition", value: 100, sampleCount: 18, runCount: 1 }
+        accuracy.response = { context: "acquisition", value: 100, sampleCount: 18, runCount: 2, firstRunValue: 92, lastRunValue: 100 }
 
-        const row = projectProgressCoach(analysis([], [accuracy]), null).targets[0]!
+        const row = projectProgressCoach(analysis([], [accuracy])).targets[0]!
 
         expect(row.stages).toEqual([{ key: "recent", label: "Recent", value: "92.0%", numericValue: 92, sampleCount: 20 }])
-        expect(row.practice).toEqual({ completedDrills: 1, sampleCount: 18, value: "100.0%" })
+        expect(row.practice).toEqual({ completedDrills: 2, sampleCount: 18, value: "100.0%" })
         expect(row.trend).toEqual({ label: "8.0 %", arrow: "up", outcome: "good" })
         expect(row.trendSource).toBe("practice")
+    })
+
+    it("shows no practice trend from a single drill run", () => {
+        const accuracy = candidate({ kind: "key", keys: ["r"], metric: "accuracy" })
+        accuracy.metric = "%"
+        accuracy.direction = "higher"
+        accuracy.response = { context: "acquisition", value: 100, sampleCount: 18, runCount: 1 }
+
+        const row = projectProgressCoach(analysis([], [accuracy])).targets[0]!
+
+        expect(row.practice).toEqual({ completedDrills: 1, sampleCount: 18, value: "100.0%" })
+        expect(row.trend).toBeNull()
+        expect(row.trendSource).toBeNull()
     })
 
     it("never calibrates beside a visible actionable Target when recommendation state lags", () => {
         const lagging = analysis([], [candidate()])
         lagging.recommendation = null
 
-        const result = projectProgressCoach(lagging, null)
+        const result = projectProgressCoach(lagging)
 
         expect(result.targets).toHaveLength(1)
         expect(result.defaultTarget).toMatchObject({ label: "b→r", state: "needs-work", statusLabel: "Needs work" })
@@ -106,32 +118,33 @@ describe("projectProgressCoach", () => {
     it("merges matching current weakness and coached proof into one Target row", () => {
         const current = candidate({ kind: "transition", pair: "br", metric: "latency" })
         const regressed = record("br-new", "regressed", current.target)
-        const result = projectProgressCoach(analysis([regressed], [current]), null)
+        const result = projectProgressCoach(analysis([regressed], [current]))
         expect(result.targets).toHaveLength(1)
         expect(result.targets[0]).toMatchObject({ label: "b→r", state: "regressed", episodeCount: 1 })
         expect(result.targets[0]!.stages.at(-1)).toMatchObject({ label: "Recent", value: "140 ms" })
     })
 
-    it("orders the entire Target list by estimated worth across mastery states", () => {
-        const rows = [
-            record("held-new", "retained", { kind: "key", keys: ["z"], metric: "latency" }),
-            record("transfer-new", "transferred", { kind: "gram", gram: "ing" }),
-            record("train-new", "training", { kind: "key", keys: ["q"], metric: "latency" }),
-            record("regress-new", "regressed", { kind: "transition", pair: "er", metric: "latency" }),
-            record("due-new", "due"),
-        ]
-        rows.forEach((row, index) => {
-            row.prescription = { ...row.prescription, impactMsPer1000: 1_000 + index * 1_000 }
-        })
-        const result = projectProgressCoach(analysis(rows, [candidate()]), null)
-        expect(result.targets.map((row) => row.state)).toEqual(["due", "regressed", "training", "transferred", "needs-work", "retained"])
-        expect(result.targets.map((row) => row.impactMsPer1000)).toEqual([5_000, 4_000, 3_000, 2_000, 1_400, 1_000])
+    it("ranks by live remaining worth and sinks improved Targets with nothing left to buy", () => {
+        const retained = record("held-new", "retained", { kind: "key", keys: ["z"], metric: "latency" })
+        const regressed = record("regress-new", "regressed", { kind: "transition", pair: "er", metric: "latency" })
+        const due = record("due-new", "due")
+        // The regressed Target still registers as a live weakness; the retained
+        // and due ones no longer do, so their remaining worth is nothing — the
+        // frozen prescription impact must not keep them ranked as work.
+        const liveRegressed = candidate({ kind: "transition", pair: "er", metric: "latency" }, 2_000)
+        const result = projectProgressCoach(analysis([retained, regressed, due], [liveRegressed, candidate()]))
+        expect(result.targets.map((row) => [row.state, row.impactMsPer1000])).toEqual([
+            ["regressed", 2_000],
+            ["needs-work", 1_400],
+            ["due", null],
+            ["retained", null],
+        ])
     })
 
     it("defaults detail to the highest-ranked Target and keeps direct actions on each row", () => {
         const due = record("tion-new", "due")
         const held = record("er-new", "retained", { kind: "transition", pair: "er", metric: "latency" })
-        const result = projectProgressCoach(analysis([held, due]), null)
+        const result = projectProgressCoach(analysis([held, due]))
         expect(result.defaultTarget).toMatchObject({ label: "tion", state: "due", statusLabel: "Ready to revisit" })
         expect(result.defaultTarget.action?.href).toContain("/drill?target=gram")
         expect(result.defaultTarget.action?.href).toContain("policy=acquisition")
@@ -142,7 +155,7 @@ describe("projectProgressCoach", () => {
         const transferred = record("r-new", "transferred", { kind: "key", keys: ["r"], metric: "accuracy" })
         transferred.prescription = { ...transferred.prescription, metric: "%", direction: "higher", baseline: 88 }
         transferred.proof = { ...transferred.proof, metric: "%", baseline: 88, bestAcquisition: 95, transfer: 96 }
-        const result = projectProgressCoach(analysis([transferred]), null)
+        const result = projectProgressCoach(analysis([transferred]))
         expect(result.defaultTarget).toMatchObject({ label: "r", state: "transferred", statusLabel: "Improved" })
         expect(result.defaultTarget.action?.href).toContain("/drill?target=key")
         expect(result.defaultTarget.headline).toBe("r improved in recent typing")
@@ -156,16 +169,12 @@ describe("projectProgressCoach", () => {
         const recommended = candidate(target, 9_000)
         const crowded = "oiutlcdbhgkwvzxq".split("").map((key, index) =>
             candidate({ kind: "key", keys: [key], metric: "accuracy" }, 8_000 - index * 100))
-        const session = {
-            version: 3, id: "today", dateKey: "2026-07-16", pool: "qwerty", language: "english", kind: "targeted",
-            reason: "", estimatedMinutes: 6, status: "completed", currentStepIndex: 2,
-            steps: [], prescription: transferred.prescription, createdAt: 1, updatedAt: 2,
-        } satisfies DailyCoachingSession
 
-        const result = projectProgressCoach(analysis([transferred], [recommended, ...crowded]), session)
+        const result = projectProgressCoach(analysis([transferred], [recommended, ...crowded]))
 
-        expect(result.defaultTarget.impactMsPer1000).toBe(8_000)
-        expect(result.targets.find((row) => row.label === "r")).toMatchObject({ state: "training", statusLabel: "Practising" })
+        // The coached row carries its live worth (9,000), so it also leads.
+        expect(result.defaultTarget.impactMsPer1000).toBe(9_000)
+        expect(result.targets.find((row) => row.label === "r")).toMatchObject({ state: "training", statusLabel: "Practising", impactMsPer1000: 9_000 })
         expect(result.targets.filter((row) => row.state === "needs-work")).toHaveLength(12)
     })
 
@@ -180,24 +189,18 @@ describe("projectProgressCoach", () => {
             candidate({ kind: "movement", movement: "same-finger", anchors: ["ed"] }, 100),
         ]
 
-        const result = projectProgressCoach(analysis([], candidates), null)
+        const result = projectProgressCoach(analysis([], candidates))
 
         expect(result.targets.slice(0, 6).map((row) => row.label)).toEqual(["a", "b", "c", "d", "a→b", "tion"])
         expect(result.targets.findIndex((row) => row.label === "this movement"))
             .toBeGreaterThan(result.targets.findIndex((row) => row.label === "d"))
     })
 
-    it("uses the frozen current session Target ahead of another due row", () => {
+    it("ranks a still-weak training Target by live worth ahead of a due row with none", () => {
         const due = record("tion-new", "due")
         const current = record("er-new", "training", { kind: "transition", pair: "er", metric: "latency" })
-        const session = {
-            version: 3, id: "today", dateKey: "2026-07-16", pool: "qwerty", language: "english", kind: "targeted",
-            reason: "", estimatedMinutes: 6, status: "active", currentStepIndex: 0,
-            steps: [{ id: "focus", kind: "focus", context: "acquisition", title: "Acquire", detail: "", href: "/", target: current.target, sets: [] }],
-            prescription: current.prescription, createdAt: 1, updatedAt: 1,
-        } satisfies DailyCoachingSession
-        current.prescription = { ...current.prescription, impactMsPer1000: 5_000 }
-        const result = projectProgressCoach(analysis([due, current]), session)
+        const live = candidate({ kind: "transition", pair: "er", metric: "latency" }, 5_000)
+        const result = projectProgressCoach(analysis([due, current], [live]))
         expect(result.defaultTarget.label).toBe("e→r")
         expect(result.targets[0]).toMatchObject({ label: "e→r", state: "training", impactMsPer1000: 5_000 })
     })
@@ -208,7 +211,7 @@ describe("projectProgressCoach", () => {
         accuracy.proof = {
             ...accuracy.proof, metric: "%", baseline: 88, bestAcquisition: 94, transfer: 95, cold: 96,
         }
-        const row = projectProgressCoach(analysis([accuracy]), null).targets[0]!
+        const row = projectProgressCoach(analysis([accuracy])).targets[0]!
         expect(row.direction).toBe("higher")
         expect(row.stages.map((stage) => `${stage.label} ${stage.value}`)).toEqual([
             "Baseline 88.0%", "Recent 96.0%",
@@ -223,7 +226,7 @@ describe("projectProgressCoach", () => {
         const correction = candidate({ kind: "correction", expected: "r", typed: "t" }, 700)
         correction.reason = { code: "correction_confusion_recurs", expected: "r", typed: "t", errors: 4, errorRatePct: 20 }
 
-        const result = projectProgressCoach(analysis([], [movement, correction]), null)
+        const result = projectProgressCoach(analysis([], [movement, correction]))
         const movementRow = result.targets.find((row) => row.family === "movement")!
         const correctionRow = result.targets.find((row) => row.family === "correction")!
 

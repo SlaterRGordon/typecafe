@@ -1,4 +1,4 @@
-import type { DailyCoachingSession, FrozenRecommendation } from "./dailyCoaching"
+import type { FrozenRecommendation } from "./dailyCoaching"
 import { sameCoachingTarget, targetAction, targetDisplayLabel, type CoachingTarget } from "./coachingTarget"
 import type { MasteryRecord, SkillAnalysis, SkillCandidate, SkillReason, TargetProof } from "./skillEvidence"
 
@@ -43,13 +43,6 @@ export function progressImpactTone(impactMsPer1000: number | null, leadingImpact
     return "minor"
 }
 
-export interface ProgressCoachEpisode {
-    id: string
-    date: string
-    statusLabel: string
-    stages: ProgressCoachStage[]
-}
-
 export interface ProgressCoachTarget {
     id: string
     target: CoachingTarget | null
@@ -69,12 +62,10 @@ export interface ProgressCoachTarget {
     episodeCount: number
     filter: ProgressCoachCategory
     lastEvidenceDate: string | null
-    impact: string | null
     impactMsPer1000: number | null
     trend: ProgressCoachTrend | null
     trendSource: "ability" | "practice" | null
     practice: ProgressPracticeSummary | null
-    episodes: ProgressCoachEpisode[]
 }
 
 export interface ProgressCoachProjection {
@@ -258,27 +249,27 @@ function statusCopy(state: MasteryRecord["state"], label: string, record: Master
     if (state === "due") return {
         statusLabel: "Ready to revisit",
         headline: `Practise ${label} again`,
-        detail: "The earlier improvement is old enough to revisit. Practise directly; recent representative typing remains the ability score.",
+        detail: "The earlier gain is old enough to be worth a fresh rep.",
     }
     if (state === "regressed") return {
         statusLabel: "Needs a refresh",
         headline: `Refresh ${label}`,
-        detail: "Recent natural typing slipped past the earlier weakness threshold. A short focused drill is the useful next step.",
+        detail: "Recent natural typing slipped back past the earlier weakness threshold.",
     }
     if (state === "retained") return {
         statusLabel: "Held",
         headline: `Your ${label} gain held`,
-        detail: `${record.heldColdChecks} delayed ${record.heldColdChecks === 1 ? "check has" : "checks have"} held. You can still practise this Target whenever you want.${record.practicedDaysUntilDue ? ` Another check is useful after ${record.practicedDaysUntilDue} practised ${record.practicedDaysUntilDue === 1 ? "day" : "days"}.` : ""}`,
+        detail: `The gain held across ${record.heldColdChecks} delayed ${record.heldColdChecks === 1 ? "check" : "checks"}.`,
     }
     if (state === "transferred") return {
         statusLabel: "Improved",
         headline: `${label} improved in recent typing`,
-        detail: "Representative typing improved beyond the focused drill. A later check will show whether the gain holds.",
+        detail: "Representative typing beat the earlier baseline.",
     }
     return {
         statusLabel: "Practising",
         headline: `Keep building ${label}`,
-        detail: "Focused practice has started. The recent ability score changes only when representative typing provides enough evidence.",
+        detail: "Drills log as practice; ability moves only with representative typing.",
     }
 }
 
@@ -323,21 +314,14 @@ function rowFromRecord(record: MasteryRecord, records: readonly MasteryRecord[],
         action: actionFor(record),
         episodeCount: records.length,
         lastEvidenceDate: record.lastEvidenceDate,
-        impact: record.prescription.impactMsPer1000 > 0
-            ? `Estimated impact ${(record.prescription.impactMsPer1000 / 1_000).toFixed(1)}s per 1,000 characters`
-            : null,
-        impactMsPer1000: record.prescription.impactMsPer1000 > 0 ? record.prescription.impactMsPer1000 : null,
+        // Worth is the *remaining* estimated cost, so it follows the live
+        // weakness ranking. A coached Target whose weakness no longer registers
+        // has nothing left to buy; the prescription-time impact is history, and
+        // freezing it made improvement look like standing still.
+        impactMsPer1000: candidate && candidate.impactMsPer1000 > 0 ? candidate.impactMsPer1000 : null,
         trend: trendFor(stages, directionFor(record.prescription), record.proof.metric),
         trendSource: stages.length > 1 ? "ability" : null,
         practice,
-        episodes: [...records]
-            .sort((a, b) => b.lastEvidenceDate.localeCompare(a.lastEvidenceDate) || b.id.localeCompare(a.id))
-            .map((episode) => ({
-                id: episode.id,
-                date: episode.lastEvidenceDate,
-                statusLabel: statusCopy(episode.state, targetDisplayLabel(episode.target), episode).statusLabel,
-                stages: stagesFor(episode.proof),
-            })),
     }
 }
 
@@ -359,10 +343,22 @@ function candidateSeenWords(candidate: SkillCandidate): readonly string[] | unde
     return undefined
 }
 
+// Drill-vs-drill only: drill text is Target-saturated, so comparing a drill
+// value against the natural median is nearly automatic "improvement".
+function practiceTrend(
+    response: SkillCandidate["response"],
+    direction: "lower" | "higher",
+    metric: "ms" | "%" | "wpm",
+): ProgressCoachTrend | null {
+    if (response?.firstRunValue === undefined || response.lastRunValue === undefined) return null
+    return trendBetween(response.firstRunValue, response.lastRunValue, direction, metric)
+}
+
 function candidateTarget(candidate: SkillCandidate): ProgressCoachTarget {
     const label = targetDisplayLabel(candidate.target)
     const action = targetAction(candidate.target, "acquisition", { length: 30, seenWords: candidateSeenWords(candidate) })
     const presentation = targetPresentation(candidate.target)
+    const trend = practiceTrend(candidate.response, candidate.direction, candidate.metric)
     return {
         id: targetKey(candidate.target),
         target: candidate.target,
@@ -380,20 +376,14 @@ function candidateTarget(candidate: SkillCandidate): ProgressCoachTarget {
         action: { href: action.href, label: action.label },
         episodeCount: 0,
         lastEvidenceDate: null,
-        impact: candidate.impactMsPer1000 > 0
-            ? `Estimated impact ${(candidate.impactMsPer1000 / 1_000).toFixed(1)}s per 1,000 characters`
-            : null,
         impactMsPer1000: candidate.impactMsPer1000 > 0 ? candidate.impactMsPer1000 : null,
-        trend: candidate.response
-            ? trendBetween(candidate.observed, candidate.response.value, candidate.direction, candidate.metric)
-            : null,
-        trendSource: candidate.response ? "practice" : null,
+        trend,
+        trendSource: trend ? "practice" : null,
         practice: candidate.response ? {
             completedDrills: candidate.response.runCount,
             sampleCount: candidate.response.sampleCount,
             value: metricValue(candidate.response.value, candidate.metric),
         } : null,
-        episodes: [],
     }
 }
 
@@ -417,20 +407,15 @@ function calibrationTarget(): ProgressCoachTarget {
         episodeCount: 0,
         filter: "other",
         lastEvidenceDate: null,
-        impact: null,
         impactMsPer1000: null,
         trend: null,
         trendSource: null,
         practice: null,
-        episodes: [],
     }
 }
 
 /** Pure Progress view-model: merges detected weaknesses and coached proof by Target identity. */
-export function projectProgressCoach(
-    analysis: SkillAnalysis,
-    _session: DailyCoachingSession | null,
-): ProgressCoachProjection {
+export function projectProgressCoach(analysis: SkillAnalysis): ProgressCoachProjection {
     const episodes = new Map<string, MasteryRecord[]>()
     for (const record of analysis.mastery) {
         const key = targetKey(record.target)
