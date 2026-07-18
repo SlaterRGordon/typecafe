@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest"
 import {
+    drillTargetToken,
     parseCoachingTargetQuery,
+    parseDrillTargetToken,
     targetAccuracyPolicy,
     targetAction,
     targetDisplayLabel,
@@ -45,6 +47,26 @@ describe("coaching target query adapter", () => {
         expect(action).toMatchObject({ surface: "test", label: "Check endurance" })
         expect(action.href).toContain("/?mode=timed&count=60")
         expect(action.href).toContain("shortSeconds=30&longSeconds=60&policy=transfer")
+    })
+
+    it("round-trips every target kind through the persisted drill token and stays within the options cap", () => {
+        const targets: CoachingTarget[] = [
+            { kind: "key", keys: ["e", "é"], metric: "latency" },
+            { kind: "transition", pair: "br", metric: "accuracy" },
+            { kind: "gram", gram: "ing" },
+            { kind: "word", words: ["together", "thought", "through", "whether", "weather", "brother"], sharedGram: "ther" },
+            { kind: "movement", movement: "same-finger", anchors: ["fr", "de", "sw", "aq", "lo", "ki", "ju", "hy"] },
+            { kind: "correction", expected: "q", typed: "x" },
+        ]
+        for (const target of targets) {
+            const token = drillTargetToken(target)
+            expect(token.length).toBeLessThanOrEqual(250)
+            expect(parseDrillTargetToken(token)).toEqual(target)
+        }
+        expect(parseDrillTargetToken("")).toBeNull()
+        expect(parseDrillTargetToken("Level 3")).toBeNull()
+        expect(parseDrillTargetToken("target:{broken")).toBeNull()
+        expect(parseDrillTargetToken('target:{"kind":"key","keys":[],"metric":"latency"}')).toBeNull()
     })
 
     it("uses a no-rush perfect-accuracy policy for inaccurate transitions and corrections", () => {

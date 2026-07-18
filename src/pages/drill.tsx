@@ -215,6 +215,7 @@ const Drill: NextPage = () => {
                 targets: words,
                 text: compileDrillText({ words, wordList, length }),
                 evidenceContext: DRILL_EVIDENCE_CONTEXT,
+                coachingTarget: { kind: "word", words },
                 policy: "acquisition",
             }
         }
@@ -532,6 +533,7 @@ const Drill: NextPage = () => {
                                         language={language}
                                         mode={TestModes.normal}
                                         evidenceContext={config.evidenceContext}
+                                        drillTarget={config.coachingTarget}
                                         subMode={config.kind === "timed" ? TestSubModes.timed : TestSubModes.words}
                                         gramSource={TestGramSources.bigrams}
                                         gramScope={TestGramScopes.fifty}

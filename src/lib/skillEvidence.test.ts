@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest"
+import { drillTargetToken } from "./coachingTarget"
 import type { EvidenceContext } from "./evidenceContext"
 import type { TimelineEvidence } from "./evidenceNormalization"
 import { encodeTimeline, type TestEvidenceEvent } from "./keystrokes"
@@ -177,13 +178,40 @@ describe("analyzeTypingEvidence", () => {
             ...baseline(40),
             { pair: "br", gap: 160, repeats: 4 },
         ]))
-        const acquisition = pairTimeline(3, [{ pair: "br", gap: 90, repeats: 8 }], "acquisition")
+        const acquisition = {
+            ...pairTimeline(3, [{ pair: "br", gap: 90, repeats: 8 }], "acquisition"),
+            options: drillTargetToken({ kind: "transition", pair: "br", metric: "latency" }),
+        }
 
         const candidate = analyzeTypingEvidence({ timelines: [...natural, acquisition] })
             .candidates.find((item) => item.id === "transition:latency:br")
 
         expect(candidate?.observed).toBe(160)
         expect(candidate?.response).toEqual({ context: "acquisition", value: 90, sampleCount: 8, runCount: 1 })
+    })
+
+    it("attributes drill volume only to the Target the drill was launched for", () => {
+        const natural = [1, 2].map((testId) => pairTimeline(testId, [
+            ...baseline(40),
+            { pair: "br", gap: 160, repeats: 4 },
+        ]))
+        // Both drills contain the br pair, but only one was launched for it: an
+        // untagged legacy run and a run drilled for another Target count for
+        // nothing and for their own Target respectively.
+        const untagged = pairTimeline(3, [{ pair: "br", gap: 90, repeats: 8 }], "acquisition")
+        const otherTarget = {
+            ...pairTimeline(4, [{ pair: "br", gap: 90, repeats: 8 }], "acquisition"),
+            options: drillTargetToken({ kind: "key", keys: ["q"], metric: "accuracy" }),
+        }
+        const forBr = {
+            ...pairTimeline(5, [{ pair: "br", gap: 85, repeats: 6 }], "acquisition"),
+            options: drillTargetToken({ kind: "transition", pair: "br", metric: "latency" }),
+        }
+
+        const candidate = analyzeTypingEvidence({ timelines: [...natural, untagged, otherTarget, forBr] })
+            .candidates.find((item) => item.id === "transition:latency:br")
+
+        expect(candidate?.response).toEqual({ context: "acquisition", value: 85, sampleCount: 6, runCount: 1 })
     })
 
     it("generates key latency and accuracy candidates", () => {

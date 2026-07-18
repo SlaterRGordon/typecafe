@@ -84,13 +84,16 @@ test.describe("drill page", () => {
         request.onerror = () => reject(new Error("Could not open guest evidence", { cause: request.error }))
       })
       const allRequest = database.transaction("guestEvidenceTests", "readonly").objectStore("guestEvidenceTests").getAll()
-      const contexts = await new Promise<string[]>((resolve, reject) => {
-        allRequest.onsuccess = () => resolve((allRequest.result as Array<{ context?: string }>).flatMap((item) => item.context ? [item.context] : []))
+      const saved = await new Promise<string[]>((resolve, reject) => {
+        allRequest.onsuccess = () => resolve((allRequest.result as Array<{ context?: string, config?: { options?: string } }>)
+          .flatMap((item) => item.context ? [`${item.context}|${item.config?.options ?? ""}`] : []))
         allRequest.onerror = () => reject(new Error("Could not read guest evidence", { cause: allRequest.error }))
       })
       database.close()
-      return contexts
-    })).toContain("acquisition")
+      return saved
+      // The run records the Target it was drilled for so analysis can attribute
+      // drill volume to it (and only it).
+    })).toContain('acquisition|target:{"kind":"key","keys":["x"],"metric":"accuracy"}')
     await expect(page.getByRole("link", { name: "Re-measure" })).toHaveAttribute("href", "/?mode=timed&count=30")
     // No lifetime evidence → no delta line. Depending on the generated words,
     // the completed rep may or may not contain enough repeated Transition

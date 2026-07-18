@@ -78,6 +78,26 @@ export function sameCoachingTarget(a: CoachingTarget | undefined, b: CoachingTar
     return !!a && !!b && JSON.stringify(a) === JSON.stringify(b)
 }
 
+// Acquisition runs record which Target they were launched for in the Test
+// row's otherwise-unused `options` slot (levels use it for level names; drills
+// stored "" before this token existed). Analysis attributes drill volume and
+// drill performance to a Target only through this token — "the drill text
+// happened to contain the key" is not attribution.
+const DRILL_TARGET_TOKEN_PREFIX = "target:"
+
+export function drillTargetToken(target: CoachingTarget): string {
+    return `${DRILL_TARGET_TOKEN_PREFIX}${JSON.stringify(target)}`
+}
+
+export function parseDrillTargetToken(options: string): CoachingTarget | null {
+    if (!options.startsWith(DRILL_TARGET_TOKEN_PREFIX)) return null
+    try {
+        return parseCoachingTarget(JSON.parse(options.slice(DRILL_TARGET_TOKEN_PREFIX.length)))
+    } catch {
+        return null
+    }
+}
+
 function first(value: QueryValue): string {
     return Array.isArray(value) ? value[0] ?? "" : value ?? ""
 }

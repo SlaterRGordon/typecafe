@@ -68,7 +68,7 @@ export function parseGuestEvidenceTest(value: unknown): GuestEvidenceTest | null
     if (!integer(item.completedAt, 0, Number.MAX_SAFE_INTEGER)) return null
     if (typeof item.context !== "string" || !EVIDENCE_CONTEXTS.includes(item.context as EvidenceContext)) return null
     if (!integer(config.mode, 0, 4) || !integer(config.subMode, 0, 1) || !integer(config.count, 1, 5000)) return null
-    if (typeof config.options !== "string" || config.options.length > 100) return null
+    if (typeof config.options !== "string" || config.options.length > 250) return null
     if (typeof config.punctuation !== "boolean" || typeof config.capitals !== "boolean" || typeof config.numbers !== "boolean") return null
     if (typeof config.layout !== "string" || config.layout.length < 1 || config.layout.length > 32) return null
     if (typeof config.language !== "string" || config.language.length < 1 || config.language.length > 64) return null

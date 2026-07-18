@@ -8,7 +8,7 @@ const configurationSchema = z.object({
     mode: z.number().int().min(0).max(4),
     subMode: z.number().int().min(0).max(1),
     count: z.number().int().min(1).max(5000),
-    options: z.string().max(100),
+    options: z.string().max(250),
     punctuation: z.boolean(),
     capitals: z.boolean(),
     numbers: z.boolean(),

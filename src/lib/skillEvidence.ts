@@ -9,7 +9,7 @@ import { isTrackableTransitionPair } from "./drillableTransitions"
 import { decodeEvidenceTimeline, timelineDurationMs, type KeystrokeEvent, type TestEvidenceEvent } from "./keystrokes"
 import { classifyMovement, type MovementKind } from "./movementClassification"
 import { evaluateTestEvidence } from "./testEvidence"
-import { sameCoachingTarget, type CoachingTarget } from "./coachingTarget"
+import { parseDrillTargetToken, sameCoachingTarget, type CoachingTarget } from "./coachingTarget"
 import type { DailyCoachingSession, FrozenRecommendation } from "./dailyCoaching"
 export type { CoachingTarget } from "./coachingTarget"
 
@@ -268,6 +268,9 @@ interface PreparedEvidence {
     pairFrequency: Map<string, number>
     gramFrequency: Map<string, number>
     wordFrequency: Map<string, number>
+    // testId -> the Target an acquisition run was launched for, from the
+    // persisted drill token. Runs without a token attribute to no Target.
+    drillTargets: Map<number, CoachingTarget>
     quality: EvidenceQuality
 }
 
@@ -403,6 +406,7 @@ function prepareEvidence(timelines: readonly TimelineEvidence[]): PreparedEviden
     const pairFrequency = new Map<string, number>()
     const gramFrequency = new Map<string, number>()
     const wordFrequency = new Map<string, number>()
+    const drillTargets = new Map<number, CoachingTarget>()
     const recencyWeights = timelineVolumeWeights(timelines)
     let frequencyCharacters = 0
     let excludedNonPositiveGaps = 0
@@ -420,7 +424,11 @@ function prepareEvidence(timelines: readonly TimelineEvidence[]): PreparedEviden
         if (!discovery && !acquisition) return
         if (discovery) discoveryTimelines += 1
         if (context === "natural") naturalTimelines += 1
-        if (acquisition) acquisitionTimelines += 1
+        if (acquisition) {
+            acquisitionTimelines += 1
+            const drilled = parseDrillTargetToken(timeline.options)
+            if (drilled) drillTargets.set(testId, drilled)
+        }
 
         const events = decodeEvidenceTimeline(timeline.timeline)
         const frequency = finalFrequency(events)
@@ -591,6 +599,7 @@ function prepareEvidence(timelines: readonly TimelineEvidence[]): PreparedEviden
         pairFrequency,
         gramFrequency,
         wordFrequency,
+        drillTargets,
         quality: {
             status: discoveryTimelines === 0 ? "none" : "thin",
             analyzedTimelines: timelines.length,
@@ -637,9 +646,16 @@ function acquisitionResponse(
     candidate: Pick<SkillCandidate, "target" | "metric">,
     evidence: PreparedEvidence,
 ): AcquisitionResponse | undefined {
-    const arrivals = evidence.arrivals.filter((sample) => sample.context === "acquisition")
-    const attempts = evidence.attempts.filter((sample) => sample.context === "acquisition")
     const target = candidate.target
+    // Only runs drilled *for* this Target count as its practice. Without this,
+    // any drill whose filler text contained the key attributed its volume and
+    // performance to every overlapping Target.
+    const drilledTests = new Set([...evidence.drillTargets]
+        .filter(([, drilled]) => sameCoachingTarget(drilled, target))
+        .map(([testId]) => testId))
+    if (drilledTests.size === 0) return undefined
+    const arrivals = evidence.arrivals.filter((sample) => sample.context === "acquisition" && drilledTests.has(sample.testId))
+    const attempts = evidence.attempts.filter((sample) => sample.context === "acquisition" && drilledTests.has(sample.testId))
     if (target.kind === "key") {
         const keys = new Set(target.keys)
         if (target.metric === "latency") {
@@ -664,7 +680,7 @@ function acquisitionResponse(
         return { context: "acquisition", value: confused / samples.length * 100, sampleCount: samples.length, runCount: distinct(samples.map((sample) => sample.testId)) }
     }
     if (target.kind === "gram") {
-        const samples = evidence.grams.filter((sample) => sample.context === "acquisition" && sample.gram === target.gram)
+        const samples = evidence.grams.filter((sample) => sample.context === "acquisition" && drilledTests.has(sample.testId) && sample.gram === target.gram)
         return samples.length ? {
             context: "acquisition", value: median(samples.map((sample) => sample.internalMs)),
             sampleCount: samples.length, runCount: distinct(samples.map((sample) => sample.testId)),
@@ -672,7 +688,7 @@ function acquisitionResponse(
     }
     if (target.kind === "word") {
         const words = new Set(target.words)
-        const samples = evidence.words.filter((sample) => sample.context === "acquisition" && words.has(sample.word))
+        const samples = evidence.words.filter((sample) => sample.context === "acquisition" && drilledTests.has(sample.testId) && words.has(sample.word))
         return samples.length ? {
             context: "acquisition", value: median(samples.map((sample) => sample.internalMs / sample.arrivals)),
             sampleCount: samples.length, runCount: distinct(samples.map((sample) => sample.testId)),

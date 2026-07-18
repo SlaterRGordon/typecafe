@@ -13,6 +13,7 @@ import type { KeystrokeRecorder } from "~/lib/keystrokeRecorder"
 import { isAnyModalOpen } from "~/lib/modals"
 import { isRankableTimeline } from "~/lib/antiCheat"
 import { runWhenIdle } from "~/lib/idle"
+import { drillTargetToken, type CoachingTarget } from "~/lib/coachingTarget"
 import { evidenceContextForRun, persistsSkillEvidence, type EvidenceContext } from "~/lib/evidenceContext"
 import { publishActiveKey } from "./keySignal"
 import { generateTestText } from "./hooks/useTestText"
@@ -51,6 +52,9 @@ interface TyperProps {
     // No-miss levels: a single error ends the run and fails it (never persisted).
     failOnMiss?: boolean,
     evidenceContext?: EvidenceContext,
+    // The coaching Target a drill was launched for; persisted in the saved
+    // test's options slot so analysis can attribute the run to that Target.
+    drillTarget?: CoachingTarget,
     onTestComplete?: (result: TestCompletionResult) => void,
     // Render the result instantly and patch in server fields when the save settles
     // (home only - see useTestPersistence). Pairs with onSavingChange for the loader.
@@ -433,7 +437,7 @@ export const Typer = (props: TyperProps) => {
                     persistCompletion(completion, {
                         typeId: testType.id,
                         count: count,
-                        options: level ? level.name : "",
+                        options: level ? level.name : props.drillTarget ? drillTargetToken(props.drillTarget) : "",
                         punctuation,
                         capitals,
                         numbers,
@@ -476,7 +480,7 @@ export const Typer = (props: TyperProps) => {
                     mode,
                     subMode,
                     count,
-                    options: level?.name ?? "",
+                    options: level?.name ?? (props.drillTarget ? drillTargetToken(props.drillTarget) : ""),
                     punctuation,
                     capitals,
                     numbers,
@@ -491,7 +495,7 @@ export const Typer = (props: TyperProps) => {
         recorder, isCompletionValid, isTimed, pause, getStats, buildCompletion, mode, levelRequirements,
         sessionData, testType, persistCompletion, count, level, punctuation,
         capitals, numbers, props.gramWpmThreshold, props.gramAccuracyThreshold,
-        props.challengeDate, props.failOnMiss, recordPassedLevel, syncCharAttempts, syncTransitions,
+        props.challengeDate, props.drillTarget, props.failOnMiss, recordPassedLevel, syncCharAttempts, syncTransitions,
         evidenceContext, persistGuestTimeline, subMode, language,
     ])
 

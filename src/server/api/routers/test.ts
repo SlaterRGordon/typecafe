@@ -467,7 +467,9 @@ export const testRouter = createTRPCRouter({
     .input(z.object({
       typeId: z.string(),
       count: z.number().int().min(1).max(5000),
-      options: z.string().max(100),
+      // Level name, or a drill's Target token (drillTargetToken) — the longest
+      // legitimate token is a word-family Target at ~170 characters.
+      options: z.string().max(250),
       punctuation: z.boolean().optional(),
       capitals: z.boolean().optional(),
       numbers: z.boolean().optional(),
