@@ -48,9 +48,8 @@ function trendTone(target: ProgressCoachTarget): string {
 }
 
 function rowStatus(target: ProgressCoachTarget): { label: string, className: string } | null {
-    if (target.isNextAction && target.action) return { label: "focus", className: "text-primary" }
     if (target.state === "transferred" || target.state === "retained") {
-        return { label: "transferred", className: "text-success" }
+        return { label: "improved", className: "text-success" }
     }
     return null
 }
@@ -100,10 +99,10 @@ function CoachHeadline({ target, color }: { target: ProgressCoachTarget, color: 
     if (!target.target) return <h2 className="text-xl font-bold leading-tight text-base-content">{target.headline}</h2>
     const before: Record<Exclude<ProgressCoachTarget["state"], "calibrating">, string> = {
         "needs-work": target.metric === "%" ? "Sharpen" : "Speed up",
-        due: "See whether",
+        due: "Practise",
         regressed: "Refresh",
         training: "Keep building",
-        transferred: "Improved in varied text",
+        transferred: "Improved in recent typing",
         retained: "Gain held for",
     }
     return (
@@ -112,7 +111,6 @@ function CoachHeadline({ target, color }: { target: ProgressCoachTarget, color: 
             <span aria-hidden="true" className="flex flex-wrap items-center gap-2">
                 <span>{before[target.state as Exclude<ProgressCoachTarget["state"], "calibrating">]}</span>
                 <TargetGlyph target={target} color={color} compact />
-                {target.state === "due" && <span>held</span>}
                 {target.impactMsPer1000 !== null && <span className="font-mono text-base" style={{ color }}>{worthLabel(target)}</span>}
             </span>
         </h2>
@@ -124,7 +122,7 @@ function ProofLine({ target }: { target: ProgressCoachTarget }) {
     const last = target.stages.at(-1)
     if (!first) return null
     return (
-        <div className="mt-2 flex flex-wrap items-center gap-2 font-mono text-xs text-base-content/60" aria-label={`${target.label} proof stages`}>
+        <div className="mt-2 flex flex-wrap items-center gap-2 font-mono text-xs text-base-content/60" aria-label={`${target.label} ability evidence`}>
             <span><span className="text-base-content/40">{first.label}</span> <strong className="text-base-content/85">{first.value}</strong></span>
             {last && last.key !== first.key && (
                 <>
@@ -136,9 +134,24 @@ function ProofLine({ target }: { target: ProgressCoachTarget }) {
                 <span className={`inline-flex items-center gap-1 font-semibold ${trendTone(target)}`}>
                     <span aria-hidden="true">{target.trend.arrow === "up" ? "▲" : "▼"}</span>
                     {target.trend.label}
+                    <span className="font-sans font-normal text-base-content/40">{target.trendSource === "practice" ? "in drills" : "ability"}</span>
                 </span>
             )}
+            {last?.sampleCount ? <span className="font-sans text-base-content/40">across {last.sampleCount} recent attempts</span> : null}
         </div>
+    )
+}
+
+function PracticeLine({ target }: { target: ProgressCoachTarget }) {
+    if (!target.practice) return <p className="mt-2 text-xs text-base-content/45">No focused drills completed for this Target yet.</p>
+    const drills = target.practice.completedDrills
+    return (
+        <p data-testid="target-practice-summary" className="mt-2 text-xs text-base-content/55">
+            <span className="font-semibold text-base-content/75">Practice:</span>{" "}
+            {drills} {drills === 1 ? "drill" : "drills"} completed
+            {target.practice.sampleCount > 0 ? ` · ${target.practice.sampleCount} target attempts` : ""}
+            {target.practice.value ? <> · <span className="font-mono font-semibold text-base-content/80">{target.practice.value}</span> in drills</> : null}
+        </p>
     )
 }
 
@@ -148,11 +161,12 @@ function CoachSummary({ target, color, contextLabel, action, extra }: { target: 
             <div className="min-w-0">
                 <div className="flex items-center gap-2 text-[0.65rem] font-bold uppercase tracking-[0.12em] text-base-content/50">
                     <span className={`h-1.5 w-1.5 rounded-full ${target.state === "regressed" ? "bg-error" : target.state === "due" ? "bg-warning" : "bg-primary"}`} />
-                    <span>Coach · {contextLabel}</span>
+                    <span>{contextLabel}</span>
                     <span className={stateTone(target)}>{target.statusLabel}</span>
                 </div>
                 <CoachHeadline target={target} color={color} />
                 <ProofLine target={target} />
+                <PracticeLine target={target} />
                 <p className="mt-1.5 line-clamp-2 text-xs leading-relaxed text-base-content/55 lg:sr-only">{target.detail}</p>
                 {extra}
             </div>
@@ -186,7 +200,7 @@ export function ProgressCoach({ projection, loading }: ProgressCoachProps) {
         [filter, projection],
     )
     const selected = projection?.targets.find((row) => row.id === selectedId) ?? null
-    const detail = selected ?? projection?.nextAction ?? null
+    const detail = selected ?? projection?.defaultTarget ?? null
     const maxImpact = useMemo(
         () => Math.max(0, ...(projection?.targets.map((target) => target.impactMsPer1000 ?? 0) ?? [])),
         [projection],
@@ -195,8 +209,6 @@ export function ProgressCoach({ projection, loading }: ProgressCoachProps) {
         item.key,
         item.key === "all" ? projection?.targets.length ?? 0 : projection?.targets.filter((target) => target.filter === item.key).length ?? 0,
     ])), [projection])
-    const hasNextAction = !!projection?.nextAction.action
-
     if (loading || !projection || !detail) {
         return (
             <section data-testid="progress-coach-loading" aria-busy="true" className="min-h-80 animate-pulse rounded-xl border border-base-content/10 bg-base-100/45 p-4">
@@ -208,16 +220,14 @@ export function ProgressCoach({ projection, loading }: ProgressCoachProps) {
     }
 
     const detailTone = progressImpactTone(detail.impactMsPer1000, maxImpact)
-    const nextTone = progressImpactTone(projection.nextAction.impactMsPer1000, maxImpact)
-
     return (
         <div data-testid="progress-coach" className="flex flex-col gap-3 lg:min-h-0">
-            <section data-testid="coach-detail" aria-live="polite" className="rounded-xl border border-primary/25 bg-base-100/45 p-4 lg:shrink-0">
-                <div className="hidden lg:block">
+            <section data-testid="coach-detail" aria-live="polite" className="hidden rounded-xl border border-base-content/10 bg-base-100/45 p-4 lg:block lg:shrink-0">
+                <div>
                     <CoachSummary
                         target={detail}
                         color={impactPalette[detailTone]}
-                        contextLabel={selected ? "Target detail" : hasNextAction ? "Next action" : "Latest result"}
+                        contextLabel="Target detail"
                         action={<ActionLink target={detail} compact />}
                         extra={selected && detail.episodes.length > 1 ? (
                             <ul className="mt-2 flex flex-wrap gap-1.5 text-[0.65rem] text-base-content/50" aria-label={`${detail.label} qualifying episodes`}>
@@ -230,17 +240,13 @@ export function ProgressCoach({ projection, loading }: ProgressCoachProps) {
                         ) : null}
                     />
                 </div>
-                <div className="lg:hidden">
-                    <CoachSummary target={projection.nextAction} color={impactPalette[nextTone]} contextLabel={hasNextAction ? "Next action" : "Latest result"} action={null} />
-                    <div className="mt-3"><ActionLink target={projection.nextAction} /></div>
-                </div>
             </section>
 
             <section data-testid="coach-targets" className="overflow-hidden rounded-xl border border-base-content/10 bg-base-100/45 lg:flex lg:h-[var(--progress-coach-height)] lg:min-h-0 lg:flex-none lg:flex-col">
                 <div className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="min-w-0">
                         <h2 className="text-base font-semibold text-base-content">Your targets</h2>
-                        <p className="mt-0.5 whitespace-nowrap text-[0.65rem] text-base-content/45">ranked by estimated worth · hover to practice</p>
+                        <p className="mt-0.5 whitespace-nowrap text-[0.65rem] text-base-content/45">ranked by estimated worth · select a row or practise directly</p>
                     </div>
                     <div data-testid="coach-target-filters" className="flex w-fit max-w-full shrink-0 gap-0.5 overflow-x-auto rounded-md border border-base-content/15 bg-base-200/50 p-0.5">
                         {FILTERS.map((item) => (
@@ -261,8 +267,8 @@ export function ProgressCoach({ projection, loading }: ProgressCoachProps) {
                     </div>
                 </div>
 
-                <div className="hidden grid-cols-[minmax(0,1fr)_5.25rem_5.25rem_6.25rem] gap-2 border-y border-base-content/10 px-3 py-2 font-mono text-[0.6rem] uppercase tracking-[0.1em] text-base-content/40 lg:grid">
-                    <span>Target</span><span className="text-center">Recent</span><span className="text-center">Trend</span><span className="text-center">Worth</span>
+                <div className="hidden grid-cols-[minmax(0,1fr)_5.25rem_8.25rem_8.25rem] gap-2 border-y border-base-content/10 px-3 py-2 font-mono text-[0.6rem] uppercase tracking-[0.1em] text-base-content/40 lg:grid">
+                    <span>Target</span><span className="text-center">Recent ability</span><span className="text-center">Progress</span><span className="text-center">Worth</span>
                 </div>
 
                 {rows.length === 0 ? (
@@ -277,17 +283,17 @@ export function ProgressCoach({ projection, loading }: ProgressCoachProps) {
                                 const tone = progressImpactTone(row.impactMsPer1000, maxImpact)
                                 const color = impactPalette[tone]
                                 const status = rowStatus(row)
-                                const latest = row.stages.at(-1)
+                                const latest = row.stages.find((stage) => stage.key === "recent")
                                 const fill = maxImpact > 0 ? Math.max(4, Math.round(((row.impactMsPer1000 ?? 0) / maxImpact) * 100)) : 0
                                 return (
                                     <li key={row.id} data-testid={`coach-target-row-${row.id}`} data-selected={expanded ? "" : undefined} className={`group relative ${index >= 5 && !showAllTargets ? "hidden lg:list-item" : ""}`}>
                                         <span aria-hidden="true" className="absolute bottom-1.5 left-0 top-1.5 z-10 w-1 rounded-r-full" style={{ backgroundColor: color }} />
-                                        <div className={`relative px-3 transition ${expanded ? "bg-primary/15 ring-1 ring-inset ring-primary/35" : row.isNextAction ? "bg-primary/7" : "hover:bg-base-content/5"} lg:grid lg:grid-cols-[minmax(0,1fr)_6.25rem]`}>
+                                        <div className={`relative px-3 transition ${expanded ? "bg-primary/15 ring-1 ring-inset ring-primary/35" : "hover:bg-base-content/5"} lg:grid lg:grid-cols-[minmax(0,1fr)_8.25rem]`}>
                                             <button
                                                 type="button"
                                                 aria-expanded={expanded}
                                                 onClick={() => setSelectedId(expanded ? null : row.id)}
-                                                className="grid min-h-[4.25rem] w-full min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 py-2 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary lg:col-span-1 lg:grid-cols-[minmax(0,1fr)_5.25rem_5.25rem]"
+                                                className="grid min-h-[4.25rem] w-full min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 py-2 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary lg:col-span-1 lg:grid-cols-[minmax(0,1fr)_6.25rem_8.25rem]"
                                             >
                                                 <span className="grid min-w-0 grid-cols-[7rem_minmax(0,1fr)] items-center">
                                                     <TargetGlyph target={row} color={color} />
@@ -309,7 +315,7 @@ export function ProgressCoach({ projection, loading }: ProgressCoachProps) {
                                                 </span>
                                                 <span className={`hidden items-center justify-center gap-1 text-center font-mono text-[0.65rem] font-semibold lg:flex ${trendTone(row)}`}>
                                                     {row.trend ? (
-                                                        <><span aria-hidden="true">{row.trend.arrow === "up" ? "▲" : "▼"}</span><span>{row.trend.label}</span></>
+                                                        <><span aria-hidden="true">{row.trend.arrow === "up" ? "▲" : "▼"}</span><span>{row.trend.label}</span>{row.trendSource === "practice" && <span className="font-sans font-normal text-base-content/35">drill</span>}</>
                                                     ) : "—"}
                                                 </span>
                                             </button>
@@ -335,6 +341,7 @@ export function ProgressCoach({ projection, loading }: ProgressCoachProps) {
                                             <div data-testid="coach-inline-detail" className="mx-3 mb-3 rounded-lg border border-base-content/15 bg-base-200/35 p-3 lg:hidden">
                                                 <p className="text-sm text-base-content/70">{row.detail}</p>
                                                 <ProofLine target={row} />
+                                                <PracticeLine target={row} />
                                                 {row.episodes.length > 1 && (
                                                     <ul className="mt-3 space-y-1 border-t border-base-content/10 pt-2 text-xs text-base-content/60" aria-label={`${row.label} qualifying episodes`}>
                                                         {row.episodes.map((episode) => (
@@ -375,9 +382,9 @@ export function ProgressCoach({ projection, loading }: ProgressCoachProps) {
                         doing fine
                     </span>
                     <span data-testid="coach-trend-legend" className="inline-flex items-center gap-1.5">
-                        <span className="inline-flex items-center gap-0.5 text-success"><span aria-hidden="true" className="tracking-[-0.2em]">▲▼</span> improving</span>
+                        <span className="inline-flex items-center gap-0.5 text-success"><span aria-hidden="true" className="tracking-[-0.2em]">▲&nbsp;</span> improving</span>
                         <span aria-hidden="true">·</span>
-                        <span className="inline-flex items-center gap-0.5 text-error"><span aria-hidden="true" className="tracking-[-0.2em]">▲▼</span> slipping</span>
+                        <span className="inline-flex items-center gap-0.5 text-error"><span aria-hidden="true" className="tracking-[-0.2em]">▼&nbsp;</span> slipping</span>
                     </span>
                 </div>
             </section>

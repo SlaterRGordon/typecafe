@@ -51,6 +51,9 @@ export function useTestPersistence({ evidenceContext, charAttemptsRef, onTestCom
     const [layout] = useLayout()
     const pool = statsPoolFor(layout)
     const pendingCompletionRef = useRef<TestCompletionResult | null>(null)
+    const practiceSyncInFlightRef = useRef(false)
+    const practiceSyncQueuedRef = useRef(false)
+    const syncCharAttemptsRef = useRef<() => void>(() => undefined)
 
     const createTest = api.test.create.useMutation({
         onSuccess: (test) => {
@@ -113,9 +116,16 @@ export function useTestPersistence({ evidenceContext, charAttemptsRef, onTestCom
     const { mutate: syncPracticeStats } = api.practiceStats.batchSync.useMutation({
         onSuccess: (_data, variables) => {
             drainSyncedAttempts(charAttemptsRef.current, variables.stats)
+            practiceSyncInFlightRef.current = false
             void utils.practiceStats.get.invalidate()
+            if (practiceSyncQueuedRef.current) {
+                practiceSyncQueuedRef.current = false
+                queueMicrotask(() => syncCharAttemptsRef.current())
+            }
         },
         onError: (error) => {
+            practiceSyncInFlightRef.current = false
+            practiceSyncQueuedRef.current = false
             console.error(error)
         },
     })
@@ -146,6 +156,15 @@ export function useTestPersistence({ evidenceContext, charAttemptsRef, onTestCom
     // wherever it happens. Ngrams is excluded by the callers in Typer because its
     // repeated-gram text would skew the per-key picture.
     const syncCharAttempts = useCallback(() => {
+        // Completion and restart can both schedule an idle flush before the
+        // first request settles. Keep one lifetime-stats write in flight so the
+        // same snapshot is never counted twice; later attempts remain in the
+        // map and are picked up by the next flush.
+        if (practiceSyncInFlightRef.current) {
+            practiceSyncQueuedRef.current = true
+            return
+        }
+
         const stats = Array.from(charAttemptsRef.current.entries()).map(
             ([character, value]) => ({
                 character,
@@ -170,8 +189,11 @@ export function useTestPersistence({ evidenceContext, charAttemptsRef, onTestCom
             return
         }
 
+        practiceSyncInFlightRef.current = true
         syncPracticeStats({ stats, pool })
     }, [charAttemptsRef, sessionData?.user, syncPracticeStats, pool])
+
+    syncCharAttemptsRef.current = syncCharAttempts
 
     return { sessionData, persistCompletion, persistGuestTimeline, syncCharAttempts, syncTransitions, isSaving: createTest.isPending }
 }

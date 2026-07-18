@@ -183,7 +183,7 @@ describe("analyzeTypingEvidence", () => {
             .candidates.find((item) => item.id === "transition:latency:br")
 
         expect(candidate?.observed).toBe(160)
-        expect(candidate?.response).toEqual({ context: "acquisition", value: 90, sampleCount: 8 })
+        expect(candidate?.response).toEqual({ context: "acquisition", value: 90, sampleCount: 8, runCount: 1 })
     })
 
     it("generates key latency and accuracy candidates", () => {

@@ -1,4 +1,4 @@
-import { currentDailyStep, type DailyCoachingSession, type FrozenRecommendation } from "./dailyCoaching"
+import type { DailyCoachingSession, FrozenRecommendation } from "./dailyCoaching"
 import { sameCoachingTarget, targetAction, targetDisplayLabel, type CoachingTarget } from "./coachingTarget"
 import type { MasteryRecord, SkillAnalysis, SkillCandidate, SkillReason, TargetProof } from "./skillEvidence"
 
@@ -19,6 +19,12 @@ export interface ProgressCoachTrend {
     label: string
     arrow: "up" | "down"
     outcome: "good" | "bad" | "neutral"
+}
+
+export interface ProgressPracticeSummary {
+    completedDrills: number
+    sampleCount: number
+    value: string | null
 }
 
 export type ProgressImpactTone = "urgent" | "material" | "moderate" | "minor"
@@ -61,17 +67,18 @@ export interface ProgressCoachTarget {
     metric: "ms" | "%" | "wpm" | null
     action: { href: string, label: string } | null
     episodeCount: number
-    isNextAction: boolean
     filter: ProgressCoachCategory
     lastEvidenceDate: string | null
     impact: string | null
     impactMsPer1000: number | null
     trend: ProgressCoachTrend | null
+    trendSource: "ability" | "practice" | null
+    practice: ProgressPracticeSummary | null
     episodes: ProgressCoachEpisode[]
 }
 
 export interface ProgressCoachProjection {
-    nextAction: ProgressCoachTarget
+    defaultTarget: ProgressCoachTarget
     targets: ProgressCoachTarget[]
     targetLimit: number
 }
@@ -214,14 +221,13 @@ function stagesFor(proof: TargetProof): ProgressCoachStage[] {
         numericValue: proof.baseline,
         sampleCount: proof.sampleCounts.baseline,
     }]
-    if (proof.bestAcquisition !== undefined) stages.push({
-        key: "practice", label: "Practice", value: metricValue(proof.bestAcquisition, proof.metric), numericValue: proof.bestAcquisition, sampleCount: 0,
-    })
-    if (proof.transfer !== undefined) stages.push({
-        key: "transfer", label: "Transfer", value: metricValue(proof.transfer, proof.metric), numericValue: proof.transfer, sampleCount: proof.sampleCounts.transfer,
-    })
-    if (proof.cold !== undefined) stages.push({
-        key: "cold", label: "Cold", value: metricValue(proof.cold, proof.metric), numericValue: proof.cold, sampleCount: proof.sampleCounts.cold,
+    const recent = proof.cold !== undefined
+        ? { value: proof.cold, samples: proof.sampleCounts.cold }
+        : proof.transfer !== undefined
+            ? { value: proof.transfer, samples: proof.sampleCounts.transfer }
+            : null
+    if (recent) stages.push({
+        key: "recent", label: "Recent", value: metricValue(recent.value, proof.metric), numericValue: recent.value, sampleCount: recent.samples,
     })
     return stages
 }
@@ -230,7 +236,7 @@ function trendBetween(before: number, after: number, direction: "lower" | "highe
     const delta = after - before
     const rounded = metric === "ms" ? Math.round(delta) : Math.round(delta * 10) / 10
     const amount = Math.abs(rounded).toFixed(metric === "ms" ? 0 : 1)
-    const suffix = metric === "%" ? " pp" : metric === "wpm" ? " WPM" : " ms"
+    const suffix = metric === "%" ? " %" : metric === "wpm" ? " WPM" : " ms"
     const improved = direction === "lower" ? delta < 0 : delta > 0
     return {
         label: `${amount}${suffix}`,
@@ -250,72 +256,80 @@ function directionFor(prescription: FrozenRecommendation): "lower" | "higher" {
 
 function statusCopy(state: MasteryRecord["state"], label: string, record: MasteryRecord): Pick<ProgressCoachTarget, "statusLabel" | "headline" | "detail"> {
     if (state === "due") return {
-        statusLabel: "Check due",
-        headline: `See whether your ${label} gain held`,
-        detail: "A delayed Cold check is due. Do it before warm practice so the result can advance Mastery.",
+        statusLabel: "Ready to revisit",
+        headline: `Practise ${label} again`,
+        detail: "The earlier improvement is old enough to revisit. Practise directly; recent representative typing remains the ability score.",
     }
     if (state === "regressed") return {
         statusLabel: "Needs a refresh",
         headline: `Refresh ${label}`,
-        detail: "Recent natural evidence crossed the frozen weakness threshold again. Rebuild the Target, then prove Transfer in varied text.",
+        detail: "Recent natural typing slipped past the earlier weakness threshold. A short focused drill is the useful next step.",
     }
     if (state === "retained") return {
         statusLabel: "Held",
         headline: `Your ${label} gain held`,
-        detail: `${record.heldColdChecks} delayed Cold ${record.heldColdChecks === 1 ? "check has" : "checks have"} held. No extra Drill is prescribed right now.${record.practicedDaysUntilDue ? ` Next check in ${record.practicedDaysUntilDue} practiced ${record.practicedDaysUntilDue === 1 ? "day" : "days"}.` : ""}`,
+        detail: `${record.heldColdChecks} delayed ${record.heldColdChecks === 1 ? "check has" : "checks have"} held. You can still practise this Target whenever you want.${record.practicedDaysUntilDue ? ` Another check is useful after ${record.practicedDaysUntilDue} practised ${record.practicedDaysUntilDue === 1 ? "day" : "days"}.` : ""}`,
     }
     if (state === "transferred") return {
-        statusLabel: "Transferred",
-        headline: `${label} improved in varied text`,
-        detail: "The gain transferred beyond focused practice. Its Cold check becomes eligible on the next practiced day.",
+        statusLabel: "Improved",
+        headline: `${label} improved in recent typing`,
+        detail: "Representative typing improved beyond the focused drill. A later check will show whether the gain holds.",
     }
     return {
-        statusLabel: "In training",
+        statusLabel: "Practising",
         headline: `Keep building ${label}`,
-        detail: "Focused practice has started, but varied Transfer evidence has not cleared the frozen threshold yet.",
+        detail: "Focused practice has started. The recent ability score changes only when representative typing provides enough evidence.",
     }
 }
 
-function actionFor(record: MasteryRecord, isCurrentTarget: boolean): ProgressCoachTarget["action"] {
-    if (record.state === "due") return { href: "/plan", label: "Start Cold check" }
-    if (record.state === "regressed") return isCurrentTarget
-        ? { href: "/plan", label: "Refresh in today’s plan" }
-        : { href: targetAction(record.target, "acquisition", { length: 30, seenWords: record.prescription.seenWords }).href, label: "Refresh Target" }
-    if (record.state === "training") return {
-        href: "/plan",
-        label: isCurrentTarget ? "Continue today’s plan" : "Continue with Coach",
-    }
-    return null
+function actionFor(record: MasteryRecord): ProgressCoachTarget["action"] {
+    const action = targetAction(record.target, "acquisition", { length: 30, seenWords: record.prescription.seenWords })
+    return { href: action.href, label: action.label }
 }
 
-function rowFromRecord(record: MasteryRecord, records: readonly MasteryRecord[], currentTarget: CoachingTarget | null, candidate: SkillCandidate | null): ProgressCoachTarget {
+function rowFromRecord(record: MasteryRecord, records: readonly MasteryRecord[], candidate: SkillCandidate | null): ProgressCoachTarget {
     const label = targetDisplayLabel(record.target)
-    const copy = statusCopy(record.state, label, record)
-    const isCurrentTarget = !!currentTarget && sameCoachingTarget(record.target, currentTarget)
+    // A warm/varied result can coexist with a still-weak rolling natural score
+    // on the same day. In that case the honest visible state is practising,
+    // not improved; only representative evidence may support the latter.
+    const state = record.state === "transferred" && candidate ? "training" : record.state
+    const copy = statusCopy(state, label, record)
     const stages = stagesFor(record.proof)
-    if (record.state === "regressed" && record.proof.cold === undefined && candidate?.metric === record.proof.metric) {
-        stages.push({ key: "recent", label: "Recent", value: metricValue(candidate.observed, candidate.metric), numericValue: candidate.observed, sampleCount: candidate.sampleCount })
+    if (candidate?.metric === record.proof.metric) {
+        const recent = { key: "recent" as const, label: "Recent" as const, value: metricValue(candidate.observed, candidate.metric), numericValue: candidate.observed, sampleCount: candidate.sampleCount }
+        const recentIndex = stages.findIndex((stage) => stage.key === "recent")
+        if (recentIndex >= 0) stages[recentIndex] = recent
+        else stages.push(recent)
     }
     const presentation = targetPresentation(record.target)
+    const practiceSets = records.reduce((sum, episode) => sum + (episode.practiceSets ?? 0), 0)
+    const practiceSamples = records.reduce((sum, episode) => sum + (episode.practiceSamples ?? 0), 0)
+    const response = record.response ?? candidate?.response
+    const practice = response
+        ? { completedDrills: response.runCount, sampleCount: response.sampleCount, value: metricValue(response.value, record.proof.metric) }
+        : practiceSets > 0 || record.proof.bestAcquisition !== undefined
+            ? { completedDrills: practiceSets, sampleCount: practiceSamples, value: record.proof.bestAcquisition === undefined ? null : metricValue(record.proof.bestAcquisition, record.proof.metric) }
+            : null
     return {
         id: targetKey(record.target),
         target: record.target,
         label,
         ...presentation,
-        state: record.state,
+        state,
         ...copy,
         stages,
         direction: directionFor(record.prescription),
         metric: record.proof.metric,
-        action: actionFor(record, isCurrentTarget),
+        action: actionFor(record),
         episodeCount: records.length,
-        isNextAction: false,
         lastEvidenceDate: record.lastEvidenceDate,
         impact: record.prescription.impactMsPer1000 > 0
             ? `Estimated impact ${(record.prescription.impactMsPer1000 / 1_000).toFixed(1)}s per 1,000 characters`
             : null,
         impactMsPer1000: record.prescription.impactMsPer1000 > 0 ? record.prescription.impactMsPer1000 : null,
         trend: trendFor(stages, directionFor(record.prescription), record.proof.metric),
+        trendSource: stages.length > 1 ? "ability" : null,
+        practice,
         episodes: [...records]
             .sort((a, b) => b.lastEvidenceDate.localeCompare(a.lastEvidenceDate) || b.id.localeCompare(a.id))
             .map((episode) => ({
@@ -365,30 +379,21 @@ function candidateTarget(candidate: SkillCandidate): ProgressCoachTarget {
         metric: candidate.metric,
         action: { href: action.href, label: action.label },
         episodeCount: 0,
-        isNextAction: false,
         lastEvidenceDate: null,
         impact: candidate.impactMsPer1000 > 0
             ? `Estimated impact ${(candidate.impactMsPer1000 / 1_000).toFixed(1)}s per 1,000 characters`
             : null,
         impactMsPer1000: candidate.impactMsPer1000 > 0 ? candidate.impactMsPer1000 : null,
-        trend: trendBetween(candidate.baseline, candidate.observed, candidate.direction, candidate.metric),
+        trend: candidate.response
+            ? trendBetween(candidate.observed, candidate.response.value, candidate.direction, candidate.metric)
+            : null,
+        trendSource: candidate.response ? "practice" : null,
+        practice: candidate.response ? {
+            completedDrills: candidate.response.runCount,
+            sampleCount: candidate.response.sampleCount,
+            value: metricValue(candidate.response.value, candidate.metric),
+        } : null,
         episodes: [],
-    }
-}
-
-function nextActionFrom(row: ProgressCoachTarget): ProgressCoachTarget {
-    return {
-        ...row,
-        statusLabel: row.state === "needs-work" ? "Next Target" : row.statusLabel,
-        headline: row.state === "needs-work" ? `Work on ${row.label} next` : row.headline,
-        detail: row.state === "needs-work"
-            ? `${row.detail} It is the highest-Impact supported Target; the estimate is not a promise of WPM gained.`
-            : row.detail,
-        action: {
-            href: "/plan",
-            label: row.state === "due" ? "Start Cold check" : "Open today’s plan",
-        },
-        isNextAction: true,
     }
 }
 
@@ -404,33 +409,28 @@ function calibrationTarget(): ProgressCoachTarget {
         state: "calibrating",
         statusLabel: "Building evidence",
         headline: "Map your typing to find a stable Target",
-        detail: "One longer Test gives the coach enough repeated natural evidence to rank a useful Target.",
+        detail: "One longer Test gives TypeCafe enough repeated natural evidence to rank a useful Target.",
         stages: [],
         direction: null,
         metric: null,
-        action: { href: "/plan", label: "Start mapping Test" },
+        action: { href: "/?mode=timed&count=60", label: "Start mapping Test" },
         episodeCount: 0,
-        isNextAction: true,
         filter: "other",
         lastEvidenceDate: null,
         impact: null,
         impactMsPer1000: null,
         trend: null,
+        trendSource: null,
+        practice: null,
         episodes: [],
     }
-}
-
-function currentTarget(session: DailyCoachingSession | null): CoachingTarget | null {
-    if (!session || session.status === "completed") return null
-    return currentDailyStep(session)?.target ?? session.prescription?.target ?? null
 }
 
 /** Pure Progress view-model: merges detected weaknesses and coached proof by Target identity. */
 export function projectProgressCoach(
     analysis: SkillAnalysis,
-    session: DailyCoachingSession | null,
+    _session: DailyCoachingSession | null,
 ): ProgressCoachProjection {
-    const activeTarget = currentTarget(session)
     const episodes = new Map<string, MasteryRecord[]>()
     for (const record of analysis.mastery) {
         const key = targetKey(record.target)
@@ -439,7 +439,6 @@ export function projectProgressCoach(
     const masteryTargets = [...episodes.values()].map((records) => rowFromRecord(
         [...records].sort((a, b) => b.lastEvidenceDate.localeCompare(a.lastEvidenceDate) || b.id.localeCompare(a.id))[0]!,
         records,
-        activeTarget,
         analysis.candidates.find((candidate) => sameCoachingTarget(candidate.target, records[0]!.target)) ?? null,
     ))
     const masteryIds = new Set(masteryTargets.map((row) => row.id))
@@ -471,36 +470,12 @@ export function projectProgressCoach(
             || a.label.localeCompare(b.label))
         .slice(0, TARGET_LIMIT)
 
-    const activeRow = activeTarget ? targets.find((row) => row.target && sameCoachingTarget(row.target, activeTarget)) : null
-    const priorityRow = activeRow
-        ?? (analysis.recap.due ? targets.find((row) => row.target && sameCoachingTarget(row.target, analysis.recap.due!.target)) : null)
-        ?? (analysis.recap.regressed ? targets.find((row) => row.target && sameCoachingTarget(row.target, analysis.recap.regressed!.target)) : null)
-    const completedResult = session?.status === "completed" && session.prescription
-        ? targets.find((row) => row.target && row.state !== "needs-work" && sameCoachingTarget(row.target, session.prescription!.target))
-        : null
-    const prospectiveRow = (analysis.recommendation
-        ? targets.find((row) => row.state === "needs-work" && row.target && sameCoachingTarget(row.target, analysis.recommendation!.target))
-        : null)
-        // A recommendation can be absorbed by same-Target Mastery, and bounded
-        // or asynchronously refreshed evidence can briefly disagree. A visible
-        // actionable Target is still better than the contradictory calibration.
-        ?? targets.find((row) => row.state === "needs-work")
-    const latestResult = [...targets]
-        .filter((row) => row.state === "transferred" || row.state === "retained")
-        .sort((a, b) => (b.lastEvidenceDate ?? "").localeCompare(a.lastEvidenceDate ?? "") || a.label.localeCompare(b.label))[0]
-        ?? targets.find((row) => row.state === "training")
-    const nextAction = priorityRow
-        ? nextActionFrom(priorityRow)
-        : completedResult
-            ? { ...completedResult, isNextAction: true }
-            : prospectiveRow
-                ? nextActionFrom(prospectiveRow)
-        : latestResult
-            ? { ...latestResult, isNextAction: true }
-            : calibrationTarget()
+    // The default detail follows the same Impact ordering as the ledger. There
+    // is no separate prescribed Target; selecting any row is equally valid.
+    const defaultTarget = targets[0] ?? calibrationTarget()
     return {
-        nextAction,
-        targets: targets.map((row) => ({ ...row, isNextAction: !!nextAction.action && row.id === nextAction.id })),
+        defaultTarget,
+        targets,
         targetLimit: TARGET_LIMIT,
     }
 }

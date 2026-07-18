@@ -24,7 +24,6 @@ export const STATIC_ROUTES = [
     "/progress",
     "/leaderboard",
     "/challenge",
-    "/plan",
     "/guides",
     "/how-to-type-faster",
     "/how-ngrams-work",
@@ -47,7 +46,7 @@ function priorityFor(route: string): { priority: string; changefreq: string } {
     if (route === "/guides" || GUIDE_ROUTES.includes(route)) {
         return { priority: "0.7", changefreq: "monthly" };
     }
-    if (["/progress", "/train", "/drill", "/plan"].includes(route)) {
+    if (["/progress", "/train", "/drill"].includes(route)) {
         return { priority: "0.5", changefreq: "weekly" };
     }
     return { priority: "0.3", changefreq: "monthly" };

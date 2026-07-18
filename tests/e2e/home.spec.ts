@@ -302,35 +302,6 @@ test.describe("home typing test", () => {
     expect(scoreCreates).toBe(0);
   });
 
-  test("signed-in users get today's targeted coaching session", async ({ page }, testInfo) => {
-    await mockAuthenticatedSession(page);
-    await mockTrpc(page);
-    await gotoHome(page);
-
-    await expect(page.getByTestId("home-coach-tab-recap")).toHaveCount(0);
-    await expect(page.getByTestId("home-coach-tab-recap-inline")).toHaveCount(0);
-
-    if (testInfo.project.name.includes("mobile")) {
-      const inlineTab = page.getByTestId("home-coach-tab-daily-inline");
-      await expect(inlineTab).toBeVisible();
-      await expect(inlineTab).toContainText("Warm measure: 30-second Test");
-      await expect(inlineTab.getByRole("link", { name: "Start session" })).toHaveAttribute("href", "/?mode=timed&count=30");
-      return;
-    }
-
-    const tab = page.getByTestId("home-coach-tab-daily");
-    await expect(tab).toBeVisible();
-    const collapsedLink = tab.getByRole("link", { name: "Today's coaching" });
-    await expect(collapsedLink).toHaveAttribute("href", "/?mode=timed&count=30");
-    await expect(tab.getByText("0/3")).toBeVisible();
-    await tab.hover();
-    const panel = page.getByTestId("home-coach-tab-daily-panel");
-    await expect(collapsedLink).toHaveCSS("opacity", "0");
-    await expect(panel).toContainText("Warm measure: 30-second Test");
-    await expect(panel).toContainText("about 6 min");
-    await expect(panel.getByRole("link", { name: "Start session" })).toHaveAttribute("href", "/?mode=timed&count=30");
-  });
-
   test("signed-in users get a coach tab that drills their slowest transition", async ({ page }, testInfo) => {
     await mockAuthenticatedSession(page);
     await mockTrpc(page);
@@ -339,9 +310,9 @@ test.describe("home typing test", () => {
     if (testInfo.project.name.includes("mobile")) {
       const inlineTab = page.getByTestId("home-coach-tab-drill-inline");
       await expect(inlineTab).toBeVisible();
-      await expect(inlineTab.getByText("Fix this")).toBeVisible();
+      await expect(inlineTab.getByText("Practice", { exact: true })).toBeVisible();
       await expect(inlineTab).toContainText("b->r");
-      await expect(inlineTab.getByRole("link", { name: "Start drill" })).toHaveAttribute("href", "/drill?transitions=br");
+      await expect(inlineTab.getByRole("link", { name: "Practice target" })).toHaveAttribute("href", "/drill?transitions=br");
       await inlineTab.getByRole("button", { name: "Dismiss drill suggestion" }).click();
       await expect(inlineTab).toBeHidden();
       return;
@@ -349,16 +320,16 @@ test.describe("home typing test", () => {
 
     const tab = page.getByTestId("home-coach-tab-drill");
     await expect(tab).toBeVisible();
-    const collapsedLink = tab.getByRole("link", { name: "Targeted drill" });
+    const collapsedLink = tab.getByRole("link", { name: "Suggested target" });
     await expect(collapsedLink).toHaveAttribute("href", "/drill?transitions=br");
-    const collapsedLabel = tab.getByText("Fix this");
+    const collapsedLabel = tab.getByRole("link", { name: "Suggested target" });
     await expect(collapsedLabel).toBeVisible();
     await tab.hover();
     const panel = page.getByTestId("home-coach-tab-drill-panel");
     await expect(collapsedLink).toHaveCSS("opacity", "0");
     await expect(panel).toContainText("b->r");
     await expect(panel).toContainText("2.2x avg");
-    await expect(panel.getByRole("link", { name: "Start drill" })).toHaveAttribute("href", "/drill?transitions=br");
+    await expect(panel.getByRole("link", { name: "Practice target" })).toHaveAttribute("href", "/drill?transitions=br");
 
     // Dismissible - and stays gone for the session.
     await panel.getByRole("button", { name: "Dismiss drill suggestion" }).click();
@@ -389,7 +360,7 @@ test.describe("home typing test", () => {
       const inlineTab = page.getByTestId("home-coach-tab-drill-inline");
       await expect(inlineTab).toBeVisible();
       await expect(inlineTab).toContainText("b->r");
-      await expect(inlineTab.getByRole("link", { name: "Start drill" })).toHaveAttribute("href", "/drill?transitions=br");
+      await expect(inlineTab.getByRole("link", { name: "Practice target" })).toHaveAttribute("href", "/drill?transitions=br");
       return;
     }
 
@@ -398,42 +369,7 @@ test.describe("home typing test", () => {
     await tab.hover();
     const panel = page.getByTestId("home-coach-tab-drill-panel");
     await expect(panel).toContainText("b->r");
-    await expect(panel.getByRole("link", { name: "Start drill" })).toHaveAttribute("href", "/drill?transitions=br");
-  });
-
-  test("desktop coach tabs persist after leaving home", async ({ page }, testInfo) => {
-    test.skip(testInfo.project.name.includes("mobile"), "Rail coach tabs are desktop-only.");
-    await mockAuthenticatedSession(page);
-    await mockTrpc(page);
-    await gotoHome(page);
-
-    await expect(page.getByTestId("home-coach-tab-daily")).toBeVisible();
-    const nav = page.getByTestId("side-primary-nav");
-    const tabBox = await page.getByTestId("home-coach-tab-daily").boundingBox();
-    const dailyBox = await nav.getByRole("link", { name: "Daily coaching" }).boundingBox();
-    const progressBox = await nav.getByRole("link", { name: "Progress" }).boundingBox();
-    expect(tabBox).not.toBeNull();
-    expect(dailyBox).not.toBeNull();
-    expect(progressBox).not.toBeNull();
-    // Each flyout is its nav entry's live detail - it sits beside it: the
-    // daily tab beside Daily Coach, the drill tab beside Progress.
-    const tabCenterY = tabBox!.y + tabBox!.height / 2;
-    const dailyCenterY = dailyBox!.y + dailyBox!.height / 2;
-    const progressCenterY = progressBox!.y + progressBox!.height / 2;
-    expect(Math.abs(tabCenterY - dailyCenterY)).toBeLessThanOrEqual(2);
-    expect(Math.abs(tabCenterY - progressCenterY)).toBeGreaterThan(16);
-    const drillBox = await page.getByTestId("home-coach-tab-drill").boundingBox();
-    expect(drillBox).not.toBeNull();
-    const drillCenterY = drillBox!.y + drillBox!.height / 2;
-    expect(Math.abs(drillCenterY - progressCenterY)).toBeLessThanOrEqual(2);
-    await page.getByRole("link", { name: "Progress" }).click();
-    await expect(page).toHaveURL(/\/progress$/);
-    await expect(page.getByTestId("headline-delta")).toBeVisible();
-
-    const tab = page.getByTestId("home-coach-tab-daily");
-    await expect(tab).toBeVisible();
-    await tab.hover();
-    await expect(page.getByTestId("home-coach-tab-daily-panel")).toContainText("Warm measure: 30-second Test");
+    await expect(panel.getByRole("link", { name: "Practice target" })).toHaveAttribute("href", "/drill?transitions=br");
   });
 
   // Honest-review #1 (honest-review-2026-07.md): a zero-history visitor must
@@ -461,47 +397,6 @@ test.describe("home typing test", () => {
     await page.reload();
     await expect(page.locator("#words .char").first()).toBeVisible();
     await expect(page.getByTestId("first-visit-promise")).toHaveCount(0);
-  });
-
-  test("guests without history get a calibration coach tab", async ({ page }, testInfo) => {
-    await mockTrpc(page);
-    await gotoHome(page);
-    const testId = testInfo.project.name.includes("mobile") ? "home-coach-tab-daily-inline" : "home-coach-tab-daily";
-    const tab = page.getByTestId(testId);
-    await expect(tab).toBeVisible();
-    await expect(tab).toContainText("Map your typing");
-  });
-
-  test("guests with local history get a frozen targeted daily session", async ({ page }, testInfo) => {
-    // Local-first: same transitions the signed-in mock serves, seeded as guest evidence.
-    await page.addInitScript(() => {
-      window.localStorage.setItem("typecafe:transitionStats", JSON.stringify([
-        { pair: "br", count: 12, totalMs: 4800, errors: 3 },
-        { pair: "th", count: 30, totalMs: 3000, errors: 0 },
-        { pair: "he", count: 25, totalMs: 3000, errors: 0 },
-        { pair: "io", count: 10, totalMs: 3000, errors: 1 },
-      ]));
-    });
-    await mockTrpc(page);
-    await gotoHome(page);
-
-    if (testInfo.project.name.includes("mobile")) {
-      const inlineTab = page.getByTestId("home-coach-tab-daily-inline");
-      await expect(inlineTab).toBeVisible();
-      await expect(inlineTab).toContainText("Warm measure: 30-second Test");
-      return;
-    }
-
-    const tab = page.getByTestId("home-coach-tab-daily");
-    await expect(tab).toBeVisible();
-    await tab.hover();
-    const panel = page.getByTestId("home-coach-tab-daily-panel");
-    await expect(panel).toContainText("Warm measure: 30-second Test");
-    const stored: unknown = await page.evaluate(() => JSON.parse(window.localStorage.getItem("typecafe:dailyCoaching:guest") ?? "[]") as unknown);
-    expect(Array.isArray(stored)).toBe(true);
-    const first = (stored as Array<{ kind?: string, reason?: string }>)[0];
-    expect(first?.kind).toBe("targeted");
-    expect(first?.reason).toContain("b→r");
   });
 
   test("grams numeric knobs edit inline on the advanced line", async ({ page }) => {
@@ -849,7 +744,7 @@ test.describe("home typing test", () => {
     await expect(page.getByText("similar starters")).toHaveCount(0);
   });
 
-  test("Home and Today use the same Impact-ranked Timeline finding", async ({ page }, testInfo) => {
+  test("Home suggests the same Impact-ranked Target used by Progress", async ({ page }, testInfo) => {
     await mockAuthenticatedSession(page);
     await mockTrpc(page, {
       // The aggregate fallback would choose rare io (2x slower). Timeline cost
@@ -870,11 +765,10 @@ test.describe("home typing test", () => {
     if (!testInfo.project.name.includes("mobile")) await tab.hover();
     await expect(tab).toContainText("b->r");
     await expect(tab).toContainText("per 1k chars");
-    await expect(tab.getByRole("link", { name: "Start drill" })).toHaveAttribute("href", "/drill?transitions=br");
+    await expect(tab.getByRole("link", { name: "Practice target" })).toHaveAttribute("href", "/drill?transitions=br");
 
-    await page.goto("/plan");
-    await expect(page.locator("#main")).toContainText("b→r");
-    await expect(page.locator("#main")).toContainText("per 1,000 characters");
+    await page.goto("/progress");
+    await expect(page.getByTestId("coach-targets")).toContainText("b→r");
   });
 
   test("registers the first keystroke after the typing input loses focus", async ({ page }) => {

@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test"
 import { mockAuthenticatedSession, mockTrpc } from "./helpers/trpc"
-import { typeCurrentCharacter, typeVisibleTestText, typeWrongCharacter } from "./helpers/typing"
+import { typeCurrentCharacter, typeVisibleTestText } from "./helpers/typing"
 import french10k from "../../src/components/typer/languages/french10k.json"
 
 async function pressRestartShortcut(page: Parameters<typeof mockTrpc>[0], key: "Enter" | "Space") {
@@ -35,7 +35,6 @@ test.describe("drill page", () => {
       onProcedure: (procedure, input) => {
         if (procedure === "practiceStats.batchSync" && Array.isArray(input?.stats)) {
           syncedTotals.push((input.stats as { total: number }[]).reduce((sum, s) => sum + s.total, 0))
-          console.log("SYNC-DEBUG", Date.now(), JSON.stringify(input.stats))
         }
       },
     })
@@ -267,7 +266,7 @@ test.describe("drill page", () => {
     await expect(page.getByTestId("drill-session")).toContainText("2 reps")
   })
 
-  test("transition drill result computes the delta and picks the next-worst pair", async ({ page }, testInfo) => {
+  test("transition drill result computes the delta and picks the next-worst pair", async ({ page }) => {
     // br is the drilled pair (400ms mean); io (300ms) is the next-worst.
     await page.addInitScript(() => {
       window.localStorage.setItem("typecafe:transitionStats", JSON.stringify([
@@ -310,44 +309,6 @@ test.describe("drill page", () => {
     await expect(restatedStat).toContainText("ms on this jump")
     await expect(restatedStat).not.toContainText("400ms")
 
-    // Today's prescription is frozen even as the evidence underneath it moves.
-    // The coach may use io tomorrow; it must not rewrite today's active step.
-    if (!testInfo.project.name.includes("mobile")) {
-      const tab = page.getByTestId("home-coach-tab-daily")
-      await tab.hover()
-      const panel = page.getByTestId("home-coach-tab-daily-panel")
-      await expect(panel).toContainText("Warm measure: 30-second Test")
-    }
-  })
-
-  test("a completed drill does not rewrite today's calibration prescription", async ({ page }, testInfo) => {
-    test.skip(testInfo.project.name.includes("mobile"), "coach tabs are desktop-only outside the home page")
-    await mockTrpc(page)
-    await page.goto("/drill?keys=x&length=4")
-    await expect(page.getByTestId("drill-typer")).toBeVisible()
-    const tab = page.getByTestId("home-coach-tab-daily")
-    await expect(tab).toBeVisible()
-
-    // Miss every x, hit everything else - x becomes the only weak key.
-    await expect(page.locator("#c0")).toHaveClass(/active-char/)
-    const characters = await page.locator("#words .char").allTextContents()
-    // The typer drops keystrokes for a brief window after load; land the first.
-    await expect(async () => {
-      if (characters[0] === "x") await typeWrongCharacter(page, 0)
-      else await typeCurrentCharacter(page, 0)
-      await expect(page.locator("#c0")).not.toHaveClass(/active-char/, { timeout: 500 })
-    }).toPass({ timeout: 5_000 })
-    for (let i = 1; i < characters.length; i++) {
-      if (characters[i] === "x") await typeWrongCharacter(page, i)
-      else await typeCurrentCharacter(page, i)
-    }
-    await expect(page.getByTestId("drill-result")).toBeVisible()
-
-    // x is useful evidence for tomorrow, but today's three-step snapshot stays
-    // calibration instead of shifting under the user mid-session.
-    await tab.hover()
-    const panel = page.getByTestId("home-coach-tab-daily-panel")
-    await expect(panel).toContainText("Map your typing")
   })
 
   test("transition drill biases text toward the requested pair", async ({ page }) => {

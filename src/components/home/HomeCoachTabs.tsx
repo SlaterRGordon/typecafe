@@ -2,9 +2,8 @@ import Link from "next/link"
 import { useRouter } from "next/router"
 import { useEffect, useMemo, useState } from "react"
 import { MaterialNavIcon } from "~/components/navigation/MaterialNavIcon"
-import { useDailyCoachingSession } from "~/hooks/useDailyCoachingSession"
-import { currentDailyStep, stepGoalMet } from "~/lib/dailyCoaching"
-import type { DrillFinding } from "~/lib/drillProgress"
+import { useCoachingEvidence } from "~/hooks/useCoachingEvidence"
+import { drillFindingFromCandidate, nextDrillFinding, type DrillFinding } from "~/lib/drillProgress"
 
 const NEXT_ACTION_DISMISS_KEY = "typecafe:nextActionDismissed"
 
@@ -32,7 +31,7 @@ function findingBody(finding: DrillFinding): React.ReactNode {
 }
 
 type CoachTab = {
-    key: "daily" | "drill"
+    key: "drill"
     label: string
     eyebrow: string
     body: React.ReactNode
@@ -135,7 +134,14 @@ function InlineCoachTab({ tab }: { tab: CoachTab }) {
 export function HomeCoachTabs({ className = "", desktop = true, inline = true }: HomeCoachTabsProps) {
     const router = useRouter()
     const [sideNavExpanded, setSideNavExpanded] = useState(false)
-    const { session, loading, finding } = useDailyCoachingSession()
+    const coaching = useCoachingEvidence()
+    const finding = useMemo(
+        () => coaching.evidence
+            ? drillFindingFromCandidate(coaching.analysis?.recommendation ?? null)
+                ?? nextDrillFinding(coaching.evidence.transitions, coaching.evidence.attempts)
+            : null,
+        [coaching.analysis?.recommendation, coaching.evidence],
+    )
     const [dismissedFinding, setDismissedFinding] = useState(() => {
         try { return localStorage.getItem(NEXT_ACTION_DISMISS_KEY); } catch { return null; }
     })
@@ -151,40 +157,18 @@ export function HomeCoachTabs({ className = "", desktop = true, inline = true }:
     const tabs = useMemo<CoachTab[]>(() => {
         const nextTabs: CoachTab[] = []
 
-        // A finished day clears the tab entirely - completing the session is
-        // clearing the notification. The proof lives on /plan (Daily Coach nav entry).
-        if (session && session.status !== "completed") {
-            const active = currentDailyStep(session)
-            const stepsDone = session.steps.filter(stepGoalMet).length
-
-            nextTabs.push({
-                key: "daily",
-                label: `Today ${stepsDone}/${session.steps.length}`,
-                eyebrow: "Today's coaching",
-                body: <><span className="font-semibold text-base-content">{active?.title}</span> · about {session.estimatedMinutes} min.</>,
-                href: active?.href ?? "/plan",
-                cta: stepsDone > 0 || (active?.sets.length ?? 0) > 0 ? "Resume session" : "Start session",
-                testId: "home-coach-tab-daily",
-                // Aligned with the rail's "Daily Coach" nav entry - the flyout
-                // is that entry's live detail.
-                topClassName: "top-[16.5rem]",
-            })
-        }
-
-        // Today and Home consume the same Impact-ranked finding. The coaching
-        // hook retains the rolling-aggregate selector only for thin history.
+        // Home offers one optional handoff into the same Target list as
+        // Progress. It never creates a dated plan or prescribes a sequence.
         if (finding && dismissedFinding !== finding.id) {
             const findingId = finding.id
             nextTabs.push({
                 key: "drill",
-                label: "Fix this",
-                eyebrow: "Targeted drill",
+                label: "Practice",
+                eyebrow: "Suggested target",
                 body: findingBody(finding),
                 href: finding.href,
-                cta: "Start drill",
+                cta: "Practice target",
                 testId: "home-coach-tab-drill",
-                // Aligned with the rail's "Progress" nav entry - the finding
-                // is that page's evidence turned into an action.
                 topClassName: "top-[8.5rem]",
                 dismissLabel: "Dismiss drill suggestion",
                 onDismiss: () => {
@@ -195,9 +179,9 @@ export function HomeCoachTabs({ className = "", desktop = true, inline = true }:
         }
 
         return nextTabs
-    }, [dismissedFinding, finding, session])
+    }, [dismissedFinding, finding])
 
-    if (loading || tabs.length === 0) return null
+    if (coaching.loading || tabs.length === 0) return null
 
     const leftClassName = sideNavExpanded ? "left-64" : "left-[4.6rem]"
     const showInline = inline && router.pathname === "/"

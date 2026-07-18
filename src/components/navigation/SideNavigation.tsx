@@ -5,7 +5,6 @@ import { Avatar } from "../Avatar";
 import { useRouter } from "next/router";
 import { MaterialNavIcon } from "./MaterialNavIcon";
 import { GUIDE_ROUTES } from "~/lib/guides";
-import { useDailySessionBadge } from "~/hooks/useDailyCoachingSession";
 
 // The legal/support links that used to sit in the page footer, now rolled into
 // one "More" popover at the bottom of the rail. Guide articles live behind the
@@ -22,7 +21,6 @@ const MORE_LINKS = [
 export const SideNavigation = () => {
     const router = useRouter();
     const { data: sessionData } = useSession();
-    const dailyBadge = useDailySessionBadge();
     const [isExpanded, setIsExpanded] = useState(false);
     const [moreOpen, setMoreOpen] = useState(false);
     // Guide articles keep highlighting "More" even though only the hub is listed.
@@ -63,17 +61,6 @@ export const SideNavigation = () => {
                 <Link href="/train" className={getNavButtonClass('/train')} aria-label="Train" title="Train">
                     <MaterialNavIcon name="fitness_center" className={navIconClass} />
                     <div className={navLabelClass}>Train</div>
-                </Link>
-                {/* Daily coaching - the dot marks an unfinished session; it
-                    clears when today is done. */}
-                <Link href="/plan" className={getNavButtonClass('/plan')} aria-label="Daily coaching" title="Daily coaching" data-testid="nav-today">
-                    <span className="relative">
-                        <MaterialNavIcon name="today" className={navIconClass} />
-                        {dailyBadge === "active" &&
-                            <span data-testid="nav-today-dot" aria-hidden="true" className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-primary" />
-                        }
-                    </span>
-                    <div className={navLabelClass}>Daily Coach</div>
                 </Link>
                 {/* Daily Challenge hidden for now (2026-07) - /challenge still
                     exists; restore the link from git history when it returns. */}

@@ -33,7 +33,7 @@ flowchart TD
     Home["/ — Test home"]
     Progress["/progress — Progress"]
     Train["/train — Train ladder"]
-    Coach["/plan — Daily Coach"]
+    Coach["/plan — legacy redirect to Progress"]
     Leaderboard["/leaderboard — Leaderboard"]
     Profile["/profile — Your profile"]
 
@@ -64,13 +64,13 @@ flowchart TD
 
 Navigation ownership:
 
-- Primary rail/bottom navigation: Home, Progress, Train, Daily Coach, Leaderboard,
+- Primary rail/bottom navigation: Home, Progress, Train, Leaderboard,
   and signed-in Profile.
 - The More menu: Guides, Support, Contact, Privacy, Terms, and How we measure.
 - Public/deep-link surfaces: shared scores, public profiles, guide articles, and
   the parked Challenge route.
 - The shortest improvement path remains `Home → Score/diagnosis → Drill → Home`;
-  Progress and Daily Coach are supporting entry points into the same drill loop.
+  Progress Targets are the primary entry points into the drill loop.
 
 ## Runtime shape
 
@@ -103,7 +103,7 @@ The app intentionally has no ports/adapters repository seam around tRPC. See
 | `/leaderboard` | competitive Test rankings | `components/scores/LeaderboardList.tsx`, `server/api/routers/test.ts` |
 | `/score/[slug]` | read-only share and beat-my-run flow | `pages/score/[slug].tsx`, `components/scores/ShareableScoreCard.tsx` |
 | `/challenge` | parked daily Challenge, still deep-linkable | `pages/challenge.tsx`, `lib/challenge.ts` |
-| `/plan` | today's Daily Coach session detail and proof | `pages/plan.tsx`, `lib/dailyCoaching.ts`, `hooks/useDailyCoachingSession.ts` |
+| `/plan` | compatibility redirect for old Daily Coach links | `pages/plan.tsx` |
 | `/guides` | guide index for the measurable typing method | `pages/guides.tsx`, `pages/how-to-type-faster.tsx`, `pages/how-ngrams-work.tsx`, `pages/keyboard-layouts.tsx` |
 | `/how-we-measure` | public explanation of WPM, accuracy, and evidence | `pages/how-we-measure.tsx`, `lib/stats.ts`, `lib/testEvidence.ts` |
 | `/support`, `/contact` | support and contact surfaces | `pages/support.tsx`, `pages/contact.tsx` |

@@ -220,11 +220,17 @@ export const Typer = (props: TyperProps) => {
 
     const handleRestart = useCallback((targetLevel?: number) => {
         const seq = ++restartSeqRef.current
+        // Capture this at restart time. The idle callback may not run until the
+        // next attempt has begun, and must not mistake those fresh keystrokes
+        // for leftovers from the attempt being restarted.
+        const hasPendingCharAttempts = charAttemptsRef.current.size > 0
         setTimeout(() => {
             if (seq === restartSeqRef.current) {
                 // Off the restart frame: the sync round-trip/localStorage write
                 // must not delay the fresh text paint (typing-feel §3).
-                if (mode !== TestModes.ngrams) runWhenIdle(() => syncCharAttemptsRef.current())
+                if (mode !== TestModes.ngrams && hasPendingCharAttempts) {
+                    runWhenIdle(() => syncCharAttemptsRef.current())
+                }
 
                 // A daily challenge uses fixed seeded text - same for every client,
                 // never regenerated or appended.
@@ -261,7 +267,7 @@ export const Typer = (props: TyperProps) => {
                 onRestartRef.current?.()
             }
         }, 0)
-    }, [recorder, count, gramCombination, gramLevel, gramRepetition, gramScope, gramSource, language, quoteLength, level, mode, pause, punctuation, capitals, numbers, selectedKeys, setInitialTime, subMode, props.fixedText])
+    }, [recorder, count, gramCombination, gramLevel, gramRepetition, gramScope, gramSource, language, quoteLength, level, mode, pause, punctuation, capitals, numbers, selectedKeys, setInitialTime, subMode, props.fixedText, charAttemptsRef])
 
     useEffect(() => {
         handleRestart()

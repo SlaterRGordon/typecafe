@@ -1,6 +1,6 @@
 # Adaptive skill coaching
 
-**Status:** planned · **Owner:** product loop · **Depends on:** daily coaching,
+**Status:** planned · **Owner:** product loop · **Builds on:** historical coaching evidence,
 full Test timelines, rolling key/Transition aggregates, local-first guest data
 
 ## Product contract
@@ -495,26 +495,21 @@ the user improved or what to do next, while the WPM chart already preserves the
 useful speed history. The colours remain theme tokens, not a hard-coded Coach
 palette.
 
-The Coach column has two related but distinct jobs, presented as separate
-surfaces so the prescribed action and the inspectable ledger do not read as one
-continuous card:
+The Target column has two related jobs, presented as detail plus ledger rather
+than as a prescribed coaching hierarchy:
 
-1. **Next action.** Its default `Coach · Next action` state shows the frozen or
-   prospective priority in the same order as session creation: due Cold check,
-   regressed Target, then highest-Impact supported Target. If today's work just
-   transferred and no action is due, show `Coach · Latest result`; use calibration
-   only when neither a current Target nor coached proof exists. This is the Target
-   selected by the coach, not merely the first list row.
-2. **Target detail.** Selecting a row in "Your targets" temporarily
-   projects that Target's proof into the upper card. This is inspection only: it
-   never changes today's frozen Prescription, recommendation order, Mastery, or
-   persisted evidence. The card becomes `Target detail`; selecting the row again
-   restores the real coach priority without adding another control to the strip.
+1. **Target detail.** The upper card defaults to the highest-Impact displayed
+   Target. Selecting any row projects that Target into the card; there is no
+   separate prescribed Target or daily-plan hierarchy.
+2. **Direct practice.** Every Target owns its focused-practice action, including
+   retained and previously coached Targets. Practice performance and volume are
+   shown separately from recent representative ability, so a perfect drill never
+   overwrites the row's rolling ability metric.
 
-The Target row selected for inspection gets a neutral selection treatment. The
-actual next action keeps its semantic due/regressed accent even while another
-row is inspected, so selection cannot masquerade as reprioritization. If a
-filter hides the inspected row, reset the detail card to the next action.
+The Target row selected for inspection gets a neutral selection treatment.
+Selection changes only the detail being inspected; Impact ordering and each
+row's direct practice action remain unchanged. Filters narrow the ledger without
+inventing a separate recommendation.
 
 Add one bounded "Your targets" list, not separate Weakness and Coaching-history
 surfaces:
@@ -554,11 +549,11 @@ Each projected state has one evidence-safe comparison and action:
 | State | Proof shown | Action |
 |---|---|---|
 | `needs-work` | recent supported natural evidence | direct Target practice; guided Coach remains available above |
-| `training` | frozen baseline -> best acquisition, labelled practice rather than proof | `Continue` -> `/plan` |
+| `training` | frozen baseline plus separately labelled practice volume/performance | direct Target practice |
 | `transferred` | frozen baseline -> qualified Transfer | `View proof`; state when its Cold check becomes eligible |
 | `retained` | frozen baseline -> latest held Cold check | `View proof`; do not prescribe redundant Drill work |
-| `due` | frozen baseline -> latest qualifying Transfer/Cold result | `Check it` -> `/plan` so the delayed result can advance Mastery |
-| `regressed` | prior retained proof -> failed Cold or matched current natural evidence | `Refresh it`; use `/plan` when it is today's Target, otherwise honest acquisition practice |
+| `due` | frozen baseline -> latest representative result | direct Target practice; recent ability remains separate |
+| `regressed` | prior retained proof -> failed delayed or matched current natural evidence | direct Target practice |
 
 Comparisons always read chronologically left-to-right. Metric direction, colour,
 icon, and status copy explain whether the change was good; arrow direction never
@@ -812,9 +807,8 @@ neither erases proof nor creates a wall of overdue checks.
       Reserve row status labels for the current `focus` and `transferred` proof.
 
 **Acceptance:** a returning user can answer what improved, whether it held, and
-what to do next without interpreting a chart. They can inspect another Target's
-proof without changing the coach's recommendation; returning to the next action
-restores the same frozen priority and action. Every displayed comparison is
+what to do next without interpreting a chart. They can inspect and practise any
+Target without changing its evidence or the Impact-ranked order. Every displayed comparison is
 metric-correct, chronological, stage-labelled, and identical for guest and
 signed-in evidence.
 
@@ -830,6 +824,23 @@ signed-in evidence.
 
 **Acceptance:** the team can tell whether retained learning and return behavior
 improved, not merely whether users clicked the new UI.
+
+### 12. Target-first practice
+
+- [x] Remove the separate Coach next-action hierarchy from Progress; default
+      detail follows the same Impact ordering as `Your targets`.
+- [x] Give every Target a direct practice action without routing through a daily
+      plan, while keeping historical Transfer/Cold evidence readable.
+- [x] Separate rolling recent ability from focused drill performance; show drill
+      count, target-attempt count, and drill-only value in Target detail.
+- [x] Stop Home from creating dated sessions, remove Daily Coach from primary
+      navigation and the screenshot tour, and redirect legacy `/plan` links to
+      Progress.
+- [ ] Add an optional Coaching tab only when it can express a useful daily drill
+      goal using the same Target ledger and evidence model.
+
+**Acceptance:** completing a 100% drill records practice but cannot make the
+Target row read 100% unless recent representative attempts also support 100%.
 
 ## Verification matrix
 

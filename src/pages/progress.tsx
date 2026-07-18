@@ -425,7 +425,7 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
                         {plateau.plateaued ? (
                             <div data-testid="plateau-headline">
                                 <div className="font-mono text-3xl font-bold text-base-content">Plateaued for {plateau.weeks} weeks</div>
-                                <p className="mt-2 text-base-content/60">Your recent net WPM trend has stayed nearly flat. Follow the Coach action, then re-measure.</p>
+                                <p className="mt-2 text-base-content/60">Your recent net WPM trend has stayed nearly flat. Practise a high-worth Target, then re-measure.</p>
                             </div>
                         ) : hero.delta !== null ? (
                             <HeroDeltaLine

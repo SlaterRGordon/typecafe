@@ -76,6 +76,7 @@ export interface AcquisitionResponse {
     context: "acquisition"
     value: number
     sampleCount: number
+    runCount: number
 }
 
 export interface SkillCandidate {
@@ -131,6 +132,10 @@ export interface MasteryRecord {
     lastEvidenceDate: string
     heldColdChecks: number
     practicedDaysUntilDue: number | null
+    /** Focused drill completions are practice volume, never proof of ability. */
+    practiceSets?: number
+    practiceSamples?: number
+    response?: AcquisitionResponse
 }
 
 export interface SkillRecap {
@@ -239,6 +244,7 @@ interface GramSample {
     internalMs: number
     testId: number
     word: string
+    context: EvidenceContext
     recencyWeight: number
 }
 
@@ -247,6 +253,7 @@ interface WordSample {
     internalMs: number
     arrivals: number
     testId: number
+    context: EvidenceContext
     recencyWeight: number
 }
 
@@ -510,10 +517,10 @@ function prepareEvidence(timelines: readonly TimelineEvidence[]): PreparedEviden
             corrections.push({ expected, typed, costMs: episode.costMs, testId, context, recencyWeight })
         }
 
-        // Higher-order weakness discovery is deliberately natural-only. Replay
-        // first so corrected attempts do not become duplicate Gram/word hits,
-        // and split on every non-letter so candidates never cross a word edge.
-        if (context === "natural") {
+        // Higher-order weakness discovery remains natural-only, while the same
+        // extraction on acquisition runs lets Progress report drill volume and
+        // performance separately from representative ability.
+        if (context === "natural" || context === "acquisition") {
             const finalEvents = replayFinalEvents(events)
             const threshold = interruptionLimitFor(finalEvents)
             let currentWord: KeystrokeEvent[] = []
@@ -521,7 +528,7 @@ function prepareEvidence(timelines: readonly TimelineEvidence[]): PreparedEviden
                 if (currentWord.length === 0) return
                 const characters = currentWord.map((event) => normalizedKey(event.key))
                 const word = characters.join("")
-                addHigherOrderFrequency(word, gramFrequency, wordFrequency)
+                if (context === "natural") addHigherOrderFrequency(word, gramFrequency, wordFrequency)
                 if (currentWord.length >= 3 && currentWord.every((event) => event.correct)) {
                     const gaps = currentWord.slice(1).map((event, index) => event.t - currentWord[index]!.t)
                     if (threshold > 0 && gaps.every((gap) => gap > 0 && gap <= threshold)) {
@@ -530,6 +537,7 @@ function prepareEvidence(timelines: readonly TimelineEvidence[]): PreparedEviden
                             internalMs: gaps.reduce((sum, gap) => sum + gap, 0),
                             arrivals: gaps.length,
                             testId,
+                            context,
                             recencyWeight,
                         })
                         for (const size of [3, 4]) {
@@ -539,6 +547,7 @@ function prepareEvidence(timelines: readonly TimelineEvidence[]): PreparedEviden
                                     internalMs: gaps.slice(index, index + size - 1).reduce((sum, gap) => sum + gap, 0),
                                     testId,
                                     word,
+                                    context,
                                     recencyWeight,
                                 })
                             }
@@ -632,13 +641,13 @@ function acquisitionResponse(
     const attempts = evidence.attempts.filter((sample) => sample.context === "acquisition")
     const target = candidate.target
     if (target.kind === "key") {
-        const key = target.keys[0]!
+        const keys = new Set(target.keys)
         if (target.metric === "latency") {
-            const samples = arrivals.filter((sample) => sample.key === key)
-            return samples.length ? { context: "acquisition", value: median(samples.map((sample) => sample.dtMs)), sampleCount: samples.length } : undefined
+            const samples = arrivals.filter((sample) => keys.has(sample.key))
+            return samples.length ? { context: "acquisition", value: median(samples.map((sample) => sample.dtMs)), sampleCount: samples.length, runCount: distinct(samples.map((sample) => sample.testId)) } : undefined
         }
-        const samples = attempts.filter((sample) => sample.key === key)
-        return samples.length ? { context: "acquisition", value: samples.filter((sample) => sample.correct).length / samples.length * 100, sampleCount: samples.length } : undefined
+        const samples = attempts.filter((sample) => keys.has(sample.key))
+        return samples.length ? { context: "acquisition", value: samples.filter((sample) => sample.correct).length / samples.length * 100, sampleCount: samples.length, runCount: distinct(samples.map((sample) => sample.testId)) } : undefined
     }
     if (target.kind === "transition") {
         const samples = arrivals.filter((sample) => sample.pair === target.pair)
@@ -646,13 +655,35 @@ function acquisitionResponse(
         const value = target.metric === "latency"
             ? median(samples.map((sample) => sample.dtMs))
             : samples.filter((sample) => sample.correct).length / samples.length * 100
-        return { context: "acquisition", value, sampleCount: samples.length }
+        return { context: "acquisition", value, sampleCount: samples.length, runCount: distinct(samples.map((sample) => sample.testId)) }
     }
     if (target.kind === "correction") {
         const samples = attempts.filter((sample) => sample.key === target.expected)
         if (!samples.length) return undefined
         const confused = samples.filter((sample) => !sample.correct && sample.typed === target.typed).length
-        return { context: "acquisition", value: confused / samples.length * 100, sampleCount: samples.length }
+        return { context: "acquisition", value: confused / samples.length * 100, sampleCount: samples.length, runCount: distinct(samples.map((sample) => sample.testId)) }
+    }
+    if (target.kind === "gram") {
+        const samples = evidence.grams.filter((sample) => sample.context === "acquisition" && sample.gram === target.gram)
+        return samples.length ? {
+            context: "acquisition", value: median(samples.map((sample) => sample.internalMs)),
+            sampleCount: samples.length, runCount: distinct(samples.map((sample) => sample.testId)),
+        } : undefined
+    }
+    if (target.kind === "word") {
+        const words = new Set(target.words)
+        const samples = evidence.words.filter((sample) => sample.context === "acquisition" && words.has(sample.word))
+        return samples.length ? {
+            context: "acquisition", value: median(samples.map((sample) => sample.internalMs / sample.arrivals)),
+            sampleCount: samples.length, runCount: distinct(samples.map((sample) => sample.testId)),
+        } : undefined
+    }
+    if (target.kind === "movement") {
+        const samples = arrivals.filter((sample) => sample.movement === target.movement)
+        return samples.length ? {
+            context: "acquisition", value: median(samples.map((sample) => sample.dtMs)),
+            sampleCount: samples.length, runCount: distinct(samples.map((sample) => sample.testId)),
+        } : undefined
     }
     return undefined
 }
@@ -736,10 +767,12 @@ function higherOrderCandidates(
     baselineMs: number,
     rawCorpusWords: readonly string[],
 ): SkillCandidate[] {
-    if (baselineMs <= 0 || evidence.grams.length === 0) return []
+    const naturalGrams = evidence.grams.filter((sample) => sample.context === "natural")
+    const naturalWords = evidence.words.filter((sample) => sample.context === "natural")
+    if (baselineMs <= 0 || naturalGrams.length === 0) return []
     const priors = corpusPriors(rawCorpusWords)
     const candidates: SkillCandidate[] = []
-    const gramsByValue = grouped(evidence.grams, (sample) => sample.gram)
+    const gramsByValue = grouped(naturalGrams, (sample) => sample.gram)
 
     for (const size of [3, 4]) {
         const floor = size === 3
@@ -809,7 +842,7 @@ function higherOrderCandidates(
     }
 
     const hardWords: HardWordProfile[] = []
-    for (const [word, samples] of grouped(evidence.words, (sample) => sample.word)) {
+    for (const [word, samples] of grouped(naturalWords, (sample) => sample.word)) {
         if (samples.length < SKILL_EVIDENCE_THRESHOLDS.wordMinSamples) continue
         const tests = distinct(samples.map((sample) => sample.testId))
         if (tests < SKILL_EVIDENCE_THRESHOLDS.wordMinTests) continue
@@ -1165,6 +1198,7 @@ function deriveMastery(
         const prescription = session.prescription
         if (prescription) {
             const acquisition = bestStepValue(session, "focus")
+            const focus = session.steps.find((step) => step.kind === "focus")
             const transfer = bestStepValue(session, "transfer")
             records.push({
                 id: `${session.id}:${prescription.id}`,
@@ -1189,6 +1223,8 @@ function deriveMastery(
                 lastEvidenceDate: transfer ? session.dateKey : session.dateKey,
                 heldColdChecks: 0,
                 practicedDaysUntilDue: transfer?.improved ? 1 : null,
+                practiceSets: focus?.sets.length ?? 0,
+                practiceSamples: focus?.sets.reduce((sum, set) => sum + (set.targetSamples ?? 0), 0) ?? 0,
             })
         }
 
@@ -1464,6 +1500,10 @@ export function analyzeTypingEvidence(input: SkillEvidenceInput): SkillAnalysis 
         ? (input.sessions ?? []).filter((session) => session.language === scope.language && session.pool === scope.pool)
         : input.sessions ?? []
     const history = deriveMastery(scopedSessions, candidates, input.todayDateKey)
+    for (const record of history.mastery) {
+        const response = acquisitionResponse({ target: record.target, metric: record.proof.metric }, evidence)
+        if (response) record.response = response
+    }
     evidence.quality.status = evidence.quality.discoveryTimelines === 0
         ? "none"
         : candidates.length > 0 ? "ready" : "thin"

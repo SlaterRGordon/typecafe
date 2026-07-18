@@ -87,7 +87,7 @@ export function completedKeyAccuracySession(): DailyCoachingSession {
         id: "r:focus", kind: "focus", context: "acquisition", title: "Acquire r", detail: "", href: "/drill", target,
         sets: [
           { completedAt: now - 1_500, netWpm: 65, accuracy: 97, targetSamples: 10, targetDelta: { label: "r", before: 88, after: 94, unit: "%", direction: "higher", improved: true } },
-          { completedAt: now - 1_000, netWpm: 66, accuracy: 98, targetSamples: 10, targetDelta: { label: "r", before: 88, after: 95, unit: "%", direction: "higher", improved: true } },
+          { completedAt: now - 1_000, netWpm: 66, accuracy: 100, targetSamples: 10, targetDelta: { label: "r", before: 88, after: 100, unit: "%", direction: "higher", improved: true } },
         ],
       },
       {

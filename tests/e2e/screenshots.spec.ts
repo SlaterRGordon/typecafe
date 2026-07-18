@@ -3,13 +3,6 @@ import { mockAuthenticatedSession, mockTrpc } from "./helpers/trpc";
 import { crowdedAccuracyTimeline, higherOrderTimeline, impactTimeline } from "./helpers/evidence";
 import { typeCurrentCharacter, typeVisibleTestText, typeWrongCharacter } from "./helpers/typing";
 import { completedKeyAccuracySession, progressCoachingHistory } from "./helpers/coachingFixtures";
-import {
-  createDailySession,
-  DAILY_COACHING_STORAGE_KEY,
-  localDateKey,
-  recordDailySet,
-  type DailyCoachingSession,
-} from "../../src/lib/dailyCoaching";
 import { readdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { runStartFile } from "./globalSetup";
@@ -805,8 +798,8 @@ test.describe("screenshot tour", () => {
     await expect(page.getByText("WPM over time", { exact: true })).toBeVisible();
     await expect(page.getByText("Daily median trend", { exact: true })).toBeVisible();
     await expect(page.getByText("Daily best trend", { exact: true })).toBeVisible();
-    await expect(page.getByTestId("progress-coach")).toContainText("See whether your tion gain held");
-    await expect(page.getByTestId("progress-coach")).toContainText("focus");
+    await expect(page.getByTestId("progress-coach")).toContainText("Practise tion again");
+    await expect(page.getByTestId("progress-coach")).not.toContainText("Coach ·");
     await expect(page.getByTestId("records-timeline")).toHaveCount(0);
     await expect(page.getByTestId("lifetime-heatmap")).toBeVisible();
     await capture(page, testInfo, "40-progress-dashboard");
@@ -832,7 +825,7 @@ test.describe("screenshot tour", () => {
     await capture(page, testInfo, "40b-progress-lifetime-keyboard-shift");
   });
 
-  test("progress dashboard (completed Target latest result)", async ({ page }, testInfo) => {
+  test("progress dashboard (completed Target in ledger)", async ({ page }, testInfo) => {
     await mockAuthenticatedSession(page);
     await mockTrpc(page, {
       coachingSession: completedKeyAccuracySession(),
@@ -840,12 +833,14 @@ test.describe("screenshot tour", () => {
       timelineEvidence: [crowdedAccuracyTimeline(1), crowdedAccuracyTimeline(2)],
     });
     await page.goto("/progress");
-    await expect(page.getByTestId("progress-coach")).toContainText("Coach · Latest result");
-    await expect(page.getByTestId("progress-coach")).toContainText("r improved in varied text");
+    const rRow = page.getByTestId("progress-coach").getByRole("button", { name: /^r Key/ });
+    await expect(rRow).toContainText("80.0%");
+    await rRow.click();
+    await expect(page.getByTestId("target-practice-summary").last()).toContainText("100.0% in drills");
     await capture(page, testInfo, "40f-progress-completed-target");
   });
 
-  test("progress dashboard (plateau coach voice)", async ({ page }, testInfo) => {
+  test("progress dashboard (plateau Target guidance)", async ({ page }, testInfo) => {
     await mockAuthenticatedSession(page);
     await mockTrpc(page, { flatProgress: true });
     await page.goto("/progress");
@@ -917,18 +912,6 @@ test.describe("screenshot tour", () => {
     await capture(page, testInfo, "58-nav-more-popover");
   });
 
-  test("home: daily coaching tab", async ({ page }, testInfo) => {
-    test.skip(testInfo.project.name.includes("mobile"), "The rail coach tabs are desktop-only.");
-    await mockAuthenticatedSession(page);
-    await mockTrpc(page);
-    await gotoHome(page);
-    const tab = page.getByTestId("home-coach-tab-daily");
-    await expect(tab).toBeVisible();
-    await tab.hover();
-    await expect(page.getByTestId("home-coach-tab-daily-panel")).toBeVisible();
-    await capture(page, testInfo, "57-home-daily-coaching-tab");
-  });
-
   test("home: targeted drill coach tab", async ({ page }, testInfo) => {
     test.skip(testInfo.project.name.includes("mobile"), "The rail coach tabs are desktop-only.");
     await mockAuthenticatedSession(page);
@@ -939,101 +922,6 @@ test.describe("screenshot tour", () => {
     await tab.hover();
     await expect(page.getByTestId("home-coach-tab-drill-panel")).toBeVisible();
     await capture(page, testInfo, "69-home-drill-coach-tab");
-  });
-
-  test("home: guest daily coaching tab", async ({ page }, testInfo) => {
-    test.skip(testInfo.project.name.includes("mobile"), "The rail coach tabs are desktop-only.");
-    await page.addInitScript(() => {
-      window.localStorage.setItem("typecafe:transitionStats", JSON.stringify([
-        { pair: "br", count: 12, totalMs: 4800, errors: 3 },
-        { pair: "th", count: 30, totalMs: 3000, errors: 0 },
-        { pair: "he", count: 25, totalMs: 3000, errors: 0 },
-        { pair: "io", count: 10, totalMs: 3000, errors: 1 },
-      ]));
-    });
-    await mockTrpc(page);
-    await gotoHome(page);
-    const tab = page.getByTestId("home-coach-tab-daily");
-    await expect(tab).toBeVisible();
-    await tab.hover();
-    await expect(page.getByTestId("home-coach-tab-daily-panel")).toBeVisible();
-    await capture(page, testInfo, "63-home-guest-daily-coaching-tab");
-  });
-
-  test("daily coaching (targeted)", async ({ page }, testInfo) => {
-    await mockAuthenticatedSession(page);
-    await mockTrpc(page, {
-      keyStats: [{ character: "r", total: 100, correct: 70 }, { character: "t", total: 80, correct: 62 }],
-      timelineEvidence: [impactTimeline(1), impactTimeline(2)],
-    });
-    await page.goto("/plan");
-    await expect(page.getByTestId("daily-session-active")).toBeVisible();
-    await capture(page, testInfo, "48-daily-coaching-targeted");
-  });
-
-  test("daily coaching (calibration)", async ({ page }, testInfo) => {
-    await page.goto("/plan");
-    await expect(page.getByText(/still learning how you type/i)).toBeVisible();
-    await expect(page.getByTestId("daily-session-active")).toBeVisible();
-    await capture(page, testInfo, "54-daily-coaching-calibration");
-  });
-
-  // A guest daily session mid-flight, seeded straight into the local mirror.
-  function guestDailySession(): DailyCoachingSession {
-    let session = createDailySession({
-      dateKey: localDateKey(), pool: "qwerty", language: "english",
-      attempts: new Map(),
-      transitions: [
-        { pair: "br", count: 12, totalMs: 4800, errors: 1 },
-        { pair: "th", count: 12, totalMs: 1800, errors: 0 },
-      ],
-      yesterday: { label: "b→r", target: { kind: "transition", pair: "br", metric: "latency" }, unit: "ms", before: 410, after: 350, minimumChange: 10 },
-      now: Date.now(),
-    });
-    const cold = session.steps.find((step) => step.kind === "recheck")!;
-    session = recordDailySet(session, cold.id, {
-      netWpm: 62, accuracy: 96, completedAt: Date.now(), targetSamples: 6,
-      targetDelta: { label: "b→r", before: 410, after: 350, unit: "ms", improved: true },
-    });
-    const baseline = session.steps.find((step) => step.kind === "baseline")!;
-    return recordDailySet(session, baseline.id, { netWpm: 62.4, accuracy: 96.1, completedAt: Date.now() });
-  }
-
-  async function seedGuestDailySession(page: Page, session: DailyCoachingSession) {
-    await page.addInitScript(({ key, value }) => {
-      window.localStorage.setItem(key, JSON.stringify([value]));
-    }, { key: `${DAILY_COACHING_STORAGE_KEY}:guest`, value: session });
-  }
-
-  test("daily coaching (complete, with cold check)", async ({ page }, testInfo) => {
-    let session = guestDailySession();
-    const focusId = session.steps.find((step) => step.kind === "focus")!.id;
-    session = recordDailySet(session, focusId, {
-      netWpm: 63, accuracy: 96.4, completedAt: Date.now(),
-      targetDelta: { label: "b→r", before: 400, after: 345, unit: "ms", improved: true },
-    });
-    session = recordDailySet(session, focusId, {
-      netWpm: 64, accuracy: 96.8, completedAt: Date.now(),
-      targetDelta: { label: "b→r", before: 400, after: 331, unit: "ms", improved: true },
-    });
-    const transferId = session.steps.find((step) => step.kind === "transfer")!.id;
-    session = recordDailySet(session, transferId, {
-      netWpm: 64, accuracy: 97, completedAt: Date.now(), targetSamples: 6,
-      targetDelta: { label: "b→r", before: 400, after: 340, unit: "ms", improved: true },
-    });
-    await seedGuestDailySession(page, session);
-    await page.goto("/plan");
-    await expect(page.getByTestId("daily-session-complete")).toBeVisible();
-    await capture(page, testInfo, "49-daily-coaching-complete");
-  });
-
-  test("daily coaching drill strip", async ({ page }, testInfo) => {
-    await seedGuestDailySession(page, guestDailySession());
-    await mockTrpc(page);
-    await page.goto("/drill?transitions=br&length=8");
-    await expect(page.getByTestId("daily-session-strip")).toBeVisible();
-    await expect(page.getByTestId("drill-typer")).toBeVisible();
-    await capture(page, testInfo, "50-daily-coaching-drill-strip");
   });
 
   test("drill surface", async ({ page }, testInfo) => {

@@ -28,14 +28,14 @@ import {
 } from "~/lib/dailyCoaching"
 import { measureDailyStepSet } from "~/lib/dailyCoachingMeasurement"
 import { isDrillMark, isDrillDigit, isDrillableKey, isPracticeLetter } from "~/lib/drillKeys"
-import { attemptsFromEvents, keyDrillDelta, keysBaseline, mergeAttempts, nextDrillFinding, transitionBaseline, transitionDrillDelta, type DrillDelta, type DrillFinding } from "~/lib/drillProgress"
+import { keyDrillDelta, keysBaseline, mergeAttempts, nextDrillFinding, transitionBaseline, transitionDrillDelta, type DrillDelta, type DrillFinding } from "~/lib/drillProgress"
 import { decodeTimeline } from "~/lib/keystrokes"
 import { readLocalKeyStats, type LocalKeyStat } from "~/lib/localSync"
 import { readLocalTransitions } from "~/lib/localTransitions"
 import { statsPoolFor } from "~/lib/keyboardLayout"
 import { useLayout } from "~/hooks/useLayout"
 import { isAnyModalOpen } from "~/lib/modals"
-import { aggregateTransitions, mergeTransitions, type TransitionAggregate } from "~/lib/transitions"
+import type { TransitionAggregate } from "~/lib/transitions"
 import { api } from "~/utils/api"
 
 const DRILL_EVIDENCE_CONTEXT = evidenceContextForRun({ surface: "drill", mode: TestModes.normal })
@@ -322,10 +322,10 @@ const Drill: NextPage = () => {
         )
     }, [config, baseline])
 
-    // What the rep proved (delta vs lifetime) and what to drill next - the next
-    // finding recomputes from baseline + this rep's keystrokes (reps count toward
-    // lifetime data - ADR-0004 reversal), excluding the just-drilled target so it
-    // never re-suggests the drill just finished.
+    // What the rep proved (delta vs lifetime) and what to drill next. The next
+    // finding comes from the representative baseline, not this acquisition rep:
+    // a perfect drill can prove practice performance without becoming a new
+    // ability measurement or inventing a weakness from repeated drill text.
     const outcome = useMemo(() => {
         if (!completed || !config || config.kind === "timed" || config.kind === "words") return null
         const repEvents = decodeTimeline(completed.timeline)
@@ -341,8 +341,8 @@ const Drill: NextPage = () => {
         }
 
         const next = nextDrillFinding(
-            mergeTransitions(baseline.transitions, aggregateTransitions(repEvents)),
-            mergeAttempts(baseline.keyStats, attemptsFromEvents(repEvents)),
+            baseline.transitions,
+            mergeAttempts(baseline.keyStats, new Map()),
             config.kind === "transitions" ? { pairs: config.targets } : { keys: config.targets },
         )
         return { delta, next }
