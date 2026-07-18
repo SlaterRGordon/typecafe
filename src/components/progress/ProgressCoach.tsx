@@ -120,24 +120,32 @@ function CoachHeadline({ target, color }: { target: ProgressCoachTarget, color: 
 function ProofLine({ target }: { target: ProgressCoachTarget }) {
     const first = target.stages[0]
     const last = target.stages.at(-1)
-    if (!first) return null
+    if (!first) {
+        return target.state === "calibrating"
+            ? null
+            : <p className="mt-2 font-mono text-xs text-base-content/45">No recent natural evidence for this Target.</p>
+    }
     return (
         <div className="mt-2 flex flex-wrap items-center gap-2 font-mono text-xs text-base-content/60" aria-label={`${target.label} ability evidence`}>
-            <span><span className="text-base-content/40">{first.label}</span> <strong className="text-base-content/85">{first.value}</strong></span>
+            <span>
+                <span className="text-base-content/40">{first.label}</span> <strong className="text-base-content/85">{first.value}</strong>
+                {last?.key === first.key && first.sampleCount ? <span className="font-sans text-base-content/40"> across {first.sampleCount} attempts</span> : null}
+            </span>
             {last && last.key !== first.key && (
                 <>
                     <span aria-hidden="true" className="text-base-content/35">→</span>
-                    <span><span className="text-base-content/40">{last.label}</span> <strong className="text-base-content/85">{last.value}</strong></span>
+                    <span>
+                        <span className="text-base-content/40">{last.label}</span> <strong className="text-base-content/85">{last.value}</strong>
+                        {last.sampleCount ? <span className="font-sans text-base-content/40"> across {last.sampleCount} attempts</span> : null}
+                    </span>
                 </>
             )}
             {target.trend && (
                 <span className={`inline-flex items-center gap-1 font-semibold ${trendTone(target)}`}>
                     <span aria-hidden="true">{target.trend.arrow === "up" ? "▲" : "▼"}</span>
                     {target.trend.label}
-                    <span className="font-sans font-normal text-base-content/40">{target.trendSource === "practice" ? "in drills" : "ability"}</span>
                 </span>
             )}
-            {last?.sampleCount ? <span className="font-sans text-base-content/40">across {last.sampleCount} recent attempts</span> : null}
         </div>
     )
 }
@@ -305,7 +313,7 @@ export function ProgressCoach({ projection, loading }: ProgressCoachProps) {
                                                 </span>
                                                 <span className={`hidden items-center justify-center gap-1 text-center font-mono text-[0.65rem] font-semibold lg:flex ${trendTone(row)}`}>
                                                     {row.trend ? (
-                                                        <><span aria-hidden="true">{row.trend.arrow === "up" ? "▲" : "▼"}</span><span>{row.trend.label}</span>{row.trendSource === "practice" && <span className="font-sans font-normal text-base-content/35">drill</span>}</>
+                                                        <><span aria-hidden="true">{row.trend.arrow === "up" ? "▲" : "▼"}</span><span>{row.trend.label}</span></>
                                                     ) : "—"}
                                                 </span>
                                             </button>

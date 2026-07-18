@@ -53,6 +53,7 @@ export const SKILL_EVIDENCE_THRESHOLDS = {
     latencyNoiseFloorMs: 10,
     materialImpactMsPer1000: 25,
     oldestVolumeWeight: 0.5,
+    abilitySplitMinSamplesPerHalf: 4,
 } as const
 
 export const MASTERY_CHECK_INTERVALS = {
@@ -77,12 +78,19 @@ export interface AcquisitionResponse {
     value: number
     sampleCount: number
     runCount: number
-    // Chronological first/latest per-run values, present once two runs exist.
-    // A drill trend must compare drill against drill: drill text is Target-
-    // saturated, so "drill beats the natural median" is nearly automatic and
-    // proves nothing.
-    firstRunValue?: number
-    lastRunValue?: number
+}
+
+/**
+ * A Target's ability measured from natural/diagnostic evidence only. The split
+ * compares the chronologically older half of the window's tests against the
+ * newer half, so every Target can show an honest earlier -> recent trajectory
+ * without a frozen prescription baseline and without drill-saturated samples
+ * inflating it.
+ */
+export interface NaturalAbility {
+    value: number
+    sampleCount: number
+    split?: { earlier: number, recent: number, earlierSamples: number, recentSamples: number }
 }
 
 export interface SkillCandidate {
@@ -101,6 +109,7 @@ export interface SkillCandidate {
     impactMsPer1000: number
     reason: SkillReason
     response?: AcquisitionResponse
+    ability?: NaturalAbility
 }
 
 export interface EvidenceQuality {
@@ -142,6 +151,7 @@ export interface MasteryRecord {
     practiceSets?: number
     practiceSamples?: number
     response?: AcquisitionResponse
+    ability?: NaturalAbility
 }
 
 export interface SkillRecap {
@@ -651,79 +661,130 @@ function frequencyPer1000(count: number, characters: number): number {
     return characters <= 0 ? 0 : count / characters * 1_000
 }
 
-function runResponse<T extends { testId: number }>(
-    samples: readonly T[],
-    valueOf: (subset: readonly T[]) => number,
-    completedAt: ReadonlyMap<number, number>,
-): AcquisitionResponse | undefined {
-    if (samples.length === 0) return undefined
-    const runs = [...grouped(samples, (sample) => String(sample.testId)).values()]
-        .sort((a, b) => (completedAt.get(a[0]!.testId) ?? 0) - (completedAt.get(b[0]!.testId) ?? 0))
-    return {
-        context: "acquisition",
-        value: valueOf(samples),
-        sampleCount: samples.length,
-        runCount: runs.length,
-        ...(runs.length >= 2 ? { firstRunValue: valueOf(runs[0]!), lastRunValue: valueOf(runs.at(-1)!) } : {}),
-    }
-}
-
 function accuracyPct<T>(samples: readonly T[], correct: (sample: T) => boolean): number {
     return samples.filter(correct).length / samples.length * 100
+}
+
+type TargetSample = { testId: number }
+
+interface TargetSamplePools {
+    arrivals: ArrivalSample[]
+    attempts: AttemptSample[]
+    grams: GramSample[]
+    words: WordSample[]
+}
+
+// One owner for "which samples measure this Target, and how do they become a
+// value" - shared by drill response and natural ability so the two contexts
+// can never drift apart in definition. The casts are safe: each branch only
+// selects from the pool its valueOf reads.
+function targetSamples(
+    target: CoachingTarget,
+    pools: TargetSamplePools,
+): { samples: TargetSample[], valueOf: (subset: readonly TargetSample[]) => number } | null {
+    if (target.kind === "key") {
+        const keys = new Set(target.keys)
+        if (target.metric === "latency") {
+            return {
+                samples: pools.arrivals.filter((sample) => keys.has(sample.key)),
+                valueOf: (subset) => median((subset as readonly ArrivalSample[]).map((sample) => sample.dtMs)),
+            }
+        }
+        return {
+            samples: pools.attempts.filter((sample) => keys.has(sample.key)),
+            valueOf: (subset) => accuracyPct(subset as readonly AttemptSample[], (sample) => sample.correct),
+        }
+    }
+    if (target.kind === "transition") {
+        return {
+            samples: pools.arrivals.filter((sample) => sample.pair === target.pair),
+            valueOf: (subset) => target.metric === "latency"
+                ? median((subset as readonly ArrivalSample[]).map((sample) => sample.dtMs))
+                : accuracyPct(subset as readonly ArrivalSample[], (sample) => sample.correct),
+        }
+    }
+    if (target.kind === "correction") {
+        return {
+            samples: pools.attempts.filter((sample) => sample.key === target.expected),
+            valueOf: (subset) => accuracyPct(subset as readonly AttemptSample[], (sample) => !sample.correct && sample.typed === target.typed),
+        }
+    }
+    if (target.kind === "gram") {
+        return {
+            samples: pools.grams.filter((sample) => sample.gram === target.gram),
+            valueOf: (subset) => median((subset as readonly GramSample[]).map((sample) => sample.internalMs)),
+        }
+    }
+    if (target.kind === "word") {
+        const words = new Set(target.words)
+        return {
+            samples: pools.words.filter((sample) => words.has(sample.word)),
+            valueOf: (subset) => median((subset as readonly WordSample[]).map((sample) => sample.internalMs / sample.arrivals)),
+        }
+    }
+    if (target.kind === "movement") {
+        return {
+            samples: pools.arrivals.filter((sample) => sample.movement === target.movement),
+            valueOf: (subset) => median((subset as readonly ArrivalSample[]).map((sample) => sample.dtMs)),
+        }
+    }
+    return null
+}
+
+function pooled(evidence: PreparedEvidence, include: (sample: { context: EvidenceContext, testId: number }) => boolean): TargetSamplePools {
+    return {
+        arrivals: evidence.arrivals.filter(include),
+        attempts: evidence.attempts.filter(include),
+        grams: evidence.grams.filter(include),
+        words: evidence.words.filter(include),
+    }
 }
 
 function acquisitionResponse(
     candidate: Pick<SkillCandidate, "target" | "metric">,
     evidence: PreparedEvidence,
 ): AcquisitionResponse | undefined {
-    const target = candidate.target
     // Only runs drilled *for* this Target count as its practice. Without this,
     // any drill whose filler text contained the key attributed its volume and
     // performance to every overlapping Target.
     const drilledTests = new Set([...evidence.drillTargets]
-        .filter(([, drilled]) => sameCoachingTarget(drilled, target))
+        .filter(([, drilled]) => sameCoachingTarget(drilled, candidate.target))
         .map(([testId]) => testId))
     if (drilledTests.size === 0) return undefined
-    const completedAt = evidence.testCompletedAt
-    const arrivals = evidence.arrivals.filter((sample) => sample.context === "acquisition" && drilledTests.has(sample.testId))
-    const attempts = evidence.attempts.filter((sample) => sample.context === "acquisition" && drilledTests.has(sample.testId))
-    if (target.kind === "key") {
-        const keys = new Set(target.keys)
-        return target.metric === "latency"
-            ? runResponse(arrivals.filter((sample) => keys.has(sample.key)), (subset) => median(subset.map((sample) => sample.dtMs)), completedAt)
-            : runResponse(attempts.filter((sample) => keys.has(sample.key)), (subset) => accuracyPct(subset, (sample) => sample.correct), completedAt)
+    const selected = targetSamples(
+        candidate.target,
+        pooled(evidence, (sample) => sample.context === "acquisition" && drilledTests.has(sample.testId)),
+    )
+    if (!selected || selected.samples.length === 0) return undefined
+    return {
+        context: "acquisition",
+        value: selected.valueOf(selected.samples),
+        sampleCount: selected.samples.length,
+        runCount: distinct(selected.samples.map((sample) => sample.testId)),
     }
-    if (target.kind === "transition") {
-        return runResponse(arrivals.filter((sample) => sample.pair === target.pair), (subset) => target.metric === "latency"
-            ? median(subset.map((sample) => sample.dtMs))
-            : accuracyPct(subset, (sample) => sample.correct), completedAt)
+}
+
+function naturalAbility(target: CoachingTarget, evidence: PreparedEvidence): NaturalAbility | undefined {
+    const selected = targetSamples(target, pooled(evidence, (sample) => discoversWeakness(sample.context)))
+    if (!selected || selected.samples.length === 0) return undefined
+    const { samples, valueOf } = selected
+    const ability: NaturalAbility = { value: valueOf(samples), sampleCount: samples.length }
+    const tests = [...new Set(samples.map((sample) => sample.testId))]
+        .sort((a, b) => (evidence.testCompletedAt.get(a) ?? 0) - (evidence.testCompletedAt.get(b) ?? 0))
+    if (tests.length < 2) return ability
+    const recentTests = new Set(tests.slice(Math.ceil(tests.length / 2)))
+    const recent = samples.filter((sample) => recentTests.has(sample.testId))
+    const earlier = samples.filter((sample) => !recentTests.has(sample.testId))
+    const floor = SKILL_EVIDENCE_THRESHOLDS.abilitySplitMinSamplesPerHalf
+    if (recent.length >= floor && earlier.length >= floor) {
+        ability.split = {
+            earlier: valueOf(earlier),
+            recent: valueOf(recent),
+            earlierSamples: earlier.length,
+            recentSamples: recent.length,
+        }
     }
-    if (target.kind === "correction") {
-        return runResponse(
-            attempts.filter((sample) => sample.key === target.expected),
-            (subset) => accuracyPct(subset, (sample) => !sample.correct && sample.typed === target.typed),
-            completedAt,
-        )
-    }
-    if (target.kind === "gram") {
-        return runResponse(
-            evidence.grams.filter((sample) => sample.context === "acquisition" && drilledTests.has(sample.testId) && sample.gram === target.gram),
-            (subset) => median(subset.map((sample) => sample.internalMs)),
-            completedAt,
-        )
-    }
-    if (target.kind === "word") {
-        const words = new Set(target.words)
-        return runResponse(
-            evidence.words.filter((sample) => sample.context === "acquisition" && drilledTests.has(sample.testId) && words.has(sample.word)),
-            (subset) => median(subset.map((sample) => sample.internalMs / sample.arrivals)),
-            completedAt,
-        )
-    }
-    if (target.kind === "movement") {
-        return runResponse(arrivals.filter((sample) => sample.movement === target.movement), (subset) => median(subset.map((sample) => sample.dtMs)), completedAt)
-    }
-    return undefined
+    return ability
 }
 
 function createCandidate(
@@ -1533,6 +1594,10 @@ export function analyzeTypingEvidence(input: SkillEvidenceInput): SkillAnalysis 
     }
 
     candidates.sort(stableCandidateSort)
+    for (const candidate of candidates) {
+        const ability = naturalAbility(candidate.target, evidence)
+        if (ability) candidate.ability = ability
+    }
     const scope = input.scope
     const scopedSessions = scope
         ? (input.sessions ?? []).filter((session) => session.language === scope.language && session.pool === scope.pool)
@@ -1541,6 +1606,8 @@ export function analyzeTypingEvidence(input: SkillEvidenceInput): SkillAnalysis 
     for (const record of history.mastery) {
         const response = acquisitionResponse({ target: record.target, metric: record.proof.metric }, evidence)
         if (response) record.response = response
+        const ability = naturalAbility(record.target, evidence)
+        if (ability) record.ability = ability
     }
     evidence.quality.status = evidence.quality.discoveryTimelines === 0
         ? "none"

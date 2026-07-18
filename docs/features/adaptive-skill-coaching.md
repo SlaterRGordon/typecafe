@@ -844,12 +844,17 @@ improved, not merely whether users clicked the new UI.
 - [x] Attribute drill volume and drill values to the Target a drill was
       launched for via a persisted Target token on acquisition runs; untagged
       runs attribute to nothing.
-- [x] Show practice trends drill-vs-drill (first vs latest run) and make Worth
-      the live remaining cost: a coached Target whose weakness no longer
-      registers shows no Worth instead of its frozen prescription impact.
+- [x] Make Worth the live remaining cost: a coached Target whose weakness no
+      longer registers shows no Worth instead of its frozen prescription impact.
 - [x] Remove daily-coach artifacts from Target detail (episode chips,
       practised-day scheduling copy), tighten status copy, and move the Target
       filters onto their own full-width row.
+- [x] Derive every Target row's evidence identically (owner decision
+      2026-07-18): a natural-only Earlier -> Recent split of the evidence
+      window's tests, replacing frozen prescription baselines and the
+      drill-vs-drill trend display. Blending drill samples into the trend was
+      rejected — Target-saturated drill text shows practice volume, not skill.
+      Drill numbers remain a clearly-labelled practice line.
 
 **Acceptance:** completing a 100% drill records practice but cannot make the
 Target row read 100% unless recent representative attempts also support 100%.

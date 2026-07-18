@@ -190,6 +190,31 @@ describe("analyzeTypingEvidence", () => {
         expect(candidate?.response).toEqual({ context: "acquisition", value: 90, sampleCount: 8, runCount: 1 })
     })
 
+    it("derives a chronological natural ability split from older vs newer tests", () => {
+        const older = pairTimeline(1, [...baseline(40), { pair: "br", gap: 180, repeats: 4 }])
+        const newer = pairTimeline(2, [...baseline(40), { pair: "br", gap: 140, repeats: 4 }])
+
+        const candidate = analyzeTypingEvidence({ timelines: [older, newer] })
+            .candidates.find((item) => item.id === "transition:latency:br")
+
+        expect(candidate?.ability).toEqual({
+            value: 160,
+            sampleCount: 8,
+            split: { earlier: 180, recent: 140, earlierSamples: 4, recentSamples: 4 },
+        })
+    })
+
+    it("withholds the ability split when a chronological half is below the sample floor", () => {
+        const older = pairTimeline(1, [...baseline(40), { pair: "br", gap: 180, repeats: 6 }])
+        const newer = pairTimeline(2, [...baseline(40), { pair: "br", gap: 140, repeats: 3 }])
+
+        const candidate = analyzeTypingEvidence({ timelines: [older, newer] })
+            .candidates.find((item) => item.id === "transition:latency:br")
+
+        expect(candidate?.ability?.split).toBeUndefined()
+        expect(candidate?.ability?.sampleCount).toBe(9)
+    })
+
     it("attributes drill volume only to the Target the drill was launched for", () => {
         const natural = [1, 2].map((testId) => pairTimeline(testId, [
             ...baseline(40),

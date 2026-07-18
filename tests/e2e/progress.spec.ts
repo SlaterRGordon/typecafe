@@ -202,11 +202,14 @@ test.describe("progress dashboard", () => {
       // Detail defaults to the top live weakness; selecting a coached row
       // swaps in its historical proof.
       await expect(coach).toContainText("Work on b→r");
+      // Every row derives its evidence from natural typing only; the coached
+      // tion Target has no natural occurrences in this fixture, so its detail
+      // says so instead of showing a frozen daily-coach baseline.
       await coach.getByRole("button", { name: /^tion Pattern/ }).click();
       await expect(coach).toContainText("Practise tion again");
       await expect(coach.getByRole("link", { name: "Practice this pattern" }).first()).toHaveAttribute("href", /\/drill\?target=gram/);
-      await expect(coach).toContainText("Baseline 520 ms");
-      await expect(coach).toContainText("Recent 455 ms");
+      await expect(coach).toContainText("No recent natural evidence for this Target.");
+      await expect(coach).not.toContainText("Baseline");
       await expect(coach.getByTestId("coach-detail").getByTestId("target-practice-summary")).toContainText("drills completed");
     } else {
       await expect(page.getByTestId("coach-inline-detail")).toContainText("Recent 140 ms");
@@ -367,8 +370,7 @@ test.describe("progress dashboard", () => {
       const detail = page.getByTestId("coach-detail");
       await expect(detail).toContainText("Target detail");
       await expect(detail).toContainText("Your e→r gain held");
-      await expect(detail).toContainText("Baseline 340 ms");
-      await expect(detail).toContainText("Recent 290 ms");
+      await expect(detail).toContainText("No recent natural evidence for this Target.");
       await expect(detail.getByRole("button", { name: /Back to/ })).toHaveCount(0);
       await erRow.click();
       await expect(erRow).toHaveAttribute("aria-expanded", "false");

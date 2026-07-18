@@ -54,15 +54,24 @@ describe("projectProgressCoach", () => {
         expect(progressImpactTone(100, 100)).toBe("minor")
     })
 
-    it("groups repeated episodes while keeping drill performance out of ability stages", () => {
+    it("groups repeated episodes and shows the natural earlier-to-recent split, not frozen proof", () => {
         const old = record("tion-old", "transferred")
         const latest = record("tion-new", "retained")
+        latest.ability = { value: 470, sampleCount: 24, split: { earlier: 520, recent: 460, earlierSamples: 12, recentSamples: 12 } }
         const result = projectProgressCoach(analysis([latest, old]))
         expect(result.targets).toHaveLength(1)
         expect(result.targets[0]).toMatchObject({ label: "tion", state: "retained", episodeCount: 2 })
-        expect(result.targets[0]!.stages.map((stage) => stage.label)).toEqual(["Baseline", "Recent"])
+        expect(result.targets[0]!.stages.map((stage) => stage.label)).toEqual(["Earlier", "Recent"])
         expect(result.targets[0]!.stages.map((stage) => stage.value)).toEqual(["520 ms", "460 ms"])
+        expect(result.targets[0]!.trend).toEqual({ label: "60 ms", arrow: "down", outcome: "good" })
         expect(result.targets[0]!.practice).toEqual({ completedDrills: 4, sampleCount: 24, value: "440 ms" })
+    })
+
+    it("shows no evidence stages for a coached Target without recent natural occurrences", () => {
+        const latest = record("tion-new", "retained")
+        const result = projectProgressCoach(analysis([latest]))
+        expect(result.targets[0]!.stages).toEqual([])
+        expect(result.targets[0]!.trend).toBeNull()
     })
 
     it("includes a supported ordinary weakness with direct practice independent of Coach", () => {
@@ -82,27 +91,25 @@ describe("projectProgressCoach", () => {
         accuracy.direction = "higher"
         accuracy.observed = 92
         accuracy.baseline = 95
-        accuracy.response = { context: "acquisition", value: 100, sampleCount: 18, runCount: 2, firstRunValue: 92, lastRunValue: 100 }
+        accuracy.response = { context: "acquisition", value: 100, sampleCount: 18, runCount: 2 }
 
         const row = projectProgressCoach(analysis([], [accuracy])).targets[0]!
 
+        // A perfect drill shows in the practice line only; the ability stage and
+        // trend stay natural-typing-only.
         expect(row.stages).toEqual([{ key: "recent", label: "Recent", value: "92.0%", numericValue: 92, sampleCount: 20 }])
         expect(row.practice).toEqual({ completedDrills: 2, sampleCount: 18, value: "100.0%" })
-        expect(row.trend).toEqual({ label: "8.0 %", arrow: "up", outcome: "good" })
-        expect(row.trendSource).toBe("practice")
+        expect(row.trend).toBeNull()
     })
 
-    it("shows no practice trend from a single drill run", () => {
-        const accuracy = candidate({ kind: "key", keys: ["r"], metric: "accuracy" })
-        accuracy.metric = "%"
-        accuracy.direction = "higher"
-        accuracy.response = { context: "acquisition", value: 100, sampleCount: 18, runCount: 1 }
+    it("derives every trend from the chronological natural split", () => {
+        const slow = candidate({ kind: "transition", pair: "br", metric: "latency" })
+        slow.ability = { value: 150, sampleCount: 20, split: { earlier: 160, recent: 140, earlierSamples: 10, recentSamples: 10 } }
 
-        const row = projectProgressCoach(analysis([], [accuracy])).targets[0]!
+        const row = projectProgressCoach(analysis([], [slow])).targets[0]!
 
-        expect(row.practice).toEqual({ completedDrills: 1, sampleCount: 18, value: "100.0%" })
-        expect(row.trend).toBeNull()
-        expect(row.trendSource).toBeNull()
+        expect(row.stages.map((stage) => `${stage.label} ${stage.value}`)).toEqual(["Earlier 160 ms", "Recent 140 ms"])
+        expect(row.trend).toEqual({ label: "20 ms", arrow: "down", outcome: "good" })
     })
 
     it("never calibrates beside a visible actionable Target when recommendation state lags", () => {
@@ -118,6 +125,7 @@ describe("projectProgressCoach", () => {
     it("merges matching current weakness and coached proof into one Target row", () => {
         const current = candidate({ kind: "transition", pair: "br", metric: "latency" })
         const regressed = record("br-new", "regressed", current.target)
+        regressed.ability = { value: 140, sampleCount: 20 }
         const result = projectProgressCoach(analysis([regressed], [current]))
         expect(result.targets).toHaveLength(1)
         expect(result.targets[0]).toMatchObject({ label: "b→r", state: "regressed", episodeCount: 1 })
@@ -211,10 +219,11 @@ describe("projectProgressCoach", () => {
         accuracy.proof = {
             ...accuracy.proof, metric: "%", baseline: 88, bestAcquisition: 94, transfer: 95, cold: 96,
         }
+        accuracy.ability = { value: 94, sampleCount: 40, split: { earlier: 88, recent: 96, earlierSamples: 20, recentSamples: 20 } }
         const row = projectProgressCoach(analysis([accuracy])).targets[0]!
         expect(row.direction).toBe("higher")
         expect(row.stages.map((stage) => `${stage.label} ${stage.value}`)).toEqual([
-            "Baseline 88.0%", "Recent 96.0%",
+            "Earlier 88.0%", "Recent 96.0%",
         ])
         expect(row.practice).toEqual({ completedDrills: 2, sampleCount: 12, value: "94.0%" })
         expect(row.trend).toEqual({ label: "8.0 %", arrow: "up", outcome: "good" })

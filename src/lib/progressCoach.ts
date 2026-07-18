@@ -1,6 +1,6 @@
 import type { FrozenRecommendation } from "./dailyCoaching"
 import { sameCoachingTarget, targetAction, targetDisplayLabel, type CoachingTarget } from "./coachingTarget"
-import type { MasteryRecord, SkillAnalysis, SkillCandidate, SkillReason, TargetProof } from "./skillEvidence"
+import type { MasteryRecord, NaturalAbility, SkillAnalysis, SkillCandidate, SkillReason } from "./skillEvidence"
 
 export type ProgressCoachState = MasteryRecord["state"] | "needs-work" | "calibrating"
 export type ProgressCoachFilter = "all" | "transition" | "key" | "pattern" | "movement"
@@ -8,8 +8,8 @@ export type ProgressTargetFamily = Exclude<ProgressCoachFilter, "all"> | "correc
 type ProgressCoachCategory = Exclude<ProgressCoachFilter, "all"> | "other"
 
 export interface ProgressCoachStage {
-    key: "baseline" | "practice" | "transfer" | "cold" | "recent"
-    label: "Baseline" | "Practice" | "Transfer" | "Cold" | "Recent"
+    key: "earlier" | "recent"
+    label: "Earlier" | "Recent"
     value: string
     numericValue: number
     sampleCount: number
@@ -18,7 +18,7 @@ export interface ProgressCoachStage {
 export interface ProgressCoachTrend {
     label: string
     arrow: "up" | "down"
-    outcome: "good" | "bad" | "neutral"
+    outcome: "good" | "bad"
 }
 
 export interface ProgressPracticeSummary {
@@ -64,7 +64,6 @@ export interface ProgressCoachTarget {
     lastEvidenceDate: string | null
     impactMsPer1000: number | null
     trend: ProgressCoachTrend | null
-    trendSource: "ability" | "practice" | null
     practice: ProgressPracticeSummary | null
 }
 
@@ -204,41 +203,38 @@ function metricValue(value: number, metric: "ms" | "%" | "wpm"): string {
     return `${value.toFixed(1)} WPM`
 }
 
-function stagesFor(proof: TargetProof): ProgressCoachStage[] {
-    const stages: ProgressCoachStage[] = [{
-        key: "baseline",
-        label: "Baseline",
-        value: metricValue(proof.baseline, proof.metric),
-        numericValue: proof.baseline,
-        sampleCount: proof.sampleCounts.baseline,
+// Every row's evidence line comes from the same place: the Target's own
+// natural typing, split chronologically. Frozen daily-coach baselines are
+// history, not display data — coached and detected Targets read identically.
+function abilityStages(ability: NaturalAbility | undefined, metric: "ms" | "%" | "wpm"): ProgressCoachStage[] {
+    if (!ability) return []
+    if (!ability.split) return [{
+        key: "recent", label: "Recent", value: metricValue(ability.value, metric), numericValue: ability.value, sampleCount: ability.sampleCount,
     }]
-    const recent = proof.cold !== undefined
-        ? { value: proof.cold, samples: proof.sampleCounts.cold }
-        : proof.transfer !== undefined
-            ? { value: proof.transfer, samples: proof.sampleCounts.transfer }
-            : null
-    if (recent) stages.push({
-        key: "recent", label: "Recent", value: metricValue(recent.value, proof.metric), numericValue: recent.value, sampleCount: recent.samples,
-    })
-    return stages
+    return [
+        { key: "earlier", label: "Earlier", value: metricValue(ability.split.earlier, metric), numericValue: ability.split.earlier, sampleCount: ability.split.earlierSamples },
+        { key: "recent", label: "Recent", value: metricValue(ability.split.recent, metric), numericValue: ability.split.recent, sampleCount: ability.split.recentSamples },
+    ]
 }
 
-function trendBetween(before: number, after: number, direction: "lower" | "higher", metric: "ms" | "%" | "wpm"): ProgressCoachTrend {
+function abilityTrend(ability: NaturalAbility | undefined, direction: "lower" | "higher", metric: "ms" | "%" | "wpm"): ProgressCoachTrend | null {
+    if (!ability?.split) return null
+    return trendBetween(ability.split.earlier, ability.split.recent, direction, metric)
+}
+
+function trendBetween(before: number, after: number, direction: "lower" | "higher", metric: "ms" | "%" | "wpm"): ProgressCoachTrend | null {
     const delta = after - before
     const rounded = metric === "ms" ? Math.round(delta) : Math.round(delta * 10) / 10
+    // A change below display resolution is no trend, not an arrow on "0 ms".
+    if (rounded === 0) return null
     const amount = Math.abs(rounded).toFixed(metric === "ms" ? 0 : 1)
     const suffix = metric === "%" ? " %" : metric === "wpm" ? " WPM" : " ms"
     const improved = direction === "lower" ? delta < 0 : delta > 0
     return {
         label: `${amount}${suffix}`,
         arrow: delta >= 0 ? "up" : "down",
-        outcome: delta === 0 ? "neutral" : improved ? "good" : "bad",
+        outcome: improved ? "good" : "bad",
     }
-}
-
-function trendFor(stages: readonly ProgressCoachStage[], direction: "lower" | "higher" | null, metric: "ms" | "%" | "wpm" | null): ProgressCoachTrend | null {
-    if (stages.length < 2 || !direction || !metric) return null
-    return trendBetween(stages[0]!.numericValue, stages.at(-1)!.numericValue, direction, metric)
 }
 
 function directionFor(prescription: FrozenRecommendation): "lower" | "higher" {
@@ -285,13 +281,7 @@ function rowFromRecord(record: MasteryRecord, records: readonly MasteryRecord[],
     // not improved; only representative evidence may support the latter.
     const state = record.state === "transferred" && candidate ? "training" : record.state
     const copy = statusCopy(state, label, record)
-    const stages = stagesFor(record.proof)
-    if (candidate?.metric === record.proof.metric) {
-        const recent = { key: "recent" as const, label: "Recent" as const, value: metricValue(candidate.observed, candidate.metric), numericValue: candidate.observed, sampleCount: candidate.sampleCount }
-        const recentIndex = stages.findIndex((stage) => stage.key === "recent")
-        if (recentIndex >= 0) stages[recentIndex] = recent
-        else stages.push(recent)
-    }
+    const stages = abilityStages(record.ability, record.proof.metric)
     const presentation = targetPresentation(record.target)
     const practiceSets = records.reduce((sum, episode) => sum + (episode.practiceSets ?? 0), 0)
     const practiceSamples = records.reduce((sum, episode) => sum + (episode.practiceSamples ?? 0), 0)
@@ -319,8 +309,7 @@ function rowFromRecord(record: MasteryRecord, records: readonly MasteryRecord[],
         // has nothing left to buy; the prescription-time impact is history, and
         // freezing it made improvement look like standing still.
         impactMsPer1000: candidate && candidate.impactMsPer1000 > 0 ? candidate.impactMsPer1000 : null,
-        trend: trendFor(stages, directionFor(record.prescription), record.proof.metric),
-        trendSource: stages.length > 1 ? "ability" : null,
+        trend: abilityTrend(record.ability, directionFor(record.prescription), record.proof.metric),
         practice,
     }
 }
@@ -343,22 +332,13 @@ function candidateSeenWords(candidate: SkillCandidate): readonly string[] | unde
     return undefined
 }
 
-// Drill-vs-drill only: drill text is Target-saturated, so comparing a drill
-// value against the natural median is nearly automatic "improvement".
-function practiceTrend(
-    response: SkillCandidate["response"],
-    direction: "lower" | "higher",
-    metric: "ms" | "%" | "wpm",
-): ProgressCoachTrend | null {
-    if (response?.firstRunValue === undefined || response.lastRunValue === undefined) return null
-    return trendBetween(response.firstRunValue, response.lastRunValue, direction, metric)
-}
-
 function candidateTarget(candidate: SkillCandidate): ProgressCoachTarget {
     const label = targetDisplayLabel(candidate.target)
     const action = targetAction(candidate.target, "acquisition", { length: 30, seenWords: candidateSeenWords(candidate) })
     const presentation = targetPresentation(candidate.target)
-    const trend = practiceTrend(candidate.response, candidate.direction, candidate.metric)
+    // Endurance (and any future sample-less kind) has no per-sample ability;
+    // fall back to the observed value as a single Recent stage.
+    const ability = candidate.ability ?? { value: candidate.observed, sampleCount: candidate.sampleCount }
     return {
         id: targetKey(candidate.target),
         target: candidate.target,
@@ -368,17 +348,14 @@ function candidateTarget(candidate: SkillCandidate): ProgressCoachTarget {
         statusLabel: "Needs work",
         headline: `Work on ${label}`,
         detail: candidateDetail(candidate.reason),
-        stages: [{
-            key: "recent", label: "Recent", value: metricValue(candidate.observed, candidate.metric), numericValue: candidate.observed, sampleCount: candidate.sampleCount,
-        }],
+        stages: abilityStages(ability, candidate.metric),
         direction: candidate.direction,
         metric: candidate.metric,
         action: { href: action.href, label: action.label },
         episodeCount: 0,
         lastEvidenceDate: null,
         impactMsPer1000: candidate.impactMsPer1000 > 0 ? candidate.impactMsPer1000 : null,
-        trend,
-        trendSource: trend ? "practice" : null,
+        trend: abilityTrend(candidate.ability, candidate.direction, candidate.metric),
         practice: candidate.response ? {
             completedDrills: candidate.response.runCount,
             sampleCount: candidate.response.sampleCount,
@@ -409,7 +386,6 @@ function calibrationTarget(): ProgressCoachTarget {
         lastEvidenceDate: null,
         impactMsPer1000: null,
         trend: null,
-        trendSource: null,
         practice: null,
     }
 }
