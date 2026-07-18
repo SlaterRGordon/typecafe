@@ -16,53 +16,71 @@ function callerContext(prisma: unknown) {
 }
 
 describe("evidence history routers", () => {
-    it("returns bounded, parsed Timelines newest first for one language and pool", async () => {
+    it("returns bounded, parsed Timelines newest first with separate discovery and response windows", async () => {
         const timeline = encodeTimeline([{ key: "a", typed: "a", correct: true, t: 0 }])
-        const findMany = vi.fn().mockResolvedValue([
-            {
-                createdAt: new Date("2026-07-14T12:00:00.000Z"),
-                evidenceContext: "transfer",
-                ranked: false,
-                count: 25,
-                options: "",
-                punctuation: false,
-                capitals: false,
-                numbers: false,
-                layout: "qwertz-de",
-                timeline,
-                type: { mode: 0, subMode: 1, language: "english" },
-            },
-            {
-                createdAt: new Date("2026-07-13T12:00:00.000Z"),
-                evidenceContext: "natural",
-                ranked: true,
-                count: 30,
-                options: "",
-                punctuation: false,
-                capitals: false,
-                numbers: false,
-                layout: "qwerty",
-                timeline: { corrupt: true },
-                type: { mode: 0, subMode: 0, language: "english" },
-            },
-        ])
+        const naturalRow = {
+            createdAt: new Date("2026-07-13T12:00:00.000Z"),
+            evidenceContext: "natural",
+            ranked: true,
+            count: 30,
+            options: "",
+            punctuation: false,
+            capitals: false,
+            numbers: false,
+            layout: "qwerty",
+            timeline,
+            type: { mode: 0, subMode: 0, language: "english" },
+        }
+        const responseRow = {
+            createdAt: new Date("2026-07-14T12:00:00.000Z"),
+            evidenceContext: "transfer",
+            ranked: false,
+            count: 25,
+            options: "",
+            punctuation: false,
+            capitals: false,
+            numbers: false,
+            layout: "qwertz-de",
+            timeline,
+            type: { mode: 0, subMode: 1, language: "english" },
+        }
+        const corruptRow = { ...naturalRow, createdAt: new Date("2026-07-12T12:00:00.000Z"), timeline: { corrupt: true } }
+        const findMany = vi.fn()
+            .mockResolvedValueOnce([naturalRow, corruptRow])
+            .mockResolvedValueOnce([responseRow])
         const caller = testRouter.createCaller(callerContext({ test: { findMany } }))
 
         const result = await caller.getLatestTimelines({ language: "english5k", pool: "qwerty" })
 
-        const query = findMany.mock.calls[0]?.[0] as unknown as {
+        expect(findMany).toHaveBeenCalledTimes(2)
+        const [discoveryQuery, responseQuery] = findMany.mock.calls.map((call) => call[0] as unknown as {
             orderBy: { createdAt: string }
             take: number
-            where: { userId: string, layout: { in: string[] }, type: { language: string } }
+            where: {
+                userId: string
+                layout: { in: string[] }
+                type: { language: string }
+                OR?: unknown[]
+                evidenceContext?: { in: string[] }
+            }
+        })
+        for (const query of [discoveryQuery!, responseQuery!]) {
+            expect(query.orderBy).toEqual({ createdAt: "desc" })
+            expect(query.take).toBe(30)
+            expect(query.where.userId).toBe("user-1")
+            expect(query.where.layout.in).toContain("qwerty")
+            expect(query.where.layout.in).toContain("qwertz-de")
+            expect(query.where.type).toEqual({ language: "english" })
         }
-        expect(query.orderBy).toEqual({ createdAt: "desc" })
-        expect(query.take).toBe(30)
-        expect(query.where.userId).toBe("user-1")
-        expect(query.where.layout.in).toContain("qwerty")
-        expect(query.where.layout.in).toContain("qwertz-de")
-        expect(query.where.type).toEqual({ language: "english" })
-        expect(result).toHaveLength(1)
+        expect(discoveryQuery!.where.OR).toEqual([
+            { evidenceContext: { in: ["natural", "diagnostic"] } },
+            { evidenceContext: null, ranked: true, type: { language: "english", mode: 0 } },
+        ])
+        expect(responseQuery!.where.evidenceContext).toEqual({ in: ["acquisition", "transfer", "cold"] })
+        // Merged newest first; the corrupt timeline is dropped, not fatal.
+        expect(result).toHaveLength(2)
         expect(result[0]).toMatchObject({ context: "transfer", pool: "qwerty", language: "english" })
+        expect(result[1]).toMatchObject({ context: "natural", pool: "qwerty", language: "english" })
         await expect(caller.getLatestTimelines({ language: "english", pool: "qwerty", limit: 91 })).rejects.toThrow()
     })
 

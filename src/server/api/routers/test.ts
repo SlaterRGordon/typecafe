@@ -7,7 +7,7 @@ import {
   protectedProcedure,
 } from "~/server/api/trpc";
 import { encodedTimelineSchema } from "~/server/api/schemas/timeline";
-import { EVIDENCE_CONTEXTS } from "~/lib/evidenceContext";
+import { DISCOVERY_EVIDENCE_CONTEXTS, EVIDENCE_CONTEXTS, RESPONSE_EVIDENCE_CONTEXTS } from "~/lib/evidenceContext";
 import { guestEvidenceImportSchema } from "~/server/api/schemas/guestEvidence";
 import { Prisma, type PrismaClient } from "~/generated/prisma/client";
 import { challengeStreakFromDateKeys, shiftChallengeDateKey } from "~/lib/challenge";
@@ -740,29 +740,53 @@ export const testRouter = createTRPCRouter({
     .input(evidenceHistoryInputSchema)
     .query(async ({ ctx, input }) => {
       const language = baseTypeLanguage(input.language) ?? input.language;
-      const rows = await ctx.prisma.test.findMany({
-        where: {
-          userId: ctx.session.user.id,
-          timeline: { not: Prisma.DbNull },
-          layout: { in: layoutsForStatsPool(input.pool) },
-          type: { language },
-        },
-        orderBy: { createdAt: "desc" },
-        take: input.limit ?? DEFAULT_EVIDENCE_HISTORY_LIMIT,
-        select: {
-          createdAt: true,
-          evidenceContext: true,
-          ranked: true,
-          count: true,
-          options: true,
-          punctuation: true,
-          capitals: true,
-          numbers: true,
-          layout: true,
-          timeline: true,
-          type: { select: { mode: true, subMode: true, language: true } },
-        },
-      });
+      const baseWhere = {
+        userId: ctx.session.user.id,
+        timeline: { not: Prisma.DbNull },
+        layout: { in: layoutsForStatsPool(input.pool) },
+        type: { language },
+      };
+      const select = {
+        createdAt: true,
+        evidenceContext: true,
+        ranked: true,
+        count: true,
+        options: true,
+        punctuation: true,
+        capitals: true,
+        numbers: true,
+        layout: true,
+        timeline: true,
+        type: { select: { mode: true, subMode: true, language: true } },
+      };
+      const take = input.limit ?? DEFAULT_EVIDENCE_HISTORY_LIMIT;
+      // Discovery (natural/diagnostic) and response (acquisition/transfer/cold)
+      // timelines each get their own window: a run of drills must never push
+      // the natural evidence that ranks weaknesses out of the bounded history.
+      // Legacy rows without a context count as discovery when the old ranking
+      // contract proves they were ordinary normal Tests.
+      const [discovery, response] = await Promise.all([
+        ctx.prisma.test.findMany({
+          where: {
+            ...baseWhere,
+            OR: [
+              { evidenceContext: { in: [...DISCOVERY_EVIDENCE_CONTEXTS] } },
+              { evidenceContext: null, ranked: true, type: { language, mode: 0 } },
+            ],
+          },
+          orderBy: { createdAt: "desc" },
+          take,
+          select,
+        }),
+        ctx.prisma.test.findMany({
+          where: { ...baseWhere, evidenceContext: { in: [...RESPONSE_EVIDENCE_CONTEXTS] } },
+          orderBy: { createdAt: "desc" },
+          take,
+          select,
+        }),
+      ]);
+      const rows = [...discovery, ...response]
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
       return rows.flatMap((row) => {
         const timeline = encodedTimelineSchema.safeParse(row.timeline);

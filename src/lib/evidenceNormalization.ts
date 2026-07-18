@@ -1,5 +1,5 @@
 import type { GuestEvidenceTest } from "./guestEvidence"
-import { evidenceContextForStoredTest, type EvidenceContext } from "./evidenceContext"
+import { discoversWeakness, evidenceContextForStoredTest, type EvidenceContext } from "./evidenceContext"
 import { statsPoolFor } from "./keyboardLayout"
 import type { EncodedTimeline } from "./keystrokes"
 import { baseTypeLanguage } from "./typeLanguage"
@@ -43,6 +43,28 @@ export interface StoredTimelineEvidence {
 
 function normalizedLanguage(language: string): string {
     return baseTypeLanguage(language) ?? language
+}
+
+/**
+ * Bound the evidence history per context family, not overall: discovery
+ * (natural/diagnostic) timelines and response (acquisition/transfer/cold)
+ * timelines each keep their own newest `limit`. A run of focused drills must
+ * never evict the natural evidence that weakness ranking, frequency, and
+ * recency weighting are computed from — a shared cap made every Target's
+ * estimated worth creep upward with practice volume alone.
+ */
+export function boundedEvidenceWindow(
+    timelines: readonly TimelineEvidence[],
+    limit = DEFAULT_EVIDENCE_HISTORY_LIMIT,
+): TimelineEvidence[] {
+    const sorted = [...timelines].sort((a, b) => b.completedAt - a.completedAt)
+    const discovery: TimelineEvidence[] = []
+    const response: TimelineEvidence[] = []
+    for (const timeline of sorted) {
+        const bucket = discoversWeakness(timeline.context) ? discovery : response
+        if (bucket.length < limit) bucket.push(timeline)
+    }
+    return [...discovery, ...response].sort((a, b) => b.completedAt - a.completedAt)
 }
 
 export function normalizeGuestTimelineEvidence(evidence: GuestEvidenceTest): TimelineEvidence {

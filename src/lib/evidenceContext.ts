@@ -46,6 +46,11 @@ export function evidenceContextForStoredTest(input: {
     return input.storedContext == null && input.ranked && input.mode === 0 ? "natural" : null
 }
 
+// Wire-level mirrors of discoversWeakness/updatesTargetResponse for SQL and
+// storage filters that cannot call a predicate.
+export const DISCOVERY_EVIDENCE_CONTEXTS = ["natural", "diagnostic"] as const
+export const RESPONSE_EVIDENCE_CONTEXTS = ["acquisition", "transfer", "cold"] as const
+
 export function discoversWeakness(context: EvidenceContext | null): boolean {
     return context === "natural" || context === "diagnostic"
 }

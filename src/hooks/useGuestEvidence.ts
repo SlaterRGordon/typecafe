@@ -5,7 +5,7 @@ import { readLocalTransitions } from "~/lib/localTransitions"
 import { readLocalProgress, type LocalProgressEntry } from "~/lib/progressHistory"
 import type { TransitionAggregate } from "~/lib/transitions"
 import { statsPoolFor } from "~/lib/keyboardLayout"
-import { DEFAULT_EVIDENCE_HISTORY_LIMIT, normalizeGuestTimelineEvidence, type TimelineEvidence } from "~/lib/evidenceNormalization"
+import { boundedEvidenceWindow, normalizeGuestTimelineEvidence, type TimelineEvidence } from "~/lib/evidenceNormalization"
 import { useLayout } from "./useLayout"
 import { useLanguage } from "./useLanguage"
 
@@ -55,11 +55,9 @@ export function useGuestEvidence(): GuestEvidence | null {
                 timelinesLoaded: current?.timelinesLoaded ?? false,
             }))
             void import("~/lib/guestEvidenceStore").then(({ readGuestEvidenceTests }) => readGuestEvidenceTests()).then((timelines) => {
-                const normalized = timelines
+                const normalized = boundedEvidenceWindow(timelines
                     .map(normalizeGuestTimelineEvidence)
-                    .filter((item) => item.pool === pool && item.language === language)
-                    .sort((a, b) => b.completedAt - a.completedAt)
-                    .slice(0, DEFAULT_EVIDENCE_HISTORY_LIMIT)
+                    .filter((item) => item.pool === pool && item.language === language))
                 if (active) setEvidence({ ...aggregateEvidence, timelines: normalized, timelinesLoaded: true })
             })
         }

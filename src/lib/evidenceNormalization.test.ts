@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
+import type { EvidenceContext } from "./evidenceContext"
 import type { GuestEvidenceTest } from "./guestEvidence"
-import { normalizeGuestTimelineEvidence, normalizeStoredTimelineEvidence } from "./evidenceNormalization"
+import { boundedEvidenceWindow, normalizeGuestTimelineEvidence, normalizeStoredTimelineEvidence, type TimelineEvidence } from "./evidenceNormalization"
 import { encodeTimeline } from "./keystrokes"
 
 const timeline = encodeTimeline([
@@ -46,6 +47,24 @@ describe("Timeline evidence normalization", () => {
 
         expect(fromDatabase).toEqual(fromGuest)
         expect(fromGuest).toMatchObject({ language: "english", pool: "qwerty", context: "transfer" })
+    })
+
+    it("bounds discovery and response evidence separately so drills cannot evict natural history", () => {
+        const evidence = (context: EvidenceContext, completedAt: number): TimelineEvidence => ({
+            ...normalizeGuestTimelineEvidence(guest),
+            context,
+            completedAt,
+        })
+        // 40 drills newer than 3 natural tests: a shared 30-cap would drop all
+        // natural evidence; the split window must keep every natural timeline.
+        const drills = Array.from({ length: 40 }, (_, index) => evidence("acquisition", 1_000 + index))
+        const natural = [evidence("natural", 1), evidence("natural", 2), evidence("diagnostic", 3)]
+
+        const window = boundedEvidenceWindow([...drills, ...natural], 30)
+
+        expect(window.filter((item) => item.context === "acquisition")).toHaveLength(30)
+        expect(window.filter((item) => item.context !== "acquisition")).toHaveLength(3)
+        expect(window.map((item) => item.completedAt)).toEqual([...window.map((item) => item.completedAt)].sort((a, b) => b - a))
     })
 
     it("keeps unclassified legacy evidence without granting it a proof context", () => {
