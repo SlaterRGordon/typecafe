@@ -1,11 +1,11 @@
 import React, { useCallback, useEffect, useRef, useState } from "react"
 import { TestSubModes, TestModes } from "./types"
-import type { QuoteLength, TestCompletionResult, TestGramScopes, TestGramSources } from "./types"
+import type { QuoteLength, TestCompletionResult } from "./types"
 import { Text } from "./Text"
 import { useTimer } from "~/hooks/timer/useTimer"
 import { api } from "~/utils/api"
 import type { Level } from "./train/levels"
-import { buildWpmSamples, computeStats, isReliableWpmSample, worstKeysFromAttempts } from "~/lib/stats"
+import { buildWpmSamples, computeStats, worstKeysFromAttempts } from "~/lib/stats"
 import type { TypedSegment } from "~/lib/stats"
 import { encodeTimeline } from "~/lib/keystrokes"
 import { createKeystrokeRecorder } from "~/lib/keystrokeRecorder"
@@ -17,10 +17,8 @@ import { drillTargetToken, type CoachingTarget } from "~/lib/coachingTarget"
 import { evidenceContextForRun, persistsSkillEvidence, type EvidenceContext, type PracticeRecord } from "~/lib/evidenceContext"
 import { publishActiveKey } from "./keySignal"
 import { generateTestText } from "./hooks/useTestText"
-import { useGramProgression } from "./hooks/useGramProgression"
 import { useRestartShortcut } from "./hooks/useRestartShortcut"
 import { useTestPersistence } from "./hooks/useTestPersistence"
-import { gramPassesThresholds } from "./grams"
 import { typingFocusFadeClass } from "./typingFocus"
 
 type CompletionSource = "text" | "timer"
@@ -33,14 +31,6 @@ interface TyperProps {
     quoteLength?: QuoteLength,
     mode: TestModes,
     subMode: TestSubModes,
-    selectedKeys?: string[],
-    setSelectedKeys?: (keys: string[]) => void,
-    gramSource: TestGramSources,
-    gramScope: TestGramScopes,
-    gramCombination: number,
-    gramRepetition: number,
-    gramWpmThreshold: number,
-    gramAccuracyThreshold: number,
     count: number,
     punctuation?: boolean,
     capitals?: boolean,
@@ -83,8 +73,6 @@ export const Typer = (props: TyperProps) => {
         language,
         quoteLength = "all",
         mode, subMode,
-        selectedKeys,
-        gramSource, gramScope, gramCombination, gramRepetition,
         count, showStats,
         punctuation = false, capitals = false, numbers = false,
         customLength = false,
@@ -112,10 +100,6 @@ export const Typer = (props: TyperProps) => {
     const [typedCount, setTypedCount] = useState(0)
     const [wpm, setWpm] = useState(0.00)
     const [accuracy, setAccuracy] = useState(0.00)
-    // Grams levels can be as short as two characters; until a sample is long
-    // enough to measure (see isReliableWpmSample) the WPM/avg show "-" rather
-    // than an extrapolated spike like "500 wpm". Only ever set in grams mode.
-    const [wpmPending, setWpmPending] = useState(false)
     const typedTextRef = useRef("")
     const typedSegmentsRef = useRef<TypedSegment[]>([])
     // Set the instant the pacer overtakes the typist; read by handleComplete to
@@ -176,8 +160,6 @@ export const Typer = (props: TyperProps) => {
     useEffect(() => { onSavingChangeRef.current = props.onSavingChange }, [props.onSavingChange])
     useEffect(() => { onSavingChangeRef.current?.(isSaving) }, [isSaving])
 
-    const { gramLevel, gramWpm, resetProgression, recordPassedLevel } = useGramProgression(gramScope)
-
     // The countdown is a Normal/Timed concept only. Other modes can carry a
     // leftover subMode of "timed" (e.g. a persisted setting, or a programmatic
     // mode switch that didn't reset it); without this gate the timer would be a
@@ -204,12 +186,6 @@ export const Typer = (props: TyperProps) => {
         else setInitialTime(0)
     }, [count, setInitialTime, isTimed])
 
-    useEffect(() => {
-        if (mode === TestModes.ngrams) {
-            resetProgression()
-        }
-    }, [mode, subMode, gramSource, gramScope, gramCombination, gramRepetition, resetProgression])
-
     const getStats = useCallback((finalCharacterCount: number, finalIncorrectCount: number) => {
         return computeStats({
             timeline: recorder.timeline,
@@ -230,7 +206,7 @@ export const Typer = (props: TyperProps) => {
     const textRequestRef = useRef(0)
     const persistInterruptedRef = useRef<() => void>(() => undefined)
 
-    const handleRestart = useCallback((targetLevel?: number) => {
+    const handleRestart = useCallback(() => {
         persistInterruptedRef.current()
         const seq = ++restartSeqRef.current
         // Capture this at restart time. The idle callback may not run until the
@@ -241,7 +217,7 @@ export const Typer = (props: TyperProps) => {
             if (seq === restartSeqRef.current) {
                 // Off the restart frame: the sync round-trip/localStorage write
                 // must not delay the fresh text paint (typing-feel §3).
-                if (mode !== TestModes.ngrams && hasPendingCharAttempts) {
+                if (hasPendingCharAttempts) {
                     runWhenIdle(() => syncCharAttemptsRef.current())
                 }
 
@@ -249,17 +225,14 @@ export const Typer = (props: TyperProps) => {
                 // never regenerated or appended.
                 if (props.fixedText) {
                     setText(props.fixedText)
-                } else if (!(mode === TestModes.practice && !selectedKeys)) {
-                    // Practice mode without selected keys has nothing to generate
-                    // from; keep the existing text rather than blanking it.
+                } else {
                     // Generation is async (non-English word lists load on demand);
                     // the token discards stale results if another restart raced it.
                     const requestToken = ++textRequestRef.current
                     void generateTestText({
                         mode, subMode, count, language, quoteLength, punctuation, capitals, numbers,
-                        level, selectedKeys,
-                        gramSource, gramScope, gramCombination, gramRepetition,
-                    }, targetLevel ?? gramLevel).then((newText) => {
+                        level,
+                    }).then((newText) => {
                         if (textRequestRef.current === requestToken) setText(newText)
                     })
                 }
@@ -275,12 +248,10 @@ export const Typer = (props: TyperProps) => {
                 setRestarted(true)
                 setRestartNonce((nonce) => nonce + 1)
                 setTypedCount(0)
-                // Blank the WPM in grams until a level produces a measurable sample.
-                setWpmPending(mode === TestModes.ngrams)
                 onRestartRef.current?.()
             }
         }, 0)
-    }, [recorder, count, gramCombination, gramLevel, gramRepetition, gramScope, gramSource, language, quoteLength, level, mode, pause, punctuation, capitals, numbers, selectedKeys, setInitialTime, subMode, props.fixedText, charAttemptsRef, isTimed])
+    }, [recorder, count, language, quoteLength, level, mode, pause, punctuation, capitals, numbers, setInitialTime, subMode, props.fixedText, charAttemptsRef, isTimed])
 
     useEffect(() => {
         handleRestart()
@@ -296,8 +267,7 @@ export const Typer = (props: TyperProps) => {
     }, [handleRestart, onRunRestart])
 
     // Read the latest restartTest without depending on it: it's recreated whenever
-    // gramLevel changes (advancement), and depending on it here would re-fire this
-    // effect on every level-up and reset the drill back to level 1.
+    // settings change, and depending on it here would re-fire this effect.
     const restartTestRef = useRef(restartTest)
     useEffect(() => {
         restartTestRef.current = restartTest
@@ -525,21 +495,6 @@ export const Typer = (props: TyperProps) => {
                     onTestCompleteRef.current?.(completion)
                 }
             }
-        } else if (mode === TestModes.ngrams) {
-            setWpm(finalStats.rawWpm)
-            setAccuracy(finalStats.accuracy)
-            setWpmPending(!isReliableWpmSample(finalStats.durationSeconds, finalCharacterCount))
-            if (gramPassesThresholds({
-                promptText: text,
-                characterCount: finalCharacterCount,
-                speed: finalStats.speed,
-                durationSeconds: finalStats.durationSeconds,
-                accuracy: finalStats.accuracy,
-                wpmThreshold: props.gramWpmThreshold,
-                accuracyThreshold: props.gramAccuracyThreshold,
-            })) {
-                recordPassedLevel(finalStats.speed)
-            }
         }
 
         // Analytics ride an idle callback, not the completion paint (typing-feel
@@ -548,7 +503,7 @@ export const Typer = (props: TyperProps) => {
         // so a restart can't mutate what the deferred aggregation reads.
         const events = recorder.events
         runWhenIdle(() => {
-            if (mode !== TestModes.ngrams && !props.practiceRecord) syncCharAttempts()
+            if (!props.practiceRecord) syncCharAttempts()
             // Transition analytics come from normal-mode tests - including drills
             // (owner decision, ADR-0004 reversal): every rep counts toward the
             // lifetime pair data. Grams/practice text stays excluded.
@@ -578,9 +533,8 @@ export const Typer = (props: TyperProps) => {
     }, [
         recorder, isCompletionValid, isTimed, pause, getStats, buildCompletion, mode, levelRequirements,
         sessionData, testType, persistCompletion, count, level, punctuation,
-        capitals, numbers, props.gramWpmThreshold, props.gramAccuracyThreshold,
-        props.challengeDate, props.drillTarget, props.failOnMiss, recordPassedLevel, syncCharAttempts, syncTransitions,
-        evidenceContext, persistGuestTimeline, subMode, language, text, props.practiceRecord,
+        capitals, numbers, props.challengeDate, props.drillTarget, props.failOnMiss, syncCharAttempts, syncTransitions,
+        evidenceContext, persistGuestTimeline, subMode, language, props.practiceRecord,
     ])
 
     // The pacer caught the typist: flag the loss, then run completion (which reads
@@ -627,13 +581,6 @@ export const Typer = (props: TyperProps) => {
             if (characterCount == 0) setAccuracy(0)
             else setAccuracy(correct / characterCount * 100)
 
-            // In grams, hold the WPM at "-" until the current level has produced a
-            // measurable sample, so a 2-char level never flashes a 500-wpm spike.
-            if (mode === TestModes.ngrams) {
-                const elapsedSeconds = (Date.now() - startTime) / 1000
-                setWpmPending(!isReliableWpmSample(elapsedSeconds, characterCount))
-            }
-
             setTypedCount(characterCount)
         }
 
@@ -645,18 +592,13 @@ export const Typer = (props: TyperProps) => {
     useRestartShortcut(null, restartTest, isAnyModalOpen)
 
     // Before any keystroke of an attempt there is nothing meaningful to show. In
-    // n-grams mode the displayed numbers are the last completed gram's, so only
-    // treat them as pending until the first gram has produced a score.
-    const statsPending = mode === TestModes.ngrams
-        ? typedCount === 0 && wpm === 0 && accuracy === 0
-        : typedCount === 0
+    const statsPending = typedCount === 0
 
     // Live stats line: rounded wpm, floored accuracy (so 100% always means
     // perfect), "-" while there's nothing measurable yet.
-    const wpmBlank = statsPending || wpmPending
+    const wpmBlank = statsPending
     const liveWpmText = wpmBlank ? "-" : String(Math.round(wpm))
     const liveAccText = statsPending ? "-" : String(Math.floor(accuracy))
-    const liveAvgText = wpmBlank ? "-" : String(Math.round(gramWpm))
 
     // Word-count modes: words completed = spaces consumed in the prompt so far.
     const isWordCounted = mode === TestModes.normal && subMode === TestSubModes.words
@@ -664,7 +606,6 @@ export const Typer = (props: TyperProps) => {
     const typedWords = (isWordCounted || isInfiniteWords)
         ? (text.slice(0, typedCount).match(/ /g)?.length ?? 0)
         : 0
-    const gramTotalLevels = Math.ceil(gramScope / Math.max(gramCombination, 1))
 
     if (props.hideInterface) {
         return null
@@ -759,24 +700,12 @@ export const Typer = (props: TyperProps) => {
                         :
                         <p data-testid="live-stats" className="font-mono text-sm text-base-content/45 select-none">
                             <span data-testid="stat-wpm">{liveWpmText}</span> wpm · <span data-testid="stat-acc">{liveAccText}</span>%
-                            {mode === TestModes.ngrams && <> · <span data-testid="stat-avg">{liveAvgText}</span> avg</>}
                         </p>
                     )}
                     {isWordCounted &&
                         <div className="w-[280px] pt-3">
                             <div className="h-0.5 overflow-hidden rounded-full bg-base-content/10">
                                 <div className="h-full bg-primary transition-[width] duration-300" style={{ width: `${Math.min((typedWords / Math.max(count, 1)) * 100, 100)}%` }} />
-                            </div>
-                        </div>
-                    }
-                    {mode === TestModes.ngrams &&
-                        <div data-testid="gram-progress" className="w-[280px] pt-3">
-                            <div className="mb-1.5 flex justify-between font-mono text-xs text-base-content/55">
-                                <span>level {gramLevel}</span>
-                                <span className="text-base-content/35">/ {gramTotalLevels}</span>
-                            </div>
-                            <div className="h-0.5 overflow-hidden rounded-full bg-base-content/10">
-                                <div className="h-full bg-primary transition-[width] duration-300" style={{ width: `${Math.min((gramLevel / Math.max(gramTotalLevels, 1)) * 100, 100)}%` }} />
                             </div>
                         </div>
                     }

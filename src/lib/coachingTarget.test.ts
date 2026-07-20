@@ -40,6 +40,7 @@ describe("coaching target query adapter", () => {
             legacy: false,
         })
         expect(action.label).toBe("Practice this movement")
+        expect(action.href).toContain("/practice?target=movement")
         expect(targetDisplayLabel(target)).toBe("this movement")
     })
 

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react"
-import { TestGramScopes, TestGramSources, TestModes, TestSubModes, type QuoteLength } from "~/components/typer/types"
+import { TestModes, TestSubModes, type QuoteLength } from "~/components/typer/types"
 
 // Every user-tweakable test setting, persisted as one object so a returning
 // visitor gets back exactly the test they configured.
@@ -13,13 +13,6 @@ export interface TestSettings {
     punctuation: boolean,
     capitals: boolean,
     numbers: boolean,
-    selectedKeys: string[],
-    gramSource: TestGramSources,
-    gramScope: TestGramScopes,
-    gramCombination: number,
-    gramRepetition: number,
-    gramWpmThreshold: number,
-    gramAccuracyThreshold: number,
     showStats: boolean,
     showKeyboard: boolean,
 }
@@ -34,21 +27,16 @@ export const DEFAULT_TEST_SETTINGS: TestSettings = {
     punctuation: false,
     capitals: false,
     numbers: false,
-    selectedKeys: "asdfghjkl".split(""),
-    gramSource: TestGramSources.bigrams,
-    gramScope: TestGramScopes.fifty,
-    gramCombination: 1,
-    gramRepetition: 0,
-    gramWpmThreshold: 20,
-    gramAccuracyThreshold: 100,
     showStats: true,
     showKeyboard: false,
 }
 
 const STORAGE_KEY = "typecafe:testSettings"
 
-function sanitize(raw: unknown): Partial<TestSettings> {
-    if (!raw || typeof raw !== "object") return {}
+const ORDINARY_MODES = new Set<TestModes>([TestModes.normal, TestModes.relaxed, TestModes.quotes])
+
+export function sanitizeTestSettings(raw: unknown): TestSettings {
+    if (!raw || typeof raw !== "object") return DEFAULT_TEST_SETTINGS
     const candidate = raw as Record<string, unknown>
     const result: Record<string, unknown> = {}
     // Only accept keys we know about, with the same primitive type as the default,
@@ -62,7 +50,20 @@ function sanitize(raw: unknown): Partial<TestSettings> {
             result[key] = value
         }
     }
-    return result as Partial<TestSettings>
+    const sanitized = { ...DEFAULT_TEST_SETTINGS, ...result } as TestSettings
+    if (!ORDINARY_MODES.has(sanitized.mode)) sanitized.mode = TestModes.normal
+    if (sanitized.subMode !== TestSubModes.timed && sanitized.subMode !== TestSubModes.words) {
+        sanitized.subMode = TestSubModes.timed
+    }
+    const maxCount = sanitized.subMode === TestSubModes.timed ? 3_600 : 5_000
+    if (!Number.isInteger(sanitized.count) || sanitized.count < 1 || sanitized.count > maxCount) {
+        sanitized.count = sanitized.subMode === TestSubModes.timed ? 15 : 10
+        sanitized.customLength = false
+    }
+    if (!(["all", "short", "medium", "long"] as const).includes(sanitized.quoteLength)) {
+        sanitized.quoteLength = "all"
+    }
+    return sanitized
 }
 
 export function useTestSettings() {
@@ -74,7 +75,7 @@ export function useTestSettings() {
     useEffect(() => {
         try {
             const raw = localStorage.getItem(STORAGE_KEY)
-            if (raw) setSettings({ ...DEFAULT_TEST_SETTINGS, ...sanitize(JSON.parse(raw)) })
+            if (raw) setSettings(sanitizeTestSettings(JSON.parse(raw)))
         } catch {
             // Corrupt or unavailable storage - fall back to defaults.
         }

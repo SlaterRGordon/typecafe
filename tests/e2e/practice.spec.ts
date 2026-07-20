@@ -81,6 +81,31 @@ test.describe("Practice landing", () => {
   })
 })
 
+test.describe("legacy Drill compatibility", () => {
+  test("preserves a provable Target in Guided Practice", async ({ page }) => {
+    await page.goto("/drill?keys=x&policy=cold&length=30&rm=opaque")
+
+    await expect(page).toHaveURL(/\/practice\?target=key.*keys=x.*policy=cold.*length=30.*rm=opaque/)
+    await expect(page.getByTestId("custom-practice-workspace")).toHaveAttribute("data-practice-kind", "guided")
+    await expect(page.getByTestId("selected-practice-keys")).toContainText("x")
+  })
+
+  test("sends legacy endurance and timed warm-ups to ordinary Home Tests", async ({ page }) => {
+    await page.goto("/drill?target=endurance&shortSeconds=30&longSeconds=60&policy=cold")
+    await expect(page.getByTestId("mode-bar").getByRole("button", { name: "timed" })).toHaveAttribute("aria-pressed", "true")
+    await expect(page.getByTestId("toolbar-context").getByRole("button", { name: "60" })).toHaveAttribute("aria-pressed", "true")
+
+    await page.goto("/drill?seconds=15")
+    await expect(page.getByTestId("toolbar-context").getByRole("button", { name: "15" })).toHaveAttribute("aria-pressed", "true")
+  })
+
+  test("lands truthfully when no Target can be proved", async ({ page }) => {
+    await page.goto("/drill?target=gram&gram=x")
+    await expect(page).toHaveURL(/\/practice$/)
+    await expect(page.getByTestId("practice-empty")).toContainText("Find your focus")
+  })
+})
+
 test.describe("Custom Practice", () => {
   test("keeps controls, finite typer, and layout-aware Keys editor in one workspace and restores choices", async ({ page }) => {
     await gotoPractice(page)

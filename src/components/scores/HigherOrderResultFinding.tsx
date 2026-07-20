@@ -17,14 +17,12 @@ import { guidedEvidenceFromCandidate } from "~/lib/guidedPractice";
 interface HigherOrderResultFindingProps {
   score: ShareableScore;
   boardLayout: string;
-  withReMeasure: (href: string) => string;
   onFindingChange: (present: boolean) => void;
 }
 
 export function HigherOrderResultFinding({
   score,
   boardLayout,
-  withReMeasure,
   onFindingChange,
 }: HigherOrderResultFindingProps) {
   const language = baseTypeLanguage(score.language) ?? score.language;
@@ -133,7 +131,7 @@ export function HigherOrderResultFinding({
         <span className="text-base-content/90">{summary}</span>
         <Link
           className="inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-          href={withReMeasure(href)}
+          href={href}
           aria-label={`Practise the ${target.kind === "gram" ? target.gram : "recurring word"} pattern`}
         >
           Practise this pattern

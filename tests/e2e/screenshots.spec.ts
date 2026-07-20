@@ -94,7 +94,8 @@ test("Guided Practice workspace and awaiting-Test recap", async ({ page }, testI
     metric: "ms", baseline: 110, observed: 186, sampleCount: 12,
     reason: "Recent Tests measured tion with 76 ms of extra pause.",
   }))
-  await page.goto(`/practice?target=gram&gram=tion&policy=acquisition&evidence=${evidence}`)
+  await page.goto(`/drill?target=gram&gram=tion&policy=acquisition&evidence=${evidence}`)
+  await expect(page).toHaveURL(/\/practice\?target=gram.*gram=tion/)
   await expect(page.getByTestId("guided-practice-intent")).toBeVisible()
   await expect(page.locator("#c0")).toHaveClass(/active-char/, { timeout: 20_000 })
   await capture(page, testInfo, "69-guided-practice")
@@ -123,7 +124,7 @@ async function openSettingsMenu(page: Page) {
 }
 
 // Mode switches on the inline mode bar (the modal holds everything else).
-function selectMode(page: Page, name: "Timed" | "Words" | "Practice" | "Grams") {
+function selectMode(page: Page, name: "Timed" | "Words") {
   return page.getByTestId("mode-bar").getByRole("button", { name }).click();
 }
 
@@ -202,6 +203,7 @@ test.describe("screenshot tour", () => {
       });
     });
     await gotoHome(page);
+    await expect(page.getByTestId("mode-bar").getByRole("button")).toHaveText(["timed", "words"]);
     await capture(page, testInfo, "01-home-default");
 
     // Type a few characters, including one mistake, to show progress and
@@ -252,25 +254,6 @@ test.describe("screenshot tour", () => {
     await expect(page.locator("#customLengthInput")).toBeVisible();
     await capture(page, testInfo, "06-settings-timed-custom-length");
 
-    // Grams: sources/scopes as settings-line segments; the numeric knobs render
-    // as dotted-underline inline edits on the advanced line.
-    await selectMode(page, "Grams");
-    await expect(page.getByTestId("grams-panel")).toBeVisible();
-    await capture(page, testInfo, "05-settings-grams");
-
-    // Show one knob mid-edit.
-    await page.getByTestId("grams-panel").getByRole("button", { name: "Edit WPM needed to advance" }).click();
-    await expect(page.locator("#testGramWpmThresholdInput")).toBeVisible();
-    await capture(page, testInfo, "59-settings-grams-advanced");
-
-    // Practice switches inline with no modal round-trip; the gear now carries the
-    // punctuation toggle (gates the locked mark keys) alongside capitals.
-    await selectMode(page, "Practice");
-    await expect(page.locator(".typecafe-keyboard")).toBeVisible();
-    await openSettingsMenu(page);
-    await capture(page, testInfo, "07-settings-practice-mode");
-    await page.keyboard.press("Escape");
-
     // ∞ (no timer) - the relaxed engine, now a length option on Timed.
     await selectMode(page, "Timed");
     await page.getByTestId("toolbar-context").getByRole("button", { name: "No timer" }).click();
@@ -314,19 +297,6 @@ test.describe("screenshot tour", () => {
     await capture(page, testInfo, "24-test-view-punctuation-capitals");
   });
 
-  test("grams mode: test view with level progression stats", async ({ page }, testInfo) => {
-    await gotoHome(page);
-    await selectMode(page, "Grams");
-
-    await expect(page.locator("#words .char").first()).toBeVisible();
-    await capture(page, testInfo, "25-test-view-grams-level");
-
-    // Type the first characters so the per-level average and accuracy render.
-    await typeCurrentCharacter(page, 0);
-    await typeCurrentCharacter(page, 1);
-    await capture(page, testInfo, "26-test-view-grams-mid-level");
-  });
-
   test("no-timer (∞) test view", async ({ page }, testInfo) => {
     await gotoHome(page);
     await page.getByTestId("toolbar-context").getByRole("button", { name: "No timer" }).click();
@@ -350,182 +320,6 @@ test.describe("screenshot tour", () => {
     await page.locator("[aria-label='Enter fullscreen']").click();
     await expect(page.locator("[aria-label='Exit fullscreen']")).toBeVisible();
     await capture(page, testInfo, "28-test-view-fullscreen");
-  });
-
-  test("practice mode: keyboard key selection and analytics view", async ({ page }, testInfo) => {
-    await gotoHome(page);
-    await selectMode(page, "Practice");
-
-    await expect(page.locator(".typecafe-keyboard")).toBeVisible();
-    await expect(page.getByTestId("practice-status-bar")).toBeVisible();
-    await capture(page, testInfo, "09-home-practice-keyboard");
-
-    // The merged practice keyboard always shows per-key accuracy + lock state.
-    const keyboardKey = (key: string) =>
-      page.locator(`.typecafe-keyboard kbd[data-kb-key="${key}"]`);
-
-    // A fresh guest board is under the sample floor everywhere, so keys read the
-    // neutral no-data state until enough keystrokes land.
-    await keyboardKey("e").hover();
-    await expect(page.getByRole("tooltip")).toContainText("No data yet");
-    await capture(page, testInfo, "66-practice-key-tooltip");
-
-    // The default nine-key set is repaired to the two-vowel floor on entry
-    // (adds "e"), so it renders unlocked; "w" sits outside the set and starts
-    // locked - one click unlocks it.
-    await expect(keyboardKey("e").locator("svg")).toHaveCount(0);
-    await expect(keyboardKey("w").locator("svg")).toHaveCount(1);
-    await keyboardKey("w").click();
-    await expect(keyboardKey("w").locator("svg")).toHaveCount(0);
-    await capture(page, testInfo, "29-practice-key-added");
-
-    // Focus keys are no longer an allowed alphabet, so any selected key can be
-    // removed without a vowel/consonant floor warning.
-    await keyboardKey("a").click();
-    await expect(page.getByText(/Must include at least .*vowel/i)).toHaveCount(0);
-    await capture(page, testInfo, "30-practice-key-no-floor");
-
-    // Smart drill without enough typing history surfaces the warning toast.
-    await page.getByRole("button", { name: "Drill your eight least accurate keys" }).click();
-    await expect(page.getByText("Not enough typing data yet - practice a little first!")).toBeVisible();
-    await capture(page, testInfo, "31-practice-smart-drill-no-data");
-
-    // Type a few characters so the keyboard's per-key accuracy reflects the session.
-    await page.locator("#text").click();
-    await typeCurrentCharacter(page, 0);
-    await typeCurrentCharacter(page, 1);
-    await page.keyboard.press("0");
-    await typeCurrentCharacter(page, 2);
-    await page.keyboard.down("Tab");
-    await page.keyboard.press("Enter");
-    await page.keyboard.up("Tab");
-
-    // Accuracy is always available now - no toggle. Exact values live in the
-    // per-layer key tooltips so the heatmap face stays readable.
-    await capture(page, testInfo, "32-practice-keyboard-analytics");
-
-    // Shift layer: holding Shift peeks the shifted twins (; → :, / → ?); releasing
-    // returns to base. The layout never moves. The keyboard's layer rail tracks
-    // the held peek as well as sticky clicks.
-    const shiftLabel = page.getByRole("button", { name: "Show shifted keys (capitals and symbols)" });
-    await expect(shiftLabel).toHaveAttribute("aria-pressed", "false");
-    await page.keyboard.down("Shift");
-    await expect(keyboardKey(":")).toHaveCount(1);
-    await expect(keyboardKey(";")).toHaveCount(0);
-    await expect(shiftLabel).toHaveAttribute("aria-pressed", "true");
-    await page.keyboard.up("Shift");
-    await expect(keyboardKey(";")).toHaveCount(1);
-    await expect(shiftLabel).toHaveAttribute("aria-pressed", "false");
-
-    // The sticky toggle button does the same, but stays put (touch / lingering).
-    await page.getByRole("button", { name: "Show shifted keys (capitals and symbols)" }).click();
-    await expect(keyboardKey(":")).toHaveCount(1);
-    await expect(keyboardKey(";")).toHaveCount(0);
-    await capture(page, testInfo, "59-practice-shift-layer");
-
-    // Shifted marks lock from the shift layer: ? starts locked (punctuation off),
-    // and unlocking it flips the punctuation add-on on in the same click.
-    await expect(keyboardKey("?").locator("svg")).toHaveCount(1);
-    await keyboardKey("?").click();
-    await expect(keyboardKey("?").locator("svg")).toHaveCount(0);
-
-    // Capitals ride the capitals add-on: while it's off every capital reads
-    // locked; clicking one flips the add-on on, then each capital mirrors its
-    // lowercase base key ('a' selected → A unlocked; 'r' not → R locked).
-    await expect(keyboardKey("A").locator("svg")).toHaveCount(1);
-    await keyboardKey("A").click();
-    await expect(keyboardKey("A").locator("svg")).toHaveCount(0);
-    await expect(keyboardKey("R").locator("svg")).toHaveCount(1);
-    await capture(page, testInfo, "64-practice-capitals-unlocked");
-  });
-
-  test("practice language engine: sparse alphabet stays word-shaped", async ({ page }, testInfo) => {
-    await page.addInitScript(() => {
-      window.localStorage.setItem("typecafe:testSettings", JSON.stringify({ selectedKeys: "auvixjbz".split("") }));
-    });
-    await gotoHome(page);
-    await selectMode(page, "Practice");
-
-    await expect(page.getByTestId("practice-active-count")).toHaveText("8 keys active");
-    await expect.poll(async () => {
-      const words = ((await page.locator("#words").textContent()) ?? "").trim().split(/\s+/).slice(0, 30);
-      return words.length === 30 && words.every((word) => word.length >= 3 && word.length <= 10);
-    }).toBe(true);
-    await capture(page, testInfo, "65-practice-sparse-language-engine");
-  });
-
-  test("national layout: German QWERTZ board with umlauts and AltGr layer", async ({ page }, testInfo) => {
-    await page.addInitScript(() => {
-      // A minimal valid pool: adding ü makes für a permitted German word.
-      window.localStorage.setItem("typecafe:testSettings", JSON.stringify({ selectedKeys: "abcdfgir".split("") }));
-    });
-    await gotoHome(page);
-
-    // Auto layout follows the nav language: German resolves to QWERTZ (DE).
-    await page.getByTestId("nav-language-trigger").click();
-    await page.getByTestId("nav-language-menu").getByRole("button", { name: "German" }).click();
-    await expect(page.getByTestId("nav-layout-trigger")).toHaveText(/Auto - QWERTZ \(DE\)/);
-
-    // The practice board renders the national layout: real ü/ö/ä caps, the ISO
-    // extra key, and dead keys (´ ^) dash-marked.
-    await selectMode(page, "Practice");
-    const board = page.locator(".typecafe-keyboard");
-    await expect(board.locator('[data-kb-key="ü"]')).toBeVisible();
-    await capture(page, testInfo, "60-practice-qwertz-board");
-
-    // The AltGr layer shows the third glyphs (@ € µ) with their own accuracy.
-    await page.getByRole("button", { name: "Show AltGr keys (accents and symbols)" }).click();
-    await expect(board.locator('[data-kb-key="@"]')).toBeVisible();
-    await capture(page, testInfo, "61-practice-qwertz-altgr-layer");
-    await page.getByRole("button", { name: "Show AltGr keys (accents and symbols)" }).click();
-
-    // Accent keys are drill targets now: clicking ü unlocks it (the lock badge
-    // drops) once the language's accent set has loaded.
-    // Seed only the post-unlock generator: globally replacing Math.random before
-    // Home mounts stalls its initial text generator.
-    await page.evaluate(() => {
-      (window as typeof window & { originalMathRandom?: typeof Math.random }).originalMathRandom = Math.random;
-      Math.random = () => 0;
-    });
-    const uml = board.locator('[data-kb-key="ü"]');
-    const consonant = board.locator('[data-kb-key="c"]');
-    await expect(async () => {
-      await uml.click();
-      await expect(uml.locator("svg")).toHaveCount(0, { timeout: 250 });
-    }).toPass();
-    // ü counts as a letter anchor, so c can return to its visibly locked state
-    // while the selected pool remains at the eight-letter floor.
-    await expect(consonant.locator("svg")).toHaveCount(0);
-    await consonant.click();
-    await expect(consonant.locator("svg")).toHaveCount(1);
-    await expect(page.getByTestId("practice-active-count")).toHaveText("8 keys active");
-    await expect(page.getByText("Must include at least 8 keys!", { exact: true })).toHaveCount(0);
-    // The text stays scoped to the remaining anchors, including the umlaut.
-    await expect(page.locator("#words")).toContainText("für");
-    await page.evaluate(() => {
-      const original = (window as typeof window & { originalMathRandom?: typeof Math.random }).originalMathRandom;
-      if (original) Math.random = original;
-    });
-    await capture(page, testInfo, "63-practice-qwertz-umlaut-unlocked");
-  });
-
-  test("national layout: French shifted digit selected in Practice", async ({ page }, testInfo) => {
-    await page.addInitScript(() => {
-      window.localStorage.setItem("typecafe:testSettings", JSON.stringify({ selectedKeys: "aeiousdf".split("") }));
-    });
-    await gotoHome(page);
-    await page.getByTestId("nav-language-trigger").click();
-    await page.getByTestId("nav-language-menu").getByRole("button", { name: "French" }).click();
-    await selectMode(page, "Practice");
-
-    const board = page.locator(".typecafe-keyboard");
-    await page.getByRole("button", { name: "Show shifted keys (capitals and symbols)" }).click();
-    const digit = board.locator('[data-kb-key="2"]');
-    await expect(digit).toHaveAttribute("role", "button");
-    await expect(digit.locator("svg")).toHaveCount(1);
-    await digit.click();
-    await expect(digit.locator("svg")).toHaveCount(0);
-    await capture(page, testInfo, "62-practice-azerty-shift-digit-selected");
   });
 
   test("train page: level map and tier switching", async ({ page }, testInfo) => {
@@ -611,49 +405,6 @@ test.describe("screenshot tour", () => {
     await page.getByRole("link", { name: /Practise these keys/ }).first().click();
     await expect(page.getByTestId("guided-practice-intent")).toBeVisible();
     await capture(page, testInfo, "36-guided-practice-handoff");
-  });
-
-  test("re-measure: drill result CTA and home before/after delta", async ({ page }, testInfo) => {
-    // Guest lifetime evidence so the result card shows its full state: the
-    // lifetime-vs-rep delta line and the next-drill pick.
-    await page.addInitScript(() => {
-      window.localStorage.setItem("typecafe:keyStats", JSON.stringify([
-        { key: "x", attempts: 20, correct: 10 },
-        { key: "q", attempts: 10, correct: 4 },
-      ]));
-    });
-    await mockTrpc(page);
-
-    // The token a diagnosis forwards: the diagnosed test's before-WPM + config.
-    const rm = JSON.stringify({
-      beforeWpm: 40,
-      config: { subMode: 1, count: 4, language: "english", customLength: true, punctuation: false, capitals: false, options: "" },
-    });
-
-    // /drill's result card offers the Re-measure CTA (href carries the token back
-    // home - asserted in drill.spec); capture the prompt here.
-    await page.goto(`/drill?keys=x&length=4&rm=${encodeURIComponent(rm)}`);
-    await expect(page.getByTestId("drill-typer")).toBeVisible();
-    await typeVisibleTestText(page);
-    await expect(page.getByTestId("drill-result")).toBeVisible();
-    await expect(page.getByTestId("drill-delta")).toBeVisible();
-    await expect(page.getByTestId("drill-next")).toBeVisible();
-    // The header's session trail (per-rep progress) rides in this capture.
-    await expect(page.getByTestId("drill-session")).toBeVisible();
-    await capture(page, testInfo, "37-re-measure-prompt");
-
-    // Landing home with the token re-runs the diagnosed test → before→after delta.
-    // Wait for the rm config to actually apply (its 4-word counter replaces the
-    // default timed countdown) before reading the prompt - typing against the
-    // pre-switch text loses the race when the restart regenerates it.
-    await page.goto(`/?rm=${encodeURIComponent(rm)}`);
-    await expect(page.getByTestId("word-counter")).toContainText("/ 4");
-    // …and for the 4-word prompt itself (the long default text stays rendered
-    // until regeneration lands, so char presence alone isn't enough).
-    await expect.poll(() => page.locator("#words .char").count()).toBeLessThan(60);
-    await typeVisibleTestText(page);
-    await expect(page.getByTestId("re-measure-delta")).toBeVisible({ timeout: 15_000 });
-    await capture(page, testInfo, "38-re-measure-delta");
   });
 
   test("train page", async ({ page }, testInfo) => {
@@ -1000,32 +751,6 @@ test.describe("screenshot tour", () => {
     await tab.hover();
     await expect(page.getByTestId("home-coach-tab-drill-panel")).toBeVisible();
     await capture(page, testInfo, "69-home-drill-coach-tab");
-  });
-
-  test("drill surface", async ({ page }, testInfo) => {
-    // Lifetime evidence so the header shows its full state: baseline stat +
-    // next-drill pick.
-    await page.addInitScript(() => {
-      window.localStorage.setItem("typecafe:keyStats", JSON.stringify([
-        { key: "x", attempts: 20, correct: 10 },
-        { key: "q", attempts: 10, correct: 4 },
-      ]));
-    });
-    await mockTrpc(page);
-    await page.goto("/drill?keys=x&length=8");
-    await expect(page.getByTestId("drill-typer")).toBeVisible();
-    await expect(page.getByRole("heading", { name: "x" })).toBeVisible();
-    await expect(page.getByTestId("drill-header-stat")).toBeVisible();
-    await expect(page.getByTestId("drill-header-next")).toBeVisible();
-    await capture(page, testInfo, "56-drill-surface");
-  });
-
-  test("varied pattern check", async ({ page }, testInfo) => {
-    await mockTrpc(page);
-    await page.goto("/drill?target=gram&gram=tion&policy=transfer&seen=action,station&length=30");
-    await expect(page.getByText("Pattern drill")).toBeVisible();
-    await expect(page.getByRole("heading", { name: "tion" })).toBeVisible();
-    await capture(page, testInfo, "73-varied-pattern-check");
   });
 
   test("shared progress card", async ({ page }, testInfo) => {

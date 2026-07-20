@@ -10,7 +10,6 @@ import { ProgressShareCard, isProgressSnapshot } from "~/components/scores/Progr
 import { Typer, type TestCompletionResult } from "~/components/typer/Typer";
 import { typingFocusFadeClass } from "~/components/typer/typingFocus";
 import type { TestModes, TestSubModes } from "~/components/typer/types";
-import { DEFAULT_TEST_SETTINGS } from "~/hooks/useTestSettings";
 import { useLayout } from "~/hooks/useLayout";
 import { beatRunAttemptLabel, beatRunBrag, firstDivergenceWord } from "~/lib/beatRun";
 import { netFromRaw } from "~/lib/stats";
@@ -260,12 +259,6 @@ function BeatRunChallenge(props: { slug: string; target: BeatTarget }) {
             subMode={props.target.subMode}
             count={props.target.count}
             fixedText={props.target.promptText}
-            gramSource={DEFAULT_TEST_SETTINGS.gramSource}
-            gramScope={DEFAULT_TEST_SETTINGS.gramScope}
-            gramCombination={DEFAULT_TEST_SETTINGS.gramCombination}
-            gramRepetition={DEFAULT_TEST_SETTINGS.gramRepetition}
-            gramWpmThreshold={DEFAULT_TEST_SETTINGS.gramWpmThreshold}
-            gramAccuracyThreshold={DEFAULT_TEST_SETTINGS.gramAccuracyThreshold}
             showStats={true}
             modalOpen={false}
             restartSignal={restartSignal}

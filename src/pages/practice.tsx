@@ -6,7 +6,7 @@ import { useSession } from "next-auth/react"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { Keyboard } from "~/components/typer/Keyboard"
 import { Typer, type TestCompletionResult } from "~/components/typer/Typer"
-import { TestGramScopes, TestGramSources, TestModes, TestSubModes } from "~/components/typer/types"
+import { TestModes, TestSubModes } from "~/components/typer/types"
 import { ensureLanguageLoaded, getWords } from "~/components/typer/utils"
 import { useGuestEvidence } from "~/hooks/useGuestEvidence"
 import { useCoachingEvidence } from "~/hooks/useCoachingEvidence"
@@ -244,9 +244,6 @@ const Practice: NextPage = () => {
         keys: keysPreferences,
         grams: gramsPreferences,
     }) : null, [gramsPreferences, keysPreferences, progressProjection])
-    const focusCharacters = useMemo(() => path === "keys"
-        ? keysPreferences.keys
-        : [...new Set(gramsPreferences.grams.flatMap((gram) => [...gram]))], [gramsPreferences.grams, keysPreferences.keys, path])
     const activeFocus = useMemo(() => path === "keys"
         ? { kind: "keys" as const, items: keysPreferences.keys }
         : { kind: "grams" as const, items: gramsPreferences.grams }, [gramsPreferences.grams, keysPreferences.keys, path])
@@ -528,13 +525,6 @@ const Practice: NextPage = () => {
                             language={language}
                             mode={TestModes.practice}
                             subMode={TestSubModes.timed}
-                            selectedKeys={focusCharacters}
-                            gramSource={TestGramSources.bigrams}
-                            gramScope={TestGramScopes.fifty}
-                            gramCombination={1}
-                            gramRepetition={1}
-                            gramWpmThreshold={0}
-                            gramAccuracyThreshold={0}
                             count={activePreferences.durationSeconds}
                             customLength
                             evidenceContext={guided ? "acquisition" : "custom-practice"}

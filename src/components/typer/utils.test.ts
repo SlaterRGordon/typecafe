@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { accentChars, applyTextOptions, ensureSizedLoaded, generateBetterPseudoText, generateNGram, generatePracticeText, generateText, getWords, rankNGrams } from "./utils"
-import { TestGramScopes, TestGramSources } from "./types"
+import { accentChars, applyTextOptions, ensureSizedLoaded, generateBetterPseudoText, generateText } from "./utils"
 
 const SENTENCE_ENDERS = [".", "?", "!"]
 
@@ -182,29 +181,6 @@ describe("generateBetterPseudoText", () => {
     )
 })
 
-describe("generatePracticeText", () => {
-    it.each(["english", "french", "spanish", "german", "italian", "portuguese", "dutch", "polish"])(
-        "mixes natural carriers with generated coverage in %s Practice text",
-        async (language) => {
-            await ensureSizedLoaded(language, "1k")
-            const keys = "asdfghjkl".split("")
-            const corpus = new Set(getWords(language).map((word) => word.toLowerCase().normalize("NFC")))
-            const eligibleNaturalWords = getWords(language).slice(0, 5000).filter((word) =>
-                word.length >= 3 && word.length <= 10 && [...word].every((character) => keys.includes(character)),
-            )
-            const words = generatePracticeText(40, keys, language).split(" ")
-
-            expect(words).toHaveLength(40)
-            expect(words.filter((word) => word.length < 3 || word.length > 10)).toEqual([])
-            if (eligibleNaturalWords.length > 0) expect(words.some((word) => corpus.has(word))).toBe(true)
-            expect(words.every((word) => [...word].every((character) => keys.includes(character)))).toBe(true)
-            for (const key of keys) {
-                expect([...words.join("")].filter((character) => character === key).length).toBeGreaterThanOrEqual(2)
-            }
-        },
-    )
-})
-
 describe("generateText", () => {
     it("never repeats a word back-to-back", () => {
         // Run many times: a doubled word reads as a typo and breaks flow.
@@ -214,52 +190,6 @@ describe("generateText", () => {
                 expect(words[j]).not.toBe(words[j - 1])
             }
         }
-    })
-})
-
-describe("generateNGram", () => {
-    const countWords = (text: string) => text.split(" ").filter(Boolean).length
-
-    it("repetition grows the text linearly, not exponentially", () => {
-        const base = countWords(generateNGram(TestGramSources.bigrams, TestGramScopes.fifty, 2, 0, 1))
-        const repeated = countWords(generateNGram(TestGramSources.bigrams, TestGramScopes.fifty, 2, 3, 1))
-        expect(base).toBe(2)
-        expect(repeated).toBe(base * 4) // base + 3 repetitions
-    })
-
-    it("clamps very large repetition values", () => {
-        const huge = generateNGram(TestGramSources.bigrams, TestGramScopes.fifty, 2, 1000, 1)
-        expect(countWords(huge)).toBeLessThanOrEqual(2 * 20)
-    })
-
-    it("never includes 'undefined' for any level within the scope", () => {
-        const combination = 2
-        const totalLevels = Math.ceil(50 / combination)
-        for (let level = 1; level < totalLevels - 1; level++) {
-            const text = generateNGram(TestGramSources.bigrams, TestGramScopes.fifty, combination, 0, level)
-            expect(text).not.toContain("undefined")
-        }
-    })
-
-    it("derives its grams from the requested language", async () => {
-        await ensureSizedLoaded("french", "1k")
-        const topBigrams = (lang: string) => Array.from({ length: 10 }, (_, level) =>
-            generateNGram(TestGramSources.bigrams, TestGramScopes.twoHundred, 1, 0, level, lang).trim())
-        for (const gram of topBigrams("french")) expect(gram).toHaveLength(2)
-        // Two languages don't share the same top-10 bigram ranking - proves French
-        // grams are derived from the French words, not the English static list.
-        expect(topBigrams("french")).not.toEqual(topBigrams("english"))
-    })
-})
-
-describe("rankNGrams", () => {
-    it("ranks character n-grams by frequency, most common first", () => {
-        // "ou"/"ui" appear twice each; "no"/"on" once. Ties keep first-seen order.
-        expect(rankNGrams(["oui", "oui", "non"], 2, 10)).toEqual(["ou", "ui", "no", "on"])
-    })
-
-    it("respects the limit and skips words shorter than n", () => {
-        expect(rankNGrams(["ab", "abc", "a"], 3, 5)).toEqual(["abc"])
     })
 })
 

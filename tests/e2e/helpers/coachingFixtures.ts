@@ -25,14 +25,14 @@ function transferredSession(id: string, daysAgo: number, target: CoachingTarget,
     kind: "targeted", reason: frozen.reason, estimatedMinutes: 6, status: "completed", currentStepIndex: 1,
     steps: [
       {
-        id: `${id}:focus`, kind: "focus", context: "acquisition", title: `Acquire ${label}`, detail: "", href: "/drill", target,
+        id: `${id}:focus`, kind: "focus", context: "acquisition", title: `Acquire ${label}`, detail: "", href: "/practice", target,
         sets: [
           { completedAt: Date.now() - daysAgo * DAY_MS, netWpm: 60, accuracy: 97, targetSamples: 8, targetDelta: { label, before: baseline, after: transfer - 20, unit: "ms", improved: true } },
           { completedAt: Date.now() - daysAgo * DAY_MS + 500, netWpm: 61, accuracy: 97, targetSamples: 8, targetDelta: { label, before: baseline, after: transfer - 15, unit: "ms", improved: true } },
         ],
       },
       {
-        id: `${id}:transfer`, kind: "transfer", context: "transfer", title: `Transfer ${label}`, detail: "", href: "/drill", target, requiresTargetSample: true,
+        id: `${id}:transfer`, kind: "transfer", context: "transfer", title: `Transfer ${label}`, detail: "", href: "/practice", target, requiresTargetSample: true,
         sets: [{ completedAt: Date.now() - daysAgo * DAY_MS + 1000, netWpm: 62, accuracy: 98, targetSamples: 8, targetDelta: { label, before: baseline, after: transfer, unit: "ms", improved: true } }],
       },
     ],
@@ -46,7 +46,7 @@ function heldColdSession(daysAgo: number, target: CoachingTarget, label: string,
     version: 3, id: `${date}:cold:${label}`, dateKey: date, pool: "qwerty", language: "english",
     kind: "targeted", reason: "Delayed Cold proof.", estimatedMinutes: 2, status: "completed", currentStepIndex: 0,
     steps: [{
-      id: `${date}:recheck`, kind: "recheck", context: "cold", title: `Cold check ${label}`, detail: "", href: "/drill", target, requiresTargetSample: true,
+      id: `${date}:recheck`, kind: "recheck", context: "cold", title: `Cold check ${label}`, detail: "", href: "/practice", target, requiresTargetSample: true,
       sets: [{ completedAt: Date.now() - daysAgo * DAY_MS, netWpm: 63, accuracy: 98, targetSamples: 7, targetDelta: { label, before: baseline, after: cold, unit: "ms", improved: true } }],
     }],
     yesterday: { label, target, unit: "ms", before: baseline, after: cold, minimumChange: 20 },
@@ -84,14 +84,14 @@ export function completedKeyAccuracySession(): DailyCoachingSession {
         sets: [{ completedAt: now - 2_000, netWpm: 64, accuracy: 96 }],
       },
       {
-        id: "r:focus", kind: "focus", context: "acquisition", title: "Acquire r", detail: "", href: "/drill", target,
+        id: "r:focus", kind: "focus", context: "acquisition", title: "Acquire r", detail: "", href: "/practice", target,
         sets: [
           { completedAt: now - 1_500, netWpm: 65, accuracy: 97, targetSamples: 10, targetDelta: { label: "r", before: 88, after: 94, unit: "%", direction: "higher", improved: true } },
           { completedAt: now - 1_000, netWpm: 66, accuracy: 100, targetSamples: 10, targetDelta: { label: "r", before: 88, after: 100, unit: "%", direction: "higher", improved: true } },
         ],
       },
       {
-        id: "r:transfer", kind: "transfer", context: "transfer", title: "Transfer r", detail: "", href: "/drill", target, requiresTargetSample: true,
+        id: "r:transfer", kind: "transfer", context: "transfer", title: "Transfer r", detail: "", href: "/practice", target, requiresTargetSample: true,
         sets: [{ completedAt: now - 500, netWpm: 67, accuracy: 98, targetSamples: 8, targetDelta: { label: "r", before: 88, after: 96, unit: "%", direction: "higher", improved: true } }],
       },
     ],

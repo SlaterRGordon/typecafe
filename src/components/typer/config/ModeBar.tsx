@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState, type ReactNode } from "react"
-import { TestGramScopes, TestGramSources, TestModes, TestSubModes, type QuoteLength, type WordSize } from "../types"
+import { useEffect, useState, type ReactNode } from "react"
+import { TestModes, TestSubModes, type QuoteLength, type WordSize } from "../types"
 import { TIMED_TEST_PRESETS, WORD_TEST_PRESETS } from "~/lib/testConfig"
 import { ToolbarMenu } from "./ToolbarMenu"
 import { composeLanguage, parseLanguage } from "../utils"
@@ -17,8 +17,6 @@ type OpenMenu = "language" | "settings" | null
 const TOOLBAR_MODES: ToolbarMode[] = [
     { label: "timed", mode: TestModes.normal, subMode: TestSubModes.timed, defaultCount: 15 },
     { label: "words", mode: TestModes.normal, subMode: TestSubModes.words, defaultCount: 10 },
-    { label: "practice", mode: TestModes.practice, defaultCount: 10 },
-    { label: "grams", mode: TestModes.ngrams, defaultCount: 10 },
 ]
 
 const TIMED_LENGTHS: readonly number[] = TIMED_TEST_PRESETS
@@ -29,14 +27,6 @@ const QUOTE_LENGTHS: { value: QuoteLength, label: string }[] = [
     { value: "medium", label: "medium" },
     { value: "long", label: "long" },
 ]
-
-const GRAM_SOURCES: { value: TestGramSources, label: string }[] = [
-    { value: TestGramSources.bigrams, label: "bigrams" },
-    { value: TestGramSources.trigrams, label: "trigrams" },
-    { value: TestGramSources.tetragrams, label: "tetragrams" },
-    { value: TestGramSources.words, label: "words" },
-]
-const GRAM_SCOPES: TestGramScopes[] = [TestGramScopes.fifty, TestGramScopes.oneHundred, TestGramScopes.twoHundred]
 
 // The base language is chosen in the nav; the bar picks a vocabulary size on top.
 // English ships a curated 25k; other languages slice their frequency list and stop
@@ -68,30 +58,16 @@ interface ModeBarProps {
     customLength: boolean
     language: string
     quoteLength: QuoteLength
-    selectedKeys: string[]
-    gramSource: TestGramSources
-    gramScope: TestGramScopes
-    gramCombination: number
-    gramRepetition: number
-    gramWpmThreshold: number
-    gramAccuracyThreshold: number
     punctuation: boolean
     capitals: boolean
     numbers: boolean
     fullscreen: boolean
-    onSmartDrill: () => void
     setMode: (mode: TestModes) => void
     setSubMode: (subMode: TestSubModes) => void
     setCount: (count: number) => void
     setCustomLength: (value: boolean) => void
     setLanguage: (language: string) => void
     setQuoteLength: (value: QuoteLength) => void
-    setGramSource: (value: TestGramSources) => void
-    setGramScope: (value: TestGramScopes) => void
-    setGramCombination: (value: number) => void
-    setGramRepetition: (value: number) => void
-    setGramWpmThreshold: (value: number) => void
-    setGramAccuracyThreshold: (value: number) => void
     setPunctuation: (value: boolean) => void
     setCapitals: (value: boolean) => void
     setNumbers: (value: boolean) => void
@@ -175,68 +151,6 @@ function SettingsToggle(props: { label: string, active: boolean, onChange: (acti
     )
 }
 
-// A dotted-underline click-to-edit number in the grams advanced line. Clicking
-// swaps the text for a small input; commit on blur/Enter, cancel on Escape.
-function InlineEdit(props: {
-    id: string
-    label: string
-    value: number
-    min: number
-    max?: number
-    display: string
-    onCommit: (value: number) => void
-}) {
-    const [editing, setEditing] = useState(false)
-    const [text, setText] = useState(String(props.value))
-    const inputRef = useRef<HTMLInputElement>(null)
-
-    useEffect(() => {
-        if (editing) inputRef.current?.focus()
-    }, [editing])
-
-    const commit = () => {
-        setEditing(false)
-        const parsed = parseInt(text, 10)
-        if (Number.isNaN(parsed)) return
-        let next = Math.max(parsed, props.min)
-        if (props.max !== undefined) next = Math.min(next, props.max)
-        props.onCommit(next)
-    }
-
-    if (editing) {
-        return (
-            <input
-                id={props.id}
-                ref={inputRef}
-                type="number"
-                min={props.min}
-                max={props.max}
-                defaultValue={props.value}
-                onChange={(event) => setText(event.target.value)}
-                onBlur={commit}
-                onKeyDown={(event) => {
-                    if (event.key === "Enter") event.currentTarget.blur()
-                    if (event.key === "Escape") { setText(String(props.value)); setEditing(false) }
-                }}
-                className="h-5 w-14 rounded border border-primary/40 bg-base-200 px-1 text-center font-mono text-xs text-base-content outline-none"
-                aria-label={props.label}
-            />
-        )
-    }
-
-    return (
-        <button
-            type="button"
-            onClick={() => { setText(String(props.value)); setEditing(true) }}
-            aria-label={`Edit ${props.label}`}
-            title={`Edit ${props.label}`}
-            className="cursor-pointer border-b border-dotted border-base-content/40 text-base-content/60 transition-colors hover:text-base-content focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-        >
-            {props.display}
-        </button>
-    )
-}
-
 export function ModeBar(props: ModeBarProps) {
     const [openMenu, setOpenMenu] = useState<OpenMenu>(null)
     const [customText, setCustomText] = useState(String(props.count))
@@ -248,8 +162,6 @@ export function ModeBar(props: ModeBarProps) {
 
     const isNormal = props.mode === TestModes.normal
     const isQuotes = props.mode === TestModes.quotes
-    const isPractice = props.mode === TestModes.practice
-    const isGrams = props.mode === TestModes.ngrams
     // The "relaxed" engine backs the ∞ length option (no timer / infinite words),
     // which keeps the typist in Timed/Words.
     const isRelaxed = props.mode === TestModes.relaxed
@@ -259,11 +171,11 @@ export function ModeBar(props: ModeBarProps) {
     const { base: languageBase, size: wordSize } = parseLanguage(props.language)
     const languageLabel = isQuotes ? "Quotes" : languageLabelFor(props.language)
     const languageShort = isQuotes ? "quotes" : languageShortLabelFor(props.language)
-    // The picker drives the text source for word-list modes (incl. the ∞ relaxed
-    // engine) and Quotes; Grams and Practice generate their own text.
+    // The picker drives the text source for ordinary word-list Tests (including
+    // the ∞ relaxed engine) and Quotes.
     const showLanguage = isNormal || isRelaxed || isQuotes
     // The gear holds the text add-ons; grams and quotes have none, so no gear.
-    const showSettings = !isGrams && !isQuotes
+    const showSettings = !isQuotes
 
     useEffect(() => {
         if (!props.customLength) setCustomText(String(props.count))
@@ -457,38 +369,6 @@ export function ModeBar(props: ModeBarProps) {
                     </span>
                 }
 
-                {isPractice &&
-                    <>
-                        <TextOpt
-                            onClick={props.onSmartDrill}
-                            ariaLabel="Drill your eight least accurate keys"
-                            title="Drill your eight least accurate keys"
-                        >
-                            ⌖ smart drill
-                        </TextOpt>
-                        <Sep />
-                        <span data-testid="practice-active-count" className="text-xs text-base-content/40">
-                            {props.selectedKeys.length} keys active
-                        </span>
-                    </>
-                }
-
-                {isGrams &&
-                    <>
-                        {GRAM_SOURCES.map((option) => (
-                            <TextOpt key={option.value} active={props.gramSource === option.value} onClick={() => props.setGramSource(option.value)}>
-                                {option.label}
-                            </TextOpt>
-                        ))}
-                        <Sep />
-                        {GRAM_SCOPES.map((scope) => (
-                            <TextOpt key={scope} active={props.gramScope === scope} onClick={() => props.setGramScope(scope)}>
-                                {scope === TestGramScopes.fifty ? "top 50" : String(scope)}
-                            </TextOpt>
-                        ))}
-                    </>
-                }
-
                 {showLanguage &&
                     <>
                         <Sep />
@@ -576,8 +456,6 @@ export function ModeBar(props: ModeBarProps) {
                     >
                         <div id="settings-menu" className="space-y-2">
                             <p className="px-1 text-xs font-semibold uppercase tracking-wide text-base-content/45">Text</p>
-                            {/* In Practice the toggle gates the locked mark keys: off strips
-                                punctuation, on sprinkles the locked marks. */}
                             <SettingsToggle label="punctuation" active={props.punctuation} onChange={props.setPunctuation} />
                             <SettingsToggle label="capitals" active={props.capitals} onChange={props.setCapitals} />
                             <SettingsToggle label="numbers" active={props.numbers} onChange={props.setNumbers} />
@@ -600,53 +478,6 @@ export function ModeBar(props: ModeBarProps) {
                 </button>
             </div>
 
-            {/* Grams advanced line: the numeric knobs as dotted-underline inline edits. */}
-            {isGrams &&
-                <div data-testid="grams-panel" aria-label="Grams settings" className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 font-mono text-[11px] text-base-content/45">
-                    <span>
-                        <InlineEdit
-                            id="testGramCombinationInput"
-                            label="combinations (grams shown per level)"
-                            value={props.gramCombination}
-                            min={1}
-                            max={props.gramScope}
-                            display={`${props.gramCombination} combo`}
-                            onCommit={props.setGramCombination}
-                        />
-                    </span>
-                    <span>
-                        <InlineEdit
-                            id="testGramRepetitionInput"
-                            label="repetitions (times each level repeats)"
-                            value={props.gramRepetition}
-                            min={0}
-                            display={`×${props.gramRepetition} reps`}
-                            onCommit={props.setGramRepetition}
-                        />
-                    </span>
-                    <span className="inline-flex items-center gap-1.5">
-                        advance at
-                        <InlineEdit
-                            id="testGramWpmThresholdInput"
-                            label="WPM needed to advance"
-                            value={props.gramWpmThreshold}
-                            min={0}
-                            display={`${props.gramWpmThreshold} wpm`}
-                            onCommit={props.setGramWpmThreshold}
-                        />
-                        ·
-                        <InlineEdit
-                            id="testGramAccuracyThresholdInput"
-                            label="accuracy needed to advance"
-                            value={props.gramAccuracyThreshold}
-                            min={0}
-                            max={100}
-                            display={`${props.gramAccuracyThreshold}%`}
-                            onCommit={props.setGramAccuracyThreshold}
-                        />
-                    </span>
-                </div>
-            }
         </div>
     )
 }

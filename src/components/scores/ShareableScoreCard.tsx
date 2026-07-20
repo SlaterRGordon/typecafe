@@ -746,25 +746,6 @@ function DiagnosisPanel(props: { score: ShareableScore }) {
   // to diagnose, so the panel stays hidden rather than showing an empty shell.
   if (!props.score.timeline || decodeTimeline(props.score.timeline).length === 0) return null;
 
-  // Carry this exact test's config to /drill so its "Re-measure" CTA can round-trip
-  // back home and headline a before→after delta (Phase 1.3, the loop's payoff).
-  const s = props.score;
-  const reMeasureParam = encodeURIComponent(JSON.stringify({
-    beforeWpm: s.netWpm,
-    config: {
-      subMode: s.subMode,
-      count: s.count,
-      language: s.language,
-      customLength: s.ranked === false,
-      punctuation: s.punctuation ?? false,
-      capitals: s.capitals ?? false,
-      numbers: s.numbers ?? false,
-      options: s.options ?? "",
-    },
-  }));
-  const withReMeasure = (href: string) =>
-    href.startsWith("/drill") ? `${href}&rm=${reMeasureParam}` : href;
-
   return (
     <div data-testid="diagnosis-panel" className="score-reveal mt-5 rounded-lg border border-base-content/10 bg-base-100/45 p-5" style={{ "--reveal-delay": "200ms" } as CSSProperties}>
       
@@ -806,7 +787,6 @@ function DiagnosisPanel(props: { score: ShareableScore }) {
                   <HigherOrderResultFinding
                     score={props.score}
                     boardLayout={boardLayout}
-                    withReMeasure={withReMeasure}
                     onFindingChange={setHasHigherOrderFinding}
                   />
                   {keyFindings.length > 0 &&
@@ -842,7 +822,7 @@ function DiagnosisPanel(props: { score: ShareableScore }) {
                             {targets.length > 0 ?
                               <Link
                                 className="inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-                                href={withReMeasure(href)}
+                                href={href}
                                 aria-label={`Practise these ${noun}: ${targets.join(", ")}`}
                                 title={`Practise ${targets.join(", ")}`}
                               >
@@ -865,7 +845,7 @@ function DiagnosisPanel(props: { score: ShareableScore }) {
                           </span>
                           <Link
                             className="inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-                            href={withReMeasure(targetAction(
+                            href={targetAction(
                               { kind: "transition", pair: `${t.from}${t.to}`, metric: "latency" },
                               "acquisition",
                               { evidence: {
@@ -875,7 +855,7 @@ function DiagnosisPanel(props: { score: ShareableScore }) {
                                 sampleCount: t.count,
                                 reason: `${t.from}→${t.to} takes ${t.ratio.toFixed(1)}× your average pace in this Test.`,
                               } },
-                            ).href)}
+                            ).href}
                             aria-label={`Practise the ${t.from} to ${t.to} transition`}
                           >
                             Practise {t.from}{t.to}

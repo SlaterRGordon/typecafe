@@ -65,17 +65,6 @@ test.describe("typing focus fade", () => {
     await expect(page.getByTestId("daily-challenge-boards")).toHaveCSS("opacity", "0");
   });
 
-  test("drill fades its instruction card while typing", async ({ page }) => {
-    await mockTrpc(page);
-    await page.goto("/drill?keys=x&length=4");
-    await expect(page.getByTestId("drill-typer")).toBeVisible();
-
-    await typeCurrentCharacter(page);
-
-    await expectTypingFocus(page, page.getByTestId("drill-header"));
-    await expect(page.getByTestId("drill-typer")).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
-  });
-
   test("beat-run challenge fades its target header while typing", async ({ page }) => {
     await mockTrpc(page);
     await page.goto("/score/beat-source-score");

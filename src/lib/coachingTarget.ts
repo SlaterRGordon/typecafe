@@ -258,9 +258,7 @@ export function targetAction(
         ...(options.seenWords?.length ? [`seen=${encodedList(options.seenWords)}`] : []),
         ...(options.evidence ? [`evidence=${encodeURIComponent(JSON.stringify(options.evidence))}`] : []),
     ].join("&")
-    // Target-first Guided Practice owns acquisition. Historical Transfer/Cold
-    // sessions remain on the legacy Drill surface until their retirement slice.
-    const workspace = policy === "acquisition" ? "/practice" : "/drill"
+    const workspace = "/practice"
     if (target.kind === "endurance") {
         return {
             href: `/?mode=timed&count=${target.longSeconds}&coaching=endurance&target=endurance&shortSeconds=${target.shortSeconds}&longSeconds=${target.longSeconds}&policy=${policy}`,

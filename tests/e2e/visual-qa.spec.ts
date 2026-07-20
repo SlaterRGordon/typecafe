@@ -9,7 +9,7 @@ async function saveScreenshot(page: Page, testInfo: TestInfo, name: string) {
 }
 
 test.describe("visual QA artifacts", () => {
-  test("home default, settings modal, keyboard, and color modal", async ({ page }, testInfo) => {
+  test("home default, settings menu, Practice keyboard, and color modal", async ({ page }, testInfo) => {
     await page.goto("/");
     await expect(page.locator("#words .char").first()).toBeVisible();
     await saveScreenshot(page, testInfo, "home-default");
@@ -22,10 +22,9 @@ test.describe("visual QA artifacts", () => {
     await page.keyboard.press("Escape");
     await expect(settingsMenu).toBeHidden();
 
-    // The keyboard is practice-only now.
-    await page.getByTestId("mode-bar").getByRole("button", { name: "Practice" }).click();
+    await page.goto("/practice?custom=keys");
     await expect(page.locator(".typecafe-keyboard")).toBeVisible();
-    await saveScreenshot(page, testInfo, "home-live-keyboard");
+    await saveScreenshot(page, testInfo, "custom-practice-keyboard");
 
     await page.locator("[aria-label='Open color settings']").click({ force: true });
     await expect(page.locator("#colorModal")).toBeChecked();

@@ -1089,7 +1089,7 @@ legacy configuration mechanics merely because the current UI exposes them.
 
 #### 13.2 Text compilation
 
-- [ ] Replace legacy Grams progression/configuration with one pure compiler for
+- [x] Replace legacy Grams progression/configuration with one pure compiler for
       Keys focus and mixed 2-, 3-, and 4-character Gram focus.
 - [x] Make focus keys use supporting characters rather than an allowed-alphabet
       restriction; leave restricted-alphabet instruction in Train.
@@ -1103,12 +1103,12 @@ legacy configuration mechanics merely because the current UI exposes them.
 
 - [x] Add Practice to primary navigation in `Home · Practice · Progress · Train
       · Leaderboard` order.
-- [ ] Remove legacy Practice/Grams from Home's Test modes without altering the
+- [x] Remove legacy Practice/Grams from Home's Test modes without altering the
       remaining Home modes or generators.
 - [x] Build the recommendation-first landing: one highest-Impact Target, a
       truthful `Find your focus` empty state, then equal Custom Keys and Grams
       paths.
-- [ ] Keep `From your Tests` exact measured Grams separate from corpus-ranked
+- [x] Keep `From your Tests` exact measured Grams separate from corpus-ranked
       `Common in <language>` Custom material; do not infer a weak Gram from a
       weak contained key or Transition.
 - [x] Restore the last Custom Keys and Custom Grams selections, duration, and
@@ -1155,12 +1155,12 @@ legacy configuration mechanics merely because the current UI exposes them.
 
 - [x] Point Findings, Practice recommendations, and Progress Target actions
       directly into the Guided state without visiting the Practice landing.
-- [ ] Retire Drill as a separate user-facing page/mode while preserving Drill as
+- [x] Retire Drill as a separate user-facing page/mode while preserving Drill as
       the Target-bound domain term; redirect legacy `/drill` links with their
       Target intent intact.
-- [ ] Remove legacy source, scope, combination, repetition, WPM-threshold, and
+- [x] Remove legacy source, scope, combination, repetition, WPM-threshold, and
       Accuracy-threshold controls and their superseded Grams progression state.
-- [ ] Add focused pure tests, desktop/mobile e2e coverage, and canonical
+- [x] Add focused pure tests, desktop/mobile e2e coverage, and canonical
       screenshot-tour states for the landing, Guided, Custom Keys, mixed Grams,
       recap, empty evidence, and awaiting-Test flows.
 
