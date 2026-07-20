@@ -52,6 +52,14 @@ async function gotoHome(page: Page) {
   await expect(page.locator("#words .char").first()).toBeVisible();
 }
 
+test("Custom Keys Practice workspace", async ({ page }, testInfo) => {
+  await page.goto("/practice")
+  await expect(page.getByTestId("custom-keys-workspace")).toBeVisible()
+  await expect(page.locator("#c0")).toHaveClass(/active-char/, { timeout: 20_000 })
+  await expect(page.getByRole("region", { name: "Focus key editor" })).toBeVisible()
+  await capture(page, testInfo, "67-custom-keys-practice")
+})
+
 // /train lands on the level map; Continue zooms into the resume level.
 async function gotoTrainLevel(page: Page) {
   await page.goto("/train");
@@ -295,7 +303,7 @@ test.describe("screenshot tour", () => {
     await capture(page, testInfo, "28-test-view-fullscreen");
   });
 
-  test("practice mode: keyboard key selection, alerts, and analytics view", async ({ page }, testInfo) => {
+  test("practice mode: keyboard key selection and analytics view", async ({ page }, testInfo) => {
     await gotoHome(page);
     await selectMode(page, "Practice");
 
@@ -322,10 +330,11 @@ test.describe("screenshot tour", () => {
     await expect(keyboardKey("w").locator("svg")).toHaveCount(0);
     await capture(page, testInfo, "29-practice-key-added");
 
-    // Locking a vowel at the two-vowel floor must be rejected with an alert toast.
+    // Focus keys are no longer an allowed alphabet, so any selected key can be
+    // removed without a vowel/consonant floor warning.
     await keyboardKey("a").click();
-    await expect(page.getByText("Must include at least 2 vowels!")).toBeVisible();
-    await capture(page, testInfo, "30-practice-vowel-alert");
+    await expect(page.getByText(/Must include at least .*vowel/i)).toHaveCount(0);
+    await capture(page, testInfo, "30-practice-key-no-floor");
 
     // Smart drill without enough typing history surfaces the warning toast.
     await page.getByRole("button", { name: "Drill your eight least accurate keys" }).click();

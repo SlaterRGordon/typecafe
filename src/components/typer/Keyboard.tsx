@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { addAlert } from "~/state/alert/alertSlice";
 import { TestModes } from "./types";
 import { getActiveKey, subscribeActiveKey } from "./keySignal";
-import { useDispatch } from "react-redux";
 import { accentsFor, ensureLanguageLoaded, isDrillDigit, isDrillMark } from "./utils";
 import { KeyHeatmap, KeyHeatmapLegend } from "~/components/heatmap/KeyHeatmap";
 import { KeyboardLayerSwitch } from "~/components/heatmap/KeyboardLayerSwitch";
@@ -10,7 +8,7 @@ import { HEATMAP_CONFIG } from "~/lib/heatmap";
 import { boardFor, composedFor, sequenceFor, keyFor, type Layer } from "~/lib/keyboardLayout";
 import { useLayout } from "~/hooks/useLayout";
 import { useLanguage } from "~/hooks/useLanguage";
-import { isDrillableKey, isPracticeLetter, isPracticeVowel } from "~/lib/drillKeys";
+import { isDrillableKey, isPracticeLetter } from "~/lib/drillKeys";
 
 const isDrillable = isDrillableKey
 // The train/guide board is display-only: no tallies, ever.
@@ -84,7 +82,6 @@ export const Keyboard = (props: KeyboardProps) => {
         punctuation = false, capitals = false, numbers = false,
         setPunctuation, setCapitals, setNumbers,
     } = props
-    const dispatch = useDispatch()
     const [layout] = useLayout()
     const board = useMemo(() => boardFor(layout), [layout])
     const [language] = useLanguage()
@@ -317,25 +314,6 @@ export const Keyboard = (props: KeyboardProps) => {
         }
 
         if (selectedKeys.includes(key)) {
-            // Letters anchor word generation, so keep enough of them: at least 8,
-            // including two vowels and a consonant. International letters count
-            // too; numbers/punctuation remain add-on drill targets.
-            if (isPracticeLetter(key)) {
-                const letters = selectedKeys.filter(isPracticeLetter)
-                if (letters.length <= 8) {
-                    dispatch(addAlert({ message: "Must include at least 8 keys!", type: "error" }))
-                    return
-                }
-                if (isPracticeVowel(key) && letters.filter(isPracticeVowel).length <= 2) {
-                    dispatch(addAlert({ message: "Must include at least 2 vowels!", type: "error" }))
-                    return
-                }
-                if (!isPracticeVowel(key) && letters.filter((letter) => !isPracticeVowel(letter)).length <= 1) {
-                    dispatch(addAlert({ message: "Must include at least 1 consonant!", type: "error" }))
-                    return
-                }
-            }
-
             setSelectedKeys(selectedKeys.filter(k => k != key))
         } else {
             setSelectedKeys([...selectedKeys, key])

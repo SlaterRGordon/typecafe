@@ -1091,7 +1091,7 @@ legacy configuration mechanics merely because the current UI exposes them.
 
 - [ ] Replace legacy Grams progression/configuration with one pure compiler for
       Keys focus and mixed 2-, 3-, and 4-character Gram focus.
-- [ ] Make focus keys use supporting characters rather than an allowed-alphabet
+- [x] Make focus keys use supporting characters rather than an allowed-alphabet
       restriction; leave restricted-alphabet instruction in Train.
 - [ ] Generate balanced, target-dense `Varied` and pronounceable `Pseudo` text,
       with fresh runs, useful contexts, and no naked Gram repetition.
@@ -1124,12 +1124,12 @@ legacy configuration mechanics merely because the current UI exposes them.
 - [ ] Implement the direct keyboard focus editor and one mixed Gram tray with
       measured suggestions, common-language choices, direct 2-4 character
       entry, and length markers—no separate length tabs.
-- [ ] Allow 30-, 60-, 120-, and 240-second runs with 60 seconds default; allow
+- [x] Allow 30-, 60-, 120-, and 240-second runs with 60 seconds default; allow
       `Varied` and `Pseudo` changes only between runs.
 - [ ] Preserve Guided attribution across duration/style changes, but visibly
       convert to Custom Practice as soon as prescribed keys or Grams change or
       another Target is mixed in.
-- [ ] Fit the complete Practice keyboard within the mobile viewport without a
+- [x] Fit the complete Practice keyboard within the mobile viewport without a
       horizontal keyboard scroller.
 
 #### 13.5 Completion and Progress
@@ -1139,7 +1139,7 @@ legacy configuration mechanics merely because the current UI exposes them.
 - [ ] For Guided Drill, lead with Target metric, Practice Delta, attempts, and a
       separately labelled recent natural-Test reference; keep WPM/Accuracy
       secondary and offer `Repeat` plus `Take a Test`.
-- [ ] For Custom Practice, show the same Practice-baseline comparison for every
+- [x] For Custom Practice, show the same Practice-baseline comparison for every
       selected item that occurred, followed by overall WPM and Accuracy.
 - [ ] Keep the recommendation on a completed Target as `practised · awaiting
       Test`, with measurement primary, until a later ordinary Test contains the

@@ -91,6 +91,16 @@ export function useTestPersistence({ evidenceContext, charAttemptsRef, onTestCom
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [createTest.mutate, eagerResult, onTestComplete, layout, evidenceContext])
 
+    // Stopped/restarted Practice is activity-only and must never race the next
+    // completed run's result callback through pendingCompletionRef.
+    const practiceActivity = api.test.create.useMutation({
+        onError: (error) => console.error(error),
+    })
+    const persistActivity = useCallback((input: CreateTestInput) => {
+        practiceActivity.mutate({ ...input, layout, context: evidenceContext })
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [practiceActivity.mutate, layout, evidenceContext])
+
     const persistGuestTimeline = useCallback((
         completion: TestCompletionResult,
         config: Omit<EvidenceTestConfiguration, "layout">,
@@ -201,5 +211,5 @@ export function useTestPersistence({ evidenceContext, charAttemptsRef, onTestCom
 
     syncCharAttemptsRef.current = syncCharAttempts
 
-    return { sessionData, persistCompletion, persistGuestTimeline, syncCharAttempts, syncTransitions, isSaving: createTest.isPending }
+    return { sessionData, persistCompletion, persistActivity, persistGuestTimeline, syncCharAttempts, syncTransitions, isSaving: createTest.isPending || practiceActivity.isPending }
 }

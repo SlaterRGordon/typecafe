@@ -14,7 +14,7 @@ import { isAnyModalOpen } from "~/lib/modals"
 import { isRankableTimeline } from "~/lib/antiCheat"
 import { runWhenIdle } from "~/lib/idle"
 import { drillTargetToken, type CoachingTarget } from "~/lib/coachingTarget"
-import { evidenceContextForRun, persistsSkillEvidence, type EvidenceContext } from "~/lib/evidenceContext"
+import { evidenceContextForRun, persistsSkillEvidence, type EvidenceContext, type PracticeRecord } from "~/lib/evidenceContext"
 import { publishActiveKey } from "./keySignal"
 import { generateTestText } from "./hooks/useTestText"
 import { useGramProgression } from "./hooks/useGramProgression"
@@ -53,6 +53,9 @@ interface TyperProps {
     // No-miss levels: a single error ends the run and fails it (never persisted).
     failOnMiss?: boolean,
     evidenceContext?: EvidenceContext,
+    // Custom/Guided Practice metadata. A supplied record turns Practice into a
+    // finite timer run; Typer stamps elapsed/completed at the persistence seam.
+    practiceRecord?: PracticeRecord,
     // The coaching Target a drill was launched for; persisted in the saved
     // test's options slot so analysis can attribute the run to that Target.
     drillTarget?: CoachingTarget,
@@ -66,6 +69,7 @@ interface TyperProps {
     modalOpen: boolean,
     restartSignal?: number,
     onRestart?: () => void,
+    onRunRestart?: () => void,
     hideInterface?: boolean,
     // Fixed seeded text (daily challenge): skip generation and never append.
     fixedText?: string,
@@ -88,6 +92,7 @@ export const Typer = (props: TyperProps) => {
         levelRequirements,
         charAttemptsRef,
         onRestart,
+        onRunRestart,
     } = props
 
     const [text, setText] = useState("")
@@ -151,7 +156,7 @@ export const Typer = (props: TyperProps) => {
         surface: level ? "train" : "test",
         mode,
     })
-    const { sessionData, persistCompletion, persistGuestTimeline, syncCharAttempts, syncTransitions, isSaving } = useTestPersistence({
+    const { sessionData, persistCompletion, persistActivity, persistGuestTimeline, syncCharAttempts, syncTransitions, isSaving } = useTestPersistence({
         evidenceContext,
         charAttemptsRef,
         onTestComplete: props.onTestComplete,
@@ -178,7 +183,8 @@ export const Typer = (props: TyperProps) => {
     // mode switch that didn't reset it); without this gate the timer would be a
     // decremental-to-0 countdown that fires onTimeOver the instant the test
     // starts, ending Practice/Grams/Relaxed immediately.
-    const isTimed = subMode === TestSubModes.timed && mode === TestModes.normal
+    const isPracticeTimed = !!props.practiceRecord
+    const isTimed = (subMode === TestSubModes.timed && mode === TestModes.normal) || isPracticeTimed
     // Timed ∞ (no timer): the relaxed engine on the timed sub-mode shows a rising
     // stopwatch instead of a countdown.
     const isCountUp = mode === TestModes.relaxed && subMode === TestSubModes.timed
@@ -209,11 +215,11 @@ export const Typer = (props: TyperProps) => {
             timeline: recorder.timeline,
             characterCount: finalCharacterCount,
             incorrectCount: finalIncorrectCount,
-            isTimed: subMode === TestSubModes.timed && mode === TestModes.normal,
+            isTimed,
             timedDurationSeconds: count,
             fallbackStartTime: actualStartTime,
         })
-    }, [recorder, actualStartTime, subMode, mode, count])
+    }, [recorder, actualStartTime, isTimed, count])
 
     // Coalesces the rapid double-restart that fires when settings load right after
     // mount (default `normal` config → then the persisted mode). Only the *latest*
@@ -222,8 +228,10 @@ export const Typer = (props: TyperProps) => {
     // returning grams/practice mode.
     const restartSeqRef = useRef(0)
     const textRequestRef = useRef(0)
+    const persistInterruptedRef = useRef<() => void>(() => undefined)
 
     const handleRestart = useCallback((targetLevel?: number) => {
+        persistInterruptedRef.current()
         const seq = ++restartSeqRef.current
         // Capture this at restart time. The idle callback may not run until the
         // next attempt has begun, and must not mistake those fresh keystrokes
@@ -256,7 +264,7 @@ export const Typer = (props: TyperProps) => {
                     })
                 }
 
-                setInitialTime(mode === TestModes.normal && subMode === TestSubModes.timed ? count : 0)
+                setInitialTime(isTimed ? count : 0)
                 pause()
                 setStarted(false)
                 activeAttemptRef.current = null
@@ -272,7 +280,7 @@ export const Typer = (props: TyperProps) => {
                 onRestartRef.current?.()
             }
         }, 0)
-    }, [recorder, count, gramCombination, gramLevel, gramRepetition, gramScope, gramSource, language, quoteLength, level, mode, pause, punctuation, capitals, numbers, selectedKeys, setInitialTime, subMode, props.fixedText, charAttemptsRef])
+    }, [recorder, count, gramCombination, gramLevel, gramRepetition, gramScope, gramSource, language, quoteLength, level, mode, pause, punctuation, capitals, numbers, selectedKeys, setInitialTime, subMode, props.fixedText, charAttemptsRef, isTimed])
 
     useEffect(() => {
         handleRestart()
@@ -283,8 +291,9 @@ export const Typer = (props: TyperProps) => {
     // and clearing the attempt), keeping the drill progression - switching
     // scope/source is what resets back to level 1.
     const restartTest = useCallback(() => {
+        onRunRestart?.()
         handleRestart()
-    }, [handleRestart])
+    }, [handleRestart, onRunRestart])
 
     // Read the latest restartTest without depending on it: it's recreated whenever
     // gramLevel changes (advancement), and depending on it here would re-fire this
@@ -316,7 +325,7 @@ export const Typer = (props: TyperProps) => {
         finalIncorrectCount: number,
     ): TestCompletionResult => {
         const correctKeystrokes = Math.max(finalCharacterCount - finalIncorrectCount, 0)
-        const durationSeconds = subMode === TestSubModes.timed && mode === TestModes.normal
+        const durationSeconds = isTimed
             ? count
             : finalStats.durationSeconds
         const wpmSamples = buildWpmSamples(recorder.timeline)
@@ -351,7 +360,49 @@ export const Typer = (props: TyperProps) => {
             typeId: testType?.id,
             persisted: false,
         }
-    }, [recorder, subMode, mode, count, punctuation, capitals, numbers, customLength, level, testType?.id, text])
+    }, [recorder, isTimed, mode, count, punctuation, capitals, numbers, customLength, level, testType?.id, text])
+
+    persistInterruptedRef.current = () => {
+        if (!props.practiceRecord || !activeAttemptRef.current) return
+        const finalCharacterCount = recorder.characterCount
+        const finalIncorrectCount = recorder.incorrectCount
+        const completion = buildCompletion(getStats(finalCharacterCount, finalIncorrectCount), finalCharacterCount, finalIncorrectCount)
+        const elapsedActivityMs = Math.max(0, Date.now() - actualStartTime)
+        const practice: PracticeRecord = {
+            ...props.practiceRecord,
+            elapsedActivityMs,
+            completed: false,
+        }
+        if (sessionData?.user && testType?.id) {
+            persistActivity({
+                typeId: testType.id,
+                count,
+                options: "",
+                punctuation: false,
+                capitals: false,
+                numbers: false,
+                timeline: completion.timeline,
+                context: evidenceContext,
+                practice,
+                utcOffsetMinutes: -new Date().getTimezoneOffset(),
+            })
+        } else if (!sessionData?.user) {
+            persistGuestTimeline(completion, {
+                mode,
+                subMode,
+                count,
+                options: "",
+                punctuation: false,
+                capitals: false,
+                numbers: false,
+                language,
+                utcOffsetMinutes: -new Date().getTimezoneOffset(),
+            }, practice)
+        }
+        activeAttemptRef.current = null
+    }
+
+    useEffect(() => () => persistInterruptedRef.current(), [])
 
     const isCompletionValid = useCallback((source: CompletionSource) => {
         const attempt = activeAttemptRef.current
@@ -365,13 +416,14 @@ export const Typer = (props: TyperProps) => {
             attempt.language !== currentConfig.language
         ) return false
 
+        if (isPracticeTimed && currentConfig.mode === TestModes.practice) return source === "timer"
         if (currentConfig.mode !== TestModes.normal) return true
 
         if (currentConfig.subMode === TestSubModes.timed) return source === "timer"
         if (currentConfig.subMode === TestSubModes.words) return source === "text"
 
         return false
-    }, [])
+    }, [isPracticeTimed])
 
     // Latest onTestComplete without making it a dependency of handleComplete -
     // parents recreate it every render, which would otherwise defeat memo(Text).
@@ -426,7 +478,29 @@ export const Typer = (props: TyperProps) => {
             signed_in: !!sessionData?.user,
         })
 
-        if (mode === TestModes.normal || mode === TestModes.quotes) {
+        if (props.practiceRecord) {
+            const practice: PracticeRecord = {
+                ...props.practiceRecord,
+                elapsedActivityMs: count * 1_000,
+                completed: true,
+            }
+            if (sessionData?.user && testType?.id) {
+                persistCompletion(completion, {
+                    typeId: testType.id,
+                    count,
+                    options: "",
+                    punctuation: false,
+                    capitals: false,
+                    numbers: false,
+                    timeline: completion.timeline,
+                    context: evidenceContext,
+                    practice,
+                    utcOffsetMinutes: -new Date().getTimezoneOffset(),
+                })
+            } else {
+                onTestCompleteRef.current?.(completion)
+            }
+        } else if (mode === TestModes.normal || mode === TestModes.quotes) {
             // An overtake (boss) or any error (no-miss) is a loss no matter what net
             // WPM the typed span measured - always the fail path, never persisted.
             if (
@@ -474,13 +548,18 @@ export const Typer = (props: TyperProps) => {
         // so a restart can't mutate what the deferred aggregation reads.
         const events = recorder.events
         runWhenIdle(() => {
-            if (mode !== TestModes.ngrams) syncCharAttempts()
+            if (mode !== TestModes.ngrams && !props.practiceRecord) syncCharAttempts()
             // Transition analytics come from normal-mode tests - including drills
             // (owner decision, ADR-0004 reversal): every rep counts toward the
             // lifetime pair data. Grams/practice text stays excluded.
             if (mode === TestModes.normal) syncTransitions(events)
-            const eligibleGuestTimeline = mode === TestModes.normal || mode === TestModes.quotes
+            const eligibleGuestTimeline = mode === TestModes.normal || mode === TestModes.quotes || !!props.practiceRecord
             if (!sessionData?.user && passedAttempt && eligibleGuestTimeline && persistsSkillEvidence(evidenceContext)) {
+                const practice = props.practiceRecord ? {
+                    ...props.practiceRecord,
+                    elapsedActivityMs: count * 1_000,
+                    completed: true,
+                } : undefined
                 persistGuestTimeline(completion, {
                     mode,
                     subMode,
@@ -491,7 +570,7 @@ export const Typer = (props: TyperProps) => {
                     numbers,
                     language,
                     utcOffsetMinutes: -new Date().getTimezoneOffset(),
-                })
+                }, practice)
             }
         })
 
@@ -501,7 +580,7 @@ export const Typer = (props: TyperProps) => {
         sessionData, testType, persistCompletion, count, level, punctuation,
         capitals, numbers, props.gramWpmThreshold, props.gramAccuracyThreshold,
         props.challengeDate, props.drillTarget, props.failOnMiss, recordPassedLevel, syncCharAttempts, syncTransitions,
-        evidenceContext, persistGuestTimeline, subMode, language, text,
+        evidenceContext, persistGuestTimeline, subMode, language, text, props.practiceRecord,
     ])
 
     // The pacer caught the typist: flag the loss, then run completion (which reads

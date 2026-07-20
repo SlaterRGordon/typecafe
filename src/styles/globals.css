@@ -500,6 +500,24 @@ html[data-typing-focus="active"] .typing-focus-global-fade {
     }
 }
 
+/* The complete Practice editor is one viewport-wide board on phones. Each
+   physical row remains intact; cells shrink instead of creating a horizontal
+   keyboard scroller. */
+@media (max-width: 639px) {
+    .typecafe-keyboard .typecafe-key-heatmap[data-kb-size="full"] .kbd {
+        min-width: min(2.2em, calc((100vw - 2.75rem) / 15)) !important;
+        min-height: min(2.2em, calc((100vw - 2.75rem) / 15)) !important;
+        height: min(2.2em, calc((100vw - 2.75rem) / 15)) !important;
+        padding-inline: 0.1rem !important;
+        border-radius: 0.3rem;
+        font-size: 0.625rem;
+    }
+
+    .typecafe-keyboard .typecafe-key-heatmap[data-kb-size="full"] .kbd[class*="min-w-[14rem]"] {
+        min-width: 46vw !important;
+    }
+}
+
 /* Score card entrance: staggered reveal + WPM line draw. Motion-gated so
    reduced-motion users see everything immediately with no animation. */
 @media (prefers-reduced-motion: no-preference) {
