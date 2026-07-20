@@ -8,13 +8,14 @@ import { TestModes, TestSubModes } from "~/components/typer/types";
 import { ShareableScoreImage } from "./ShareableScoreImage";
 import { consistencyFromSamples, cumulativeWpmAtTimes, netFromRaw, wpmImprovement } from "~/lib/stats";
 import type { KeyAccuracy, TypedSegment, WpmSample as ScoreWpmSample } from "~/lib/stats";
-import { decodeTimeline } from "~/lib/keystrokes";
+import { decodeTimeline, overallMeanLatency } from "~/lib/keystrokes";
 import type { EncodedTimeline } from "~/lib/keystrokes";
 import { diagnose, toDrillKeys } from "~/lib/diagnosis";
 import { aggregateTransitions, worstTransitions } from "~/lib/transitions";
 import { attemptsFromEvents } from "~/lib/heatmap";
 import { KeyHeatmap } from "~/components/heatmap/KeyHeatmap";
 import { Chip } from "~/components/ui/Chip";
+import { targetAction } from "~/lib/coachingTarget";
 
 const HigherOrderResultFinding = dynamic(
   () => import("./HigherOrderResultFinding").then((module) => module.HigherOrderResultFinding),
@@ -769,7 +770,7 @@ function DiagnosisPanel(props: { score: ShareableScore }) {
       
       <div className="mb-4 flex items-center gap-2 text-lg font-semibold text-base-content">
         <span>Diagnosis</span>
-        <InfoIcon label="The keys, transitions, and recurring patterns supported by this Test and your recent natural typing. Each finding opens a targeted drill." />
+        <InfoIcon label="The keys, transitions, and recurring patterns supported by this Test and your recent natural typing. Each finding opens Guided Practice." />
       </div>
 
       {diagnosis.tooShort ?
@@ -816,7 +817,21 @@ function DiagnosisPanel(props: { score: ShareableScore }) {
                         const words = finding.kind === "tough-words" ? finding.detail.map((w) => w.word) : [];
                         const drillKeys = finding.kind === "tough-words" ? [] : toDrillKeys(finding.keys);
                         const targets = words.length > 0 ? words : drillKeys;
-                        const href = words.length > 0 ? `/drill?words=${words.join(",")}` : `/drill?keys=${drillKeys.join(",")}`;
+                        const eventBaseline = overallMeanLatency(decodeTimeline(props.score.timeline!));
+                        const target = words.length > 0
+                          ? { kind: "word" as const, words }
+                          : { kind: "key" as const, keys: drillKeys, metric: finding.kind === "inaccurate-keys" ? "accuracy" as const : "latency" as const };
+                        const sampleCount = finding.detail.reduce((sum, item) => sum + ("samples" in item ? item.samples : "attempts" in item ? item.attempts : "chars" in item ? item.chars : 0), 0);
+                        const observed = finding.kind === "inaccurate-keys"
+                          ? finding.detail.reduce((sum, item) => sum + item.accuracy * item.attempts, 0) / Math.max(1, sampleCount)
+                          : finding.detail.reduce((sum, item) => sum + item.meanMs * ("samples" in item ? item.samples : "chars" in item ? item.chars : 1), 0) / Math.max(1, sampleCount);
+                        const href = targetAction(target, "acquisition", { evidence: {
+                          metric: finding.kind === "inaccurate-keys" ? "%" : "ms",
+                          baseline: finding.kind === "inaccurate-keys" ? 100 : eventBaseline,
+                          observed,
+                          sampleCount: Math.max(1, sampleCount),
+                          reason: finding.summary,
+                        } }).href;
                         const noun = words.length > 0 ? "words" : "keys";
                         return (
                           <li
@@ -828,10 +843,10 @@ function DiagnosisPanel(props: { score: ShareableScore }) {
                               <Link
                                 className="inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                                 href={withReMeasure(href)}
-                                aria-label={`Drill these ${noun}: ${targets.join(", ")}`}
-                                title={`Drill ${targets.join(", ")}`}
+                                aria-label={`Practise these ${noun}: ${targets.join(", ")}`}
+                                title={`Practise ${targets.join(", ")}`}
                               >
-                                Drill these {noun}
+                                Practise these {noun}
                               </Link>
                               :
                               null
@@ -850,10 +865,20 @@ function DiagnosisPanel(props: { score: ShareableScore }) {
                           </span>
                           <Link
                             className="inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-                            href={withReMeasure(`/drill?transitions=${t.from}${t.to}`)}
-                            aria-label={`Drill the ${t.from} to ${t.to} transition`}
+                            href={withReMeasure(targetAction(
+                              { kind: "transition", pair: `${t.from}${t.to}`, metric: "latency" },
+                              "acquisition",
+                              { evidence: {
+                                metric: "ms",
+                                baseline: t.meanMs / t.ratio,
+                                observed: t.meanMs,
+                                sampleCount: t.count,
+                                reason: `${t.from}→${t.to} takes ${t.ratio.toFixed(1)}× your average pace in this Test.`,
+                              } },
+                            ).href)}
+                            aria-label={`Practise the ${t.from} to ${t.to} transition`}
                           >
-                            Drill {t.from}{t.to}
+                            Practise {t.from}{t.to}
                           </Link>
                         </li>
                       ))}

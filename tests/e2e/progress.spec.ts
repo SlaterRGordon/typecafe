@@ -208,7 +208,7 @@ test.describe("progress dashboard", () => {
       // says so instead of showing a frozen daily-coach baseline.
       await coach.getByRole("button", { name: /^tion Pattern/ }).click();
       await expect(coach).toContainText("Practise tion again");
-      await expect(coach.getByRole("link", { name: "Practice this pattern" }).first()).toHaveAttribute("href", /\/drill\?target=gram/);
+      await expect(coach.getByRole("link", { name: "Practice this pattern" }).first()).toHaveAttribute("href", /\/practice\?target=gram.*evidence=/);
       await expect(coach).toContainText("No recent natural evidence for this Target.");
       await expect(coach).not.toContainText("Baseline");
       await expect(coach.getByTestId("coach-detail").getByTestId("target-practice-summary")).toContainText("drills completed");
@@ -403,7 +403,7 @@ test.describe("progress dashboard", () => {
     if ((page.viewportSize()?.width ?? 0) >= 1024) {
       const detail = coach.getByTestId("coach-detail");
       await expect(detail.getByRole("link", { name: "Take a Test to measure" })).toHaveAttribute("href", "/?mode=timed&count=30");
-      await expect(detail.getByRole("link", { name: "Practice this transition" })).toHaveAttribute("href", /\/drill\?target=transition/);
+      await expect(detail.getByRole("link", { name: "Practice this transition" })).toHaveAttribute("href", /\/practice\?target=transition.*evidence=/);
       await expect(detail.getByTestId("target-practice-summary")).toContainText("1 drill completed");
       await expect(detail.getByTestId("target-practice-summary")).toContainText("awaiting a Test");
       await brRow.hover();

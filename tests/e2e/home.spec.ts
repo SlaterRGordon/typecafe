@@ -343,7 +343,7 @@ test.describe("home typing test", () => {
       await expect(inlineTab).toBeVisible();
       await expect(inlineTab.getByText("Practice", { exact: true })).toBeVisible();
       await expect(inlineTab).toContainText("b->r");
-      await expect(inlineTab.getByRole("link", { name: "Practice target" })).toHaveAttribute("href", "/drill?transitions=br");
+      await expect(inlineTab.getByRole("link", { name: "Practice target" })).toHaveAttribute("href", /\/practice\?target=transition.*transitions=br.*evidence=/);
       await inlineTab.getByRole("button", { name: "Dismiss drill suggestion" }).click();
       await expect(inlineTab).toBeHidden();
       return;
@@ -352,7 +352,7 @@ test.describe("home typing test", () => {
     const tab = page.getByTestId("home-coach-tab-drill");
     await expect(tab).toBeVisible();
     const collapsedLink = tab.getByRole("link", { name: "Suggested target" });
-    await expect(collapsedLink).toHaveAttribute("href", "/drill?transitions=br");
+    await expect(collapsedLink).toHaveAttribute("href", /\/practice\?target=transition.*transitions=br.*evidence=/);
     const collapsedLabel = tab.getByRole("link", { name: "Suggested target" });
     await expect(collapsedLabel).toBeVisible();
     await tab.hover();
@@ -360,7 +360,7 @@ test.describe("home typing test", () => {
     await expect(collapsedLink).toHaveCSS("opacity", "0");
     await expect(panel).toContainText("b->r");
     await expect(panel).toContainText("2.2x avg");
-    await expect(panel.getByRole("link", { name: "Practice target" })).toHaveAttribute("href", "/drill?transitions=br");
+    await expect(panel.getByRole("link", { name: "Practice target" })).toHaveAttribute("href", /\/practice\?target=transition.*transitions=br.*evidence=/);
 
     // Dismissible - and stays gone for the session.
     await panel.getByRole("button", { name: "Dismiss drill suggestion" }).click();
@@ -391,7 +391,7 @@ test.describe("home typing test", () => {
       const inlineTab = page.getByTestId("home-coach-tab-drill-inline");
       await expect(inlineTab).toBeVisible();
       await expect(inlineTab).toContainText("b->r");
-      await expect(inlineTab.getByRole("link", { name: "Practice target" })).toHaveAttribute("href", "/drill?transitions=br");
+      await expect(inlineTab.getByRole("link", { name: "Practice target" })).toHaveAttribute("href", /\/practice\?target=transition.*transitions=br.*evidence=/);
       return;
     }
 
@@ -400,7 +400,7 @@ test.describe("home typing test", () => {
     await tab.hover();
     const panel = page.getByTestId("home-coach-tab-drill-panel");
     await expect(panel).toContainText("b->r");
-    await expect(panel.getByRole("link", { name: "Practice target" })).toHaveAttribute("href", "/drill?transitions=br");
+    await expect(panel.getByRole("link", { name: "Practice target" })).toHaveAttribute("href", /\/practice\?target=transition.*transitions=br.*evidence=/);
   });
 
   // Honest-review #1 (honest-review-2026-07.md): a zero-history visitor must
@@ -796,7 +796,7 @@ test.describe("home typing test", () => {
     if (!testInfo.project.name.includes("mobile")) await tab.hover();
     await expect(tab).toContainText("b->r");
     await expect(tab).toContainText("per 1k chars");
-    await expect(tab.getByRole("link", { name: "Practice target" })).toHaveAttribute("href", "/drill?transitions=br");
+    await expect(tab.getByRole("link", { name: "Practice target" })).toHaveAttribute("href", /\/practice\?target=transition.*transitions=br.*evidence=/);
 
     await page.goto("/progress");
     await expect(page.getByTestId("coach-targets")).toContainText("b→r");
@@ -1026,7 +1026,7 @@ test.describe("home typing test", () => {
   // finding and a one-click drill that lands on the unified /drill surface built
   // from those keys - the first two clicks of the improvement loop, available to a
   // guest with no account.
-  test("diagnosis panel offers a one-click drill on /drill (guest)", async ({ page }) => {
+  test("diagnosis panel opens exact Guided Practice directly (guest)", async ({ page }) => {
     await mockTrpc(page);
     await gotoHome(page);
 
@@ -1052,20 +1052,18 @@ test.describe("home typing test", () => {
 
     // Toughest-words row: same one-click handoff, but drills those exact words
     // verbatim via /drill?words= (checked by href so we don't navigate away yet).
-    const wordsDrill = page.getByRole("link", { name: /Drill these words/ });
+    const wordsDrill = page.getByRole("link", { name: /Practise these words/ });
     await expect(wordsDrill).toBeVisible();
-    await expect(wordsDrill).toHaveAttribute("href", /\/drill\?words=/);
+    await expect(wordsDrill).toHaveAttribute("href", /\/practice\?target=word.*evidence=/);
 
-    const drillButton = page.getByRole("link", { name: /Drill these keys/ }).first();
+    const drillButton = page.getByRole("link", { name: /Practise these keys/ }).first();
     await expect(drillButton).toBeVisible();
     await drillButton.click();
 
-    // Handoff lands on /drill, ready on the diagnosed keys, and carries the
-    // diagnosed test's config (rm token) so Re-measure can round-trip a delta.
-    await expect(page).toHaveURL(/\/drill\?/);
-    await expect(page).toHaveURL(/[?&]rm=/);
-    await expect(page.getByTestId("drill-typer")).toBeVisible();
-    await expect(page.getByText("Key drill")).toBeVisible();
+    await expect(page).toHaveURL(/\/practice\?target=key/);
+    await expect(page).toHaveURL(/[?&]evidence=/);
+    await expect(page.getByTestId("guided-practice-intent")).toBeVisible();
+    await expect(page.getByText("Practice · Guided Drill")).toBeVisible();
   });
 
   test("diagnosis excludes an inaccurate word fragment when a timed Test ends", async ({ page }) => {
@@ -1100,7 +1098,7 @@ test.describe("home typing test", () => {
     await expect(page.getByRole("button", { name: "Test Again" })).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText("Diagnosis", { exact: true })).toBeVisible();
     await expect(page.getByText(`Toughest words: ${fragment}.`, { exact: true })).toHaveCount(0);
-    await expect(page.getByRole("link", { name: new RegExp(`Drill these words: ${fragment}$`) })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: new RegExp(`Practise these words: ${fragment}$`) })).toHaveCount(0);
   });
 
   test("diagnosis does not leak a history-only higher-order pattern into this score", async ({ page }) => {
@@ -1113,7 +1111,7 @@ test.describe("home typing test", () => {
     await expect(page.getByRole("button", { name: "Test Again" })).toBeVisible({ timeout: 15_000 });
     const higherOrder = page.getByTestId("diagnosis-higher-order");
     await expect(higherOrder).toHaveCount(0);
-    await expect(page.getByRole("link", { name: "Drill the tion pattern" })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Practise the tion pattern" })).toHaveCount(0);
   });
 
   // Regression guard: Practice (and any non-Normal mode) carries a leftover

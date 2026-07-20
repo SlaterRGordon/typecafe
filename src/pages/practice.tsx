@@ -1,5 +1,7 @@
 import { type NextPage } from "next"
 import Head from "next/head"
+import Link from "next/link"
+import { useRouter } from "next/router"
 import { useSession } from "next-auth/react"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { Keyboard } from "~/components/typer/Keyboard"
@@ -7,6 +9,7 @@ import { Typer, type TestCompletionResult } from "~/components/typer/Typer"
 import { TestGramScopes, TestGramSources, TestModes, TestSubModes } from "~/components/typer/types"
 import { ensureLanguageLoaded, getWords } from "~/components/typer/utils"
 import { useGuestEvidence } from "~/hooks/useGuestEvidence"
+import { useCoachingEvidence } from "~/hooks/useCoachingEvidence"
 import { useLanguage } from "~/hooks/useLanguage"
 import { useLayout } from "~/hooks/useLayout"
 import {
@@ -28,6 +31,16 @@ import {
 } from "~/lib/customKeysPractice"
 import { readCustomKeysPracticePreferences, writeCustomKeysPracticePreferences } from "~/lib/customKeysPreferences"
 import { PRACTICE_DURATIONS_SECONDS, PRACTICE_TEXT_STYLES, type PracticeDurationSeconds, type PracticeTextStyle } from "~/lib/evidenceContext"
+import { parseCoachingTargetQuery, targetDisplayLabel, type GuidedTargetEvidence, type ParsedCoachingTarget } from "~/lib/coachingTarget"
+import {
+    compileGuidedPractice,
+    completeGuidedPractice,
+    focusMatchesPrescription,
+    guidedPracticeRecord,
+    guidedPracticeSetup,
+    measuredGramSuggestions,
+    type GuidedPracticeRun,
+} from "~/lib/guidedPractice"
 import { boardFor, sequenceFor, statsPoolFor } from "~/lib/keyboardLayout"
 import { languageMeta } from "~/lib/languageMeta"
 import { api } from "~/utils/api"
@@ -37,19 +50,23 @@ type PracticePath = "keys" | "grams"
 type CompletedRun =
     | { path: "keys", result: TestCompletionResult, run: CustomKeysPracticeRun }
     | { path: "grams", result: TestCompletionResult, run: CustomGramsPracticeRun }
+    | { path: "guided", result: TestCompletionResult, run: GuidedPracticeRun, evidence: GuidedTargetEvidence | null }
 
 function signed(value: number): string {
     return `${value >= 0 ? "+" : ""}${Math.round(value)}`
 }
 
 const Practice: NextPage = () => {
+    const router = useRouter()
     const { data: session } = useSession()
     const signedIn = !!session?.user
     const [language] = useLanguage()
     const [layout] = useLayout()
     const pool = statsPoolFor(layout)
     const guestEvidence = useGuestEvidence()
+    const coaching = useCoachingEvidence()
     const [path, setPath] = useState<PracticePath>("keys")
+    const [guided, setGuided] = useState<ParsedCoachingTarget | null>(null)
     const [keysPreferences, setKeysPreferences] = useState<CustomKeysPracticePreferences>({ keys: ["e", "r"], durationSeconds: 60, textStyle: "varied" })
     const [gramsPreferences, setGramsPreferences] = useState<CustomGramsPracticePreferences>({ grams: ["th", "the", "tion"], durationSeconds: 60, textStyle: "varied" })
     const [gramEntry, setGramEntry] = useState("")
@@ -68,11 +85,23 @@ const Practice: NextPage = () => {
     const activePreferences = path === "keys" ? keysPreferences : gramsPreferences
 
     useEffect(() => {
-        setKeysPreferences(readCustomKeysPracticePreferences())
-        setGramsPreferences(readCustomGramsPracticePreferences())
+        if (!router.isReady) return
+        const parsed = parseCoachingTargetQuery(router.query)
+        const setup = parsed ? guidedPracticeSetup(parsed.target) : null
+        const savedKeys = readCustomKeysPracticePreferences()
+        const savedGrams = readCustomGramsPracticePreferences()
+        if (parsed && setup) {
+            setGuided(parsed)
+            setPath(setup.focus.kind)
+            if (setup.focus.kind === "keys") setKeysPreferences({ keys: setup.focus.items, durationSeconds: setup.durationSeconds, textStyle: setup.textStyle })
+            else setGramsPreferences({ grams: setup.focus.items, durationSeconds: setup.durationSeconds, textStyle: setup.textStyle })
+        } else {
+            setKeysPreferences(savedKeys)
+            setGramsPreferences(savedGrams)
+        }
         setSeed(Date.now())
         setReady(true)
-    }, [])
+    }, [router.isReady, router.query])
 
     useEffect(() => {
         if (!ready) return
@@ -93,12 +122,12 @@ const Practice: NextPage = () => {
     }, [language])
 
     useEffect(() => {
-        if (ready) writeCustomKeysPracticePreferences(keysPreferences)
-    }, [keysPreferences, ready])
+        if (ready && !guided) writeCustomKeysPracticePreferences(keysPreferences)
+    }, [guided, keysPreferences, ready])
 
     useEffect(() => {
-        if (ready) writeCustomGramsPracticePreferences(gramsPreferences)
-    }, [gramsPreferences, ready])
+        if (ready && !guided) writeCustomGramsPracticePreferences(gramsPreferences)
+    }, [gramsPreferences, guided, ready])
 
     const timelines = api.test.getLatestTimelines.useQuery(
         { language, pool },
@@ -118,10 +147,34 @@ const Practice: NextPage = () => {
         .every((character) => sequenceFor(character.toLowerCase(), layout).length > 0)), [corpus, layout])
     const commonGrams = useMemo(() => rankCommonGrams(corpus, 5)
         .filter(({ gram }) => [...gram].every((character) => sequenceFor(character, layout).length > 0)), [corpus, layout])
+    const measuredGrams = useMemo(() => measuredGramSuggestions(coaching.analysis?.candidates ?? []), [coaching.analysis?.candidates])
     const focusCharacters = useMemo(() => path === "keys"
         ? keysPreferences.keys
         : [...new Set(gramsPreferences.grams.flatMap((gram) => [...gram]))], [gramsPreferences.grams, keysPreferences.keys, path])
-    const prompt = useMemo(() => path === "keys" ? compileCustomKeysPractice({
+    const activeFocus = useMemo(() => path === "keys"
+        ? { kind: "keys" as const, items: keysPreferences.keys }
+        : { kind: "grams" as const, items: gramsPreferences.grams }, [gramsPreferences.grams, keysPreferences.keys, path])
+    useEffect(() => {
+        if (guided && !focusMatchesPrescription(activeFocus, guided.target)) setGuided(null)
+    }, [activeFocus, guided])
+    const activeGuidedSetup = useMemo(() => {
+        if (!guided || !focusMatchesPrescription(activeFocus, guided.target)) return null
+        const setup = guidedPracticeSetup(guided.target)
+        if (!setup) return null
+        return {
+            ...setup,
+            focus: activeFocus,
+            durationSeconds: activePreferences.durationSeconds,
+            textStyle: activePreferences.textStyle,
+        }
+    }, [activeFocus, activePreferences.durationSeconds, activePreferences.textStyle, guided])
+    const prompt = useMemo(() => activeGuidedSetup ? compileGuidedPractice({
+        setup: activeGuidedSetup,
+        corpus: typeableCorpus,
+        language,
+        seed,
+        wordCount: PRACTICE_WORDS,
+    }) : path === "keys" ? compileCustomKeysPractice({
         keys: keysPreferences.keys,
         corpus: typeableCorpus,
         language,
@@ -135,10 +188,12 @@ const Practice: NextPage = () => {
         textStyle: gramsPreferences.textStyle,
         seed,
         wordCount: PRACTICE_WORDS,
-    }), [gramsPreferences, keysPreferences, language, path, seed, typeableCorpus])
-    const baseRecord = useMemo(() => path === "keys"
+    }), [activeGuidedSetup, gramsPreferences, keysPreferences, language, path, seed, typeableCorpus])
+    const baseRecord = useMemo(() => activeGuidedSetup
+        ? guidedPracticeRecord(activeGuidedSetup, 0, false)
+        : path === "keys"
         ? customKeysPracticeRecord(keysPreferences, 0, false)
-        : customGramsPracticeRecord(gramsPreferences, 0, false), [gramsPreferences, keysPreferences, path])
+        : customGramsPracticeRecord(gramsPreferences, 0, false), [activeGuidedSetup, gramsPreferences, keysPreferences, path])
 
     const keyRecap = useMemo(() => completed?.path === "keys" ? completeCustomKeysPractice({
         current: completed.run,
@@ -148,6 +203,11 @@ const Practice: NextPage = () => {
         current: completed.run,
         history: history as CustomGramsPracticeRun[],
     }) : null, [completed, history])
+    const guidedRecap = useMemo(() => completed?.path === "guided" ? completeGuidedPractice({
+        current: completed.run,
+        history: history as GuidedPracticeRun[],
+        naturalReference: completed.evidence,
+    }) : null, [completed, history])
 
     const refreshPrompt = () => {
         setCompleted(null)
@@ -155,6 +215,7 @@ const Practice: NextPage = () => {
     }
     const selectPath = (next: PracticePath) => {
         if (running || path === next) return
+        setGuided(null)
         setPath(next)
         setGramEntryError(null)
         refreshPrompt()
@@ -176,9 +237,13 @@ const Practice: NextPage = () => {
     const setKeys = (keys: string[]) => {
         const unique = [...new Set(keys.map((key) => key.normalize("NFC")))]
             .filter((key) => sequenceFor(key, layout).length > 0).slice(0, 8)
+        if (guided) setGuided(null)
         updateKeys({ keys: unique })
     }
-    const setGrams = (grams: string[]) => updateGrams({ grams: [...new Set(grams)].slice(0, 24) })
+    const setGrams = (grams: string[]) => {
+        if (guided) setGuided(null)
+        updateGrams({ grams: [...new Set(grams)].slice(0, 24) })
+    }
     const addGram = (raw: string) => {
         const gram = normalizeCustomGram(raw)
         if (!gram) {
@@ -212,7 +277,19 @@ const Practice: NextPage = () => {
     const onComplete = (result: TestCompletionResult) => {
         const completedAt = Date.now()
         setRunning(false)
-        if (path === "keys") {
+        if (activeGuidedSetup) {
+            setCompleted({
+                path: "guided",
+                result,
+                evidence: guided?.evidence ?? null,
+                run: {
+                    id: `current-${completedAt}`,
+                    completedAt,
+                    practice: guidedPracticeRecord(activeGuidedSetup, activeGuidedSetup.durationSeconds * 1_000, true),
+                    timeline: result.timeline,
+                },
+            })
+        } else if (path === "keys") {
             setCompleted({
                 path,
                 result,
@@ -240,16 +317,25 @@ const Practice: NextPage = () => {
     const hasFocus = path === "keys" ? keysPreferences.keys.length > 0 : gramsPreferences.grams.length > 0
 
     return (
-        <div data-testid="custom-practice-workspace" className="h-full w-full overflow-y-auto bg-base-100 px-3 py-6 sm:px-6 md:py-10">
-            <Head><title>Custom Practice | TypeCafe</title></Head>
+        <div data-testid="custom-practice-workspace" data-practice-kind={guided ? "guided" : "custom"} className="h-full w-full overflow-y-auto bg-base-100 px-3 py-6 sm:px-6 md:py-10">
+            <Head><title>{guided ? "Guided" : "Custom"} Practice | TypeCafe</title></Head>
             <div className="mx-auto flex w-full max-w-5xl flex-col gap-5">
                 <header className="flex flex-wrap items-end justify-between gap-3">
                     <div>
-                        <p className="font-mono text-xs uppercase tracking-[0.18em] text-primary">Practice · Custom {path === "keys" ? "Keys" : "Grams"}</p>
-                        <h1 className="mt-1 text-2xl font-bold sm:text-3xl">Build speed where you choose.</h1>
+                        <p className="font-mono text-xs uppercase tracking-[0.18em] text-primary">Practice · {guided ? "Guided Drill" : `Custom ${path === "keys" ? "Keys" : "Grams"}`}</p>
+                        <h1 className="mt-1 text-2xl font-bold sm:text-3xl">{guided ? `Practise ${targetDisplayLabel(guided.target)}.` : "Build speed where you choose."}</h1>
+                        {completed?.path === "guided" && <p data-testid="guided-awaiting-test" className="mt-1 text-sm font-semibold text-success">practised · awaiting Test</p>}
                     </div>
                     {running && <button type="button" className="btn btn-sm btn-ghost" onClick={stop}>Stop run</button>}
                 </header>
+
+                {guided && (
+                    <section data-testid="guided-practice-intent" aria-label="Guided Target" className="rounded-2xl border border-primary/30 bg-primary/10 p-4">
+                        <p className="font-mono text-xs font-bold uppercase tracking-wide text-primary">One Target · from your Tests</p>
+                        <p className="mt-1 text-sm text-base-content/80">{guided.evidence?.reason ?? "A measured Target from your typing evidence."}</p>
+                        {guided.evidence && <p className="mt-2 font-mono text-xs text-base-content/60">Recent natural Test: <strong className="text-base-content">{guided.evidence.metric === "ms" ? `${Math.round(guided.evidence.observed)} ms` : guided.evidence.metric === "%" ? `${guided.evidence.observed.toFixed(1)}%` : `${guided.evidence.observed.toFixed(1)} WPM`}</strong> · baseline {guided.evidence.metric === "ms" ? `${Math.round(guided.evidence.baseline)} ms` : guided.evidence.metric === "%" ? `${guided.evidence.baseline.toFixed(1)}%` : `${guided.evidence.baseline.toFixed(1)} WPM`} · {guided.evidence.sampleCount} samples</p>}
+                    </section>
+                )}
 
                 <section aria-label="Practice controls" className="rounded-2xl border border-base-content/10 bg-base-200/45 p-3 sm:p-4">
                     <div className="mb-4 join" role="group" aria-label="Custom practice type">
@@ -258,7 +344,7 @@ const Practice: NextPage = () => {
                     </div>
                     <div className="grid gap-3 md:grid-cols-[1fr_auto_auto] md:items-end">
                         <div>
-                            <span className="text-xs font-semibold uppercase tracking-wide text-base-content/50">{path === "keys" ? "Keys" : "Mixed Grams"}</span>
+                            <span className="text-xs font-semibold uppercase tracking-wide text-base-content/50">{guided ? "Prescribed " : ""}{path === "keys" ? "Keys" : "Mixed Grams"}</span>
                             {path === "keys" ? (
                                 <div data-testid="selected-practice-keys" className="mt-2 flex min-h-8 flex-wrap gap-1.5">
                                     {keysPreferences.keys.length > 0 ? keysPreferences.keys.map((key) => (
@@ -293,7 +379,27 @@ const Practice: NextPage = () => {
                 </section>
 
                 <section aria-label="Practice run" className="flex min-h-[16rem] items-center rounded-2xl border border-base-content/10 bg-base-200/20 py-2">
-                    {completed && (keyRecap || gramRecap) ? (
+                    {completed?.path === "guided" && guidedRecap ? (
+                        <div data-testid="practice-recap" className="w-full px-5 py-5 sm:px-8">
+                            <p className="font-mono text-xs uppercase tracking-[0.16em] text-primary">Guided Drill complete</p>
+                            <h2 className="mt-1 text-2xl font-bold">{guidedRecap.targetLabel}</h2>
+                            {guidedRecap.metric ? (
+                                <div className="mt-5 rounded-xl bg-base-200 p-4" data-testid="guided-target-metric">
+                                    <div className="flex flex-wrap items-end justify-between gap-2">
+                                        <div><p className="text-xs font-semibold uppercase text-base-content/50">{guidedRecap.metric.label}</p><p className="mt-1 font-mono text-3xl font-bold">{guidedRecap.metric.unit === "ms" ? `${Math.round(guidedRecap.metric.value)} ms` : `${guidedRecap.metric.value.toFixed(1)}${guidedRecap.metric.unit === "%" ? "%" : " WPM"}`}</p></div>
+                                        <p className="font-mono text-xs text-base-content/55">{guidedRecap.metric.attempts} Target attempt{guidedRecap.metric.attempts === 1 ? "" : "s"}</p>
+                                    </div>
+                                    <p className="mt-3 text-sm"><strong>Practice Delta:</strong> {guidedRecap.practiceDelta === null ? "Building your Guided baseline." : <span className={guidedRecap.practiceDelta >= 0 ? "text-success" : "text-warning"}>{signed(guidedRecap.practiceDelta)}{guidedRecap.metric.unit === "ms" ? " ms faster" : guidedRecap.metric.unit === "%" ? " pts" : " WPM"}</span>}</p>
+                                </div>
+                            ) : <p className="mt-4 text-sm text-base-content/60">No complete Target attempt landed in this run.</p>}
+                            {guidedRecap.naturalReference && <div data-testid="guided-natural-reference" className="mt-3 border-l-2 border-base-content/15 pl-3 text-sm text-base-content/60"><strong className="text-base-content/75">Recent natural-Test reference</strong><br />{guidedRecap.naturalReference.reason}</div>}
+                            <p className="mt-4 font-mono text-sm text-base-content/55">Secondary · <strong className="text-base-content">{Math.round(completed.result.netWpm)} WPM</strong> · <strong className="text-base-content">{completed.result.accuracy.toFixed(1)}% Accuracy</strong></p>
+                            <div className="mt-5 flex flex-col gap-2 border-t border-base-content/10 pt-4 sm:flex-row">
+                                <Link href="/" className="btn btn-sm btn-primary">Take a Test</Link>
+                                <button type="button" className="btn btn-sm btn-ghost border-base-content/15" onClick={repeat}>Practise again</button>
+                            </div>
+                        </div>
+                    ) : completed && (keyRecap || gramRecap) ? (
                         <div data-testid="practice-recap" className="w-full px-5 py-5 sm:px-8">
                             <p className="font-mono text-xs uppercase tracking-[0.16em] text-primary">Run complete</p>
                             <h2 className="mt-1 text-2xl font-bold">Your focus response</h2>
@@ -333,8 +439,9 @@ const Practice: NextPage = () => {
                             gramAccuracyThreshold={0}
                             count={activePreferences.durationSeconds}
                             customLength
-                            evidenceContext="custom-practice"
+                            evidenceContext={guided ? "acquisition" : "custom-practice"}
                             practiceRecord={baseRecord}
+                            drillTarget={guided?.target}
                             fixedText={prompt}
                             onTestComplete={onComplete}
                             onTypingFocusChange={setRunning}
@@ -350,7 +457,7 @@ const Practice: NextPage = () => {
 
                 {path === "keys" ? (
                     <section aria-label="Focus key editor" className="rounded-2xl border border-base-content/10 bg-base-200/25 pb-2">
-                        <div className="px-4 pt-4"><h2 className="font-semibold">Focus key editor</h2><p className="text-sm text-base-content/55">Selected keys get extra reps; supporting characters keep the text useful.</p></div>
+                        <div className="px-4 pt-4"><h2 className="font-semibold">Focus key editor</h2><p className="text-sm text-base-content/55">{guided ? "Changing prescribed keys converts this run to Custom before it starts." : "Selected keys get extra reps; supporting characters keep the text useful."}</p></div>
                         <Keyboard
                             mode={TestModes.practice}
                             selectedKeys={keysPreferences.keys}
@@ -369,22 +476,34 @@ const Practice: NextPage = () => {
                     <section aria-label="Gram editor" className="rounded-2xl border border-base-content/10 bg-base-200/25 p-4">
                         <div className="grid gap-5 md:grid-cols-[minmax(15rem,0.8fr)_1.2fr]">
                             <div>
-                                <h2 className="font-semibold">Add a Custom Gram</h2>
-                                <p className="mt-1 text-sm text-base-content/55">Mix any 2-, 3-, or 4-character Grams in the same run.</p>
+                                <h2 className="font-semibold">{guided ? "Prescribed Gram focus" : "Add a Custom Gram"}</h2>
+                                <p className="mt-1 text-sm text-base-content/55">{guided ? "Editing or mixing in another Target converts this run to Custom." : "Mix any 2-, 3-, or 4-character Grams in the same run."}</p>
                                 <form className="mt-3 flex gap-2" onSubmit={(event) => { event.preventDefault(); addGram(gramEntry) }}>
                                     <input data-testid="custom-gram-input" disabled={running} value={gramEntry} onChange={(event) => { setGramEntry(event.target.value); setGramEntryError(null) }} className="input input-bordered input-sm min-w-0 flex-1 font-mono" aria-label="Custom Gram" placeholder="e.g. ing" autoComplete="off" />
                                     <button type="submit" disabled={running} className="btn btn-sm btn-primary">Add</button>
                                 </form>
                                 {gramEntryError && <p role="alert" className="mt-2 text-xs text-warning">{gramEntryError}</p>}
                             </div>
-                            <div>
-                                <h2 className="font-semibold">Common in {languageMeta(language).label}</h2>
-                                <p className="mt-1 text-sm text-base-content/55">Frequency-ranked Custom material—not a measured Weakness.</p>
-                                <div data-testid="common-language-grams" className="mt-3 flex flex-wrap gap-1.5">
-                                    {commonGrams.map(({ gram, length }) => {
-                                        const selected = gramsPreferences.grams.includes(gram)
-                                        return <button key={gram} type="button" disabled={running} aria-pressed={selected} onClick={() => selected ? setGrams(gramsPreferences.grams.filter((item) => item !== gram)) : setGrams([...gramsPreferences.grams, gram])} className={`btn btn-xs h-8 font-mono ${selected ? "btn-primary" : "btn-ghost border-base-content/15"}`}>{gram}<span className="rounded bg-base-content/10 px-1 text-[0.62rem]" aria-label={`${length}-Gram`}>{length}</span></button>
-                                    })}
+                            <div className="space-y-5">
+                                {measuredGrams.length > 0 && <div data-testid="measured-test-grams">
+                                    <h2 className="font-semibold">From your Tests</h2>
+                                    <p className="mt-1 text-sm text-base-content/55">Only Grams measured directly in your natural typing.</p>
+                                    <div className="mt-3 grid gap-2">
+                                        {measuredGrams.map(({ id, gram, reason }) => {
+                                            const selected = gramsPreferences.grams.includes(gram)
+                                            return <button key={id} type="button" disabled={running} aria-pressed={selected} onClick={() => selected ? setGrams(gramsPreferences.grams.filter((item) => item !== gram)) : setGrams([...gramsPreferences.grams, gram])} className={`flex min-h-11 items-center gap-2 rounded-lg border px-3 py-2 text-left ${selected ? "border-primary bg-primary text-primary-content" : "border-primary/30 bg-primary/10 text-primary"}`}><span className="font-mono font-bold">{gram}</span><span className="rounded bg-base-content/10 px-1 font-mono text-[0.62rem]" aria-label={`${[...gram].length}-Gram`}>{[...gram].length}</span><span className="text-xs opacity-75">{reason}</span></button>
+                                        })}
+                                    </div>
+                                </div>}
+                                <div>
+                                    <h2 className="font-semibold">Common in {languageMeta(language).label}</h2>
+                                    <p className="mt-1 text-sm text-base-content/55">Frequency-ranked Custom material—not a measured Weakness.</p>
+                                    <div data-testid="common-language-grams" className="mt-3 flex flex-wrap gap-1.5">
+                                        {commonGrams.map(({ gram, length }) => {
+                                            const selected = gramsPreferences.grams.includes(gram)
+                                            return <button key={gram} type="button" disabled={running} aria-pressed={selected} onClick={() => selected ? setGrams(gramsPreferences.grams.filter((item) => item !== gram)) : setGrams([...gramsPreferences.grams, gram])} className={`btn btn-xs h-8 font-mono ${selected ? "btn-primary" : "btn-ghost border-base-content/15"}`}>{gram}<span className="rounded bg-base-content/10 px-1 text-[0.62rem]" aria-label={`${length}-Gram`}>{length}</span></button>
+                                        })}
+                                    </div>
                                 </div>
                             </div>
                         </div>

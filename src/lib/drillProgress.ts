@@ -6,6 +6,7 @@ import type { KeystrokeEvent } from "./keystrokes"
 import type { LocalKeyStat } from "./localSync"
 import type { SkillCandidate } from "./skillEvidence"
 import { targetAction } from "./coachingTarget"
+import { guidedEvidenceFromCandidate } from "./guidedPractice"
 import { composeWeakKeys, worstKeysFromAttempts } from "./stats"
 import { aggregateTransitions, overallTransitionMeanMs, worstTransitions, TRANSITION_MIN_COUNT, type TransitionAggregate } from "./transitions"
 
@@ -28,7 +29,7 @@ export function drillFindingFromCandidate(candidate: SkillCandidate | null): Dri
         return {
             kind: "transition",
             id: candidate.id,
-            href: `/drill?transitions=${encodeURIComponent(target.pair)}`,
+            href: targetAction(target, "acquisition", { evidence: guidedEvidenceFromCandidate(candidate) }).href,
             pair: target.pair,
             from: target.pair[0]!,
             to: target.pair[1]!,
@@ -40,7 +41,7 @@ export function drillFindingFromCandidate(candidate: SkillCandidate | null): Dri
         return {
             kind: "keys",
             id: candidate.id,
-            href: `/drill?keys=${target.keys.map(encodeURIComponent).join(",")}`,
+            href: targetAction(target, "acquisition", { evidence: guidedEvidenceFromCandidate(candidate) }).href,
             keys: target.keys,
             evidence: candidate,
         }
@@ -49,7 +50,7 @@ export function drillFindingFromCandidate(candidate: SkillCandidate | null): Dri
         return {
             kind: "keys",
             id: candidate.id,
-            href: targetAction(target).href,
+            href: targetAction(target, "acquisition", { evidence: guidedEvidenceFromCandidate(candidate) }).href,
             keys: [target.expected],
             evidence: candidate,
         }
@@ -67,10 +68,17 @@ export function nextDrillFinding(
     const excludedPairs = new Set(exclude?.pairs ?? [])
     const slowest = worstTransitions(transitions).find((t) => !excludedPairs.has(t.pair))
     if (slowest) {
+        const target = { kind: "transition" as const, pair: slowest.pair, metric: "latency" as const }
         return {
             kind: "transition",
             id: `transition:${slowest.pair}`,
-            href: `/drill?transitions=${slowest.pair}`,
+            href: targetAction(target, "acquisition", { evidence: {
+                metric: "ms",
+                baseline: slowest.meanMs / slowest.ratio,
+                observed: slowest.meanMs,
+                sampleCount: slowest.count,
+                reason: `Recent Tests measured this transition at ${Math.round(slowest.meanMs)} ms, ${slowest.ratio.toFixed(1)}× your usual rhythm.`,
+            } }).href,
             pair: slowest.pair,
             from: slowest.from,
             to: slowest.to,
@@ -82,7 +90,22 @@ export function nextDrillFinding(
     const ranked = worstKeysFromAttempts(attempts, Infinity).filter((k) => !excludedKeys.has(k.key))
     const keys = composeWeakKeys(ranked).slice(0, 4).map((k) => k.key)
     if (keys.length === 0) return null
-    return { kind: "keys", id: `keys:${keys.join(",")}`, href: `/drill?keys=${keys.join(",")}`, keys }
+    const selected = ranked.filter((entry) => keys.includes(entry.key))
+    const attemptsCount = selected.reduce((sum, entry) => sum + entry.attempts, 0)
+    const accuracy = attemptsCount > 0 ? selected.reduce((sum, entry) => sum + entry.accuracy * entry.attempts, 0) / attemptsCount : 0
+    const target = { kind: "key" as const, keys, metric: "accuracy" as const }
+    return {
+        kind: "keys",
+        id: `keys:${keys.join(",")}`,
+        href: targetAction(target, "acquisition", { evidence: {
+            metric: "%",
+            baseline: 100,
+            observed: accuracy,
+            sampleCount: attemptsCount,
+            reason: `Recent Tests measured these keys at ${accuracy.toFixed(1)}% Accuracy.`,
+        } }).href,
+        keys,
+    }
 }
 
 // Roll a test's timeline into per-key attempt counts - the same shape the

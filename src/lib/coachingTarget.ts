@@ -19,7 +19,16 @@ export interface ParsedCoachingTarget {
     target: CoachingTarget
     policy: DrillPolicy
     seenWords: string[]
+    evidence: GuidedTargetEvidence | null
     legacy: boolean
+}
+
+export interface GuidedTargetEvidence {
+    metric: "ms" | "%" | "wpm"
+    baseline: number
+    observed: number
+    sampleCount: number
+    reason: string
 }
 
 export interface TargetAction {
@@ -130,6 +139,28 @@ function policyFrom(value: QueryValue): DrillPolicy {
     return policy === "transfer" || policy === "cold" ? policy : "acquisition"
 }
 
+function guidedEvidence(value: QueryValue): GuidedTargetEvidence | null {
+    const encoded = first(value)
+    if (!encoded) return null
+    try {
+        const raw = JSON.parse(encoded) as Record<string, unknown>
+        if ((raw.metric !== "ms" && raw.metric !== "%" && raw.metric !== "wpm") ||
+            typeof raw.baseline !== "number" || !Number.isFinite(raw.baseline) ||
+            typeof raw.observed !== "number" || !Number.isFinite(raw.observed) ||
+            !Number.isInteger(raw.sampleCount) || (raw.sampleCount as number) < 1 ||
+            typeof raw.reason !== "string" || raw.reason.trim().length === 0 || raw.reason.length > 300) return null
+        return {
+            metric: raw.metric,
+            baseline: raw.baseline,
+            observed: raw.observed,
+            sampleCount: raw.sampleCount as number,
+            reason: raw.reason.trim(),
+        }
+    } catch {
+        return null
+    }
+}
+
 function metricFrom(value: QueryValue, fallback: "accuracy" | "latency"): "accuracy" | "latency" {
     return first(value) === "accuracy" ? "accuracy" : first(value) === "latency" ? "latency" : fallback
 }
@@ -137,6 +168,7 @@ function metricFrom(value: QueryValue, fallback: "accuracy" | "latency"): "accur
 export function parseCoachingTargetQuery(query: DrillQuery): ParsedCoachingTarget | null {
     const policy = policyFrom(query.policy)
     const seenWords = words(query.seen, 40)
+    const evidence = guidedEvidence(query.evidence)
     const explicitKind = first(query.target)
     const legacy = explicitKind.length === 0 && !query.gram && !query.movement && !query.correction
 
@@ -148,6 +180,7 @@ export function parseCoachingTargetQuery(query: DrillQuery): ParsedCoachingTarge
             target: { kind: "word", words: wordTargets, ...(sharedGram ? { sharedGram } : {}) },
             policy,
             seenWords,
+            evidence,
             legacy,
         }
     }
@@ -155,39 +188,39 @@ export function parseCoachingTargetQuery(query: DrillQuery): ParsedCoachingTarge
     const transition = pair(query.transitions)
     if (explicitKind === "transition" || (legacy && transition)) {
         if (!transition) return null
-        return { target: { kind: "transition", pair: transition, metric: metricFrom(query.metric, "latency") }, policy, seenWords, legacy }
+        return { target: { kind: "transition", pair: transition, metric: metricFrom(query.metric, "latency") }, policy, seenWords, evidence, legacy }
     }
 
     const keyTargets = keys(query.keys)
     if (explicitKind === "key" || (legacy && keyTargets.length > 0)) {
         if (keyTargets.length === 0) return null
-        return { target: { kind: "key", keys: keyTargets, metric: metricFrom(query.metric, "accuracy") }, policy, seenWords, legacy }
+        return { target: { kind: "key", keys: keyTargets, metric: metricFrom(query.metric, "accuracy") }, policy, seenWords, evidence, legacy }
     }
 
     if (explicitKind === "gram" || query.gram) {
         const gram = words(query.gram, 1)[0]
         if (!gram || [...gram].length < 3 || [...gram].length > 4) return null
-        return { target: { kind: "gram", gram }, policy, seenWords, legacy: false }
+        return { target: { kind: "gram", gram }, policy, seenWords, evidence, legacy: false }
     }
 
     if (explicitKind === "movement" || query.movement) {
         const movement = first(query.movement) as MovementKind
         const anchors = list(query.anchors).map((anchor) => [...anchor].slice(0, 2).join("")).filter((anchor) => [...anchor].length === 2)
         if (!MOVEMENTS.includes(movement) || anchors.length < 4) return null
-        return { target: { kind: "movement", movement, anchors }, policy, seenWords, legacy: false }
+        return { target: { kind: "movement", movement, anchors }, policy, seenWords, evidence, legacy: false }
     }
 
     if (explicitKind === "correction" || query.correction) {
         const [expected, typed] = list(query.correction, 2)
         if (!expected || !typed || !(isDrillableKey(expected) || isPracticeLetter(expected)) || !(isDrillableKey(typed) || isPracticeLetter(typed))) return null
-        return { target: { kind: "correction", expected, typed }, policy, seenWords, legacy: false }
+        return { target: { kind: "correction", expected, typed }, policy, seenWords, evidence, legacy: false }
     }
 
     if (explicitKind === "endurance") {
         const shortSeconds = positiveInt(query.shortSeconds)
         const longSeconds = positiveInt(query.longSeconds)
         if (!shortSeconds || !longSeconds || shortSeconds >= longSeconds) return null
-        return { target: { kind: "endurance", shortSeconds, longSeconds }, policy, seenWords, legacy: false }
+        return { target: { kind: "endurance", shortSeconds, longSeconds }, policy, seenWords, evidence, legacy: false }
     }
 
     return null
@@ -217,13 +250,17 @@ export function targetDisplayLabel(target: CoachingTarget): string {
 export function targetAction(
     target: CoachingTarget,
     policy: DrillPolicy = "acquisition",
-    options: { seenWords?: readonly string[], length?: number } = {},
+    options: { seenWords?: readonly string[], length?: number, evidence?: GuidedTargetEvidence } = {},
 ): TargetAction {
     const suffix = [
         `policy=${policy}`,
         ...(options.length ? [`length=${Math.max(1, Math.min(120, Math.floor(options.length)))}`] : []),
         ...(options.seenWords?.length ? [`seen=${encodedList(options.seenWords)}`] : []),
+        ...(options.evidence ? [`evidence=${encodeURIComponent(JSON.stringify(options.evidence))}`] : []),
     ].join("&")
+    // Target-first Guided Practice owns acquisition. Historical Transfer/Cold
+    // sessions remain on the legacy Drill surface until their retirement slice.
+    const workspace = policy === "acquisition" ? "/practice" : "/drill"
     if (target.kind === "endurance") {
         return {
             href: `/?mode=timed&count=${target.longSeconds}&coaching=endurance&target=endurance&shortSeconds=${target.shortSeconds}&longSeconds=${target.longSeconds}&policy=${policy}`,
@@ -232,23 +269,23 @@ export function targetAction(
         }
     }
     if (target.kind === "key") {
-        return { href: `/drill?target=key&keys=${encodedList(target.keys)}&metric=${target.metric}&${suffix}`, label: "Practice these keys", surface: "drill" }
+        return { href: `${workspace}?target=key&keys=${encodedList(target.keys)}&metric=${target.metric}&${suffix}`, label: "Practice these keys", surface: "drill" }
     }
     if (target.kind === "transition") {
-        return { href: `/drill?target=transition&transitions=${encodeURIComponent(target.pair)}&metric=${target.metric}&${suffix}`, label: "Practice this transition", surface: "drill" }
+        return { href: `${workspace}?target=transition&transitions=${encodeURIComponent(target.pair)}&metric=${target.metric}&${suffix}`, label: "Practice this transition", surface: "drill" }
     }
     if (target.kind === "gram") {
-        return { href: `/drill?target=gram&gram=${encodeURIComponent(target.gram)}&${suffix}`, label: "Practice this pattern", surface: "drill" }
+        return { href: `${workspace}?target=gram&gram=${encodeURIComponent(target.gram)}&${suffix}`, label: "Practice this pattern", surface: "drill" }
     }
     if (target.kind === "word") {
         const shared = target.sharedGram ? `&sharedGram=${encodeURIComponent(target.sharedGram)}` : ""
-        return { href: `/drill?target=word&words=${encodedList(target.words)}${shared}&${suffix}`, label: "Practice these words", surface: "drill" }
+        return { href: `${workspace}?target=word&words=${encodedList(target.words)}${shared}&${suffix}`, label: "Practice these words", surface: "drill" }
     }
     if (target.kind === "movement") {
-        return { href: `/drill?target=movement&movement=${target.movement}&anchors=${encodedList(target.anchors)}&${suffix}`, label: "Practice this movement", surface: "drill" }
+        return { href: `${workspace}?target=movement&movement=${target.movement}&anchors=${encodedList(target.anchors)}&${suffix}`, label: "Practice this movement", surface: "drill" }
     }
     return {
-        href: `/drill?target=correction&correction=${encodedList([target.expected, target.typed])}&${suffix}`,
+        href: `${workspace}?target=correction&correction=${encodedList([target.expected, target.typed])}&${suffix}`,
         label: "Practice these keys",
         surface: "drill",
     }

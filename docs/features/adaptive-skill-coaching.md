@@ -1116,17 +1116,17 @@ legacy configuration mechanics merely because the current UI exposes them.
 
 #### 13.4 Unified workspace
 
-- [ ] Build one Practice workspace with Guided Drill and Custom Practice states,
+- [x] Build one Practice workspace with Guided Drill and Custom Practice states,
       sharing the typer while preserving their different evidence contracts.
-- [ ] Keep configuration and generated typing text on the same screen using the
+- [x] Keep configuration and generated typing text on the same screen using the
       confirmed `current evolved` layout: compact Keys/Grams, duration, and
       style controls above; dominant typer; always-available editor below.
-- [ ] Implement the direct keyboard focus editor and one mixed Gram tray with
+- [x] Implement the direct keyboard focus editor and one mixed Gram tray with
       measured suggestions, common-language choices, direct 2-4 character
       entry, and length markers—no separate length tabs.
 - [x] Allow 30-, 60-, 120-, and 240-second runs with 60 seconds default; allow
       `Varied` and `Pseudo` changes only between runs.
-- [ ] Preserve Guided attribution across duration/style changes, but visibly
+- [x] Preserve Guided attribution across duration/style changes, but visibly
       convert to Custom Practice as soon as prescribed keys or Grams change or
       another Target is mixed in.
 - [x] Fit the complete Practice keyboard within the mobile viewport without a
@@ -1134,25 +1134,25 @@ legacy configuration mechanics merely because the current UI exposes them.
 
 #### 13.5 Completion and Progress
 
-- [ ] Replace the typer content with an inline focus-first recap when the timer
+- [x] Replace the typer content with an inline focus-first recap when the timer
       completes, leaving the editor available below.
-- [ ] For Guided Drill, lead with Target metric, Practice Delta, attempts, and a
+- [x] For Guided Drill, lead with Target metric, Practice Delta, attempts, and a
       separately labelled recent natural-Test reference; keep WPM/Accuracy
       secondary and offer `Repeat` plus `Take a Test`.
 - [x] For Custom Practice, show the same Practice-baseline comparison for every
       selected item that occurred, followed by overall WPM and Accuracy.
-- [ ] Keep the recommendation on a completed Target as `practised · awaiting
+- [x] Keep the recommendation on a completed Target as `practised · awaiting
       Test`, with measurement primary, until a later ordinary Test contains the
       Target; Custom Practice neither advances nor blocks this queue.
 - [ ] Show Practice activity/response only in the selected Progress Target's
       separate evidence track. Do not add it to overall charts or natural Target
       ranking.
-- [ ] Route `Take a Test` to the existing unchanged Home Test. Leave the
+- [x] Route `Take a Test` to the existing unchanged Home Test. Leave the
       deferred awaiting-Target Test-result message out of this workstream.
 
 #### 13.6 Handoff, retirement, and verification
 
-- [ ] Point Findings, Practice recommendations, and Progress Target actions
+- [x] Point Findings, Practice recommendations, and Progress Target actions
       directly into the Guided state without visiting the Practice landing.
 - [ ] Retire Drill as a separate user-facing page/mode while preserving Drill as
       the Target-bound domain term; redirect legacy `/drill` links with their

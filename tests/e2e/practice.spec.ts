@@ -17,7 +17,7 @@ async function guestPracticeRecords(page: Page) {
     try {
       const transaction = database.transaction("guestEvidenceTests", "readonly")
       const rows = transaction.objectStore("guestEvidenceTests").getAll()
-      return await new Promise<Array<{ practice?: { completed?: boolean, elapsedActivityMs?: number } }>>((resolve, reject) => {
+      return await new Promise<Array<{ practice?: { kind?: string, target?: unknown, completed?: boolean, elapsedActivityMs?: number } }>>((resolve, reject) => {
         rows.onsuccess = () => resolve(rows.result)
         rows.onerror = () => reject(new Error(rows.error?.message ?? "IndexedDB read failed"))
       })
@@ -167,5 +167,76 @@ test.describe("Custom Practice", () => {
     await page.getByRole("group", { name: "Custom practice type" }).getByRole("button", { name: "Grams" }).click()
     await expect(page.getByRole("region", { name: "Gram editor" })).toBeVisible()
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true)
+  })
+})
+
+test.describe("Guided Practice", () => {
+  const evidence = encodeURIComponent(JSON.stringify({
+    metric: "ms", baseline: 110, observed: 186, sampleCount: 12,
+    reason: "Recent Tests measured tion with 76 ms of extra pause.",
+  }))
+  const href = `/practice?target=gram&gram=tion&policy=acquisition&evidence=${evidence}`
+
+  test("opens one exact Target directly, preserves attribution for duration/style, and visibly converts on focus edits", async ({ page }) => {
+    await page.goto(href)
+    const workspace = page.getByTestId("custom-practice-workspace")
+    await expect(workspace).toHaveAttribute("data-practice-kind", "guided")
+    await expect(page.getByTestId("guided-practice-intent")).toContainText("Recent Tests measured tion")
+    await expect(page.getByTestId("guided-practice-intent")).toContainText("186 ms")
+    await expect(page.getByTestId("selected-practice-grams")).toContainText("tion")
+
+    const controls = page.getByRole("region", { name: "Practice controls" })
+    await controls.getByRole("button", { name: "120s" }).click()
+    await controls.getByRole("button", { name: "Pseudo" }).click()
+    await expect(workspace).toHaveAttribute("data-practice-kind", "guided")
+
+    await page.getByTestId("custom-gram-input").fill("ing")
+    await page.getByRole("region", { name: "Gram editor" }).getByRole("button", { name: "Add" }).click()
+    await expect(workspace).toHaveAttribute("data-practice-kind", "custom")
+    await expect(page.getByText("Practice · Custom Grams")).toBeVisible()
+  })
+
+  test("records exactly one Target and leads completion with Target response, Test reference, and ordinary Test action", async ({ page }) => {
+    await page.clock.install()
+    await page.goto(href)
+    await expect(page.locator("#c0")).toHaveClass(/active-char/, { timeout: 20_000 })
+    await page.getByRole("region", { name: "Practice controls" }).getByRole("button", { name: "30s" }).click()
+    for (let index = 0; index < 80; index += 1) {
+      await typeCurrentCharacter(page, index)
+      await page.clock.runFor(30)
+    }
+    await page.clock.runFor(30_000)
+
+    const recap = page.getByTestId("practice-recap")
+    await expect(recap.getByTestId("guided-target-metric")).toContainText("Gram latency")
+    await expect(recap).toContainText("Practice Delta")
+    await expect(recap).toContainText("Target attempt")
+    await expect(recap.getByTestId("guided-natural-reference")).toContainText("Recent natural-Test reference")
+    await expect(recap).toContainText("Secondary")
+    await expect(recap.getByRole("link", { name: "Take a Test" })).toHaveAttribute("href", "/")
+    await expect(recap.getByRole("button", { name: "Practise again" })).toBeVisible()
+    await expect(page.getByTestId("guided-awaiting-test")).toHaveText("practised · awaiting Test")
+
+    await expect.poll(async () => (await guestPracticeRecords(page)).length).toBeGreaterThan(0)
+    const records = await guestPracticeRecords(page)
+    expect(records.at(-1)?.practice).toMatchObject({ kind: "guided", target: { kind: "gram", gram: "tion" }, completed: true })
+  })
+
+  test("mixed measured focus is Custom item feedback and attributes no Target", async ({ page }) => {
+    await page.clock.install()
+    await page.goto(href)
+    await page.getByTestId("custom-gram-input").fill("ing")
+    await page.getByRole("region", { name: "Gram editor" }).getByRole("button", { name: "Add" }).click()
+    await page.getByRole("region", { name: "Practice controls" }).getByRole("button", { name: "30s" }).click()
+    for (let index = 0; index < 80; index += 1) {
+      await typeCurrentCharacter(page, index)
+      await page.clock.runFor(30)
+    }
+    await page.clock.runFor(30_000)
+
+    await expect(page.getByTestId("practice-recap")).toContainText("Your focus response")
+    const records = await guestPracticeRecords(page)
+    expect(records.at(-1)?.practice).toMatchObject({ kind: "custom", completed: true })
+    expect(records.at(-1)?.practice?.target).toBeUndefined()
   })
 })

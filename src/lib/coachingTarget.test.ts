@@ -36,10 +36,20 @@ describe("coaching target query adapter", () => {
             target,
             policy: "cold",
             seenWords: ["from", "desk"],
+            evidence: null,
             legacy: false,
         })
         expect(action.label).toBe("Practice this movement")
         expect(targetDisplayLabel(target)).toBe("this movement")
+    })
+
+    it("round-trips the measured handoff into the shared Practice workspace", () => {
+        const evidence = { metric: "ms" as const, baseline: 110, observed: 186, sampleCount: 12, reason: "Recent Tests measured this transition slowly." }
+        const action = targetAction({ kind: "transition", pair: "th", metric: "latency" }, "acquisition", { evidence })
+        const parsed = parseCoachingTargetQuery(Object.fromEntries(new URL(action.href, "https://typecafe.test").searchParams))
+
+        expect(action.href).toContain("/practice?target=transition")
+        expect(parsed?.evidence).toEqual(evidence)
     })
 
     it("hands endurance to the matched normal Test surface", () => {

@@ -70,6 +70,27 @@ test("Custom mixed Grams Practice workspace", async ({ page }, testInfo) => {
   await capture(page, testInfo, "68-custom-mixed-grams-practice")
 })
 
+test("Guided Practice workspace and awaiting-Test recap", async ({ page }, testInfo) => {
+  await page.clock.install()
+  const evidence = encodeURIComponent(JSON.stringify({
+    metric: "ms", baseline: 110, observed: 186, sampleCount: 12,
+    reason: "Recent Tests measured tion with 76 ms of extra pause.",
+  }))
+  await page.goto(`/practice?target=gram&gram=tion&policy=acquisition&evidence=${evidence}`)
+  await expect(page.getByTestId("guided-practice-intent")).toBeVisible()
+  await expect(page.locator("#c0")).toHaveClass(/active-char/, { timeout: 20_000 })
+  await capture(page, testInfo, "69-guided-practice")
+
+  await page.getByRole("region", { name: "Practice controls" }).getByRole("button", { name: "30s" }).click()
+  for (let index = 0; index < 80; index += 1) {
+    await typeCurrentCharacter(page, index)
+    await page.clock.runFor(30)
+  }
+  await page.clock.runFor(30_000)
+  await expect(page.getByTestId("guided-awaiting-test")).toBeVisible()
+  await capture(page, testInfo, "70-guided-practice-awaiting-test")
+})
+
 // /train lands on the level map; Continue zooms into the resume level.
 async function gotoTrainLevel(page: Page) {
   await page.goto("/train");
@@ -568,10 +589,10 @@ test.describe("screenshot tour", () => {
     expect((authBox?.x ?? 0) + (authBox?.width ?? 0)).toBeLessThanOrEqual(page.viewportSize()?.width ?? 0);
     await capture(page, testInfo, "35-score-card-diagnosis");
 
-    // The one-click drill hands off to the unified /drill surface on the keys.
-    await page.getByRole("link", { name: /Drill these keys/ }).first().click();
-    await expect(page.getByTestId("drill-typer")).toBeVisible();
-    await capture(page, testInfo, "36-drill-handoff");
+    // The one-click Finding hands off to the shared Guided Practice workspace.
+    await page.getByRole("link", { name: /Practise these keys/ }).first().click();
+    await expect(page.getByTestId("guided-practice-intent")).toBeVisible();
+    await capture(page, testInfo, "36-guided-practice-handoff");
   });
 
   test("re-measure: drill result CTA and home before/after delta", async ({ page }, testInfo) => {

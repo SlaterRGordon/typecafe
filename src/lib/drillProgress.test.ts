@@ -36,7 +36,8 @@ describe("nextDrillFinding", () => {
 
     it("prefers the slowest transition", () => {
         const finding = nextDrillFinding(transitions, weakAttempts)
-        expect(finding).toMatchObject({ kind: "transition", pair: "br", id: "transition:br", href: "/drill?transitions=br" })
+        expect(finding).toMatchObject({ kind: "transition", pair: "br", id: "transition:br" })
+        expect(finding?.href).toMatch(/^\/practice\?target=transition.*transitions=br.*evidence=/)
     })
 
     it("skips excluded pairs and picks the next-worst", () => {
@@ -46,7 +47,8 @@ describe("nextDrillFinding", () => {
 
     it("falls back to weak keys when no transition is left", () => {
         const finding = nextDrillFinding([], weakAttempts)
-        expect(finding).toMatchObject({ kind: "keys", keys: ["q", "z"], id: "keys:q,z", href: "/drill?keys=q,z" })
+        expect(finding).toMatchObject({ kind: "keys", keys: ["q", "z"], id: "keys:q,z" })
+        expect(finding?.href).toMatch(/^\/practice\?target=key.*keys=q,z.*evidence=/)
     })
 
     it("excludes just-drilled keys from the fallback", () => {

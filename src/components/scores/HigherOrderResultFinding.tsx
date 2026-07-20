@@ -12,6 +12,7 @@ import { api } from "~/utils/api";
 import { TestModes } from "~/components/typer/types";
 import type { ShareableScore } from "./ShareableScoreCard";
 import { targetAction } from "~/lib/coachingTarget";
+import { guidedEvidenceFromCandidate } from "~/lib/guidedPractice";
 
 interface HigherOrderResultFindingProps {
   score: ShareableScore;
@@ -124,7 +125,7 @@ export function HigherOrderResultFinding({
           Across recent natural typing, recurring hard words share <span className="font-mono font-bold">{target.sharedGram}</span>: {words.join(", ")}.
         </>
       : <>Across recent natural typing, a hard word recurred: <span className="font-mono font-bold">{words[0]}</span>.</>;
-  const href = targetAction(target, "acquisition", { seenWords: words }).href;
+  const href = targetAction(target, "acquisition", { seenWords: words, evidence: guidedEvidenceFromCandidate(finding) }).href;
 
   return (
     <ul data-testid="diagnosis-higher-order" className="flex flex-col gap-3">
@@ -133,9 +134,9 @@ export function HigherOrderResultFinding({
         <Link
           className="inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           href={withReMeasure(href)}
-          aria-label={`Drill the ${target.kind === "gram" ? target.gram : "recurring word"} pattern`}
+          aria-label={`Practise the ${target.kind === "gram" ? target.gram : "recurring word"} pattern`}
         >
-          Drill this pattern
+          Practise this pattern
         </Link>
       </li>
     </ul>

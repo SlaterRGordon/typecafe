@@ -1,6 +1,7 @@
 import type { FrozenRecommendation } from "./dailyCoaching"
 import { sameCoachingTarget, targetAction, targetDisplayLabel, type CoachingTarget } from "./coachingTarget"
 import type { MasteryRecord, NaturalAbility, SkillAnalysis, SkillCandidate, SkillReason } from "./skillEvidence"
+import { guidedEvidenceFromCandidate } from "./guidedPractice"
 
 export type ProgressCoachState = MasteryRecord["state"] | "needs-work" | "calibrating"
 export type ProgressCoachFilter = "all" | "transition" | "key" | "pattern" | "movement"
@@ -321,8 +322,18 @@ function actionPair(practice: { href: string, label: string }, awaiting: boolean
         : { action: practice, secondaryAction: null, awaitingMeasurement: false }
 }
 
-function actionFor(record: MasteryRecord): { href: string, label: string } {
-    const action = targetAction(record.target, "acquisition", { length: 30, seenWords: record.prescription.seenWords })
+function actionFor(record: MasteryRecord, candidate: SkillCandidate | null): { href: string, label: string } {
+    const action = targetAction(record.target, "acquisition", {
+        length: 30,
+        seenWords: record.prescription.seenWords,
+        evidence: candidate ? guidedEvidenceFromCandidate(candidate) : {
+            metric: record.proof.metric,
+            baseline: record.proof.baseline,
+            observed: record.ability?.value ?? record.proof.baseline,
+            sampleCount: record.ability?.sampleCount ?? Math.max(1, record.proof.sampleCounts.baseline),
+            reason: record.prescription.reason,
+        },
+    })
     return { href: action.href, label: action.label }
 }
 
@@ -353,7 +364,7 @@ function rowFromRecord(record: MasteryRecord, records: readonly MasteryRecord[],
         stages,
         direction: directionFor(record.prescription),
         metric: record.proof.metric,
-        ...actionPair(actionFor(record), record.awaitingMeasurement === true),
+        ...actionPair(actionFor(record, candidate), record.awaitingMeasurement === true),
         episodeCount: records.length,
         lastEvidenceDate: record.lastEvidenceDate,
         // Worth is the *remaining* estimated cost, so it follows the live
@@ -386,7 +397,7 @@ function candidateSeenWords(candidate: SkillCandidate): readonly string[] | unde
 
 function candidateTarget(candidate: SkillCandidate): ProgressCoachTarget {
     const label = targetDisplayLabel(candidate.target)
-    const action = targetAction(candidate.target, "acquisition", { length: 30, seenWords: candidateSeenWords(candidate) })
+    const action = targetAction(candidate.target, "acquisition", { length: 30, seenWords: candidateSeenWords(candidate), evidence: guidedEvidenceFromCandidate(candidate) })
     const presentation = targetPresentation(candidate.target)
     // Endurance (and any future sample-less kind) has no per-sample ability;
     // fall back to the observed value as a single Recent stage.

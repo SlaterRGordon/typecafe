@@ -81,9 +81,9 @@ describe("projectProgressCoach", () => {
         expect(result.targets[0]!.stages).toEqual([{ key: "recent", label: "Recent", value: "140 ms", numericValue: 140, sampleCount: 20 }])
         expect(result.targets[0]!.trend).toBeNull()
         expect(result.targets[0]!.action).toMatchObject({ label: "Practice this transition" })
-        expect(result.targets[0]!.action!.href).toContain("/drill?target=transition")
+        expect(result.targets[0]!.action!.href).toContain("/practice?target=transition")
         expect(result.defaultTarget).toMatchObject({ label: "b→r", statusLabel: "Needs work" })
-        expect(result.defaultTarget.action!.href).toContain("/drill?target=transition")
+        expect(result.defaultTarget.action!.href).toContain("/practice?target=transition")
     })
 
     it("keeps recent ability separate from a perfect drill result", () => {
@@ -150,7 +150,7 @@ describe("projectProgressCoach", () => {
         expect(row.awaitingMeasurement).toBe(true)
         expect(row.action).toEqual({ href: "/?mode=timed&count=30", label: "Take a Test to measure" })
         expect(row.secondaryAction).toMatchObject({ label: "Practice this transition" })
-        expect(row.secondaryAction!.href).toContain("/drill?target=transition")
+        expect(row.secondaryAction!.href).toContain("/practice?target=transition")
     })
 
     it("keeps practice primary once the Target has been observed after drilling", () => {
@@ -211,7 +211,7 @@ describe("projectProgressCoach", () => {
         const held = record("er-new", "retained", { kind: "transition", pair: "er", metric: "latency" })
         const result = projectProgressCoach(analysis([held, due]))
         expect(result.defaultTarget).toMatchObject({ label: "tion", state: "due", statusLabel: "Ready to revisit" })
-        expect(result.defaultTarget.action?.href).toContain("/drill?target=gram")
+        expect(result.defaultTarget.action?.href).toContain("/practice?target=gram")
         expect(result.defaultTarget.action?.href).toContain("policy=acquisition")
         expect(filterProgressCoachTargets(result.targets, "transition").map((row) => row.label)).toEqual(["e→r"])
     })
@@ -222,7 +222,7 @@ describe("projectProgressCoach", () => {
         transferred.proof = { ...transferred.proof, metric: "%", baseline: 88, bestAcquisition: 95, transfer: 96 }
         const result = projectProgressCoach(analysis([transferred]))
         expect(result.defaultTarget).toMatchObject({ label: "r", state: "transferred", statusLabel: "Improved" })
-        expect(result.defaultTarget.action?.href).toContain("/drill?target=key")
+        expect(result.defaultTarget.action?.href).toContain("/practice?target=key")
         expect(result.defaultTarget.headline).toBe("r improved in recent typing")
     })
 
