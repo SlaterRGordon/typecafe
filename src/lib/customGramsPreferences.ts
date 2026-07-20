@@ -2,6 +2,19 @@ import { parseCustomGramsPracticePreferences, type CustomGramsPracticePreference
 
 const STORAGE_KEY = "typecafe:practice:custom-grams"
 
+export interface CustomGramsPracticeContinuation {
+    focus: string
+    settings: string
+}
+
+/** Read-only landing copy for the last Custom Grams setup. */
+export function summarizeCustomGramsPracticePreferences(preferences: CustomGramsPracticePreferences): CustomGramsPracticeContinuation {
+    return {
+        focus: preferences.grams.join(" · "),
+        settings: `${preferences.durationSeconds}s · ${preferences.textStyle === "pseudo" ? "Pseudo" : "Varied"}`,
+    }
+}
+
 export function readCustomGramsPracticePreferences(): CustomGramsPracticePreferences {
     if (typeof window === "undefined") return parseCustomGramsPracticePreferences(null)
     try {

@@ -1,8 +1,10 @@
 import { expect, test, type Page } from "@playwright/test"
+import { brDrillTimeline, impactTimeline } from "./helpers/evidence"
+import { mockAuthenticatedSession, mockTrpc } from "./helpers/trpc"
 import { typeCurrentCharacter } from "./helpers/typing"
 
 async function gotoPractice(page: Page) {
-  await page.goto("/practice")
+  await page.goto("/practice?custom=keys")
   await expect(page.getByTestId("custom-practice-workspace")).toBeVisible()
   await expect(page.locator("#c0")).toHaveClass(/active-char/, { timeout: 20_000 })
 }
@@ -26,6 +28,58 @@ async function guestPracticeRecords(page: Page) {
     }
   })
 }
+
+test.describe("Practice landing", () => {
+  test("leads with Progress's highest-Impact Target and opens Guided directly", async ({ page }) => {
+    await mockAuthenticatedSession(page)
+    await mockTrpc(page, { timelineEvidence: [impactTimeline(1), impactTimeline(2)] })
+    await page.goto("/practice")
+
+    const recommendation = page.getByTestId("practice-recommendation")
+    await expect(recommendation).toContainText("Recommended for you")
+    await expect(recommendation.getByRole("heading")).toHaveText("b→r")
+    await expect(recommendation).toContainText("Recent natural typing shows this transition taking 1.4× your typical transition time.")
+    await expect(recommendation.getByRole("link", { name: "Start Guided" })).toHaveAttribute("href", /\/practice\?target=transition.*transitions=br.*evidence=/)
+    await expect(page.getByRole("heading", { name: "Practice your way" })).toBeVisible()
+    await expect(page.getByTestId("practice-path-keys")).toBeVisible()
+    await expect(page.getByTestId("practice-path-grams")).toBeVisible()
+  })
+
+  test("keeps an awaiting Target and makes a normal Test primary", async ({ page }) => {
+    await mockAuthenticatedSession(page)
+    await mockTrpc(page, { timelineEvidence: [brDrillTimeline(3), impactTimeline(1), impactTimeline(2)] })
+    await page.goto("/practice")
+
+    const recommendation = page.getByTestId("practice-recommendation")
+    await expect(recommendation).toContainText("b→r")
+    await expect(recommendation).toContainText("practised · awaiting Test")
+    await expect(recommendation.getByRole("link", { name: "Take a Test" })).toHaveAttribute("href", "/?mode=timed&count=30")
+    await expect(recommendation.getByRole("link", { name: "Practise again" })).toHaveAttribute("href", /\/practice\?target=transition.*transitions=br.*evidence=/)
+  })
+
+  test("shows an honest empty state and independent lightweight continuations", async ({ page }) => {
+    await page.addInitScript(() => {
+      window.localStorage.setItem("typecafe:practice:custom-keys", JSON.stringify({ keys: ["q", "r"], durationSeconds: 30, textStyle: "pseudo" }))
+      window.localStorage.setItem("typecafe:practice:custom-grams", JSON.stringify({ grams: ["th", "tion"], durationSeconds: 120, textStyle: "varied" }))
+    })
+    await page.goto("/practice")
+
+    const empty = page.getByTestId("practice-empty")
+    await expect(empty).toContainText("Find your focus")
+    await expect(empty).toContainText("we won’t invent a Weakness")
+    await expect(empty.getByRole("link", { name: "Take a Test" })).toHaveAttribute("href", "/?mode=timed&count=60")
+    await expect(page.getByTestId("practice-recommendation")).toHaveCount(0)
+
+    const keys = page.getByTestId("practice-path-keys")
+    const grams = page.getByTestId("practice-path-grams")
+    await expect(keys).toContainText("q · r")
+    await expect(keys).toContainText("30s · Pseudo")
+    await expect(keys.getByRole("link", { name: "Continue Keys" })).toHaveAttribute("href", "/practice?custom=keys")
+    await expect(grams).toContainText("th · tion")
+    await expect(grams).toContainText("120s · Varied")
+    await expect(grams.getByRole("link", { name: "Continue Grams" })).toHaveAttribute("href", "/practice?custom=grams")
+  })
+})
 
 test.describe("Custom Practice", () => {
   test("keeps controls, finite typer, and layout-aware Keys editor in one workspace and restores choices", async ({ page }) => {

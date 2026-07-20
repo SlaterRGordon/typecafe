@@ -52,12 +52,17 @@ export const SideNavigation = () => {
                     <MaterialNavIcon name="home" className={navIconClass} />
                     <div className={navLabelClass}>Home</div>
                 </Link>
+                {/* Practice */}
+                <Link href="/practice" className={getNavButtonClass('/practice')} aria-label="Practice" title="Practice">
+                    <MaterialNavIcon name="keyboard" className={navIconClass} />
+                    <div className={navLabelClass}>Practice</div>
+                </Link>
                 {/* Progress */}
                 <Link href="/progress" className={getNavButtonClass('/progress')} aria-label="Progress" title="Progress">
                     <MaterialNavIcon name="trending_up" className={navIconClass} />
                     <div className={navLabelClass}>Progress</div>
                 </Link>
-                {/* Practise */}
+                {/* Train */}
                 <Link href="/train" className={getNavButtonClass('/train')} aria-label="Train" title="Train">
                     <MaterialNavIcon name="fitness_center" className={navIconClass} />
                     <div className={navLabelClass}>Train</div>

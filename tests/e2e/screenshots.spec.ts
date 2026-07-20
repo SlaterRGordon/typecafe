@@ -52,8 +52,27 @@ async function gotoHome(page: Page) {
   await expect(page.locator("#words .char").first()).toBeVisible();
 }
 
-test("Custom Keys Practice workspace", async ({ page }, testInfo) => {
+test("Practice landing with measured recommendation", async ({ page }, testInfo) => {
+  await mockAuthenticatedSession(page)
+  await mockTrpc(page, { timelineEvidence: [impactTimeline(1), impactTimeline(2)] })
   await page.goto("/practice")
+  await expect(page.getByTestId("practice-recommendation")).toContainText("b→r")
+  if (!testInfo.project.name.includes("mobile")) await page.getByTestId("side-primary-nav").hover()
+  await capture(page, testInfo, "67-practice-landing-recommended")
+})
+
+test("Practice landing without measured evidence", async ({ page }, testInfo) => {
+  await page.addInitScript(() => {
+    window.localStorage.setItem("typecafe:practice:custom-keys", JSON.stringify({ keys: ["q", "r"], durationSeconds: 30, textStyle: "pseudo" }))
+    window.localStorage.setItem("typecafe:practice:custom-grams", JSON.stringify({ grams: ["th", "tion"], durationSeconds: 120, textStyle: "varied" }))
+  })
+  await page.goto("/practice")
+  await expect(page.getByTestId("practice-empty")).toBeVisible()
+  await capture(page, testInfo, "67b-practice-landing-find-focus")
+})
+
+test("Custom Keys Practice workspace", async ({ page }, testInfo) => {
+  await page.goto("/practice?custom=keys")
   await expect(page.getByTestId("custom-practice-workspace")).toBeVisible()
   await expect(page.locator("#c0")).toHaveClass(/active-char/, { timeout: 20_000 })
   await expect(page.getByRole("region", { name: "Focus key editor" })).toBeVisible()
@@ -61,10 +80,9 @@ test("Custom Keys Practice workspace", async ({ page }, testInfo) => {
 })
 
 test("Custom mixed Grams Practice workspace", async ({ page }, testInfo) => {
-  await page.goto("/practice")
+  await page.goto("/practice?custom=grams")
   await expect(page.getByTestId("custom-practice-workspace")).toBeVisible()
   await expect(page.locator("#c0")).toHaveClass(/active-char/, { timeout: 20_000 })
-  await page.getByRole("group", { name: "Custom practice type" }).getByRole("button", { name: "Grams" }).click()
   await expect(page.getByRole("region", { name: "Gram editor" })).toBeVisible()
   await expect(page.getByRole("heading", { name: "Common in English" })).toBeVisible()
   await capture(page, testInfo, "68-custom-mixed-grams-practice")

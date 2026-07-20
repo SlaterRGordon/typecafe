@@ -43,6 +43,8 @@ import {
 } from "~/lib/guidedPractice"
 import { boardFor, sequenceFor, statsPoolFor } from "~/lib/keyboardLayout"
 import { languageMeta } from "~/lib/languageMeta"
+import { projectPracticeLanding, type PracticeLandingProjection } from "~/lib/practiceLanding"
+import { projectProgressCoach } from "~/lib/progressCoach"
 import { api } from "~/utils/api"
 
 const PRACTICE_WORDS = 1_400
@@ -54,6 +56,91 @@ type CompletedRun =
 
 function signed(value: number): string {
     return `${value >= 0 ? "+" : ""}${Math.round(value)}`
+}
+
+function customIntent(value: string | string[] | undefined): PracticePath | null {
+    const intent = Array.isArray(value) ? value[0] : value
+    return intent === "keys" || intent === "grams" ? intent : null
+}
+
+function PracticeLanding({ projection, loading }: { projection: PracticeLandingProjection | null, loading: boolean }) {
+    return (
+        <div data-testid="practice-landing" className="h-full w-full overflow-y-auto bg-base-100 px-3 pb-24 pt-8 sm:px-6 md:py-12">
+            <Head><title>Practice | TypeCafe</title></Head>
+            <main className="mx-auto w-full max-w-5xl md:px-4">
+                <header className="max-w-2xl">
+                    <p className="font-mono text-xs uppercase tracking-[0.18em] text-primary">Practice</p>
+                    <h1 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">Practice with a purpose.</h1>
+                    <p className="mt-3 text-base text-base-content/60">Start with what your Tests measured, or choose your own focus.</p>
+                </header>
+
+                <section aria-label="Practice recommendation" className="mt-7 overflow-hidden rounded-2xl border border-primary/30 bg-primary/10 shadow-sm">
+                    {loading || !projection ? (
+                        <div data-testid="practice-landing-loading" className="animate-pulse p-6 sm:p-8">
+                            <div className="h-3 w-36 rounded bg-primary/20" />
+                            <div className="mt-4 h-8 w-64 max-w-full rounded bg-base-content/10" />
+                            <div className="mt-3 h-4 w-full max-w-xl rounded bg-base-content/10" />
+                            <div className="mt-6 h-10 w-36 rounded bg-primary/20" />
+                        </div>
+                    ) : projection.recommendation ? (
+                        <div data-testid="practice-recommendation" className="grid gap-6 p-6 sm:p-8 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+                            <div>
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <p className="font-mono text-xs font-bold uppercase tracking-[0.16em] text-primary">Recommended for you</p>
+                                    <span className="rounded-full bg-base-100/70 px-2 py-1 font-mono text-[0.68rem] font-semibold text-base-content/65">{projection.recommendation.typeLabel}</span>
+                                </div>
+                                <h2 className="mt-3 text-2xl font-bold sm:text-3xl">{projection.recommendation.label}</h2>
+                                <p className="mt-2 max-w-2xl text-base text-base-content/75">{projection.recommendation.reason}</p>
+                                <div className="mt-4 flex flex-wrap items-center gap-2 font-mono text-xs">
+                                    <span className={projection.recommendation.awaitingMeasurement ? "font-semibold text-success" : "text-base-content/60"}>{projection.recommendation.statusLabel}</span>
+                                    {projection.recommendation.recentMeasurement && <span className="rounded bg-base-100/70 px-2 py-1 text-base-content/70">Recent {projection.recommendation.recentMeasurement}</span>}
+                                </div>
+                            </div>
+                            <div className="flex min-w-40 flex-col gap-2 sm:flex-row lg:flex-col">
+                                <Link href={projection.recommendation.primaryAction.href} className="btn btn-primary">
+                                    {projection.recommendation.awaitingMeasurement ? projection.recommendation.primaryAction.label : "Start Guided"}
+                                </Link>
+                                {projection.recommendation.secondaryAction && <Link href={projection.recommendation.secondaryAction.href} className="btn btn-ghost border-base-content/15">{projection.recommendation.secondaryAction.label}</Link>}
+                            </div>
+                        </div>
+                    ) : (
+                        <div data-testid="practice-empty" className="grid gap-6 p-6 sm:p-8 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+                            <div>
+                                <p className="font-mono text-xs font-bold uppercase tracking-[0.16em] text-primary">Find your focus</p>
+                                <h2 className="mt-3 text-2xl font-bold sm:text-3xl">Give TypeCafe a normal Test.</h2>
+                                <p className="mt-2 max-w-2xl text-base text-base-content/70">A Test gives us natural typing evidence to identify what is slowing you down. Until then, we won’t invent a Weakness.</p>
+                            </div>
+                            <Link href={projection.emptyAction.href} className="btn btn-primary min-w-40">{projection.emptyAction.label}</Link>
+                        </div>
+                    )}
+                </section>
+
+                <section aria-labelledby="practice-your-way" className="mt-9">
+                    <div>
+                        <p className="font-mono text-xs uppercase tracking-[0.16em] text-base-content/45">Custom Practice</p>
+                        <h2 id="practice-your-way" className="mt-1 text-2xl font-bold">Practice your way</h2>
+                    </div>
+                    <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                        {(projection?.customPaths ?? []).map((path) => (
+                            <article key={path.kind} data-testid={`practice-path-${path.kind}`} className="flex min-h-56 flex-col rounded-2xl border border-base-content/10 bg-base-200/35 p-5 sm:p-6">
+                                <div className="flex items-center justify-between gap-3">
+                                    <h3 className="text-xl font-bold">{path.title}</h3>
+                                    <span className="material-symbols-rounded text-2xl text-primary" aria-hidden="true">{path.kind === "keys" ? "keyboard" : "text_fields"}</span>
+                                </div>
+                                <p className="mt-2 text-sm text-base-content/60">{path.kind === "keys" ? "Build response around the keys you choose." : "Mix exact 2-, 3-, and 4-character patterns."}</p>
+                                <div className="mt-5 rounded-xl bg-base-100/70 p-3">
+                                    <p className="text-[0.68rem] font-semibold uppercase tracking-wide text-base-content/45">Saved focus</p>
+                                    <p className="mt-1 break-words font-mono text-sm font-semibold text-base-content/80">{path.focus}</p>
+                                    <p className="mt-1 font-mono text-xs text-base-content/50">{path.settings}</p>
+                                </div>
+                                <Link href={path.href} className="btn btn-sm btn-ghost mt-auto border-base-content/15">Continue {path.title}</Link>
+                            </article>
+                        ))}
+                    </div>
+                </section>
+            </main>
+        </div>
+    )
 }
 
 const Practice: NextPage = () => {
@@ -83,6 +170,8 @@ const Practice: NextPage = () => {
     const board = useMemo(() => boardFor(layout), [layout])
     const hasAltGr = board.rows.some((row) => row.some((key) => key.altgr !== undefined))
     const activePreferences = path === "keys" ? keysPreferences : gramsPreferences
+    const requestedCustomPath = customIntent(router.query.custom)
+    const hasTargetIntent = router.query.target !== undefined
 
     useEffect(() => {
         if (!router.isReady) return
@@ -96,12 +185,13 @@ const Practice: NextPage = () => {
             if (setup.focus.kind === "keys") setKeysPreferences({ keys: setup.focus.items, durationSeconds: setup.durationSeconds, textStyle: setup.textStyle })
             else setGramsPreferences({ grams: setup.focus.items, durationSeconds: setup.durationSeconds, textStyle: setup.textStyle })
         } else {
+            if (requestedCustomPath) setPath(requestedCustomPath)
             setKeysPreferences(savedKeys)
             setGramsPreferences(savedGrams)
         }
         setSeed(Date.now())
         setReady(true)
-    }, [router.isReady, router.query])
+    }, [requestedCustomPath, router.isReady, router.query])
 
     useEffect(() => {
         if (!ready) return
@@ -148,6 +238,12 @@ const Practice: NextPage = () => {
     const commonGrams = useMemo(() => rankCommonGrams(corpus, 5)
         .filter(({ gram }) => [...gram].every((character) => sequenceFor(character, layout).length > 0)), [corpus, layout])
     const measuredGrams = useMemo(() => measuredGramSuggestions(coaching.analysis?.candidates ?? []), [coaching.analysis?.candidates])
+    const progressProjection = useMemo(() => coaching.analysis ? projectProgressCoach(coaching.analysis) : null, [coaching.analysis])
+    const landingProjection = useMemo(() => progressProjection ? projectPracticeLanding({
+        progress: progressProjection,
+        keys: keysPreferences,
+        grams: gramsPreferences,
+    }) : null, [gramsPreferences, keysPreferences, progressProjection])
     const focusCharacters = useMemo(() => path === "keys"
         ? keysPreferences.keys
         : [...new Set(gramsPreferences.grams.flatMap((gram) => [...gram]))], [gramsPreferences.grams, keysPreferences.keys, path])
@@ -315,6 +411,8 @@ const Practice: NextPage = () => {
     }
 
     const hasFocus = path === "keys" ? keysPreferences.keys.length > 0 : gramsPreferences.grams.length > 0
+
+    if (!guided && !requestedCustomPath && !hasTargetIntent) return <PracticeLanding projection={landingProjection} loading={!ready || coaching.loading} />
 
     return (
         <div data-testid="custom-practice-workspace" data-practice-kind={guided ? "guided" : "custom"} className="h-full w-full overflow-y-auto bg-base-100 px-3 py-6 sm:px-6 md:py-10">

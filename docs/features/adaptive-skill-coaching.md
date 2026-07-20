@@ -1101,16 +1101,17 @@ legacy configuration mechanics merely because the current UI exposes them.
 
 #### 13.3 Practice destination
 
-- [ ] Add Practice to primary navigation in `Home · Practice · Progress · Train
-      · Leaderboard` order and remove legacy Practice/Grams from Home's Test
-      modes without altering the remaining Home modes or generators.
-- [ ] Build the recommendation-first landing: one highest-Impact Target, a
+- [x] Add Practice to primary navigation in `Home · Practice · Progress · Train
+      · Leaderboard` order.
+- [ ] Remove legacy Practice/Grams from Home's Test modes without altering the
+      remaining Home modes or generators.
+- [x] Build the recommendation-first landing: one highest-Impact Target, a
       truthful `Find your focus` empty state, then equal Custom Keys and Grams
       paths.
 - [ ] Keep `From your Tests` exact measured Grams separate from corpus-ranked
       `Common in <language>` Custom material; do not infer a weak Gram from a
       weak contained key or Transition.
-- [ ] Restore the last Custom Keys and Custom Grams selections, duration, and
+- [x] Restore the last Custom Keys and Custom Grams selections, duration, and
       style independently through lightweight `Continue` actions; do not add a
       Practice-history dashboard.
 

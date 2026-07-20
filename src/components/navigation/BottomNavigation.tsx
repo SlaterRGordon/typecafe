@@ -10,7 +10,7 @@ export const BottomNavigation = () => {
     const getNavButtonClass = (href: string) => {
         const isActive = router.pathname === href || (href !== "/" && router.pathname.startsWith(href))
 
-        return `flex h-full flex-1 cursor-pointer items-center justify-center px-4 py-3 transition-colors hover:bg-base-300 active:bg-base-300 ${isActive ? "bg-base-300 text-base-content" : ""}`
+        return `flex h-full min-w-0 flex-1 cursor-pointer items-center justify-center px-2 py-3 transition-colors hover:bg-base-300 active:bg-base-300 ${isActive ? "bg-base-300 text-base-content" : ""}`
     }
     const navIconClass = "h-6 w-6 shrink-0"
 
@@ -23,6 +23,10 @@ export const BottomNavigation = () => {
                 {/* Home */}
                 <Link href="/" className={getNavButtonClass('/')} aria-label="Home" title="Home">
                     <MaterialNavIcon name="home" className={navIconClass} />
+                </Link>
+                {/* Practice */}
+                <Link href="/practice" className={getNavButtonClass('/practice')} aria-label="Practice" title="Practice">
+                    <MaterialNavIcon name="keyboard" className={navIconClass} />
                 </Link>
                 {/* Progress */}
                 <Link href="/progress" className={getNavButtonClass('/progress')} aria-label="Progress" title="Progress">
