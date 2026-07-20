@@ -91,6 +91,7 @@ const HowWeMeasure: NextPage = () => {
           <p>Diagnosis only speaks when there is enough evidence. Short tests and one-off slips should not become fake coaching.</p>
           <ul>
             <li><strong>Slow transitions:</strong> a letter pair must appear at least {TRANSITION_MIN_COUNT} times and be at least {TRANSITION_SLOW_RATIO}x slower than your overall transition pace.</li>
+            <li><strong>Weak Words:</strong> only complete words confirmed by a following space are classified. An unfinished word at Test end is excluded, even when its fragment contains an error or appears slow.</li>
             <li><strong>Recent, not lifetime:</strong> per-key accuracy and per-pair speed are rolling windows - roughly your last {KEY_ATTEMPT_CAP} attempts on a key and {TRANSITION_SAMPLE_CAP} occurrences of a pair. Older samples fade out proportionally, so the coach reflects how you type <em>now</em>, and a weakness you fix stops being flagged once recent typing proves it.</li>
           </ul>
         </DocumentSection>

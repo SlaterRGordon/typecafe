@@ -1037,6 +1037,41 @@ test.describe("home typing test", () => {
     await expect(page.getByText("Key drill")).toBeVisible();
   });
 
+  test("diagnosis excludes an inaccurate word fragment when a timed Test ends", async ({ page }) => {
+    await mockTrpc(page);
+    await gotoHome(page);
+    await setToolbarCustomLength(page, "10");
+
+    // Clear the diagnosis floor, then stop immediately after two inaccurate
+    // letters in a fresh word. Before #144 this tail was displayed as though it
+    // were a complete Weak Word.
+    const active = page.locator("#words .active-char");
+    const typeActiveCorrectly = async () => {
+      const char = await active.textContent();
+      expect(char).not.toBeNull();
+      await page.keyboard.press(char === " " ? "Space" : char!);
+    };
+    for (let i = 0; i < 30; i++) await typeActiveCorrectly();
+    for (let i = 0; i < 20 && await active.textContent() !== " "; i++) {
+      await typeActiveCorrectly();
+    }
+    await expect(active).toHaveText(" ");
+    await typeActiveCorrectly();
+
+    let fragment = "";
+    for (let i = 0; i < 2; i++) {
+      const expected = await active.textContent();
+      expect(expected).not.toBeNull();
+      fragment += expected;
+      await page.keyboard.press(expected === "a" ? "b" : "a");
+    }
+
+    await expect(page.getByRole("button", { name: "Test Again" })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText("Diagnosis", { exact: true })).toBeVisible();
+    await expect(page.getByText(`Toughest words: ${fragment}.`, { exact: true })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: new RegExp(`Drill these words: ${fragment}$`) })).toHaveCount(0);
+  });
+
   test("diagnosis does not leak a history-only higher-order pattern into this score", async ({ page }) => {
     await mockAuthenticatedSession(page);
     await mockTrpc(page, { timelineEvidence: [higherOrderTimeline(1), higherOrderTimeline(2)] });
