@@ -855,6 +855,12 @@ improved, not merely whether users clicked the new UI.
       drill-vs-drill trend display. Blending drill samples into the trend was
       rejected — Target-saturated drill text shows practice volume, not skill.
       Drill numbers remain a clearly-labelled practice line.
+- [x] Close the drill loop visibly (owner decisions 2026-07-19): Recent is the
+      newest 5 Target-containing Tests (Earlier is everything older; Worth
+      stays full-window); a Target drilled since its last natural evidence
+      reads "drilled · unmeasured" with "Take a Test to measure" primary and
+      practice secondary, clearing only when a newer Test actually contains
+      the Target; the ledger header states the measured window and date span.
 
 **Acceptance:** completing a 100% drill records practice but cannot make the
 Target row read 100% unless recent representative attempts also support 100%.

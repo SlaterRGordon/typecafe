@@ -1,3 +1,4 @@
+import { drillTargetToken } from "../../../src/lib/coachingTarget";
 import type { TimelineEvidence } from "../../../src/lib/evidenceNormalization";
 import { encodeTimeline, type TestEvidenceEvent } from "../../../src/lib/keystrokes";
 
@@ -28,6 +29,39 @@ export function impactTimeline(testId: number): TimelineEvidence {
     subMode: 0,
     count: 60,
     options: "",
+    punctuation: false,
+    capitals: false,
+    numbers: false,
+    layout: "qwerty",
+    pool: "qwerty",
+    language: "english",
+    timeline: encodeTimeline(events),
+  };
+}
+
+// A focused acquisition run for the br transition, tagged with its Target
+// token and newer than the impact timelines — the Target is drilled but not
+// yet re-measured by a natural Test.
+export function brDrillTimeline(testId: number): TimelineEvidence {
+  const events: TestEvidenceEvent[] = [];
+  let t = 0;
+  for (let index = 0; index < 10; index += 1) {
+    t += 100;
+    events.push({ key: "b", typed: "b", correct: true, t });
+    t += 90;
+    events.push({ key: "r", typed: "r", correct: true, t });
+    t += 100;
+    events.push({ key: " ", typed: " ", correct: true, t });
+  }
+  return {
+    // A minute ahead of the natural fixtures: building several fixtures takes
+    // real milliseconds, so `Date.now() + testId` alone can race the ordering.
+    completedAt: Date.now() + 60_000 + testId,
+    context: "acquisition",
+    mode: 0,
+    subMode: 1,
+    count: 10,
+    options: drillTargetToken({ kind: "transition", pair: "br", metric: "latency" }),
     punctuation: false,
     capitals: false,
     numbers: false,

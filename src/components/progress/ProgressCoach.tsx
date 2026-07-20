@@ -48,10 +48,23 @@ function trendTone(target: ProgressCoachTarget): string {
 }
 
 function rowStatus(target: ProgressCoachTarget): { label: string, className: string } | null {
+    if (target.awaitingMeasurement) return { label: "drilled · unmeasured", className: "text-info" }
     if (target.state === "transferred" || target.state === "retained") {
         return { label: "improved", className: "text-success" }
     }
     return null
+}
+
+function shortDate(ms: number): string {
+    return new Date(ms).toLocaleDateString(undefined, { month: "short", day: "numeric" })
+}
+
+function windowNote(evidenceWindow: ProgressCoachProjection["evidenceWindow"]): string {
+    if (!evidenceWindow) return "ranked by estimated worth"
+    const from = shortDate(evidenceWindow.fromMs)
+    const to = shortDate(evidenceWindow.toMs)
+    const span = from === to ? from : `${from} – ${to}`
+    return `ranked by estimated worth · measured from your last ${evidenceWindow.tests} ${evidenceWindow.tests === 1 ? "Test" : "Tests"} (${span})`
 }
 
 function worthLabel(target: ProgressCoachTarget): string {
@@ -159,6 +172,7 @@ function PracticeLine({ target }: { target: ProgressCoachTarget }) {
             {drills} {drills === 1 ? "drill" : "drills"} completed
             {target.practice.sampleCount > 0 ? ` · ${target.practice.sampleCount} target attempts` : ""}
             {target.practice.value ? <> · <span className="font-mono font-semibold text-base-content/80">{target.practice.value}</span> in drills</> : null}
+            {target.awaitingMeasurement ? <> · <span className="font-semibold text-info">awaiting a Test</span></> : null}
         </p>
     )
 }
@@ -184,13 +198,24 @@ function CoachSummary({ target, color, contextLabel, action }: { target: Progres
 
 function ActionLink({ target, compact = false }: { target: ProgressCoachTarget, compact?: boolean }) {
     if (!target.action) return null
+    const size = compact ? "min-h-9 px-3 text-xs" : "min-h-11 px-4 text-sm"
     return (
-        <Link
-            href={target.action.href}
-            className={`${compact ? "min-h-9 px-3 text-xs" : "min-h-11 px-4 text-sm"} inline-flex shrink-0 items-center justify-center rounded-md bg-primary font-semibold text-primary-content transition hover:opacity-85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary`}
-        >
-            {target.action.label}
-        </Link>
+        <span className="flex shrink-0 flex-col items-stretch gap-1.5">
+            <Link
+                href={target.action.href}
+                className={`${size} inline-flex items-center justify-center rounded-md bg-primary font-semibold text-primary-content transition hover:opacity-85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary`}
+            >
+                {target.action.label}
+            </Link>
+            {target.secondaryAction && (
+                <Link
+                    href={target.secondaryAction.href}
+                    className={`${size} inline-flex items-center justify-center rounded-md border border-base-content/15 font-semibold text-base-content/70 transition hover:bg-base-content/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary`}
+                >
+                    {target.secondaryAction.label}
+                </Link>
+            )}
+        </span>
     )
 }
 
@@ -244,7 +269,7 @@ export function ProgressCoach({ projection, loading }: ProgressCoachProps) {
                 <div className="flex flex-col gap-2.5 px-4 py-3">
                     <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
                         <h2 className="text-base font-semibold text-base-content">Your targets</h2>
-                        <p className="text-[0.65rem] text-base-content/45">ranked by estimated worth</p>
+                        <p data-testid="coach-window-note" className="text-[0.65rem] text-base-content/45">{windowNote(projection.evidenceWindow)}</p>
                     </div>
                     <div data-testid="coach-target-filters" className="flex gap-1 overflow-x-auto rounded-lg border border-base-content/10 bg-base-200/50 p-1">
                         {FILTERS.map((item) => (
@@ -332,7 +357,7 @@ export function ProgressCoach({ projection, loading }: ProgressCoachProps) {
                                                         aria-label={row.action.label}
                                                         className="absolute left-1/2 inline-flex min-h-8 -translate-x-1/2 items-center rounded-md bg-primary px-2 text-[0.65rem] font-semibold text-primary-content opacity-0 shadow-sm transition hover:bg-primary/80 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                                                     >
-                                                        {row.state === "due" ? "Check" : row.state === "regressed" ? "Refresh" : "Practice"}
+                                                        {row.awaitingMeasurement ? "Take a Test" : row.state === "due" ? "Check" : row.state === "regressed" ? "Refresh" : "Practice"}
                                                     </Link>
                                                 )}
                                             </div>

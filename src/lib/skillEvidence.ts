@@ -54,6 +54,10 @@ export const SKILL_EVIDENCE_THRESHOLDS = {
     materialImpactMsPer1000: 25,
     oldestVolumeWeight: 0.5,
     abilitySplitMinSamplesPerHalf: 4,
+    // "Recent" is the newest N Tests that contained the Target, so a drill
+    // followed by a Test moves the number the same day instead of after half
+    // the evidence window turns over.
+    abilityRecentTestWindow: 5,
 } as const
 
 export const MASTERY_CHECK_INTERVALS = {
@@ -82,10 +86,10 @@ export interface AcquisitionResponse {
 
 /**
  * A Target's ability measured from natural/diagnostic evidence only. The split
- * compares the chronologically older half of the window's tests against the
- * newer half, so every Target can show an honest earlier -> recent trajectory
- * without a frozen prescription baseline and without drill-saturated samples
- * inflating it.
+ * compares everything before the newest abilityRecentTestWindow Tests that
+ * contained the Target against those newest Tests, so every Target can show an
+ * honest earlier -> recent trajectory without a frozen prescription baseline
+ * and without drill-saturated samples inflating it.
  */
 export interface NaturalAbility {
     value: number
@@ -110,6 +114,8 @@ export interface SkillCandidate {
     reason: SkillReason
     response?: AcquisitionResponse
     ability?: NaturalAbility
+    /** Newest drill for this Target is newer than its last natural evidence. */
+    awaitingMeasurement?: boolean
 }
 
 export interface EvidenceQuality {
@@ -152,6 +158,8 @@ export interface MasteryRecord {
     practiceSamples?: number
     response?: AcquisitionResponse
     ability?: NaturalAbility
+    /** Newest drill for this Target is newer than its last natural evidence. */
+    awaitingMeasurement?: boolean
 }
 
 export interface SkillRecap {
@@ -167,6 +175,8 @@ export interface SkillAnalysis {
     mastery: MasteryRecord[]
     recap: SkillRecap
     testFamilyCosts: TestFamilyCost[]
+    /** Span of the discovery Tests the numbers are measured from. */
+    evidenceWindow: { tests: number, fromMs: number, toMs: number } | null
 }
 
 export interface TestFamilyCost {
@@ -772,7 +782,7 @@ function naturalAbility(target: CoachingTarget, evidence: PreparedEvidence): Nat
     const tests = [...new Set(samples.map((sample) => sample.testId))]
         .sort((a, b) => (evidence.testCompletedAt.get(a) ?? 0) - (evidence.testCompletedAt.get(b) ?? 0))
     if (tests.length < 2) return ability
-    const recentTests = new Set(tests.slice(Math.ceil(tests.length / 2)))
+    const recentTests = new Set(tests.slice(-SKILL_EVIDENCE_THRESHOLDS.abilityRecentTestWindow))
     const recent = samples.filter((sample) => recentTests.has(sample.testId))
     const earlier = samples.filter((sample) => !recentTests.has(sample.testId))
     const floor = SKILL_EVIDENCE_THRESHOLDS.abilitySplitMinSamplesPerHalf
@@ -785,6 +795,26 @@ function naturalAbility(target: CoachingTarget, evidence: PreparedEvidence): Nat
         }
     }
     return ability
+}
+
+// True when the Target's newest focused drill is newer than the last natural
+// evidence that contained it: practice happened, and no Test since has
+// actually observed the Target. A Test without the Target does not clear it.
+function awaitingMeasurement(target: CoachingTarget, evidence: PreparedEvidence): boolean {
+    let latestDrillAt: number | undefined
+    for (const [testId, drilled] of evidence.drillTargets) {
+        if (!sameCoachingTarget(drilled, target)) continue
+        const at = evidence.testCompletedAt.get(testId) ?? 0
+        if (latestDrillAt === undefined || at > latestDrillAt) latestDrillAt = at
+    }
+    if (latestDrillAt === undefined) return false
+    const selected = targetSamples(target, pooled(evidence, (sample) => discoversWeakness(sample.context)))
+    let latestNaturalAt: number | undefined
+    for (const sample of selected?.samples ?? []) {
+        const at = evidence.testCompletedAt.get(sample.testId) ?? 0
+        if (latestNaturalAt === undefined || at > latestNaturalAt) latestNaturalAt = at
+    }
+    return latestNaturalAt === undefined || latestDrillAt > latestNaturalAt
 }
 
 function createCandidate(
@@ -1597,6 +1627,7 @@ export function analyzeTypingEvidence(input: SkillEvidenceInput): SkillAnalysis 
     for (const candidate of candidates) {
         const ability = naturalAbility(candidate.target, evidence)
         if (ability) candidate.ability = ability
+        if (awaitingMeasurement(candidate.target, evidence)) candidate.awaitingMeasurement = true
     }
     const scope = input.scope
     const scopedSessions = scope
@@ -1608,10 +1639,14 @@ export function analyzeTypingEvidence(input: SkillEvidenceInput): SkillAnalysis 
         if (response) record.response = response
         const ability = naturalAbility(record.target, evidence)
         if (ability) record.ability = ability
+        if (awaitingMeasurement(record.target, evidence)) record.awaitingMeasurement = true
     }
     evidence.quality.status = evidence.quality.discoveryTimelines === 0
         ? "none"
         : candidates.length > 0 ? "ready" : "thin"
+    const discoveryTimes = input.timelines
+        .filter((timeline) => discoversWeakness(timeline.context))
+        .map((timeline) => timeline.completedAt)
     return {
         quality: evidence.quality,
         candidates,
@@ -1619,5 +1654,8 @@ export function analyzeTypingEvidence(input: SkillEvidenceInput): SkillAnalysis 
         mastery: history.mastery,
         recap: history.recap,
         testFamilyCosts: matchedRuns.testFamilyCosts,
+        evidenceWindow: discoveryTimes.length > 0
+            ? { tests: discoveryTimes.length, fromMs: Math.min(...discoveryTimes), toMs: Math.max(...discoveryTimes) }
+            : null,
     }
 }

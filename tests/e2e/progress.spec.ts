@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { mockAuthenticatedSession, mockTrpc } from "./helpers/trpc";
 import { completedKeyAccuracySession, progressCoachingHistory } from "./helpers/coachingFixtures";
-import { crowdedAccuracyTimeline, impactTimeline } from "./helpers/evidence";
+import { brDrillTimeline, crowdedAccuracyTimeline, impactTimeline } from "./helpers/evidence";
 import { DAILY_COACHING_STORAGE_KEY, GUEST_DAILY_SCOPE } from "../../src/lib/dailyCoaching";
 
 async function gotoProgress(page: Page) {
@@ -116,6 +116,7 @@ test.describe("progress dashboard", () => {
     await expect(page.getByTestId("streak-chip")).toBeVisible();
     const targets = page.getByTestId("progress-coach");
     await expect(targets).toContainText("Your targets");
+    await expect(targets.getByTestId("coach-window-note")).toContainText("measured from your last 2 Tests");
     await expect(targets).toContainText("b→r");
     await expect(targets).toContainText("Transition");
     await expect(targets).toContainText("b→r pause is slow");
@@ -386,6 +387,34 @@ test.describe("progress dashboard", () => {
     await expect(page.getByTestId("coach-detail")).toContainText("Work on b→r");
     expect(calls).not.toContain("coachingSession.save");
     await expect(page.getByTestId("records-timeline")).toHaveCount(0);
+  });
+
+  test("a drilled Target asks for a Test until natural typing measures it again", async ({ page }) => {
+    await mockAuthenticatedSession(page);
+    await mockTrpc(page, {
+      // The drill is newer than every natural test, so br is drilled but unmeasured.
+      timelineEvidence: [brDrillTimeline(3), impactTimeline(1), impactTimeline(2)],
+    });
+    await gotoProgress(page);
+
+    const coach = page.getByTestId("progress-coach");
+    await expect(coach).toContainText("drilled · unmeasured");
+    const brRow = coach.getByRole("button", { name: /b→r/ });
+    if ((page.viewportSize()?.width ?? 0) >= 1024) {
+      const detail = coach.getByTestId("coach-detail");
+      await expect(detail.getByRole("link", { name: "Take a Test to measure" })).toHaveAttribute("href", "/?mode=timed&count=30");
+      await expect(detail.getByRole("link", { name: "Practice this transition" })).toHaveAttribute("href", /\/drill\?target=transition/);
+      await expect(detail.getByTestId("target-practice-summary")).toContainText("1 drill completed");
+      await expect(detail.getByTestId("target-practice-summary")).toContainText("awaiting a Test");
+      await brRow.hover();
+      await expect(brRow.locator("../..").getByRole("link", { name: "Take a Test to measure" })).toBeVisible();
+    } else {
+      await brRow.click();
+      const inline = page.getByTestId("coach-inline-detail");
+      await expect(inline.getByRole("link", { name: "Take a Test to measure" })).toHaveAttribute("href", "/?mode=timed&count=30");
+      await expect(inline.getByRole("link", { name: "Practice this transition" })).toBeVisible();
+      await expect(inline.getByTestId("target-practice-summary")).toContainText("awaiting a Test");
+    }
   });
 
   test("keeps a completed Target visible while bounded history catches up", async ({ page }) => {

@@ -65,12 +65,18 @@ export interface ProgressCoachTarget {
     impactMsPer1000: number | null
     trend: ProgressCoachTrend | null
     practice: ProgressPracticeSummary | null
+    /** Drilled since its last natural evidence — the next step is a Test. */
+    awaitingMeasurement: boolean
+    /** Present while awaiting measurement: the practice action stays reachable. */
+    secondaryAction: { href: string, label: string } | null
 }
 
 export interface ProgressCoachProjection {
     defaultTarget: ProgressCoachTarget
     targets: ProgressCoachTarget[]
     targetLimit: number
+    /** Span of the discovery Tests the ledger is measured from. */
+    evidenceWindow: { tests: number, fromMs: number, toMs: number } | null
 }
 
 const TARGET_LIMIT = 30
@@ -269,7 +275,17 @@ function statusCopy(state: MasteryRecord["state"], label: string, record: Master
     }
 }
 
-function actionFor(record: MasteryRecord): ProgressCoachTarget["action"] {
+const MEASURE_TEST_ACTION = { href: "/?mode=timed&count=30", label: "Take a Test to measure" }
+
+// Once a Target has been drilled, the loop closes in a normal Test — measuring
+// becomes the primary action and the practice link steps back to secondary.
+function actionPair(practice: { href: string, label: string }, awaiting: boolean): Pick<ProgressCoachTarget, "action" | "secondaryAction" | "awaitingMeasurement"> {
+    return awaiting
+        ? { action: { ...MEASURE_TEST_ACTION }, secondaryAction: practice, awaitingMeasurement: true }
+        : { action: practice, secondaryAction: null, awaitingMeasurement: false }
+}
+
+function actionFor(record: MasteryRecord): { href: string, label: string } {
     const action = targetAction(record.target, "acquisition", { length: 30, seenWords: record.prescription.seenWords })
     return { href: action.href, label: action.label }
 }
@@ -301,7 +317,7 @@ function rowFromRecord(record: MasteryRecord, records: readonly MasteryRecord[],
         stages,
         direction: directionFor(record.prescription),
         metric: record.proof.metric,
-        action: actionFor(record),
+        ...actionPair(actionFor(record), record.awaitingMeasurement === true),
         episodeCount: records.length,
         lastEvidenceDate: record.lastEvidenceDate,
         // Worth is the *remaining* estimated cost, so it follows the live
@@ -351,7 +367,7 @@ function candidateTarget(candidate: SkillCandidate): ProgressCoachTarget {
         stages: abilityStages(ability, candidate.metric),
         direction: candidate.direction,
         metric: candidate.metric,
-        action: { href: action.href, label: action.label },
+        ...actionPair({ href: action.href, label: action.label }, candidate.awaitingMeasurement === true),
         episodeCount: 0,
         lastEvidenceDate: null,
         impactMsPer1000: candidate.impactMsPer1000 > 0 ? candidate.impactMsPer1000 : null,
@@ -387,6 +403,8 @@ function calibrationTarget(): ProgressCoachTarget {
         impactMsPer1000: null,
         trend: null,
         practice: null,
+        awaitingMeasurement: false,
+        secondaryAction: null,
     }
 }
 
@@ -438,6 +456,7 @@ export function projectProgressCoach(analysis: SkillAnalysis): ProgressCoachProj
         defaultTarget,
         targets,
         targetLimit: TARGET_LIMIT,
+        evidenceWindow: analysis.evidenceWindow,
     }
 }
 

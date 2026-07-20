@@ -42,6 +42,7 @@ function analysis(mastery: MasteryRecord[], candidates: SkillCandidate[] = []): 
         candidates, recommendation: candidates[0] ?? null, mastery,
         recap: { retained: mastery.filter((item) => item.state === "retained"), due: mastery.find((item) => item.state === "due") ?? null, regressed: mastery.find((item) => item.state === "regressed") ?? null },
         testFamilyCosts: [],
+        evidenceWindow: { tests: 2, fromMs: 1_752_500_000_000, toMs: 1_752_600_000_000 },
     }
 }
 
@@ -110,6 +111,35 @@ describe("projectProgressCoach", () => {
 
         expect(row.stages.map((stage) => `${stage.label} ${stage.value}`)).toEqual(["Earlier 160 ms", "Recent 140 ms"])
         expect(row.trend).toEqual({ label: "20 ms", arrow: "down", outcome: "good" })
+    })
+
+    it("makes measuring primary and practice secondary while a Target awaits a Test", () => {
+        const drilled = candidate({ kind: "transition", pair: "br", metric: "latency" })
+        drilled.awaitingMeasurement = true
+        drilled.response = { context: "acquisition", value: 90, sampleCount: 8, runCount: 1 }
+
+        const row = projectProgressCoach(analysis([], [drilled])).targets[0]!
+
+        expect(row.awaitingMeasurement).toBe(true)
+        expect(row.action).toEqual({ href: "/?mode=timed&count=30", label: "Take a Test to measure" })
+        expect(row.secondaryAction).toMatchObject({ label: "Practice this transition" })
+        expect(row.secondaryAction!.href).toContain("/drill?target=transition")
+    })
+
+    it("keeps practice primary once the Target has been observed after drilling", () => {
+        const measured = candidate({ kind: "transition", pair: "br", metric: "latency" })
+        measured.response = { context: "acquisition", value: 90, sampleCount: 8, runCount: 1 }
+
+        const row = projectProgressCoach(analysis([], [measured])).targets[0]!
+
+        expect(row.awaitingMeasurement).toBe(false)
+        expect(row.action).toMatchObject({ label: "Practice this transition" })
+        expect(row.secondaryAction).toBeNull()
+    })
+
+    it("passes the evidence window span through to the projection", () => {
+        const result = projectProgressCoach(analysis([], [candidate()]))
+        expect(result.evidenceWindow).toEqual({ tests: 2, fromMs: 1_752_500_000_000, toMs: 1_752_600_000_000 })
     })
 
     it("never calibrates beside a visible actionable Target when recommendation state lags", () => {

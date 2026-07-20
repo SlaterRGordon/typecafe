@@ -190,21 +190,21 @@ describe("analyzeTypingEvidence", () => {
         expect(candidate?.response).toEqual({ context: "acquisition", value: 90, sampleCount: 8, runCount: 1 })
     })
 
-    it("derives a chronological natural ability split from older vs newer tests", () => {
-        const older = pairTimeline(1, [...baseline(40), { pair: "br", gap: 180, repeats: 4 }])
-        const newer = pairTimeline(2, [...baseline(40), { pair: "br", gap: 140, repeats: 4 }])
+    it("splits ability at the newest five Target-containing tests", () => {
+        const older = [1, 2].map((testId) => pairTimeline(testId, [...baseline(40), { pair: "br", gap: 180, repeats: 4 }]))
+        const recent = [3, 4, 5, 6, 7].map((testId) => pairTimeline(testId, [...baseline(40), { pair: "br", gap: 140, repeats: 2 }]))
 
-        const candidate = analyzeTypingEvidence({ timelines: [older, newer] })
+        const candidate = analyzeTypingEvidence({ timelines: [...older, ...recent] })
             .candidates.find((item) => item.id === "transition:latency:br")
 
         expect(candidate?.ability).toEqual({
-            value: 160,
-            sampleCount: 8,
-            split: { earlier: 180, recent: 140, earlierSamples: 4, recentSamples: 4 },
+            value: 140,
+            sampleCount: 18,
+            split: { earlier: 180, recent: 140, earlierSamples: 8, recentSamples: 10 },
         })
     })
 
-    it("withholds the ability split when a chronological half is below the sample floor", () => {
+    it("withholds the ability split while all Target tests fit inside the recent window", () => {
         const older = pairTimeline(1, [...baseline(40), { pair: "br", gap: 180, repeats: 6 }])
         const newer = pairTimeline(2, [...baseline(40), { pair: "br", gap: 140, repeats: 3 }])
 
@@ -213,6 +213,36 @@ describe("analyzeTypingEvidence", () => {
 
         expect(candidate?.ability?.split).toBeUndefined()
         expect(candidate?.ability?.sampleCount).toBe(9)
+    })
+
+    it("flags a drilled Target as awaiting measurement until a newer Test contains it", () => {
+        const natural = [1, 2].map((testId) => pairTimeline(testId, [...baseline(40), { pair: "br", gap: 160, repeats: 4 }]))
+        const drill = {
+            ...pairTimeline(3, [{ pair: "br", gap: 90, repeats: 8 }], "acquisition"),
+            options: drillTargetToken({ kind: "transition", pair: "br", metric: "latency" }),
+        }
+        const testWithoutTarget = pairTimeline(4, baseline(40))
+        const testWithTarget = pairTimeline(5, [...baseline(40), { pair: "br", gap: 150, repeats: 4 }])
+        const find = (timelines: TimelineEvidence[]) => analyzeTypingEvidence({ timelines })
+            .candidates.find((item) => item.id === "transition:latency:br")
+
+        expect(find([...natural, drill])?.awaitingMeasurement).toBe(true)
+        // A newer Test that never contained the Target does not count as measured.
+        expect(find([...natural, drill, testWithoutTarget])?.awaitingMeasurement).toBe(true)
+        expect(find([...natural, drill, testWithoutTarget, testWithTarget])?.awaitingMeasurement).toBeUndefined()
+    })
+
+    it("reports the discovery evidence window span", () => {
+        const natural = [1, 2].map((testId) => pairTimeline(testId, [...baseline(40), { pair: "br", gap: 160, repeats: 4 }]))
+        const drill = pairTimeline(9, [{ pair: "br", gap: 90, repeats: 8 }], "acquisition")
+
+        const analysis = analyzeTypingEvidence({ timelines: [...natural, drill] })
+
+        expect(analysis.evidenceWindow).toEqual({
+            tests: 2,
+            fromMs: 1_752_500_000_001,
+            toMs: 1_752_500_000_002,
+        })
     })
 
     it("attributes drill volume only to the Target the drill was launched for", () => {
