@@ -63,6 +63,8 @@ export interface ProgressCoachTarget {
     filter: ProgressCoachCategory
     lastEvidenceDate: string | null
     impactMsPer1000: number | null
+    /** How the estimated worth moved between the earlier and recent windows. */
+    worthDelta: ProgressCoachTrend | null
     trend: ProgressCoachTrend | null
     practice: ProgressPracticeSummary | null
     /** Drilled since its last natural evidence — the next step is a Test. */
@@ -228,6 +230,40 @@ function abilityTrend(ability: NaturalAbility | undefined, direction: "lower" | 
     return trendBetween(ability.split.earlier, ability.split.recent, direction, metric)
 }
 
+// The cost-carrying part of an observed value: excess latency for ms Targets,
+// error rate for accuracy Targets, confusion rate for corrections. Impact is
+// proportional to this term, so rescaling it re-anchors worth to a window.
+function costBasis(value: number, metric: "ms" | "%" | "wpm", direction: "lower" | "higher", baseline: number): number {
+    if (metric === "ms") return value - baseline
+    if (metric === "%") return direction === "higher" ? 100 - value : value
+    return 0
+}
+
+/**
+ * Worth re-anchored to the same recent window as Ability and Progress, plus
+ * how it moved since the earlier window. Detection and the underlying Impact
+ * stay full-window (stable diagnosis); only the cost-carrying term is
+ * rescaled, so the row's three numbers finally tell one story.
+ */
+function worthFor(candidate: SkillCandidate | null): { impactMsPer1000: number | null, worthDelta: ProgressCoachTrend | null } {
+    if (!candidate || candidate.impactMsPer1000 <= 0) return { impactMsPer1000: null, worthDelta: null }
+    const split = candidate.ability?.split
+    const base = costBasis(candidate.observed, candidate.metric, candidate.direction, candidate.baseline)
+    if (!split || base <= 0) return { impactMsPer1000: candidate.impactMsPer1000, worthDelta: null }
+    const scale = (value: number) => candidate.impactMsPer1000 * Math.max(0, costBasis(value, candidate.metric, candidate.direction, candidate.baseline)) / base
+    const recent = scale(split.recent)
+    const earlier = scale(split.earlier)
+    const deltaTenths = Math.round((recent - earlier) / 100)
+    return {
+        impactMsPer1000: recent,
+        worthDelta: deltaTenths === 0 ? null : {
+            label: `${Math.abs(deltaTenths / 10).toFixed(1)}s`,
+            arrow: deltaTenths > 0 ? "up" : "down",
+            outcome: deltaTenths > 0 ? "bad" : "good",
+        },
+    }
+}
+
 function trendBetween(before: number, after: number, direction: "lower" | "higher", metric: "ms" | "%" | "wpm"): ProgressCoachTrend | null {
     const delta = after - before
     const rounded = metric === "ms" ? Math.round(delta) : Math.round(delta * 10) / 10
@@ -324,7 +360,7 @@ function rowFromRecord(record: MasteryRecord, records: readonly MasteryRecord[],
         // weakness ranking. A coached Target whose weakness no longer registers
         // has nothing left to buy; the prescription-time impact is history, and
         // freezing it made improvement look like standing still.
-        impactMsPer1000: candidate && candidate.impactMsPer1000 > 0 ? candidate.impactMsPer1000 : null,
+        ...worthFor(candidate),
         trend: abilityTrend(record.ability, directionFor(record.prescription), record.proof.metric),
         practice,
     }
@@ -370,7 +406,7 @@ function candidateTarget(candidate: SkillCandidate): ProgressCoachTarget {
         ...actionPair({ href: action.href, label: action.label }, candidate.awaitingMeasurement === true),
         episodeCount: 0,
         lastEvidenceDate: null,
-        impactMsPer1000: candidate.impactMsPer1000 > 0 ? candidate.impactMsPer1000 : null,
+        ...worthFor(candidate),
         trend: abilityTrend(candidate.ability, candidate.direction, candidate.metric),
         practice: candidate.response ? {
             completedDrills: candidate.response.runCount,
@@ -401,6 +437,7 @@ function calibrationTarget(): ProgressCoachTarget {
         filter: "other",
         lastEvidenceDate: null,
         impactMsPer1000: null,
+        worthDelta: null,
         trend: null,
         practice: null,
         awaitingMeasurement: false,

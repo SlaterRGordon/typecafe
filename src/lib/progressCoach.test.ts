@@ -113,6 +113,33 @@ describe("projectProgressCoach", () => {
         expect(row.trend).toEqual({ label: "20 ms", arrow: "down", outcome: "good" })
     })
 
+    it("re-anchors worth to the recent window and shows its delta", () => {
+        const slow = candidate({ kind: "transition", pair: "br", metric: "latency" })
+        // observed 140 vs baseline 100 → cost basis 40 at impact 1400.
+        slow.ability = { value: 150, sampleCount: 20, split: { earlier: 180, recent: 120, earlierSamples: 10, recentSamples: 10 } }
+
+        const row = projectProgressCoach(analysis([], [slow])).targets[0]!
+
+        // recent = 1400 × 20/40 = 700; earlier = 1400 × 80/40 = 2800.
+        expect(row.impactMsPer1000).toBe(700)
+        expect(row.worthDelta).toEqual({ label: "2.1s", arrow: "down", outcome: "good" })
+    })
+
+    it("sorts by the recent-window worth, not the earlier one", () => {
+        const fading = candidate({ kind: "transition", pair: "br", metric: "latency" }, 2_000)
+        fading.ability = { value: 140, sampleCount: 20, split: { earlier: 180, recent: 105, earlierSamples: 10, recentSamples: 10 } }
+        const steady = candidate({ kind: "transition", pair: "io", metric: "latency" }, 1_000)
+
+        const result = projectProgressCoach(analysis([], [fading, steady]))
+
+        // fading's recent worth is 2000 × 5/40 = 250, so steady leads despite
+        // fading's larger full-window impact.
+        expect(result.targets.map((row) => [row.label, row.impactMsPer1000])).toEqual([
+            ["i→o", 1_000],
+            ["b→r", 250],
+        ])
+    })
+
     it("makes measuring primary and practice secondary while a Target awaits a Test", () => {
         const drilled = candidate({ kind: "transition", pair: "br", metric: "latency" })
         drilled.awaitingMeasurement = true

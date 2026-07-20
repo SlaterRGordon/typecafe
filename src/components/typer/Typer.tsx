@@ -20,6 +20,7 @@ import { generateTestText } from "./hooks/useTestText"
 import { useGramProgression } from "./hooks/useGramProgression"
 import { useRestartShortcut } from "./hooks/useRestartShortcut"
 import { useTestPersistence } from "./hooks/useTestPersistence"
+import { gramPassesThresholds } from "./grams"
 import { typingFocusFadeClass } from "./typingFocus"
 
 type CompletionSource = "text" | "timer"
@@ -454,11 +455,15 @@ export const Typer = (props: TyperProps) => {
             setWpm(finalStats.rawWpm)
             setAccuracy(finalStats.accuracy)
             setWpmPending(!isReliableWpmSample(finalStats.durationSeconds, finalCharacterCount))
-            if (finalStats.speed >= props.gramWpmThreshold &&
-                finalCharacterCount > 0 &&
-                finalStats.durationSeconds > 0 &&
-                finalStats.accuracy >= props.gramAccuracyThreshold
-            ) {
+            if (gramPassesThresholds({
+                promptText: text,
+                characterCount: finalCharacterCount,
+                speed: finalStats.speed,
+                durationSeconds: finalStats.durationSeconds,
+                accuracy: finalStats.accuracy,
+                wpmThreshold: props.gramWpmThreshold,
+                accuracyThreshold: props.gramAccuracyThreshold,
+            })) {
                 recordPassedLevel(finalStats.speed)
             }
         }
@@ -496,7 +501,7 @@ export const Typer = (props: TyperProps) => {
         sessionData, testType, persistCompletion, count, level, punctuation,
         capitals, numbers, props.gramWpmThreshold, props.gramAccuracyThreshold,
         props.challengeDate, props.drillTarget, props.failOnMiss, recordPassedLevel, syncCharAttempts, syncTransitions,
-        evidenceContext, persistGuestTimeline, subMode, language,
+        evidenceContext, persistGuestTimeline, subMode, language, text,
     ])
 
     // The pacer caught the typist: flag the loss, then run completion (which reads

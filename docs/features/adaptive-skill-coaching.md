@@ -119,7 +119,7 @@ Every evidence-bearing Test or Drill rep is classified before analysis:
 | `transfer` | Varied text with bounded Target exposure | no mid-session | yes | yes | no |
 | `cold` | Delayed Target check before practice | no mid-session | yes | yes | yes |
 | `train` | Beginner Level attempt | no | no | no | no |
-| `grams` | User-directed Grams mode outside a Prescription | no initially | future | no | no |
+| `custom-practice` | User-directed Keys or Grams outside a Target | no | item history only | no | no |
 
 Existing rolling aggregates continue to accept normal Drill reps per ADR 0004.
 The new analysis reads context-tagged timelines when deciding transfer and
@@ -476,6 +476,122 @@ classification explains practice but is not itself the practice material.
 - Keep direct Drill and Re-measure actions.
 - Never show Mastery from one Test.
 
+### Practice
+
+Practice is the single recommendation-first focused-work destination, not a Test
+mode. Drill is a Target-bound guided state of this workspace, not a separate
+mode, page, or competing destination. A Finding or Progress Target deep-links
+directly into the guided state without visiting the Practice landing view.
+
+Make Practice a first-class primary-navigation destination and remove legacy
+Practice from Home's mode selector. The primary order is `Home · Practice ·
+Progress · Train · Leaderboard`: Home remains exclusively regular Tests,
+Practice owns Guided Drill and Custom Practice, Progress owns proof, and Train
+retains restricted-alphabet instruction. Home results and Progress actions may
+deep-link into Guided Drill; Practice's measurement action returns to Home.
+
+The page uses the guided-first hierarchy confirmed in the Grams/targeted-practice
+design session on 2026-07-19:
+
+1. **Recommended for you.** Lead with one prominent highest-Impact Target from
+   the same natural-evidence analysis and ordering used by Progress. Explain the
+   measured reason and launch its guided Drill state directly.
+2. **Practice your way.** Present Keys and Grams as equal self-directed paths.
+   Each path may surface evidence-backed suggestions while preserving manual
+   selection.
+
+When natural evidence does not support a Target, replace the recommendation
+with `Find your focus` and a `Take a Test` action explaining that TypeCafe needs
+a normal Test to identify what is slowing the user down. Never manufacture a
+weak key or Gram to fill the card. Custom Keys and Grams remain available below.
+
+Remember the last Custom Keys setup and the last Custom Grams setup separately.
+Each self-directed path may offer `Continue`, restoring its selected material,
+duration, and `Varied` or `Pseudo` style. Do not add a full Practice-history
+dashboard: Practice remains action-first, while Progress owns durable evidence
+inspection.
+
+The workspace has two states rather than separate modes: **Guided Drill** and
+**Custom Practice**. A guided run preserves the prescribed Target, metric,
+frozen baseline, generation policy, and Progress attribution. The visible typing
+material is configured through Keys or Grams, but those material choices do not
+replace the richer Target taxonomy or evidence contract. Key Targets present as
+Keys; Transition, Gram, word-family, movement, and correction Targets use the
+Key or Gram presentation appropriate to their concrete material. Endurance is
+the exception: it launches the prescribed timed Test rather than Practice.
+
+Changing or combining a guided run's prescribed focus converts it immediately
+to Custom Practice and removes Target attribution. The custom run still records
+practice activity but does not create a Target, alter natural ability, or prove
+improvement. Keys and Grams share the typing runner but own different text
+compilation policies. Fresh runs vary the generated text without changing the
+evidence contract.
+
+Both self-directed paths use selection-first configuration. TypeCafe preselects
+a useful evidence-backed focus set, then the user edits the material directly:
+Keys through the keyboard and Grams through mixed-length Gram selections.
+Bigrams, trigrams, and tetragrams may coexist in one Gram Practice run. The text
+compiler—not the user—owns repetition, distribution, difficulty, and
+progression. Remove standalone source, corpus-scope, combination-count,
+repetition-count, WPM-threshold, and Accuracy-threshold controls; they expose
+generation mechanics rather than a meaningful training choice.
+
+The Grams editor is one mixed selection surface, not separate bigram, trigram,
+and tetragram tabs or modes. Show supported natural-evidence suggestions as
+selectable chips with a short measured reason; choosing one adds rather than
+replaces the current selection. A shared selected-focus tray may contain any mix
+of 2-, 3-, and 4-character Grams, with a small length marker on each item, plus
+one direct entry control for arbitrary custom Grams. The compiler balances all
+selected lengths within the same run.
+
+Initially keep two Gram sources visibly separate. `From your Tests` contains
+only exact Gram Targets supported by the user's natural evidence and states the
+measured reason. `Common in <language>` exposes corpus-frequency-ranked Grams as
+useful Custom Practice material without calling them Weaknesses. Do not infer
+that a Gram is weak merely because it contains a weak key or Transition. Users
+may mix selections from either source in the shared tray. This two-source
+presentation is an initial product choice that may be revisited after usage
+evidence; do not blend the claims in the first release.
+
+A Guided Drill is attributed to exactly one Target. Selecting its prescribed
+Gram alone may enter Guided Drill; adding any other Gram converts the whole run
+to Custom Practice, even when the added Gram is another measured Target. Record
+per-item Custom Practice feedback, but do not mark several Targets practised
+from one diluted run or move any of them to `practised · awaiting Test`.
+
+A selected key is a focus key, not one member of an allowed alphabet. Keys
+Practice generates varied, target-dense text using whatever supporting
+characters create useful contexts, so one or several arbitrary keys can be
+selected without minimum-count, vowel, or consonant rules. Restricted-alphabet
+teaching remains Train's responsibility; do not carry Practice's legacy
+"unlocked keys only" behavior into the new compiler.
+
+Custom Keys and Grams Practice uses finite time-based runs with 30-, 60-, 120-,
+and 240-second presets, matching Home's seconds-based configuration rhythm;
+60 seconds is the initial default. Do
+not offer word-count or endless variants initially. Mixed Gram and pseudo-text
+content makes word count an unstable description of workload, while a bounded
+run creates an intentional feedback point. The compiler continuously supplies
+varied text and balances exposure across the selected material for the chosen
+duration.
+
+Expose one meaningful text-style choice beside duration, changeable before or
+between runs but never mid-run: `Varied` is the default and combines target-dense
+real-word carriers with pronounceable pseudo-words when they improve coverage or
+context diversity; `Pseudo` uses pronounceable generated tokens only. Changing
+style regenerates the prompt. Do not add a third words-only choice or expose
+density/repetition controls, and never fall back to naked Gram repetition.
+
+Keep the current Practice mode's strongest interaction in the new destination:
+the generated typing text and its configuration share one workspace. The
+confirmed `current evolved` layout puts a compact Keys/Grams and duration line
+above the runner, keeps the typing text visually dominant, and leaves the direct
+keyboard or mixed-Gram editor below it. Starting, editing, or restarting never
+navigates to a separate configuration or runner screen. During typing the editor
+may visually de-emphasize with the existing focus treatment, but it does not
+collapse or leave the page. On mobile, fit the character keyboard to the viewport
+without the current horizontal keyboard scroller.
+
 ### Today
 
 - Name Target, Impact, and evidence in the reason line.
@@ -505,6 +621,82 @@ than as a prescribed coaching hierarchy:
    retained and previously coached Targets. Practice performance and volume are
    shown separately from recent representative ability, so a perfect drill never
    overwrites the row's rolling ability metric.
+
+Practice and Progress deliberately present the same highest-Impact Target with
+different jobs. Practice is action-first and calls it the recommended work;
+Progress is proof-first and defaults its evidence inspector to that Target
+without adding a second recommendation label. The inspector leads with the
+natural-evidence Earlier -> Recent comparison, measured sample/date context,
+live remaining Worth, and separately labelled Drill activity. It retains a
+direct action into the guided Drill state of Practice, or `Take a Test to
+measure` after unmeasured practice; selecting a Target never detours through the
+Practice landing view.
+
+Keep the current wide-screen split: overall Delta, charts, and keyboard proof on
+the left; Target ledger and selected evidence on the right. On mobile, order the
+story as overall Delta, Targets with inline selected evidence, charts, then the
+keyboard. Do not turn Target evidence into a full-width section below the charts.
+
+Practice evidence is a separate response track, never representative ability.
+Completing a Guided Drill for an existing Target records focused time, run and
+target-attempt counts, and practice-context performance. It marks the Target
+`practised · unmeasured` when it is newer than the last natural evidence and
+makes `Take a Test to measure` the primary action. It cannot change overall
+charts, keyboard Weakness colours, Worth, Impact ordering, Mastery, or the
+Earlier -> Recent natural comparison. A custom run never creates or ranks a
+Target; retain its item-level history so it can be shown if later natural
+evidence independently promotes the same item to a Target.
+
+Practice feedback compares the completed run with a rolling baseline of up to
+the previous ten qualified Practice runs for that exact Target. A run qualifies
+when its timer finishes; do not impose a minimum target-attempt count. One prior
+qualified run is enough to show a Delta. Pool whatever target attempts those
+runs contain instead of averaging whole-run scores, expose the attempt count as
+evidence context, and exclude the completed run from its own baseline. Stopped
+or restarted runs may contribute to activity time but not to the comparison.
+Before one prior qualified run exists, say `Building your practice baseline`.
+Label the result explicitly as a Practice comparison, not proof of improvement,
+and show recent Test performance separately rather than blending contexts.
+Custom Practice applies the same comparison per selected key or Gram, but keeps
+those Deltas in Practice history unless the item later becomes a natural-evidence
+Target.
+
+Duration does not partition the rolling Practice baseline: per-attempt latency
+and Accuracy remain comparable across 30-, 60-, 120-, and 240-second runs, while
+longer runs naturally contribute more attempts. `Varied` and `Pseudo` do use
+separate baselines because they create materially different typing contexts. In
+a Guided Drill, changing duration or text style retains Target attribution as
+long as the prescribed focus is unchanged; changing the selected keys or Grams
+converts the run to Custom Practice.
+
+When the timer finishes, replace the typing text with an inline, focus-first
+recap while leaving the editor available below. A Guided Drill leads with the
+Target metric for this run, its Delta against the rolling Practice baseline,
+attempt count, and separately labelled recent natural-Test reference. WPM and
+overall Accuracy are secondary context. Its state reads `practised · awaiting
+Test`, with `Repeat` and `Take a Test` actions. `Take a Test` returns to the
+existing unchanged Home Test; it never biases or guarantees the generated text
+around the Target. A Custom Practice recap applies
+the same Practice-baseline comparison to every selected key or Gram that
+occurred, then shows overall WPM and Accuracy. Do not claim improvement from
+either recap; only later natural-Test evidence can show improvement.
+
+Completing a Guided Drill does not rotate the recommendation to another
+Weakness. Practice and Progress continue to show the same Target, now as
+`practised · awaiting Test`, with `Take a Test` primary and `Practise again`
+secondary. Only representative Test evidence closes that loop and allows the
+normal Impact ordering to select the next recommendation. If an ordinary Test
+does not contain enough Target evidence, the state remains awaiting measurement
+until later natural typing measures it. Do not introduce a target-aware Home
+Test or alter Home text generation for this loop. Custom Practice is
+user-directed and therefore neither advances nor blocks the recommendation
+queue.
+
+**Deferred presentation decision (2026-07-19):** whether the ordinary Test
+result should mention that an awaiting Target was measured, or lacked enough
+natural evidence to measure, remains intentionally unspecified. Do not add that
+result messaging as part of the Grams/Practice workstream without a later owner
+decision.
 
 The Target row selected for inspection gets a neutral selection treatment.
 Selection changes only the detail being inspected; Impact ordering and each
@@ -857,8 +1049,8 @@ improved, not merely whether users clicked the new UI.
       Drill numbers remain a clearly-labelled practice line.
 - [x] Close the drill loop visibly (owner decisions 2026-07-19): Recent is the
       newest 5 Target-containing Tests (Earlier is everything older; Worth
-      stays full-window); a Target drilled since its last natural evidence
-      reads "drilled · unmeasured" with "Take a Test to measure" primary and
+      stays full-window); a Target practised since its last natural evidence
+      reads "practised · unmeasured" with "Take a Test to measure" primary and
       practice secondary, clearing only when a newer Test actually contains
       the Target; the ledger header states the measured window and date span.
 
@@ -870,6 +1062,112 @@ Practising a Target never raises any Target's estimated worth by itself.
 to target-first practice yet; mastery states beyond `training` are reachable
 only through historical Daily Coach sessions and render as read-only history.
 Revisit with the optional Coaching tab item above.
+
+### 13. #143 Grams and unified Practice workstream
+
+Promoted from the #143 backlog inbox to the ready-for-agent specification in
+[GitHub issue #146](https://github.com/SlaterRGordon/typecafe/issues/146).
+
+Implement the confirmed design in independently verified slices. Do not change
+Home Test generation, blend Practice response into natural ability, or preserve
+legacy configuration mechanics merely because the current UI exposes them.
+
+#### 13.1 Evidence contract
+
+- [ ] Add explicit Guided Drill and Custom Practice run metadata without
+      changing the natural Test contract.
+- [ ] Attribute Guided Drill to exactly one Target; retain item-level Custom
+      Practice history without creating or advancing Targets.
+- [ ] Derive Practice comparisons from the previous ten timer-completed runs in
+      the same Target/item and text-style cohort, allowing one prior run and no
+      target-attempt minimum. Pool attempts and exclude the current run.
+- [ ] Preserve stopped/restarted duration as activity only; exclude it from
+      performance comparisons.
+- [ ] Prove in pure unit tests that Practice cannot move natural Earlier ->
+      Recent ability, Worth, Impact ordering, Mastery, charts, or keyboard
+      Weakness colours.
+
+#### 13.2 Text compilation
+
+- [ ] Replace legacy Grams progression/configuration with one pure compiler for
+      Keys focus and mixed 2-, 3-, and 4-character Gram focus.
+- [ ] Make focus keys use supporting characters rather than an allowed-alphabet
+      restriction; leave restricted-alphabet instruction in Train.
+- [ ] Generate balanced, target-dense `Varied` and pronounceable `Pseudo` text,
+      with fresh runs, useful contexts, and no naked Gram repetition.
+- [ ] Keep duration out of comparison cohorts and text style in them; cover
+      language-specific frequency Grams, mixed lengths, boundaries, Unicode,
+      and thin carrier pools with pure unit tests.
+
+#### 13.3 Practice destination
+
+- [ ] Add Practice to primary navigation in `Home · Practice · Progress · Train
+      · Leaderboard` order and remove legacy Practice/Grams from Home's Test
+      modes without altering the remaining Home modes or generators.
+- [ ] Build the recommendation-first landing: one highest-Impact Target, a
+      truthful `Find your focus` empty state, then equal Custom Keys and Grams
+      paths.
+- [ ] Keep `From your Tests` exact measured Grams separate from corpus-ranked
+      `Common in <language>` Custom material; do not infer a weak Gram from a
+      weak contained key or Transition.
+- [ ] Restore the last Custom Keys and Custom Grams selections, duration, and
+      style independently through lightweight `Continue` actions; do not add a
+      Practice-history dashboard.
+
+#### 13.4 Unified workspace
+
+- [ ] Build one Practice workspace with Guided Drill and Custom Practice states,
+      sharing the typer while preserving their different evidence contracts.
+- [ ] Keep configuration and generated typing text on the same screen using the
+      confirmed `current evolved` layout: compact Keys/Grams, duration, and
+      style controls above; dominant typer; always-available editor below.
+- [ ] Implement the direct keyboard focus editor and one mixed Gram tray with
+      measured suggestions, common-language choices, direct 2-4 character
+      entry, and length markers—no separate length tabs.
+- [ ] Allow 30-, 60-, 120-, and 240-second runs with 60 seconds default; allow
+      `Varied` and `Pseudo` changes only between runs.
+- [ ] Preserve Guided attribution across duration/style changes, but visibly
+      convert to Custom Practice as soon as prescribed keys or Grams change or
+      another Target is mixed in.
+- [ ] Fit the complete Practice keyboard within the mobile viewport without a
+      horizontal keyboard scroller.
+
+#### 13.5 Completion and Progress
+
+- [ ] Replace the typer content with an inline focus-first recap when the timer
+      completes, leaving the editor available below.
+- [ ] For Guided Drill, lead with Target metric, Practice Delta, attempts, and a
+      separately labelled recent natural-Test reference; keep WPM/Accuracy
+      secondary and offer `Repeat` plus `Take a Test`.
+- [ ] For Custom Practice, show the same Practice-baseline comparison for every
+      selected item that occurred, followed by overall WPM and Accuracy.
+- [ ] Keep the recommendation on a completed Target as `practised · awaiting
+      Test`, with measurement primary, until a later ordinary Test contains the
+      Target; Custom Practice neither advances nor blocks this queue.
+- [ ] Show Practice activity/response only in the selected Progress Target's
+      separate evidence track. Do not add it to overall charts or natural Target
+      ranking.
+- [ ] Route `Take a Test` to the existing unchanged Home Test. Leave the
+      deferred awaiting-Target Test-result message out of this workstream.
+
+#### 13.6 Handoff, retirement, and verification
+
+- [ ] Point Findings, Practice recommendations, and Progress Target actions
+      directly into the Guided state without visiting the Practice landing.
+- [ ] Retire Drill as a separate user-facing page/mode while preserving Drill as
+      the Target-bound domain term; redirect legacy `/drill` links with their
+      Target intent intact.
+- [ ] Remove legacy source, scope, combination, repetition, WPM-threshold, and
+      Accuracy-threshold controls and their superseded Grams progression state.
+- [ ] Add focused pure tests, desktop/mobile e2e coverage, and canonical
+      screenshot-tour states for the landing, Guided, Custom Keys, mixed Grams,
+      recap, empty evidence, and awaiting-Test flows.
+
+**Acceptance:** Home remains ordinary Tests; every supported Target opens the
+same Practice workspace; Custom Keys and mixed Grams require only meaningful
+focus, duration, and style choices; completed Practice produces honest
+practice-context feedback; and only ordinary Test evidence changes the user's
+natural Progress story.
 
 ## Verification matrix
 

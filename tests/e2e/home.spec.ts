@@ -110,6 +110,37 @@ test.describe("home typing test", () => {
     expect(text).not.toContain("undefined");
   });
 
+  test("grams word progression completes the one-character word a", async ({ page }) => {
+    await page.addInitScript(() => {
+      window.localStorage.setItem("typecafe:testSettings", JSON.stringify({
+        mode: 2,
+        subMode: 1,
+        gramSource: 3,
+        gramScope: 50,
+        gramCombination: 1,
+        gramRepetition: 0,
+        gramWpmThreshold: 0,
+        gramAccuracyThreshold: 100,
+      }));
+    });
+    await page.goto("/");
+    await expect(page.getByTestId("gram-progress")).toBeVisible();
+
+    for (const [expected, nextLevel] of [["of", 2], ["and", 3], ["to", 4]] as const) {
+      await expect(page.locator("#words")).toHaveText(expected);
+      await page.waitForTimeout(10);
+      await typeVisibleTestText(page);
+      await expect(page.getByTestId("gram-progress")).toContainText(`level ${nextLevel}`);
+    }
+
+    await expect(page.locator("#words")).toHaveText("a");
+    await page.waitForTimeout(10);
+    await typeVisibleTestText(page);
+
+    await expect(page.getByTestId("gram-progress")).toContainText("level 5");
+    await expect(page.locator("#words")).toHaveText("in");
+  });
+
   test("Tab+Space restarts the test (Tab swallows the chord key)", async ({ page }) => {
     await gotoHome(page);
 

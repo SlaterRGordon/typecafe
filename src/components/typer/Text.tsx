@@ -386,15 +386,12 @@ export const Text = memo(function Text(props: TextProps) {
             // check for correct key or incorrect
             if ((expected === '' && e.key === ' ') || expected === e.key) {
                 nextLetter(true, e.key)
-                // start timer
-                if (currentPosition === 0 && !started) startAttempt()
                 return true
             } else if (e.code == 'Space' || e.key.length == 1) {
                 // Any single printable key (letter, capital, punctuation, symbol) that
                 // does not match the expected character counts as an incorrect attempt -
                 // including on the very first character, which also starts the timer.
                 nextLetter(false, e.key)
-                if (currentPosition === 0 && !started) startAttempt()
                 return true
             } else if (currentPosition > 0 && e.code === 'Backspace') {
                 prevLetter()
@@ -426,6 +423,11 @@ export const Text = memo(function Text(props: TextProps) {
             attempts.attempts += 1;
             if (correct) attempts.correct += 1;
             charAttempts.set(char, attempts);
+
+            // Register the first keystroke before any completion path runs. A
+            // one-character Grams word can complete on this same keystroke, and
+            // its completion guard needs the active attempt already initialized.
+            if (currentIndex === 0 && !started) startAttempt()
 
             positionRef.current = currentIndex + 1
 

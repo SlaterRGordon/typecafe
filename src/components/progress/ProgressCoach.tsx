@@ -73,6 +73,16 @@ function worthLabel(target: ProgressCoachTarget): string {
         : `~${(target.impactMsPer1000 / 1_000).toFixed(1)}s / 1k chars`
 }
 
+function WorthDelta({ target, className = "" }: { target: ProgressCoachTarget, className?: string }) {
+    if (!target.worthDelta) return null
+    return (
+        <span data-testid="worth-delta" className={`inline-flex items-center gap-0.5 font-mono font-semibold ${target.worthDelta.outcome === "good" ? "text-success" : "text-error"} ${className}`}>
+            <span aria-hidden="true">{target.worthDelta.arrow === "up" ? "▲" : "▼"}</span>
+            {target.worthDelta.label}
+        </span>
+    )
+}
+
 function usesArrow(target: ProgressCoachTarget): boolean {
     return target.target?.kind === "transition" || target.target?.kind === "movement" || target.target?.kind === "correction"
 }
@@ -125,6 +135,7 @@ function CoachHeadline({ target, color }: { target: ProgressCoachTarget, color: 
                 <span>{before[target.state as Exclude<ProgressCoachTarget["state"], "calibrating">]}</span>
                 <TargetGlyph target={target} color={color} compact />
                 {target.impactMsPer1000 !== null && <span className="font-mono text-base" style={{ color }}>{worthLabel(target)}</span>}
+                <WorthDelta target={target} className="text-sm" />
             </span>
         </h2>
     )
@@ -307,7 +318,7 @@ export function ProgressCoach({ projection, loading }: ProgressCoachProps) {
                                 const color = impactPalette[tone]
                                 const status = rowStatus(row)
                                 const latest = row.stages.find((stage) => stage.key === "recent")
-                                const fill = maxImpact > 0 ? Math.max(4, Math.round(((row.impactMsPer1000 ?? 0) / maxImpact) * 100)) : 0
+                                const fill = maxImpact > 0 && (row.impactMsPer1000 ?? 0) > 0 ? Math.max(4, Math.round((row.impactMsPer1000! / maxImpact) * 100)) : 0
                                 return (
                                     <li key={row.id} data-testid={`coach-target-row-${row.id}`} data-selected={expanded ? "" : undefined} className={`group relative ${index >= 5 && !showAllTargets ? "hidden lg:list-item" : ""}`}>
                                         <span aria-hidden="true" className="absolute bottom-1.5 left-0 top-1.5 z-10 w-1 rounded-r-full" style={{ backgroundColor: color }} />
@@ -333,7 +344,7 @@ export function ProgressCoach({ projection, loading }: ProgressCoachProps) {
                                                     </span>
                                                 </span>
                                                 <span className="font-mono text-[0.65rem] text-base-content/80 lg:text-center">
-                                                    <span className="lg:hidden">{worthLabel(row)}</span>
+                                                    <span className="lg:hidden">{worthLabel(row)} <WorthDelta target={row} className="text-[0.6rem]" /></span>
                                                     <span className="hidden lg:inline">{latest?.value ?? "—"}</span>
                                                 </span>
                                                 <span className={`hidden items-center justify-center gap-1 text-center font-mono text-[0.65rem] font-semibold lg:flex ${trendTone(row)}`}>
@@ -350,6 +361,7 @@ export function ProgressCoach({ projection, loading }: ProgressCoachProps) {
                                                         </span>
                                                     )}
                                                     <span className="whitespace-nowrap font-mono text-[0.62rem] text-base-content">{worthLabel(row)}</span>
+                                                    <WorthDelta target={row} className="text-[0.6rem]" />
                                                 </span>
                                                 {row.action && (
                                                     <Link
