@@ -29,6 +29,7 @@ describe("evidence history routers", () => {
             numbers: false,
             layout: "qwerty",
             timeline,
+            practice: null,
             type: { mode: 0, subMode: 0, language: "english" },
         }
         const responseRow = {
@@ -42,18 +43,20 @@ describe("evidence history routers", () => {
             numbers: false,
             layout: "qwertz-de",
             timeline,
+            practice: null,
             type: { mode: 0, subMode: 1, language: "english" },
         }
         const corruptRow = { ...naturalRow, createdAt: new Date("2026-07-12T12:00:00.000Z"), timeline: { corrupt: true } }
         const findMany = vi.fn()
             .mockResolvedValueOnce([naturalRow, corruptRow])
             .mockResolvedValueOnce([responseRow])
+            .mockResolvedValueOnce([])
         const caller = testRouter.createCaller(callerContext({ test: { findMany } }))
 
         const result = await caller.getLatestTimelines({ language: "english5k", pool: "qwerty" })
 
-        expect(findMany).toHaveBeenCalledTimes(2)
-        const [discoveryQuery, responseQuery] = findMany.mock.calls.map((call) => call[0] as unknown as {
+        expect(findMany).toHaveBeenCalledTimes(3)
+        const [discoveryQuery, responseQuery, customPracticeQuery] = findMany.mock.calls.map((call) => call[0] as unknown as {
             orderBy: { createdAt: string }
             take: number
             where: {
@@ -61,10 +64,10 @@ describe("evidence history routers", () => {
                 layout: { in: string[] }
                 type: { language: string }
                 OR?: unknown[]
-                evidenceContext?: { in: string[] }
+                evidenceContext?: { in: string[] } | string
             }
         })
-        for (const query of [discoveryQuery!, responseQuery!]) {
+        for (const query of [discoveryQuery!, responseQuery!, customPracticeQuery!]) {
             expect(query.orderBy).toEqual({ createdAt: "desc" })
             expect(query.take).toBe(30)
             expect(query.where.userId).toBe("user-1")
@@ -77,6 +80,7 @@ describe("evidence history routers", () => {
             { evidenceContext: null, ranked: true, type: { language: "english", mode: 0 } },
         ])
         expect(responseQuery!.where.evidenceContext).toEqual({ in: ["acquisition", "transfer", "cold"] })
+        expect(customPracticeQuery!.where.evidenceContext).toBe("custom-practice")
         // Merged newest first; the corrupt timeline is dropped, not fatal.
         expect(result).toHaveLength(2)
         expect(result[0]).toMatchObject({ context: "transfer", pool: "qwerty", language: "english" })

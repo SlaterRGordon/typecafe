@@ -448,7 +448,9 @@ function prepareEvidence(timelines: readonly TimelineEvidence[]): PreparedEviden
         const context = timeline.context
         if (!context) return
         const discovery = discoversWeakness(context)
-        const acquisition = context === "acquisition"
+        // Interrupted versioned Practice is retained as activity only. Legacy
+        // acquisition rows have no Practice metadata and remain readable.
+        const acquisition = context === "acquisition" && timeline.practice?.completed !== false
         if (!discovery && !acquisition) return
         if (discovery) discoveryTimelines += 1
         if (context === "natural") naturalTimelines += 1

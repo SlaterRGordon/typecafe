@@ -6,8 +6,9 @@ import {
   publicProcedure,
   protectedProcedure,
 } from "~/server/api/trpc";
-import { encodedTimelineSchema } from "~/server/api/schemas/timeline";
-import { DISCOVERY_EVIDENCE_CONTEXTS, EVIDENCE_CONTEXTS, RESPONSE_EVIDENCE_CONTEXTS } from "~/lib/evidenceContext";
+import { encodedTimelineSchema, practiceRecordSchema } from "~/server/api/schemas/timeline";
+import { parseDrillTargetToken } from "~/lib/coachingTarget";
+import { DISCOVERY_EVIDENCE_CONTEXTS, EVIDENCE_CONTEXTS, practiceRecordMatchesEvidence, RESPONSE_EVIDENCE_CONTEXTS } from "~/lib/evidenceContext";
 import { guestEvidenceImportSchema } from "~/server/api/schemas/guestEvidence";
 import { Prisma, type PrismaClient } from "~/generated/prisma/client";
 import { challengeStreakFromDateKeys, shiftChallengeDateKey } from "~/lib/challenge";
@@ -50,6 +51,33 @@ const evidenceHistoryInputSchema = z.object({
   language: z.string().min(1).max(64),
   pool: z.string().refine((pool) => STATS_POOLS.includes(pool), "Unknown stats pool"),
   limit: z.number().int().min(1).max(MAX_EVIDENCE_HISTORY_LIMIT).optional(),
+});
+const createTestInputSchema = z.object({
+  typeId: z.string(),
+  count: z.number().int().min(1).max(5000),
+  // Level name, a legacy drill Target token, or future surface metadata.
+  options: z.string().max(250),
+  punctuation: z.boolean().optional(),
+  capitals: z.boolean().optional(),
+  numbers: z.boolean().optional(),
+  layout: z.string().max(32).optional(),
+  timeline: encodedTimelineSchema,
+  context: z.enum(EVIDENCE_CONTEXTS).optional(),
+  practice: practiceRecordSchema.optional(),
+  utcOffsetMinutes: utcOffsetMinutesSchema,
+  challengeDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+}).superRefine((input, context) => {
+  if (!practiceRecordMatchesEvidence(
+    input.practice ?? null,
+    input.context ?? "natural",
+    parseDrillTargetToken(input.options),
+  )) {
+    context.addIssue({
+      code: "custom",
+      path: ["practice"],
+      message: "Practice metadata does not match its evidence context and Target attribution",
+    });
+  }
 });
 
 // The fixed configs surfaced as profile "signature bests": best 15s, best 60s,
@@ -464,27 +492,7 @@ export const testRouter = createTRPCRouter({
       });
     }),
   create: protectedProcedure
-    .input(z.object({
-      typeId: z.string(),
-      count: z.number().int().min(1).max(5000),
-      // Level name, or a drill's Target token (drillTargetToken) — the longest
-      // legitimate token is a word-family Target at ~170 characters.
-      options: z.string().max(250),
-      punctuation: z.boolean().optional(),
-      capitals: z.boolean().optional(),
-      numbers: z.boolean().optional(),
-      // The keyboard layout the test was typed on (actual id - honesty tag,
-      // ledger decision 10). Absent/legacy = qwerty.
-      layout: z.string().max(32).optional(),
-      // Persisted whole (locked constraint #2). Capped well above the longest
-      // legitimate run (a 5000-word custom test ≈ 30k keystrokes) so a hostile
-      // payload can't balloon a row.
-      timeline: encodedTimelineSchema,
-      context: z.enum(EVIDENCE_CONTEXTS).optional(),
-      utcOffsetMinutes: utcOffsetMinutesSchema,
-      // YYYY-MM-DD when this is a daily-challenge run.
-      challengeDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
-    }))
+    .input(createTestInputSchema)
     .mutation(async ({ ctx, input }) => {
       const timeline = input.timeline;
       // A test only ranks if it's a substantial, human sample: enough keystrokes
@@ -535,6 +543,7 @@ export const testRouter = createTRPCRouter({
             // replay and re-diagnosis under future heuristics; no reads yet.
             timeline: timeline as unknown as Prisma.InputJsonValue,
             evidenceContext: context,
+            practice: input.practice as unknown as Prisma.InputJsonValue | undefined,
             summaryDate,
           },
         });
@@ -644,6 +653,7 @@ export const testRouter = createTRPCRouter({
               layout: item.config.layout,
               timeline: item.timeline as unknown as Prisma.InputJsonValue,
               evidenceContext: item.context,
+              practice: item.practice as unknown as Prisma.InputJsonValue | undefined,
               guestLocalId: item.localId,
               summaryDate,
               createdAt: completedAt,
@@ -759,6 +769,7 @@ export const testRouter = createTRPCRouter({
         numbers: true,
         layout: true,
         timeline: true,
+        practice: true,
         type: { select: { mode: true, subMode: true, language: true } },
       };
       const take = input.limit ?? DEFAULT_EVIDENCE_HISTORY_LIMIT;
@@ -767,7 +778,7 @@ export const testRouter = createTRPCRouter({
       // the natural evidence that ranks weaknesses out of the bounded history.
       // Legacy rows without a context count as discovery when the old ranking
       // contract proves they were ordinary normal Tests.
-      const [discovery, response] = await Promise.all([
+      const [discovery, response, customPractice] = await Promise.all([
         ctx.prisma.test.findMany({
           where: {
             ...baseWhere,
@@ -786,8 +797,14 @@ export const testRouter = createTRPCRouter({
           take,
           select,
         }),
+        ctx.prisma.test.findMany({
+          where: { ...baseWhere, evidenceContext: "custom-practice" },
+          orderBy: { createdAt: "desc" },
+          take,
+          select,
+        }),
       ]);
-      const rows = [...discovery, ...response]
+      const rows = [...discovery, ...response, ...customPractice]
         .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
       return rows.flatMap((row) => {

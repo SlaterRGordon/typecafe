@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { encodeTimeline } from "~/lib/keystrokes"
 import { encodedTimelineSchema } from "../schemas/timeline"
+import { practiceRecordSchema } from "../schemas/timeline"
 
 describe("test.create timeline validation", () => {
     it("accepts legacy v1 and current v2 payloads", () => {
@@ -22,5 +23,24 @@ describe("test.create timeline validation", () => {
             v: 2,
             events: Array.from({ length: 50_001 }, () => [97, 0, 1, 10]),
         }).success).toBe(false)
+    })
+})
+
+describe("Practice record validation", () => {
+    const custom = {
+        v: 1,
+        kind: "custom",
+        focus: { kind: "grams", items: ["th", "ing"] },
+        textStyle: "varied",
+        durationSeconds: 60,
+        elapsedActivityMs: 42_000,
+        completed: false,
+    }
+
+    it("accepts the additive v1 contract and rejects unknown or malformed versions", () => {
+        expect(practiceRecordSchema.safeParse(custom).success).toBe(true)
+        expect(practiceRecordSchema.safeParse({ ...custom, v: 2 }).success).toBe(false)
+        expect(practiceRecordSchema.safeParse({ ...custom, durationSeconds: 45 }).success).toBe(false)
+        expect(practiceRecordSchema.safeParse({ ...custom, target: { kind: "gram", gram: "the" } }).success).toBe(false)
     })
 })

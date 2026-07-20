@@ -11,7 +11,7 @@ import type { EncodedTimeline, KeystrokeEvent } from "~/lib/keystrokes"
 import { api } from "~/utils/api"
 import { statsPoolFor } from "~/lib/keyboardLayout"
 import type { EvidenceTestConfiguration } from "~/lib/guestEvidence"
-import type { EvidenceContext } from "~/lib/evidenceContext"
+import type { EvidenceContext, PracticeRecord } from "~/lib/evidenceContext"
 import { useLayout } from "~/hooks/useLayout"
 import type { TestCompletionResult } from "../types"
 
@@ -24,6 +24,7 @@ export interface CreateTestInput {
     numbers: boolean,
     timeline: EncodedTimeline,
     context?: EvidenceContext,
+    practice?: PracticeRecord,
     utcOffsetMinutes?: number,
     challengeDate?: string,
 }
@@ -90,13 +91,18 @@ export function useTestPersistence({ evidenceContext, charAttemptsRef, onTestCom
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [createTest.mutate, eagerResult, onTestComplete, layout, evidenceContext])
 
-    const persistGuestTimeline = useCallback((completion: TestCompletionResult, config: Omit<EvidenceTestConfiguration, "layout">) => {
+    const persistGuestTimeline = useCallback((
+        completion: TestCompletionResult,
+        config: Omit<EvidenceTestConfiguration, "layout">,
+        practice?: PracticeRecord,
+    ) => {
         if (sessionData?.user) return
         void import("~/lib/guestEvidenceStore").then(({ addGuestEvidenceTest, createGuestEvidenceId }) => (
             addGuestEvidenceTest({
                 localId: createGuestEvidenceId(),
                 completedAt: Date.now(),
                 context: evidenceContext,
+                practice,
                 config: { ...config, layout },
                 timeline: completion.timeline,
             })

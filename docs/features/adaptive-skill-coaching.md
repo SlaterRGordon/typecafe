@@ -1074,16 +1074,16 @@ legacy configuration mechanics merely because the current UI exposes them.
 
 #### 13.1 Evidence contract
 
-- [ ] Add explicit Guided Drill and Custom Practice run metadata without
+- [x] Add explicit Guided Drill and Custom Practice run metadata without
       changing the natural Test contract.
-- [ ] Attribute Guided Drill to exactly one Target; retain item-level Custom
+- [x] Attribute Guided Drill to exactly one Target; retain item-level Custom
       Practice history without creating or advancing Targets.
-- [ ] Derive Practice comparisons from the previous ten timer-completed runs in
+- [x] Derive Practice comparisons from the previous ten timer-completed runs in
       the same Target/item and text-style cohort, allowing one prior run and no
       target-attempt minimum. Pool attempts and exclude the current run.
-- [ ] Preserve stopped/restarted duration as activity only; exclude it from
+- [x] Preserve stopped/restarted duration as activity only; exclude it from
       performance comparisons.
-- [ ] Prove in pure unit tests that Practice cannot move natural Earlier ->
+- [x] Prove in pure unit tests that Practice cannot move natural Earlier ->
       Recent ability, Worth, Impact ordering, Mastery, charts, or keyboard
       Weakness colours.
 

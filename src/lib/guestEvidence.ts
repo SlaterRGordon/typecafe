@@ -1,4 +1,11 @@
-import { EVIDENCE_CONTEXTS, type EvidenceContext } from "./evidenceContext"
+import { parseDrillTargetToken } from "./coachingTarget"
+import {
+    EVIDENCE_CONTEXTS,
+    parsePracticeRecord,
+    practiceRecordMatchesEvidence,
+    type EvidenceContext,
+    type PracticeRecord,
+} from "./evidenceContext"
 import type { EncodedTimeline } from "./keystrokes"
 
 export interface EvidenceTestConfiguration {
@@ -18,6 +25,7 @@ export interface GuestEvidenceTest {
     localId: string
     completedAt: number
     context: EvidenceContext
+    practice?: PracticeRecord
     config: EvidenceTestConfiguration
     timeline: EncodedTimeline
 }
@@ -73,6 +81,14 @@ export function parseGuestEvidenceTest(value: unknown): GuestEvidenceTest | null
     if (typeof config.layout !== "string" || config.layout.length < 1 || config.layout.length > 32) return null
     if (typeof config.language !== "string" || config.language.length < 1 || config.language.length > 64) return null
     if (!integer(config.utcOffsetMinutes, -14 * 60, 14 * 60) || !validTimeline(item.timeline)) return null
+
+    const practice = item.practice === undefined ? null : parsePracticeRecord(item.practice)
+    if (item.practice !== undefined && !practice) return null
+    if (!practiceRecordMatchesEvidence(
+        practice,
+        item.context as EvidenceContext,
+        parseDrillTargetToken(config.options as string),
+    )) return null
 
     return value as GuestEvidenceTest
 }

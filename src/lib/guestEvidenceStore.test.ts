@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { encodeTimeline } from "./keystrokes"
 import type { GuestEvidenceTest } from "./guestEvidence"
+import { drillTargetToken } from "./coachingTarget"
 import { createGuestEvidenceStore, type GuestEvidenceStorage } from "./guestEvidenceStore"
 
 function evidence(localId: string, completedAt: number, context: GuestEvidenceTest["context"] = "natural"): GuestEvidenceTest {
@@ -91,5 +92,42 @@ describe("guest evidence store", () => {
         const items = await store.read()
         expect(items).toHaveLength(1)
         expect(items[0]).toMatchObject({ localId: "first", completedAt: 3, context: "transfer" })
+    })
+
+    it("round-trips Guided and Custom Practice metadata without accepting false attribution", async () => {
+        const target = { kind: "transition" as const, pair: "th", metric: "latency" as const }
+        const guided: GuestEvidenceTest = {
+            ...evidence("guided", 1, "acquisition"),
+            config: { ...evidence("guided", 1).config, options: drillTargetToken(target) },
+            practice: {
+                v: 1,
+                kind: "guided",
+                focus: { kind: "grams", items: ["th"] },
+                textStyle: "varied",
+                durationSeconds: 60,
+                elapsedActivityMs: 60_000,
+                completed: true,
+                target,
+            },
+        }
+        const custom: GuestEvidenceTest = {
+            ...evidence("custom", 2, "custom-practice"),
+            practice: {
+                v: 1,
+                kind: "custom",
+                focus: { kind: "keys", items: ["q", "x"] },
+                textStyle: "pseudo",
+                durationSeconds: 120,
+                elapsedActivityMs: 31_000,
+                completed: false,
+            },
+        }
+        const memory = memoryStorage()
+        const store = createGuestEvidenceStore(memory.storage)
+
+        expect(await store.add(guided)).toBe(true)
+        expect(await store.add(custom)).toBe(true)
+        expect(await store.add({ ...guided, config: { ...guided.config, options: "" } })).toBe(false)
+        expect(await store.read()).toEqual([guided, custom])
     })
 })

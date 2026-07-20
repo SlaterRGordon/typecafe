@@ -1,5 +1,11 @@
 import type { GuestEvidenceTest } from "./guestEvidence"
-import { discoversWeakness, evidenceContextForStoredTest, type EvidenceContext } from "./evidenceContext"
+import {
+    discoversWeakness,
+    evidenceContextForStoredTest,
+    parsePracticeRecord,
+    type EvidenceContext,
+    type PracticeRecord,
+} from "./evidenceContext"
 import { statsPoolFor } from "./keyboardLayout"
 import type { EncodedTimeline } from "./keystrokes"
 import { baseTypeLanguage } from "./typeLanguage"
@@ -21,6 +27,7 @@ export interface TimelineEvidence {
     pool: string
     language: string
     timeline: EncodedTimeline
+    practice?: PracticeRecord | null
 }
 
 export interface StoredTimelineEvidence {
@@ -34,6 +41,7 @@ export interface StoredTimelineEvidence {
     numbers: boolean
     layout: string
     timeline: EncodedTimeline
+    practice?: unknown
     type: {
         mode: number
         subMode: number
@@ -60,11 +68,14 @@ export function boundedEvidenceWindow(
     const sorted = [...timelines].sort((a, b) => b.completedAt - a.completedAt)
     const discovery: TimelineEvidence[] = []
     const response: TimelineEvidence[] = []
+    const customPractice: TimelineEvidence[] = []
     for (const timeline of sorted) {
-        const bucket = discoversWeakness(timeline.context) ? discovery : response
+        const bucket = discoversWeakness(timeline.context)
+            ? discovery
+            : timeline.context === "custom-practice" ? customPractice : response
         if (bucket.length < limit) bucket.push(timeline)
     }
-    return [...discovery, ...response].sort((a, b) => b.completedAt - a.completedAt)
+    return [...discovery, ...response, ...customPractice].sort((a, b) => b.completedAt - a.completedAt)
 }
 
 export function normalizeGuestTimelineEvidence(evidence: GuestEvidenceTest): TimelineEvidence {
@@ -82,6 +93,7 @@ export function normalizeGuestTimelineEvidence(evidence: GuestEvidenceTest): Tim
         pool: statsPoolFor(evidence.config.layout),
         language: normalizedLanguage(evidence.config.language),
         timeline: evidence.timeline,
+        practice: parsePracticeRecord(evidence.practice),
     }
 }
 
@@ -104,5 +116,6 @@ export function normalizeStoredTimelineEvidence(evidence: StoredTimelineEvidence
         pool: statsPoolFor(evidence.layout),
         language: normalizedLanguage(evidence.type.language),
         timeline: evidence.timeline,
+        practice: parsePracticeRecord(evidence.practice),
     }
 }

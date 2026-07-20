@@ -232,6 +232,47 @@ describe("analyzeTypingEvidence", () => {
         expect(find([...natural, drill, testWithoutTarget, testWithTarget])?.awaitingMeasurement).toBeUndefined()
     })
 
+    it("keeps Custom and interrupted Practice out of the natural Target story", () => {
+        const natural = [1, 2].map((testId) => pairTimeline(testId, [
+            ...baseline(40),
+            { pair: "br", gap: 160, repeats: 4 },
+        ]))
+        const custom = {
+            ...pairTimeline(3, [{ pair: "br", gap: 70, repeats: 20 }], "custom-practice"),
+            practice: {
+                v: 1 as const,
+                kind: "custom" as const,
+                focus: { kind: "grams" as const, items: ["br"] },
+                textStyle: "varied" as const,
+                durationSeconds: 60 as const,
+                elapsedActivityMs: 60_000,
+                completed: true,
+            },
+        }
+        const interrupted = {
+            ...pairTimeline(4, [{ pair: "br", gap: 60, repeats: 20 }], "acquisition"),
+            options: drillTargetToken({ kind: "transition", pair: "br", metric: "latency" }),
+            practice: {
+                v: 1 as const,
+                kind: "guided" as const,
+                focus: { kind: "grams" as const, items: ["br"] },
+                textStyle: "varied" as const,
+                durationSeconds: 60 as const,
+                elapsedActivityMs: 15_000,
+                completed: false,
+                target: { kind: "transition" as const, pair: "br", metric: "latency" as const },
+            },
+        }
+
+        const withPractice = analyzeTypingEvidence({ timelines: [...natural, custom, interrupted] })
+        const naturalOnly = analyzeTypingEvidence({ timelines: natural })
+
+        expect(withPractice.candidates).toEqual(naturalOnly.candidates)
+        expect(withPractice.mastery).toEqual(naturalOnly.mastery)
+        expect(withPractice.evidenceWindow).toEqual(naturalOnly.evidenceWindow)
+        expect(withPractice.quality.acquisitionTimelines).toBe(0)
+    })
+
     it("reports the discovery evidence window span", () => {
         const natural = [1, 2].map((testId) => pairTimeline(testId, [...baseline(40), { pair: "br", gap: 160, repeats: 4 }]))
         const drill = pairTimeline(9, [{ pair: "br", gap: 90, repeats: 8 }], "acquisition")

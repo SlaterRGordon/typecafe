@@ -109,6 +109,9 @@ model Test {
     // src/lib/keystrokes.ts. v2 stores expected/timing for every action and the
     // actual typed code point only for misses; null on pre-timeline rows.
     timeline    Json?
+    // Additive, versioned Guided/Custom Practice contract. Null for ordinary
+    // Tests and legacy rows; the Timeline remains the keystroke evidence.
+    practice    Json?
     // Context separates ordinary typing from focused coaching evidence. Guest
     // imports carry their local id so retries converge on one unranked row.
     evidenceContext String?
