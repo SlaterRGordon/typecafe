@@ -3,7 +3,7 @@ import { typeCurrentCharacter } from "./helpers/typing"
 
 async function gotoPractice(page: Page) {
   await page.goto("/practice")
-  await expect(page.getByTestId("custom-keys-workspace")).toBeVisible()
+  await expect(page.getByTestId("custom-practice-workspace")).toBeVisible()
   await expect(page.locator("#c0")).toHaveClass(/active-char/, { timeout: 20_000 })
 }
 
@@ -27,8 +27,8 @@ async function guestPracticeRecords(page: Page) {
   })
 }
 
-test.describe("Custom Keys Practice", () => {
-  test("keeps controls, finite typer, and layout-aware editor in one workspace and restores choices", async ({ page }) => {
+test.describe("Custom Practice", () => {
+  test("keeps controls, finite typer, and layout-aware Keys editor in one workspace and restores choices", async ({ page }) => {
     await gotoPractice(page)
 
     const controls = page.getByRole("region", { name: "Practice controls" })
@@ -51,6 +51,43 @@ test.describe("Custom Keys Practice", () => {
     await expect(page.getByTestId("selected-practice-keys")).toContainText("q")
   })
 
+  test("combines direct mixed Grams with explicitly corpus-ranked active-language material and restores independently", async ({ page }) => {
+    await gotoPractice(page)
+    const controls = page.getByRole("region", { name: "Practice controls" })
+    await controls.getByRole("button", { name: "Grams" }).click()
+
+    await expect(page.getByTestId("selected-practice-grams")).toContainText("th")
+    await expect(page.getByTestId("selected-practice-grams").getByLabel("2-Gram").first()).toBeVisible()
+    await expect(page.getByTestId("selected-practice-grams").getByLabel("3-Gram").first()).toBeVisible()
+    await expect(page.getByTestId("selected-practice-grams").getByLabel("4-Gram").first()).toBeVisible()
+    await expect(page.getByRole("heading", { name: "Common in English" })).toBeVisible()
+    await expect(page.getByText("Frequency-ranked Custom material—not a measured Weakness.")).toBeVisible()
+    await expect(page.getByTestId("common-language-grams").getByRole("button").first()).toBeVisible()
+
+    const input = page.getByTestId("custom-gram-input")
+    await input.fill("er")
+    await page.getByRole("region", { name: "Gram editor" }).getByRole("button", { name: "Add" }).click()
+    await input.fill("ing")
+    await input.press("Enter")
+    await expect(page.getByTestId("selected-practice-grams")).toContainText("er")
+    await expect(page.getByTestId("selected-practice-grams")).toContainText("ing")
+    await controls.getByRole("button", { name: "120s" }).click()
+    await controls.getByRole("button", { name: "Pseudo" }).click()
+
+    await page.reload()
+    await expect(page.locator("#c0")).toHaveClass(/active-char/, { timeout: 20_000 })
+    await expect(controls.getByRole("button", { name: "Keys" })).toHaveAttribute("aria-pressed", "true")
+    await expect(controls.getByRole("button", { name: "60s" })).toHaveClass(/btn-primary/)
+    await expect(controls.getByRole("button", { name: "Varied" })).toHaveClass(/btn-primary/)
+    await controls.getByRole("button", { name: "Grams" }).click()
+    await expect(controls.getByRole("button", { name: "120s" })).toHaveClass(/btn-primary/)
+    await expect(controls.getByRole("button", { name: "Pseudo" })).toHaveClass(/btn-primary/)
+    await expect(page.getByTestId("selected-practice-grams")).toContainText("er")
+    await expect(page.getByTestId("selected-practice-grams")).toContainText("ing")
+
+    await expect(controls.getByRole("button", { name: /source|scope|combination|repetition|threshold/i })).toHaveCount(0)
+  })
+
   test("timer completion shows focus-first per-key recap with no attempt floor", async ({ page }) => {
     await page.clock.install()
     await gotoPractice(page)
@@ -71,6 +108,30 @@ test.describe("Custom Keys Practice", () => {
     await expect(recap).toContainText("Accuracy")
     await expect(recap).toContainText("Building your practice baseline.")
     await expect(page.getByRole("region", { name: "Focus key editor" })).toBeVisible()
+  })
+
+  test("mixed-Gram timer completion shows every occurred item before overall results", async ({ page }) => {
+    await page.clock.install()
+    await gotoPractice(page)
+    const controls = page.getByRole("region", { name: "Practice controls" })
+    await controls.getByRole("button", { name: "Grams" }).click()
+    await controls.getByRole("button", { name: "30s" }).click()
+
+    for (let index = 0; index < 80; index += 1) {
+      await typeCurrentCharacter(page, index)
+      await page.clock.runFor(30)
+    }
+    await page.clock.runFor(30_000)
+
+    const recap = page.getByTestId("practice-recap")
+    await expect(recap).toBeVisible()
+    await expect(recap.getByTestId("practice-gram-th")).toContainText("Accuracy")
+    await expect(recap.getByTestId("practice-gram-the")).toContainText("response WPM")
+    await expect(recap.getByTestId("practice-gram-tion")).toContainText("attempt")
+    await expect(recap).toContainText("Overall")
+    expect((await recap.getByTestId("practice-gram-th").boundingBox())!.y)
+      .toBeLessThan((await recap.getByText("Overall").boundingBox())!.y)
+    await expect(page.getByRole("region", { name: "Gram editor" })).toBeVisible()
   })
 
   test("stop persists elapsed activity without producing a comparison recap", async ({ page }) => {
@@ -97,6 +158,14 @@ test.describe("Custom Keys Practice", () => {
     expect(box).not.toBeNull()
     expect(box!.x).toBeGreaterThanOrEqual(0)
     expect(box!.x + box!.width).toBeLessThanOrEqual((page.viewportSize()?.width ?? 0) + 1)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true)
+  })
+
+  test("fits the mixed Gram tray and editor inside the mobile viewport", async ({ page }, testInfo) => {
+    test.skip(!testInfo.project.name.startsWith("mobile"), "mobile viewport assertion")
+    await gotoPractice(page)
+    await page.getByRole("group", { name: "Custom practice type" }).getByRole("button", { name: "Grams" }).click()
+    await expect(page.getByRole("region", { name: "Gram editor" })).toBeVisible()
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true)
   })
 })

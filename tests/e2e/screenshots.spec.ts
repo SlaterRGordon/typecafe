@@ -54,10 +54,20 @@ async function gotoHome(page: Page) {
 
 test("Custom Keys Practice workspace", async ({ page }, testInfo) => {
   await page.goto("/practice")
-  await expect(page.getByTestId("custom-keys-workspace")).toBeVisible()
+  await expect(page.getByTestId("custom-practice-workspace")).toBeVisible()
   await expect(page.locator("#c0")).toHaveClass(/active-char/, { timeout: 20_000 })
   await expect(page.getByRole("region", { name: "Focus key editor" })).toBeVisible()
   await capture(page, testInfo, "67-custom-keys-practice")
+})
+
+test("Custom mixed Grams Practice workspace", async ({ page }, testInfo) => {
+  await page.goto("/practice")
+  await expect(page.getByTestId("custom-practice-workspace")).toBeVisible()
+  await expect(page.locator("#c0")).toHaveClass(/active-char/, { timeout: 20_000 })
+  await page.getByRole("group", { name: "Custom practice type" }).getByRole("button", { name: "Grams" }).click()
+  await expect(page.getByRole("region", { name: "Gram editor" })).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Common in English" })).toBeVisible()
+  await capture(page, testInfo, "68-custom-mixed-grams-practice")
 })
 
 // /train lands on the level map; Continue zooms into the resume level.

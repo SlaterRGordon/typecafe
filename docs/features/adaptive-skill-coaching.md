@@ -1093,9 +1093,9 @@ legacy configuration mechanics merely because the current UI exposes them.
       Keys focus and mixed 2-, 3-, and 4-character Gram focus.
 - [x] Make focus keys use supporting characters rather than an allowed-alphabet
       restriction; leave restricted-alphabet instruction in Train.
-- [ ] Generate balanced, target-dense `Varied` and pronounceable `Pseudo` text,
+- [x] Generate balanced, target-dense `Varied` and pronounceable `Pseudo` text,
       with fresh runs, useful contexts, and no naked Gram repetition.
-- [ ] Keep duration out of comparison cohorts and text style in them; cover
+- [x] Keep duration out of comparison cohorts and text style in them; cover
       language-specific frequency Grams, mixed lengths, boundaries, Unicode,
       and thin carrier pools with pure unit tests.
 

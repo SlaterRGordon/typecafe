@@ -10,6 +10,16 @@ import { useGuestEvidence } from "~/hooks/useGuestEvidence"
 import { useLanguage } from "~/hooks/useLanguage"
 import { useLayout } from "~/hooks/useLayout"
 import {
+    compileCustomGramsPractice,
+    completeCustomGramsPractice,
+    customGramsPracticeRecord,
+    normalizeCustomGram,
+    rankCommonGrams,
+    type CustomGramsPracticePreferences,
+    type CustomGramsPracticeRun,
+} from "~/lib/customGramsPractice"
+import { readCustomGramsPracticePreferences, writeCustomGramsPracticePreferences } from "~/lib/customGramsPreferences"
+import {
     compileCustomKeysPractice,
     completeCustomKeysPractice,
     customKeysPracticeRecord,
@@ -19,9 +29,14 @@ import {
 import { readCustomKeysPracticePreferences, writeCustomKeysPracticePreferences } from "~/lib/customKeysPreferences"
 import { PRACTICE_DURATIONS_SECONDS, PRACTICE_TEXT_STYLES, type PracticeDurationSeconds, type PracticeTextStyle } from "~/lib/evidenceContext"
 import { boardFor, sequenceFor, statsPoolFor } from "~/lib/keyboardLayout"
+import { languageMeta } from "~/lib/languageMeta"
 import { api } from "~/utils/api"
 
 const PRACTICE_WORDS = 1_400
+type PracticePath = "keys" | "grams"
+type CompletedRun =
+    | { path: "keys", result: TestCompletionResult, run: CustomKeysPracticeRun }
+    | { path: "grams", result: TestCompletionResult, run: CustomGramsPracticeRun }
 
 function signed(value: number): string {
     return `${value >= 0 ? "+" : ""}${Math.round(value)}`
@@ -34,28 +49,34 @@ const Practice: NextPage = () => {
     const [layout] = useLayout()
     const pool = statsPoolFor(layout)
     const guestEvidence = useGuestEvidence()
-    const [preferences, setPreferences] = useState<CustomKeysPracticePreferences>({ keys: ["e", "r"], durationSeconds: 60, textStyle: "varied" })
+    const [path, setPath] = useState<PracticePath>("keys")
+    const [keysPreferences, setKeysPreferences] = useState<CustomKeysPracticePreferences>({ keys: ["e", "r"], durationSeconds: 60, textStyle: "varied" })
+    const [gramsPreferences, setGramsPreferences] = useState<CustomGramsPracticePreferences>({ grams: ["th", "the", "tion"], durationSeconds: 60, textStyle: "varied" })
+    const [gramEntry, setGramEntry] = useState("")
+    const [gramEntryError, setGramEntryError] = useState<string | null>(null)
     const [ready, setReady] = useState(false)
     const [corpus, setCorpus] = useState<string[]>([])
     const [seed, setSeed] = useState(1)
     const [running, setRunning] = useState(false)
     const [restartSignal, setRestartSignal] = useState(0)
-    const [completed, setCompleted] = useState<{ result: TestCompletionResult, run: CustomKeysPracticeRun } | null>(null)
+    const [completed, setCompleted] = useState<CompletedRun | null>(null)
     const [shiftLayer, setShiftLayer] = useState(false)
     const [altgrLayer, setAltgrLayer] = useState(false)
     const charAttemptsRef = useRef(new Map<string, { attempts: number, correct: number }>())
     const board = useMemo(() => boardFor(layout), [layout])
     const hasAltGr = board.rows.some((row) => row.some((key) => key.altgr !== undefined))
+    const activePreferences = path === "keys" ? keysPreferences : gramsPreferences
 
     useEffect(() => {
-        setPreferences(readCustomKeysPracticePreferences())
+        setKeysPreferences(readCustomKeysPracticePreferences())
+        setGramsPreferences(readCustomGramsPracticePreferences())
         setSeed(Date.now())
         setReady(true)
     }, [])
 
     useEffect(() => {
         if (!ready) return
-        setPreferences((current) => {
+        setKeysPreferences((current) => {
             const keys = current.keys.filter((key) => sequenceFor(key, layout).length > 0).slice(0, 8)
             const repaired = keys.length > 0 ? keys : ["e", "r"].filter((key) => sequenceFor(key, layout).length > 0)
             return repaired.join("\0") === current.keys.join("\0") ? current : { ...current, keys: repaired }
@@ -65,16 +86,19 @@ const Practice: NextPage = () => {
     useEffect(() => {
         let active = true
         void ensureLanguageLoaded(language).then(() => {
-            const typeable = getWords(language).filter((word) => [...word.normalize("NFC")]
-                .every((character) => sequenceFor(character.toLowerCase(), layout).length > 0))
-            if (active) setCorpus(typeable)
+            const words = getWords(language).map((word) => word.normalize("NFC"))
+            if (active) setCorpus(words)
         })
         return () => { active = false }
-    }, [language, layout])
+    }, [language])
 
     useEffect(() => {
-        if (ready) writeCustomKeysPracticePreferences(preferences)
-    }, [preferences, ready])
+        if (ready) writeCustomKeysPracticePreferences(keysPreferences)
+    }, [keysPreferences, ready])
+
+    useEffect(() => {
+        if (ready) writeCustomGramsPracticePreferences(gramsPreferences)
+    }, [gramsPreferences, ready])
 
     const timelines = api.test.getLatestTimelines.useQuery(
         { language, pool },
@@ -90,33 +114,88 @@ const Practice: NextPage = () => {
         }] : [])
     }, [guestEvidence?.timelines, signedIn, timelines.data])
 
-    const prompt = useMemo(() => compileCustomKeysPractice({
-        keys: preferences.keys,
-        corpus,
+    const typeableCorpus = useMemo(() => corpus.filter((word) => [...word]
+        .every((character) => sequenceFor(character.toLowerCase(), layout).length > 0)), [corpus, layout])
+    const commonGrams = useMemo(() => rankCommonGrams(corpus, 5)
+        .filter(({ gram }) => [...gram].every((character) => sequenceFor(character, layout).length > 0)), [corpus, layout])
+    const focusCharacters = useMemo(() => path === "keys"
+        ? keysPreferences.keys
+        : [...new Set(gramsPreferences.grams.flatMap((gram) => [...gram]))], [gramsPreferences.grams, keysPreferences.keys, path])
+    const prompt = useMemo(() => path === "keys" ? compileCustomKeysPractice({
+        keys: keysPreferences.keys,
+        corpus: typeableCorpus,
         language,
-        textStyle: preferences.textStyle,
+        textStyle: keysPreferences.textStyle,
         seed,
         wordCount: PRACTICE_WORDS,
-    }), [corpus, language, preferences.keys, preferences.textStyle, seed])
-    const baseRecord = useMemo(
-        () => customKeysPracticeRecord(preferences, 0, false),
-        [preferences],
-    )
+    }) : compileCustomGramsPractice({
+        grams: gramsPreferences.grams,
+        corpus: typeableCorpus,
+        language,
+        textStyle: gramsPreferences.textStyle,
+        seed,
+        wordCount: PRACTICE_WORDS,
+    }), [gramsPreferences, keysPreferences, language, path, seed, typeableCorpus])
+    const baseRecord = useMemo(() => path === "keys"
+        ? customKeysPracticeRecord(keysPreferences, 0, false)
+        : customGramsPracticeRecord(gramsPreferences, 0, false), [gramsPreferences, keysPreferences, path])
 
-    const recap = useMemo(() => completed ? completeCustomKeysPractice({
+    const keyRecap = useMemo(() => completed?.path === "keys" ? completeCustomKeysPractice({
         current: completed.run,
         history,
     }) : null, [completed, history])
+    const gramRecap = useMemo(() => completed?.path === "grams" ? completeCustomGramsPractice({
+        current: completed.run,
+        history: history as CustomGramsPracticeRun[],
+    }) : null, [completed, history])
 
-    const update = (patch: Partial<CustomKeysPracticePreferences>) => {
-        if (running) return
+    const refreshPrompt = () => {
         setCompleted(null)
-        setPreferences((current) => ({ ...current, ...patch }))
         setSeed((value) => value + 1)
     }
+    const selectPath = (next: PracticePath) => {
+        if (running || path === next) return
+        setPath(next)
+        setGramEntryError(null)
+        refreshPrompt()
+    }
+    const updateKeys = (patch: Partial<CustomKeysPracticePreferences>) => {
+        if (running) return
+        setKeysPreferences((current) => ({ ...current, ...patch }))
+        refreshPrompt()
+    }
+    const updateGrams = (patch: Partial<CustomGramsPracticePreferences>) => {
+        if (running) return
+        setGramsPreferences((current) => ({ ...current, ...patch }))
+        refreshPrompt()
+    }
+    const updateActive = (patch: { durationSeconds?: PracticeDurationSeconds, textStyle?: PracticeTextStyle }) => {
+        if (path === "keys") updateKeys(patch)
+        else updateGrams(patch)
+    }
     const setKeys = (keys: string[]) => {
-        const unique = [...new Set(keys.map((key) => key.normalize("NFC")))].filter((key) => sequenceFor(key, layout).length > 0).slice(0, 8)
-        update({ keys: unique })
+        const unique = [...new Set(keys.map((key) => key.normalize("NFC")))]
+            .filter((key) => sequenceFor(key, layout).length > 0).slice(0, 8)
+        updateKeys({ keys: unique })
+    }
+    const setGrams = (grams: string[]) => updateGrams({ grams: [...new Set(grams)].slice(0, 24) })
+    const addGram = (raw: string) => {
+        const gram = normalizeCustomGram(raw)
+        if (!gram) {
+            setGramEntryError("Enter 2 to 4 letters with no spaces.")
+            return
+        }
+        if (![...gram].every((character) => sequenceFor(character, layout).length > 0)) {
+            setGramEntryError("That Gram is not available on your current keyboard layout.")
+            return
+        }
+        if (gramsPreferences.grams.includes(gram)) {
+            setGramEntryError(`${gram} is already selected.`)
+            return
+        }
+        setGrams([...gramsPreferences.grams, gram])
+        setGramEntry("")
+        setGramEntryError(null)
     }
     const repeat = () => {
         setCompleted(null)
@@ -133,71 +212,105 @@ const Practice: NextPage = () => {
     const onComplete = (result: TestCompletionResult) => {
         const completedAt = Date.now()
         setRunning(false)
-        setCompleted({
-            result,
-            run: {
-                id: `current-${completedAt}`,
-                completedAt,
-                practice: customKeysPracticeRecord(preferences, preferences.durationSeconds * 1_000, true),
-                timeline: result.timeline,
-            },
-        })
+        if (path === "keys") {
+            setCompleted({
+                path,
+                result,
+                run: {
+                    id: `current-${completedAt}`,
+                    completedAt,
+                    practice: customKeysPracticeRecord(keysPreferences, keysPreferences.durationSeconds * 1_000, true),
+                    timeline: result.timeline,
+                },
+            })
+        } else {
+            setCompleted({
+                path,
+                result,
+                run: {
+                    id: `current-${completedAt}`,
+                    completedAt,
+                    practice: customGramsPracticeRecord(gramsPreferences, gramsPreferences.durationSeconds * 1_000, true),
+                    timeline: result.timeline,
+                },
+            })
+        }
     }
 
+    const hasFocus = path === "keys" ? keysPreferences.keys.length > 0 : gramsPreferences.grams.length > 0
+
     return (
-        <div data-testid="custom-keys-workspace" className="h-full w-full overflow-y-auto bg-base-100 px-3 py-6 sm:px-6 md:py-10">
-            <Head><title>Custom Keys Practice | TypeCafe</title></Head>
+        <div data-testid="custom-practice-workspace" className="h-full w-full overflow-y-auto bg-base-100 px-3 py-6 sm:px-6 md:py-10">
+            <Head><title>Custom Practice | TypeCafe</title></Head>
             <div className="mx-auto flex w-full max-w-5xl flex-col gap-5">
                 <header className="flex flex-wrap items-end justify-between gap-3">
                     <div>
-                        <p className="font-mono text-xs uppercase tracking-[0.18em] text-primary">Practice · Custom Keys</p>
+                        <p className="font-mono text-xs uppercase tracking-[0.18em] text-primary">Practice · Custom {path === "keys" ? "Keys" : "Grams"}</p>
                         <h1 className="mt-1 text-2xl font-bold sm:text-3xl">Build speed where you choose.</h1>
                     </div>
                     {running && <button type="button" className="btn btn-sm btn-ghost" onClick={stop}>Stop run</button>}
                 </header>
 
                 <section aria-label="Practice controls" className="rounded-2xl border border-base-content/10 bg-base-200/45 p-3 sm:p-4">
+                    <div className="mb-4 join" role="group" aria-label="Custom practice type">
+                        <button type="button" disabled={running} aria-pressed={path === "keys"} onClick={() => selectPath("keys")} className={`btn btn-sm join-item ${path === "keys" ? "btn-primary" : "btn-ghost"}`}>Keys</button>
+                        <button type="button" disabled={running} aria-pressed={path === "grams"} onClick={() => selectPath("grams")} className={`btn btn-sm join-item ${path === "grams" ? "btn-primary" : "btn-ghost"}`}>Grams</button>
+                    </div>
                     <div className="grid gap-3 md:grid-cols-[1fr_auto_auto] md:items-end">
                         <div>
-                            <span className="text-xs font-semibold uppercase tracking-wide text-base-content/50">Keys</span>
-                            <div data-testid="selected-practice-keys" className="mt-2 flex min-h-8 flex-wrap gap-1.5">
-                                {preferences.keys.length > 0 ? preferences.keys.map((key) => (
-                                    <button key={key} type="button" disabled={running} onClick={() => setKeys(preferences.keys.filter((item) => item !== key))} className="kbd kbd-sm border-primary/35 bg-primary/10 font-mono text-primary" aria-label={`Remove ${key}`}>
-                                        {key}<span aria-hidden="true" className="ml-1 opacity-50">×</span>
-                                    </button>
-                                )) : <span className="text-sm text-warning">Choose at least one key below.</span>}
-                            </div>
+                            <span className="text-xs font-semibold uppercase tracking-wide text-base-content/50">{path === "keys" ? "Keys" : "Mixed Grams"}</span>
+                            {path === "keys" ? (
+                                <div data-testid="selected-practice-keys" className="mt-2 flex min-h-8 flex-wrap gap-1.5">
+                                    {keysPreferences.keys.length > 0 ? keysPreferences.keys.map((key) => (
+                                        <button key={key} type="button" disabled={running} onClick={() => setKeys(keysPreferences.keys.filter((item) => item !== key))} className="kbd kbd-sm border-primary/35 bg-primary/10 font-mono text-primary" aria-label={`Remove ${key}`}>
+                                            {key}<span aria-hidden="true" className="ml-1 opacity-50">×</span>
+                                        </button>
+                                    )) : <span className="text-sm text-warning">Choose at least one key below.</span>}
+                                </div>
+                            ) : (
+                                <div data-testid="selected-practice-grams" className="mt-2 flex min-h-8 flex-wrap gap-1.5">
+                                    {gramsPreferences.grams.length > 0 ? gramsPreferences.grams.map((gram) => (
+                                        <button key={gram} type="button" disabled={running} onClick={() => setGrams(gramsPreferences.grams.filter((item) => item !== gram))} className="btn btn-xs h-8 border-primary/35 bg-primary/10 font-mono text-primary hover:bg-primary/20" aria-label={`Remove ${gram}, ${[...gram].length}-Gram`}>
+                                            {gram}<span className="rounded bg-primary/15 px-1 text-[0.62rem]" aria-label={`${[...gram].length}-Gram`}>{[...gram].length}</span><span aria-hidden="true" className="opacity-50">×</span>
+                                        </button>
+                                    )) : <span className="text-sm text-warning">Add at least one Gram below.</span>}
+                                </div>
+                            )}
                         </div>
                         <fieldset disabled={running}>
                             <legend className="text-xs font-semibold uppercase tracking-wide text-base-content/50">Duration</legend>
                             <div className="mt-2 join" role="group" aria-label="Duration">
-                                {PRACTICE_DURATIONS_SECONDS.map((duration) => <button key={duration} type="button" onClick={() => update({ durationSeconds: duration as PracticeDurationSeconds })} className={`btn btn-xs join-item ${preferences.durationSeconds === duration ? "btn-primary" : "btn-ghost"}`}>{duration}s</button>)}
+                                {PRACTICE_DURATIONS_SECONDS.map((duration) => <button key={duration} type="button" onClick={() => updateActive({ durationSeconds: duration as PracticeDurationSeconds })} className={`btn btn-xs join-item ${activePreferences.durationSeconds === duration ? "btn-primary" : "btn-ghost"}`}>{duration}s</button>)}
                             </div>
                         </fieldset>
                         <fieldset disabled={running}>
                             <legend className="text-xs font-semibold uppercase tracking-wide text-base-content/50">Style</legend>
                             <div className="mt-2 join" role="group" aria-label="Text style">
-                                {PRACTICE_TEXT_STYLES.map((style) => <button key={style} type="button" onClick={() => update({ textStyle: style as PracticeTextStyle })} className={`btn btn-xs join-item capitalize ${preferences.textStyle === style ? "btn-primary" : "btn-ghost"}`}>{style}</button>)}
+                                {PRACTICE_TEXT_STYLES.map((style) => <button key={style} type="button" onClick={() => updateActive({ textStyle: style as PracticeTextStyle })} className={`btn btn-xs join-item capitalize ${activePreferences.textStyle === style ? "btn-primary" : "btn-ghost"}`}>{style}</button>)}
                             </div>
                         </fieldset>
                     </div>
                 </section>
 
                 <section aria-label="Practice run" className="flex min-h-[16rem] items-center rounded-2xl border border-base-content/10 bg-base-200/20 py-2">
-                    {completed && recap ? (
+                    {completed && (keyRecap || gramRecap) ? (
                         <div data-testid="practice-recap" className="w-full px-5 py-5 sm:px-8">
                             <p className="font-mono text-xs uppercase tracking-[0.16em] text-primary">Run complete</p>
                             <h2 className="mt-1 text-2xl font-bold">Your focus response</h2>
-                            {!recap.baselineReady && <p className="mt-2 text-sm text-base-content/60">Building your practice baseline.</p>}
+                            {!(keyRecap?.baselineReady || gramRecap?.baselineReady) && <p className="mt-2 text-sm text-base-content/60">Building your practice baseline.</p>}
                             <div className="mt-5 grid gap-2 sm:grid-cols-2">
-                                {recap.keys.map((row) => (
+                                {keyRecap?.keys.map((row) => (
                                     <article key={row.key} className="rounded-xl bg-base-200 p-3" data-testid={`practice-key-${row.key}`}>
-                                        <div className="flex items-center justify-between gap-3">
-                                            <kbd className="kbd font-mono text-primary">{row.key}</kbd>
-                                            <span className="font-mono text-xs text-base-content/55">{row.attempts} attempt{row.attempts === 1 ? "" : "s"}</span>
-                                        </div>
+                                        <div className="flex items-center justify-between gap-3"><kbd className="kbd font-mono text-primary">{row.key}</kbd><span className="font-mono text-xs text-base-content/55">{row.attempts} attempt{row.attempts === 1 ? "" : "s"}</span></div>
                                         <p className="mt-2 text-sm"><strong>{row.accuracy.toFixed(1)}%</strong> Accuracy{row.speedWpm !== null && <> · <strong>{Math.round(row.speedWpm)}</strong> response WPM</>}</p>
                                         {row.delta && <p className="mt-1 text-xs text-base-content/60">Practice delta: <span className={row.delta.accuracyPoints >= 0 ? "text-success" : "text-warning"}>{signed(row.delta.accuracyPoints)} Accuracy pts</span>{row.delta.speedWpm !== null && <> · <span className={row.delta.speedWpm >= 0 ? "text-success" : "text-warning"}>{signed(row.delta.speedWpm)} response WPM</span></>}</p>}
+                                    </article>
+                                ))}
+                                {gramRecap?.grams.map((row) => (
+                                    <article key={row.gram} className="rounded-xl bg-base-200 p-3" data-testid={`practice-gram-${row.gram}`}>
+                                        <div className="flex items-center justify-between gap-3"><span className="flex items-center gap-2 font-mono font-bold text-primary">{row.gram}<span className="rounded bg-primary/10 px-1 text-[0.62rem]">{[...row.gram].length}-Gram</span></span><span className="font-mono text-xs text-base-content/55">{row.attempts} attempt{row.attempts === 1 ? "" : "s"}</span></div>
+                                        <p className="mt-2 text-sm"><strong>{row.accuracy.toFixed(1)}%</strong> Accuracy{row.latencyMs !== null && <> · <strong>{Math.round(row.latencyMs)}ms</strong> arrival</>}{row.speedWpm !== null && <> · <strong>{Math.round(row.speedWpm)}</strong> response WPM</>}</p>
+                                        {row.delta && <p className="mt-1 text-xs text-base-content/60">Practice delta: <span className={row.delta.accuracyPoints >= 0 ? "text-success" : "text-warning"}>{signed(row.delta.accuracyPoints)} Accuracy pts</span>{row.delta.latencyMs !== null && <> · <span className={row.delta.latencyMs >= 0 ? "text-success" : "text-warning"}>{signed(row.delta.latencyMs)}ms faster</span></>}</p>}
                                     </article>
                                 ))}
                             </div>
@@ -206,19 +319,19 @@ const Practice: NextPage = () => {
                                 <button type="button" className="btn btn-sm btn-primary" onClick={repeat}>Repeat with fresh text</button>
                             </div>
                         </div>
-                    ) : prompt && preferences.keys.length > 0 ? (
+                    ) : prompt && hasFocus ? (
                         <Typer
                             language={language}
                             mode={TestModes.practice}
                             subMode={TestSubModes.timed}
-                            selectedKeys={preferences.keys}
+                            selectedKeys={focusCharacters}
                             gramSource={TestGramSources.bigrams}
                             gramScope={TestGramScopes.fifty}
                             gramCombination={1}
                             gramRepetition={1}
                             gramWpmThreshold={0}
                             gramAccuracyThreshold={0}
-                            count={preferences.durationSeconds}
+                            count={activePreferences.durationSeconds}
                             customLength
                             evidenceContext="custom-practice"
                             practiceRecord={baseRecord}
@@ -232,28 +345,51 @@ const Practice: NextPage = () => {
                             modalOpen={false}
                             charAttemptsRef={charAttemptsRef}
                         />
-                    ) : <p className="mx-auto text-sm text-base-content/55">Choose a key on the keyboard to prepare a run.</p>}
+                    ) : <p className="mx-auto text-sm text-base-content/55">{path === "keys" ? "Choose a key on the keyboard" : "Add a Gram"} to prepare a run.</p>}
                 </section>
 
-                <section aria-label="Focus key editor" className="rounded-2xl border border-base-content/10 bg-base-200/25 pb-2">
-                    <div className="px-4 pt-4">
-                        <h2 className="font-semibold">Focus key editor</h2>
-                        <p className="text-sm text-base-content/55">Selected keys get extra reps; supporting characters keep the text useful.</p>
-                    </div>
-                    <Keyboard
-                        mode={TestModes.practice}
-                        selectedKeys={preferences.keys}
-                        setSelectedKeys={setKeys}
-                        charAttemptsRef={charAttemptsRef}
-                        shiftToggle={shiftLayer}
-                        altgrToggle={altgrLayer}
-                        hasAltGr={hasAltGr}
-                        onToggleShift={() => setShiftLayer((value) => !value)}
-                        onToggleAltgr={() => setAltgrLayer((value) => !value)}
-                        punctuation
-                        numbers
-                    />
-                </section>
+                {path === "keys" ? (
+                    <section aria-label="Focus key editor" className="rounded-2xl border border-base-content/10 bg-base-200/25 pb-2">
+                        <div className="px-4 pt-4"><h2 className="font-semibold">Focus key editor</h2><p className="text-sm text-base-content/55">Selected keys get extra reps; supporting characters keep the text useful.</p></div>
+                        <Keyboard
+                            mode={TestModes.practice}
+                            selectedKeys={keysPreferences.keys}
+                            setSelectedKeys={setKeys}
+                            charAttemptsRef={charAttemptsRef}
+                            shiftToggle={shiftLayer}
+                            altgrToggle={altgrLayer}
+                            hasAltGr={hasAltGr}
+                            onToggleShift={() => setShiftLayer((value) => !value)}
+                            onToggleAltgr={() => setAltgrLayer((value) => !value)}
+                            punctuation
+                            numbers
+                        />
+                    </section>
+                ) : (
+                    <section aria-label="Gram editor" className="rounded-2xl border border-base-content/10 bg-base-200/25 p-4">
+                        <div className="grid gap-5 md:grid-cols-[minmax(15rem,0.8fr)_1.2fr]">
+                            <div>
+                                <h2 className="font-semibold">Add a Custom Gram</h2>
+                                <p className="mt-1 text-sm text-base-content/55">Mix any 2-, 3-, or 4-character Grams in the same run.</p>
+                                <form className="mt-3 flex gap-2" onSubmit={(event) => { event.preventDefault(); addGram(gramEntry) }}>
+                                    <input data-testid="custom-gram-input" disabled={running} value={gramEntry} onChange={(event) => { setGramEntry(event.target.value); setGramEntryError(null) }} className="input input-bordered input-sm min-w-0 flex-1 font-mono" aria-label="Custom Gram" placeholder="e.g. ing" autoComplete="off" />
+                                    <button type="submit" disabled={running} className="btn btn-sm btn-primary">Add</button>
+                                </form>
+                                {gramEntryError && <p role="alert" className="mt-2 text-xs text-warning">{gramEntryError}</p>}
+                            </div>
+                            <div>
+                                <h2 className="font-semibold">Common in {languageMeta(language).label}</h2>
+                                <p className="mt-1 text-sm text-base-content/55">Frequency-ranked Custom material—not a measured Weakness.</p>
+                                <div data-testid="common-language-grams" className="mt-3 flex flex-wrap gap-1.5">
+                                    {commonGrams.map(({ gram, length }) => {
+                                        const selected = gramsPreferences.grams.includes(gram)
+                                        return <button key={gram} type="button" disabled={running} aria-pressed={selected} onClick={() => selected ? setGrams(gramsPreferences.grams.filter((item) => item !== gram)) : setGrams([...gramsPreferences.grams, gram])} className={`btn btn-xs h-8 font-mono ${selected ? "btn-primary" : "btn-ghost border-base-content/15"}`}>{gram}<span className="rounded bg-base-content/10 px-1 text-[0.62rem]" aria-label={`${length}-Gram`}>{length}</span></button>
+                                    })}
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                )}
             </div>
         </div>
     )
