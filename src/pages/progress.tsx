@@ -38,6 +38,7 @@ import { api } from "~/utils/api";
 import { openSignInModal } from "~/lib/modals";
 import { useCoachingEvidence } from "~/hooks/useCoachingEvidence";
 import { projectProgressCoach, type ProgressCoachProjection } from "~/lib/progressCoach";
+import { projectNaturalKeyboardEvidence } from "~/lib/skillEvidence";
 
 function periodLabel(period: ProgressPeriod): string {
     return period === "all" ? "All" : `${period}d`;
@@ -492,11 +493,11 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
 
                     <div data-testid="lifetime-keyboard-card" className="order-4 rounded-lg border border-base-content/10 bg-base-100/45 p-3">
                         <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                            {/* "Your keyboard", not "Lifetime": per-key accuracy is a rolling
-                                window of recent attempts (ADR-0005), not an all-time sum. */}
+                            {/* Progress proof is derived from the bounded natural-Test Timeline
+                                window; Practice aggregates remain available on Practice itself. */}
                             <div className="flex items-center gap-1.5">
                                 <div className="text-base font-semibold text-base-content">Your keyboard</div>
-                                <Tooltip content="Colors show your rolling accuracy from recent attempts. Hover any key to compare its Base, Shift, and AltGr layers.">
+                                <Tooltip content="Colors show accuracy from recent natural Tests. Hover any key to compare its Base, Shift, and AltGr layers.">
                                     <Link
                                         href="/how-we-measure"
                                         aria-label="How keyboard accuracy is calculated"
@@ -560,6 +561,10 @@ const Progress: NextPage = () => {
         () => coaching.analysis ? projectProgressCoach(coaching.analysis) : null,
         [coaching.analysis],
     );
+    const naturalKeyboard = useMemo(
+        () => projectNaturalKeyboardEvidence(coaching.evidence?.timelines ?? []),
+        [coaching.evidence?.timelines],
+    );
     const recordsQuery = api.test.getProgressRecords.useQuery(undefined, {
         enabled: !!sessionData?.user,
     });
@@ -589,19 +594,6 @@ const Progress: NextPage = () => {
         [rawRecords, rollupsQuery.data, language, pool],
     );
 
-    // Lifetime per-key accuracy for the heatmap: DB practice stats when signed
-    // in, the localStorage key-stat mirror for guests (useGuestEvidence follows
-    // the pool itself). Both read the active layout's stats pool (decision 6).
-    const practiceStatsQuery = api.practiceStats.get.useQuery({ pool }, { enabled: !!sessionData?.user });
-    const dbKeyAttempts = useMemo(() => {
-        const out: Record<string, KeyAttempt> = {};
-        for (const stat of practiceStatsQuery.data ?? []) out[stat.character] = { attempts: stat.total, correct: stat.correct };
-        return out;
-    }, [practiceStatsQuery.data]);
-
-    const transitionsQuery = api.transitionStats.get.useQuery({ pool }, { enabled: !!sessionData?.user });
-    const dbTransitions: TransitionAggregate[] = transitionsQuery.data ?? [];
-
     // Guest evidence lives in localStorage (read client-side after mount to avoid
     // an SSR mismatch). A guest with history gets the real dashboard + a keep-it
     // banner; a guest with none gets the signup pitch.
@@ -613,12 +605,6 @@ const Progress: NextPage = () => {
         ), pool),
         [guest, language, pool],
     );
-    const guestKeyAttempts = useMemo(() => {
-        const attempts: Record<string, KeyAttempt> = {};
-        for (const stat of guest?.keyStats ?? []) attempts[stat.key] = { attempts: stat.attempts, correct: stat.correct };
-        return attempts;
-    }, [guest]);
-    const guestTransitions: TransitionAggregate[] = guest?.transitions ?? [];
     // Dashboard-vs-signup-pitch keys off having ANY progress, not the language-
     // filtered slice - otherwise a guest with English history sees the signup pitch
     // the moment they switch to a language they haven't typed.
@@ -642,7 +628,7 @@ const Progress: NextPage = () => {
                                     Sign in to keep it forever
                                 </button>
                             </div>
-                            <ProgressDashboard language={language} records={guestRecords} keyAttempts={guestKeyAttempts} transitions={guestTransitions} coach={coachProjection} coachLoading={coaching.loading} />
+                            <ProgressDashboard language={language} records={guestRecords} keyAttempts={naturalKeyboard.attempts} transitions={naturalKeyboard.transitions} coach={coachProjection} coachLoading={coaching.loading} />
                         </div>
                     ) : (
                         // No local history yet - the page is the signup pitch.
@@ -662,7 +648,7 @@ const Progress: NextPage = () => {
                         </div>
                     )
                 ) : (
-                    <ProgressDashboard language={language} records={records} keyAttempts={dbKeyAttempts} transitions={dbTransitions} coach={coachProjection} coachLoading={coaching.loading} canShare username={sessionData.user.username ?? sessionData.user.name} />
+                    <ProgressDashboard language={language} records={records} keyAttempts={naturalKeyboard.attempts} transitions={naturalKeyboard.transitions} coach={coachProjection} coachLoading={coaching.loading} canShare username={sessionData.user.username ?? sessionData.user.name} />
                 )}
             </div>
         </>

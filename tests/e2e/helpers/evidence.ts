@@ -53,6 +53,7 @@ export function brDrillTimeline(testId: number): TimelineEvidence {
     t += 100;
     events.push({ key: " ", typed: " ", correct: true, t });
   }
+  const target = { kind: "transition", pair: "br", metric: "latency" } as const;
   return {
     // A minute ahead of the natural fixtures: building several fixtures takes
     // real milliseconds, so `Date.now() + testId` alone can race the ordering.
@@ -61,7 +62,7 @@ export function brDrillTimeline(testId: number): TimelineEvidence {
     mode: 0,
     subMode: 1,
     count: 10,
-    options: drillTargetToken({ kind: "transition", pair: "br", metric: "latency" }),
+    options: drillTargetToken(target),
     punctuation: false,
     capitals: false,
     numbers: false,
@@ -69,6 +70,16 @@ export function brDrillTimeline(testId: number): TimelineEvidence {
     pool: "qwerty",
     language: "english",
     timeline: encodeTimeline(events),
+    practice: {
+      v: 1,
+      kind: "guided",
+      target,
+      focus: { kind: "grams", items: ["br"] },
+      textStyle: "varied",
+      durationSeconds: 60,
+      elapsedActivityMs: 60_000,
+      completed: true,
+    },
   };
 }
 

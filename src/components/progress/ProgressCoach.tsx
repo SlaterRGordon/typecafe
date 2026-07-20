@@ -48,7 +48,7 @@ function trendTone(target: ProgressCoachTarget): string {
 }
 
 function rowStatus(target: ProgressCoachTarget): { label: string, className: string } | null {
-    if (target.awaitingMeasurement) return { label: "drilled · unmeasured", className: "text-info" }
+    if (target.awaitingMeasurement) return { label: "practised · awaiting Test", className: "text-info" }
     if (target.state === "transferred" || target.state === "retained") {
         return { label: "improved", className: "text-success" }
     }
@@ -175,16 +175,27 @@ function ProofLine({ target }: { target: ProgressCoachTarget }) {
 }
 
 function PracticeLine({ target }: { target: ProgressCoachTarget }) {
-    if (!target.practice) return <p className="mt-2 text-xs text-base-content/45">No drills for this Target yet.</p>
-    const drills = target.practice.completedDrills
+    const practice = target.practice
+    const focusedTime = practice ? (() => {
+        const seconds = Math.round(practice.focusedTimeMs / 1_000)
+        if (seconds < 60) return `${seconds}s`
+        const minutes = Math.floor(seconds / 60)
+        return seconds % 60 === 0 ? `${minutes}m` : `${minutes}m ${seconds % 60}s`
+    })() : "0s"
     return (
-        <p data-testid="target-practice-summary" className="mt-2 text-xs text-base-content/55">
-            <span className="font-semibold text-base-content/75">Practice:</span>{" "}
-            {drills} {drills === 1 ? "drill" : "drills"} completed
-            {target.practice.sampleCount > 0 ? ` · ${target.practice.sampleCount} target attempts` : ""}
-            {target.practice.value ? <> · <span className="font-mono font-semibold text-base-content/80">{target.practice.value}</span> in drills</> : null}
-            {target.awaitingMeasurement ? <> · <span className="font-semibold text-info">awaiting a Test</span></> : null}
-        </p>
+        <div data-testid="target-practice-summary" className="mt-2 rounded-md border border-base-content/10 bg-base-200/30 px-2.5 py-2 text-xs text-base-content/55">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                <span className="font-semibold text-base-content/80">Practice track</span>
+                <span>activity and Practice-context comparison</span>
+                {target.awaitingMeasurement ? <span className="font-semibold text-info">practised · awaiting Test</span> : null}
+            </div>
+            <dl className="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-1 sm:grid-cols-4">
+                <div><dt className="text-base-content/40">Focused time</dt><dd className="font-mono font-semibold text-base-content/80">{focusedTime}</dd></div>
+                <div><dt className="text-base-content/40">Completed runs</dt><dd className="font-mono font-semibold text-base-content/80">{practice?.completedRuns ?? 0}</dd></div>
+                <div><dt className="text-base-content/40">Target attempts</dt><dd className="font-mono font-semibold text-base-content/80">{practice?.sampleCount ?? 0}</dd></div>
+                <div><dt className="text-base-content/40">Practice-context performance</dt><dd className="font-mono font-semibold text-base-content/80">{practice?.value ?? "—"}</dd></div>
+            </dl>
+        </div>
     )
 }
 

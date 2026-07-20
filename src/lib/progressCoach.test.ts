@@ -65,7 +65,7 @@ describe("projectProgressCoach", () => {
         expect(result.targets[0]!.stages.map((stage) => stage.label)).toEqual(["Earlier", "Recent"])
         expect(result.targets[0]!.stages.map((stage) => stage.value)).toEqual(["520 ms", "460 ms"])
         expect(result.targets[0]!.trend).toEqual({ label: "60 ms", arrow: "down", outcome: "good" })
-        expect(result.targets[0]!.practice).toEqual({ completedDrills: 4, sampleCount: 24, value: "440 ms" })
+        expect(result.targets[0]!.practice).toEqual({ focusedTimeMs: 0, completedRuns: 4, sampleCount: 24, value: "440 ms" })
     })
 
     it("shows no evidence stages for a coached Target without recent natural occurrences", () => {
@@ -99,8 +99,19 @@ describe("projectProgressCoach", () => {
         // A perfect drill shows in the practice line only; the ability stage and
         // trend stay natural-typing-only.
         expect(row.stages).toEqual([{ key: "recent", label: "Recent", value: "92.0%", numericValue: 92, sampleCount: 20 }])
-        expect(row.practice).toEqual({ completedDrills: 2, sampleCount: 18, value: "100.0%" })
+        expect(row.practice).toEqual({ focusedTimeMs: 0, completedRuns: 2, sampleCount: 18, value: "100.0%" })
         expect(row.trend).toBeNull()
+    })
+
+    it("projects the selected Target's complete separate Practice track", () => {
+        const practiced = candidate({ kind: "transition", pair: "br", metric: "latency" })
+        practiced.practice = { focusedTimeMs: 132_000, completedRuns: 2, sampleCount: 18, value: 80 }
+
+        const row = projectProgressCoach(analysis([], [practiced])).targets[0]!
+
+        expect(row.practice).toEqual({ focusedTimeMs: 132_000, completedRuns: 2, sampleCount: 18, value: "80 ms" })
+        expect(row.stages).toEqual([{ key: "recent", label: "Recent", value: "140 ms", numericValue: 140, sampleCount: 20 }])
+        expect(row.impactMsPer1000).toBe(1_400)
     })
 
     it("derives every trend from the chronological natural split", () => {
@@ -148,8 +159,8 @@ describe("projectProgressCoach", () => {
         const row = projectProgressCoach(analysis([], [drilled])).targets[0]!
 
         expect(row.awaitingMeasurement).toBe(true)
-        expect(row.action).toEqual({ href: "/?mode=timed&count=30", label: "Take a Test to measure" })
-        expect(row.secondaryAction).toMatchObject({ label: "Practice this transition" })
+        expect(row.action).toEqual({ href: "/?mode=timed&count=30", label: "Take a Test" })
+        expect(row.secondaryAction).toMatchObject({ label: "Practise again" })
         expect(row.secondaryAction!.href).toContain("/practice?target=transition")
     })
 
@@ -282,7 +293,7 @@ describe("projectProgressCoach", () => {
         expect(row.stages.map((stage) => `${stage.label} ${stage.value}`)).toEqual([
             "Earlier 88.0%", "Recent 96.0%",
         ])
-        expect(row.practice).toEqual({ completedDrills: 2, sampleCount: 12, value: "94.0%" })
+        expect(row.practice).toEqual({ focusedTimeMs: 0, completedRuns: 2, sampleCount: 12, value: "94.0%" })
         expect(row.trend).toEqual({ label: "8.0 %", arrow: "up", outcome: "good" })
     })
 

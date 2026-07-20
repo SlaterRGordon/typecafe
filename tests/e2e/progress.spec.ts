@@ -3,6 +3,7 @@ import { mockAuthenticatedSession, mockTrpc } from "./helpers/trpc";
 import { completedKeyAccuracySession, progressCoachingHistory } from "./helpers/coachingFixtures";
 import { brDrillTimeline, crowdedAccuracyTimeline, impactTimeline } from "./helpers/evidence";
 import { DAILY_COACHING_STORAGE_KEY, GUEST_DAILY_SCOPE } from "../../src/lib/dailyCoaching";
+import { typeCurrentCharacter } from "./helpers/typing";
 
 async function gotoProgress(page: Page) {
   await page.goto("/progress");
@@ -211,7 +212,7 @@ test.describe("progress dashboard", () => {
       await expect(coach.getByRole("link", { name: "Practice this pattern" }).first()).toHaveAttribute("href", /\/practice\?target=gram.*evidence=/);
       await expect(coach).toContainText("No recent natural evidence for this Target.");
       await expect(coach).not.toContainText("Baseline");
-      await expect(coach.getByTestId("coach-detail").getByTestId("target-practice-summary")).toContainText("drills completed");
+      await expect(coach.getByTestId("coach-detail").getByTestId("target-practice-summary")).toContainText("Completed runs");
     } else {
       await expect(page.getByTestId("coach-inline-detail")).toContainText("Recent 140 ms");
       await expect(page.getByTestId("coach-inline-detail").getByRole("link", { name: "Practice this transition" })).toBeVisible();
@@ -230,11 +231,13 @@ test.describe("progress dashboard", () => {
     // and its tooltip states the avg latency alongside accuracy.
     await expect(rKey.locator("[data-kb-speed]")).toHaveCount(1);
     await rKey.hover();
-    await expect(page.getByRole("tooltip")).toContainText("Base r: 80% accuracy");
+    // The drill-inclusive practiceStats mock is 80%; Progress keyboard proof
+    // must instead reflect the context-tagged natural Timelines (100%).
+    await expect(page.getByRole("tooltip")).toContainText("Base r: 100% accuracy");
     await expect(page.getByRole("tooltip")).toContainText("Speed:");
     const keyboardHelp = page.getByRole("link", { name: "How keyboard accuracy is calculated" });
     await keyboardHelp.hover();
-    await expect(page.getByRole("tooltip")).toContainText("rolling accuracy from recent attempts");
+    await expect(page.getByRole("tooltip")).toContainText("accuracy from recent natural Tests");
     // The heatmap flips layers: shift renders each cell's shifted twin with its
     // own tally (1 → !), and flipping back restores the base glyphs.
     const heatmap = page.getByTestId("lifetime-heatmap");
@@ -398,23 +401,58 @@ test.describe("progress dashboard", () => {
     await gotoProgress(page);
 
     const coach = page.getByTestId("progress-coach");
-    await expect(coach).toContainText("drilled · unmeasured");
+    await expect(coach).toContainText("practised · awaiting Test");
     const brRow = coach.getByRole("button", { name: /b→r/ });
     if ((page.viewportSize()?.width ?? 0) >= 1024) {
       const detail = coach.getByTestId("coach-detail");
-      await expect(detail.getByRole("link", { name: "Take a Test to measure" })).toHaveAttribute("href", "/?mode=timed&count=30");
-      await expect(detail.getByRole("link", { name: "Practice this transition" })).toHaveAttribute("href", /\/practice\?target=transition.*evidence=/);
-      await expect(detail.getByTestId("target-practice-summary")).toContainText("1 drill completed");
-      await expect(detail.getByTestId("target-practice-summary")).toContainText("awaiting a Test");
+      await expect(detail.getByRole("link", { name: "Take a Test" })).toHaveAttribute("href", "/?mode=timed&count=30");
+      await expect(detail.getByRole("link", { name: "Practise again" })).toHaveAttribute("href", /\/practice\?target=transition.*evidence=/);
+      await expect(detail.getByTestId("target-practice-summary")).toContainText("Practice track");
+      await expect(detail.getByTestId("target-practice-summary")).toContainText("Focused time1m");
+      await expect(detail.getByTestId("target-practice-summary")).toContainText("Completed runs1");
+      await expect(detail.getByTestId("target-practice-summary")).toContainText("Target attempts10");
+      await expect(detail.getByTestId("target-practice-summary")).toContainText("Practice-context performance90 ms");
+      await expect(detail.getByTestId("target-practice-summary")).toContainText("practised · awaiting Test");
+      await expect(detail.getByTestId("target-practice-summary")).not.toContainText(/improved|fixed/i);
       await brRow.hover();
-      await expect(brRow.locator("../..").getByRole("link", { name: "Take a Test to measure" })).toBeVisible();
+      await expect(brRow.locator("../..").getByRole("link", { name: "Take a Test" })).toBeVisible();
     } else {
       await brRow.click();
       const inline = page.getByTestId("coach-inline-detail");
-      await expect(inline.getByRole("link", { name: "Take a Test to measure" })).toHaveAttribute("href", "/?mode=timed&count=30");
-      await expect(inline.getByRole("link", { name: "Practice this transition" })).toBeVisible();
-      await expect(inline.getByTestId("target-practice-summary")).toContainText("awaiting a Test");
+      await expect(inline.getByRole("link", { name: "Take a Test" })).toHaveAttribute("href", "/?mode=timed&count=30");
+      await expect(inline.getByRole("link", { name: "Practise again" })).toBeVisible();
+      await expect(inline.getByTestId("target-practice-summary")).toContainText("Practice track");
+      await expect(inline.getByTestId("target-practice-summary")).toContainText("practised · awaiting Test");
     }
+  });
+
+  test("keeps the Target loop intact from Progress through Practice to the ordinary Home Test", async ({ page }) => {
+    await page.clock.install();
+    await mockAuthenticatedSession(page);
+    await mockTrpc(page, {
+      timelineEvidence: [brDrillTimeline(3), impactTimeline(1), impactTimeline(2)],
+    });
+    await gotoProgress(page);
+
+    const coach = page.getByTestId("progress-coach");
+    if ((page.viewportSize()?.width ?? 0) < 1024) await coach.getByRole("button", { name: /b→r/ }).click();
+    await coach.getByRole("link", { name: "Practise again" }).click();
+    await expect(page).toHaveURL(/\/practice\?target=transition/);
+    await expect(page.getByTestId("custom-practice-workspace")).toHaveAttribute("data-practice-kind", "guided");
+    await page.getByRole("region", { name: "Practice controls" }).getByRole("button", { name: "30s" }).click();
+    for (let index = 0; index < 8; index += 1) {
+      await typeCurrentCharacter(page, index);
+      await page.clock.runFor(30);
+    }
+    await page.clock.runFor(30_000);
+
+    const recap = page.getByTestId("practice-recap");
+    await expect(recap).toContainText("Guided Drill complete");
+    await recap.getByRole("link", { name: "Take a Test" }).click();
+    await expect(page).toHaveURL(/\/$/);
+    await expect(page.locator("#c0")).toHaveClass(/active-char/, { timeout: 20_000 });
+    await expect(page.getByTestId("score-card")).toHaveCount(0);
+    await expect(page.getByText(/awaiting Test/i)).toHaveCount(0);
   });
 
   test("keeps a completed Target visible while bounded history catches up", async ({ page }) => {
@@ -436,7 +474,7 @@ test.describe("progress dashboard", () => {
     const detail = (page.viewportSize()?.width ?? 0) >= 1024
       ? page.getByTestId("coach-detail")
       : page.getByTestId("coach-inline-detail");
-    await expect(detail.getByTestId("target-practice-summary")).toContainText("100.0% in drills");
+    await expect(detail.getByTestId("target-practice-summary")).toContainText("Practice-context performance100.0%");
     await expect(coach).not.toContainText("Map your typing to find a stable Target");
     await expect(coach).toContainText("ranked by estimated worth");
     await expect(coach).toContainText(/~\d+\.\d+s \/ 1k chars/);

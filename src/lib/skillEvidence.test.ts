@@ -3,7 +3,7 @@ import { drillTargetToken } from "./coachingTarget"
 import type { EvidenceContext } from "./evidenceContext"
 import type { TimelineEvidence } from "./evidenceNormalization"
 import { encodeTimeline, type TestEvidenceEvent } from "./keystrokes"
-import { analyzeTypingEvidence, currentTimelineSupportsHigherOrderCandidate } from "./skillEvidence"
+import { analyzeTypingEvidence, currentTimelineSupportsHigherOrderCandidate, projectNaturalKeyboardEvidence } from "./skillEvidence"
 
 type PairSpec = { pair: string, gap: number, repeats: number, incorrectEvery?: number }
 type WordSpec = { word: string, gaps: number[], repeats?: number }
@@ -49,6 +49,30 @@ function baseline(repeats = 80): PairSpec[] {
         gap,
         repeats: Math.floor(repeats / gaps.length) + (index < repeats % gaps.length ? 1 : 0),
     }))
+}
+
+const brTarget = { kind: "transition", pair: "br", metric: "latency" } as const
+
+function guidedPairTimeline(testId: number, specs: PairSpec[], input: {
+    target?: typeof brTarget
+    completed?: boolean
+    elapsedActivityMs?: number
+} = {}): TimelineEvidence {
+    const target = input.target ?? brTarget
+    return {
+        ...pairTimeline(testId, specs, "acquisition"),
+        options: drillTargetToken(target),
+        practice: {
+            v: 1,
+            kind: "guided",
+            target,
+            focus: { kind: "grams", items: [target.pair] },
+            textStyle: "varied",
+            durationSeconds: 60,
+            elapsedActivityMs: input.elapsedActivityMs ?? (input.completed === false ? 15_000 : 60_000),
+            completed: input.completed ?? true,
+        },
+    }
 }
 
 function wordTimeline(testId: number, specs: WordSpec[]): TimelineEvidence {
@@ -170,7 +194,7 @@ describe("analyzeTypingEvidence", () => {
         const analysis = analyzeTypingEvidence({ timelines: [...natural, ...acquisition] })
 
         expect(analysis.candidates.some((candidate) => candidate.id.includes(":br"))).toBe(false)
-        expect(analysis.quality.acquisitionTimelines).toBe(2)
+        expect(analysis.quality.acquisitionTimelines).toBe(0)
     })
 
     it("keeps acquisition response separate from the natural baseline", () => {
@@ -178,10 +202,7 @@ describe("analyzeTypingEvidence", () => {
             ...baseline(40),
             { pair: "br", gap: 160, repeats: 4 },
         ]))
-        const acquisition = {
-            ...pairTimeline(3, [{ pair: "br", gap: 90, repeats: 8 }], "acquisition"),
-            options: drillTargetToken({ kind: "transition", pair: "br", metric: "latency" }),
-        }
+        const acquisition = guidedPairTimeline(3, [{ pair: "br", gap: 90, repeats: 8 }])
 
         const candidate = analyzeTypingEvidence({ timelines: [...natural, acquisition] })
             .candidates.find((item) => item.id === "transition:latency:br")
@@ -217,19 +238,18 @@ describe("analyzeTypingEvidence", () => {
 
     it("flags a drilled Target as awaiting measurement until a newer Test contains it", () => {
         const natural = [1, 2].map((testId) => pairTimeline(testId, [...baseline(40), { pair: "br", gap: 160, repeats: 4 }]))
-        const drill = {
-            ...pairTimeline(3, [{ pair: "br", gap: 90, repeats: 8 }], "acquisition"),
-            options: drillTargetToken({ kind: "transition", pair: "br", metric: "latency" }),
-        }
+        const drill = guidedPairTimeline(3, [{ pair: "br", gap: 90, repeats: 8 }])
         const testWithoutTarget = pairTimeline(4, baseline(40))
-        const testWithTarget = pairTimeline(5, [...baseline(40), { pair: "br", gap: 150, repeats: 4 }])
+        const thinTestWithTarget = pairTimeline(5, [...baseline(40), { pair: "br", gap: 150, repeats: 4 }])
+        const enoughTestWithTarget = pairTimeline(6, [...baseline(40), { pair: "br", gap: 150, repeats: 8 }])
         const find = (timelines: TimelineEvidence[]) => analyzeTypingEvidence({ timelines })
             .candidates.find((item) => item.id === "transition:latency:br")
 
         expect(find([...natural, drill])?.awaitingMeasurement).toBe(true)
         // A newer Test that never contained the Target does not count as measured.
         expect(find([...natural, drill, testWithoutTarget])?.awaitingMeasurement).toBe(true)
-        expect(find([...natural, drill, testWithoutTarget, testWithTarget])?.awaitingMeasurement).toBeUndefined()
+        expect(find([...natural, drill, testWithoutTarget, thinTestWithTarget])?.awaitingMeasurement).toBe(true)
+        expect(find([...natural, drill, testWithoutTarget, enoughTestWithTarget])?.awaitingMeasurement).toBeUndefined()
     })
 
     it("keeps Custom and interrupted Practice out of the natural Target story", () => {
@@ -267,10 +287,80 @@ describe("analyzeTypingEvidence", () => {
         const withPractice = analyzeTypingEvidence({ timelines: [...natural, custom, interrupted] })
         const naturalOnly = analyzeTypingEvidence({ timelines: natural })
 
-        expect(withPractice.candidates).toEqual(naturalOnly.candidates)
+        expect(withPractice.candidates.map(({ practice: _practice, ...candidate }) => candidate)).toEqual(naturalOnly.candidates)
+        expect(withPractice.candidates[0]?.practice).toEqual({ focusedTimeMs: 75_000, completedRuns: 1, sampleCount: 20, value: 70 })
         expect(withPractice.mastery).toEqual(naturalOnly.mastery)
         expect(withPractice.evidenceWindow).toEqual(naturalOnly.evidenceWindow)
         expect(withPractice.quality.acquisitionTimelines).toBe(0)
+    })
+
+    it("projects activity separately while only an exact completed Guided run opens awaiting", () => {
+        const natural = [1, 2].map((testId) => pairTimeline(testId, [
+            ...baseline(40),
+            { pair: "br", gap: 160, repeats: 8 },
+        ]))
+        const incomplete = guidedPairTimeline(3, [{ pair: "br", gap: 70, repeats: 12 }], { completed: false, elapsedActivityMs: 12_000 })
+        const mismatched = {
+            ...guidedPairTimeline(4, [{ pair: "br", gap: 60, repeats: 12 }]),
+            options: drillTargetToken({ kind: "transition", pair: "io", metric: "latency" }),
+        }
+        const custom = {
+            ...pairTimeline(5, [{ pair: "br", gap: 80, repeats: 10 }], "custom-practice"),
+            practice: {
+                v: 1 as const,
+                kind: "custom" as const,
+                focus: { kind: "grams" as const, items: ["br"] },
+                textStyle: "varied" as const,
+                durationSeconds: 60 as const,
+                elapsedActivityMs: 60_000,
+                completed: true,
+            },
+        }
+        const beforeGuided = analyzeTypingEvidence({ timelines: [...natural, incomplete, mismatched, custom] })
+        const before = beforeGuided.candidates.find((item) => item.id === "transition:latency:br")!
+
+        expect(before.awaitingMeasurement).toBeUndefined()
+        expect(before.practice).toEqual({ focusedTimeMs: 72_000, completedRuns: 1, sampleCount: 10, value: 80 })
+        expect(before.response).toBeUndefined()
+
+        const exact = guidedPairTimeline(6, [{ pair: "br", gap: 90, repeats: 8 }])
+        const afterGuided = analyzeTypingEvidence({ timelines: [...natural, incomplete, mismatched, custom, exact] })
+        const after = afterGuided.candidates.find((item) => item.id === "transition:latency:br")!
+        expect(after.awaitingMeasurement).toBe(true)
+        expect(after.practice).toEqual({ focusedTimeMs: 132_000, completedRuns: 2, sampleCount: 18, value: 80 })
+        expect(after.response).toEqual({ context: "acquisition", value: 90, sampleCount: 8, runCount: 1 })
+
+        // Practice activity cannot move ability, worth order, Mastery, or the
+        // discovery window; only the separate Practice projection changes.
+        const stripPractice = (analysis: ReturnType<typeof analyzeTypingEvidence>) => analysis.candidates.map(({
+            practice: _practice,
+            response: _response,
+            awaitingMeasurement: _awaitingMeasurement,
+            ...candidate
+        }) => candidate)
+        expect(stripPractice(afterGuided)).toEqual(stripPractice(analyzeTypingEvidence({ timelines: natural })))
+        expect(afterGuided.mastery).toEqual(beforeGuided.mastery)
+        expect(afterGuided.evidenceWindow).toEqual(beforeGuided.evidenceWindow)
+    })
+
+    it("builds Progress keyboard proof only from context-tagged natural Timelines", () => {
+        const natural = pairTimeline(1, [{ pair: "br", gap: 160, repeats: 2 }])
+        const guided = guidedPairTimeline(2, [{ pair: "br", gap: 40, repeats: 20 }])
+        const custom = {
+            ...pairTimeline(3, [{ pair: "br", gap: 30, repeats: 30 }], "custom-practice"),
+            practice: {
+                v: 1 as const, kind: "custom" as const,
+                focus: { kind: "grams" as const, items: ["br"] },
+                textStyle: "varied" as const, durationSeconds: 60 as const,
+                elapsedActivityMs: 60_000, completed: true,
+            },
+        }
+
+        const proof = projectNaturalKeyboardEvidence([natural, guided, custom])
+
+        expect(proof.attempts.b).toEqual({ attempts: 2, correct: 2 })
+        expect(proof.attempts.r).toEqual({ attempts: 2, correct: 2 })
+        expect(proof.transitions.find((item) => item.pair === "br")).toMatchObject({ count: 2, totalMs: 320 })
     })
 
     it("reports the discovery evidence window span", () => {
@@ -299,10 +389,7 @@ describe("analyzeTypingEvidence", () => {
             ...pairTimeline(4, [{ pair: "br", gap: 90, repeats: 8 }], "acquisition"),
             options: drillTargetToken({ kind: "key", keys: ["q"], metric: "accuracy" }),
         }
-        const forBr = {
-            ...pairTimeline(5, [{ pair: "br", gap: 85, repeats: 6 }], "acquisition"),
-            options: drillTargetToken({ kind: "transition", pair: "br", metric: "latency" }),
-        }
+        const forBr = guidedPairTimeline(5, [{ pair: "br", gap: 85, repeats: 6 }])
 
         const candidate = analyzeTypingEvidence({ timelines: [...natural, untagged, otherTarget, forBr] })
             .candidates.find((item) => item.id === "transition:latency:br")

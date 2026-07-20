@@ -1144,7 +1144,7 @@ legacy configuration mechanics merely because the current UI exposes them.
 - [x] Keep the recommendation on a completed Target as `practised · awaiting
       Test`, with measurement primary, until a later ordinary Test contains the
       Target; Custom Practice neither advances nor blocks this queue.
-- [ ] Show Practice activity/response only in the selected Progress Target's
+- [x] Show Practice activity/response only in the selected Progress Target's
       separate evidence track. Do not add it to overall charts or natural Target
       ranking.
 - [x] Route `Take a Test` to the existing unchanged Home Test. Leave the

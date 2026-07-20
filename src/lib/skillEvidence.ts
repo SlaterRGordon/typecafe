@@ -3,14 +3,16 @@
 // React owns prose; this module returns stable reason codes and measured data.
 
 import { correctionEpisodes } from "./corrections"
-import { discoversWeakness, type EvidenceContext } from "./evidenceContext"
+import { discoversWeakness, practiceRecordMatchesEvidence, type EvidenceContext, type PracticeRecord } from "./evidenceContext"
 import type { TimelineEvidence } from "./evidenceNormalization"
+import { attemptsFromEvents, type KeyAttempt } from "./heatmap"
 import { isTrackableTransitionPair } from "./drillableTransitions"
-import { decodeEvidenceTimeline, timelineDurationMs, type KeystrokeEvent, type TestEvidenceEvent } from "./keystrokes"
+import { decodeEvidenceTimeline, decodeTimeline, timelineDurationMs, type KeystrokeEvent, type TestEvidenceEvent } from "./keystrokes"
 import { classifyMovement, type MovementKind } from "./movementClassification"
 import { evaluateTestEvidence } from "./testEvidence"
 import { parseDrillTargetToken, sameCoachingTarget, type CoachingTarget } from "./coachingTarget"
 import type { DailyCoachingSession, FrozenRecommendation } from "./dailyCoaching"
+import { aggregateTransitions, mergeTransitions, type TransitionAggregate } from "./transitions"
 export type { CoachingTarget } from "./coachingTarget"
 
 export const SKILL_EVIDENCE_THRESHOLDS = {
@@ -84,6 +86,14 @@ export interface AcquisitionResponse {
     runCount: number
 }
 
+/** Activity and performance measured only inside versioned Practice records. */
+export interface PracticeActivity {
+    focusedTimeMs: number
+    completedRuns: number
+    sampleCount: number
+    value?: number
+}
+
 /**
  * A Target's ability measured from natural/diagnostic evidence only. The split
  * compares everything before the newest abilityRecentTestWindow Tests that
@@ -113,6 +123,7 @@ export interface SkillCandidate {
     impactMsPer1000: number
     reason: SkillReason
     response?: AcquisitionResponse
+    practice?: PracticeActivity
     ability?: NaturalAbility
     /** Newest drill for this Target is newer than its last natural evidence. */
     awaitingMeasurement?: boolean
@@ -157,6 +168,7 @@ export interface MasteryRecord {
     practiceSets?: number
     practiceSamples?: number
     response?: AcquisitionResponse
+    practice?: PracticeActivity
     ability?: NaturalAbility
     /** Newest drill for this Target is newer than its last natural evidence. */
     awaitingMeasurement?: boolean
@@ -198,6 +210,27 @@ export interface SkillEvidenceInput {
     sessions?: readonly DailyCoachingSession[]
     todayDateKey?: string
     scope?: { language: string, pool: string }
+}
+
+export interface NaturalKeyboardEvidence {
+    attempts: Record<string, KeyAttempt>
+    transitions: TransitionAggregate[]
+}
+
+/** Progress keyboard proof comes only from explicitly tagged ordinary Tests. */
+export function projectNaturalKeyboardEvidence(timelines: readonly TimelineEvidence[]): NaturalKeyboardEvidence {
+    const attempts = new Map<string, KeyAttempt>()
+    let transitions: TransitionAggregate[] = []
+    for (const timeline of timelines) {
+        if (timeline.context !== "natural") continue
+        const events = decodeTimeline(timeline.timeline)
+        for (const [key, value] of attemptsFromEvents(events, timeline.layout)) {
+            const current = attempts.get(key) ?? { attempts: 0, correct: 0 }
+            attempts.set(key, { attempts: current.attempts + value.attempts, correct: current.correct + value.correct })
+        }
+        transitions = mergeTransitions(transitions, aggregateTransitions(events))
+    }
+    return { attempts: Object.fromEntries(attempts), transitions }
 }
 
 // A live score card may use recent natural history to establish that a
@@ -297,6 +330,7 @@ interface PreparedEvidence {
     // testId -> the Target an acquisition run was launched for, from the
     // persisted drill token. Runs without a token attribute to no Target.
     drillTargets: Map<number, CoachingTarget>
+    practiceRuns: Map<number, PracticeRecord>
     testCompletedAt: Map<number, number>
     quality: EvidenceQuality
 }
@@ -434,6 +468,7 @@ function prepareEvidence(timelines: readonly TimelineEvidence[]): PreparedEviden
     const gramFrequency = new Map<string, number>()
     const wordFrequency = new Map<string, number>()
     const drillTargets = new Map<number, CoachingTarget>()
+    const practiceRuns = new Map<number, PracticeRecord>()
     const testCompletedAt = new Map<number, number>(timelines.map((timeline, testId) => [testId, timeline.completedAt]))
     const recencyWeights = timelineVolumeWeights(timelines)
     let frequencyCharacters = 0
@@ -448,16 +483,22 @@ function prepareEvidence(timelines: readonly TimelineEvidence[]): PreparedEviden
         const context = timeline.context
         if (!context) return
         const discovery = discoversWeakness(context)
-        // Interrupted versioned Practice is retained as activity only. Legacy
-        // acquisition rows have no Practice metadata and remain readable.
-        const acquisition = context === "acquisition" && timeline.practice?.completed !== false
-        if (!discovery && !acquisition) return
+        const attributedTarget = parseDrillTargetToken(timeline.options)
+        const validPractice = timeline.practice && practiceRecordMatchesEvidence(timeline.practice, context, attributedTarget)
+            ? timeline.practice
+            : null
+        if (validPractice) practiceRuns.set(testId, validPractice)
+        // Only timer-completed, exactly attributed Guided Practice is Target
+        // response evidence. Custom Practice stays item history and interrupted
+        // runs stay activity, never response or an awaiting-measurement trigger.
+        const acquisition = context === "acquisition" && validPractice?.kind === "guided" && validPractice.completed
+        const customPractice = context === "custom-practice" && validPractice?.kind === "custom" && validPractice.completed
+        if (!discovery && !acquisition && !customPractice) return
         if (discovery) discoveryTimelines += 1
         if (context === "natural") naturalTimelines += 1
         if (acquisition) {
             acquisitionTimelines += 1
-            const drilled = parseDrillTargetToken(timeline.options)
-            if (drilled) drillTargets.set(testId, drilled)
+            drillTargets.set(testId, validPractice.target)
         }
 
         const events = decodeEvidenceTimeline(timeline.timeline)
@@ -558,7 +599,7 @@ function prepareEvidence(timelines: readonly TimelineEvidence[]): PreparedEviden
         // Higher-order weakness discovery remains natural-only, while the same
         // extraction on acquisition runs lets Progress report drill volume and
         // performance separately from representative ability.
-        if (context === "natural" || context === "acquisition") {
+        if (context === "natural" || context === "acquisition" || context === "custom-practice") {
             const finalEvents = replayFinalEvents(events)
             const threshold = interruptionLimitFor(finalEvents)
             let currentWord: KeystrokeEvent[] = []
@@ -630,6 +671,7 @@ function prepareEvidence(timelines: readonly TimelineEvidence[]): PreparedEviden
         gramFrequency,
         wordFrequency,
         drillTargets,
+        practiceRuns,
         testCompletedAt,
         quality: {
             status: discoveryTimelines === 0 ? "none" : "thin",
@@ -743,6 +785,26 @@ function targetSamples(
     return null
 }
 
+function customPracticeContainsTarget(practice: Extract<PracticeRecord, { kind: "custom" }>, target: CoachingTarget): boolean {
+    const items = new Set(practice.focus.items)
+    if (practice.focus.kind === "keys") {
+        if (target.kind === "key") return target.keys.some((key) => items.has(key))
+        if (target.kind === "correction") return items.has(target.expected) && items.has(target.typed)
+        return false
+    }
+    if (target.kind === "transition") return items.has(target.pair)
+    if (target.kind === "gram") return items.has(target.gram)
+    if (target.kind === "word") return target.words.some((word) => items.has(word))
+    if (target.kind === "movement") return target.anchors.some((anchor) => items.has(anchor))
+    return false
+}
+
+function practiceRunMatchesTarget(practice: PracticeRecord, target: CoachingTarget): boolean {
+    return practice.kind === "guided"
+        ? sameCoachingTarget(practice.target, target)
+        : customPracticeContainsTarget(practice, target)
+}
+
 function pooled(evidence: PreparedEvidence, include: (sample: { context: EvidenceContext, testId: number }) => boolean): TargetSamplePools {
     return {
         arrivals: evidence.arrivals.filter(include),
@@ -776,6 +838,25 @@ function acquisitionResponse(
     }
 }
 
+function practiceActivity(target: CoachingTarget, evidence: PreparedEvidence): PracticeActivity | undefined {
+    const matching = [...evidence.practiceRuns]
+        .filter(([, practice]) => practiceRunMatchesTarget(practice, target))
+    if (matching.length === 0) return undefined
+    const completedTests = new Set(matching.filter(([, practice]) => practice.completed).map(([testId]) => testId))
+    const selected = targetSamples(
+        target,
+        pooled(evidence, (sample) => completedTests.has(sample.testId) &&
+            (sample.context === "acquisition" || sample.context === "custom-practice")),
+    )
+    const samples = selected?.samples ?? []
+    return {
+        focusedTimeMs: matching.reduce((sum, [, practice]) => sum + practice.elapsedActivityMs, 0),
+        completedRuns: completedTests.size,
+        sampleCount: samples.length,
+        ...(selected && samples.length > 0 ? { value: selected.valueOf(samples) } : {}),
+    }
+}
+
 function naturalAbility(target: CoachingTarget, evidence: PreparedEvidence): NaturalAbility | undefined {
     const selected = targetSamples(target, pooled(evidence, (sample) => discoversWeakness(sample.context)))
     if (!selected || selected.samples.length === 0) return undefined
@@ -799,9 +880,22 @@ function naturalAbility(target: CoachingTarget, evidence: PreparedEvidence): Nat
     return ability
 }
 
-// True when the Target's newest focused drill is newer than the last natural
-// evidence that contained it: practice happened, and no Test since has
-// actually observed the Target. A Test without the Target does not clear it.
+function naturalMeasurementFloor(target: CoachingTarget): number {
+    if (target.kind === "key") return target.metric === "accuracy"
+        ? SKILL_EVIDENCE_THRESHOLDS.keyAccuracyMinAttempts
+        : SKILL_EVIDENCE_THRESHOLDS.keyLatencyMinSamples
+    if (target.kind === "transition") return SKILL_EVIDENCE_THRESHOLDS.transitionMinSamples
+    if (target.kind === "correction") return SKILL_EVIDENCE_THRESHOLDS.correctionMinErrors
+    if (target.kind === "gram") return [...target.gram].length === 4
+        ? SKILL_EVIDENCE_THRESHOLDS.tetragramMinSamples
+        : SKILL_EVIDENCE_THRESHOLDS.trigramMinSamples
+    if (target.kind === "word") return SKILL_EVIDENCE_THRESHOLDS.wordMinSamples
+    if (target.kind === "movement") return SKILL_EVIDENCE_THRESHOLDS.movementMinSamples
+    return 1
+}
+
+// A timer-completed exact Guided record opens the queue. Only enough newer
+// ordinary natural Target samples close it; unrelated or too-thin Tests do not.
 function awaitingMeasurement(target: CoachingTarget, evidence: PreparedEvidence): boolean {
     let latestDrillAt: number | undefined
     for (const [testId, drilled] of evidence.drillTargets) {
@@ -810,13 +904,10 @@ function awaitingMeasurement(target: CoachingTarget, evidence: PreparedEvidence)
         if (latestDrillAt === undefined || at > latestDrillAt) latestDrillAt = at
     }
     if (latestDrillAt === undefined) return false
-    const selected = targetSamples(target, pooled(evidence, (sample) => discoversWeakness(sample.context)))
-    let latestNaturalAt: number | undefined
-    for (const sample of selected?.samples ?? []) {
-        const at = evidence.testCompletedAt.get(sample.testId) ?? 0
-        if (latestNaturalAt === undefined || at > latestNaturalAt) latestNaturalAt = at
-    }
-    return latestNaturalAt === undefined || latestDrillAt > latestNaturalAt
+    const selected = targetSamples(target, pooled(evidence, (sample) =>
+        sample.context === "natural" && (evidence.testCompletedAt.get(sample.testId) ?? 0) > latestDrillAt!,
+    ))
+    return (selected?.samples.length ?? 0) < naturalMeasurementFloor(target)
 }
 
 function createCandidate(
@@ -1629,6 +1720,8 @@ export function analyzeTypingEvidence(input: SkillEvidenceInput): SkillAnalysis 
     for (const candidate of candidates) {
         const ability = naturalAbility(candidate.target, evidence)
         if (ability) candidate.ability = ability
+        const practice = practiceActivity(candidate.target, evidence)
+        if (practice) candidate.practice = practice
         if (awaitingMeasurement(candidate.target, evidence)) candidate.awaitingMeasurement = true
     }
     const scope = input.scope
@@ -1641,6 +1734,8 @@ export function analyzeTypingEvidence(input: SkillEvidenceInput): SkillAnalysis 
         if (response) record.response = response
         const ability = naturalAbility(record.target, evidence)
         if (ability) record.ability = ability
+        const practice = practiceActivity(record.target, evidence)
+        if (practice) record.practice = practice
         if (awaitingMeasurement(record.target, evidence)) record.awaitingMeasurement = true
     }
     evidence.quality.status = evidence.quality.discoveryTimelines === 0

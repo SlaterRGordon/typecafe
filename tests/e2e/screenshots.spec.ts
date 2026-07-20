@@ -1,6 +1,6 @@
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 import { mockAuthenticatedSession, mockTrpc } from "./helpers/trpc";
-import { crowdedAccuracyTimeline, higherOrderTimeline, impactTimeline } from "./helpers/evidence";
+import { brDrillTimeline, crowdedAccuracyTimeline, higherOrderTimeline, impactTimeline } from "./helpers/evidence";
 import { typeCurrentCharacter, typeVisibleTestText, typeWrongCharacter } from "./helpers/typing";
 import { completedKeyAccuracySession, progressCoachingHistory } from "./helpers/coachingFixtures";
 import { readdirSync, readFileSync, rmSync, statSync } from "node:fs";
@@ -857,7 +857,7 @@ test.describe("screenshot tour", () => {
     await page.getByTestId("lifetime-keyboard-card").scrollIntoViewIfNeeded();
     await capture(page, testInfo, "40-progress-lifetime-keyboard");
     await page.getByRole("link", { name: "How keyboard accuracy is calculated" }).hover();
-    await expect(page.getByRole("tooltip")).toContainText("rolling accuracy from recent attempts");
+    await expect(page.getByRole("tooltip")).toContainText("accuracy from recent natural Tests");
     await capture(page, testInfo, "40c-progress-keyboard-help-tooltip");
     // The layer switch flips the lifetime heatmap to the shift layer.
     await page.getByTestId("lifetime-heatmap-layers").getByRole("button", { name: "Show shifted keys (capitals and symbols)" }).click();
@@ -876,8 +876,28 @@ test.describe("screenshot tour", () => {
     const rRow = page.getByTestId("progress-coach").getByRole("button", { name: /^r Key/ });
     await expect(rRow).toContainText("80.0%");
     await rRow.click();
-    await expect(page.getByTestId("target-practice-summary").last()).toContainText("100.0% in drills");
+    await expect(page.getByTestId("target-practice-summary").last()).toContainText("Practice-context performance100.0%");
     await capture(page, testInfo, "40f-progress-completed-target");
+  });
+
+  test("progress dashboard (Practice track awaiting Test)", async ({ page }, testInfo) => {
+    await mockAuthenticatedSession(page);
+    await mockTrpc(page, {
+      timelineEvidence: [brDrillTimeline(3), impactTimeline(1), impactTimeline(2)],
+    });
+    await page.goto("/progress");
+    const coach = page.getByTestId("progress-coach");
+    if (testInfo.project.name.includes("mobile")) await coach.getByRole("button", { name: /b→r/ }).click();
+    const detail = testInfo.project.name.includes("mobile")
+      ? coach.getByTestId("coach-inline-detail")
+      : coach.getByTestId("coach-detail");
+    const practiceTrack = detail.getByTestId("target-practice-summary");
+    await expect(practiceTrack).toContainText("Practice track");
+    await expect(detail).toContainText("practised · awaiting Test");
+    await expect(detail.getByRole("link", { name: "Take a Test" })).toBeVisible();
+    await expect(detail.getByRole("link", { name: "Practise again" })).toBeVisible();
+    if (testInfo.project.name.includes("mobile")) await practiceTrack.scrollIntoViewIfNeeded();
+    await capture(page, testInfo, "40g-progress-practice-awaiting-test");
   });
 
   test("progress dashboard (plateau Target guidance)", async ({ page }, testInfo) => {

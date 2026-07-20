@@ -23,7 +23,8 @@ export interface ProgressCoachTrend {
 }
 
 export interface ProgressPracticeSummary {
-    completedDrills: number
+    focusedTimeMs: number
+    completedRuns: number
     sampleCount: number
     value: string | null
 }
@@ -312,13 +313,13 @@ function statusCopy(state: MasteryRecord["state"], label: string, record: Master
     }
 }
 
-const MEASURE_TEST_ACTION = { href: "/?mode=timed&count=30", label: "Take a Test to measure" }
+const MEASURE_TEST_ACTION = { href: "/?mode=timed&count=30", label: "Take a Test" }
 
 // Once a Target has been drilled, the loop closes in a normal Test — measuring
 // becomes the primary action and the practice link steps back to secondary.
 function actionPair(practice: { href: string, label: string }, awaiting: boolean): Pick<ProgressCoachTarget, "action" | "secondaryAction" | "awaitingMeasurement"> {
     return awaiting
-        ? { action: { ...MEASURE_TEST_ACTION }, secondaryAction: practice, awaitingMeasurement: true }
+        ? { action: { ...MEASURE_TEST_ACTION }, secondaryAction: { ...practice, label: "Practise again" }, awaitingMeasurement: true }
         : { action: practice, secondaryAction: null, awaitingMeasurement: false }
 }
 
@@ -349,10 +350,13 @@ function rowFromRecord(record: MasteryRecord, records: readonly MasteryRecord[],
     const practiceSets = records.reduce((sum, episode) => sum + (episode.practiceSets ?? 0), 0)
     const practiceSamples = records.reduce((sum, episode) => sum + (episode.practiceSamples ?? 0), 0)
     const response = record.response ?? candidate?.response
-    const practice = response
-        ? { completedDrills: response.runCount, sampleCount: response.sampleCount, value: metricValue(response.value, record.proof.metric) }
+    const activity = record.practice ?? candidate?.practice
+    const practice = activity
+        ? { focusedTimeMs: activity.focusedTimeMs, completedRuns: activity.completedRuns, sampleCount: activity.sampleCount, value: activity.value === undefined ? null : metricValue(activity.value, record.proof.metric) }
+        : response
+        ? { focusedTimeMs: 0, completedRuns: response.runCount, sampleCount: response.sampleCount, value: metricValue(response.value, record.proof.metric) }
         : practiceSets > 0 || record.proof.bestAcquisition !== undefined
-            ? { completedDrills: practiceSets, sampleCount: practiceSamples, value: record.proof.bestAcquisition === undefined ? null : metricValue(record.proof.bestAcquisition, record.proof.metric) }
+            ? { focusedTimeMs: 0, completedRuns: practiceSets, sampleCount: practiceSamples, value: record.proof.bestAcquisition === undefined ? null : metricValue(record.proof.bestAcquisition, record.proof.metric) }
             : null
     return {
         id: targetKey(record.target),
@@ -419,8 +423,14 @@ function candidateTarget(candidate: SkillCandidate): ProgressCoachTarget {
         lastEvidenceDate: null,
         ...worthFor(candidate),
         trend: abilityTrend(candidate.ability, candidate.direction, candidate.metric),
-        practice: candidate.response ? {
-            completedDrills: candidate.response.runCount,
+        practice: candidate.practice ? {
+            focusedTimeMs: candidate.practice.focusedTimeMs,
+            completedRuns: candidate.practice.completedRuns,
+            sampleCount: candidate.practice.sampleCount,
+            value: candidate.practice.value === undefined ? null : metricValue(candidate.practice.value, candidate.metric),
+        } : candidate.response ? {
+            focusedTimeMs: 0,
+            completedRuns: candidate.response.runCount,
             sampleCount: candidate.response.sampleCount,
             value: metricValue(candidate.response.value, candidate.metric),
         } : null,
