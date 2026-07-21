@@ -1153,6 +1153,10 @@ legacy configuration mechanics merely because the current UI exposes them.
 
 #### 13.6 Handoff, retirement, and verification
 
+- [x] Remove the #146 Practice prompt-regeneration stalls: precompute compiler
+      carrier pools, size prompts for 30/60/120/240-second capacity, stream the
+      complete prompt through a bounded character window, and gate refresh plus
+      focus-selection paint with a serial 4×-CPU performance loop.
 - [x] Point Findings, Practice recommendations, and Progress Target actions
       directly into the Guided state without visiting the Practice landing.
 - [x] Retire Drill as a separate user-facing page/mode while preserving Drill as

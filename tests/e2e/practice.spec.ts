@@ -189,6 +189,22 @@ test.describe("Custom Practice", () => {
     await expect(page.getByRole("region", { name: "Focus key editor" })).toBeVisible()
   })
 
+  test("streams the complete Practice prompt without changing character-index alignment", async ({ page }) => {
+    await gotoPractice(page)
+    const initial = await page.locator("#words .char").allTextContents()
+    expect(initial).toHaveLength(500)
+
+    await page.keyboard.type(initial.slice(0, 220).join(""))
+    await expect(page.locator("#c500")).toBeAttached()
+    const boundaryIds = await page.locator("#words .char").evaluateAll((elements) =>
+      elements.slice(495, 506).map((element) => element.id))
+    expect(boundaryIds).toEqual(Array.from({ length: 11 }, (_, offset) => `c${495 + offset}`))
+
+    const extended = await page.locator("#words .char").allTextContents()
+    await page.keyboard.type(extended.slice(220, 520).join(""))
+    await expect(page.locator("#c520")).toHaveClass(/active-char/)
+  })
+
   test("mixed-Gram timer completion shows every occurred item before overall results", async ({ page }) => {
     await page.clock.install()
     await gotoPractice(page)
@@ -304,8 +320,13 @@ test.describe("Guided Practice", () => {
   test("mixed measured focus is Custom item feedback and attributes no Target", async ({ page }) => {
     await page.clock.install()
     await page.goto(href)
+    const workspace = page.getByTestId("custom-practice-workspace")
+    await expect(workspace).toHaveAttribute("data-practice-kind", "guided")
+    await expect(page.getByTestId("selected-practice-grams")).toContainText("tion")
     await page.getByTestId("custom-gram-input").fill("ing")
     await page.getByRole("region", { name: "Gram editor" }).getByRole("button", { name: "Add" }).click()
+    await expect(page.getByTestId("selected-practice-grams")).toContainText("ing")
+    await expect(workspace).toHaveAttribute("data-practice-kind", "custom")
     await page.getByRole("region", { name: "Practice controls" }).getByRole("button", { name: "30s" }).click()
     for (let index = 0; index < 80; index += 1) {
       await typeCurrentCharacter(page, index)

@@ -29,6 +29,11 @@ function run(id: string, completedAt: number, keys: string[], style: "varied" | 
 }
 
 describe("compileCustomKeysPractice", () => {
+    it("keeps seeded varied carrier order stable while balancing focus slots", () => {
+        expect(compileCustomKeysPractice({ keys: ["r", "é"], corpus, language: "english", textStyle: "varied", seed: 4, wordCount: 8 }))
+            .toBe("after café their café other café there café")
+    })
+
     it("uses selected letters as balanced focus while retaining supporting characters", () => {
         const text = compileCustomKeysPractice({ keys: ["r", "é"], corpus, language: "english", textStyle: "varied", seed: 4, wordCount: 12 })
         expect(text).toContain("r")

@@ -64,6 +64,11 @@ describe("rankCommonGrams", () => {
 })
 
 describe("compileCustomGramsPractice", () => {
+    it("keeps seeded varied carrier order stable while balancing Gram slots", () => {
+        expect(compileCustomGramsPractice({ grams: ["th", "tion"], corpus, language: "english", textStyle: "varied", seed: 11, wordCount: 8 }))
+            .toBe("rather station gather action nothing station there station")
+    })
+
     it("balances mixed 2/3/4-character carrier slots and keeps varied text target-dense", () => {
         const text = compileCustomGramsPractice({ grams: ["th", "the", "tion"], corpus, language: "english", textStyle: "varied", seed: 11, wordCount: 15 })
         expect(text.split(" ")).toHaveLength(15)

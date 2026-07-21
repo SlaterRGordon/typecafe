@@ -66,6 +66,7 @@ export interface CustomGramsPracticeRecap {
 const DEFAULT_GRAMS = ["th", "the", "tion"]
 const DEFAULT_WORD_COUNT = 1_200
 const RECENT_CARRIERS = 8
+const normalizedCorpusCache = new WeakMap<object, string[]>()
 
 const characters = (value: string): string[] => [...value]
 
@@ -84,8 +85,12 @@ function uniqueGrams(values: readonly string[]): string[] {
 }
 
 function normalizedCorpus(corpus: readonly string[]): string[] {
-    return [...new Set(corpus.map((word) => word.trim().toLowerCase().normalize("NFC"))
+    const cached = normalizedCorpusCache.get(corpus)
+    if (cached) return cached
+    const normalized = [...new Set(corpus.map((word) => word.trim().toLowerCase().normalize("NFC"))
         .filter((word) => characters(word).length > 1 && characters(word).every((character) => /\p{L}/u.test(character))))]
+    normalizedCorpusCache.set(corpus, normalized)
+    return normalized
 }
 
 function occurrences(value: string, target: string): number {
@@ -154,15 +159,18 @@ function sequenceStart(value: readonly string[], target: readonly string[]): num
 
 function pseudoCarrier(input: {
     gram: string
+    targetPoints: readonly string[]
     words: readonly string[]
+    carriers: readonly string[]
+    fallbackWords: readonly string[]
     corpusWords: ReadonlySet<string>
     alphabet: readonly string[]
+    replacements: ReadonlyMap<string, readonly string[]>
     language: string
     excluded: ReadonlySet<string>
     rng: () => number
 }): string {
-    const { gram, words, corpusWords, alphabet, language, excluded, rng } = input
-    const targetPoints = characters(gram)
+    const { gram, targetPoints, words, carriers, fallbackWords, corpusWords, alphabet, replacements, language, excluded, rng } = input
 
     // Prefer the language model when it happens to produce the full Gram.
     for (let attempt = 0; attempt < 8; attempt += 1) {
@@ -178,7 +186,6 @@ function pseudoCarrier(input: {
 
     // A one-letter mutation outside an attested Gram preserves most of the
     // carrier's language shape while ensuring Pseudo never returns a real word.
-    const carriers = words.filter((word) => isUsefulCarrier(word, gram))
     for (let attempt = 0; attempt < Math.max(8, carriers.length); attempt += 1) {
         const carrier = sample(carriers, rng)
         if (!carrier) break
@@ -186,7 +193,7 @@ function pseudoCarrier(input: {
         const start = sequenceStart(points, targetPoints)
         const candidates = points.map((_, index) => index).filter((index) => index < start || index >= start + targetPoints.length)
         for (const index of candidates) {
-            const replacement = sample(alphabet.filter((character) => character !== points[index]), rng)
+            const replacement = sample(replacements.get(points[index]!) ?? alphabet, rng)
             if (!replacement) continue
             const mutated = points.map((character, pointIndex) => pointIndex === index ? replacement : character).join("")
             if (isUsefulCarrier(mutated, gram) && !corpusWords.has(mutated) && !excluded.has(mutated)) return mutated
@@ -196,7 +203,7 @@ function pseudoCarrier(input: {
     // Sparse corpora may have no attested carrier. Surround the Gram with
     // language material in a bounded fallback; the result is always a token,
     // never a naked repeated Gram, and compilation always terminates.
-    const base = sample(words.filter((word) => characters(word).length >= 2), rng) ?? alphabet.join("")
+    const base = sample(fallbackWords, rng) ?? alphabet.join("")
     const basePoints = characters(base)
     const left = basePoints[0] ?? alphabet[0] ?? "a"
     const right = basePoints.at(-1) ?? alphabet.at(-1) ?? "a"
@@ -221,19 +228,26 @@ export function compileCustomGramsPractice(input: CustomGramsCompilationInput): 
     const count = Math.max(input.wordCount ?? DEFAULT_WORD_COUNT, grams.length * 2)
     const alphabet = [...new Set(words.flatMap(characters))]
     const corpusWords = new Set(words)
+    const replacements = new Map(alphabet.map((point) => [point, alphabet.filter((candidate) => candidate !== point)]))
+    const fallbackWords = words.filter((word) => characters(word).length >= 2)
+    const carrierPools = new Map(grams.map((gram) => [gram, {
+        targetPoints: characters(gram),
+        realCarriers: words.filter((word) => isUsefulCarrier(word, gram)),
+    }]))
     const recent: string[] = []
     const output: string[] = []
 
     for (let index = 0; index < count; index += 1) {
         const gram = grams[index % grams.length]!
+        const pool = carrierPools.get(gram)!
         const excluded = new Set(recent)
-        const realCarriers = words.filter((word) => isUsefulCarrier(word, gram))
+        const realCarriers = pool.realCarriers
         const available = realCarriers.filter((word) => !excluded.has(word))
         const usePseudo = input.textStyle === "pseudo" || realCarriers.length === 0
         const carrier = usePseudo
-            ? pseudoCarrier({ gram, words, corpusWords, alphabet, language: input.language, excluded, rng })
+            ? pseudoCarrier({ gram, targetPoints: pool.targetPoints, words, carriers: realCarriers, fallbackWords, corpusWords, alphabet, replacements, language: input.language, excluded, rng })
             : sample(available.length > 0 ? available : realCarriers, rng)
-                ?? pseudoCarrier({ gram, words, corpusWords, alphabet, language: input.language, excluded, rng })
+                ?? pseudoCarrier({ gram, targetPoints: pool.targetPoints, words, carriers: realCarriers, fallbackWords, corpusWords, alphabet, replacements, language: input.language, excluded, rng })
         output.push(carrier)
         recent.push(carrier)
         if (recent.length > RECENT_CARRIERS) recent.shift()

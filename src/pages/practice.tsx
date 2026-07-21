@@ -3,7 +3,7 @@ import Head from "next/head"
 import Link from "next/link"
 import { useRouter } from "next/router"
 import { useSession } from "next-auth/react"
-import { useEffect, useMemo, useRef, useState } from "react"
+import { startTransition, useDeferredValue, useEffect, useMemo, useRef, useState } from "react"
 import { Keyboard } from "~/components/typer/Keyboard"
 import { Typer, type TestCompletionResult } from "~/components/typer/Typer"
 import { TestModes, TestSubModes } from "~/components/typer/types"
@@ -45,9 +45,9 @@ import { boardFor, sequenceFor, statsPoolFor } from "~/lib/keyboardLayout"
 import { languageMeta } from "~/lib/languageMeta"
 import { projectPracticeLanding, type PracticeLandingProjection } from "~/lib/practiceLanding"
 import { projectProgressCoach } from "~/lib/progressCoach"
+import { practiceWordCapacity } from "~/lib/practiceCapacity"
 import { api } from "~/utils/api"
 
-const PRACTICE_WORDS = 1_400
 type PracticePath = "keys" | "grams"
 type CompletedRun =
     | { path: "keys", result: TestCompletionResult, run: CustomKeysPracticeRun }
@@ -235,8 +235,8 @@ const Practice: NextPage = () => {
 
     const typeableCorpus = useMemo(() => corpus.filter((word) => [...word]
         .every((character) => sequenceFor(character.toLowerCase(), layout).length > 0)), [corpus, layout])
-    const commonGrams = useMemo(() => rankCommonGrams(corpus, 5)
-        .filter(({ gram }) => [...gram].every((character) => sequenceFor(character, layout).length > 0)), [corpus, layout])
+    const commonGrams = useMemo(() => path === "grams" ? rankCommonGrams(corpus, 5)
+        .filter(({ gram }) => [...gram].every((character) => sequenceFor(character, layout).length > 0)) : [], [corpus, layout, path])
     const measuredGrams = useMemo(() => measuredGramSuggestions(coaching.analysis?.candidates ?? []), [coaching.analysis?.candidates])
     const progressProjection = useMemo(() => coaching.analysis ? projectProgressCoach(coaching.analysis) : null, [coaching.analysis])
     const landingProjection = useMemo(() => progressProjection ? projectPracticeLanding({
@@ -261,27 +261,39 @@ const Practice: NextPage = () => {
             textStyle: activePreferences.textStyle,
         }
     }, [activeFocus, activePreferences.durationSeconds, activePreferences.textStyle, guided])
-    const prompt = useMemo(() => activeGuidedSetup ? compileGuidedPractice({
-        setup: activeGuidedSetup,
-        corpus: typeableCorpus,
+    const completionContextRef = useRef({ activeGuidedSetup, guided, gramsPreferences, keysPreferences, path })
+    completionContextRef.current = { activeGuidedSetup, guided, gramsPreferences, keysPreferences, path }
+    const compilationConfiguration = useMemo(() => ({
+        activeGuidedSetup,
+        gramsPreferences,
+        keysPreferences,
         language,
+        path,
+        typeableCorpus,
+    }), [activeGuidedSetup, gramsPreferences, keysPreferences, language, path, typeableCorpus])
+    const deferredCompilationConfiguration = useDeferredValue(compilationConfiguration)
+    const promptPending = deferredCompilationConfiguration !== compilationConfiguration
+    const prompt = useMemo(() => deferredCompilationConfiguration.activeGuidedSetup ? compileGuidedPractice({
+        setup: deferredCompilationConfiguration.activeGuidedSetup,
+        corpus: deferredCompilationConfiguration.typeableCorpus,
+        language: deferredCompilationConfiguration.language,
         seed,
-        wordCount: PRACTICE_WORDS,
-    }) : path === "keys" ? compileCustomKeysPractice({
-        keys: keysPreferences.keys,
-        corpus: typeableCorpus,
-        language,
-        textStyle: keysPreferences.textStyle,
+        wordCount: practiceWordCapacity(deferredCompilationConfiguration.activeGuidedSetup.durationSeconds),
+    }) : deferredCompilationConfiguration.path === "keys" ? compileCustomKeysPractice({
+        keys: deferredCompilationConfiguration.keysPreferences.keys,
+        corpus: deferredCompilationConfiguration.typeableCorpus,
+        language: deferredCompilationConfiguration.language,
+        textStyle: deferredCompilationConfiguration.keysPreferences.textStyle,
         seed,
-        wordCount: PRACTICE_WORDS,
+        wordCount: practiceWordCapacity(deferredCompilationConfiguration.keysPreferences.durationSeconds),
     }) : compileCustomGramsPractice({
-        grams: gramsPreferences.grams,
-        corpus: typeableCorpus,
-        language,
-        textStyle: gramsPreferences.textStyle,
+        grams: deferredCompilationConfiguration.gramsPreferences.grams,
+        corpus: deferredCompilationConfiguration.typeableCorpus,
+        language: deferredCompilationConfiguration.language,
+        textStyle: deferredCompilationConfiguration.gramsPreferences.textStyle,
         seed,
-        wordCount: PRACTICE_WORDS,
-    }), [activeGuidedSetup, gramsPreferences, keysPreferences, language, path, seed, typeableCorpus])
+        wordCount: practiceWordCapacity(deferredCompilationConfiguration.gramsPreferences.durationSeconds),
+    }), [deferredCompilationConfiguration, seed])
     const baseRecord = useMemo(() => activeGuidedSetup
         ? guidedPracticeRecord(activeGuidedSetup, 0, false)
         : path === "keys"
@@ -304,10 +316,16 @@ const Practice: NextPage = () => {
 
     const refreshPrompt = () => {
         setCompleted(null)
-        setSeed((value) => value + 1)
+        startTransition(() => setSeed((value) => value + 1))
+    }
+    const suspendCurrentPrompt = () => {
+        const input = document.getElementById("input") as HTMLInputElement | null
+        input?.blur()
+        if (input) input.disabled = true
     }
     const selectPath = (next: PracticePath) => {
         if (running || path === next) return
+        suspendCurrentPrompt()
         setGuided(null)
         setPath(next)
         setGramEntryError(null)
@@ -315,11 +333,13 @@ const Practice: NextPage = () => {
     }
     const updateKeys = (patch: Partial<CustomKeysPracticePreferences>) => {
         if (running) return
+        suspendCurrentPrompt()
         setKeysPreferences((current) => ({ ...current, ...patch }))
         refreshPrompt()
     }
     const updateGrams = (patch: Partial<CustomGramsPracticePreferences>) => {
         if (running) return
+        suspendCurrentPrompt()
         setGramsPreferences((current) => ({ ...current, ...patch }))
         refreshPrompt()
     }
@@ -330,12 +350,25 @@ const Practice: NextPage = () => {
     const setKeys = (keys: string[]) => {
         const unique = [...new Set(keys.map((key) => key.normalize("NFC")))]
             .filter((key) => sequenceFor(key, layout).length > 0).slice(0, 8)
+        completionContextRef.current = {
+            ...completionContextRef.current,
+            activeGuidedSetup: null,
+            guided: null,
+            keysPreferences: { ...keysPreferences, keys: unique },
+        }
         if (guided) setGuided(null)
         updateKeys({ keys: unique })
     }
     const setGrams = (grams: string[]) => {
+        const unique = [...new Set(grams)].slice(0, 24)
+        completionContextRef.current = {
+            ...completionContextRef.current,
+            activeGuidedSetup: null,
+            guided: null,
+            gramsPreferences: { ...gramsPreferences, grams: unique },
+        }
         if (guided) setGuided(null)
-        updateGrams({ grams: [...new Set(grams)].slice(0, 24) })
+        updateGrams({ grams: unique })
     }
     const addGram = (raw: string) => {
         const gram = normalizeCustomGram(raw)
@@ -369,38 +402,39 @@ const Practice: NextPage = () => {
     }
     const onComplete = (result: TestCompletionResult) => {
         const completedAt = Date.now()
+        const context = completionContextRef.current
         setRunning(false)
-        if (activeGuidedSetup) {
+        if (context.activeGuidedSetup) {
             setCompleted({
                 path: "guided",
                 result,
-                evidence: guided?.evidence ?? null,
+                evidence: context.guided?.evidence ?? null,
                 run: {
                     id: `current-${completedAt}`,
                     completedAt,
-                    practice: guidedPracticeRecord(activeGuidedSetup, activeGuidedSetup.durationSeconds * 1_000, true),
+                    practice: guidedPracticeRecord(context.activeGuidedSetup, context.activeGuidedSetup.durationSeconds * 1_000, true),
                     timeline: result.timeline,
                 },
             })
-        } else if (path === "keys") {
+        } else if (context.path === "keys") {
             setCompleted({
-                path,
+                path: context.path,
                 result,
                 run: {
                     id: `current-${completedAt}`,
                     completedAt,
-                    practice: customKeysPracticeRecord(keysPreferences, keysPreferences.durationSeconds * 1_000, true),
+                    practice: customKeysPracticeRecord(context.keysPreferences, context.keysPreferences.durationSeconds * 1_000, true),
                     timeline: result.timeline,
                 },
             })
         } else {
             setCompleted({
-                path,
+                path: context.path,
                 result,
                 run: {
                     id: `current-${completedAt}`,
                     completedAt,
-                    practice: customGramsPracticeRecord(gramsPreferences, gramsPreferences.durationSeconds * 1_000, true),
+                    practice: customGramsPracticeRecord(context.gramsPreferences, context.gramsPreferences.durationSeconds * 1_000, true),
                     timeline: result.timeline,
                 },
             })
@@ -473,7 +507,7 @@ const Practice: NextPage = () => {
                     </div>
                 </section>
 
-                <section aria-label="Practice run" className="flex min-h-[16rem] items-center rounded-2xl border border-base-content/10 bg-base-200/20 py-2">
+                <section aria-label="Practice run" data-prompt-ready={promptPending ? "false" : "true"} className="flex min-h-[16rem] items-center rounded-2xl border border-base-content/10 bg-base-200/20 py-2">
                     {completed?.path === "guided" && guidedRecap ? (
                         <div data-testid="practice-recap" className="w-full px-5 py-5 sm:px-8">
                             <p className="font-mono text-xs uppercase tracking-[0.16em] text-primary">Guided Drill complete</p>

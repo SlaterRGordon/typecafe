@@ -56,6 +56,7 @@ export interface CustomKeysPracticeRecap {
 
 const DEFAULT_KEYS = ["e", "r"]
 const DEFAULT_WORD_COUNT = 1_200
+const normalizedCorpusCache = new WeakMap<object, string[]>()
 
 function uniqueNfc(values: readonly string[]): string[] {
     return [...new Set(values.map((value) => value.normalize("NFC")).filter((value) => [...value].length === 1))]
@@ -73,8 +74,12 @@ function randomFor(seed: number): () => number {
 }
 
 function normalizedCorpus(corpus: readonly string[]): string[] {
-    return [...new Set(corpus.map((word) => word.trim().toLowerCase().normalize("NFC"))
+    const cached = normalizedCorpusCache.get(corpus)
+    if (cached) return cached
+    const normalized = [...new Set(corpus.map((word) => word.trim().toLowerCase().normalize("NFC"))
         .filter((word) => word.length > 1 && [...word].every((character) => /\p{L}/u.test(character))))]
+    normalizedCorpusCache.set(corpus, normalized)
+    return normalized
 }
 
 function sample<T>(values: readonly T[], rng: () => number): T | null {
@@ -101,13 +106,17 @@ export function compileCustomKeysPractice(input: CustomKeysCompilationInput): st
     const rng = randomFor(input.seed)
     const count = Math.max(input.wordCount ?? DEFAULT_WORD_COUNT, keys.length * 2)
     const alphabet = [...new Set(words.flatMap((word) => [...word]))]
+    const carrierPools = new Map(keys.map((key) => [
+        key,
+        /\p{L}/u.test(key) ? words.filter((word) => word.includes(key)) : words,
+    ]))
     const recent: string[] = []
     const output: string[] = []
 
     for (let index = 0; index < count; index += 1) {
         const key = keys[index % keys.length]!
         const letterFocus = /\p{L}/u.test(key)
-        const carriers = letterFocus ? words.filter((word) => word.includes(key)) : words
+        const carriers = carrierPools.get(key) ?? words
         const available = carriers.filter((word) => !recent.includes(word))
         let carrier: string | null = null
         if (input.textStyle === "pseudo") {

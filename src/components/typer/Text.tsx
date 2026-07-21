@@ -46,6 +46,10 @@ interface TextProps {
 
 type TypingKeyEvent = Pick<KeyboardEvent, "key" | "code">
 
+const PRACTICE_INITIAL_CHARACTERS = 500
+const PRACTICE_APPEND_CHARACTERS = 500
+const APPEND_MARGIN_CHARACTERS = 300
+
 // True for editable form controls. The toolbar and its subpanels live inside
 // #typer, so their inputs would otherwise have focus yanked back to the hidden
 // typing input on click/keystroke/restart - making them un-editable.
@@ -96,6 +100,7 @@ export const Text = memo(function Text(props: TextProps) {
     const textContainerRef = useRef<HTMLDivElement>(null)
     const charStatesRef = useRef<Map<number, 'correct' | 'incorrect'>>(new Map())
     const currentTextRef = useRef(text)
+    const renderedLengthRef = useRef(0)
     const isAppendingRef = useRef(false)
     const completedRef = useRef(false)
     const callbacksRef = useRef({ onKeyChange })
@@ -178,20 +183,24 @@ export const Text = memo(function Text(props: TextProps) {
         textContainerRef.current.innerHTML = ''
         const fragment = document.createDocumentFragment()
 
-        value.split('').forEach((char, index) => {
+        const initialText = noAppend && mode === TestModes.practice
+            ? value.slice(0, PRACTICE_INITIAL_CHARACTERS)
+            : value
+        initialText.split('').forEach((char, index) => {
             const span = createCharSpan(char, index)
             fragment.appendChild(span)
         })
 
         textContainerRef.current.appendChild(fragment)
+        renderedLengthRef.current = initialText.length
         setLoadingText(false)
-    }, [createCharSpan])
+    }, [createCharSpan, mode, noAppend])
 
     const appendNewText = useCallback((newText: string) => {
         if (!textContainerRef.current) return
 
         const fragment = document.createDocumentFragment()
-        const startIndex = currentTextRef.current.length
+        const startIndex = renderedLengthRef.current
 
         newText.split('').forEach((char, offset) => {
             const index = startIndex + offset
@@ -200,6 +209,7 @@ export const Text = memo(function Text(props: TextProps) {
         })
 
         textContainerRef.current.appendChild(fragment)
+        renderedLengthRef.current += newText.length
     }, [createCharSpan])
 
     // event listeners to focus input
@@ -270,6 +280,7 @@ export const Text = memo(function Text(props: TextProps) {
         const restartBtn = document.getElementById("restart") as HTMLButtonElement
         if (restartBtn) restartBtn.classList.remove("blinking", "text-primary")
         const input = inputRef.current
+        if (input) input.disabled = false
         // A config change (e.g. editing a grams-subpanel field) regenerates text
         // and lands here; don't yank focus away from a control the user is editing.
         const active = document.activeElement
@@ -293,8 +304,22 @@ export const Text = memo(function Text(props: TextProps) {
     // seconds of margin at any human speed, so the 1s timeout always lands in time.
     const scheduleAppendIfNeeded = () => {
         const config = appendConfigRef.current
+        const hasBufferedPracticeText = noAppend && mode === TestModes.practice
+            && renderedLengthRef.current < currentTextRef.current.length
+        if (hasBufferedPracticeText) {
+            if (isAppendingRef.current || positionRef.current < renderedLengthRef.current - APPEND_MARGIN_CHARACTERS) return
+            isAppendingRef.current = true
+            const epoch = appendEpochRef.current
+            runWhenIdle(() => {
+                isAppendingRef.current = false
+                if (epoch !== appendEpochRef.current) return
+                const start = renderedLengthRef.current
+                appendNewText(currentTextRef.current.slice(start, start + PRACTICE_APPEND_CHARACTERS))
+            })
+            return
+        }
         if (!config.appendsText || isAppendingRef.current) return
-        if (positionRef.current < currentTextRef.current.length - 300) return
+        if (positionRef.current < currentTextRef.current.length - APPEND_MARGIN_CHARACTERS) return
         isAppendingRef.current = true
         const epoch = appendEpochRef.current
         const run = () => {
