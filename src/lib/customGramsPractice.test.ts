@@ -109,6 +109,7 @@ describe("compileCustomGramsPractice", () => {
 
         expect(fresh).not.toEqual(first)
         expect(new Set(first).size).toBeGreaterThan(1)
+        expect(first.every((token) => [...token.replace("xy", "")].some((character) => !"ab".includes(character)))).toBe(true)
         first.forEach((token, index) => {
             expect(token).toContain("xy")
             expect([...token.replace("xy", "")].length).toBeGreaterThanOrEqual(3)

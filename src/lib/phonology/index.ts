@@ -26,6 +26,12 @@ export interface PhonologicalSequenceWordRequest {
     rng?: Random
 }
 
+export interface PhonologicalFocusCarrierRequest {
+    language: string
+    focus: string
+    rng?: Random
+}
+
 export interface PhonologicalTextRequest {
     language: string
     corpus: readonly string[]
@@ -454,6 +460,24 @@ export function generatePhonologicalSequenceWord(request: PhonologicalSequenceWo
         }
         return false
     })
+}
+
+/**
+ * Build a bounded CV frame from the active language inventory when corpus
+ * evidence is too sparse to license a whole generated word. The selected focus
+ * remains exact and internal while supporting characters keep the token
+ * pronounceable enough to type rather than mechanically repeating the focus.
+ */
+export function generatePhonologicalFocusCarrier(request: PhonologicalFocusCarrierRequest): string | null {
+    const language = request.language === "chinese" || request.language === "hindi" ? "english" : request.language
+    const profile = profileFor(language)
+    if (!profile) return null
+    const rng = request.rng ?? Math.random
+    const vowels = [...profile.vowels]
+    const preferredConsonants = [..."mnlrstpkbdfv"].filter((character) => profile.phones[character])
+    if (vowels.length === 0 || preferredConsonants.length === 0) return null
+    const sample = (values: readonly string[]) => values[Math.floor(rng() * values.length)]!
+    return `${sample(preferredConsonants)}${sample(vowels)}${request.focus.normalize("NFC")}${sample(preferredConsonants)}${sample(vowels)}`
 }
 
 /**

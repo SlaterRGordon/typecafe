@@ -8,7 +8,7 @@ import {
     type PracticeTextStyle,
 } from "./evidenceContext"
 import { decodeTimeline, type EncodedTimeline, type KeystrokeEvent } from "./keystrokes"
-import { generatePhonologicalWord } from "./phonology"
+import { generatePhonologicalFocusCarrier, generatePhonologicalWord } from "./phonology"
 
 export interface CustomKeysPracticePreferences {
     keys: string[]
@@ -126,6 +126,11 @@ function pseudoCarrier(input: {
         if (!generated) continue
         const candidate = generated.includes(focus) ? generated : insertFocus(generated, focus, rng)
         if (!corpus.has(candidate) && !excluded.has(candidate)) return candidate
+    }
+
+    for (let attempt = 0; attempt < 16; attempt += 1) {
+        const candidate = generatePhonologicalFocusCarrier({ language, focus, rng })
+        if (candidate && !corpus.has(candidate) && !excluded.has(candidate)) return candidate
     }
 
     for (let attempt = 0; attempt < Math.min(32, Math.max(8, words.length)); attempt += 1) {

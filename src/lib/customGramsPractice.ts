@@ -8,7 +8,7 @@ import {
     type PracticeTextStyle,
 } from "./evidenceContext"
 import { decodeTimeline, type EncodedTimeline, type KeystrokeEvent } from "./keystrokes"
-import { generatePhonologicalSequenceWord } from "./phonology"
+import { generatePhonologicalFocusCarrier, generatePhonologicalSequenceWord } from "./phonology"
 
 export interface CustomGramsPracticePreferences {
     grams: string[]
@@ -241,6 +241,11 @@ function pseudoCarrier(input: PseudoCarrierInput): string {
     }
 
     if (reusableCarrier) return reusableCarrier
+
+    for (let attempt = 0; attempt < 16; attempt += 1) {
+        const candidate = generatePhonologicalFocusCarrier({ language, focus: gram, rng })
+        if (candidate && !corpusWords.has(candidate) && !excluded.has(candidate)) return candidate
+    }
 
     // Sparse corpora may have no attested carrier. Keep an entire language
     // word as the supporting frame instead of clipping one character from

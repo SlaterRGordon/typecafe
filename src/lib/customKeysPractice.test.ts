@@ -86,6 +86,7 @@ describe("compileCustomKeysPractice", () => {
 
         expect(fresh).not.toEqual(first)
         expect(new Set(first).size).toBeGreaterThan(1)
+        expect(first.every((token) => [...token].some((character) => character !== "a"))).toBe(true)
         first.forEach((token, index) => {
             expect(token).toContain("a")
             if (index > 0) expect(token).not.toBe(first[index - 1])
