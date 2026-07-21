@@ -478,10 +478,10 @@ classification explains practice but is not itself the practice material.
 
 ### Practice
 
-Practice is the single recommendation-first focused-work destination, not a Test
-mode. Drill is a Target-bound guided state of this workspace, not a separate
-mode, page, or competing destination. A Finding or Progress Target deep-links
-directly into the guided state without visiting the Practice landing view.
+Practice is the single focused-work destination, not a Test mode. Drill is a
+Target-bound guided state of this workspace, not a separate mode, page, or
+competing destination. A Finding or Progress Target deep-links directly into
+the guided state.
 
 Make Practice a first-class primary-navigation destination and remove legacy
 Practice from Home's mode selector. The primary order is `Home · Practice ·
@@ -490,26 +490,21 @@ Practice owns Guided Drill and Custom Practice, Progress owns proof, and Train
 retains restricted-alphabet instruction. Home results and Progress actions may
 deep-link into Guided Drill; Practice's measurement action returns to Home.
 
-The page uses the guided-first hierarchy confirmed in the Grams/targeted-practice
-design session on 2026-07-19:
+Normal primary-navigation entry is resume-first: open the browser-local last
+Custom path, `keys` or `grams`, defaulting to `keys`. Remember an explicit path
+selection immediately and globally across languages; Guided Drill visits do not
+overwrite it. An explicit Custom-path URL wins and becomes the remembered path.
+A valid Target URL wins without changing it; an invalid Target falls back to
+the remembered Custom path with one brief explanation. A remembered Grams path
+with no setup for the active language opens an empty Grams editor rather than
+silently switching to Keys.
 
-1. **Recommended for you.** Lead with one prominent highest-Impact Target from
-   the same natural-evidence analysis and ordering used by Progress. Explain the
-   measured reason and launch its guided Drill state directly.
-2. **Practice your way.** Present Keys and Grams as equal self-directed paths.
-   Each path may surface evidence-backed suggestions while preserving manual
-   selection.
-
-When natural evidence does not support a Target, replace the recommendation
-with `Find your focus` and a `Take a Test` action explaining that TypeCafe needs
-a normal Test to identify what is slowing the user down. Never manufacture a
-weak key or Gram to fill the card. Custom Keys and Grams remain available below.
-
-Remember the last Custom Keys setup and the last Custom Grams setup separately.
-Each self-directed path may offer `Continue`, restoring its selected material,
-duration, and `Varied` or `Pseudo` style. Do not add a full Practice-history
-dashboard: Practice remains action-first, while Progress owns durable evidence
-inspection.
+Home and Progress own highest-Impact recommendations and deep-link directly
+into Guided Drill. Practice has no separate recommendation landing. Remember
+the last Custom Keys setup and each language's last Custom Grams setup
+separately, restoring selected material, duration, and `Varied` or `Pseudo`
+style. Do not add a full Practice-history dashboard: Practice remains
+action-first, while Progress owns durable evidence inspection.
 
 The workspace has two states rather than separate modes: **Guided Drill** and
 **Custom Practice**. A guided run preserves the prescribed Target, metric,
@@ -576,21 +571,39 @@ varied text and balances exposure across the selected material for the chosen
 duration.
 
 Expose one meaningful text-style choice beside duration, changeable before or
-between runs but never mid-run: `Varied` is the default and combines target-dense
-real-word carriers with pronounceable pseudo-words when they improve coverage or
-context diversity; `Pseudo` uses pronounceable generated tokens only. Changing
-style regenerates the prompt. Do not add a third words-only choice or expose
-density/repetition controls, and never fall back to naked Gram repetition.
+between runs but never mid-run: `Varied` is the default and combines intact,
+target-dense dictionary carriers with whole-token generated words when they
+improve coverage or context diversity; `Pseudo` uses whole-token generated
+material only and rejects exact dictionary matches. A near-word produced by the
+language model is valid, but neither style may create one by mutating, clipping,
+extending, or concatenating a real carrier. Changing style regenerates the
+prompt. Do not add a third words-only choice or expose density/repetition
+controls, and never fall back to naked Gram repetition.
+
+Every Pseudo token contains one selected focus, balanced across the selection;
+a selected Gram remains contiguous and may appear at a corpus-plausible start,
+middle, or ending. Letter tokens are 3-10 characters with a strong short-token
+bias. Digit focus produces 1-4 digit numeric tokens. `. , ? ! ; :` attach at a
+natural token ending, while `-` joins two short generated forms. Custom Grams
+remain 2-4 Unicode letters with no spaces or punctuation. Whole-token generation
+uses the existing language corpus and phonology/orthography module for English,
+French, Spanish, German, Italian, Portuguese, Dutch, and Polish; Chinese and
+Hindi are unsupported legacy artifacts and are outside this Practice contract.
 
 Keep the current Practice mode's strongest interaction in the new destination:
 the generated typing text and its configuration share one workspace. The
 confirmed `current evolved` layout puts a compact Keys/Grams and duration line
 above the runner, keeps the typing text visually dominant, and leaves the direct
 keyboard or mixed-Gram editor below it. Starting, editing, or restarting never
-navigates to a separate configuration or runner screen. During typing the editor
-may visually de-emphasize with the existing focus treatment, but it does not
-collapse or leave the page. On mobile, fit the character keyboard to the viewport
-without the current horizontal keyboard scroller.
+navigates to a separate configuration or runner screen. The prompt keeps the
+same Home-aligned vertical position before and during typing. On the first
+keystroke, Home's typing-focus treatment hides the visible heading or Target
+identity, configuration, notices, secondary actions, and keyboard or Gram editor
+without moving the prompt; only the prompt, caret, time/progress, and existing
+live typing metrics remain. Cancellation or completion restores the surrounding
+workspace. Safe centering top-aligns on a short viewport rather than clipping
+content. On mobile, fit the character keyboard to the viewport without the
+current horizontal keyboard scroller.
 
 ### Today
 
@@ -622,15 +635,14 @@ than as a prescribed coaching hierarchy:
    shown separately from recent representative ability, so a perfect drill never
    overwrites the row's rolling ability metric.
 
-Practice and Progress deliberately present the same highest-Impact Target with
-different jobs. Practice is action-first and calls it the recommended work;
-Progress is proof-first and defaults its evidence inspector to that Target
-without adding a second recommendation label. The inspector leads with the
-natural-evidence Earlier -> Recent comparison, measured sample/date context,
-live remaining Worth, and separately labelled Drill activity. It retains a
-direct action into the guided Drill state of Practice, or `Take a Test to
-measure` after unmeasured practice; selecting a Target never detours through the
-Practice landing view.
+Progress is proof-first and defaults its evidence inspector to the
+highest-Impact Target without adding a second recommendation label. The
+inspector leads with the natural-evidence Earlier -> Recent comparison,
+measured sample/date context, live remaining Worth, and separately labelled
+Drill activity. It retains a direct action into the guided Drill state of
+Practice, or `Take a Test to measure` after unmeasured practice; selecting a
+Target always opens that Guided Drill directly. Normal Practice navigation
+remains resume-first and does not duplicate the recommendation.
 
 Keep the current wide-screen split: overall Delta, charts, and keyboard proof on
 the left; Target ledger and selected evidence on the right. On mobile, order the
@@ -1269,6 +1281,48 @@ from a fresh implementation context; #171 owns the broad verification pass.
 - [x] Protect the revised behavior with pure compiler/projection/persistence
       tests, focused desktop/mobile Practice journeys, and updated canonical
       screenshots for the landing, Keys, Grams, Guided, and completion states.
+
+#### 13.8 Owner-reviewed resume-first Practice refinement
+
+Approved 2026-07-21 through a batch design-tree review. This refinement
+supersedes 13.3-13.7 where those sections retain a recommendation landing,
+visible workspace headings, a selected-key marker, active-key following,
+non-collapsing surroundings during typing, or carrier-derived Pseudo text. The
+Guided/Custom attribution and natural-evidence contracts remain unchanged.
+
+- [ ] Retire the Practice landing. Resolve normal, explicit Custom, valid
+      Guided, and invalid Guided entry through the resume-first precedence above;
+      persist only the last Custom path in browser-local storage.
+- [ ] Remove the visible workspace title while retaining an accessible document
+      title and compact Guided Target identity. Render only the configuration
+      rail's `keys`, `grams`, `varied`, and `pseudo` labels in Home-style
+      lowercase.
+- [ ] Align the prompt vertically with Home and apply the same first-keystroke
+      focus ceremony without a prompt jump. Restore the surrounding workspace
+      on cancellation and completion.
+- [ ] In the Practice key editor only, remove the active-next-key ring and the
+      selected-key corner marker. Keep the theme-primary selection outline,
+      natural-Test heat colour, speed bar, and other keyboard contexts intact.
+- [ ] Replace every carrier mutation, clipping, extension, and concatenation
+      fallback with whole-token generation through the existing deep module.
+      Preserve balanced focus coverage, contiguous Grams, language-shaped word
+      boundaries, short-token bias, deterministic seeds, and the approved
+      digit/punctuation forms across the eight supported profiled languages.
+- [ ] Keep Chinese and Hindi out of Custom Practice rather than claiming or
+      adding an English fallback. Treat native-script Practice as a separate
+      future workstream only if the owner chooses to revive those legacy
+      language artifacts.
+- [ ] Protect the behavior with pure invariant and known-artifact regression
+      tests rather than full-prompt golden snapshots. Review a compact fixed-seed
+      Keys/Grams matrix across all eight supported languages, add focused desktop
+      and mobile journeys, remove landing assertions, and update only affected
+      canonical Practice screenshots.
+
+**Refinement acceptance:** Primary navigation resumes the last Custom path;
+Guided links retain truthful Target attribution; configuration reads like Home;
+active typing leaves only the typer and live run status; key selection has one
+unambiguous outline; and Pseudo text consists of language-shaped whole tokens,
+never recognizable carriers with a focus inserted or replaced.
 
 **Follow-up acceptance:** Practice retains its honest Guided/Custom evidence
 contract while reading as one minimal workspace: Home-like controls and typer,

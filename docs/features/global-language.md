@@ -116,9 +116,10 @@ weak-key card stays global (consistent with "training progress global", ADR
       transitions cannot accumulate into conspicuous outliers.
       Train deliberately remains real-word-first through `restrictedText.ts`.
       English, French, Spanish, German, Italian, Portuguese, Dutch, and Polish are
-      covered; Chinese and Hindi retain the existing English fallback pending a
-      script-specific design. Corpus models and per-alphabet pools are lazy and
-      memoized so prompt generation does not rebuild them. This mirrors the
+      covered. Chinese and Hindi are unsupported legacy artifacts in Custom
+      Practice; there is no working English fallback and no current intent to
+      add native-script Practice. Corpus models and per-alphabet pools are lazy
+      and memoized so prompt generation does not rebuild them. This mirrors the
       useful principle behind Keybr's default natural-word mode without copying
       its code or prebuilt language models.
 
