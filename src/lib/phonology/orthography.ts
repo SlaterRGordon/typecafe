@@ -16,9 +16,11 @@ interface Candidate {
 }
 
 export interface OrthographicModel {
+    rankedWords: readonly string[]
     transitions: readonly ReadonlyMap<string, readonly WeightedValue[]>[]
     prefixesByCharacter: ReadonlyMap<string, readonly WeightedValue[]>
     allowedPrefixPools: Map<string, ReadonlyMap<string, readonly WeightedValue[]>>
+    sequencePrefixPools: Map<string, readonly WeightedValue[]>
 }
 
 interface GenerateRequest {
@@ -115,12 +117,14 @@ export function buildOrthographicModel(words: readonly string[]): OrthographicMo
     })
 
     return {
+        rankedWords: words,
         transitions: transitionCounts.map(freezeWeights),
         prefixesByCharacter: new Map([...prefixCounts].map(([character, prefixes]) => [
             character,
             [...prefixes].map(([value, weight]) => ({ value, weight })),
         ])),
         allowedPrefixPools: new Map(),
+        sequencePrefixPools: new Map(),
     }
 }
 
@@ -140,6 +144,32 @@ const prefixPoolsFor = (
     ]))
     model.allowedPrefixPools.set(key, cached)
     return cached
+}
+
+const sequencePrefixesFor = (
+    model: OrthographicModel,
+    allowed: ReadonlySet<string>,
+    focus: string,
+): readonly WeightedValue[] => {
+    const key = `${alphabetKey(allowed)}\0${focus}`
+    const cached = model.sequencePrefixPools.get(key)
+    if (cached) return cached
+
+    const target = [...focus]
+    const prefixes = new Map<string, number>()
+    model.rankedWords.forEach((word, rank) => {
+        const characters = [...word]
+        const prefixLimit = Math.min(MAX_PREFIX_LENGTH, characters.length)
+        for (let start = 0; start + target.length <= prefixLimit; start += 1) {
+            if (!target.every((character, offset) => characters[start + offset] === character)) continue
+            const spelling = characters.slice(0, start + target.length).join("")
+            if (![...spelling].every((character) => allowed.has(character))) continue
+            prefixes.set(spelling, (prefixes.get(spelling) ?? 0) + rankWeight(rank))
+        }
+    })
+    const weighted = [...prefixes].map(([value, weight]) => ({ value, weight }))
+    model.sequencePrefixPools.set(key, weighted)
+    return weighted
 }
 
 const sample = (choices: readonly WeightedValue[], rng: Random): string | null => {
@@ -236,7 +266,9 @@ const growWord = (prefix: string, request: GenerateRequest): Candidate | null =>
 export function generateOrthographicWord(request: GenerateRequest): string | null {
     const prefixes = request.required == null
         ? []
-        : prefixPoolsFor(request.model, request.allowed).get(request.required) ?? []
+        : [...request.required].length === 1
+            ? prefixPoolsFor(request.model, request.allowed).get(request.required) ?? []
+            : sequencePrefixesFor(request.model, request.allowed, request.required)
     const candidates = new Map<string, Candidate>()
     for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt += 1) {
         const prefix = sample(prefixes, request.rng) ?? ""

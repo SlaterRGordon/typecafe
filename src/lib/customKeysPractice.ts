@@ -56,6 +56,7 @@ export interface CustomKeysPracticeRecap {
 
 const DEFAULT_KEYS = ["e", "r"]
 const DEFAULT_WORD_COUNT = 1_200
+const PSEUDO_CARRIER_POOL_SIZE = 12
 const normalizedCorpusCache = new WeakMap<object, string[]>()
 
 function uniqueNfc(values: readonly string[]): string[] {
@@ -92,6 +93,65 @@ function decoratedCarrier(word: string, key: string, index: number): string {
     return index % 2 === 0 ? `${word}${key}` : `${key}${word}`
 }
 
+function insertFocus(frame: string, focus: string, rng: () => number): string {
+    const points = [...frame]
+    const index = points.length < 2 ? points.length : 1 + Math.floor(rng() * (points.length - 1))
+    points.splice(index, 0, focus)
+    return points.join("")
+}
+
+function pseudoCarrier(input: {
+    focus: string
+    language: string
+    words: readonly string[]
+    alphabet: readonly string[]
+    recent: readonly string[]
+    rng: () => number
+}): string | null {
+    const { focus, language, words, alphabet, recent, rng } = input
+    const corpus = new Set(words)
+    const excluded = new Set(recent)
+    const letterFocus = /\p{L}/u.test(focus) && alphabet.includes(focus)
+
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+        const required = letterFocus ? focus : alphabet[Math.floor(rng() * alphabet.length)]
+        if (!required) break
+        const generated = generatePhonologicalWord({
+            language,
+            corpus: words,
+            allowedCharacters: alphabet,
+            requiredCharacter: required,
+            rng,
+        })
+        if (!generated) continue
+        const candidate = generated.includes(focus) ? generated : insertFocus(generated, focus, rng)
+        if (!corpus.has(candidate) && !excluded.has(candidate)) return candidate
+    }
+
+    for (let attempt = 0; attempt < Math.min(32, Math.max(8, words.length)); attempt += 1) {
+        const frame = sample(words, rng)
+        if (!frame) return null
+        const candidate = insertFocus(frame, focus, rng)
+        if (!corpus.has(candidate) && !excluded.has(candidate)) return candidate
+    }
+    return null
+}
+
+function pseudoCarrierPool(input: {
+    focus: string
+    language: string
+    words: readonly string[]
+    alphabet: readonly string[]
+    rng: () => number
+}): string[] {
+    const pool: string[] = []
+    for (let attempt = 0; attempt < PSEUDO_CARRIER_POOL_SIZE * 4 && pool.length < PSEUDO_CARRIER_POOL_SIZE; attempt += 1) {
+        const carrier = pseudoCarrier({ ...input, recent: pool })
+        if (carrier && !pool.includes(carrier)) pool.push(carrier)
+    }
+    return pool
+}
+
 /**
  * The Custom Keys compiler treats selected keys as focus, never an alphabet.
  * Real carrier words provide supporting characters; Pseudo uses the same full
@@ -110,29 +170,29 @@ export function compileCustomKeysPractice(input: CustomKeysCompilationInput): st
         key,
         /\p{L}/u.test(key) ? words.filter((word) => word.includes(key)) : words,
     ]))
+    const pseudoPools = new Map(keys.flatMap((key) => {
+        const carriers = carrierPools.get(key) ?? []
+        return input.textStyle === "pseudo" || carriers.length === 0
+            ? [[key, pseudoCarrierPool({ focus: key, language: input.language, words, alphabet, rng })] as const]
+            : []
+    }))
     const recent: string[] = []
     const output: string[] = []
 
     for (let index = 0; index < count; index += 1) {
         const key = keys[index % keys.length]!
-        const letterFocus = /\p{L}/u.test(key)
         const carriers = carrierPools.get(key) ?? words
         const available = carriers.filter((word) => !recent.includes(word))
         let carrier: string | null = null
-        if (input.textStyle === "pseudo") {
-            const required = letterFocus ? key : alphabet[Math.floor(rng() * alphabet.length)]!
-            carrier = generatePhonologicalWord({
-                language: input.language,
-                corpus: words,
-                allowedCharacters: alphabet,
-                requiredCharacter: required,
-                rng,
-            })
+        const pseudoCarriers = pseudoPools.get(key) ?? []
+        if (input.textStyle === "pseudo" || carriers.length === 0) {
+            const availablePseudo = pseudoCarriers.filter((word) => !recent.includes(word))
+            carrier = sample(availablePseudo.length > 0 ? availablePseudo : pseudoCarriers, rng)
         }
         carrier ??= sample(available.length > 0 ? available : carriers, rng)
         carrier ??= sample(words, rng)
         if (!carrier) continue
-        output.push(decoratedCarrier(carrier, key, index))
+        output.push(input.textStyle === "pseudo" || carriers.length === 0 ? carrier : decoratedCarrier(carrier, key, index))
         recent.push(carrier)
         if (recent.length > 8) recent.shift()
     }

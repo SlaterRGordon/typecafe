@@ -52,11 +52,31 @@ describe("compileCustomKeysPractice", () => {
         expect(one.split(" ").some((token) => /\p{L}/u.test(token))).toBe(true)
     })
 
-    it("generates word-shaped pseudo text from the supporting alphabet", () => {
-        const text = compileCustomKeysPractice({ keys: ["r"], corpus, language: "english", textStyle: "pseudo", seed: 9, wordCount: 8 })
-        expect(text.split(" ")).toHaveLength(8)
-        expect(text.split(" ").every((word) => /^\p{L}{2,}$/u.test(word))).toBe(true)
-        expect(text).toContain("r")
+    it("schedules every focus key inside a novel language-shaped Pseudo token", () => {
+        const sparseCorpus = ["paper", "maker", "later", "river", "quiet"]
+        const keys = ["r", "z"]
+        const tokens = compileCustomKeysPractice({ keys, corpus: sparseCorpus, language: "english", textStyle: "pseudo", seed: 9, wordCount: 12 }).split(" ")
+
+        expect(tokens).toHaveLength(12)
+        expect(tokens.every((token) => /^\p{L}{3,}$/u.test(token))).toBe(true)
+        expect(tokens.every((token) => !sparseCorpus.includes(token))).toBe(true)
+        tokens.forEach((token, index) => expect(token).toContain(keys[index % keys.length]))
+        expect(tokens.some((token) => [...token].some((character) => !keys.includes(character)))).toBe(true)
+    })
+
+    it("keeps seeded Pseudo runs deterministic, fresh, and diverse across the recent window", () => {
+        const request = { keys: ["r", "é"], corpus, language: "english", textStyle: "pseudo" as const, wordCount: 24 }
+        const first = compileCustomKeysPractice({ ...request, seed: 41 })
+        const repeat = compileCustomKeysPractice({ ...request, seed: 41 })
+        const fresh = compileCustomKeysPractice({ ...request, seed: 42 })
+        const tokens = first.split(" ")
+
+        expect(repeat).toBe(first)
+        expect(fresh).not.toBe(first)
+        expect(new Set(tokens.slice(0, 9)).size).toBe(9)
+        tokens.forEach((token, index) => {
+            if (index > 0) expect(token).not.toBe(tokens[index - 1])
+        })
     })
 })
 

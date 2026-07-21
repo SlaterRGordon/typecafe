@@ -89,9 +89,15 @@ describe("compileCustomGramsPractice", () => {
         const request = { grams: ["xy", "zzzz"], corpus: ["alpha", "beta"], language: "english", textStyle: "pseudo" as const, seed: 7, wordCount: 10 }
         const one = compileCustomGramsPractice(request)
         const two = compileCustomGramsPractice(request)
+        const tokens = one.split(" ")
         expect(one).toBe(two)
-        expect(one.split(" ")).toHaveLength(10)
-        expect(one.split(" ").every((token) => token !== "xy" && token !== "zzzz" && !request.corpus.includes(token))).toBe(true)
+        expect(tokens).toHaveLength(10)
+        expect(tokens.every((token) => token !== "xy" && token !== "zzzz" && !request.corpus.includes(token))).toBe(true)
+        tokens.forEach((token, index) => {
+            const gram = request.grams[index % request.grams.length]!
+            expect(token).toContain(gram)
+            expect([...token.replace(gram, "")].length).toBeGreaterThanOrEqual(3)
+        })
         expect(count(one, "xy")).toBeGreaterThanOrEqual(5)
         expect(count(one, "zzzz")).toBeGreaterThanOrEqual(5)
     })
@@ -100,12 +106,39 @@ describe("compileCustomGramsPractice", () => {
         const text = compileCustomGramsPractice({ grams: ["th", "tion"], corpus, language: "english", textStyle: "pseudo", seed: 31, wordCount: 20 })
         const tokens = text.split(" ")
         expect(new Set(tokens).size).toBeGreaterThanOrEqual(6)
+        expect(new Set(tokens.slice(0, 9)).size).toBe(9)
         expect(tokens.every((token, index) => index === 0 || token !== tokens[index - 1])).toBe(true)
         expect(tokens.every((token) => token !== "th" && token !== "tion" && /^\p{L}+$/u.test(token))).toBe(true)
     })
 
-    it("changes deterministic output with the run seed", () => {
-        const base = { grams: ["th", "the"], corpus, language: "english", textStyle: "varied" as const, wordCount: 16 }
+    it("keeps Pseudo Gram carriers on active-language spelling transitions", () => {
+        const grams = ["th", "the", "tion"]
+        const tokens = compileCustomGramsPractice({ grams, corpus, language: "english", textStyle: "pseudo", seed: 31, wordCount: 18 }).split(" ")
+        const attestedBigrams = new Set(corpus.flatMap((word) => [...word].slice(1)
+            .map((character, index) => `${[...word][index]}${character}`)))
+
+        tokens.forEach((token, index) => {
+            expect(token).toContain(grams[index % grams.length])
+            expect([...token].slice(1).every((character, offset) => attestedBigrams.has(`${[...token][offset]}${character}`))).toBe(true)
+        })
+    })
+
+    it("balances mixed Unicode Grams as complete internal sequences", () => {
+        const frenchCorpus = ["théorie", "été", "tétée", "caféteria", "station", "action"]
+        const grams = ["té", "été", "tété", "tion"]
+        const tokens = compileCustomGramsPractice({ grams, corpus: frenchCorpus, language: "french", textStyle: "pseudo", seed: 4, wordCount: 20 }).split(" ")
+
+        tokens.forEach((token, index) => {
+            const gram = grams[index % grams.length]!
+            const start = [...token].join("").indexOf(gram)
+            expect(start).toBeGreaterThan(0)
+            expect(start + [...gram].length).toBeLessThan([...token].length)
+        })
+        grams.forEach((gram) => expect(count(tokens.join(" "), gram)).toBeGreaterThanOrEqual(5))
+    })
+
+    it.each(["varied", "pseudo"] as const)("changes deterministic %s output with the run seed", (textStyle) => {
+        const base = { grams: ["th", "the"], corpus, language: "english", textStyle, wordCount: 16 }
         expect(compileCustomGramsPractice({ ...base, seed: 1 })).not.toBe(compileCustomGramsPractice({ ...base, seed: 2 }))
     })
 })

@@ -107,6 +107,42 @@ test.describe("legacy Drill compatibility", () => {
 })
 
 test.describe("Custom Practice", () => {
+  test("renders scheduled language-shaped Pseudo carriers for Keys and Grams", async ({ page }) => {
+    await page.addInitScript(() => {
+      window.localStorage.setItem("typecafe:practice:custom-keys", JSON.stringify({ keys: ["q", "r"], durationSeconds: 30, textStyle: "pseudo" }))
+      window.localStorage.setItem("typecafe:practice:custom-grams", JSON.stringify({ grams: ["th", "tion"], durationSeconds: 30, textStyle: "pseudo" }))
+    })
+    await gotoPractice(page)
+
+    const controls = page.getByRole("region", { name: "Practice controls" })
+    await expect(controls.getByRole("button", { name: "Pseudo" })).toHaveClass(/btn-primary/)
+    await expect.poll(async () => {
+      const tokens = ((await page.locator("#words").textContent()) ?? "").trim().split(/\s+/).slice(0, 12)
+      return tokens.length === 12 && tokens.every((token, index) => token.includes(index % 2 === 0 ? "q" : "r"))
+    }).toBe(true)
+    const keyTokens = ((await page.locator("#words").textContent()) ?? "").trim().split(/\s+/).slice(0, 12)
+    expect(keyTokens).toHaveLength(12)
+    keyTokens.forEach((token, index) => {
+      expect(token).toMatch(/^\p{L}{3,}$/u)
+      expect(token).toContain(index % 2 === 0 ? "q" : "r")
+    })
+
+    const previousPrompt = keyTokens.join(" ")
+    await controls.getByRole("button", { name: "Grams" }).click()
+    await expect.poll(async () => {
+      const prompt = ((await page.locator("#words").textContent()) ?? "").trim()
+      const tokens = prompt.split(/\s+/).slice(0, 12)
+      return !prompt.includes(previousPrompt) && tokens.length === 12 && tokens.every((token, index) => token.includes(index % 2 === 0 ? "th" : "tion"))
+    }).toBe(true)
+    const gramTokens = ((await page.locator("#words").textContent()) ?? "").trim().split(/\s+/).slice(0, 12)
+    gramTokens.forEach((token, index) => {
+      const gram = index % 2 === 0 ? "th" : "tion"
+      const start = token.indexOf(gram)
+      expect(start).toBeGreaterThan(0)
+      expect(start + gram.length).toBeLessThan(token.length)
+    })
+  })
+
   test("keeps controls, finite typer, and layout-aware Keys editor in one workspace and restores choices", async ({ page }) => {
     await gotoPractice(page)
 

@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { targetAction, type CoachingTarget, type GuidedTargetEvidence } from "./coachingTarget"
+import { compileCustomGramsPractice } from "./customGramsPractice"
+import { compileCustomKeysPractice } from "./customKeysPractice"
 import {
     compileGuidedPractice,
     completeGuidedPractice,
@@ -51,6 +53,20 @@ describe("Guided Practice policy", () => {
         expect(varied.split(" ").length).toBeGreaterThanOrEqual(20)
         expect(pseudo.split(" ").length).toBeGreaterThanOrEqual(20)
         expect(varied).not.toMatch(/\b(tion ){4}tion\b/)
+    })
+
+    it.each([
+        { target: { kind: "key", keys: ["q"], metric: "accuracy" } as const, kind: "keys" as const },
+        { target: { kind: "gram", gram: "tion" } as const, kind: "grams" as const },
+    ])("routes Guided $kind Pseudo through the corresponding Custom policy", ({ target, kind }) => {
+        const setup = { ...guidedPracticeSetup(target)!, textStyle: "pseudo" as const }
+        const input = { corpus, language: "english", seed: 13, wordCount: 24 }
+        const guided = compileGuidedPractice({ setup, ...input })
+        const custom = kind === "keys"
+            ? compileCustomKeysPractice({ keys: setup.focus.items, textStyle: "pseudo", ...input })
+            : compileCustomGramsPractice({ grams: setup.focus.items, textStyle: "pseudo", ...input })
+
+        expect(guided).toBe(custom)
     })
 
     it("measures the Target metric and leads recap with Practice Delta plus a separate natural reference", () => {

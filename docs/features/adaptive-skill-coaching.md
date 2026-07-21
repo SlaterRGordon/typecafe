@@ -1200,7 +1200,7 @@ Approved tracer-bullet graph (2026-07-21):
 The initial implementation frontier is #164, #165, and #166. Work each ticket
 from a fresh implementation context; #171 owns the broad verification pass.
 
-- [ ] Replace mechanically spliced or clipped `Pseudo` carriers in both Keys
+- [x] Replace mechanically spliced or clipped `Pseudo` carriers in both Keys
       and Grams with the former Home Practice phonological text quality. Keep
       selected keys as focus rather than an allowed alphabet, retain supporting
       characters, balance every selected focus, and keep each selected Gram

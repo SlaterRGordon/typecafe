@@ -16,6 +16,16 @@ export interface PhonologicalWordRequest {
     rng?: Random
 }
 
+export interface PhonologicalSequenceWordRequest {
+    language: string
+    corpus: readonly string[]
+    allowedCharacters: readonly string[]
+    requiredSequence: string
+    excluded?: ReadonlySet<string>
+    surroundSequence?: boolean
+    rng?: Random
+}
+
 export interface PhonologicalTextRequest {
     language: string
     corpus: readonly string[]
@@ -353,13 +363,14 @@ const generateNovelWord = (
     required: string | null,
     excluded: ReadonlySet<string>,
     rng: Random,
+    accepts: (word: string) => boolean = () => true,
 ): string | null => generateOrthographicWord({
     model: model.orthography,
     allowed,
     required,
     excluded,
     forbidden: model.words,
-    accepts: (word) => isPhonologicallyLicensed(word, model, profile),
+    accepts: (word) => isPhonologicallyLicensed(word, model, profile) && accepts(word),
     rng,
 }) ?? generateFromPool(
     model,
@@ -367,7 +378,7 @@ const generateNovelWord = (
     required ?? [...allowed][Math.floor(rng() * allowed.size)]!,
     excluded,
     rng,
-    (word) => isPhonologicallyLicensed(word, model, profile),
+    (word) => isPhonologicallyLicensed(word, model, profile) && accepts(word),
 )
 
 const sampleCarrier = (
@@ -411,17 +422,38 @@ const normalizedAlphabet = (characters: readonly string[]): string[] =>
  * Models and per-alphabet pools are memoized by corpus-array identity.
  */
 export function generatePhonologicalWord(request: PhonologicalWordRequest): string | null {
+    return generatePhonologicalSequenceWord({
+        language: request.language,
+        corpus: request.corpus,
+        allowedCharacters: request.allowedCharacters,
+        requiredSequence: request.requiredCharacter,
+        surroundSequence: false,
+        rng: request.rng,
+    })
+}
+
+/** Generate one novel licensed spelling containing an exact focus sequence. */
+export function generatePhonologicalSequenceWord(request: PhonologicalSequenceWordRequest): string | null {
     const profile = profileFor(request.language)
     if (!profile) return null
     const rng = request.rng ?? Math.random
     const alphabet = normalizedAlphabet(request.allowedCharacters)
     const allowed = new Set(alphabet)
-    const required = request.requiredCharacter.toLowerCase().normalize("NFC")
-    if (!allowed.has(required)) return null
+    const required = request.requiredSequence.toLowerCase().normalize("NFC")
+    if (!required || ![...required].every((character) => allowed.has(character))) return null
 
     const model = modelFor(request.corpus, profile)
     const pool = poolFor(model, allowed)
-    return generateNovelWord(model, profile, pool, allowed, required, new Set(), rng)
+    const surrounds = request.surroundSequence ?? true
+    return generateNovelWord(model, profile, pool, allowed, required, request.excluded ?? new Set(), rng, (word) => {
+        if (!surrounds) return true
+        const points = [...word]
+        const target = [...required]
+        for (let index = 1; index + target.length < points.length; index += 1) {
+            if (target.every((character, offset) => points[index + offset] === character)) return true
+        }
+        return false
+    })
 }
 
 /**
