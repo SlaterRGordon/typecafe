@@ -131,7 +131,8 @@ function pseudoCarrier(input: {
     for (let attempt = 0; attempt < Math.min(32, Math.max(8, words.length)); attempt += 1) {
         const frame = sample(words, rng)
         if (!frame) return null
-        const candidate = insertFocus(frame, focus, rng)
+        const supportingFrame = frame.repeat(1 + Math.floor(rng() * 3))
+        const candidate = insertFocus(supportingFrame, focus, rng)
         if (!corpus.has(candidate) && !excluded.has(candidate)) return candidate
     }
     return null
@@ -187,7 +188,8 @@ export function compileCustomKeysPractice(input: CustomKeysCompilationInput): st
         const pseudoCarriers = pseudoPools.get(key) ?? []
         if (input.textStyle === "pseudo" || carriers.length === 0) {
             const availablePseudo = pseudoCarriers.filter((word) => !recent.includes(word))
-            carrier = sample(availablePseudo.length > 0 ? availablePseudo : pseudoCarriers, rng)
+            const nonRepeating = pseudoCarriers.filter((word) => word !== recent.at(-1))
+            carrier = sample(availablePseudo.length > 0 ? availablePseudo : nonRepeating.length > 0 ? nonRepeating : pseudoCarriers, rng)
         }
         carrier ??= sample(available.length > 0 ? available : carriers, rng)
         carrier ??= sample(words, rng)

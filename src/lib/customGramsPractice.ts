@@ -249,10 +249,10 @@ function pseudoCarrier(input: PseudoCarrierInput): string {
     // always terminates even when phonological search found no candidate.
     let candidate = ""
     for (let attempt = 0; attempt < Math.min(32, Math.max(8, fallbackWords.length)); attempt += 1) {
-        const base = sample(fallbackWords, rng) ?? (alphabet.join("") || "a")
-        const basePoints = characters(base)
-        const insertion = basePoints.length < 2 ? basePoints.length : 1 + Math.floor(rng() * (basePoints.length - 1))
-        candidate = [...basePoints.slice(0, insertion), gram, ...basePoints.slice(insertion)].join("")
+        const fallback = alphabet.join("") || "a"
+        const left = (sample(fallbackWords, rng) ?? fallback).repeat(1 + Math.floor(rng() * 2))
+        const right = (sample(fallbackWords, rng) ?? fallback).repeat(1 + Math.floor(rng() * 2))
+        candidate = `${left}${gram}${right}`
         if (!corpusWords.has(candidate) && !excluded.has(candidate)) return candidate
     }
     return candidate || `${alphabet[0] ?? "a"}${gram}${alphabet.at(-1) ?? "a"}`
@@ -308,8 +308,10 @@ export function compileCustomGramsPractice(input: CustomGramsCompilationInput): 
         const usePseudo = input.textStyle === "pseudo" || realCarriers.length === 0
         const pseudoCarriers = pseudoPools.get(gram) ?? []
         const availablePseudo = pseudoCarriers.filter((word) => !excluded.has(word))
+        const nonRepeatingPseudo = pseudoCarriers.filter((word) => word !== recent.at(-1))
+        const pseudoCandidates = availablePseudo.length > 0 ? availablePseudo : nonRepeatingPseudo.length > 0 ? nonRepeatingPseudo : pseudoCarriers
         const carrier = usePseudo
-            ? sample(availablePseudo.length > 0 ? availablePseudo : pseudoCarriers, rng)!
+            ? sample(pseudoCandidates, rng)!
             : sample(available.length > 0 ? available : realCarriers, rng)
                 ?? sample(availablePseudo.length > 0 ? availablePseudo : pseudoCarriers, rng)!
         output.push(carrier)

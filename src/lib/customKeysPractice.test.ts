@@ -78,6 +78,19 @@ describe("compileCustomKeysPractice", () => {
             if (index > 0) expect(token).not.toBe(tokens[index - 1])
         })
     })
+
+    it("keeps one-word sparse fallbacks seed-sensitive and non-repeating", () => {
+        const request = { keys: ["a"], corpus: ["aa"], language: "english", textStyle: "pseudo" as const, wordCount: 12 }
+        const first = compileCustomKeysPractice({ ...request, seed: 1 }).split(" ")
+        const fresh = compileCustomKeysPractice({ ...request, seed: 2 }).split(" ")
+
+        expect(fresh).not.toEqual(first)
+        expect(new Set(first).size).toBeGreaterThan(1)
+        first.forEach((token, index) => {
+            expect(token).toContain("a")
+            if (index > 0) expect(token).not.toBe(first[index - 1])
+        })
+    })
 })
 
 describe("completeCustomKeysPractice", () => {

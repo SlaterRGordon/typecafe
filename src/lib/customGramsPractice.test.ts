@@ -102,6 +102,20 @@ describe("compileCustomGramsPractice", () => {
         expect(count(one, "zzzz")).toBeGreaterThanOrEqual(5)
     })
 
+    it("keeps one-word sparse Gram fallbacks seed-sensitive and non-repeating", () => {
+        const request = { grams: ["xy"], corpus: ["ab"], language: "english", textStyle: "pseudo" as const, wordCount: 12 }
+        const first = compileCustomGramsPractice({ ...request, seed: 1 }).split(" ")
+        const fresh = compileCustomGramsPractice({ ...request, seed: 2 }).split(" ")
+
+        expect(fresh).not.toEqual(first)
+        expect(new Set(first).size).toBeGreaterThan(1)
+        first.forEach((token, index) => {
+            expect(token).toContain("xy")
+            expect([...token.replace("xy", "")].length).toBeGreaterThanOrEqual(3)
+            if (index > 0) expect(token).not.toBe(first[index - 1])
+        })
+    })
+
     it("keeps carrier diversity without repeating the selected Grams as naked tokens", () => {
         const text = compileCustomGramsPractice({ grams: ["th", "tion"], corpus, language: "english", textStyle: "pseudo", seed: 31, wordCount: 20 })
         const tokens = text.split(" ")
