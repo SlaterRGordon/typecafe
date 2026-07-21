@@ -890,12 +890,18 @@ test.describe("home typing test", () => {
 
     const drillButton = page.getByRole("link", { name: /Practise these keys/ }).first();
     await expect(drillButton).toBeVisible();
+    const drillLabel = await drillButton.getAttribute("aria-label");
+    expect(drillLabel).toMatch(/^Practise these keys: /);
+    const diagnosedKeys = drillLabel!.replace(/^Practise these keys: /, "").split(", ");
+    const drillHref = await drillButton.getAttribute("href");
+    expect(new URL(drillHref!, page.url()).searchParams.get("keys")).toBe(diagnosedKeys.join(","));
     await drillButton.click();
 
     await expect(page).toHaveURL(/\/practice\?target=key/);
     await expect(page).toHaveURL(/[?&]evidence=/);
+    expect(new URL(page.url()).searchParams.get("keys")).toBe(diagnosedKeys.join(","));
     await expect(page.getByTestId("custom-practice-workspace")).toHaveAttribute("data-practice-kind", "guided");
-    await expect(page.getByRole("heading", { name: /^Practise / })).toBeVisible();
+    await expect(page.getByRole("heading", { name: `Practise ${diagnosedKeys.join(" ")}`, exact: true })).toBeVisible();
     await expect(page.getByTestId("guided-practice-intent")).toHaveCount(0);
   });
 
