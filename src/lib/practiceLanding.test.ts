@@ -36,6 +36,8 @@ describe("projectPracticeLanding", () => {
         expect(landing.recommendation).toMatchObject({
             id: progress.defaultTarget.id,
             label: progress.defaultTarget.label,
+            visualKeys: ["b", "r"],
+            arrows: true,
             reason: progress.defaultTarget.detail,
             primaryAction: progress.defaultTarget.action,
         })

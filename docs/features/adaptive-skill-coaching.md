@@ -1241,7 +1241,7 @@ from a fresh implementation context; #171 owns the broad verification pass.
       convert immediately to Custom Practice, change the concise title, and
       show one brief `Changed to Custom Practice` toast rather than persistent
       warning copy.
-- [ ] Simplify the Practice landing to a borderless recommendation-first
+- [x] Simplify the Practice landing to a borderless recommendation-first
       hierarchy: target glyph, one short measured reason, primary Practice
       action, then compact Keys and Grams continuation rows separated by
       spacing or dividers. Remove recommendation/path cards, decorative icons,

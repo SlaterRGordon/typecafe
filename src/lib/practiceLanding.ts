@@ -2,6 +2,7 @@ import type { CustomGramsPracticePreferences } from "./customGramsPractice"
 import { summarizeCustomGramsPracticePreferences } from "./customGramsPreferences"
 import type { CustomKeysPracticePreferences } from "./customKeysPractice"
 import { summarizeCustomKeysPracticePreferences } from "./customKeysPreferences"
+import { targetUsesArrow } from "./coachingTarget"
 import type { ProgressCoachProjection, ProgressCoachTarget } from "./progressCoach"
 
 export interface PracticeLandingAction {
@@ -12,10 +13,10 @@ export interface PracticeLandingAction {
 export interface PracticeLandingRecommendation {
     id: string
     label: string
-    typeLabel: string
+    visualKeys: string[]
+    arrows: boolean
     reason: string
     statusLabel: string
-    recentMeasurement: string | null
     primaryAction: PracticeLandingAction
     secondaryAction: PracticeLandingAction | null
     awaitingMeasurement: boolean
@@ -57,10 +58,10 @@ export function projectPracticeLanding(input: {
     const recommendation = target.target && practice ? {
         id: target.id,
         label: target.label,
-        typeLabel: target.typeLabel,
+        visualKeys: target.visualKeys,
+        arrows: targetUsesArrow(target.target),
         reason: target.detail,
         statusLabel: target.awaitingMeasurement ? "practised · awaiting Test" : target.statusLabel,
-        recentMeasurement: target.stages.at(-1)?.value ?? null,
         primaryAction: target.awaitingMeasurement && target.action ? target.action : practice,
         secondaryAction: target.awaitingMeasurement ? practice : null,
         awaitingMeasurement: target.awaitingMeasurement,

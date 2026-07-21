@@ -80,12 +80,16 @@ test.describe("Practice landing", () => {
 
     const recommendation = page.getByTestId("practice-recommendation")
     await expect(recommendation).toContainText("Recommended for you")
-    await expect(recommendation.getByRole("heading")).toHaveText("b→r")
+    const target = recommendation.getByRole("heading", { name: "b→r" })
+    await expect(target.locator("kbd")).toHaveText(["b", "r"])
+    await expect(target).toContainText("→")
     await expect(recommendation).toContainText("Recent natural typing shows this transition taking 1.4× your typical transition time.")
-    await expect(recommendation.getByRole("link", { name: "Start Guided" })).toHaveAttribute("href", /\/practice\?target=transition.*transitions=br.*evidence=/)
-    await expect(page.getByRole("heading", { name: "Practice your way" })).toBeVisible()
+    await expect(recommendation.getByRole("link", { name: "Practice this transition" })).toHaveAttribute("href", /\/practice\?target=transition.*transitions=br.*evidence=/)
+    await expect(recommendation).not.toHaveClass(/rounded|border|bg-primary/)
     await expect(page.getByTestId("practice-path-keys")).toBeVisible()
     await expect(page.getByTestId("practice-path-grams")).toBeVisible()
+    await expect(page.getByTestId("practice-landing").locator("article")).toHaveCount(0)
+    await expect(page.getByTestId("practice-landing").locator(".material-symbols-rounded")).toHaveCount(0)
   })
 
   test("keeps an awaiting Target and makes a normal Test primary", async ({ page }) => {
@@ -105,7 +109,10 @@ test.describe("Practice landing", () => {
       window.localStorage.setItem("typecafe:practice:custom-keys", JSON.stringify({ keys: ["q", "r"], durationSeconds: 30, textStyle: "pseudo" }))
       window.localStorage.setItem("typecafe:practice:recent-custom-grams", JSON.stringify({
         version: 2,
-        languages: { english: { version: 2, language: "english", entries: [], setup: { grams: ["th", "tion"], durationSeconds: 120, textStyle: "varied", updatedAt: 10 } } },
+        languages: {
+          english: { version: 2, language: "english", entries: [], setup: { grams: ["th", "tion"], durationSeconds: 120, textStyle: "varied", updatedAt: 10 } },
+          french: { version: 2, language: "french", entries: [], setup: { grams: ["ét", "tion"], durationSeconds: 240, textStyle: "pseudo", updatedAt: 20 } },
+        },
       }))
     })
     await page.goto("/practice")
@@ -124,6 +131,12 @@ test.describe("Practice landing", () => {
     await expect(grams).toContainText("th · tion")
     await expect(grams).toContainText("120s · Varied")
     await expect(grams.getByRole("link", { name: "Continue Grams" })).toHaveAttribute("href", "/practice?custom=grams")
+
+    await setPracticeLanguage(page, "french")
+    await expect(grams).toContainText("ét · tion")
+    await expect(grams).toContainText("240s · Pseudo")
+    await expect(keys).toContainText("q · r")
+    await expect(page.getByTestId("practice-landing").locator("article")).toHaveCount(0)
   })
 })
 

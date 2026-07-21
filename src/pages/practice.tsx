@@ -73,74 +73,58 @@ function PracticeLanding({ projection, loading }: { projection: PracticeLandingP
     return (
         <div data-testid="practice-landing" className="h-full w-full overflow-y-auto bg-base-100 px-3 pb-24 pt-8 sm:px-6 md:py-12">
             <Head><title>Practice | TypeCafe</title></Head>
-            <main className="mx-auto w-full max-w-5xl md:px-4">
-                <header className="max-w-2xl">
-                    <p className="font-mono text-xs uppercase tracking-[0.18em] text-primary">Practice</p>
-                    <h1 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">Practice with a purpose.</h1>
-                    <p className="mt-3 text-base text-base-content/60">Start with what your Tests measured, or choose your own focus.</p>
+            <main className="mx-auto w-full max-w-3xl md:px-4">
+                <header>
+                    <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">Practice</h1>
                 </header>
 
-                <section aria-label="Practice recommendation" className="mt-7 overflow-hidden rounded-2xl border border-primary/30 bg-primary/10 shadow-sm">
+                <section aria-label="Practice recommendation" className="mt-10">
                     {loading || !projection ? (
-                        <div data-testid="practice-landing-loading" className="animate-pulse p-6 sm:p-8">
+                        <div data-testid="practice-landing-loading" className="animate-pulse py-2">
                             <div className="h-3 w-36 rounded bg-primary/20" />
                             <div className="mt-4 h-8 w-64 max-w-full rounded bg-base-content/10" />
                             <div className="mt-3 h-4 w-full max-w-xl rounded bg-base-content/10" />
                             <div className="mt-6 h-10 w-36 rounded bg-primary/20" />
                         </div>
                     ) : projection.recommendation ? (
-                        <div data-testid="practice-recommendation" className="grid gap-6 p-6 sm:p-8 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+                        <div data-testid="practice-recommendation" className="grid gap-5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
                             <div>
-                                <div className="flex flex-wrap items-center gap-2">
-                                    <p className="font-mono text-xs font-bold uppercase tracking-[0.16em] text-primary">Recommended for you</p>
-                                    <span className="rounded-full bg-base-100/70 px-2 py-1 font-mono text-[0.68rem] font-semibold text-base-content/65">{projection.recommendation.typeLabel}</span>
-                                </div>
-                                <h2 className="mt-3 text-2xl font-bold sm:text-3xl">{projection.recommendation.label}</h2>
-                                <p className="mt-2 max-w-2xl text-base text-base-content/75">{projection.recommendation.reason}</p>
-                                <div className="mt-4 flex flex-wrap items-center gap-2 font-mono text-xs">
-                                    <span className={projection.recommendation.awaitingMeasurement ? "font-semibold text-success" : "text-base-content/60"}>{projection.recommendation.statusLabel}</span>
-                                    {projection.recommendation.recentMeasurement && <span className="rounded bg-base-100/70 px-2 py-1 text-base-content/70">Recent {projection.recommendation.recentMeasurement}</span>}
-                                </div>
+                                <p className="font-mono text-xs font-bold uppercase tracking-[0.16em] text-primary">Recommended for you</p>
+                                <h2 className="mt-3 w-fit text-2xl font-bold sm:text-3xl">
+                                    <TargetGlyph keys={projection.recommendation.visualKeys} label={projection.recommendation.label} arrows={projection.recommendation.arrows} headline />
+                                </h2>
+                                <p className="mt-3 max-w-2xl text-base text-base-content/70">{projection.recommendation.reason}</p>
+                                {projection.recommendation.awaitingMeasurement && <p className="mt-3 font-mono text-xs font-semibold text-success">{projection.recommendation.statusLabel}</p>}
                             </div>
-                            <div className="flex min-w-40 flex-col gap-2 sm:flex-row lg:flex-col">
+                            <div className="flex min-w-40 flex-col gap-2">
                                 <Link href={projection.recommendation.primaryAction.href} className="btn btn-primary">
-                                    {projection.recommendation.awaitingMeasurement ? projection.recommendation.primaryAction.label : "Start Guided"}
+                                    {projection.recommendation.primaryAction.label}
                                 </Link>
                                 {projection.recommendation.secondaryAction && <Link href={projection.recommendation.secondaryAction.href} className="btn btn-ghost border-base-content/15">{projection.recommendation.secondaryAction.label}</Link>}
                             </div>
                         </div>
                     ) : (
-                        <div data-testid="practice-empty" className="grid gap-6 p-6 sm:p-8 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+                        <div data-testid="practice-empty" className="grid gap-5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
                             <div>
-                                <p className="font-mono text-xs font-bold uppercase tracking-[0.16em] text-primary">Find your focus</p>
-                                <h2 className="mt-3 text-2xl font-bold sm:text-3xl">Give TypeCafe a normal Test.</h2>
-                                <p className="mt-2 max-w-2xl text-base text-base-content/70">A Test gives us natural typing evidence to identify what is slowing you down. Until then, we won’t invent a Weakness.</p>
+                                <h2 className="text-2xl font-bold sm:text-3xl">Find your focus</h2>
+                                <p className="mt-3 max-w-2xl text-base text-base-content/70">A normal Test identifies what is slowing you down. Until then, we won’t invent a Weakness.</p>
                             </div>
                             <Link href={projection.emptyAction.href} className="btn btn-primary min-w-40">{projection.emptyAction.label}</Link>
                         </div>
                     )}
                 </section>
 
-                <section aria-labelledby="practice-your-way" className="mt-9">
-                    <div>
-                        <p className="font-mono text-xs uppercase tracking-[0.16em] text-base-content/45">Custom Practice</p>
-                        <h2 id="practice-your-way" className="mt-1 text-2xl font-bold">Practice your way</h2>
-                    </div>
-                    <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                <section aria-label="Custom Practice" className="mt-12 border-t border-base-content/15 pt-3">
+                    <div className="divide-y divide-base-content/10">
                         {(projection?.customPaths ?? []).map((path) => (
-                            <article key={path.kind} data-testid={`practice-path-${path.kind}`} className="flex min-h-56 flex-col rounded-2xl border border-base-content/10 bg-base-200/35 p-5 sm:p-6">
-                                <div className="flex items-center justify-between gap-3">
+                            <div key={path.kind} data-testid={`practice-path-${path.kind}`} className="grid min-h-24 grid-cols-[minmax(0,1fr)_auto] items-center gap-4 py-4">
+                                <div className="min-w-0">
                                     <h3 className="text-xl font-bold">{path.title}</h3>
-                                    <span className="material-symbols-rounded text-2xl text-primary" aria-hidden="true">{path.kind === "keys" ? "keyboard" : "text_fields"}</span>
+                                    <p className="mt-1 truncate font-mono text-sm font-semibold text-base-content/75">{path.focus || "No saved focus"}</p>
+                                    <p className="mt-1 font-mono text-xs text-base-content/45">{path.settings}</p>
                                 </div>
-                                <p className="mt-2 text-sm text-base-content/60">{path.kind === "keys" ? "Build response around the keys you choose." : "Mix exact 2-, 3-, and 4-character patterns."}</p>
-                                <div className="mt-5 rounded-xl bg-base-100/70 p-3">
-                                    <p className="text-[0.68rem] font-semibold uppercase tracking-wide text-base-content/45">Saved focus</p>
-                                    <p className="mt-1 break-words font-mono text-sm font-semibold text-base-content/80">{path.focus}</p>
-                                    <p className="mt-1 font-mono text-xs text-base-content/50">{path.settings}</p>
-                                </div>
-                                <Link href={path.href} className="btn btn-sm btn-ghost mt-auto border-base-content/15">Continue {path.title}</Link>
-                            </article>
+                                <Link href={path.href} className="btn btn-sm btn-ghost border-base-content/15">Continue {path.title}</Link>
+                            </div>
                         ))}
                     </div>
                 </section>
