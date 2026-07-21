@@ -121,8 +121,40 @@ test("Guided Practice workspace and awaiting-Test recap", async ({ page }, testI
     await page.clock.runFor(30)
   }
   await page.clock.runFor(30_000)
+  const recap = page.getByTestId("practice-recap")
   await expect(page.getByTestId("guided-awaiting-test")).toBeVisible()
+  await expect(recap.getByTestId("guided-target-metric")).not.toHaveClass(/rounded|bg-base-200/)
+  await expect(recap).not.toContainText("Guided Drill complete")
+  await expect(recap).not.toContainText("Secondary")
   await capture(page, testInfo, "70-guided-practice-awaiting-test")
+})
+
+test("Custom Grams Practice completion", async ({ page }, testInfo) => {
+  await page.clock.install()
+  await page.addInitScript(() => {
+    window.localStorage.setItem("typecafe:practice:recent-custom-grams", JSON.stringify({
+      version: 2,
+      languages: { english: { version: 2, language: "english", entries: [], setup: { grams: ["th", "the", "tion"], durationSeconds: 30, textStyle: "varied", updatedAt: 30 } } },
+    }))
+  })
+  await page.goto("/practice?custom=grams")
+  await expect(page.locator("#c0")).toHaveClass(/active-char/, { timeout: 20_000 })
+  for (let index = 0; index < 80; index += 1) {
+    await typeCurrentCharacter(page, index)
+    await page.clock.runFor(30)
+  }
+  await page.clock.runFor(30_000)
+
+  const recap = page.getByTestId("practice-recap")
+  await expect(recap.getByTestId("practice-gram-th")).toBeVisible()
+  await expect(recap.locator("article")).toHaveCount(0)
+  await expect(recap).not.toContainText("Overall")
+  await expect(recap.getByRole("button", { name: "Repeat with fresh text" })).toBeVisible()
+  expect(await page.evaluate(() => ({
+    fits: document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+    scrollX: window.scrollX,
+  }))).toEqual({ fits: true, scrollX: 0 })
+  await capture(page, testInfo, "71-custom-grams-practice-completion")
 })
 
 // /train lands on the level map; Continue zooms into the resume level.

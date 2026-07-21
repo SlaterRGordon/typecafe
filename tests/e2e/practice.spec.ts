@@ -540,6 +540,11 @@ test.describe("Custom Practice", () => {
     await expect(recap).toContainText("attempt")
     await expect(recap).toContainText("Accuracy")
     await expect(recap).toContainText("Building your practice baseline.")
+    await expect(recap.locator('[data-testid^="practice-key-"]')).toHaveCount(2)
+    await expect(recap.locator("article")).toHaveCount(0)
+    await expect(recap).not.toContainText("Run complete")
+    await expect(recap).not.toContainText("Overall")
+    await expect(recap.getByRole("button", { name: "Repeat with fresh text" })).toBeVisible()
     await expect(page.getByRole("region", { name: "Focus key editor" })).toBeVisible()
   })
 
@@ -559,7 +564,7 @@ test.describe("Custom Practice", () => {
     await expect(page.locator("#c520")).toHaveClass(/active-char/)
   })
 
-  test("mixed-Gram timer completion shows every occurred item before overall results", async ({ page }) => {
+  test("mixed-Gram timer completion shows every occurred item before the repeat action", async ({ page }, testInfo) => {
     await page.clock.install()
     await gotoPractice(page)
     const controls = page.getByRole("region", { name: "Practice controls" })
@@ -577,10 +582,21 @@ test.describe("Custom Practice", () => {
     await expect(recap.getByTestId("practice-gram-th")).toContainText("Accuracy")
     await expect(recap.getByTestId("practice-gram-the")).toContainText("response WPM")
     await expect(recap.getByTestId("practice-gram-tion")).toContainText("attempt")
-    await expect(recap).toContainText("Overall")
+    await expect(recap.locator('[data-testid^="practice-gram-"]')).toHaveCount(3)
+    await expect(recap.locator("article")).toHaveCount(0)
+    await expect(recap).not.toContainText("Run complete")
+    await expect(recap).not.toContainText("Overall")
+    const repeat = recap.getByRole("button", { name: "Repeat with fresh text" })
+    await expect(repeat).toBeVisible()
     expect((await recap.getByTestId("practice-gram-th").boundingBox())!.y)
-      .toBeLessThan((await recap.getByText("Overall").boundingBox())!.y)
+      .toBeLessThan((await repeat.boundingBox())!.y)
     await expect(page.getByRole("region", { name: "Gram editor" })).toBeVisible()
+    if (testInfo.project.name.startsWith("mobile")) {
+      expect(await page.evaluate(() => ({
+        fits: document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+        scrollX: window.scrollX,
+      }))).toEqual({ fits: true, scrollX: 0 })
+    }
   })
 
   test("stop persists elapsed activity without producing a comparison recap", async ({ page }) => {
@@ -661,10 +677,17 @@ test.describe("Guided Practice", () => {
 
     const recap = page.getByTestId("practice-recap")
     await expect(recap.getByTestId("guided-target-metric")).toContainText("Gram latency")
-    await expect(recap).toContainText("Practice Delta")
+    await expect(recap).toContainText("Practice Delta: Building your Guided baseline.")
     await expect(recap).toContainText("Target attempt")
-    await expect(recap.getByTestId("guided-natural-reference")).toContainText("Recent natural-Test reference")
-    await expect(recap).toContainText("Secondary")
+    const naturalReference = recap.getByTestId("guided-natural-reference")
+    await expect(naturalReference).toHaveCount(1)
+    await expect(naturalReference).toContainText("Recent natural-Test reference")
+    await expect(naturalReference).toContainText("Recent Tests measured tion with 76 ms of extra pause.")
+    await expect(recap.getByRole("heading", { name: "tion" })).toBeVisible()
+    await expect(recap).not.toContainText("Guided Drill complete")
+    await expect(recap).not.toContainText("Secondary")
+    await expect(recap).not.toContainText("Overall")
+    await expect(recap.getByTestId("guided-target-metric")).not.toHaveClass(/rounded|bg-base-200/)
     await expect(recap.getByRole("link", { name: "Take a Test" })).toHaveAttribute("href", "/")
     await expect(recap.getByRole("button", { name: "Practise again" })).toBeVisible()
     await expect(page.getByTestId("guided-awaiting-test")).toHaveText("practised · awaiting Test")

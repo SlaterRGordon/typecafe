@@ -1246,7 +1246,7 @@ from a fresh implementation context; #171 owns the broad verification pass.
       action, then compact Keys and Grams continuation rows separated by
       spacing or dividers. Remove recommendation/path cards, decorative icons,
       and repeated descriptions.
-- [ ] Simplify completion to typography and dividers in the former typer area.
+- [x] Simplify completion to typography and dividers in the former typer area.
       Guided retains only the Target result, attempts, Practice Delta or
       baseline-building state, one compact natural-Test reference, and
       `Take a Test` / `Practise again` actions. Custom uses one divided row per
