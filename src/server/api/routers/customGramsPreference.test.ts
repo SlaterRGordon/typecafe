@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest"
-import { addRecentCustomGram, emptyRecentCustomGrams } from "~/lib/customGramsRecent"
+import { addRecentCustomGram, emptyCustomGramsPreference, updateCustomGramsSetup } from "~/lib/customGramsPreference"
 import { customGramsPreferenceRouter } from "./customGramsPreference"
 
 vi.mock("~/server/auth", () => ({ getServerAuthSession: vi.fn() }))
@@ -15,7 +15,7 @@ function callerContext(prisma: unknown, userId: string | null = "user-1") {
 
 describe("Custom Grams preference router", () => {
     it("reads only the authenticated account and requested language", async () => {
-        const snapshot = addRecentCustomGram(emptyRecentCustomGrams("english"), "th", 10)
+        const snapshot = addRecentCustomGram(emptyCustomGramsPreference("english"), "th", 10)
         const findUnique = vi.fn().mockResolvedValue({ snapshot })
         const caller = customGramsPreferenceRouter.createCaller(callerContext({
             customGramsPreference: { findUnique },
@@ -29,8 +29,8 @@ describe("Custom Grams preference router", () => {
     })
 
     it("converges stale retries without duplicate or timestamp regression", async () => {
-        const existing = addRecentCustomGram(emptyRecentCustomGrams("english"), "th", 20)
-        const incoming = addRecentCustomGram(emptyRecentCustomGrams("english"), "th", 10)
+        const existing = addRecentCustomGram(emptyCustomGramsPreference("english"), "th", 20)
+        const incoming = addRecentCustomGram(emptyCustomGramsPreference("english"), "th", 10)
         const upsert = vi.fn().mockResolvedValue({})
         const delegate = { findUnique: vi.fn().mockResolvedValue({ snapshot: existing }), upsert }
         const transaction = vi.fn(async (work: (client: unknown) => Promise<unknown>) => work({ customGramsPreference: delegate }))
@@ -44,8 +44,28 @@ describe("Custom Grams preference router", () => {
         expect(transaction).toHaveBeenCalledWith(expect.any(Function), { isolationLevel: "Serializable" })
     })
 
+    it("keeps a newer account setup while independently accepting newer Recent activity", async () => {
+        const existing = updateCustomGramsSetup(emptyCustomGramsPreference("english"), {
+            grams: ["th"], durationSeconds: 120, textStyle: "pseudo",
+        }, 200)
+        const incoming = addRecentCustomGram(updateCustomGramsSetup(emptyCustomGramsPreference("english"), {
+            grams: ["er"], durationSeconds: 30, textStyle: "varied",
+        }, 100), "er", 300)
+        const delegate = {
+            findUnique: vi.fn().mockResolvedValue({ snapshot: existing }),
+            upsert: vi.fn().mockResolvedValue({}),
+        }
+        const transaction = vi.fn(async (work: (client: unknown) => Promise<unknown>) => work({ customGramsPreference: delegate }))
+        const caller = customGramsPreferenceRouter.createCaller(callerContext({ customGramsPreference: delegate, $transaction: transaction }))
+
+        const merged = await caller.merge({ snapshot: incoming })
+
+        expect(merged.setup).toEqual(existing.setup)
+        expect(merged.entries).toEqual([{ gram: "er", lastUsedAt: 300 }])
+    })
+
     it("serializes concurrent device merges so neither new Gram is lost", async () => {
-        let stored = emptyRecentCustomGrams("english")
+        let stored = emptyCustomGramsPreference("english")
         const delegate = {
             findUnique: vi.fn(() => Promise.resolve({ snapshot: stored })),
             upsert: vi.fn((input: { update: { snapshot: typeof stored } }) => {
@@ -62,8 +82,8 @@ describe("Custom Grams preference router", () => {
         const caller = customGramsPreferenceRouter.createCaller(callerContext({ customGramsPreference: delegate, $transaction: transaction }))
 
         await Promise.all([
-            caller.merge({ snapshot: addRecentCustomGram(emptyRecentCustomGrams("english"), "th", 10) }),
-            caller.merge({ snapshot: addRecentCustomGram(emptyRecentCustomGrams("english"), "er", 11) }),
+            caller.merge({ snapshot: addRecentCustomGram(emptyCustomGramsPreference("english"), "th", 10) }),
+            caller.merge({ snapshot: addRecentCustomGram(emptyCustomGramsPreference("english"), "er", 11) }),
         ])
 
         expect(stored.entries).toEqual([{ gram: "er", lastUsedAt: 11 }, { gram: "th", lastUsedAt: 10 }])

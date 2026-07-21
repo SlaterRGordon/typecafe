@@ -1262,7 +1262,7 @@ from a fresh implementation context; #171 owns the broad verification pass.
       for signed-in cross-device use. On sign-in, merge recent items by their
       newest timestamps and clear pending guest state only after the server
       merge succeeds.
-- [ ] Persist the complete Custom Grams setup (focus, duration, and style) per
+- [x] Persist the complete Custom Grams setup (focus, duration, and style) per
       language locally for guests and account-side for signed-in cross-device
       use, choosing the newest edited setup on sign-in. Custom Keys persistence
       remains unchanged.

@@ -2,11 +2,11 @@ import { TRPCError } from "@trpc/server"
 import { z } from "zod"
 import type { Prisma } from "~/generated/prisma/client"
 import {
-    emptyRecentCustomGrams,
-    mergeRecentCustomGrams,
-    parseRecentCustomGrams,
-    RECENT_CUSTOM_GRAMS_VERSION,
-} from "~/lib/customGramsRecent"
+    CUSTOM_GRAMS_PREFERENCE_VERSION,
+    emptyCustomGramsPreference,
+    mergeCustomGramsPreferences,
+    parseCustomGramsPreference,
+} from "~/lib/customGramsPreference"
 import { PICKER_LANGUAGES } from "~/lib/languageMeta"
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc"
 
@@ -27,7 +27,7 @@ export const customGramsPreferenceRouter = createTRPCRouter({
                 where: { userId_language: { userId: ctx.session.user.id, language: input.language } },
                 select: { snapshot: true },
             })
-            return row ? parseRecentCustomGrams(row.snapshot, input.language) : emptyRecentCustomGrams(input.language)
+            return row ? parseCustomGramsPreference(row.snapshot, input.language) : emptyCustomGramsPreference(input.language)
         }),
 
     merge: protectedProcedure
@@ -41,14 +41,14 @@ export const customGramsPreferenceRouter = createTRPCRouter({
                 throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid Custom Grams preference" })
             }
             const candidate = input.snapshot as { version?: unknown; language?: unknown; entries?: unknown }
-            if (candidate.version !== RECENT_CUSTOM_GRAMS_VERSION
+            if ((candidate.version !== 1 && candidate.version !== CUSTOM_GRAMS_PREFERENCE_VERSION)
                 || typeof candidate.language !== "string"
                 || !supportedLanguages.has(candidate.language)
                 || !Array.isArray(candidate.entries)) {
                 throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid Custom Grams preference" })
             }
 
-            const incoming = parseRecentCustomGrams(input.snapshot, candidate.language)
+            const incoming = parseCustomGramsPreference(input.snapshot, candidate.language)
             const key = { userId: ctx.session.user.id, language: incoming.language }
             for (let attempt = 0; attempt < MAX_TRANSACTION_ATTEMPTS; attempt += 1) {
                 try {
@@ -57,7 +57,7 @@ export const customGramsPreferenceRouter = createTRPCRouter({
                             where: { userId_language: key },
                             select: { snapshot: true },
                         })
-                        const merged = mergeRecentCustomGrams(incoming.language, existing?.snapshot, incoming)
+                        const merged = mergeCustomGramsPreferences(incoming.language, existing?.snapshot, incoming)
                         const snapshot = merged as unknown as Prisma.InputJsonValue
                         await transaction.customGramsPreference.upsert({
                             where: { userId_language: key },

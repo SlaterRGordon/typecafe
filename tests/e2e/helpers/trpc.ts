@@ -1,6 +1,6 @@
 import type { Page, Route } from "@playwright/test";
 import superjson from "superjson";
-import { mergeRecentCustomGrams } from "../../../src/lib/customGramsRecent";
+import { mergeCustomGramsPreferences } from "../../../src/lib/customGramsPreference";
 
 type ProcedureInput = Record<string, unknown> | undefined;
 interface MockTrpcOptions {
@@ -25,6 +25,7 @@ interface MockTrpcOptions {
   coachingSession?: unknown;
   coachingHistory?: unknown[];
   customGramsPreference?: unknown;
+  customGramsPreferences?: Record<string, unknown>;
   // Make the progress history flat (a plateau) instead of rising.
   flatProgress?: boolean;
   // Make the progress history fall so hero sign-specific layout can be tested.
@@ -226,7 +227,7 @@ interface MockTrpcState {
   importedTrainProgress: boolean;
   syncedProgressRollups: unknown[];
   coachingSession: unknown;
-  customGramsPreference: unknown;
+  customGramsPreferences: Record<string, unknown>;
   guestEvidenceImportCalls: number;
 }
 
@@ -430,12 +431,12 @@ function responseForProcedure(procedure: string, input: ProcedureInput, options:
       state.coachingSession = input?.snapshot ?? null;
       return state.coachingSession;
     case "customGramsPreference.get":
-      return state.customGramsPreference;
+      return typeof input?.language === "string" ? state.customGramsPreferences[input.language] ?? null : null;
     case "customGramsPreference.merge": {
       const incoming = input?.snapshot as { language?: unknown } | undefined;
       const language = typeof incoming?.language === "string" ? incoming.language : "english";
-      state.customGramsPreference = mergeRecentCustomGrams(language, state.customGramsPreference, incoming);
-      return state.customGramsPreference;
+      state.customGramsPreferences[language] = mergeCustomGramsPreferences(language, state.customGramsPreferences[language], incoming);
+      return state.customGramsPreferences[language];
     }
     case "user.get":
       return currentProfileUser;
@@ -628,11 +629,16 @@ function responseForProcedure(procedure: string, input: ProcedureInput, options:
 
 export async function mockTrpc(page: Page, options: MockTrpcOptions = {}) {
   currentProfileUser = { ...profileUser, image: options.profileImage ?? profileUser.image };
+  const legacyCustomGramsPreference = options.customGramsPreference as { language?: unknown } | null | undefined;
+  const customGramsPreferences = { ...options.customGramsPreferences };
+  if (legacyCustomGramsPreference && typeof legacyCustomGramsPreference.language === "string") {
+    customGramsPreferences[legacyCustomGramsPreference.language] = legacyCustomGramsPreference;
+  }
   const state: MockTrpcState = {
     importedTrainProgress: false,
     syncedProgressRollups: [],
     coachingSession: options.coachingSession ?? null,
-    customGramsPreference: options.customGramsPreference ?? null,
+    customGramsPreferences,
     guestEvidenceImportCalls: 0,
   };
 

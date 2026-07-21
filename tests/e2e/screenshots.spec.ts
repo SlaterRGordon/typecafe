@@ -64,7 +64,10 @@ test("Practice landing with measured recommendation", async ({ page }, testInfo)
 test("Practice landing without measured evidence", async ({ page }, testInfo) => {
   await page.addInitScript(() => {
     window.localStorage.setItem("typecafe:practice:custom-keys", JSON.stringify({ keys: ["q", "r"], durationSeconds: 30, textStyle: "pseudo" }))
-    window.localStorage.setItem("typecafe:practice:custom-grams", JSON.stringify({ grams: ["th", "tion"], durationSeconds: 120, textStyle: "varied" }))
+    window.localStorage.setItem("typecafe:practice:recent-custom-grams", JSON.stringify({
+      version: 2,
+      languages: { english: { version: 2, language: "english", entries: [], setup: { grams: ["th", "tion"], durationSeconds: 120, textStyle: "varied", updatedAt: 10 } } },
+    }))
   })
   await page.goto("/practice")
   await expect(page.getByTestId("practice-empty")).toBeVisible()
@@ -86,10 +89,9 @@ test("Custom Keys Practice workspace", async ({ page }, testInfo) => {
 
 test("Custom mixed Grams Practice workspace", async ({ page }, testInfo) => {
   await page.addInitScript(() => {
-    window.localStorage.setItem("typecafe:practice:custom-grams", JSON.stringify({ grams: ["th", "er", "ing"], durationSeconds: 60, textStyle: "varied" }))
     window.localStorage.setItem("typecafe:practice:recent-custom-grams", JSON.stringify({
-      version: 1,
-      languages: { english: { version: 1, language: "english", entries: [{ gram: "er", lastUsedAt: 20 }, { gram: "ing", lastUsedAt: 10 }] } },
+      version: 2,
+      languages: { english: { version: 2, language: "english", entries: [{ gram: "er", lastUsedAt: 20 }, { gram: "ing", lastUsedAt: 10 }], setup: { grams: ["th", "er", "ing"], durationSeconds: 60, textStyle: "varied", updatedAt: 30 } } },
     }))
   })
   await page.goto("/practice?custom=grams")

@@ -50,6 +50,28 @@ async function pendingRecentGrams(page: Page, language: string): Promise<string[
   }, language)
 }
 
+async function pendingCustomGramsSetupTimestamp(page: Page, language: string): Promise<number | null> {
+  return page.evaluate((activeLanguage) => {
+    const value = JSON.parse(window.localStorage.getItem("typecafe:practice:recent-custom-grams") ?? "null") as unknown
+    if (!value || typeof value !== "object") return null
+    const languages = (value as { languages?: unknown }).languages
+    if (!languages || typeof languages !== "object") return null
+    const snapshot = (languages as Record<string, unknown>)[activeLanguage]
+    if (!snapshot || typeof snapshot !== "object") return null
+    const setup = (snapshot as { setup?: unknown }).setup
+    if (!setup || typeof setup !== "object") return null
+    const updatedAt = (setup as { updatedAt?: unknown }).updatedAt
+    return typeof updatedAt === "number" ? updatedAt : null
+  }, language)
+}
+
+async function setPracticeLanguage(page: Page, language: string) {
+  await page.evaluate((nextLanguage) => {
+    window.localStorage.setItem("typecafe:language", JSON.stringify(nextLanguage))
+    window.dispatchEvent(new Event("typecafe:language-changed"))
+  }, language)
+}
+
 test.describe("Practice landing", () => {
   test("leads with Progress's highest-Impact Target and opens Guided directly", async ({ page }) => {
     await mockAuthenticatedSession(page)
@@ -81,7 +103,10 @@ test.describe("Practice landing", () => {
   test("shows an honest empty state and independent lightweight continuations", async ({ page }) => {
     await page.addInitScript(() => {
       window.localStorage.setItem("typecafe:practice:custom-keys", JSON.stringify({ keys: ["q", "r"], durationSeconds: 30, textStyle: "pseudo" }))
-      window.localStorage.setItem("typecafe:practice:custom-grams", JSON.stringify({ grams: ["th", "tion"], durationSeconds: 120, textStyle: "varied" }))
+      window.localStorage.setItem("typecafe:practice:recent-custom-grams", JSON.stringify({
+        version: 2,
+        languages: { english: { version: 2, language: "english", entries: [], setup: { grams: ["th", "tion"], durationSeconds: 120, textStyle: "varied", updatedAt: 10 } } },
+      }))
     })
     await page.goto("/practice")
 
@@ -131,7 +156,10 @@ test.describe("Custom Practice", () => {
   test("renders scheduled language-shaped Pseudo carriers for Keys and Grams", async ({ page }) => {
     await page.addInitScript(() => {
       window.localStorage.setItem("typecafe:practice:custom-keys", JSON.stringify({ keys: ["q", "r"], durationSeconds: 30, textStyle: "pseudo" }))
-      window.localStorage.setItem("typecafe:practice:custom-grams", JSON.stringify({ grams: ["th", "tion"], durationSeconds: 30, textStyle: "pseudo" }))
+      window.localStorage.setItem("typecafe:practice:recent-custom-grams", JSON.stringify({
+        version: 2,
+        languages: { english: { version: 2, language: "english", entries: [], setup: { grams: ["th", "tion"], durationSeconds: 30, textStyle: "pseudo", updatedAt: 10 } } },
+      }))
     })
     await gotoPractice(page)
 
@@ -339,6 +367,86 @@ test.describe("Custom Practice", () => {
     })
     await expect(page.getByTestId("recent-custom-grams").getByRole("button")).toHaveText(["éé2"])
     await expect(page.getByRole("heading", { name: "Common in French" })).toBeVisible()
+  })
+
+  test("restores each guest language's complete Custom Grams setup", async ({ page }) => {
+    await page.addInitScript(() => window.localStorage.setItem("typecafe:practice:recent-custom-grams", JSON.stringify({
+      version: 2,
+      languages: {
+        english: { version: 2, language: "english", entries: [], setup: { grams: ["th"], durationSeconds: 30, textStyle: "varied", updatedAt: 10 } },
+        french: { version: 2, language: "french", entries: [], setup: { grams: ["éé"], durationSeconds: 240, textStyle: "pseudo", updatedAt: 20 } },
+      },
+    })))
+    await page.goto("/practice?custom=grams")
+    const controls = page.getByRole("region", { name: "Practice controls" })
+
+    await expect(page.getByTestId("selected-practice-grams").getByLabel("Remove th, 2-Gram")).toBeVisible()
+    await expect(controls.getByRole("button", { name: "30s" })).toHaveClass(/btn-primary/)
+    await setPracticeLanguage(page, "french")
+    await expect(page.getByRole("heading", { name: "Common in French" })).toBeVisible()
+    await expect(page.getByTestId("selected-practice-grams").getByLabel("Remove éé, 2-Gram")).toBeVisible()
+    await expect(controls.getByRole("button", { name: "240s" })).toHaveClass(/btn-primary/)
+    await expect(controls.getByRole("button", { name: "Pseudo" })).toHaveClass(/btn-primary/)
+
+    await controls.getByRole("button", { name: "120s" }).click()
+    await setPracticeLanguage(page, "english")
+    await expect(page.getByTestId("selected-practice-grams").getByLabel("Remove th, 2-Gram")).toBeVisible()
+    await setPracticeLanguage(page, "french")
+    await expect(controls.getByRole("button", { name: "120s" })).toHaveClass(/btn-primary/)
+  })
+
+  test("merges the newest guest setup into signed-in per-language cross-device state", async ({ page }) => {
+    await page.addInitScript(() => window.localStorage.setItem("typecafe:practice:recent-custom-grams", JSON.stringify({
+      version: 2,
+      languages: {
+        french: { version: 2, language: "french", entries: [], setup: { grams: ["été"], durationSeconds: 120, textStyle: "pseudo", updatedAt: 300 } },
+      },
+    })))
+    await mockAuthenticatedSession(page)
+    await mockTrpc(page, { customGramsPreferences: {
+      english: { version: 2, language: "english", entries: [], setup: { grams: ["th"], durationSeconds: 30, textStyle: "varied", updatedAt: 100 } },
+      french: { version: 2, language: "french", entries: [], setup: { grams: ["éé"], durationSeconds: 240, textStyle: "varied", updatedAt: 200 } },
+    } })
+    await page.goto("/practice?custom=grams")
+    const controls = page.getByRole("region", { name: "Practice controls" })
+
+    await expect(page.getByTestId("selected-practice-grams").getByLabel("Remove th, 2-Gram")).toBeVisible()
+    await setPracticeLanguage(page, "french")
+    await expect(page.getByTestId("selected-practice-grams").getByLabel("Remove été, 3-Gram")).toBeVisible()
+    await expect(controls.getByRole("button", { name: "120s" })).toHaveClass(/btn-primary/)
+    await expect.poll(() => pendingCustomGramsSetupTimestamp(page, "french")).toBeNull()
+
+    await setPracticeLanguage(page, "english")
+    await expect(page.getByTestId("selected-practice-grams").getByLabel("Remove th, 2-Gram")).toBeVisible()
+    await setPracticeLanguage(page, "french")
+    await expect(page.getByTestId("selected-practice-grams").getByLabel("Remove été, 3-Gram")).toBeVisible()
+
+    await page.evaluate(() => window.localStorage.removeItem("typecafe:practice:recent-custom-grams"))
+    await page.reload()
+    await expect(page.getByTestId("selected-practice-grams").getByLabel("Remove été, 3-Gram")).toBeVisible()
+    await expect(controls.getByRole("button", { name: "120s" })).toHaveClass(/btn-primary/)
+  })
+
+  test("blocks blended Gram edits while a signed-in language setup is loading", async ({ page }) => {
+    const delays: Record<string, number> = {}
+    await mockAuthenticatedSession(page)
+    await mockTrpc(page, {
+      customGramsPreferences: {
+        english: { version: 2, language: "english", entries: [], setup: { grams: ["th"], durationSeconds: 30, textStyle: "varied", updatedAt: 100 } },
+        french: { version: 2, language: "french", entries: [], setup: { grams: ["éé"], durationSeconds: 240, textStyle: "pseudo", updatedAt: 200 } },
+      },
+      delayProcedures: delays,
+    })
+    await page.goto("/practice?custom=grams")
+    await expect(page.getByTestId("selected-practice-grams").getByLabel("Remove th, 2-Gram")).toBeVisible()
+
+    delays["customGramsPreference.get"] = 800
+    await setPracticeLanguage(page, "french")
+    await expect(page.getByTestId("custom-grams-setup-loading")).toBeVisible()
+    await expect(page.getByRole("region", { name: "Practice controls" })).toHaveCount(0)
+
+    await expect(page.getByTestId("selected-practice-grams").getByLabel("Remove éé, 2-Gram")).toBeVisible()
+    await expect(page.getByRole("region", { name: "Practice controls" }).getByRole("button", { name: "240s" })).toHaveClass(/btn-primary/)
   })
 
   test("merges pending guest Recent Grams into the signed-in per-language account", async ({ page }) => {

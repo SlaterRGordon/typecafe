@@ -12,7 +12,7 @@ import { useGuestEvidence } from "~/hooks/useGuestEvidence"
 import { useCoachingEvidence } from "~/hooks/useCoachingEvidence"
 import { useLanguage } from "~/hooks/useLanguage"
 import { useLayout } from "~/hooks/useLayout"
-import { useRecentCustomGrams } from "~/hooks/useRecentCustomGrams"
+import { useCustomGramsPreference } from "~/hooks/useCustomGramsPreference"
 import {
     compileCustomGramsPractice,
     completeCustomGramsPractice,
@@ -22,7 +22,6 @@ import {
     type CustomGramsPracticePreferences,
     type CustomGramsPracticeRun,
 } from "~/lib/customGramsPractice"
-import { readCustomGramsPracticePreferences, writeCustomGramsPracticePreferences } from "~/lib/customGramsPreferences"
 import {
     compileCustomKeysPractice,
     completeCustomKeysPractice,
@@ -162,7 +161,9 @@ const Practice: NextPage = () => {
     const [gramsPreferences, setGramsPreferences] = useState<CustomGramsPracticePreferences>({ grams: ["th", "the", "tion"], durationSeconds: 60, textStyle: "varied" })
     const [gramEntry, setGramEntry] = useState("")
     const [gramEntryError, setGramEntryError] = useState<string | null>(null)
-    const recentGrams = useRecentCustomGrams(language, signedIn)
+    const customGramsPreference = useCustomGramsPreference(language, signedIn)
+    const customGramsSetupScope = customGramsPreference.scope
+    const appliedCustomGramsSetup = useRef<string | null>(null)
     const [ready, setReady] = useState(false)
     const [keysInitialized, setKeysInitialized] = useState(false)
     const [corpus, setCorpus] = useState<string[]>([])
@@ -183,7 +184,6 @@ const Practice: NextPage = () => {
         const parsed = parseCoachingTargetQuery(router.query)
         const setup = parsed ? guidedPracticeSetup(parsed.target) : null
         const savedKeys = readCustomKeysPracticePreferences()
-        const savedGrams = readCustomGramsPracticePreferences()
         if (parsed && setup) {
             setGuided(parsed)
             setPath(setup.focus.kind)
@@ -193,7 +193,6 @@ const Practice: NextPage = () => {
         } else {
             if (requestedCustomPath) setPath(requestedCustomPath)
             setKeysPreferences(savedKeys)
-            setGramsPreferences(savedGrams)
             setKeysInitialized(false)
         }
         setSeed(Date.now())
@@ -222,8 +221,10 @@ const Practice: NextPage = () => {
     }, [guided, keysInitialized, keysPreferences, ready])
 
     useEffect(() => {
-        if (ready && !guided) writeCustomGramsPracticePreferences(gramsPreferences)
-    }, [gramsPreferences, guided, ready])
+        if (!ready || guided || !customGramsPreference.loaded || appliedCustomGramsSetup.current === customGramsSetupScope) return
+        appliedCustomGramsSetup.current = customGramsSetupScope
+        setGramsPreferences(customGramsPreference.setup ?? { grams: ["th", "the", "tion"], durationSeconds: 60, textStyle: "varied" })
+    }, [customGramsPreference.loaded, customGramsPreference.setup, customGramsSetupScope, guided, ready])
 
     const timelines = api.test.getLatestTimelines.useQuery(
         { language, pool },
@@ -378,7 +379,12 @@ const Practice: NextPage = () => {
     const updateGrams = (patch: Partial<CustomGramsPracticePreferences>) => {
         if (running) return
         suspendCurrentPrompt()
-        setGramsPreferences((current) => ({ ...current, ...patch }))
+        const next = { ...gramsPreferences, ...patch }
+        setGramsPreferences(next)
+        if (!guided || patch.grams !== undefined) {
+            appliedCustomGramsSetup.current = customGramsSetupScope
+            customGramsPreference.saveSetup(next)
+        }
         refreshPrompt()
     }
     const updateActive = (patch: { durationSeconds?: PracticeDurationSeconds, textStyle?: PracticeTextStyle }) => {
@@ -423,7 +429,7 @@ const Practice: NextPage = () => {
             setGramEntryError("That Gram is not available on your current keyboard layout.")
             return
         }
-        recentGrams.recordDirect(gram)
+        customGramsPreference.recordDirect(gram)
         if (!gramsPreferences.grams.includes(gram)) setGrams([...gramsPreferences.grams, gram])
         setGramEntry("")
         setGramEntryError(null)
@@ -482,8 +488,18 @@ const Practice: NextPage = () => {
     }
 
     const hasFocus = path === "keys" ? keysPreferences.keys.length > 0 : gramsPreferences.grams.length > 0
+    const customGramsSetupReady = customGramsPreference.loaded && appliedCustomGramsSetup.current === customGramsSetupScope
 
     if (!guided && !requestedCustomPath && !hasTargetIntent) return <PracticeLanding projection={landingProjection} loading={!ready || coaching.loading} />
+
+    if (!guided && (path === "grams" || requestedCustomPath === "grams") && !customGramsSetupReady) return (
+        <div data-testid="custom-practice-workspace" className="h-full w-full overflow-y-auto bg-base-100 px-3 py-6 sm:px-6 md:py-10">
+            <Head><title>Practice | TypeCafe</title></Head>
+            <main data-testid="custom-grams-setup-loading" className="mx-auto flex min-h-[20rem] w-full max-w-5xl items-center justify-center md:px-4">
+                <p className="font-mono text-sm text-base-content/55">Loading saved Gramsâ€¦</p>
+            </main>
+        </div>
+    )
 
     return (
         <div data-testid="custom-practice-workspace" data-practice-kind={guided ? "guided" : "custom"} className="h-full w-full overflow-y-auto bg-base-100 px-3 py-6 sm:px-6 md:py-10">
@@ -649,10 +665,10 @@ const Practice: NextPage = () => {
                                 {gramEntryError && <p role="alert" className="mt-2 text-xs text-warning">{gramEntryError}</p>}
                             </div>
                             <div className="space-y-5">
-                                {recentGrams.entries.length > 0 && <div data-testid="recent-custom-grams">
+                                {customGramsPreference.entries.length > 0 && <div data-testid="recent-custom-grams">
                                     <h2 className="font-semibold">Recent</h2>
                                     <div className="mt-2 flex flex-wrap gap-1.5">
-                                        {recentGrams.entries.map(({ gram }) => {
+                                        {customGramsPreference.entries.map(({ gram }) => {
                                             const selected = gramsPreferences.grams.includes(gram)
                                             const length = [...gram].length
                                             return <button key={gram} type="button" disabled={running} aria-label={`${gram}, ${length}-Gram`} aria-pressed={selected} onClick={() => toggleGram(gram)} className={`btn btn-xs h-8 font-mono ${selected ? "btn-primary" : "btn-ghost border-base-content/15"}`}>{gram}<span className="rounded bg-base-content/10 px-1 text-[0.62rem]" aria-hidden="true">{length}</span></button>
