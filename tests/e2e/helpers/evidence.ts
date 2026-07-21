@@ -124,6 +124,46 @@ export function brDrillTimeline(testId: number): TimelineEvidence {
   };
 }
 
+/** Prior Guided Gram response used to exercise a real Practice Delta. */
+export function tionDrillTimeline(testId: number): TimelineEvidence {
+  const events: TestEvidenceEvent[] = [];
+  let t = 0;
+  for (let repeat = 0; repeat < 10; repeat += 1) {
+    for (const key of "tion") {
+      t += 80;
+      events.push({ key, typed: key, correct: true, t });
+    }
+    t += 100;
+    events.push({ key: " ", typed: " ", correct: true, t });
+  }
+  const target = { kind: "gram", gram: "tion" } as const;
+  return {
+    completedAt: Date.now() + testId,
+    context: "acquisition",
+    mode: 0,
+    subMode: 1,
+    count: 60,
+    options: drillTargetToken(target),
+    punctuation: false,
+    capitals: false,
+    numbers: false,
+    layout: "qwerty",
+    pool: "qwerty",
+    language: "english",
+    timeline: encodeTimeline(events),
+    practice: {
+      v: 1,
+      kind: "guided",
+      target,
+      focus: { kind: "grams", items: ["tion"] },
+      textStyle: "varied",
+      durationSeconds: 60,
+      elapsedActivityMs: 60_000,
+      completed: true,
+    },
+  };
+}
+
 // A higher-order fixture with a stable 100ms rhythm and a personally slow
 // `tion` across several words. Two Timelines clear both Test and word diversity.
 export function higherOrderTimeline(testId: number): TimelineEvidence {

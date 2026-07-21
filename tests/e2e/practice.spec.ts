@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test"
-import { brDrillTimeline, crowdedAccuracyTimeline, impactTimeline, keyboardEvidenceTimeline } from "./helpers/evidence"
+import { brDrillTimeline, crowdedAccuracyTimeline, impactTimeline, keyboardEvidenceTimeline, tionDrillTimeline } from "./helpers/evidence"
 import { mockAuthenticatedSession, mockTrpc } from "./helpers/trpc"
 import { typeCurrentCharacter } from "./helpers/typing"
 
@@ -718,6 +718,27 @@ test.describe("Guided Practice", () => {
     await expect.poll(async () => (await guestPracticeRecords(page)).length).toBeGreaterThan(0)
     const records = await guestPracticeRecords(page)
     expect(records.at(-1)?.practice).toMatchObject({ kind: "guided", target: { kind: "gram", gram: "tion" }, completed: true })
+  })
+
+  test("leads a compared Guided Target with its Practice Delta", async ({ page }) => {
+    await page.clock.install()
+    await mockAuthenticatedSession(page)
+    await mockTrpc(page, { timelineEvidence: [tionDrillTimeline(1)] })
+    await page.goto(href)
+    await expect(page.locator("#c0")).toHaveClass(/active-char/, { timeout: 20_000 })
+    await page.getByRole("region", { name: "Practice controls" }).getByRole("button", { name: "30s" }).click()
+    for (let index = 0; index < 80; index += 1) {
+      await typeCurrentCharacter(page, index)
+      await page.clock.runFor(30)
+    }
+    await page.clock.runFor(30_000)
+
+    const metric = page.getByTestId("guided-target-metric")
+    const delta = metric.getByText(/Practice Delta:/)
+    const response = metric.getByText(/^\d+ ms$/)
+    await expect(delta).toBeVisible()
+    await expect(response).toBeVisible()
+    expect((await delta.boundingBox())!.y).toBeLessThan((await response.boundingBox())!.y)
   })
 
   test("mixed measured focus is Custom item feedback and attributes no Target", async ({ page }) => {
