@@ -564,11 +564,12 @@ const Practice: NextPage = () => {
                             <h2 className="text-2xl font-bold">{guidedRecap.targetLabel}</h2>
                             {guidedRecap.metric ? (
                                 <div className="mt-5 grid gap-3 border-y border-base-content/10 py-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end" data-testid="guided-target-metric">
+                                    {guidedRecap.practiceDelta !== null && <p className="text-sm sm:col-span-2"><strong>Practice Delta:</strong> <span className={guidedRecap.practiceDelta >= 0 ? "text-success" : "text-warning"}>{signed(guidedRecap.practiceDelta)}{guidedRecap.metric.unit === "ms" ? " ms faster" : guidedRecap.metric.unit === "%" ? " pts" : " WPM"}</span></p>}
                                     <div className="flex flex-wrap items-end gap-3">
                                         <div><p className="text-xs font-semibold uppercase text-base-content/50">{guidedRecap.metric.label}</p><p className="mt-1 font-mono text-3xl font-bold">{guidedRecap.metric.unit === "ms" ? `${Math.round(guidedRecap.metric.value)} ms` : `${guidedRecap.metric.value.toFixed(1)}${guidedRecap.metric.unit === "%" ? "%" : " WPM"}`}</p></div>
                                     </div>
                                     <p className="font-mono text-xs text-base-content/55">{guidedRecap.metric.attempts} Target attempt{guidedRecap.metric.attempts === 1 ? "" : "s"}</p>
-                                    <p className="text-sm sm:col-span-2"><strong>Practice Delta:</strong> {guidedRecap.practiceDelta === null ? " Building your Guided baseline." : <span className={guidedRecap.practiceDelta >= 0 ? "text-success" : "text-warning"}> {signed(guidedRecap.practiceDelta)}{guidedRecap.metric.unit === "ms" ? " ms faster" : guidedRecap.metric.unit === "%" ? " pts" : " WPM"}</span>}</p>
+                                    {guidedRecap.practiceDelta === null && <p className="text-sm sm:col-span-2"><strong>Practice Delta:</strong> Building your Guided baseline.</p>}
                                 </div>
                             ) : <p className="mt-4 text-sm text-base-content/60">No complete Target attempt landed in this run.</p>}
                             {guidedRecap.naturalReference && <div data-testid="guided-natural-reference" className="mt-3 border-l-2 border-base-content/15 pl-3 text-sm text-base-content/60"><strong className="text-base-content/75">Recent natural-Test reference</strong><br />{guidedRecap.naturalReference.reason}</div>}
@@ -585,15 +586,15 @@ const Practice: NextPage = () => {
                                 {keyRecap?.keys.map((row) => (
                                     <div key={row.key} className="py-3" data-testid={`practice-key-${row.key}`}>
                                         <div className="flex items-center justify-between gap-3"><kbd className="kbd font-mono text-primary">{row.key}</kbd><span className="font-mono text-xs text-base-content/55">{row.attempts} attempt{row.attempts === 1 ? "" : "s"}</span></div>
-                                        <p className="mt-2 text-sm"><strong>{row.accuracy.toFixed(1)}%</strong> Accuracy{row.speedWpm !== null && <> · <strong>{Math.round(row.speedWpm)}</strong> response WPM</>}</p>
                                         {row.delta && <p className="mt-1 text-xs text-base-content/60">Practice delta: <span className={row.delta.accuracyPoints >= 0 ? "text-success" : "text-warning"}>{signed(row.delta.accuracyPoints)} Accuracy pts</span>{row.delta.speedWpm !== null && <> · <span className={row.delta.speedWpm >= 0 ? "text-success" : "text-warning"}>{signed(row.delta.speedWpm)} response WPM</span></>}</p>}
+                                        <p className="mt-2 text-sm"><strong>{row.accuracy.toFixed(1)}%</strong> Accuracy{row.speedWpm !== null && <> · <strong>{Math.round(row.speedWpm)}</strong> response WPM</>}</p>
                                     </div>
                                 ))}
                                 {gramRecap?.grams.map((row) => (
                                     <div key={row.gram} className="py-3" data-testid={`practice-gram-${row.gram}`}>
                                         <div className="flex items-center justify-between gap-3"><span className="font-mono font-bold text-primary">{row.gram}</span><span className="font-mono text-xs text-base-content/55">{row.attempts} attempt{row.attempts === 1 ? "" : "s"}</span></div>
-                                        <p className="mt-2 text-sm"><strong>{row.accuracy.toFixed(1)}%</strong> Accuracy{row.latencyMs !== null && <> · <strong>{Math.round(row.latencyMs)}ms</strong> arrival</>}{row.speedWpm !== null && <> · <strong>{Math.round(row.speedWpm)}</strong> response WPM</>}</p>
                                         {row.delta && <p className="mt-1 text-xs text-base-content/60">Practice delta: <span className={row.delta.accuracyPoints >= 0 ? "text-success" : "text-warning"}>{signed(row.delta.accuracyPoints)} Accuracy pts</span>{row.delta.latencyMs !== null && <> · <span className={row.delta.latencyMs >= 0 ? "text-success" : "text-warning"}>{signed(row.delta.latencyMs)}ms faster</span></>}</p>}
+                                        <p className="mt-2 text-sm"><strong>{row.accuracy.toFixed(1)}%</strong> Accuracy{row.latencyMs !== null && <> · <strong>{Math.round(row.latencyMs)}ms</strong> arrival</>}{row.speedWpm !== null && <> · <strong>{Math.round(row.speedWpm)}</strong> response WPM</>}</p>
                                     </div>
                                 ))}
                             </div>

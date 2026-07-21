@@ -548,6 +548,29 @@ test.describe("Custom Practice", () => {
     await expect(page.getByRole("region", { name: "Focus key editor" })).toBeVisible()
   })
 
+  test("leads a compared Custom item with its Practice Delta", async ({ page }) => {
+    await page.clock.install()
+    await mockAuthenticatedSession(page)
+    await mockTrpc(page, { timelineEvidence: [keyboardEvidenceTimeline(1, "custom-practice")] })
+    await page.addInitScript(() => {
+      window.localStorage.setItem("typecafe:practice:custom-keys", JSON.stringify({ keys: ["h"], durationSeconds: 30, textStyle: "varied" }))
+    })
+    await page.goto("/practice?custom=keys")
+    await expect(page.locator("#c0")).toHaveClass(/active-char/, { timeout: 20_000 })
+    for (let index = 0; index < 35; index += 1) {
+      await typeCurrentCharacter(page, index)
+      await page.clock.runFor(50)
+    }
+    await page.clock.runFor(30_000)
+
+    const row = page.getByTestId("practice-key-h")
+    const delta = row.getByText(/Practice delta:/)
+    const response = row.getByText(/^\d+\.\d+% Accuracy/)
+    await expect(delta).toBeVisible()
+    await expect(response).toBeVisible()
+    expect((await delta.boundingBox())!.y).toBeLessThan((await response.boundingBox())!.y)
+  })
+
   test("streams the complete Practice prompt without changing character-index alignment", async ({ page }) => {
     await gotoPractice(page)
     const initial = await page.locator("#words .char").allTextContents()
