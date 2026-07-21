@@ -1170,11 +1170,13 @@ legacy configuration mechanics merely because the current UI exposes them.
       screenshot-tour states for the landing, Guided, Custom Keys, mixed Grams,
       recap, empty evidence, and awaiting-Test flows.
 
-#### 13.7 Owner-reviewed minimal Practice refinement
+#### 13.7 #163 Owner-reviewed minimal Practice refinement
 
 Approved 2026-07-21 after reviewing the completed #146 workspace. This
 follow-up supersedes the presentation details in 13.3-13.5 when implemented;
 the Guided/Custom attribution and natural-evidence contracts remain unchanged.
+Published as the ready-for-agent specification in
+[GitHub issue #163](https://github.com/SlaterRGordon/typecafe/issues/163).
 
 - [ ] Replace mechanically spliced or clipped `Pseudo` carriers in both Keys
       and Grams with the former Home Practice phonological text quality. Keep
