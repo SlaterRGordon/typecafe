@@ -293,6 +293,13 @@ function loafSummary(values: number[]): string {
 test.describe.serial("Practice performance regression", () => {
   test("refresh and focus edits stay responsive under throttle", async ({ page }) => {
     test.setTimeout(180_000);
+    await page.addInitScript(() => {
+      window.localStorage.setItem("typecafe:practice:custom-keys", JSON.stringify({
+        keys: ["e", "r"],
+        durationSeconds: 60,
+        textStyle: "varied",
+      }));
+    });
     await installPracticePerfInstrumentation(page);
     const cdp = await page.context().newCDPSession(page);
     await cdp.send("Emulation.setCPUThrottlingRate", { rate: CPU_THROTTLE });

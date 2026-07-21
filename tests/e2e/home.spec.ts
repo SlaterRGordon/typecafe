@@ -894,8 +894,9 @@ test.describe("home typing test", () => {
 
     await expect(page).toHaveURL(/\/practice\?target=key/);
     await expect(page).toHaveURL(/[?&]evidence=/);
-    await expect(page.getByTestId("guided-practice-intent")).toBeVisible();
-    await expect(page.getByText("Practice · Guided Drill")).toBeVisible();
+    await expect(page.getByTestId("custom-practice-workspace")).toHaveAttribute("data-practice-kind", "guided");
+    await expect(page.getByRole("heading", { name: /^Practise / })).toBeVisible();
+    await expect(page.getByTestId("guided-practice-intent")).toHaveCount(0);
   });
 
   for (const legacyMode of [1, 2]) {

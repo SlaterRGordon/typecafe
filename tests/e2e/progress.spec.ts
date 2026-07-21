@@ -447,7 +447,9 @@ test.describe("progress dashboard", () => {
     await page.clock.runFor(30_000);
 
     const recap = page.getByTestId("practice-recap");
-    await expect(recap).toContainText("Guided Drill complete");
+    await expect(recap.getByRole("heading", { name: "b→r" })).toBeVisible();
+    await expect(recap).toContainText("Transition latency");
+    await expect(recap).toContainText("Target attempt");
     await recap.getByRole("link", { name: "Take a Test" }).click();
     await expect(page).toHaveURL(/\/$/);
     await expect(page.locator("#c0")).toHaveClass(/active-char/, { timeout: 20_000 });

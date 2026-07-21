@@ -1266,7 +1266,7 @@ from a fresh implementation context; #171 owns the broad verification pass.
       language locally for guests and account-side for signed-in cross-device
       use, choosing the newest edited setup on sign-in. Custom Keys persistence
       remains unchanged.
-- [ ] Protect the revised behavior with pure compiler/projection/persistence
+- [x] Protect the revised behavior with pure compiler/projection/persistence
       tests, focused desktop/mobile Practice journeys, and updated canonical
       screenshots for the landing, Keys, Grams, Guided, and completion states.
 
