@@ -247,6 +247,20 @@ export function targetDisplayLabel(target: CoachingTarget): string {
     return `${target.shortSeconds}s → ${target.longSeconds}s`
 }
 
+export function targetVisualKeys(target: CoachingTarget): string[] {
+    if (target.kind === "key") return target.keys.slice(0, 4)
+    if (target.kind === "transition") return [...target.pair].slice(0, 2)
+    if (target.kind === "gram") return [...target.gram].slice(0, 4)
+    if (target.kind === "word") return [...(target.sharedGram ?? target.words[0] ?? "")].slice(0, 4)
+    if (target.kind === "movement") return [...(target.anchors[0] ?? "")].slice(0, 2)
+    if (target.kind === "correction") return [target.typed, target.expected]
+    return []
+}
+
+export function targetUsesArrow(target: CoachingTarget): boolean {
+    return target.kind === "transition" || target.kind === "movement" || target.kind === "correction"
+}
+
 export function targetAction(
     target: CoachingTarget,
     policy: DrillPolicy = "acquisition",

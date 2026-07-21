@@ -1,6 +1,8 @@
 import Link from "next/link"
 import { useMemo, useState, type ReactNode } from "react"
+import { TargetGlyph } from "~/components/coaching/TargetGlyph"
 import { useHeatmapColors } from "~/components/heatmap/KeyHeatmap"
+import { targetUsesArrow } from "~/lib/coachingTarget"
 import { accuracyColor } from "~/lib/heatmap"
 import {
     filterProgressCoachTargets,
@@ -10,7 +12,6 @@ import {
     type ProgressCoachTarget,
     type ProgressImpactTone,
 } from "~/lib/progressCoach"
-import { readableTextColor } from "~/utils/convertColor"
 
 interface ProgressCoachProps {
     projection: ProgressCoachProjection | null
@@ -84,38 +85,7 @@ function WorthDelta({ target, className = "" }: { target: ProgressCoachTarget, c
 }
 
 function usesArrow(target: ProgressCoachTarget): boolean {
-    return target.target?.kind === "transition" || target.target?.kind === "movement" || target.target?.kind === "correction"
-}
-
-function TargetGlyph({ target, color, compact = false }: { target: ProgressCoachTarget, color: string, compact?: boolean }) {
-    const keys = target.visualKeys
-    if (keys.length === 0) {
-        return <span className="font-mono text-sm font-semibold text-primary">{target.label}</span>
-    }
-    const capSize = compact
-        ? "!h-7 !min-h-7 !min-w-7 px-1.5 text-sm"
-        : "!h-6 !min-h-6 !min-w-6 px-1 text-xs"
-    return (
-        <span className={`typecafe-key-heatmap flex shrink-0 items-center gap-1 ${compact ? "w-auto" : "w-28"}`} aria-label={target.label}>
-            {keys.map((key, index) => (
-                <span key={`${key}-${index}`} className="contents">
-                    {index > 0 && usesArrow(target) && <span aria-hidden="true" className="text-xs text-base-content/45">→</span>}
-                    <kbd
-                        aria-hidden="true"
-                        className={`kbd kbd-sm inline-flex ${capSize} items-center justify-center font-mono font-semibold`}
-                        style={{
-                            backgroundColor: color,
-                            backgroundImage: "none",
-                            color: readableTextColor(color),
-                            filter: "none",
-                        }}
-                    >
-                        {key}
-                    </kbd>
-                </span>
-            ))}
-        </span>
-    )
+    return target.target ? targetUsesArrow(target.target) : false
 }
 
 function CoachHeadline({ target, color }: { target: ProgressCoachTarget, color: string }) {
@@ -133,7 +103,7 @@ function CoachHeadline({ target, color }: { target: ProgressCoachTarget, color: 
             <span className="sr-only">{target.headline}</span>
             <span aria-hidden="true" className="flex flex-wrap items-center gap-2">
                 <span>{before[target.state as Exclude<ProgressCoachTarget["state"], "calibrating">]}</span>
-                <TargetGlyph target={target} color={color} compact />
+                <TargetGlyph keys={target.visualKeys} label={target.label} arrows={usesArrow(target)} color={color} headline />
                 {target.impactMsPer1000 !== null && <span className="font-mono text-base" style={{ color }}>{worthLabel(target)}</span>}
                 <WorthDelta target={target} className="text-sm" />
             </span>
@@ -341,7 +311,7 @@ export function ProgressCoach({ projection, loading }: ProgressCoachProps) {
                                                 className="grid min-h-[4.25rem] w-full min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 py-2 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary lg:col-span-1 lg:grid-cols-[minmax(0,1fr)_6.25rem_8.25rem]"
                                             >
                                                 <span className="grid min-w-0 grid-cols-[7rem_minmax(0,1fr)] items-center">
-                                                    <TargetGlyph target={row} color={color} />
+                                                    <TargetGlyph keys={row.visualKeys} label={row.label} arrows={usesArrow(row)} color={color} />
                                                     <span className="min-w-0">
                                                         <span className="flex items-center gap-1.5">
                                                             <span className="truncate text-xs font-semibold text-base-content">{row.typeLabel}</span>

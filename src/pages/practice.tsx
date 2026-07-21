@@ -3,7 +3,9 @@ import Head from "next/head"
 import Link from "next/link"
 import { useRouter } from "next/router"
 import { useSession } from "next-auth/react"
+import { useDispatch } from "react-redux"
 import { startTransition, useDeferredValue, useEffect, useMemo, useRef, useState } from "react"
+import { TargetGlyph } from "~/components/coaching/TargetGlyph"
 import { Keyboard } from "~/components/typer/Keyboard"
 import { Typer, type TestCompletionResult } from "~/components/typer/Typer"
 import { TestModes, TestSubModes } from "~/components/typer/types"
@@ -31,7 +33,7 @@ import {
 } from "~/lib/customKeysPractice"
 import { readCustomKeysPracticePreferences, writeCustomKeysPracticePreferences } from "~/lib/customKeysPreferences"
 import { PRACTICE_DURATIONS_SECONDS, PRACTICE_TEXT_STYLES, type PracticeDurationSeconds, type PracticeTextStyle } from "~/lib/evidenceContext"
-import { parseCoachingTargetQuery, targetDisplayLabel, type GuidedTargetEvidence, type ParsedCoachingTarget } from "~/lib/coachingTarget"
+import { parseCoachingTargetQuery, targetDisplayLabel, targetUsesArrow, targetVisualKeys, type GuidedTargetEvidence, type ParsedCoachingTarget } from "~/lib/coachingTarget"
 import {
     compileGuidedPractice,
     completeGuidedPractice,
@@ -49,6 +51,7 @@ import { languageMeta } from "~/lib/languageMeta"
 import { projectPracticeLanding, type PracticeLandingProjection } from "~/lib/practiceLanding"
 import { projectProgressCoach } from "~/lib/progressCoach"
 import { practiceWordCapacity } from "~/lib/practiceCapacity"
+import { addAlert } from "~/state/alert/alertSlice"
 import { api } from "~/utils/api"
 
 type PracticePath = "keys" | "grams"
@@ -148,6 +151,7 @@ function PracticeLanding({ projection, loading }: { projection: PracticeLandingP
 
 const Practice: NextPage = () => {
     const router = useRouter()
+    const dispatch = useDispatch()
     const { data: session } = useSession()
     const signedIn = !!session?.user
     const [language] = useLanguage()
@@ -173,6 +177,9 @@ const Practice: NextPage = () => {
     const [completed, setCompleted] = useState<CompletedRun | null>(null)
     const [stickyLayer, setStickyLayer] = useState<StickyPracticeLayer>("base")
     const charAttemptsRef = useRef(new Map<string, { attempts: number, correct: number }>())
+    const keysEditorRef = useRef<HTMLElement>(null)
+    const gramsEditorRef = useRef<HTMLElement>(null)
+    const gramInputRef = useRef<HTMLInputElement>(null)
     const board = useMemo(() => boardFor(layout), [layout])
     const hasAltGr = board.rows.some((row) => row.some((key) => key.altgr !== undefined))
     const activePreferences = path === "keys" ? keysPreferences : gramsPreferences
@@ -362,10 +369,15 @@ const Practice: NextPage = () => {
         input?.blur()
         if (input) input.disabled = true
     }
+    const convertGuidedToCustom = () => {
+        if (!guided) return
+        setGuided(null)
+        dispatch(addAlert({ message: "Changed to Custom Practice", type: "success" }))
+    }
     const selectPath = (next: PracticePath) => {
         if (running || path === next) return
         suspendCurrentPrompt()
-        setGuided(null)
+        convertGuidedToCustom()
         setPath(next)
         setGramEntryError(null)
         refreshPrompt()
@@ -400,7 +412,7 @@ const Practice: NextPage = () => {
             guided: null,
             keysPreferences: { ...keysPreferences, keys: unique },
         }
-        if (guided) setGuided(null)
+        convertGuidedToCustom()
         updateKeys({ keys: unique })
     }
     const setGrams = (grams: string[]) => {
@@ -411,7 +423,7 @@ const Practice: NextPage = () => {
             guided: null,
             gramsPreferences: { ...gramsPreferences, grams: unique },
         }
-        if (guided) setGuided(null)
+        convertGuidedToCustom()
         updateGrams({ grams: unique })
     }
     const toggleGram = (gram: string) => {
@@ -488,6 +500,14 @@ const Practice: NextPage = () => {
     }
 
     const hasFocus = path === "keys" ? keysPreferences.keys.length > 0 : gramsPreferences.grams.length > 0
+    const focusItems = path === "keys" ? keysPreferences.keys : gramsPreferences.grams
+    const focusPreview = focusItems.slice(0, 3)
+    const focusOverflow = Math.max(0, focusItems.length - focusPreview.length)
+    const focusEditor = () => {
+        if (path === "keys") keysEditorRef.current?.focus()
+        else if (running) gramsEditorRef.current?.focus()
+        else gramInputRef.current?.focus()
+    }
     const customGramsSetupReady = customGramsPreference.loaded && appliedCustomGramsSetup.current === customGramsSetupScope
 
     if (!guided && !requestedCustomPath && !hasTargetIntent) return <PracticeLanding projection={landingProjection} loading={!ready || coaching.loading} />
@@ -505,65 +525,56 @@ const Practice: NextPage = () => {
         <div data-testid="custom-practice-workspace" data-practice-kind={guided ? "guided" : "custom"} className="h-full w-full overflow-y-auto bg-base-100 px-3 py-6 sm:px-6 md:py-10">
             <Head><title>{guided ? "Guided" : "Custom"} Practice | TypeCafe</title></Head>
             <div className="mx-auto flex w-full max-w-5xl flex-col gap-5">
-                <header className="flex flex-wrap items-end justify-between gap-3">
-                    <div>
-                        <p className="font-mono text-xs uppercase tracking-[0.18em] text-primary">Practice · {guided ? "Guided Drill" : `Custom ${path === "keys" ? "Keys" : "Grams"}`}</p>
-                        <h1 className="mt-1 text-2xl font-bold sm:text-3xl">{guided ? `Practise ${targetDisplayLabel(guided.target)}.` : "Build speed where you choose."}</h1>
+                <header className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="min-w-0">
+                        {guided ? (
+                            <h1 aria-label={`Practise ${targetDisplayLabel(guided.target)}`} className="flex flex-wrap items-center gap-2 text-2xl font-bold sm:text-3xl">
+                                <span>Practise</span>
+                                <TargetGlyph
+                                    keys={targetVisualKeys(guided.target)}
+                                    label={targetDisplayLabel(guided.target)}
+                                    arrows={targetUsesArrow(guided.target)}
+                                    headline
+                                />
+                            </h1>
+                        ) : <h1 className="text-2xl font-bold sm:text-3xl">{path === "keys" ? "Practice keys" : "Practice Grams"}</h1>}
                         {completed?.path === "guided" && <p data-testid="guided-awaiting-test" className="mt-1 text-sm font-semibold text-success">practised · awaiting Test</p>}
                     </div>
                     {running && <button type="button" className="btn btn-sm btn-ghost" onClick={stop}>Stop run</button>}
                 </header>
 
-                {guided && (
-                    <section data-testid="guided-practice-intent" aria-label="Guided Target" className="rounded-2xl border border-primary/30 bg-primary/10 p-4">
-                        <p className="font-mono text-xs font-bold uppercase tracking-wide text-primary">One Target · from your Tests</p>
-                        <p className="mt-1 text-sm text-base-content/80">{guided.evidence?.reason ?? "A measured Target from your typing evidence."}</p>
-                        {guided.evidence && <p className="mt-2 font-mono text-xs text-base-content/60">Recent natural Test: <strong className="text-base-content">{guided.evidence.metric === "ms" ? `${Math.round(guided.evidence.observed)} ms` : guided.evidence.metric === "%" ? `${guided.evidence.observed.toFixed(1)}%` : `${guided.evidence.observed.toFixed(1)} WPM`}</strong> · baseline {guided.evidence.metric === "ms" ? `${Math.round(guided.evidence.baseline)} ms` : guided.evidence.metric === "%" ? `${guided.evidence.baseline.toFixed(1)}%` : `${guided.evidence.baseline.toFixed(1)} WPM`} · {guided.evidence.sampleCount} samples</p>}
-                    </section>
-                )}
-
-                <section aria-label="Practice controls" className="rounded-2xl border border-base-content/10 bg-base-200/45 p-3 sm:p-4">
-                    <div className="mb-4 join" role="group" aria-label="Custom practice type">
-                        <button type="button" disabled={running} aria-pressed={path === "keys"} onClick={() => selectPath("keys")} className={`btn btn-sm join-item ${path === "keys" ? "btn-primary" : "btn-ghost"}`}>Keys</button>
-                        <button type="button" disabled={running} aria-pressed={path === "grams"} onClick={() => selectPath("grams")} className={`btn btn-sm join-item ${path === "grams" ? "btn-primary" : "btn-ghost"}`}>Grams</button>
+                <section aria-label="Practice controls" className="flex flex-col items-center gap-2.5 py-1">
+                    <div className="flex items-center gap-4" role="group" aria-label="Custom practice type">
+                        <button type="button" disabled={running} aria-pressed={path === "keys"} onClick={() => selectPath("keys")} className={`cursor-pointer text-md transition-colors disabled:cursor-default disabled:opacity-50 ${path === "keys" ? "font-semibold text-primary" : "text-base-content/50 hover:text-base-content"}`}>Keys</button>
+                        <button type="button" disabled={running} aria-pressed={path === "grams"} onClick={() => selectPath("grams")} className={`cursor-pointer text-md transition-colors disabled:cursor-default disabled:opacity-50 ${path === "grams" ? "font-semibold text-primary" : "text-base-content/50 hover:text-base-content"}`}>Grams</button>
                     </div>
-                    <div className="grid gap-3 md:grid-cols-[1fr_auto_auto] md:items-end">
-                        <div>
-                            <span className="text-xs font-semibold uppercase tracking-wide text-base-content/50">{guided ? "Prescribed " : ""}{path === "keys" ? "Keys" : "Mixed Grams"}</span>
-                            {path === "keys" ? (
-                                <div data-testid="selected-practice-keys" className="mt-2 flex min-h-8 flex-wrap gap-1.5">
-                                    {keysPreferences.keys.length > 0 ? keysPreferences.keys.map((key) => (
-                                        <button key={key} type="button" disabled={running} onClick={() => setKeys(keysPreferences.keys.filter((item) => item !== key))} className="kbd kbd-sm border-primary/35 bg-primary/10 font-mono text-primary" aria-label={`Remove ${key}`}>
-                                            {key}<span aria-hidden="true" className="ml-1 opacity-50">×</span>
-                                        </button>
-                                    )) : <span className="text-sm text-warning">Choose at least one key below.</span>}
-                                </div>
-                            ) : (
-                                <div data-testid="selected-practice-grams" className="mt-2 flex min-h-8 flex-wrap gap-1.5">
-                                    {gramsPreferences.grams.length > 0 ? gramsPreferences.grams.map((gram) => (
-                                        <button key={gram} type="button" disabled={running} onClick={() => setGrams(gramsPreferences.grams.filter((item) => item !== gram))} className="btn btn-xs h-8 border-primary/35 bg-primary/10 font-mono text-primary hover:bg-primary/20" aria-label={`Remove ${gram}, ${[...gram].length}-Gram`}>
-                                            {gram}<span className="rounded bg-primary/15 px-1 text-[0.62rem]" aria-label={`${[...gram].length}-Gram`}>{[...gram].length}</span><span aria-hidden="true" className="opacity-50">×</span>
-                                        </button>
-                                    )) : <span className="text-sm text-warning">Add at least one Gram below.</span>}
-                                </div>
-                            )}
+                    <div className="flex w-full min-w-0 flex-wrap items-center justify-center gap-x-3 gap-y-2">
+                        <button
+                            type="button"
+                            data-testid="practice-focus-summary"
+                            onClick={focusEditor}
+                            className="flex min-w-0 max-w-full cursor-pointer items-center gap-1.5 overflow-x-hidden whitespace-nowrap text-sm text-base-content/55 transition-colors hover:text-base-content focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                            aria-label={`Edit ${path === "keys" ? "key" : "Gram"} focus: ${focusItems.join(", ") || "none selected"}`}
+                        >
+                            <span className="shrink-0">Focus</span>
+                            {focusPreview.length > 0 ? focusPreview.map((item) => path === "keys"
+                                ? <kbd key={item} className="kbd kbd-xs shrink-0 border-primary/30 bg-primary/15 font-mono text-primary">{item}</kbd>
+                                : <span key={item} className="shrink-0 rounded border border-primary/30 bg-primary/15 px-1.5 py-0.5 font-mono text-xs font-semibold text-primary">{item}</span>)
+                                : <span className="shrink-0 text-warning">none</span>}
+                            {focusOverflow > 0 && <span className="shrink-0 font-mono text-xs font-semibold text-primary">+{focusOverflow}</span>}
+                        </button>
+                        <span aria-hidden="true" className="text-base-content/20">|</span>
+                        <div className="flex items-center gap-3" role="group" aria-label="Duration">
+                            {PRACTICE_DURATIONS_SECONDS.map((duration) => <button key={duration} type="button" disabled={running} onClick={() => updateActive({ durationSeconds: duration as PracticeDurationSeconds })} className={`cursor-pointer text-md transition-colors disabled:cursor-default disabled:opacity-50 ${activePreferences.durationSeconds === duration ? "font-semibold text-primary" : "text-base-content/50 hover:text-base-content"}`}>{duration}s</button>)}
                         </div>
-                        <fieldset disabled={running}>
-                            <legend className="text-xs font-semibold uppercase tracking-wide text-base-content/50">Duration</legend>
-                            <div className="mt-2 join" role="group" aria-label="Duration">
-                                {PRACTICE_DURATIONS_SECONDS.map((duration) => <button key={duration} type="button" onClick={() => updateActive({ durationSeconds: duration as PracticeDurationSeconds })} className={`btn btn-xs join-item ${activePreferences.durationSeconds === duration ? "btn-primary" : "btn-ghost"}`}>{duration}s</button>)}
-                            </div>
-                        </fieldset>
-                        <fieldset disabled={running}>
-                            <legend className="text-xs font-semibold uppercase tracking-wide text-base-content/50">Style</legend>
-                            <div className="mt-2 join" role="group" aria-label="Text style">
-                                {PRACTICE_TEXT_STYLES.map((style) => <button key={style} type="button" onClick={() => updateActive({ textStyle: style as PracticeTextStyle })} className={`btn btn-xs join-item capitalize ${activePreferences.textStyle === style ? "btn-primary" : "btn-ghost"}`}>{style}</button>)}
-                            </div>
-                        </fieldset>
+                        <span aria-hidden="true" className="text-base-content/20">|</span>
+                        <div className="flex items-center gap-3" role="group" aria-label="Text style">
+                            {PRACTICE_TEXT_STYLES.map((style) => <button key={style} type="button" disabled={running} onClick={() => updateActive({ textStyle: style as PracticeTextStyle })} className={`cursor-pointer text-md capitalize transition-colors disabled:cursor-default disabled:opacity-50 ${activePreferences.textStyle === style ? "font-semibold text-primary" : "text-base-content/50 hover:text-base-content"}`}>{style}</button>)}
+                        </div>
                     </div>
                 </section>
 
-                <section aria-label="Practice run" data-prompt-ready={promptPending ? "false" : "true"} className="flex min-h-[16rem] items-center rounded-2xl border border-base-content/10 bg-base-200/20 py-2">
+                <section aria-label="Practice run" data-prompt-ready={promptPending ? "false" : "true"} className="flex min-h-[16rem] items-center py-2">
                     {completed?.path === "guided" && guidedRecap ? (
                         <div data-testid="practice-recap" className="w-full px-5 py-5 sm:px-8">
                             <p className="font-mono text-xs uppercase tracking-[0.16em] text-primary">Guided Drill complete</p>
@@ -634,8 +645,7 @@ const Practice: NextPage = () => {
                 </section>
 
                 {path === "keys" ? (
-                    <section aria-label="Focus key editor" className="rounded-2xl border border-base-content/10 bg-base-200/25 pb-2">
-                        <div className="px-4 pt-4"><h2 className="font-semibold">Focus key editor</h2><p className="text-sm text-base-content/55">{guided ? "Changing prescribed keys converts this run to Custom before it starts." : "Selected keys get extra reps; supporting characters keep the text useful."}</p></div>
+                    <section ref={keysEditorRef} tabIndex={-1} aria-label="Focus key editor" className="rounded-2xl border border-base-content/10 bg-base-200/25 pb-2 outline-none focus-visible:border-primary/50">
                         <Keyboard
                             mode={TestModes.practice}
                             selectedKeys={keysPreferences.keys}
@@ -653,47 +663,48 @@ const Practice: NextPage = () => {
                         />
                     </section>
                 ) : (
-                    <section aria-label="Gram editor" className="rounded-2xl border border-base-content/10 bg-base-200/25 p-4">
-                        <div className="grid gap-5 md:grid-cols-[minmax(15rem,0.8fr)_1.2fr]">
+                    <section ref={gramsEditorRef} tabIndex={-1} aria-label="Gram editor" className="rounded-2xl border border-base-content/10 bg-base-200/25 p-3 outline-none focus-visible:border-primary/50 sm:p-4">
+                        <form className="flex max-w-md gap-2" onSubmit={(event) => { event.preventDefault(); addGram(gramEntry) }}>
+                            <input ref={gramInputRef} data-testid="custom-gram-input" disabled={running} value={gramEntry} onChange={(event) => { setGramEntry(event.target.value); setGramEntryError(null) }} className="input input-bordered input-sm min-w-0 flex-1 font-mono" aria-label="Custom Gram" placeholder="Add 2–4 letters" autoComplete="off" />
+                            <button type="submit" disabled={running} className="btn btn-sm btn-primary">Add</button>
+                        </form>
+                        {gramEntryError && <p role="alert" className="mt-2 text-xs text-warning">{gramEntryError}</p>}
+
+                        <div data-testid="selected-practice-grams" className="mt-3 flex min-h-8 flex-wrap gap-1.5">
+                            {gramsPreferences.grams.map((gram) => (
+                                <button key={gram} type="button" disabled={running} onClick={() => setGrams(gramsPreferences.grams.filter((item) => item !== gram))} className="btn btn-xs h-8 border-primary/30 bg-primary/15 font-mono text-primary hover:border-primary/50 hover:bg-primary/20" aria-label={`Remove ${gram}, ${[...gram].length}-Gram`}>
+                                    {gram}<span className="rounded bg-primary/15 px-1 text-[0.62rem]" aria-label={`${[...gram].length}-Gram`}>{[...gram].length}</span><span aria-hidden="true" className="opacity-50">×</span>
+                                </button>
+                            ))}
+                        </div>
+
+                        <div className="mt-4 grid gap-4 md:grid-cols-3">
+                            {customGramsPreference.entries.length > 0 && <div data-testid="recent-custom-grams">
+                                <h2 className="text-xs font-semibold text-base-content/55">Recent</h2>
+                                <div className="mt-2 flex flex-wrap gap-1.5">
+                                    {customGramsPreference.entries.map(({ gram }) => {
+                                        const selected = gramsPreferences.grams.includes(gram)
+                                        const length = [...gram].length
+                                        return <button key={gram} type="button" disabled={running} aria-label={`${gram}, ${length}-Gram`} aria-pressed={selected} onClick={() => toggleGram(gram)} className={`btn btn-xs h-8 font-mono ${selected ? "border-primary/30 bg-primary/15 text-primary hover:bg-primary/20" : "btn-ghost border-base-content/15"}`}>{gram}<span className="rounded bg-base-content/10 px-1 text-[0.62rem]" aria-hidden="true">{length}</span></button>
+                                    })}
+                                </div>
+                            </div>}
+                            {measuredGrams.length > 0 && <div data-testid="measured-test-grams">
+                                <h2 className="text-xs font-semibold text-base-content/55">From your Tests</h2>
+                                <div className="mt-2 flex flex-wrap gap-1.5">
+                                    {measuredGrams.map(({ id, gram }) => {
+                                        const selected = gramsPreferences.grams.includes(gram)
+                                        return <button key={id} type="button" disabled={running} aria-pressed={selected} onClick={() => toggleGram(gram)} className={`btn btn-xs h-8 font-mono ${selected ? "border-primary/30 bg-primary/15 text-primary hover:bg-primary/20" : "btn-ghost border-base-content/15"}`}><span className="font-semibold">{gram}</span><span className="rounded bg-base-content/10 px-1 text-[0.62rem]" aria-label={`${[...gram].length}-Gram`}>{[...gram].length}</span></button>
+                                    })}
+                                </div>
+                            </div>}
                             <div>
-                                <h2 className="font-semibold">{guided ? "Prescribed Gram focus" : "Add a Custom Gram"}</h2>
-                                <p className="mt-1 text-sm text-base-content/55">{guided ? "Editing or mixing in another Target converts this run to Custom." : "Mix any 2-, 3-, or 4-character Grams in the same run."}</p>
-                                <form className="mt-3 flex gap-2" onSubmit={(event) => { event.preventDefault(); addGram(gramEntry) }}>
-                                    <input data-testid="custom-gram-input" disabled={running} value={gramEntry} onChange={(event) => { setGramEntry(event.target.value); setGramEntryError(null) }} className="input input-bordered input-sm min-w-0 flex-1 font-mono" aria-label="Custom Gram" placeholder="e.g. ing" autoComplete="off" />
-                                    <button type="submit" disabled={running} className="btn btn-sm btn-primary">Add</button>
-                                </form>
-                                {gramEntryError && <p role="alert" className="mt-2 text-xs text-warning">{gramEntryError}</p>}
-                            </div>
-                            <div className="space-y-5">
-                                {customGramsPreference.entries.length > 0 && <div data-testid="recent-custom-grams">
-                                    <h2 className="font-semibold">Recent</h2>
-                                    <div className="mt-2 flex flex-wrap gap-1.5">
-                                        {customGramsPreference.entries.map(({ gram }) => {
-                                            const selected = gramsPreferences.grams.includes(gram)
-                                            const length = [...gram].length
-                                            return <button key={gram} type="button" disabled={running} aria-label={`${gram}, ${length}-Gram`} aria-pressed={selected} onClick={() => toggleGram(gram)} className={`btn btn-xs h-8 font-mono ${selected ? "btn-primary" : "btn-ghost border-base-content/15"}`}>{gram}<span className="rounded bg-base-content/10 px-1 text-[0.62rem]" aria-hidden="true">{length}</span></button>
-                                        })}
-                                    </div>
-                                </div>}
-                                {measuredGrams.length > 0 && <div data-testid="measured-test-grams">
-                                    <h2 className="font-semibold">From your Tests</h2>
-                                    <p className="mt-1 text-sm text-base-content/55">Only Grams measured directly in your natural typing.</p>
-                                    <div className="mt-3 grid gap-2">
-                                        {measuredGrams.map(({ id, gram, reason }) => {
-                                            const selected = gramsPreferences.grams.includes(gram)
-                                            return <button key={id} type="button" disabled={running} aria-pressed={selected} onClick={() => toggleGram(gram)} className={`flex min-h-11 items-center gap-2 rounded-lg border px-3 py-2 text-left ${selected ? "border-primary bg-primary text-primary-content" : "border-primary/30 bg-primary/10 text-primary"}`}><span className="font-mono font-bold">{gram}</span><span className="rounded bg-base-content/10 px-1 font-mono text-[0.62rem]" aria-label={`${[...gram].length}-Gram`}>{[...gram].length}</span><span className="text-xs opacity-75">{reason}</span></button>
-                                        })}
-                                    </div>
-                                </div>}
-                                <div>
-                                    <h2 className="font-semibold">Common in {languageMeta(language).label}</h2>
-                                    <p className="mt-1 text-sm text-base-content/55">Frequency-ranked Custom material—not a measured Weakness.</p>
-                                    <div data-testid="common-language-grams" className="mt-3 flex flex-wrap gap-1.5">
-                                        {commonGrams.map(({ gram, length }) => {
-                                            const selected = gramsPreferences.grams.includes(gram)
-                                            return <button key={gram} type="button" disabled={running} aria-pressed={selected} onClick={() => toggleGram(gram)} className={`btn btn-xs h-8 font-mono ${selected ? "btn-primary" : "btn-ghost border-base-content/15"}`}>{gram}<span className="rounded bg-base-content/10 px-1 text-[0.62rem]" aria-label={`${length}-Gram`}>{length}</span></button>
-                                        })}
-                                    </div>
+                                <h2 className="text-xs font-semibold text-base-content/55">Common in {languageMeta(language).label}</h2>
+                                <div data-testid="common-language-grams" className="mt-2 flex flex-wrap gap-1.5">
+                                    {commonGrams.map(({ gram, length }) => {
+                                        const selected = gramsPreferences.grams.includes(gram)
+                                        return <button key={gram} type="button" disabled={running} aria-pressed={selected} onClick={() => toggleGram(gram)} className={`btn btn-xs h-8 font-mono ${selected ? "border-primary/30 bg-primary/15 text-primary hover:bg-primary/20" : "btn-ghost border-base-content/15"}`}>{gram}<span className="rounded bg-base-content/10 px-1 text-[0.62rem]" aria-label={`${length}-Gram`}>{length}</span></button>
+                                    })}
                                 </div>
                             </div>
                         </div>

@@ -111,7 +111,7 @@ test("Guided Practice workspace and awaiting-Test recap", async ({ page }, testI
   }))
   await page.goto(`/drill?target=gram&gram=tion&policy=acquisition&evidence=${evidence}`)
   await expect(page).toHaveURL(/\/practice\?target=gram.*gram=tion/)
-  await expect(page.getByTestId("guided-practice-intent")).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Practise tion", exact: true })).toBeVisible()
   await expect(page.locator("#c0")).toHaveClass(/active-char/, { timeout: 20_000 })
   await capture(page, testInfo, "69-guided-practice")
 
@@ -418,7 +418,7 @@ test.describe("screenshot tour", () => {
 
     // The one-click Finding hands off to the shared Guided Practice workspace.
     await page.getByRole("link", { name: /Practise these keys/ }).first().click();
-    await expect(page.getByTestId("guided-practice-intent")).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Practise/ })).toBeVisible();
     await capture(page, testInfo, "36-guided-practice-handoff");
   });
 

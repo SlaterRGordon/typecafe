@@ -313,7 +313,7 @@ export const Keyboard = (props: KeyboardProps) => {
                     data-kb-layer={visibleLayer}
                     className="w-full max-w-3xl"
                 >
-                    <div className="mb-2 mt-8 flex justify-center">
+                    <div className="mb-2 mt-1 flex justify-center">
                         <KeyboardLayerSwitch
                             shiftLayer={shiftLayer}
                             altgrLayer={altgrLayer}

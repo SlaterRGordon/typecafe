@@ -133,7 +133,7 @@ test.describe("legacy Drill compatibility", () => {
 
     await expect(page).toHaveURL(/\/practice\?target=key.*keys=x.*policy=cold.*length=30.*rm=opaque/)
     await expect(page.getByTestId("custom-practice-workspace")).toHaveAttribute("data-practice-kind", "guided")
-    await expect(page.getByTestId("selected-practice-keys")).toContainText("x")
+    await expect(page.getByTestId("practice-focus-summary")).toContainText("x")
   })
 
   test("sends legacy endurance and timed warm-ups to ordinary Home Tests", async ({ page }) => {
@@ -164,7 +164,7 @@ test.describe("Custom Practice", () => {
     await gotoPractice(page)
 
     const controls = page.getByRole("region", { name: "Practice controls" })
-    await expect(controls.getByRole("button", { name: "Pseudo" })).toHaveClass(/btn-primary/)
+    await expect(controls.getByRole("button", { name: "Pseudo" })).toHaveClass(/text-primary/)
     await expect.poll(async () => {
       const tokens = ((await page.locator("#words").textContent()) ?? "").trim().split(/\s+/).slice(0, 12)
       return tokens.length === 12 && tokens.every((token, index) => token.includes(index % 2 === 0 ? "q" : "r"))
@@ -192,27 +192,44 @@ test.describe("Custom Practice", () => {
     })
   })
 
-  test("keeps controls, finite typer, and layout-aware Keys editor in one workspace and restores choices", async ({ page }) => {
+  test("uses a borderless control band and moves the one-line focus summary to the Keys editor", async ({ page }) => {
+    await page.addInitScript(() => {
+      if (!window.sessionStorage.getItem("practice-minimal-workspace-seeded")) {
+        window.localStorage.setItem("typecafe:practice:custom-keys", JSON.stringify({ keys: ["e", "r", "t", "i", "o"], durationSeconds: 60, textStyle: "varied" }))
+        window.sessionStorage.setItem("practice-minimal-workspace-seeded", "true")
+      }
+    })
     await gotoPractice(page)
 
     const controls = page.getByRole("region", { name: "Practice controls" })
     const run = page.getByRole("region", { name: "Practice run" })
     const editor = page.getByRole("region", { name: "Focus key editor" })
-    await expect(controls.getByRole("button", { name: "60s" })).toHaveClass(/btn-primary/)
-    await expect(controls.getByRole("button", { name: "Varied" })).toHaveClass(/btn-primary/)
+    const focusSummary = page.getByTestId("practice-focus-summary")
+    await expect(page.getByRole("heading", { name: "Practice keys", exact: true })).toBeVisible()
+    await expect(controls).not.toHaveClass(/rounded|border|bg-base-200/)
+    await expect(run).not.toHaveClass(/rounded|border|bg-base-200/)
+    await expect(controls.getByRole("button", { name: "60s" })).toHaveClass(/text-primary/)
+    await expect(controls.getByRole("button", { name: "Varied" })).toHaveClass(/text-primary/)
+    await expect(focusSummary).toContainText("+2")
+    await expect(focusSummary).toHaveCSS("white-space", "nowrap")
+    await expect(focusSummary).toHaveCSS("overflow-x", "hidden")
     await expect(editor).toBeVisible()
+    await expect(editor.getByRole("heading")).toHaveCount(0)
+    await expect(editor).not.toContainText("Selected keys get extra reps")
     expect((await editor.boundingBox())!.y).toBeGreaterThan((await run.boundingBox())!.y)
+    await focusSummary.click()
+    await expect(editor).toBeFocused()
 
     await controls.getByRole("button", { name: "30s" }).click()
     await controls.getByRole("button", { name: "Pseudo" }).click()
     await page.getByRole("button", { name: /^q key, available/ }).click()
-    await expect(page.getByTestId("selected-practice-keys")).toContainText("q")
+    await expect(focusSummary).toContainText("+3")
 
     await page.reload()
     await expect(page.locator("#c0")).toHaveClass(/active-char/, { timeout: 20_000 })
-    await expect(controls.getByRole("button", { name: "30s" })).toHaveClass(/btn-primary/)
-    await expect(controls.getByRole("button", { name: "Pseudo" })).toHaveClass(/btn-primary/)
-    await expect(page.getByTestId("selected-practice-keys")).toContainText("q")
+    await expect(controls.getByRole("button", { name: "30s" })).toHaveClass(/text-primary/)
+    await expect(controls.getByRole("button", { name: "Pseudo" })).toHaveClass(/text-primary/)
+    await expect(page.getByRole("button", { name: /^q key, selected focus/ })).toBeVisible()
   })
 
   test("shows only frozen natural-Test evidence without hiding focus", async ({ page }) => {
@@ -299,13 +316,19 @@ test.describe("Custom Practice", () => {
     await gotoPractice(page)
     const controls = page.getByRole("region", { name: "Practice controls" })
     await controls.getByRole("button", { name: "Grams" }).click()
+    const gramEditor = page.getByRole("region", { name: "Gram editor" })
+    await expect(page.getByTestId("selected-practice-grams")).toHaveCount(1)
+    await expect(gramEditor.getByTestId("selected-practice-grams")).toBeVisible()
+    await page.getByTestId("practice-focus-summary").click()
+    await expect(page.getByTestId("custom-gram-input")).toBeFocused()
 
     await expect(page.getByTestId("selected-practice-grams")).toContainText("th")
     await expect(page.getByTestId("selected-practice-grams").getByLabel("2-Gram").first()).toBeVisible()
     await expect(page.getByTestId("selected-practice-grams").getByLabel("3-Gram").first()).toBeVisible()
     await expect(page.getByTestId("selected-practice-grams").getByLabel("4-Gram").first()).toBeVisible()
     await expect(page.getByRole("heading", { name: "Common in English" })).toBeVisible()
-    await expect(page.getByText("Frequency-ranked Custom material—not a measured Weakness.")).toBeVisible()
+    await expect(page.getByText(/Frequency-ranked Custom material/)).toHaveCount(0)
+    await expect(page.getByText(/Only Grams measured directly/)).toHaveCount(0)
     await expect(page.getByTestId("common-language-grams").getByRole("button").first()).toBeVisible()
 
     const input = page.getByTestId("custom-gram-input")
@@ -321,11 +344,11 @@ test.describe("Custom Practice", () => {
     await page.reload()
     await expect(page.locator("#c0")).toHaveClass(/active-char/, { timeout: 20_000 })
     await expect(controls.getByRole("button", { name: "Keys" })).toHaveAttribute("aria-pressed", "true")
-    await expect(controls.getByRole("button", { name: "60s" })).toHaveClass(/btn-primary/)
-    await expect(controls.getByRole("button", { name: "Varied" })).toHaveClass(/btn-primary/)
+    await expect(controls.getByRole("button", { name: "60s" })).toHaveClass(/text-primary/)
+    await expect(controls.getByRole("button", { name: "Varied" })).toHaveClass(/text-primary/)
     await controls.getByRole("button", { name: "Grams" }).click()
-    await expect(controls.getByRole("button", { name: "120s" })).toHaveClass(/btn-primary/)
-    await expect(controls.getByRole("button", { name: "Pseudo" })).toHaveClass(/btn-primary/)
+    await expect(controls.getByRole("button", { name: "120s" })).toHaveClass(/text-primary/)
+    await expect(controls.getByRole("button", { name: "Pseudo" })).toHaveClass(/text-primary/)
     await expect(page.getByTestId("selected-practice-grams")).toContainText("er")
     await expect(page.getByTestId("selected-practice-grams")).toContainText("ing")
 
@@ -381,18 +404,18 @@ test.describe("Custom Practice", () => {
     const controls = page.getByRole("region", { name: "Practice controls" })
 
     await expect(page.getByTestId("selected-practice-grams").getByLabel("Remove th, 2-Gram")).toBeVisible()
-    await expect(controls.getByRole("button", { name: "30s" })).toHaveClass(/btn-primary/)
+    await expect(controls.getByRole("button", { name: "30s" })).toHaveClass(/text-primary/)
     await setPracticeLanguage(page, "french")
     await expect(page.getByRole("heading", { name: "Common in French" })).toBeVisible()
     await expect(page.getByTestId("selected-practice-grams").getByLabel("Remove éé, 2-Gram")).toBeVisible()
-    await expect(controls.getByRole("button", { name: "240s" })).toHaveClass(/btn-primary/)
-    await expect(controls.getByRole("button", { name: "Pseudo" })).toHaveClass(/btn-primary/)
+    await expect(controls.getByRole("button", { name: "240s" })).toHaveClass(/text-primary/)
+    await expect(controls.getByRole("button", { name: "Pseudo" })).toHaveClass(/text-primary/)
 
     await controls.getByRole("button", { name: "120s" }).click()
     await setPracticeLanguage(page, "english")
     await expect(page.getByTestId("selected-practice-grams").getByLabel("Remove th, 2-Gram")).toBeVisible()
     await setPracticeLanguage(page, "french")
-    await expect(controls.getByRole("button", { name: "120s" })).toHaveClass(/btn-primary/)
+    await expect(controls.getByRole("button", { name: "120s" })).toHaveClass(/text-primary/)
   })
 
   test("merges the newest guest setup into signed-in per-language cross-device state", async ({ page }) => {
@@ -413,7 +436,7 @@ test.describe("Custom Practice", () => {
     await expect(page.getByTestId("selected-practice-grams").getByLabel("Remove th, 2-Gram")).toBeVisible()
     await setPracticeLanguage(page, "french")
     await expect(page.getByTestId("selected-practice-grams").getByLabel("Remove été, 3-Gram")).toBeVisible()
-    await expect(controls.getByRole("button", { name: "120s" })).toHaveClass(/btn-primary/)
+    await expect(controls.getByRole("button", { name: "120s" })).toHaveClass(/text-primary/)
     await expect.poll(() => pendingCustomGramsSetupTimestamp(page, "french")).toBeNull()
 
     await setPracticeLanguage(page, "english")
@@ -424,7 +447,7 @@ test.describe("Custom Practice", () => {
     await page.evaluate(() => window.localStorage.removeItem("typecafe:practice:recent-custom-grams"))
     await page.reload()
     await expect(page.getByTestId("selected-practice-grams").getByLabel("Remove été, 3-Gram")).toBeVisible()
-    await expect(controls.getByRole("button", { name: "120s" })).toHaveClass(/btn-primary/)
+    await expect(controls.getByRole("button", { name: "120s" })).toHaveClass(/text-primary/)
   })
 
   test("blocks blended Gram edits while a signed-in language setup is loading", async ({ page }) => {
@@ -446,7 +469,7 @@ test.describe("Custom Practice", () => {
     await expect(page.getByRole("region", { name: "Practice controls" })).toHaveCount(0)
 
     await expect(page.getByTestId("selected-practice-grams").getByLabel("Remove éé, 2-Gram")).toBeVisible()
-    await expect(page.getByRole("region", { name: "Practice controls" }).getByRole("button", { name: "240s" })).toHaveClass(/btn-primary/)
+    await expect(page.getByRole("region", { name: "Practice controls" }).getByRole("button", { name: "240s" })).toHaveClass(/text-primary/)
   })
 
   test("merges pending guest Recent Grams into the signed-in per-language account", async ({ page }) => {
@@ -590,12 +613,14 @@ test.describe("Guided Practice", () => {
   }))
   const href = `/practice?target=gram&gram=tion&policy=acquisition&evidence=${evidence}`
 
-  test("opens one exact Target directly, preserves attribution for duration/style, and visibly converts on focus edits", async ({ page }) => {
+  test("opens one exact Target with Progress glyph grammar and converts once with a brief toast", async ({ page }) => {
     await page.goto(href)
     const workspace = page.getByTestId("custom-practice-workspace")
     await expect(workspace).toHaveAttribute("data-practice-kind", "guided")
-    await expect(page.getByTestId("guided-practice-intent")).toContainText("Recent Tests measured tion")
-    await expect(page.getByTestId("guided-practice-intent")).toContainText("186 ms")
+    const title = page.getByRole("heading", { name: "Practise tion", exact: true })
+    await expect(title).toBeVisible()
+    await expect(title.locator("kbd")).toHaveText(["t", "i", "o", "n"])
+    await expect(page.getByTestId("guided-practice-intent")).toHaveCount(0)
     await expect(page.getByTestId("selected-practice-grams")).toContainText("tion")
 
     const controls = page.getByRole("region", { name: "Practice controls" })
@@ -606,7 +631,8 @@ test.describe("Guided Practice", () => {
     await page.getByTestId("custom-gram-input").fill("ing")
     await page.getByRole("region", { name: "Gram editor" }).getByRole("button", { name: "Add" }).click()
     await expect(workspace).toHaveAttribute("data-practice-kind", "custom")
-    await expect(page.getByText("Practice · Custom Grams")).toBeVisible()
+    await expect(page.getByRole("heading", { name: "Practice Grams", exact: true })).toBeVisible()
+    await expect(page.getByText("Changed to Custom Practice", { exact: true })).toBeVisible()
   })
 
   test("records exactly one Target and leads completion with Target response, Test reference, and ordinary Test action", async ({ page }) => {

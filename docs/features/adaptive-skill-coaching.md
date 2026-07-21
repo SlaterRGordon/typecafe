@@ -1221,23 +1221,23 @@ from a fresh implementation context; #171 owns the broad verification pass.
       other; held physical modifiers temporarily peek their layer and return to
       the sticky choice on release; Shift+AltGr appears only while both are held
       on a supporting layout. Keep the existing pill-shaped layer control.
-- [ ] Replace the workspace configuration card with Home's borderless,
+- [x] Replace the workspace configuration card with Home's borderless,
       text-first rhythm for Keys/Grams, duration, and style. Render the selected
       focus as a one-line summary with a small fixed chip preview plus `+N`,
       never wrapping or scrolling; activating the summary moves focus to the
       bottom editor, which remains the only place selections are edited.
-- [ ] Reduce headers to `Practice keys`, `Practice Grams`, or `Practise` plus
+- [x] Reduce headers to `Practice keys`, `Practice Grams`, or `Practise` plus
       the exact Progress target glyph grammar. Remove the uppercase breadcrumb,
       generic tagline, and `guided-practice-intent` without replacement reason
       or baseline copy in the active workspace. Reuse the theme's semantic
       primary colour rather than a fixed pink for every selected state.
-- [ ] Make the bottom focus editor the only bounded surface in the configured,
+- [x] Make the bottom focus editor the only bounded surface in the configured,
       running, and completed workspace. Remove the visible Keys editor heading
       and helper copy, placing the layer control and keyboard close to the
       surface edge. Give Grams the matching bottom surface with a compact direct
       entry and terse `From your Tests` / `Common in <language>` labels, while
       removing explanatory paragraphs and a duplicate selected tray.
-- [ ] Keep Guided focus editing available. On the first prescribed-focus edit,
+- [x] Keep Guided focus editing available. On the first prescribed-focus edit,
       convert immediately to Custom Practice, change the concise title, and
       show one brief `Changed to Custom Practice` toast rather than persistent
       warning copy.

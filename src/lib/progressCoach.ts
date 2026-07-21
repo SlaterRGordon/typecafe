@@ -1,5 +1,5 @@
 import type { FrozenRecommendation } from "./dailyCoaching"
-import { sameCoachingTarget, targetAction, targetDisplayLabel, type CoachingTarget } from "./coachingTarget"
+import { sameCoachingTarget, targetAction, targetDisplayLabel, targetVisualKeys, type CoachingTarget } from "./coachingTarget"
 import type { MasteryRecord, NaturalAbility, SkillAnalysis, SkillCandidate, SkillReason } from "./skillEvidence"
 import { guidedEvidenceFromCandidate } from "./guidedPractice"
 
@@ -107,7 +107,7 @@ function targetPresentation(target: CoachingTarget): Pick<ProgressCoachTarget, "
         description: target.metric === "accuracy"
             ? `low accuracy on ${target.keys.join(", ")}`
             : `${target.keys.join(", ")} arrives slowly`,
-        visualKeys: target.keys.slice(0, 4),
+        visualKeys: targetVisualKeys(target),
         filter: "key",
     }
     if (target.kind === "transition") {
@@ -118,7 +118,7 @@ function targetPresentation(target: CoachingTarget): Pick<ProgressCoachTarget, "
             description: target.metric === "accuracy"
                 ? `low ${to} accuracy after ${from}`
                 : `${from}→${to} pause is slow`,
-            visualKeys: [from, to].filter(Boolean),
+            visualKeys: targetVisualKeys(target),
             filter: "transition",
         }
     }
@@ -126,18 +126,17 @@ function targetPresentation(target: CoachingTarget): Pick<ProgressCoachTarget, "
         family,
         typeLabel: "Pattern",
         description: `pause inside ${target.gram}`,
-        visualKeys: [...target.gram].slice(0, 4),
+        visualKeys: targetVisualKeys(target),
         filter: "pattern",
     }
     if (target.kind === "word") {
-        const visual = target.sharedGram ?? target.words[0] ?? ""
         return {
             family,
             typeLabel: "Pattern",
             description: target.sharedGram
                 ? `slow rhythm around ${target.sharedGram}`
                 : "slow rhythm across these words",
-            visualKeys: [...visual].slice(0, 4),
+            visualKeys: targetVisualKeys(target),
             filter: "pattern",
         }
     }
@@ -148,7 +147,7 @@ function targetPresentation(target: CoachingTarget): Pick<ProgressCoachTarget, "
             family,
             typeLabel: "Movement",
             description: `${anchorLabel}${anchorLabel ? " · " : ""}${movementLabel(target.movement)} runs slow`,
-            visualKeys: [...anchor].slice(0, 2),
+            visualKeys: targetVisualKeys(target),
             filter: "movement",
         }
     }
@@ -156,14 +155,14 @@ function targetPresentation(target: CoachingTarget): Pick<ProgressCoachTarget, "
         family,
         typeLabel: "Correction",
         description: `${target.typed} is repeatedly corrected to ${target.expected}`,
-        visualKeys: [target.typed, target.expected],
+        visualKeys: targetVisualKeys(target),
         filter: "other",
     }
     return {
         family,
         typeLabel: "Endurance",
         description: `speed fades on ${target.longSeconds}s tests`,
-        visualKeys: [],
+        visualKeys: targetVisualKeys(target),
         filter: "other",
     }
 }
