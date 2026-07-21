@@ -1170,6 +1170,85 @@ legacy configuration mechanics merely because the current UI exposes them.
       screenshot-tour states for the landing, Guided, Custom Keys, mixed Grams,
       recap, empty evidence, and awaiting-Test flows.
 
+#### 13.7 Owner-reviewed minimal Practice refinement
+
+Approved 2026-07-21 after reviewing the completed #146 workspace. This
+follow-up supersedes the presentation details in 13.3-13.5 when implemented;
+the Guided/Custom attribution and natural-evidence contracts remain unchanged.
+
+- [ ] Replace mechanically spliced or clipped `Pseudo` carriers in both Keys
+      and Grams with the former Home Practice phonological text quality. Keep
+      selected keys as focus rather than an allowed alphabet, retain supporting
+      characters, balance every selected focus, and keep each selected Gram
+      contiguous.
+- [ ] Drive the focus keyboard's accuracy colours and speed bars only from the
+      same natural-Test timeline projection used by Progress, scoped to the
+      active language and stats pool. Do not blend current or historical
+      Practice into this display; show a neutral selectable board when natural
+      evidence is absent. Leave the existing mixed rolling-aggregate writes and
+      ADR-0004 contract unchanged.
+- [ ] Restore the first Custom Keys selection from the saved focus, otherwise
+      preselect the highest-Impact key when natural evidence supports one, and
+      otherwise start empty. Treat selected keys visibly as focus, not as
+      unlocked characters: remove padlocks and use a theme-primary outline and
+      marker without hiding the natural heat colour or speed bar.
+- [ ] Restore the retired Home keyboard's layer interaction: Base, Shift, and
+      AltGr remain sticky on-screen choices; sticky Shift and AltGr exclude each
+      other; held physical modifiers temporarily peek their layer and return to
+      the sticky choice on release; Shift+AltGr appears only while both are held
+      on a supporting layout. Keep the existing pill-shaped layer control.
+- [ ] Replace the workspace configuration card with Home's borderless,
+      text-first rhythm for Keys/Grams, duration, and style. Render the selected
+      focus as a one-line summary with a small fixed chip preview plus `+N`,
+      never wrapping or scrolling; activating the summary moves focus to the
+      bottom editor, which remains the only place selections are edited.
+- [ ] Reduce headers to `Practice keys`, `Practice Grams`, or `Practise` plus
+      the exact Progress target glyph grammar. Remove the uppercase breadcrumb,
+      generic tagline, and `guided-practice-intent` without replacement reason
+      or baseline copy in the active workspace. Reuse the theme's semantic
+      primary colour rather than a fixed pink for every selected state.
+- [ ] Make the bottom focus editor the only bounded surface in the configured,
+      running, and completed workspace. Remove the visible Keys editor heading
+      and helper copy, placing the layer control and keyboard close to the
+      surface edge. Give Grams the matching bottom surface with a compact direct
+      entry and terse `From your Tests` / `Common in <language>` labels, while
+      removing explanatory paragraphs and a duplicate selected tray.
+- [ ] Keep Guided focus editing available. On the first prescribed-focus edit,
+      convert immediately to Custom Practice, change the concise title, and
+      show one brief `Changed to Custom Practice` toast rather than persistent
+      warning copy.
+- [ ] Simplify the Practice landing to a borderless recommendation-first
+      hierarchy: target glyph, one short measured reason, primary Practice
+      action, then compact Keys and Grams continuation rows separated by
+      spacing or dividers. Remove recommendation/path cards, decorative icons,
+      and repeated descriptions.
+- [ ] Simplify completion to typography and dividers in the former typer area.
+      Guided retains only the Target result, attempts, Practice Delta or
+      baseline-building state, one compact natural-Test reference, and
+      `Take a Test` / `Practise again` actions. Custom uses one divided row per
+      selected item that occurred with attempts, its relevant response metric,
+      and Practice Delta, followed by `Repeat with fresh text`. Remove nested
+      metric/item cards, repeated completion labels, and overall WPM/Accuracy.
+- [ ] Add a per-language `Recent` row for valid 2-4 character Grams accepted
+      through direct entry only. Save immediately, normalize and deduplicate,
+      move reused items to the front, cap at 12, hide the empty row, and let its
+      theme-primary chips add/remove current focus. Suggested or measured chips
+      do not enter this history.
+- [ ] Persist each language's Recent Grams and complete Custom Grams setup
+      (focus, duration, and style) locally for guests and account-side for
+      signed-in cross-device use. On sign-in, merge recent items by their newest
+      timestamps and choose the newest edited setup per language; clear pending
+      guest state only after the server merge succeeds. Custom Keys persistence
+      remains unchanged.
+- [ ] Protect the revised behavior with pure compiler/projection/persistence
+      tests, focused desktop/mobile Practice journeys, and updated canonical
+      screenshots for the landing, Keys, Grams, Guided, and completion states.
+
+**Follow-up acceptance:** Practice retains its honest Guided/Custom evidence
+contract while reading as one minimal workspace: Home-like controls and typer,
+one bottom editor surface, natural-Test weakness guidance, pronounceable focus
+text, and concise results that point back to measurement.
+
 **Acceptance:** Home remains ordinary Tests; every supported Target opens the
 same Practice workspace; Custom Keys and mixed Grams require only meaningful
 focus, duration, and style choices; completed Practice produces honest
