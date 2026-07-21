@@ -1253,16 +1253,18 @@ from a fresh implementation context; #171 owns the broad verification pass.
       selected item that occurred with attempts, its relevant response metric,
       and Practice Delta, followed by `Repeat with fresh text`. Remove nested
       metric/item cards, repeated completion labels, and overall WPM/Accuracy.
-- [ ] Add a per-language `Recent` row for valid 2-4 character Grams accepted
+- [x] Add a per-language `Recent` row for valid 2-4 character Grams accepted
       through direct entry only. Save immediately, normalize and deduplicate,
       move reused items to the front, cap at 12, hide the empty row, and let its
       theme-primary chips add/remove current focus. Suggested or measured chips
       do not enter this history.
-- [ ] Persist each language's Recent Grams and complete Custom Grams setup
-      (focus, duration, and style) locally for guests and account-side for
-      signed-in cross-device use. On sign-in, merge recent items by their newest
-      timestamps and choose the newest edited setup per language; clear pending
-      guest state only after the server merge succeeds. Custom Keys persistence
+- [x] Persist each language's Recent Grams locally for guests and account-side
+      for signed-in cross-device use. On sign-in, merge recent items by their
+      newest timestamps and clear pending guest state only after the server
+      merge succeeds.
+- [ ] Persist the complete Custom Grams setup (focus, duration, and style) per
+      language locally for guests and account-side for signed-in cross-device
+      use, choosing the newest edited setup on sign-in. Custom Keys persistence
       remains unchanged.
 - [ ] Protect the revised behavior with pure compiler/projection/persistence
       tests, focused desktop/mobile Practice journeys, and updated canonical

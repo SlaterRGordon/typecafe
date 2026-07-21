@@ -61,6 +61,7 @@ model User {
     transitionStats     TransitionStat[]
     trainProgress       TrainProgress[]
     coachingSessions    CoachingSession[]
+    customGramsPreferences CustomGramsPreference[]
 }
 
 model VerificationToken {
@@ -271,5 +272,21 @@ model CoachingSession {
     user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
     @@unique([userId, dateKey, pool, language])
+    @@index([userId])
+}
+
+// Per-language account preference snapshot. The JSON contract starts with
+// Recent Custom Grams and can carry the remaining setup in issue #167.
+model CustomGramsPreference {
+    id        String   @id @default(cuid())
+    userId    String
+    language  String
+    snapshot  Json
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    @@unique([userId, language])
     @@index([userId])
 }

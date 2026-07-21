@@ -8,6 +8,7 @@ import { transitionStatsRouter } from "./routers/transitionStats";
 import { trainProgressRouter } from "./routers/trainProgress";
 import { scoreShareRouter } from "./routers/scoreShare";
 import { coachingSessionRouter } from "./routers/coachingSession";
+import { customGramsPreferenceRouter } from "./routers/customGramsPreference";
 
 /**
  * This is the primary router for your server.
@@ -24,6 +25,7 @@ export const appRouter = createTRPCRouter({
   trainProgress: trainProgressRouter,
   scoreShare: scoreShareRouter,
   coachingSession: coachingSessionRouter,
+  customGramsPreference: customGramsPreferenceRouter,
 });
 
 // export type definition of API

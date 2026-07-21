@@ -1,5 +1,6 @@
 import type { Page, Route } from "@playwright/test";
 import superjson from "superjson";
+import { mergeRecentCustomGrams } from "../../../src/lib/customGramsRecent";
 
 type ProcedureInput = Record<string, unknown> | undefined;
 interface MockTrpcOptions {
@@ -23,6 +24,7 @@ interface MockTrpcOptions {
   timelineEvidence?: unknown[];
   coachingSession?: unknown;
   coachingHistory?: unknown[];
+  customGramsPreference?: unknown;
   // Make the progress history flat (a plateau) instead of rising.
   flatProgress?: boolean;
   // Make the progress history fall so hero sign-specific layout can be tested.
@@ -220,7 +222,15 @@ function progressRollupsFromEntries(input: ProcedureInput) {
   }));
 }
 
-function responseForProcedure(procedure: string, input: ProcedureInput, options: MockTrpcOptions, state: { importedTrainProgress: boolean; syncedProgressRollups: unknown[]; coachingSession: unknown; guestEvidenceImportCalls: number }) {
+interface MockTrpcState {
+  importedTrainProgress: boolean;
+  syncedProgressRollups: unknown[];
+  coachingSession: unknown;
+  customGramsPreference: unknown;
+  guestEvidenceImportCalls: number;
+}
+
+function responseForProcedure(procedure: string, input: ProcedureInput, options: MockTrpcOptions, state: MockTrpcState) {
   switch (procedure) {
     case "type.get":
       return {
@@ -419,6 +429,14 @@ function responseForProcedure(procedure: string, input: ProcedureInput, options:
     case "coachingSession.save":
       state.coachingSession = input?.snapshot ?? null;
       return state.coachingSession;
+    case "customGramsPreference.get":
+      return state.customGramsPreference;
+    case "customGramsPreference.merge": {
+      const incoming = input?.snapshot as { language?: unknown } | undefined;
+      const language = typeof incoming?.language === "string" ? incoming.language : "english";
+      state.customGramsPreference = mergeRecentCustomGrams(language, state.customGramsPreference, incoming);
+      return state.customGramsPreference;
+    }
     case "user.get":
       return currentProfileUser;
     case "user.getProfileByUsername":
@@ -610,7 +628,13 @@ function responseForProcedure(procedure: string, input: ProcedureInput, options:
 
 export async function mockTrpc(page: Page, options: MockTrpcOptions = {}) {
   currentProfileUser = { ...profileUser, image: options.profileImage ?? profileUser.image };
-  const state = { importedTrainProgress: false, syncedProgressRollups: [] as unknown[], coachingSession: options.coachingSession ?? null, guestEvidenceImportCalls: 0 };
+  const state: MockTrpcState = {
+    importedTrainProgress: false,
+    syncedProgressRollups: [],
+    coachingSession: options.coachingSession ?? null,
+    customGramsPreference: options.customGramsPreference ?? null,
+    guestEvidenceImportCalls: 0,
+  };
 
   await page.route("**/api/trpc/**", async (route: Route) => {
     const url = new URL(route.request().url());

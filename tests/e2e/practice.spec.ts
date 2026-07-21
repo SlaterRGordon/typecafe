@@ -34,6 +34,22 @@ async function guestPracticeRecords(page: Page) {
   })
 }
 
+async function pendingRecentGrams(page: Page, language: string): Promise<string[]> {
+  return page.evaluate((activeLanguage) => {
+    const value = JSON.parse(window.localStorage.getItem("typecafe:practice:recent-custom-grams") ?? "null") as unknown
+    if (!value || typeof value !== "object") return []
+    const languages = (value as { languages?: unknown }).languages
+    if (!languages || typeof languages !== "object") return []
+    const snapshot = (languages as Record<string, unknown>)[activeLanguage]
+    if (!snapshot || typeof snapshot !== "object") return []
+    const entries = (snapshot as { entries?: unknown }).entries
+    if (!Array.isArray(entries)) return []
+    return entries.flatMap((entry) => entry && typeof entry === "object" && typeof (entry as { gram?: unknown }).gram === "string"
+      ? [(entry as { gram: string }).gram]
+      : [])
+  }, language)
+}
+
 test.describe("Practice landing", () => {
   test("leads with Progress's highest-Impact Target and opens Guided directly", async ({ page }) => {
     await mockAuthenticatedSession(page)
@@ -286,6 +302,79 @@ test.describe("Custom Practice", () => {
     await expect(page.getByTestId("selected-practice-grams")).toContainText("ing")
 
     await expect(controls.getByRole("button", { name: /source|scope|combination|repetition|threshold/i })).toHaveCount(0)
+  })
+
+  test("remembers only directly entered Grams as compact guest Recent choices", async ({ page }) => {
+    await page.goto("/practice?custom=grams")
+    await expect(page.getByTestId("custom-practice-workspace")).toBeVisible()
+    await expect(page.getByTestId("recent-custom-grams")).toHaveCount(0)
+
+    const editor = page.getByRole("region", { name: "Gram editor" })
+    const input = page.getByTestId("custom-gram-input")
+    await input.fill(" ER ")
+    await editor.getByRole("button", { name: "Add" }).click()
+
+    const recent = page.getByTestId("recent-custom-grams")
+    await expect(recent.getByRole("button")).toHaveText(["er2"])
+    await expect(recent.getByRole("button", { name: "er, 2-Gram" })).toHaveAttribute("aria-pressed", "true")
+
+    await page.getByTestId("common-language-grams").getByRole("button").first().click()
+    await expect(recent.getByRole("button")).toHaveCount(1)
+
+    await input.fill("ing")
+    await input.press("Enter")
+    await input.fill("er")
+    await input.press("Enter")
+    await expect(recent.getByRole("button")).toHaveText(["er2", "ing3"])
+
+    await page.reload()
+    await expect(page.getByTestId("recent-custom-grams").getByRole("button")).toHaveText(["er2", "ing3"])
+
+    await page.evaluate(() => {
+      const payload = JSON.parse(window.localStorage.getItem("typecafe:practice:recent-custom-grams")!) as { version: 1, languages: Record<string, unknown> }
+      payload.languages.french = { version: 1, language: "french", entries: [{ gram: "éé", lastUsedAt: 30 }] }
+      window.localStorage.setItem("typecafe:practice:recent-custom-grams", JSON.stringify(payload))
+      window.localStorage.setItem("typecafe:language", JSON.stringify("french"))
+      window.dispatchEvent(new Event("typecafe:language-changed"))
+    })
+    await expect(page.getByTestId("recent-custom-grams").getByRole("button")).toHaveText(["éé2"])
+    await expect(page.getByRole("heading", { name: "Common in French" })).toBeVisible()
+  })
+
+  test("merges pending guest Recent Grams into the signed-in per-language account", async ({ page }) => {
+    await page.addInitScript(() => window.localStorage.setItem("typecafe:practice:recent-custom-grams", JSON.stringify({
+      version: 1,
+      languages: { english: { version: 1, language: "english", entries: [{ gram: "er", lastUsedAt: 20 }] } },
+    })))
+    await mockAuthenticatedSession(page)
+    await mockTrpc(page, {
+      customGramsPreference: { version: 1, language: "english", entries: [{ gram: "th", lastUsedAt: 10 }] },
+    })
+    await page.goto("/practice?custom=grams")
+
+    const recent = page.getByTestId("recent-custom-grams")
+    await expect(recent.getByRole("button")).toHaveText(["er2", "th2"])
+    await expect.poll(() => pendingRecentGrams(page, "english")).toEqual([])
+
+    await page.evaluate(() => window.localStorage.removeItem("typecafe:practice:recent-custom-grams"))
+    await page.reload()
+    await expect(page.getByTestId("recent-custom-grams").getByRole("button")).toHaveText(["er2", "th2"])
+  })
+
+  test("retains pending guest Recent Grams when the account merge fails", async ({ page }) => {
+    await page.addInitScript(() => window.localStorage.setItem("typecafe:practice:recent-custom-grams", JSON.stringify({
+      version: 1,
+      languages: { english: { version: 1, language: "english", entries: [{ gram: "er", lastUsedAt: 20 }] } },
+    })))
+    await mockAuthenticatedSession(page)
+    await mockTrpc(page, {
+      customGramsPreference: { version: 1, language: "english", entries: [{ gram: "th", lastUsedAt: 10 }] },
+      errorProcedures: ["customGramsPreference.merge"],
+    })
+    await page.goto("/practice?custom=grams")
+
+    await expect(page.getByTestId("recent-custom-grams").getByRole("button")).toHaveText(["er2", "th2"])
+    await expect.poll(() => pendingRecentGrams(page, "english")).toEqual(["er"])
   })
 
   test("timer completion shows focus-first per-key recap with no attempt floor", async ({ page }) => {

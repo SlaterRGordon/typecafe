@@ -12,6 +12,7 @@ import { useGuestEvidence } from "~/hooks/useGuestEvidence"
 import { useCoachingEvidence } from "~/hooks/useCoachingEvidence"
 import { useLanguage } from "~/hooks/useLanguage"
 import { useLayout } from "~/hooks/useLayout"
+import { useRecentCustomGrams } from "~/hooks/useRecentCustomGrams"
 import {
     compileCustomGramsPractice,
     completeCustomGramsPractice,
@@ -161,6 +162,7 @@ const Practice: NextPage = () => {
     const [gramsPreferences, setGramsPreferences] = useState<CustomGramsPracticePreferences>({ grams: ["th", "the", "tion"], durationSeconds: 60, textStyle: "varied" })
     const [gramEntry, setGramEntry] = useState("")
     const [gramEntryError, setGramEntryError] = useState<string | null>(null)
+    const recentGrams = useRecentCustomGrams(language, signedIn)
     const [ready, setReady] = useState(false)
     const [keysInitialized, setKeysInitialized] = useState(false)
     const [corpus, setCorpus] = useState<string[]>([])
@@ -406,6 +408,11 @@ const Practice: NextPage = () => {
         if (guided) setGuided(null)
         updateGrams({ grams: unique })
     }
+    const toggleGram = (gram: string) => {
+        setGrams(gramsPreferences.grams.includes(gram)
+            ? gramsPreferences.grams.filter((item) => item !== gram)
+            : [...gramsPreferences.grams, gram])
+    }
     const addGram = (raw: string) => {
         const gram = normalizeCustomGram(raw)
         if (!gram) {
@@ -416,11 +423,8 @@ const Practice: NextPage = () => {
             setGramEntryError("That Gram is not available on your current keyboard layout.")
             return
         }
-        if (gramsPreferences.grams.includes(gram)) {
-            setGramEntryError(`${gram} is already selected.`)
-            return
-        }
-        setGrams([...gramsPreferences.grams, gram])
+        recentGrams.recordDirect(gram)
+        if (!gramsPreferences.grams.includes(gram)) setGrams([...gramsPreferences.grams, gram])
         setGramEntry("")
         setGramEntryError(null)
     }
@@ -645,13 +649,23 @@ const Practice: NextPage = () => {
                                 {gramEntryError && <p role="alert" className="mt-2 text-xs text-warning">{gramEntryError}</p>}
                             </div>
                             <div className="space-y-5">
+                                {recentGrams.entries.length > 0 && <div data-testid="recent-custom-grams">
+                                    <h2 className="font-semibold">Recent</h2>
+                                    <div className="mt-2 flex flex-wrap gap-1.5">
+                                        {recentGrams.entries.map(({ gram }) => {
+                                            const selected = gramsPreferences.grams.includes(gram)
+                                            const length = [...gram].length
+                                            return <button key={gram} type="button" disabled={running} aria-label={`${gram}, ${length}-Gram`} aria-pressed={selected} onClick={() => toggleGram(gram)} className={`btn btn-xs h-8 font-mono ${selected ? "btn-primary" : "btn-ghost border-base-content/15"}`}>{gram}<span className="rounded bg-base-content/10 px-1 text-[0.62rem]" aria-hidden="true">{length}</span></button>
+                                        })}
+                                    </div>
+                                </div>}
                                 {measuredGrams.length > 0 && <div data-testid="measured-test-grams">
                                     <h2 className="font-semibold">From your Tests</h2>
                                     <p className="mt-1 text-sm text-base-content/55">Only Grams measured directly in your natural typing.</p>
                                     <div className="mt-3 grid gap-2">
                                         {measuredGrams.map(({ id, gram, reason }) => {
                                             const selected = gramsPreferences.grams.includes(gram)
-                                            return <button key={id} type="button" disabled={running} aria-pressed={selected} onClick={() => selected ? setGrams(gramsPreferences.grams.filter((item) => item !== gram)) : setGrams([...gramsPreferences.grams, gram])} className={`flex min-h-11 items-center gap-2 rounded-lg border px-3 py-2 text-left ${selected ? "border-primary bg-primary text-primary-content" : "border-primary/30 bg-primary/10 text-primary"}`}><span className="font-mono font-bold">{gram}</span><span className="rounded bg-base-content/10 px-1 font-mono text-[0.62rem]" aria-label={`${[...gram].length}-Gram`}>{[...gram].length}</span><span className="text-xs opacity-75">{reason}</span></button>
+                                            return <button key={id} type="button" disabled={running} aria-pressed={selected} onClick={() => toggleGram(gram)} className={`flex min-h-11 items-center gap-2 rounded-lg border px-3 py-2 text-left ${selected ? "border-primary bg-primary text-primary-content" : "border-primary/30 bg-primary/10 text-primary"}`}><span className="font-mono font-bold">{gram}</span><span className="rounded bg-base-content/10 px-1 font-mono text-[0.62rem]" aria-label={`${[...gram].length}-Gram`}>{[...gram].length}</span><span className="text-xs opacity-75">{reason}</span></button>
                                         })}
                                     </div>
                                 </div>}
@@ -661,7 +675,7 @@ const Practice: NextPage = () => {
                                     <div data-testid="common-language-grams" className="mt-3 flex flex-wrap gap-1.5">
                                         {commonGrams.map(({ gram, length }) => {
                                             const selected = gramsPreferences.grams.includes(gram)
-                                            return <button key={gram} type="button" disabled={running} aria-pressed={selected} onClick={() => selected ? setGrams(gramsPreferences.grams.filter((item) => item !== gram)) : setGrams([...gramsPreferences.grams, gram])} className={`btn btn-xs h-8 font-mono ${selected ? "btn-primary" : "btn-ghost border-base-content/15"}`}>{gram}<span className="rounded bg-base-content/10 px-1 text-[0.62rem]" aria-label={`${length}-Gram`}>{length}</span></button>
+                                            return <button key={gram} type="button" disabled={running} aria-pressed={selected} onClick={() => toggleGram(gram)} className={`btn btn-xs h-8 font-mono ${selected ? "btn-primary" : "btn-ghost border-base-content/15"}`}>{gram}<span className="rounded bg-base-content/10 px-1 text-[0.62rem]" aria-label={`${length}-Gram`}>{length}</span></button>
                                         })}
                                     </div>
                                 </div>
