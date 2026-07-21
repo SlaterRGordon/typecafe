@@ -1178,6 +1178,28 @@ the Guided/Custom attribution and natural-evidence contracts remain unchanged.
 Published as the ready-for-agent specification in
 [GitHub issue #163](https://github.com/SlaterRGordon/typecafe/issues/163).
 
+Approved tracer-bullet graph (2026-07-21):
+
+1. [#164 Pseudo focus text](https://github.com/SlaterRGordon/typecafe/issues/164)
+   - no blockers.
+2. [#165 Evidence-guided key editor](https://github.com/SlaterRGordon/typecafe/issues/165)
+   - no blockers.
+3. [#166 Recent custom Grams](https://github.com/SlaterRGordon/typecafe/issues/166)
+   - no blockers.
+4. [#167 Per-language Grams setups](https://github.com/SlaterRGordon/typecafe/issues/167)
+   - blocked by #166.
+5. [#168 Minimal active workspace](https://github.com/SlaterRGordon/typecafe/issues/168)
+   - blocked by #165 and #167.
+6. [#169 Minimal recommendation landing](https://github.com/SlaterRGordon/typecafe/issues/169)
+   - blocked by #168.
+7. [#170 Minimal Guided/Custom completion](https://github.com/SlaterRGordon/typecafe/issues/170)
+   - blocked by #168.
+8. [#171 Integration checkpoint](https://github.com/SlaterRGordon/typecafe/issues/171)
+   - blocked by #164, #169, and #170.
+
+The initial implementation frontier is #164, #165, and #166. Work each ticket
+from a fresh implementation context; #171 owns the broad verification pass.
+
 - [ ] Replace mechanically spliced or clipped `Pseudo` carriers in both Keys
       and Grams with the former Home Practice phonological text quality. Keep
       selected keys as focus rather than an allowed alphabet, retain supporting
