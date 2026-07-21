@@ -42,6 +42,9 @@ import {
     type GuidedPracticeRun,
 } from "~/lib/guidedPractice"
 import { boardFor, sequenceFor, statsPoolFor } from "~/lib/keyboardLayout"
+import { initialPracticeKeys, nextStickyPracticeLayer, type StickyPracticeLayer } from "~/lib/practiceKeyboard"
+import { projectNaturalKeyboardEvidence, type NaturalKeyboardEvidence } from "~/lib/skillEvidence"
+import { keySpeedBars } from "~/lib/transitions"
 import { languageMeta } from "~/lib/languageMeta"
 import { projectPracticeLanding, type PracticeLandingProjection } from "~/lib/practiceLanding"
 import { projectProgressCoach } from "~/lib/progressCoach"
@@ -154,18 +157,18 @@ const Practice: NextPage = () => {
     const coaching = useCoachingEvidence()
     const [path, setPath] = useState<PracticePath>("keys")
     const [guided, setGuided] = useState<ParsedCoachingTarget | null>(null)
-    const [keysPreferences, setKeysPreferences] = useState<CustomKeysPracticePreferences>({ keys: ["e", "r"], durationSeconds: 60, textStyle: "varied" })
+    const [keysPreferences, setKeysPreferences] = useState<CustomKeysPracticePreferences>({ keys: [], durationSeconds: 60, textStyle: "varied" })
     const [gramsPreferences, setGramsPreferences] = useState<CustomGramsPracticePreferences>({ grams: ["th", "the", "tion"], durationSeconds: 60, textStyle: "varied" })
     const [gramEntry, setGramEntry] = useState("")
     const [gramEntryError, setGramEntryError] = useState<string | null>(null)
     const [ready, setReady] = useState(false)
+    const [keysInitialized, setKeysInitialized] = useState(false)
     const [corpus, setCorpus] = useState<string[]>([])
     const [seed, setSeed] = useState(1)
     const [running, setRunning] = useState(false)
     const [restartSignal, setRestartSignal] = useState(0)
     const [completed, setCompleted] = useState<CompletedRun | null>(null)
-    const [shiftLayer, setShiftLayer] = useState(false)
-    const [altgrLayer, setAltgrLayer] = useState(false)
+    const [stickyLayer, setStickyLayer] = useState<StickyPracticeLayer>("base")
     const charAttemptsRef = useRef(new Map<string, { attempts: number, correct: number }>())
     const board = useMemo(() => boardFor(layout), [layout])
     const hasAltGr = board.rows.some((row) => row.some((key) => key.altgr !== undefined))
@@ -184,10 +187,12 @@ const Practice: NextPage = () => {
             setPath(setup.focus.kind)
             if (setup.focus.kind === "keys") setKeysPreferences({ keys: setup.focus.items, durationSeconds: setup.durationSeconds, textStyle: setup.textStyle })
             else setGramsPreferences({ grams: setup.focus.items, durationSeconds: setup.durationSeconds, textStyle: setup.textStyle })
+            setKeysInitialized(true)
         } else {
             if (requestedCustomPath) setPath(requestedCustomPath)
             setKeysPreferences(savedKeys)
             setGramsPreferences(savedGrams)
+            setKeysInitialized(false)
         }
         setSeed(Date.now())
         setReady(true)
@@ -197,10 +202,9 @@ const Practice: NextPage = () => {
         if (!ready) return
         setKeysPreferences((current) => {
             const keys = current.keys.filter((key) => sequenceFor(key, layout).length > 0).slice(0, 8)
-            const repaired = keys.length > 0 ? keys : ["e", "r"].filter((key) => sequenceFor(key, layout).length > 0)
-            return repaired.join("\0") === current.keys.join("\0") ? current : { ...current, keys: repaired }
+            return keys.join("\0") === current.keys.join("\0") ? current : { ...current, keys }
         })
-    }, [layout, ready])
+    }, [keysInitialized, layout, ready])
 
     useEffect(() => {
         let active = true
@@ -212,8 +216,8 @@ const Practice: NextPage = () => {
     }, [language])
 
     useEffect(() => {
-        if (ready && !guided) writeCustomKeysPracticePreferences(keysPreferences)
-    }, [guided, keysPreferences, ready])
+        if (ready && keysInitialized && !guided) writeCustomKeysPracticePreferences(keysPreferences)
+    }, [guided, keysInitialized, keysPreferences, ready])
 
     useEffect(() => {
         if (ready && !guided) writeCustomGramsPracticePreferences(gramsPreferences)
@@ -238,6 +242,38 @@ const Practice: NextPage = () => {
     const commonGrams = useMemo(() => path === "grams" ? rankCommonGrams(corpus, 5)
         .filter(({ gram }) => [...gram].every((character) => sequenceFor(character, layout).length > 0)) : [], [corpus, layout, path])
     const measuredGrams = useMemo(() => measuredGramSuggestions(coaching.analysis?.candidates ?? []), [coaching.analysis?.candidates])
+    const projectedNaturalKeyboard = useMemo(
+        () => projectNaturalKeyboardEvidence(coaching.evidence?.timelines ?? []),
+        [coaching.evidence?.timelines],
+    )
+    useEffect(() => {
+        if (!ready || guided || keysInitialized || coaching.loading) return
+        setKeysPreferences((current) => ({
+            ...current,
+            keys: initialPracticeKeys(
+                current.keys,
+                coaching.analysis?.candidates ?? [],
+                projectedNaturalKeyboard.attempts,
+                layout,
+            ),
+        }))
+        setKeysInitialized(true)
+    }, [coaching.analysis?.candidates, coaching.loading, guided, keysInitialized, layout, projectedNaturalKeyboard.attempts, ready])
+    const keyboardEvidenceScope = `${coaching.scope}\0${language}\0${pool}`
+    const [naturalKeyboardSnapshot, setNaturalKeyboardSnapshot] = useState<{
+        scope: string
+        evidence: NaturalKeyboardEvidence
+    } | null>(null)
+    useEffect(() => {
+        if (coaching.loading) return
+        setNaturalKeyboardSnapshot((current) => current?.scope === keyboardEvidenceScope
+            ? current
+            : { scope: keyboardEvidenceScope, evidence: projectedNaturalKeyboard })
+    }, [coaching.loading, keyboardEvidenceScope, projectedNaturalKeyboard])
+    const naturalKeyboard = naturalKeyboardSnapshot?.scope === keyboardEvidenceScope
+        ? naturalKeyboardSnapshot.evidence
+        : null
+    const naturalSpeedBars = useMemo(() => keySpeedBars(naturalKeyboard?.transitions ?? []), [naturalKeyboard?.transitions])
     const progressProjection = useMemo(() => coaching.analysis ? projectProgressCoach(coaching.analysis) : null, [coaching.analysis])
     const landingProjection = useMemo(() => progressProjection ? projectPracticeLanding({
         progress: progressProjection,
@@ -585,11 +621,13 @@ const Practice: NextPage = () => {
                             selectedKeys={keysPreferences.keys}
                             setSelectedKeys={setKeys}
                             charAttemptsRef={charAttemptsRef}
-                            shiftToggle={shiftLayer}
-                            altgrToggle={altgrLayer}
+                            evidenceAttempts={naturalKeyboard?.attempts ?? {}}
+                            speedBars={naturalSpeedBars}
+                            shiftToggle={stickyLayer === "shift"}
+                            altgrToggle={stickyLayer === "altgr"}
                             hasAltGr={hasAltGr}
-                            onToggleShift={() => setShiftLayer((value) => !value)}
-                            onToggleAltgr={() => setAltgrLayer((value) => !value)}
+                            onToggleShift={() => setStickyLayer((current) => nextStickyPracticeLayer(current, "shift"))}
+                            onToggleAltgr={() => setStickyLayer((current) => nextStickyPracticeLayer(current, "altgr"))}
                             punctuation
                             numbers
                         />

@@ -54,7 +54,6 @@ export interface CustomKeysPracticeRecap {
     baselineReady: boolean
 }
 
-const DEFAULT_KEYS = ["e", "r"]
 const DEFAULT_WORD_COUNT = 1_200
 const PSEUDO_CARRIER_POOL_SIZE = 12
 const normalizedCorpusCache = new WeakMap<object, string[]>()
@@ -299,7 +298,7 @@ export function parseCustomKeysPracticePreferences(value: unknown): CustomKeysPr
         ? uniqueNfc(raw.keys).slice(0, 8)
         : []
     return {
-        keys: keys.length > 0 ? keys : DEFAULT_KEYS,
+        keys,
         durationSeconds: PRACTICE_DURATIONS_SECONDS.includes(raw.durationSeconds as PracticeDurationSeconds)
             ? raw.durationSeconds as PracticeDurationSeconds
             : 60,

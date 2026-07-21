@@ -1205,18 +1205,18 @@ from a fresh implementation context; #171 owns the broad verification pass.
       selected keys as focus rather than an allowed alphabet, retain supporting
       characters, balance every selected focus, and keep each selected Gram
       contiguous.
-- [ ] Drive the focus keyboard's accuracy colours and speed bars only from the
+- [x] Drive the focus keyboard's accuracy colours and speed bars only from the
       same natural-Test timeline projection used by Progress, scoped to the
       active language and stats pool. Do not blend current or historical
       Practice into this display; show a neutral selectable board when natural
       evidence is absent. Leave the existing mixed rolling-aggregate writes and
       ADR-0004 contract unchanged.
-- [ ] Restore the first Custom Keys selection from the saved focus, otherwise
+- [x] Restore the first Custom Keys selection from the saved focus, otherwise
       preselect the highest-Impact key when natural evidence supports one, and
       otherwise start empty. Treat selected keys visibly as focus, not as
       unlocked characters: remove padlocks and use a theme-primary outline and
       marker without hiding the natural heat colour or speed bar.
-- [ ] Restore the retired Home keyboard's layer interaction: Base, Shift, and
+- [x] Restore the retired Home keyboard's layer interaction: Base, Shift, and
       AltGr remain sticky on-screen choices; sticky Shift and AltGr exclude each
       other; held physical modifiers temporarily peek their layer and return to
       the sticky choice on release; Shift+AltGr appears only while both are held

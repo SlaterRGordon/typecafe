@@ -1,9 +1,14 @@
 import { expect, test, type Page } from "@playwright/test"
-import { brDrillTimeline, impactTimeline } from "./helpers/evidence"
+import { brDrillTimeline, crowdedAccuracyTimeline, impactTimeline, keyboardEvidenceTimeline } from "./helpers/evidence"
 import { mockAuthenticatedSession, mockTrpc } from "./helpers/trpc"
 import { typeCurrentCharacter } from "./helpers/typing"
 
 async function gotoPractice(page: Page) {
+  await page.addInitScript(() => {
+    if (!window.localStorage.getItem("typecafe:practice:custom-keys")) {
+      window.localStorage.setItem("typecafe:practice:custom-keys", JSON.stringify({ keys: ["e", "r"], durationSeconds: 60, textStyle: "varied" }))
+    }
+  })
   await page.goto("/practice?custom=keys")
   await expect(page.getByTestId("custom-practice-workspace")).toBeVisible()
   await expect(page.locator("#c0")).toHaveClass(/active-char/, { timeout: 20_000 })
@@ -156,7 +161,7 @@ test.describe("Custom Practice", () => {
 
     await controls.getByRole("button", { name: "30s" }).click()
     await controls.getByRole("button", { name: "Pseudo" }).click()
-    await page.getByRole("button", { name: /^q key, locked/ }).click()
+    await page.getByRole("button", { name: /^q key, available/ }).click()
     await expect(page.getByTestId("selected-practice-keys")).toContainText("q")
 
     await page.reload()
@@ -164,6 +169,86 @@ test.describe("Custom Practice", () => {
     await expect(controls.getByRole("button", { name: "30s" })).toHaveClass(/btn-primary/)
     await expect(controls.getByRole("button", { name: "Pseudo" })).toHaveClass(/btn-primary/)
     await expect(page.getByTestId("selected-practice-keys")).toContainText("q")
+  })
+
+  test("shows only frozen natural-Test evidence without hiding focus", async ({ page }) => {
+    await mockAuthenticatedSession(page)
+    await mockTrpc(page, { timelineEvidence: [keyboardEvidenceTimeline(1), keyboardEvidenceTimeline(2, "custom-practice")] })
+    await page.addInitScript(() => {
+      window.localStorage.setItem("typecafe:practice:custom-keys", JSON.stringify({ keys: ["h"], durationSeconds: 60, textStyle: "varied" }))
+    })
+    await page.goto("/practice?custom=keys")
+
+    const h = page.getByRole("button", { name: /^h key, selected focus/ })
+    await expect(h).toHaveAttribute("aria-label", /50% accuracy/)
+    await expect(h.locator("[data-kb-speed]")).toHaveAttribute("data-kb-speed")
+    const evidenceStyle = await h.getAttribute("style")
+    const speed = await h.locator("[data-kb-speed]").getAttribute("data-kb-speed")
+
+    await expect(page.locator("#c0")).toHaveClass(/active-char/, { timeout: 20_000 })
+    for (let index = 0; index < 8; index += 1) await typeCurrentCharacter(page, index)
+    await expect(h).toHaveAttribute("style", evidenceStyle ?? "")
+    await expect(h.locator("[data-kb-speed]")).toHaveAttribute("data-kb-speed", speed ?? "")
+  })
+
+  test("starts with a neutral selectable keyboard when no natural evidence or saved focus exists", async ({ page }) => {
+    await page.goto("/practice?custom=keys")
+    await expect(page.getByText("Choose a key on the keyboard to prepare a run.")).toBeVisible()
+    const q = page.getByRole("button", { name: /^q key, available/ })
+    await expect(q).toHaveAttribute("aria-label", /no accuracy data/)
+    await expect(q).toHaveCSS("background-color", "rgba(120, 130, 180, 0.25)")
+    await q.click()
+    await expect(page.getByRole("button", { name: /^q key, selected focus/ })).toBeVisible()
+  })
+
+  test("restores saved focus before a higher-Impact supported key", async ({ page }) => {
+    await mockAuthenticatedSession(page)
+    await mockTrpc(page, { timelineEvidence: [crowdedAccuracyTimeline(1), crowdedAccuracyTimeline(2)] })
+    await page.addInitScript(() => {
+      if (!window.sessionStorage.getItem("practice-saved-focus-seeded")) {
+        window.localStorage.setItem("typecafe:practice:custom-keys", JSON.stringify({ keys: ["x"], durationSeconds: 60, textStyle: "varied" }))
+        window.sessionStorage.setItem("practice-saved-focus-seeded", "true")
+      }
+    })
+    await page.goto("/practice?custom=keys")
+    await expect(page.getByRole("button", { name: /^x key, selected focus/ })).toBeVisible()
+    await expect(page.getByRole("button", { name: /^r key, available/ })).toBeVisible()
+
+  })
+
+  test("initializes the highest-Impact supported key when no focus is saved", async ({ page }) => {
+    await mockAuthenticatedSession(page)
+    await mockTrpc(page, { timelineEvidence: [crowdedAccuracyTimeline(1), crowdedAccuracyTimeline(2)] })
+    await page.goto("/practice?custom=keys")
+    await expect(page.getByRole("button", { name: /^r key, selected focus/ })).toBeVisible()
+  })
+
+  test("keeps sticky layers exclusive and restores them after physical modifier peeks", async ({ page }) => {
+    await page.addInitScript(() => {
+      window.localStorage.setItem("typecafe:layout", JSON.stringify("qwertz-de"))
+    })
+    await gotoPractice(page)
+    const keyboard = page.getByRole("region", { name: "Practice keyboard" })
+    const shift = page.getByRole("button", { name: "Show shifted keys (capitals and symbols)" })
+    const altgr = page.getByRole("button", { name: "Show AltGr keys (accents and symbols)" })
+
+    await shift.click()
+    await expect(keyboard).toHaveAttribute("data-kb-layer", "shift")
+    await altgr.click()
+    await expect(shift).toHaveAttribute("aria-pressed", "false")
+    await expect(keyboard).toHaveAttribute("data-kb-layer", "altgr")
+
+    await page.dispatchEvent("body", "keydown", { key: "Shift" })
+    await expect(keyboard).toHaveAttribute("data-kb-layer", "shift")
+    await page.dispatchEvent("body", "keyup", { key: "Shift" })
+    await expect(keyboard).toHaveAttribute("data-kb-layer", "altgr")
+
+    await page.dispatchEvent("body", "keydown", { key: "Shift" })
+    await page.dispatchEvent("body", "keydown", { key: "AltGraph" })
+    await expect(keyboard).toHaveAttribute("data-kb-layer", "shiftAltgr")
+    await page.dispatchEvent("body", "keyup", { key: "Shift" })
+    await page.dispatchEvent("body", "keyup", { key: "AltGraph" })
+    await expect(keyboard).toHaveAttribute("data-kb-layer", "altgr")
   })
 
   test("combines direct mixed Grams with explicitly corpus-ranked active-language material and restores independently", async ({ page }) => {

@@ -1,6 +1,6 @@
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 import { mockAuthenticatedSession, mockTrpc } from "./helpers/trpc";
-import { brDrillTimeline, crowdedAccuracyTimeline, higherOrderTimeline, impactTimeline } from "./helpers/evidence";
+import { brDrillTimeline, crowdedAccuracyTimeline, higherOrderTimeline, impactTimeline, keyboardEvidenceTimeline } from "./helpers/evidence";
 import { typeCurrentCharacter, typeVisibleTestText, typeWrongCharacter } from "./helpers/typing";
 import { completedKeyAccuracySession, progressCoachingHistory } from "./helpers/coachingFixtures";
 import { readdirSync, readFileSync, rmSync, statSync } from "node:fs";
@@ -72,6 +72,11 @@ test("Practice landing without measured evidence", async ({ page }, testInfo) =>
 })
 
 test("Custom Keys Practice workspace", async ({ page }, testInfo) => {
+  await mockAuthenticatedSession(page)
+  await mockTrpc(page, { timelineEvidence: [keyboardEvidenceTimeline(1)] })
+  await page.addInitScript(() => {
+    window.localStorage.setItem("typecafe:practice:custom-keys", JSON.stringify({ keys: ["h"], durationSeconds: 60, textStyle: "varied" }))
+  })
   await page.goto("/practice?custom=keys")
   await expect(page.getByTestId("custom-practice-workspace")).toBeVisible()
   await expect(page.locator("#c0")).toHaveClass(/active-char/, { timeout: 20_000 })

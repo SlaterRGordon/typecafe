@@ -346,6 +346,8 @@ describe("analyzeTypingEvidence", () => {
     it("builds Progress keyboard proof only from context-tagged natural Timelines", () => {
         const natural = pairTimeline(1, [{ pair: "br", gap: 160, repeats: 2 }])
         const guided = guidedPairTimeline(2, [{ pair: "br", gap: 40, repeats: 20 }])
+        const train = pairTimeline(4, [{ pair: "br", gap: 20, repeats: 40 }], "train")
+        const mislabeledPracticeMode = { ...pairTimeline(5, [{ pair: "br", gap: 10, repeats: 50 }]), mode: 1 }
         const custom = {
             ...pairTimeline(3, [{ pair: "br", gap: 30, repeats: 30 }], "custom-practice"),
             practice: {
@@ -356,7 +358,7 @@ describe("analyzeTypingEvidence", () => {
             },
         }
 
-        const proof = projectNaturalKeyboardEvidence([natural, guided, custom])
+        const proof = projectNaturalKeyboardEvidence([natural, guided, custom, train, mislabeledPracticeMode])
 
         expect(proof.attempts.b).toEqual({ attempts: 2, correct: 2 })
         expect(proof.attempts.r).toEqual({ attempts: 2, correct: 2 })

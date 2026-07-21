@@ -222,7 +222,7 @@ export function projectNaturalKeyboardEvidence(timelines: readonly TimelineEvide
     const attempts = new Map<string, KeyAttempt>()
     let transitions: TransitionAggregate[] = []
     for (const timeline of timelines) {
-        if (timeline.context !== "natural") continue
+        if (timeline.context !== "natural" || timeline.mode !== 0) continue
         const events = decodeTimeline(timeline.timeline)
         for (const [key, value] of attemptsFromEvents(events, timeline.layout)) {
             const current = attempts.get(key) ?? { attempts: 0, correct: 0 }

@@ -39,6 +39,47 @@ export function impactTimeline(testId: number): TimelineEvidence {
   };
 }
 
+/** Natural accuracy + speed evidence with contradictory Practice reps. */
+export function keyboardEvidenceTimeline(testId: number, context: "natural" | "custom-practice" = "natural"): TimelineEvidence {
+  const events: TestEvidenceEvent[] = [];
+  let t = 0;
+  for (let index = 0; index < 24; index += 1) {
+    t += 100;
+    events.push({ key: "t", typed: "t", correct: true, t });
+    t += context === "natural" ? 240 : 30;
+    const correct = context === "natural" ? index % 2 === 0 : true;
+    events.push({ key: "h", typed: correct ? "h" : "x", correct, t });
+    t += 100;
+    events.push({ key: " ", typed: " ", correct: true, t });
+  }
+  return {
+    completedAt: Date.now() + testId,
+    context,
+    mode: context === "natural" ? 0 : 1,
+    subMode: 0,
+    count: 60,
+    options: "",
+    punctuation: false,
+    capitals: false,
+    numbers: false,
+    layout: "qwerty",
+    pool: "qwerty",
+    language: "english",
+    timeline: encodeTimeline(events),
+    ...(context === "custom-practice" ? {
+      practice: {
+        v: 1 as const,
+        kind: "custom" as const,
+        focus: { kind: "keys" as const, items: ["h"] },
+        textStyle: "varied" as const,
+        durationSeconds: 60 as const,
+        elapsedActivityMs: 60_000,
+        completed: true,
+      },
+    } : {}),
+  };
+}
+
 // A focused acquisition run for the br transition, tagged with its Target
 // token and newer than the impact timelines — the Target is drilled but not
 // yet re-measured by a natural Test.

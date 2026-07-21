@@ -44,9 +44,8 @@ interface KeyHeatmapProps {
     // Keys to ring, e.g. the diagnosed keys the user is about to drill.
     highlightKeys?: string[],
     // Practice interaction (all optional - score-card/progress stay read-only):
-    // keys to badge with a lock (excluded from the drill set), a click handler
-    // that makes cells interactive, and the live "next key" to ring.
-    lockedKeys?: ReadonlySet<string>,
+    // selected focus keys, a click handler, and the live "next key" to ring.
+    selectedKeys?: ReadonlySet<string>,
     onKeyClick?: (key: string) => void,
     currentKey?: string,
     // Live boards (Practice): ring the typer's next key by moving classes on
@@ -75,13 +74,10 @@ interface KeyHeatmapProps {
     testId?: string,
 }
 
-// Small padlock marking a key that's excluded from the current drill set.
-function LockBadge() {
+// Small marker layered above the evidence fill for a selected Practice focus.
+function FocusBadge() {
     return (
-        <span className="typecafe-key-lock pointer-events-none absolute -left-[0.3rem] -top-[0.3rem] z-10 inline-flex h-4 w-4 items-center justify-center rounded-full border border-base-content/20 bg-base-300 text-base-content shadow-sm sm:h-[1.125rem] sm:w-[1.125rem]">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-2.5 w-2.5" viewBox="0 0 24 24" aria-hidden="true">
-                <path fill="currentColor" d="M6 22q-.825 0-1.413-.588T4 20V10q0-.825.588-1.413T6 8h1V6q0-2.075 1.463-3.538T12 1q2.075 0 3.538 1.463T17 6v2h1q.825 0 1.413.588T20 10v10q0 .825-.588 1.413T18 22H6Zm0-2h12V10H6v10Zm6-3q.825 0 1.413-.588T14 15q0-.825-.588-1.413T12 13q-.825 0-1.413.588T10 15q0 .825.588 1.413T12 17ZM9 8h6V6q0-1.25-.875-2.125T12 3q-1.25 0-2.125.875T9 6v2Z" />
-            </svg>
+        <span className="typecafe-key-focus pointer-events-none absolute -left-[0.2rem] -top-[0.2rem] z-10 h-2.5 w-2.5 rounded-full border-2 border-base-100 bg-primary shadow-sm" aria-hidden="true">
         </span>
     )
 }
@@ -156,7 +152,7 @@ export function KeyHeatmapLegend({ className = "" }: { className?: string }) {
 // A reusable per-key accuracy heatmap. The rendering is intentionally the same
 // primitive for Practice, score-card diagnosis, beat-run compare, and /progress.
 export function KeyHeatmap(props: KeyHeatmapProps) {
-    const { attempts, size = "full", includeSpace = true, speedBars, minSamples = 0, highlightKeys, lockedKeys, onKeyClick, currentKey, followActiveKey, shiftLayer, altgrLayer, interactiveKeys } = props
+    const { attempts, size = "full", includeSpace = true, speedBars, minSamples = 0, highlightKeys, selectedKeys, onKeyClick, currentKey, followActiveKey, shiftLayer, altgrLayer, interactiveKeys } = props
     const [activeLayout] = useLayout()
     const boardLayout = props.layout ?? activeLayout
     const board = boardFor(boardLayout)
@@ -240,7 +236,7 @@ export function KeyHeatmap(props: KeyHeatmapProps) {
         const interactive = !!onKeyClick && (interactiveKeys ? interactiveKeys.has(glyph) : layer === "base")
         const cell = heatmapCell(glyph, attemptFor(glyph))
         // A key under the sample floor renders the neutral "no data yet" state:
-        // no heat colour, no speed bar, muted label (the lock badge still shows).
+        // no heat colour, no speed bar, and a muted label.
         // minSamples 0 (score card/progress) keeps every key coloured.
         const noData = showAccuracy && cell.attempts < minSamples
         // Plain boards (train) skip the gradient entirely - the default kbd
@@ -259,7 +255,7 @@ export function KeyHeatmap(props: KeyHeatmapProps) {
         // deepening of the cell rather than a hard navy line.
         const speedBarColor = speedBar && color ? interpolateColor(color, "#000000", 0.75) : undefined
         const ringed = isCurrent || highlight.has(glyph)
-        const isLocked = !!lockedKeys?.has(glyph)
+        const isSelected = !!selectedKeys?.has(glyph)
         const isDead = !isSpace && !!cap?.dead?.includes(layer)
         const label = isSpace ? "space" : glyph
         const shiftHint = size !== "mini" && layer === "base" && cap && cap.shift !== cap.base.toUpperCase() ? cap.shift : ""
@@ -285,8 +281,8 @@ export function KeyHeatmap(props: KeyHeatmapProps) {
         const speedLine = speedBar ? `Speed: ${speedBar.wpm} WPM (${Math.round(speedBar.meanMs)}ms) · ${speedBar.count} samples` : undefined
         const tooltip = [
             `${label} key`,
-            interactive ? (isLocked ? "Locked - click to add to this drill" : "Unlocked - click to remove from this drill") : undefined,
-            ...(noData ? ["No data yet - unlock to start drilling"]
+            interactive ? (isSelected ? "Selected focus - click to remove" : "Available - click to add to focus") : undefined,
+            ...(noData ? ["No natural Test data yet"]
                 : showAccuracy ? [...layerLines, speedLine].filter((line): line is string => Boolean(line))
                 : ["Training key"]),
             isDead ? "Dead key - waits for the next press" : undefined,
@@ -298,7 +294,7 @@ export function KeyHeatmap(props: KeyHeatmapProps) {
                 data-kb-key={glyph}
                 data-kb-cell={cap?.base ?? " "}
                 data-kb-dead={isDead ? "" : undefined}
-                data-kb-state={interactive ? (isLocked ? "locked" : "unlocked") : undefined}
+                data-kb-state={interactive ? (isSelected ? "selected" : "available") : undefined}
                 onClick={interactive ? activate : undefined}
                 onKeyDown={interactive ? (event) => {
                     if (event.key === "Enter" || event.key === " ") {
@@ -308,12 +304,11 @@ export function KeyHeatmap(props: KeyHeatmapProps) {
                 } : undefined}
                 role={interactive ? "button" : undefined}
                 tabIndex={interactive ? 0 : undefined}
-                aria-pressed={interactive ? !isLocked : undefined}
-                aria-label={interactive ? `${label} key, ${isLocked ? "locked, click to add to drill" : "unlocked, click to remove from drill"}, ${cell.hasData ? `${cell.accuracy}% accuracy` : "no accuracy data"}` : undefined}
-                className={`${keyClass} ${isSpace ? spaceClass : ""} ${ringed ? "ring-2 ring-primary ring-offset-1 ring-offset-base-200" : ""} ${interactive ? "cursor-pointer select-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary" : ""} ${isLocked ? "typecafe-key-state-locked" : ""}`}
-                // Lock state must never rewrite the heatmap: its icon carries the
-                // state while the measured colour remains byte-for-byte visible.
-                // A no-data key gets the neutral grey-blue fill instead of a colour.
+                aria-pressed={interactive ? isSelected : undefined}
+                aria-label={interactive ? `${label} key, ${isSelected ? "selected focus, click to remove" : "available, click to add to focus"}, ${cell.hasData ? `${cell.accuracy}% accuracy` : "no accuracy data"}` : undefined}
+                className={`${keyClass} ${isSpace ? spaceClass : ""} ${ringed ? "ring-2 ring-primary ring-offset-1 ring-offset-base-200" : ""} ${isSelected ? "typecafe-key-state-selected outline outline-2 outline-primary outline-offset-1" : ""} ${interactive ? "cursor-pointer select-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary" : ""}`}
+                // Focus styling never rewrites the heatmap; a no-data key keeps
+                // the existing neutral grey-blue fill.
                 style={color ? { backgroundColor: color, color: textColor, backgroundImage: "none", filter: "none" }
                     : noData ? { backgroundColor: HEATMAP_NO_DATA_COLOR, backgroundImage: "none", filter: "none" }
                     : undefined}
@@ -346,7 +341,7 @@ export function KeyHeatmap(props: KeyHeatmapProps) {
                         <span className="block h-full rounded-[2px]" style={{ width: `${Math.round(speedBar.fraction * 100)}%`, backgroundColor: speedBarColor }} />
                     </span>
                 }
-                {isLocked && <LockBadge />}
+                {isSelected && <FocusBadge />}
             </kbd>
             </Tooltip>
         )
