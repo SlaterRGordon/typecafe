@@ -2,6 +2,8 @@ import { expect, test, type Page } from "@playwright/test";
 import { mockAuthenticatedSession, mockTrpc } from "./helpers/trpc";
 import { typeCurrentCharacter, typeVisibleTestText, typeWrongCharacter } from "./helpers/typing";
 import { higherOrderTimeline, impactTimeline } from "./helpers/evidence";
+import { TestModes, TestSubModes } from "../../src/components/typer/types";
+import english1k from "../../src/components/typer/languages/english1k.json";
 
 async function gotoHome(page: Page) {
   await page.goto("/");
@@ -47,6 +49,31 @@ async function typeWrongZeroes(page: Page, count: number) {
 }
 
 test.describe("home typing test", () => {
+  test("a one-character word Test completes instead of stalling", async ({ page }) => {
+    const aIndex = english1k.words.indexOf("a");
+    await page.addInitScript(({ mode, subMode, randomValue }) => {
+      window.localStorage.setItem("typecafe:testSettings", JSON.stringify({
+        mode,
+        subMode,
+        language: "english",
+        count: 1,
+        customLength: true,
+      }));
+      Math.random = () => randomValue;
+    }, {
+      mode: TestModes.normal,
+      subMode: TestSubModes.words,
+      randomValue: (aIndex + 0.5) / english1k.words.length,
+    });
+    await gotoHome(page);
+
+    await expect(page.locator("#words")).toHaveText("a");
+    await page.locator("#input").focus();
+    await page.keyboard.press("a");
+
+    await expect(page.getByRole("button", { name: "Test Again" })).toBeVisible();
+  });
+
   test("renders typing text and advances when the active character is typed", async ({ page }) => {
     await gotoHome(page);
 

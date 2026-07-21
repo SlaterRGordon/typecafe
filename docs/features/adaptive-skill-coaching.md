@@ -1153,6 +1153,8 @@ legacy configuration mechanics merely because the current UI exposes them.
 
 #### 13.6 Handoff, retirement, and verification
 
+- [x] Preserve valid one-character word generation and completion through the
+      shared Typer lifecycle after retiring legacy Home Grams (#145).
 - [x] Remove the #146 Practice prompt-regeneration stalls: precompute compiler
       carrier pools, size prompts for 30/60/120/240-second capacity, stream the
       complete prompt through a bounded character window, and gate refresh plus

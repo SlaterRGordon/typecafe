@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest"
-import { accentChars, applyTextOptions, ensureSizedLoaded, generateBetterPseudoText, generateText } from "./utils"
+import { describe, expect, it, vi } from "vitest"
+import { accentChars, applyTextOptions, ensureSizedLoaded, generateBetterPseudoText, generateText, getSizedWords } from "./utils"
 
 const SENTENCE_ENDERS = [".", "?", "!"]
 
@@ -182,6 +182,21 @@ describe("generateBetterPseudoText", () => {
 })
 
 describe("generateText", () => {
+    it("emits the word a between neighboring generated words", () => {
+        const words = getSizedWords("english", "1k")
+        const randomValueForWord = (word: string) => (words.indexOf(word) + 0.5) / words.length
+        const random = vi.spyOn(Math, "random")
+            .mockReturnValueOnce(randomValueForWord("to"))
+            .mockReturnValueOnce(randomValueForWord("a"))
+            .mockReturnValueOnce(randomValueForWord("in"))
+
+        try {
+            expect(generateText(3, "english")).toBe("to a in")
+        } finally {
+            random.mockRestore()
+        }
+    })
+
     it("never repeats a word back-to-back", () => {
         // Run many times: a doubled word reads as a typo and breaks flow.
         for (let i = 0; i < 50; i++) {
