@@ -469,15 +469,16 @@ export function generatePhonologicalSequenceWord(request: PhonologicalSequenceWo
  * pronounceable enough to type rather than mechanically repeating the focus.
  */
 export function generatePhonologicalFocusCarrier(request: PhonologicalFocusCarrierRequest): string | null {
-    const language = request.language === "chinese" || request.language === "hindi" ? "english" : request.language
-    const profile = profileFor(language)
+    const profile = profileFor(request.language)
     if (!profile) return null
     const rng = request.rng ?? Math.random
+    const focus = request.focus.toLowerCase().normalize("NFC")
+    if (!focus || ![...focus].every((character) => /\p{L}/u.test(character))) return null
     const vowels = [...profile.vowels]
     const preferredConsonants = [..."mnlrstpkbdfv"].filter((character) => profile.phones[character])
     if (vowels.length === 0 || preferredConsonants.length === 0) return null
     const sample = (values: readonly string[]) => values[Math.floor(rng() * values.length)]!
-    return `${sample(preferredConsonants)}${sample(vowels)}${request.focus.normalize("NFC")}${sample(preferredConsonants)}${sample(vowels)}`
+    return `${sample(preferredConsonants)}${sample(vowels)}${focus}${sample(preferredConsonants)}${sample(vowels)}`
 }
 
 /**

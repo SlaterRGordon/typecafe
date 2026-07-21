@@ -92,13 +92,6 @@ function decoratedCarrier(word: string, key: string, index: number): string {
     return index % 2 === 0 ? `${word}${key}` : `${key}${word}`
 }
 
-function insertFocus(frame: string, focus: string, rng: () => number): string {
-    const points = [...frame]
-    const index = points.length < 2 ? points.length : 1 + Math.floor(rng() * (points.length - 1))
-    points.splice(index, 0, focus)
-    return points.join("")
-}
-
 function pseudoCarrier(input: {
     focus: string
     language: string
@@ -110,7 +103,7 @@ function pseudoCarrier(input: {
     const { focus, language, words, alphabet, recent, rng } = input
     const corpus = new Set(words)
     const excluded = new Set(recent)
-    const letterFocus = /\p{L}/u.test(focus) && alphabet.includes(focus)
+    const letterFocus = /\p{L}/u.test(focus)
 
     for (let attempt = 0; attempt < 2; attempt += 1) {
         const required = letterFocus ? focus : alphabet[Math.floor(rng() * alphabet.length)]
@@ -118,13 +111,12 @@ function pseudoCarrier(input: {
         const generated = generatePhonologicalWord({
             language,
             corpus: words,
-            allowedCharacters: alphabet,
+            allowedCharacters: [...new Set([...alphabet, focus])],
             requiredCharacter: required,
             rng,
         })
         if (!generated) continue
-        const candidate = generated.includes(focus) ? generated : insertFocus(generated, focus, rng)
-        if (!corpus.has(candidate) && !excluded.has(candidate)) return candidate
+        if (generated.includes(focus) && !corpus.has(generated) && !excluded.has(generated)) return generated
     }
 
     for (let attempt = 0; attempt < 16; attempt += 1) {
@@ -132,13 +124,6 @@ function pseudoCarrier(input: {
         if (candidate && !corpus.has(candidate) && !excluded.has(candidate)) return candidate
     }
 
-    for (let attempt = 0; attempt < Math.min(32, Math.max(8, words.length)); attempt += 1) {
-        const frame = sample(words, rng)
-        if (!frame) return null
-        const supportingFrame = frame.repeat(1 + Math.floor(rng() * 3))
-        const candidate = insertFocus(supportingFrame, focus, rng)
-        if (!corpus.has(candidate) && !excluded.has(candidate)) return candidate
-    }
     return null
 }
 
@@ -195,8 +180,10 @@ export function compileCustomKeysPractice(input: CustomKeysCompilationInput): st
             const nonRepeating = pseudoCarriers.filter((word) => word !== recent.at(-1))
             carrier = sample(availablePseudo.length > 0 ? availablePseudo : nonRepeating.length > 0 ? nonRepeating : pseudoCarriers, rng)
         }
-        carrier ??= sample(available.length > 0 ? available : carriers, rng)
-        carrier ??= sample(words, rng)
+        if (input.textStyle !== "pseudo") {
+            carrier ??= sample(available.length > 0 ? available : carriers, rng)
+            carrier ??= sample(words, rng)
+        }
         if (!carrier) continue
         output.push(input.textStyle === "pseudo" || carriers.length === 0 ? carrier : decoratedCarrier(carrier, key, index))
         recent.push(carrier)

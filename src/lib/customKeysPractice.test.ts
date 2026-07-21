@@ -1,4 +1,12 @@
 import { describe, expect, it } from "vitest"
+import dutch10k from "~/components/typer/languages/dutch10k.json"
+import english10k from "~/components/typer/languages/english10k.json"
+import french10k from "~/components/typer/languages/french10k.json"
+import german10k from "~/components/typer/languages/german10k.json"
+import italian10k from "~/components/typer/languages/italian10k.json"
+import polish10k from "~/components/typer/languages/polish10k.json"
+import portuguese10k from "~/components/typer/languages/portuguese10k.json"
+import spanish10k from "~/components/typer/languages/spanish10k.json"
 import { encodeTimeline, type TestEvidenceEvent } from "./keystrokes"
 import {
     compileCustomKeysPractice,
@@ -9,6 +17,17 @@ import {
 } from "./customKeysPractice"
 
 const corpus = ["there", "their", "other", "ready", "river", "café", "often", "around", "quiet", "stone", "under", "after"]
+
+const languageFixtures = [
+    { language: "english", focus: "z", words: english10k.words },
+    { language: "french", focus: "é", words: french10k.words },
+    { language: "spanish", focus: "ñ", words: spanish10k.words },
+    { language: "german", focus: "ü", words: german10k.words },
+    { language: "italian", focus: "è", words: italian10k.words },
+    { language: "portuguese", focus: "ã", words: portuguese10k.words },
+    { language: "dutch", focus: "ë", words: dutch10k.words },
+    { language: "polish", focus: "ł", words: polish10k.words },
+] as const
 
 function timeline(sequence: Array<{ key: string, correct?: boolean, dt?: number }>) {
     let t = 0
@@ -91,6 +110,70 @@ describe("compileCustomKeysPractice", () => {
             expect(token).toContain("a")
             if (index > 0) expect(token).not.toBe(first[index - 1])
         })
+    })
+
+    it.each(languageFixtures)("builds whole scheduled $language tokens, including supported accents", ({ language, focus, words }) => {
+        const dictionary = new Set(words.map((word) => word.toLowerCase().normalize("NFC")))
+        const tokens = compileCustomKeysPractice({
+            keys: [focus, "r"],
+            corpus: words,
+            language,
+            textStyle: "pseudo",
+            seed: 173,
+            wordCount: 20,
+        }).split(" ")
+
+        expect(tokens).toHaveLength(20)
+        tokens.forEach((token, index) => {
+            expect(token).toMatch(/^\p{L}{3,10}$/u)
+            expect(dictionary.has(token)).toBe(false)
+            expect(token).toContain(index % 2 === 0 ? focus : "r")
+        })
+        expect(tokens.filter((token) => [...token].length <= 7).length).toBeGreaterThanOrEqual(16)
+    })
+
+    it("never edits, clips, extends, or concatenates dictionary carriers", () => {
+        const carriers = ["international", "paper", "maker"]
+        const focus = "n"
+        const corruptions = new Set<string>(["nnternational"])
+        for (const carrier of carriers) {
+            const points = [...carrier]
+            corruptions.add(points.slice(1).join(""))
+            corruptions.add(points.slice(0, -1).join(""))
+            corruptions.add(`${focus}${carrier}`)
+            corruptions.add(`${carrier}${focus}`)
+            corruptions.add(carrier.repeat(2))
+            for (let index = 0; index <= points.length; index += 1) {
+                corruptions.add([...points.slice(0, index), focus, ...points.slice(index)].join(""))
+            }
+            for (let index = 0; index < points.length; index += 1) {
+                corruptions.add([...points.slice(0, index), focus, ...points.slice(index + 1)].join(""))
+            }
+        }
+        for (const left of carriers) for (const right of carriers) corruptions.add(`${left}${right}`)
+
+        const tokens = compileCustomKeysPractice({
+            keys: [focus], corpus: carriers, language: "english", textStyle: "pseudo", seed: 19, wordCount: 32,
+        }).split(" ")
+
+        expect(tokens).toHaveLength(32)
+        expect(tokens).not.toContain("nnternational")
+        expect(tokens.filter((token) => corruptions.has(token))).toEqual([])
+        expect(tokens.every((token) => [...token].length >= 3 && [...token].length <= 10)).toBe(true)
+    })
+
+    it("reuses valid sparse material only outside the novelty window", () => {
+        const tokens = compileCustomKeysPractice({
+            keys: ["a"], corpus: ["aa"], language: "english", textStyle: "pseudo", seed: 23, wordCount: 40,
+        }).split(" ")
+        const lastSeen = new Map<string, number>()
+
+        tokens.forEach((token, index) => {
+            const previous = lastSeen.get(token)
+            if (previous !== undefined) expect(index - previous).toBeGreaterThan(8)
+            lastSeen.set(token, index)
+        })
+        expect(new Set(tokens).size).toBeLessThan(tokens.length)
     })
 })
 
