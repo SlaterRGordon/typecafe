@@ -242,8 +242,8 @@ test.describe("screenshot tour", () => {
     expect(viewport).not.toBeNull();
     expect(toolbarBox).not.toBeNull();
     expect(promptBox).not.toBeNull();
-    // Home shares Practice's top-weighted config -> prompt rhythm instead of
-    // independently centering its shorter stack near the middle of the page.
+    // Home shares Practice's responsive config -> prompt rhythm instead of
+    // pinning the shorter Home stack to a fixed viewport coordinate.
     expect(toolbarBox!.y / viewport!.height).toBeLessThan(0.3);
     expect(promptBox!.y / viewport!.height).toBeLessThan(0.38);
     await capture(page, testInfo, "01-home-default");

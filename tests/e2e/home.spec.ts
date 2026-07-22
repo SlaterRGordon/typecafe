@@ -49,6 +49,38 @@ async function typeWrongZeroes(page: Page, count: number) {
 }
 
 test.describe("home typing test", () => {
+  test("Home follows Practice's vertical rhythm on a tall desktop viewport", async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== "desktop-chromium", "Tall desktop layout comparison");
+    await page.setViewportSize({ width: 1855, height: 1262 });
+    await mockAuthenticatedSession(page);
+    await mockTrpc(page, {
+      timelineEvidence: [higherOrderTimeline(1), higherOrderTimeline(2)],
+      customGramsPreference: {
+        version: 2,
+        language: "english",
+        entries: [],
+        setup: { grams: ["ju", "res"], durationSeconds: 60, textStyle: "varied", updatedAt: 30 },
+      },
+    });
+
+    await gotoHome(page);
+    const homeConfiguration = await page.getByTestId("typer-toolbar").boundingBox();
+    const homePrompt = await page.locator("#text").boundingBox();
+
+    await page.goto("/practice?custom=grams");
+    await expect(page.getByTestId("custom-practice-workspace")).toBeVisible();
+    await expect(page.locator("#c0")).toHaveClass(/active-char/, { timeout: 20_000 });
+    const practiceConfiguration = await page.getByTestId("practice-workspace-configuration").boundingBox();
+    const practicePrompt = await page.locator("#text").boundingBox();
+
+    expect(homeConfiguration).not.toBeNull();
+    expect(homePrompt).not.toBeNull();
+    expect(practiceConfiguration).not.toBeNull();
+    expect(practicePrompt).not.toBeNull();
+    expect(Math.abs(homeConfiguration!.y - practiceConfiguration!.y)).toBeLessThanOrEqual(16);
+    expect(Math.abs(homePrompt!.y - practicePrompt!.y)).toBeLessThanOrEqual(16);
+  });
+
   test("a one-character word Test completes instead of stalling", async ({ page }) => {
     const aIndex = english1k.words.indexOf("a");
     await page.addInitScript(({ mode, subMode, randomValue }) => {

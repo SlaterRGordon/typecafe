@@ -1300,9 +1300,9 @@ Guided/Custom attribution and natural-evidence contracts remain unchanged.
 - [x] Align the prompt vertically with Home and apply the same first-keystroke
       focus ceremony without a prompt jump. Restore the surrounding workspace
       on cancellation and completion.
-- [x] Keep Home's initial configuration rail and prompt on the same top-weighted
-      vertical rhythm as Practice, with the first-visit promise reserved above
-      the controls rather than pushing the Test downward.
+- [x] Keep Home's initial configuration rail and prompt on the same responsive
+      vertical rhythm as Practice, with the first-visit promise above the
+      controls and both workspaces moving together as viewport height changes.
 - [x] In the Practice key editor only, remove the active-next-key ring and the
       selected-key corner marker. Keep the theme-primary selection outline,
       natural-Test heat colour, speed bar, and other keyboard contexts intact.
