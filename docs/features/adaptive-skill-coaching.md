@@ -1404,7 +1404,7 @@ tracer-bullet implementation graph recorded as native sub-issues
       behavior alongside 2-4-character Grams.
 - [x] Add the shared Practice actions and exact Home duration model, including
       focus-aware, evidence-free infinity streaming.
-- [ ] Update focused unit/e2e coverage and only the affected canonical Progress
+- [x] Update focused unit/e2e coverage and only the affected canonical Progress
       and Practice screenshots; run the broad integration checkpoint after all
       slices land.
 

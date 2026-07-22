@@ -8,7 +8,7 @@ type PublicRoute =
 
 const publicRoutes: PublicRoute[] = [
   { path: "/", visibleText: "TypeCafe" },
-  { path: "/practice", heading: "Practice with a purpose." },
+  { path: "/practice", selector: "[data-testid='custom-practice-workspace']" },
   // /train lands on the level map hub.
   { path: "/train", selector: "[data-testid='train-map-grid']" },
   { path: "/leaderboard", visibleText: "TypeCafe" },

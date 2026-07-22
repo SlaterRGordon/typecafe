@@ -1190,8 +1190,11 @@ test.describe("Guided Practice", () => {
     await page.clock.runFor(30_000)
 
     await expect(page.getByTestId("practice-recap")).toContainText("Your focus response")
+    await expect.poll(async () => (await guestPracticeRecords(page))
+      .some(({ practice }) => practice?.kind === "custom" && practice.completed)).toBe(true)
     const records = await guestPracticeRecords(page)
-    expect(records.at(-1)?.practice).toMatchObject({ kind: "custom", completed: true })
-    expect(records.at(-1)?.practice?.target).toBeUndefined()
+    const completed = records.findLast(({ practice }) => practice?.kind === "custom" && practice.completed)
+    expect(completed?.practice).toMatchObject({ kind: "custom", completed: true })
+    expect(completed?.practice?.target).toBeUndefined()
   })
 })

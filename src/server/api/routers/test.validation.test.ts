@@ -37,10 +37,13 @@ describe("Practice record validation", () => {
         completed: false,
     }
 
-    it("accepts the additive v1 contract and rejects unknown or malformed versions", () => {
+    it("accepts finite custom seconds and rejects unknown or malformed versions", () => {
         expect(practiceRecordSchema.safeParse(custom).success).toBe(true)
+        expect(practiceRecordSchema.safeParse({ ...custom, durationSeconds: 45 }).success).toBe(true)
         expect(practiceRecordSchema.safeParse({ ...custom, v: 2 }).success).toBe(false)
-        expect(practiceRecordSchema.safeParse({ ...custom, durationSeconds: 45 }).success).toBe(false)
+        expect(practiceRecordSchema.safeParse({ ...custom, durationSeconds: 0 }).success).toBe(false)
+        expect(practiceRecordSchema.safeParse({ ...custom, durationSeconds: 3_601 }).success).toBe(false)
+        expect(practiceRecordSchema.safeParse({ ...custom, durationSeconds: 1.5 }).success).toBe(false)
         expect(practiceRecordSchema.safeParse({ ...custom, target: { kind: "gram", gram: "the" } }).success).toBe(false)
     })
 })

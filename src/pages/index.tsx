@@ -488,12 +488,12 @@ const Home: NextPage = () => {
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
       </Head>
-      <div id="typer" className={`flex flex-col h-full overflow-auto ${completedScore ? "py-4" : "[justify-content:safe_center]"} ${!completedScore && !fullscreen ? "-translate-y-28 md:-translate-y-24" : ""} ${fullscreen ? 'absolute top-0 left-0 w-full h-full bg-base-100 z-[500] sm:px-8' : 'w-full max-w-screen-xl mx-auto'}`}>
+      <div id="typer" className={`flex flex-col h-full overflow-auto ${completedScore ? "py-4" : "[justify-content:safe_center]"} ${!completedScore && !fullscreen ? "translate-y-[clamp(-7rem,calc(700px-100vh),0px)] md:-translate-y-24" : ""} ${fullscreen ? 'absolute top-0 left-0 w-full h-full bg-base-100 z-[500] sm:px-8' : 'w-full max-w-screen-xl mx-auto'}`}>
         {/* A real page heading for crawlers + screen readers without disturbing
             the minimal test-first hero (growth-seo §E). */}
         <h1 className="sr-only">TypeCafe - the typing coach that makes you faster</h1>
         {!completedScore && !fullscreen &&
-          <LazyHomeCoachTabs className={typingFocusFadeClass(typingFocused, "")} desktop={false} />
+          <LazyHomeCoachTabs className={typingFocusFadeClass(typingFocused, "mt-16 md:mt-0")} desktop={false} />
         }
         {!completedScore &&
           <div data-testid="typing-focus-home-controls" className={typingFocusFadeClass(typingFocused, "w-full")}>

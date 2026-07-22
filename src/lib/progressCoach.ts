@@ -208,7 +208,7 @@ function metricValue(value: number, metric: "ms" | "%" | "wpm"): string {
 }
 
 // Every row's evidence line comes from the same place: the Target's own
-// natural typing, split chronologically. Frozen daily-coach baselines are
+// natural typing, split chronologically. Retired prescription baselines are
 // history, not display data — coached and detected Targets read identically.
 function abilityStages(ability: NaturalAbility | undefined, metric: "ms" | "%" | "wpm"): ProgressCoachStage[] {
     if (!ability) return []
