@@ -7,6 +7,7 @@ import {
     type PracticeRecord,
     type PracticeTextStyle,
 } from "./evidenceContext"
+import { isDrillDigit, isDrillMark } from "./drillCharacters"
 import { decodeTimeline, type EncodedTimeline, type KeystrokeEvent } from "./keystrokes"
 import { generatePhonologicalFocusCarrier, generatePhonologicalWord } from "./phonology"
 
@@ -92,7 +93,7 @@ function decoratedCarrier(word: string, key: string, index: number): string {
     return index % 2 === 0 ? `${word}${key}` : `${key}${word}`
 }
 
-function pseudoCarrier(input: {
+function pseudoLetterCarrier(input: {
     focus: string
     language: string
     words: readonly string[]
@@ -127,6 +128,65 @@ function pseudoCarrier(input: {
     return null
 }
 
+function numericPseudoToken(focus: string, rng: () => number): string {
+    const length = 1 + Math.floor(rng() * 4)
+    const digits = Array.from({ length }, () => String(Math.floor(rng() * 10)))
+    digits[Math.floor(rng() * length)] = focus
+    return digits.join("")
+}
+
+function supportingPseudoWord(input: {
+    language: string
+    words: readonly string[]
+    alphabet: readonly string[]
+    excluded: readonly string[]
+    rng: () => number
+}): string | null {
+    const { language, words, alphabet, excluded, rng } = input
+    const focus = alphabet[Math.floor(rng() * alphabet.length)]
+    return focus ? pseudoLetterCarrier({ focus, language, words, alphabet, recent: excluded, rng }) : null
+}
+
+function pseudoToken(input: {
+    focus: string
+    language: string
+    words: readonly string[]
+    alphabet: readonly string[]
+    recent: readonly string[]
+    rng: () => number
+}): string | null {
+    const { focus, language, words, alphabet, recent, rng } = input
+    if (/\p{L}/u.test(focus)) return pseudoLetterCarrier(input)
+
+    if (isDrillDigit(focus)) {
+        for (let attempt = 0; attempt < 16; attempt += 1) {
+            const candidate = numericPseudoToken(focus, rng)
+            if (!recent.includes(candidate)) return candidate
+        }
+        return null
+    }
+
+    if (!isDrillMark(focus)) return null
+    if (focus === "-") {
+        const recentParts = recent.flatMap((token) => token.split("-"))
+        for (let attempt = 0; attempt < 16; attempt += 1) {
+            const left = supportingPseudoWord({ language, words, alphabet, excluded: recentParts, rng })
+            const right = supportingPseudoWord({ language, words, alphabet, excluded: [...recentParts, left ?? ""], rng })
+            const candidate = left && right ? `${left}-${right}` : null
+            if (candidate && !recent.includes(candidate)) return candidate
+        }
+        return null
+    }
+
+    const recentBases = recent.map((token) => token.slice(0, -1))
+    for (let attempt = 0; attempt < 16; attempt += 1) {
+        const base = supportingPseudoWord({ language, words, alphabet, excluded: recentBases, rng })
+        const candidate = base ? `${base}${focus}` : null
+        if (candidate && !recent.includes(candidate)) return candidate
+    }
+    return null
+}
+
 function pseudoCarrierPool(input: {
     focus: string
     language: string
@@ -136,7 +196,7 @@ function pseudoCarrierPool(input: {
 }): string[] {
     const pool: string[] = []
     for (let attempt = 0; attempt < PSEUDO_CARRIER_POOL_SIZE * 4 && pool.length < PSEUDO_CARRIER_POOL_SIZE; attempt += 1) {
-        const carrier = pseudoCarrier({ ...input, recent: pool })
+        const carrier = pseudoToken({ ...input, recent: pool })
         if (carrier && !pool.includes(carrier)) pool.push(carrier)
     }
     return pool

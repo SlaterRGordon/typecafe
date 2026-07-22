@@ -7,6 +7,7 @@ import italian10k from "~/components/typer/languages/italian10k.json"
 import polish10k from "~/components/typer/languages/polish10k.json"
 import portuguese10k from "~/components/typer/languages/portuguese10k.json"
 import spanish10k from "~/components/typer/languages/spanish10k.json"
+import { ALL_DIGITS, DRILL_MARKS } from "./drillCharacters"
 import { encodeTimeline, type TestEvidenceEvent } from "./keystrokes"
 import {
     compileCustomKeysPractice,
@@ -174,6 +175,66 @@ describe("compileCustomKeysPractice", () => {
             lastSeen.set(token, index)
         })
         expect(new Set(tokens).size).toBeLessThan(tokens.length)
+    })
+
+    it("gives every supported digit a balanced one-to-four-digit Pseudo token", () => {
+        const request = {
+            keys: ALL_DIGITS, corpus, language: "english", textStyle: "pseudo" as const, seed: 175, wordCount: 40,
+        }
+        const first = compileCustomKeysPractice(request)
+        const tokens = first.split(" ")
+
+        expect(compileCustomKeysPractice(request)).toBe(first)
+        expect(tokens).toHaveLength(40)
+        tokens.forEach((token, index) => {
+            expect(token).toMatch(/^\d{1,4}$/)
+            expect(token).toContain(ALL_DIGITS[index % ALL_DIGITS.length])
+        })
+        ALL_DIGITS.forEach((digit) => expect(tokens.filter((_, index) => ALL_DIGITS[index % ALL_DIGITS.length] === digit)).toHaveLength(4))
+    })
+
+    it("puts every supported Practice mark in its natural Pseudo token shape", () => {
+        const tokens = compileCustomKeysPractice({
+            keys: DRILL_MARKS, corpus, language: "english", textStyle: "pseudo", seed: 81, wordCount: 28,
+        }).split(" ")
+
+        expect(tokens).toHaveLength(28)
+        tokens.forEach((token, index) => {
+            const mark = DRILL_MARKS[index % DRILL_MARKS.length]!
+            if (mark === "-") {
+                expect(token).toMatch(/^\p{L}{3,10}-\p{L}{3,10}$/u)
+            } else {
+                expect(token).toMatch(/^\p{L}{3,10}[.,?!;:]$/u)
+                expect(token.endsWith(mark)).toBe(true)
+                expect(token.slice(0, -1)).not.toContain(mark)
+            }
+        })
+        DRILL_MARKS.forEach((mark) => expect(tokens.filter((_, index) => DRILL_MARKS[index % DRILL_MARKS.length] === mark)).toHaveLength(4))
+    })
+
+    it("keeps mixed letter, digit, and punctuation focus balanced in sparse Pseudo material", () => {
+        const keys = ["r", "5", ";", "-"]
+        const request = { keys, corpus: ["aa"], language: "english", textStyle: "pseudo" as const, seed: 33, wordCount: 24 }
+        const first = compileCustomKeysPractice(request)
+        const tokens = first.split(" ")
+
+        expect(compileCustomKeysPractice(request)).toBe(first)
+        expect(tokens).toHaveLength(24)
+        tokens.forEach((token, index) => {
+            const focus = keys[index % keys.length]!
+            if (focus === "r") expect(token).toMatch(/^\p{L}{3,10}$/u)
+            if (focus === "5") expect(token).toMatch(/^\d{1,4}$/)
+            if (focus === ";") expect(token).toMatch(/^\p{L}{3,10};$/u)
+            if (focus === "-") expect(token).toMatch(/^\p{L}{3,10}-\p{L}{3,10}$/u)
+            expect(token).toContain(focus)
+        })
+    })
+
+    it("leaves Varied decoration and unsupported Pseudo characters unchanged", () => {
+        expect(compileCustomKeysPractice({ keys: ["5", ";"], corpus, language: "english", textStyle: "varied", seed: 1, wordCount: 12 }))
+            .toBe("around 5 ;there often 5 ;after under 5 ;other café 5 ;quiet ready 5 ;stone their 5 ;river")
+        expect(compileCustomKeysPractice({ keys: ["@"], corpus, language: "english", textStyle: "pseudo", seed: 1, wordCount: 12 }))
+            .toBe("")
     })
 })
 

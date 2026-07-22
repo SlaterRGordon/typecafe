@@ -211,6 +211,24 @@ test.describe("Custom Practice", () => {
     })
   })
 
+  test("renders numeric, terminal-mark, and hyphen Pseudo Keys as natural tokens", async ({ page }) => {
+    await page.addInitScript(() => {
+      window.localStorage.setItem("typecafe:practice:custom-keys", JSON.stringify({ keys: ["5", ";", "-"], durationSeconds: 30, textStyle: "pseudo" }))
+    })
+    await gotoPractice(page)
+
+    await expect.poll(async () => {
+      const tokens = ((await page.locator("#words").textContent()) ?? "").trim().split(/\s+/).slice(0, 12)
+      return tokens.length === 12 && tokens.every((token, index) => token.includes(["5", ";", "-"][index % 3]!))
+    }).toBe(true)
+    const tokens = ((await page.locator("#words").textContent()) ?? "").trim().split(/\s+/).slice(0, 12)
+    tokens.forEach((token, index) => {
+      if (index % 3 === 0) expect(token).toMatch(/^\d{1,4}$/)
+      if (index % 3 === 1) expect(token).toMatch(/^\p{L}{3,10};$/u)
+      if (index % 3 === 2) expect(token).toMatch(/^\p{L}{3,10}-\p{L}{3,10}$/u)
+    })
+  })
+
   test("uses a borderless control band and moves the one-line focus summary to the Keys editor", async ({ page }) => {
     await page.addInitScript(() => {
       if (!window.sessionStorage.getItem("practice-minimal-workspace-seeded")) {
