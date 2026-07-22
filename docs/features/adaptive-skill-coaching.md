@@ -1347,6 +1347,12 @@ decision supersedes the retained Daily Coach history in section 12 and
 30/60/120/240-second Practice duration set. The design is confirmed; the
 implementation items below remain unchecked.
 
+Published as ready-for-agent specification
+[#179](https://github.com/SlaterRGordon/typecafe/issues/179), with the approved
+tracer-bullet implementation graph recorded as native sub-issues
+[#180](https://github.com/SlaterRGordon/typecafe/issues/180) through
+[#188](https://github.com/SlaterRGordon/typecafe/issues/188).
+
 - Remove Daily Coach completely rather than translating or archiving its
   history. Delete every runtime read/write, Home adoption path, state
   derivation, status, API, client helper, `/plan` route, exclusive
