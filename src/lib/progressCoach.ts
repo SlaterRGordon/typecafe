@@ -70,8 +70,6 @@ export interface ProgressCoachTarget {
     practice: ProgressPracticeSummary | null
     /** Drilled since its last natural evidence — the next step is a Test. */
     awaitingMeasurement: boolean
-    /** Present while awaiting measurement: the practice action stays reachable. */
-    secondaryAction: { href: string, label: string } | null
 }
 
 export interface ProgressCoachProjection {
@@ -281,12 +279,12 @@ function trendBetween(before: number, after: number, direction: "lower" | "highe
 
 const MEASURE_TEST_ACTION = { href: "/?mode=timed&count=30", label: "Take a Test" }
 
-// Once a Target has been drilled, the loop closes in a normal Test — measuring
-// becomes the primary action and the practice link steps back to secondary.
-function actionPair(practice: { href: string, label: string }, awaiting: boolean): Pick<ProgressCoachTarget, "action" | "secondaryAction" | "awaitingMeasurement"> {
+// Once a Target has been drilled, the loop closes in a normal Test. Target
+// detail deliberately carries one next action, so measurement replaces Practice.
+function nextAction(practice: { href: string, label: string }, awaiting: boolean): Pick<ProgressCoachTarget, "action" | "awaitingMeasurement"> {
     return awaiting
-        ? { action: { ...MEASURE_TEST_ACTION }, secondaryAction: { ...practice, label: "Practise again" }, awaitingMeasurement: true }
-        : { action: practice, secondaryAction: null, awaitingMeasurement: false }
+        ? { action: { ...MEASURE_TEST_ACTION }, awaitingMeasurement: true }
+        : { action: practice, awaitingMeasurement: false }
 }
 
 function candidateDetail(reason: SkillReason): string {
@@ -320,7 +318,7 @@ function candidateTarget(candidate: SkillCandidate): ProgressCoachTarget {
         stages: abilityStages(ability, candidate.metric),
         direction: candidate.direction,
         metric: candidate.metric,
-        ...actionPair({ href: action.href, label: action.label }, candidate.awaitingMeasurement === true),
+        ...nextAction({ href: action.href, label: action.label }, candidate.awaitingMeasurement === true),
         episodeCount: 0,
         lastEvidenceDate: null,
         ...worthFor(candidate),
@@ -364,7 +362,6 @@ function calibrationTarget(): ProgressCoachTarget {
         trend: null,
         practice: null,
         awaitingMeasurement: false,
-        secondaryAction: null,
     }
 }
 

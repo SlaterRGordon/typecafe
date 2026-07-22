@@ -674,7 +674,7 @@ test.describe("screenshot tour", () => {
     await capture(page, testInfo, "40b-progress-lifetime-keyboard-shift");
   });
 
-  test("progress dashboard (Practice track awaiting Test)", async ({ page }, testInfo) => {
+  test("progress dashboard (Practice activity awaiting Test)", async ({ page }, testInfo) => {
     await mockAuthenticatedSession(page);
     await mockTrpc(page, {
       timelineEvidence: [brDrillTimeline(3), impactTimeline(1), impactTimeline(2)],
@@ -685,12 +685,13 @@ test.describe("screenshot tour", () => {
     const detail = testInfo.project.name.includes("mobile")
       ? coach.getByTestId("coach-inline-detail")
       : coach.getByTestId("coach-detail");
-    const practiceTrack = detail.getByTestId("target-practice-summary");
-    await expect(practiceTrack).toContainText("Practice track");
-    await expect(detail).toContainText("practised · awaiting Test");
+    const practiceActivity = detail.getByTestId("target-practice-summary");
+    await expect(practiceActivity).toContainText("Practice activity");
+    await expect(practiceActivity).not.toHaveAttribute("open", "");
+    await expect(detail).toContainText("Needs work");
     await expect(detail.getByRole("link", { name: "Take a Test" })).toBeVisible();
-    await expect(detail.getByRole("link", { name: "Practise again" })).toBeVisible();
-    if (testInfo.project.name.includes("mobile")) await practiceTrack.scrollIntoViewIfNeeded();
+    await expect(detail.getByRole("link")).toHaveCount(1);
+    if (testInfo.project.name.includes("mobile")) await practiceActivity.scrollIntoViewIfNeeded();
     await capture(page, testInfo, "40g-progress-practice-awaiting-test");
   });
 

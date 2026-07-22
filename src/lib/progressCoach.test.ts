@@ -81,7 +81,6 @@ describe("Progress Target projection", () => {
         const result = projectProgressCoach(analysis([candidate(undefined, 1_000, { awaitingMeasurement: true })]))
 
         expect(result.defaultTarget.action).toEqual({ href: "/?mode=timed&count=30", label: "Take a Test" })
-        expect(result.defaultTarget.secondaryAction?.label).toBe("Practise again")
         expect(result.defaultTarget.awaitingMeasurement).toBe(true)
     })
 

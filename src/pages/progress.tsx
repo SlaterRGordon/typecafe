@@ -533,7 +533,7 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
 
                 <div
                     data-testid="progress-coach-column"
-                    className="order-2 min-h-0 lg:col-span-6 lg:self-start"
+                    className="order-2 min-h-0 lg:col-span-6 lg:h-[var(--progress-coach-height)] lg:self-start"
                     style={coachColumnStyle}
                 >
                     <ProgressCoach projection={props.coach} loading={props.coachLoading} />

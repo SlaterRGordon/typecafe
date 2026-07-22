@@ -144,8 +144,9 @@ test.describe("progress dashboard", () => {
       expect(right).not.toBeNull();
       expect(targetsBox).not.toBeNull();
       expect(Math.abs(left!.width - right!.width)).toBeLessThanOrEqual(2);
-      expect(Math.abs(left!.height - targetsBox!.height)).toBeLessThanOrEqual(2);
-      expect(right!.height).toBeGreaterThan(left!.height);
+      expect(Math.abs(left!.height - right!.height)).toBeLessThanOrEqual(2);
+      expect(targetsBox!.height).toBeLessThan(left!.height);
+      expect(Math.abs((targetsBox!.y + targetsBox!.height) - (right!.y + right!.height))).toBeLessThanOrEqual(2);
       const targetScroll = page.getByTestId("coach-target-scroll");
       await expect(targetScroll).toHaveCSS("overflow-y", "auto");
       await expect(targets.getByText("Ability", { exact: true })).toBeVisible();
@@ -196,6 +197,7 @@ test.describe("progress dashboard", () => {
 
     const coach = page.getByTestId("progress-coach");
     await expect(coach).toContainText("Target detail");
+    await expect(coach.getByTestId("target-practice-summary")).toHaveCount(0);
     if ((page.viewportSize()?.width ?? 0) >= 1024) {
       await expect(coach).toContainText("Work on b→r");
       await expect(coach).not.toContainText("Baseline");
@@ -386,23 +388,30 @@ test.describe("progress dashboard", () => {
     if ((page.viewportSize()?.width ?? 0) >= 1024) {
       const detail = coach.getByTestId("coach-detail");
       await expect(detail.getByRole("link", { name: "Take a Test" })).toHaveAttribute("href", "/?mode=timed&count=30");
-      await expect(detail.getByRole("link", { name: "Practise again" })).toHaveAttribute("href", /\/practice\?target=transition.*evidence=/);
-      await expect(detail.getByTestId("target-practice-summary")).toContainText("Practice track");
-      await expect(detail.getByTestId("target-practice-summary")).toContainText("Focused time1m");
-      await expect(detail.getByTestId("target-practice-summary")).toContainText("Completed runs1");
-      await expect(detail.getByTestId("target-practice-summary")).toContainText("Target attempts10");
-      await expect(detail.getByTestId("target-practice-summary")).toContainText("Practice-context performance90 ms");
-      await expect(detail.getByTestId("target-practice-summary")).toContainText("practised · awaiting Test");
-      await expect(detail.getByTestId("target-practice-summary")).not.toContainText(/improved|fixed/i);
+      await expect(detail.getByRole("link")).toHaveCount(1);
+      const activity = detail.getByTestId("target-practice-summary");
+      await expect(activity.getByText("Practice activity", { exact: true })).toBeVisible();
+      await expect(activity).not.toHaveAttribute("open", "");
+      await expect(activity.getByText("Focused time", { exact: true })).toBeHidden();
+      await activity.getByText("Practice activity", { exact: true }).click();
+      await expect(activity).toHaveAttribute("open", "");
+      await expect(activity).toContainText("Focused time1m");
+      await expect(activity).toContainText("Completed runs1");
+      await expect(activity).toContainText("Target attempts10");
+      await expect(activity).toContainText("Practice-context performance90 ms");
+      await expect(activity).not.toContainText(/improved|fixed/i);
       await brRow.hover();
       await expect(brRow.locator("../..").getByRole("link", { name: "Take a Test" })).toBeVisible();
     } else {
       await brRow.click();
       const inline = page.getByTestId("coach-inline-detail");
       await expect(inline.getByRole("link", { name: "Take a Test" })).toHaveAttribute("href", "/?mode=timed&count=30");
-      await expect(inline.getByRole("link", { name: "Practise again" })).toBeVisible();
-      await expect(inline.getByTestId("target-practice-summary")).toContainText("Practice track");
-      await expect(inline.getByTestId("target-practice-summary")).toContainText("practised · awaiting Test");
+      await expect(inline.getByRole("link")).toHaveCount(1);
+      const activity = inline.getByTestId("target-practice-summary");
+      await expect(activity.getByText("Practice activity", { exact: true })).toBeVisible();
+      await expect(activity.getByText("Focused time", { exact: true })).toBeHidden();
+      await activity.getByText("Practice activity", { exact: true }).click();
+      await expect(activity.getByText("Focused time", { exact: true })).toBeVisible();
     }
   });
 
@@ -410,13 +419,15 @@ test.describe("progress dashboard", () => {
     await page.clock.install();
     await mockAuthenticatedSession(page);
     await mockTrpc(page, {
-      timelineEvidence: [brDrillTimeline(3), impactTimeline(1), impactTimeline(2)],
+      timelineEvidence: [impactTimeline(1), impactTimeline(2)],
     });
     await gotoProgress(page);
 
     const coach = page.getByTestId("progress-coach");
-    if ((page.viewportSize()?.width ?? 0) < 1024) await coach.getByRole("button", { name: /b→r/ }).click();
-    await coach.getByRole("link", { name: "Practise again" }).click();
+    const desktop = (page.viewportSize()?.width ?? 0) >= 1024;
+    if (!desktop) await coach.getByRole("button", { name: /b→r/ }).click();
+    const detail = desktop ? coach.getByTestId("coach-detail") : coach.getByTestId("coach-inline-detail");
+    await detail.getByRole("link", { name: "Practice this transition" }).click();
     await expect(page).toHaveURL(/\/practice\?target=transition/);
     await expect(page.getByTestId("custom-practice-workspace")).toHaveAttribute("data-practice-kind", "guided");
     await page.getByRole("region", { name: "Practice controls" }).getByRole("button", { name: "30s" }).click();

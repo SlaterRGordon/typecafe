@@ -128,6 +128,7 @@ function ProofLine({ target }: { target: ProgressCoachTarget }) {
 
 function PracticeLine({ target }: { target: ProgressCoachTarget }) {
     const practice = target.practice
+    if (!practice || (practice.focusedTimeMs <= 0 && practice.completedRuns <= 0 && practice.sampleCount <= 0 && practice.value === null)) return null
     const focusedTime = practice ? (() => {
         const seconds = Math.round(practice.focusedTimeMs / 1_000)
         if (seconds < 60) return `${seconds}s`
@@ -135,19 +136,15 @@ function PracticeLine({ target }: { target: ProgressCoachTarget }) {
         return seconds % 60 === 0 ? `${minutes}m` : `${minutes}m ${seconds % 60}s`
     })() : "0s"
     return (
-        <div data-testid="target-practice-summary" className="mt-2 rounded-md border border-base-content/10 bg-base-200/30 px-2.5 py-2 text-xs text-base-content/55">
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                <span className="font-semibold text-base-content/80">Practice track</span>
-                <span>activity and Practice-context comparison</span>
-                {target.awaitingMeasurement ? <span className="font-semibold text-info">practised · awaiting Test</span> : null}
-            </div>
-            <dl className="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-1 sm:grid-cols-4">
-                <div><dt className="text-base-content/40">Focused time</dt><dd className="font-mono font-semibold text-base-content/80">{focusedTime}</dd></div>
-                <div><dt className="text-base-content/40">Completed runs</dt><dd className="font-mono font-semibold text-base-content/80">{practice?.completedRuns ?? 0}</dd></div>
-                <div><dt className="text-base-content/40">Target attempts</dt><dd className="font-mono font-semibold text-base-content/80">{practice?.sampleCount ?? 0}</dd></div>
-                <div><dt className="text-base-content/40">Practice-context performance</dt><dd className="font-mono font-semibold text-base-content/80">{practice?.value ?? "—"}</dd></div>
+        <details data-testid="target-practice-summary" className="mt-2 rounded-md border border-base-content/10 bg-base-200/30 px-2.5 py-2 text-xs text-base-content/55">
+            <summary className="cursor-pointer font-semibold text-base-content/80">Practice activity</summary>
+            <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 sm:grid-cols-4">
+                {practice.focusedTimeMs > 0 && <div><dt className="text-base-content/40">Focused time</dt><dd className="font-mono font-semibold text-base-content/80">{focusedTime}</dd></div>}
+                {practice.completedRuns > 0 && <div><dt className="text-base-content/40">Completed runs</dt><dd className="font-mono font-semibold text-base-content/80">{practice.completedRuns}</dd></div>}
+                {practice.sampleCount > 0 && <div><dt className="text-base-content/40">Target attempts</dt><dd className="font-mono font-semibold text-base-content/80">{practice.sampleCount}</dd></div>}
+                {practice.value !== null && <div><dt className="text-base-content/40">Practice-context performance</dt><dd className="font-mono font-semibold text-base-content/80">{practice.value}</dd></div>}
             </dl>
-        </div>
+        </details>
     )
 }
 
@@ -163,7 +160,6 @@ function CoachSummary({ target, color, contextLabel, action }: { target: Progres
                 <CoachHeadline target={target} color={color} />
                 <ProofLine target={target} />
                 <PracticeLine target={target} />
-                <p className="mt-1.5 line-clamp-2 text-xs leading-relaxed text-base-content/55 lg:sr-only">{target.detail}</p>
             </div>
             {action}
         </div>
@@ -181,14 +177,6 @@ function ActionLink({ target, compact = false }: { target: ProgressCoachTarget, 
             >
                 {target.action.label}
             </Link>
-            {target.secondaryAction && (
-                <Link
-                    href={target.secondaryAction.href}
-                    className={`${size} inline-flex items-center justify-center rounded-md border border-base-content/15 font-semibold text-base-content/70 transition hover:bg-base-content/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary`}
-                >
-                    {target.secondaryAction.label}
-                </Link>
-            )}
         </span>
     )
 }
@@ -227,7 +215,7 @@ export function ProgressCoach({ projection, loading }: ProgressCoachProps) {
 
     const detailTone = progressImpactTone(detail.impactMsPer1000, maxImpact)
     return (
-        <div data-testid="progress-coach" className="flex flex-col gap-3 lg:min-h-0">
+        <div data-testid="progress-coach" className="flex flex-col gap-3 lg:h-full lg:min-h-0">
             <section data-testid="coach-detail" aria-live="polite" className="hidden rounded-xl border border-base-content/10 bg-base-100/45 p-4 lg:block lg:shrink-0">
                 <div>
                     <CoachSummary
@@ -239,7 +227,7 @@ export function ProgressCoach({ projection, loading }: ProgressCoachProps) {
                 </div>
             </section>
 
-            <section data-testid="coach-targets" className="overflow-hidden rounded-xl border border-base-content/10 bg-base-100/45 lg:flex lg:h-[var(--progress-coach-height)] lg:min-h-0 lg:flex-none lg:flex-col">
+            <section data-testid="coach-targets" className="overflow-hidden rounded-xl border border-base-content/10 bg-base-100/45 lg:flex lg:min-h-0 lg:flex-1 lg:flex-col">
                 <div className="flex flex-col gap-2.5 px-4 py-3">
                     <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
                         <h2 className="text-base font-semibold text-base-content">Your targets</h2>
@@ -339,7 +327,8 @@ export function ProgressCoach({ projection, loading }: ProgressCoachProps) {
                                         </div>
                                         {expanded && (
                                             <div data-testid="coach-inline-detail" className="mx-3 mb-3 rounded-lg border border-base-content/15 bg-base-200/35 p-3 lg:hidden">
-                                                <p className="text-sm text-base-content/70">{row.detail}</p>
+                                                <p className="text-[0.65rem] font-bold uppercase tracking-[0.12em] text-primary">{row.statusLabel}</p>
+                                                <CoachHeadline target={row} color={color} />
                                                 <ProofLine target={row} />
                                                 <PracticeLine target={row} />
                                                 {row.action && <div className="mt-3"><ActionLink target={row} /></div>}

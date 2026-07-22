@@ -1396,7 +1396,7 @@ tracer-bullet implementation graph recorded as native sub-issues
 
 - [x] Remove Daily Coach code, routes, persisted server data, schema, historical
       influence, documentation, and coverage at the boundary above.
-- [ ] Simplify Target detail and make the Progress columns equal-height without
+- [x] Simplify Target detail and make the Progress columns equal-height without
       changing natural evidence or Worth derivation.
 - [ ] Make exact Transition and explicit movement-family identity agree from
       Progress through Guided Practice and persisted attribution.
