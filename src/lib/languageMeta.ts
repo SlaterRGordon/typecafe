@@ -17,3 +17,6 @@ export const PICKER_LANGUAGES: LanguageMeta[] = [
 
 export const languageMeta = (base: string): LanguageMeta =>
     PICKER_LANGUAGES.find((language) => language.value === base) ?? PICKER_LANGUAGES[0]!
+
+export const supportsCustomPractice = (base: string): boolean =>
+    PICKER_LANGUAGES.some((language) => language.value === base)

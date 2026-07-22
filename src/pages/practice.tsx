@@ -48,7 +48,7 @@ import { boardFor, sequenceFor, statsPoolFor } from "~/lib/keyboardLayout"
 import { initialPracticeKeys, nextStickyPracticeLayer, type StickyPracticeLayer } from "~/lib/practiceKeyboard"
 import { projectNaturalKeyboardEvidence, type NaturalKeyboardEvidence } from "~/lib/skillEvidence"
 import { keySpeedBars } from "~/lib/transitions"
-import { languageMeta } from "~/lib/languageMeta"
+import { languageMeta, supportsCustomPractice } from "~/lib/languageMeta"
 import { parsePracticePath, readPracticePath, resolvePracticeEntry, writePracticePath, type PracticePath } from "~/lib/practiceEntry"
 import { practiceWordCapacity } from "~/lib/practiceCapacity"
 import { addAlert } from "~/state/alert/alertSlice"
@@ -310,13 +310,16 @@ const Practice: NextPage = () => {
     const updateKeys = (patch: Partial<CustomKeysPracticePreferences>) => {
         if (running) return
         suspendCurrentPrompt()
-        setKeysPreferences((current) => ({ ...current, ...patch }))
+        const next = { ...completionContextRef.current.keysPreferences, ...patch }
+        completionContextRef.current = { ...completionContextRef.current, keysPreferences: next }
+        setKeysPreferences(next)
         refreshPrompt()
     }
     const updateGrams = (patch: Partial<CustomGramsPracticePreferences>) => {
         if (running) return
         suspendCurrentPrompt()
-        const next = { ...gramsPreferences, ...patch }
+        const next = { ...completionContextRef.current.gramsPreferences, ...patch }
+        completionContextRef.current = { ...completionContextRef.current, gramsPreferences: next }
         setGramsPreferences(next)
         if (!guided || patch.grams !== undefined) {
             appliedCustomGramsSetup.current = customGramsSetupScope
@@ -437,6 +440,20 @@ const Practice: NextPage = () => {
             </main>
         </div>
     )
+
+    if (!supportsCustomPractice(language)) {
+        const label = language === "chinese" ? "Chinese" : language === "hindi" ? "Hindi" : "this language"
+        return (
+            <div data-testid="practice-language-unavailable" className="h-full w-full overflow-y-auto bg-base-100 px-4 py-10">
+                <Head><title>Practice unavailable | TypeCafe</title></Head>
+                <main className="mx-auto flex min-h-full w-full max-w-xl flex-col justify-center">
+                    <h1 className="text-2xl font-bold">Custom Practice isn’t available in {label}</h1>
+                    <p className="mt-3 text-base-content/65">TypeCafe won’t substitute English material. Choose a supported language from the language menu to practise with truthful text.</p>
+                    <div className="mt-6"><Link href="/" className="btn btn-primary">Back to Tests</Link></div>
+                </main>
+            </div>
+        )
+    }
 
     if (!guided && (path === "grams" || requestedCustomPath === "grams") && !customGramsSetupReady) return (
         <div data-testid="custom-practice-workspace" className="h-full w-full overflow-y-auto bg-base-100 px-3 py-6 sm:px-6 md:py-10">

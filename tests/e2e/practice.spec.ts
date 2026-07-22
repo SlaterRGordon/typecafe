@@ -79,7 +79,7 @@ test.describe("Practice entry", () => {
 
     await page.getByRole("region", { name: "Practice controls" }).getByRole("button", { name: "Grams" }).click()
     await expect.poll(() => page.evaluate(() => window.localStorage.getItem("typecafe:practice:last-custom-path"))).toBe("grams")
-    await page.reload()
+    await page.goto("/practice")
     await expect(page.getByRole("region", { name: "Gram editor" })).toBeVisible()
   })
 
@@ -125,6 +125,25 @@ test.describe("Practice entry", () => {
     await expect(page.getByTestId("custom-practice-workspace")).toHaveAttribute("data-practice-kind", "custom")
     await expect(page.getByRole("region", { name: "Gram editor" })).toBeVisible()
     await expect(page.getByRole("heading", { name: /Practise/ })).toHaveCount(0)
+  })
+
+  test("does not claim Custom Practice support or emit English fallback for Chinese and Hindi", async ({ page }) => {
+    await page.addInitScript(() => window.localStorage.setItem("typecafe:language", JSON.stringify("chinese")))
+    await page.goto("/practice")
+
+    const unavailable = page.getByTestId("practice-language-unavailable")
+    await expect(unavailable.getByRole("heading", { name: "Custom Practice isn’t available in Chinese" })).toBeVisible()
+    await expect(unavailable).toContainText("won’t substitute English material")
+    await expect(page.getByTestId("custom-practice-workspace")).toHaveCount(0)
+    await expect(page.locator("#words")).toHaveCount(0)
+
+    await setPracticeLanguage(page, "hindi")
+    await expect(unavailable.getByRole("heading", { name: "Custom Practice isn’t available in Hindi" })).toBeVisible()
+    await expect(page.locator("#words")).toHaveCount(0)
+
+    await setPracticeLanguage(page, "english")
+    await expect(page.getByTestId("custom-practice-workspace")).toBeVisible()
+    await expect(page.getByRole("region", { name: "Focus key editor" })).toBeVisible()
   })
 })
 
@@ -345,10 +364,14 @@ test.describe("Custom Practice", () => {
   })
 
   test("combines direct mixed Grams with explicitly corpus-ranked active-language material and restores independently", async ({ page }) => {
-    await page.addInitScript(() => window.localStorage.setItem("typecafe:practice:recent-custom-grams", JSON.stringify({
-      version: 2,
-      languages: { english: { version: 2, language: "english", entries: [], setup: { grams: ["th", "the", "tion"], durationSeconds: 60, textStyle: "varied", updatedAt: 10 } } },
-    })))
+    await page.addInitScript(() => {
+      if (window.sessionStorage.getItem("mixed-grams-seeded")) return
+      window.sessionStorage.setItem("mixed-grams-seeded", "true")
+      window.localStorage.setItem("typecafe:practice:recent-custom-grams", JSON.stringify({
+        version: 2,
+        languages: { english: { version: 2, language: "english", entries: [], setup: { grams: ["th", "the", "tion"], durationSeconds: 60, textStyle: "varied", updatedAt: 10 } } },
+      }))
+    })
     await gotoPractice(page)
     const controls = page.getByRole("region", { name: "Practice controls" })
     await controls.getByRole("button", { name: "Grams" }).click()
@@ -376,8 +399,12 @@ test.describe("Custom Practice", () => {
     await expect(page.getByTestId("selected-practice-grams")).toContainText("ing")
     await controls.getByRole("button", { name: "120s" }).click()
     await controls.getByRole("button", { name: "Pseudo" }).click()
+    await expect.poll(() => page.evaluate(() => {
+      const payload = JSON.parse(window.localStorage.getItem("typecafe:practice:recent-custom-grams") ?? "null") as { languages?: { english?: { setup?: unknown } } } | null
+      return payload?.languages?.english?.setup
+    })).toMatchObject({ durationSeconds: 120, textStyle: "pseudo" })
 
-    await page.reload()
+    await page.goto("/practice")
     await expect(page.locator("#c0")).toHaveClass(/active-char/, { timeout: 20_000 })
     await expect(controls.getByRole("button", { name: "grams", exact: true })).toHaveAttribute("aria-pressed", "true")
     await expect(controls.getByRole("button", { name: "120s" })).toHaveClass(/text-primary/)
@@ -564,8 +591,14 @@ test.describe("Custom Practice", () => {
     await expect(recap.locator("article")).toHaveCount(0)
     await expect(recap).not.toContainText("Run complete")
     await expect(recap).not.toContainText("Overall")
-    await expect(recap.getByRole("button", { name: "Repeat with fresh text" })).toBeVisible()
+    const repeat = recap.getByRole("button", { name: "Repeat with fresh text" })
+    await expect(repeat).toBeVisible()
     await expect(page.getByRole("region", { name: "Focus key editor" })).toBeVisible()
+    await repeat.click()
+    await expect(recap).toHaveCount(0)
+    await expect(page.getByTestId("timed-countdown")).toContainText("30")
+    await expect(page.getByTestId("practice-workspace-configuration")).toHaveCSS("opacity", "1")
+    await expect(page.locator("#c0")).toHaveClass(/active-char/, { timeout: 20_000 })
   })
 
   test("leads a compared Custom item with its Practice Delta", async ({ page }) => {

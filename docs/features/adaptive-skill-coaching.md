@@ -1311,11 +1311,11 @@ Guided/Custom attribution and natural-evidence contracts remain unchanged.
   - [x] #173 generates letter- and accent-focused Pseudo Keys as whole tokens.
   - [x] #174 generates mixed Pseudo Grams as whole tokens.
   - [x] #175 gives digit and punctuation Pseudo Keys natural token forms.
-- [ ] Keep Chinese and Hindi out of Custom Practice rather than claiming or
+- [x] Keep Chinese and Hindi out of Custom Practice rather than claiming or
       adding an English fallback. Treat native-script Practice as a separate
       future workstream only if the owner chooses to revive those legacy
       language artifacts.
-- [ ] Protect the behavior with pure invariant and known-artifact regression
+- [x] Protect the behavior with pure invariant and known-artifact regression
       tests rather than full-prompt golden snapshots. Review a compact fixed-seed
       Keys/Grams matrix across all eight supported languages, add focused desktop
       and mobile journeys, remove landing assertions, and update only affected
