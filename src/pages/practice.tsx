@@ -467,7 +467,7 @@ const Practice: NextPage = () => {
     return (
         <div data-testid="custom-practice-workspace" data-practice-kind={guided ? "guided" : "custom"} className="h-full w-full overflow-y-auto bg-base-100 px-3 py-6 sm:px-6 md:py-10">
             <Head><title>{guided ? "Guided" : "Custom"} Practice | TypeCafe</title></Head>
-            <div className="relative mx-auto flex h-full w-full max-w-5xl flex-col gap-5">
+            <div className="relative mx-auto flex min-h-full w-full max-w-5xl flex-col justify-center gap-5">
                 <header data-testid="practice-workspace-identity" className={typingFocusFadeClass(running, "absolute left-0 top-0 z-20 flex flex-wrap items-center justify-between gap-3")}>
                     <div className="min-w-0">
                         {guided ? (
@@ -482,7 +482,7 @@ const Practice: NextPage = () => {
                     </div>
                 </header>
 
-                <section data-testid="practice-workspace-configuration" aria-label="Practice controls" className={typingFocusFadeClass(running, "absolute inset-x-0 top-0 z-20 flex flex-col items-center gap-2.5 py-1")}>
+                <section data-testid="practice-workspace-configuration" aria-label="Practice controls" className={typingFocusFadeClass(running, "relative z-20 flex shrink-0 flex-col items-center gap-2.5 py-1")}>
                     <div className="flex items-center gap-4" role="group" aria-label="Custom practice type">
                         <button type="button" disabled={running} aria-pressed={path === "keys"} onClick={() => selectPath("keys")} className={`cursor-pointer text-md transition-colors disabled:cursor-default disabled:opacity-50 ${path === "keys" ? "font-semibold text-primary" : "text-base-content/50 hover:text-base-content"}`}>keys</button>
                         <button type="button" disabled={running} aria-pressed={path === "grams"} onClick={() => selectPath("grams")} className={`cursor-pointer text-md transition-colors disabled:cursor-default disabled:opacity-50 ${path === "grams" ? "font-semibold text-primary" : "text-base-content/50 hover:text-base-content"}`}>grams</button>
@@ -513,7 +513,7 @@ const Practice: NextPage = () => {
                     </div>
                 </section>
 
-                <section aria-label="Practice run" data-prompt-ready={promptPending ? "false" : "true"} className={completed ? "flex shrink-0 pt-24" : "flex h-full shrink-0 translate-y-12 items-center py-2"}>
+                <section aria-label="Practice run" data-prompt-ready={promptPending ? "false" : "true"} className="flex w-full shrink-0 items-center py-2">
                     {completed?.path === "guided" && guidedRecap ? (
                         <div data-testid="practice-recap" className="w-full px-2 py-5 sm:px-4">
                             <h2 className="text-2xl font-bold">{guidedRecap.targetLabel}</h2>
@@ -582,7 +582,7 @@ const Practice: NextPage = () => {
                 </section>
 
                 {path === "keys" ? (
-                    <section ref={keysEditorRef} tabIndex={-1} aria-label="Focus key editor" className={typingFocusFadeClass(running, `relative z-10 rounded-2xl border border-base-content/10 bg-base-200/25 pb-2 outline-none focus-visible:border-primary/50 ${completed ? "" : "-mt-44"}`)}>
+                    <section ref={keysEditorRef} tabIndex={-1} aria-label="Focus key editor" className={typingFocusFadeClass(running, "relative z-10 rounded-2xl border border-base-content/10 bg-base-200/25 pb-2 outline-none focus-visible:border-primary/50")}>
                         <Keyboard
                             mode={TestModes.practice}
                             selectedKeys={keysPreferences.keys}
@@ -600,7 +600,7 @@ const Practice: NextPage = () => {
                         />
                     </section>
                 ) : (
-                    <section ref={gramsEditorRef} tabIndex={-1} aria-label="Gram editor" className={typingFocusFadeClass(running, `relative z-10 rounded-2xl border border-base-content/10 bg-base-200/25 p-3 outline-none focus-visible:border-primary/50 sm:p-4 ${completed ? "" : "-mt-44"}`)}>
+                    <section ref={gramsEditorRef} tabIndex={-1} aria-label="Gram editor" className={typingFocusFadeClass(running, "relative z-10 rounded-2xl border border-base-content/10 bg-base-200/25 p-3 outline-none focus-visible:border-primary/50 sm:p-4")}>
                         <form className="flex max-w-md gap-2" onSubmit={(event) => { event.preventDefault(); addGram(gramEntry) }}>
                             <input ref={gramInputRef} data-testid="custom-gram-input" disabled={running} value={gramEntry} onChange={(event) => { setGramEntry(event.target.value); setGramEntryError(null) }} className="input input-bordered input-sm min-w-0 flex-1 font-mono" aria-label="Custom Gram" placeholder="Add 2–4 letters" autoComplete="off" />
                             <button type="submit" disabled={running} className="btn btn-sm btn-primary">Add</button>

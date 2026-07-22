@@ -679,17 +679,23 @@ test.describe("Custom Practice", () => {
     }
   })
 
-  test("keeps the prompt fixed through active focus and restores the workspace on cancellation", async ({ page }) => {
+  test("keeps one compact workspace stack through active focus and restores it on cancellation", async ({ page }) => {
     await page.clock.install()
-    await page.goto("/")
-    await expect(page.locator("#c0")).toHaveClass(/active-char/, { timeout: 20_000 })
-    const homePromptY = (await page.locator("#words").boundingBox())!.y
     await gotoPractice(page)
     const identity = page.getByTestId("practice-workspace-identity")
     const configuration = page.getByTestId("practice-workspace-configuration")
+    const run = page.getByRole("region", { name: "Practice run" })
     const editor = page.getByRole("region", { name: "Focus key editor" })
+    const configurationBox = (await configuration.boundingBox())!
+    const runBox = (await run.boundingBox())!
+    const editorBox = (await editor.boundingBox())!
     const promptY = (await page.locator("#words").boundingBox())!.y
-    expect(Math.abs(promptY - homePromptY)).toBeLessThanOrEqual(24)
+    const controlsToRunGap = runBox.y - (configurationBox.y + configurationBox.height)
+    const runToEditorGap = editorBox.y - (runBox.y + runBox.height)
+    expect(controlsToRunGap).toBeGreaterThanOrEqual(16)
+    expect(controlsToRunGap).toBeLessThanOrEqual(24)
+    expect(runToEditorGap).toBeGreaterThanOrEqual(16)
+    expect(runToEditorGap).toBeLessThanOrEqual(24)
     await typeCurrentCharacter(page, 0)
     await page.clock.runFor(1_500)
     await expect(identity).toHaveCSS("opacity", "0")
