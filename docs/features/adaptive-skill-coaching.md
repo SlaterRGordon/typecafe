@@ -1309,7 +1309,7 @@ Guided/Custom attribution and natural-evidence contracts remain unchanged.
       boundaries, short-token bias, deterministic seeds, and the approved
       digit/punctuation forms across the eight supported profiled languages.
   - [x] #173 generates letter- and accent-focused Pseudo Keys as whole tokens.
-  - [ ] #174 generates mixed Pseudo Grams as whole tokens.
+  - [x] #174 generates mixed Pseudo Grams as whole tokens.
   - [ ] #175 gives digit and punctuation Pseudo Keys natural token forms.
 - [ ] Keep Chinese and Hindi out of Custom Practice rather than claiming or
       adding an English fallback. Treat native-script Practice as a separate

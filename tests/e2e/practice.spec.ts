@@ -200,8 +200,14 @@ test.describe("Custom Practice", () => {
     gramTokens.forEach((token, index) => {
       const gram = index % 2 === 0 ? "th" : "tion"
       const start = token.indexOf(gram)
-      expect(start).toBeGreaterThan(0)
-      expect(start + gram.length).toBeLessThan(token.length)
+      const placement = Math.floor(index / 2) % 3
+      expect(token).toMatch(/^\p{L}{3,10}$/u)
+      if (placement === 0) expect(start).toBe(0)
+      if (placement === 1) {
+        expect(start).toBeGreaterThan(0)
+        expect(start + gram.length).toBeLessThan(token.length)
+      }
+      if (placement === 2) expect(start + gram.length).toBe(token.length)
     })
   })
 

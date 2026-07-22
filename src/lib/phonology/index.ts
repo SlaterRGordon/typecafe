@@ -23,14 +23,18 @@ export interface PhonologicalSequenceWordRequest {
     requiredSequence: string
     excluded?: ReadonlySet<string>
     surroundSequence?: boolean
+    position?: PhonologicalSequencePosition
     rng?: Random
 }
 
 export interface PhonologicalFocusCarrierRequest {
     language: string
     focus: string
+    position?: PhonologicalSequencePosition
     rng?: Random
 }
+
+export type PhonologicalSequencePosition = "initial" | "medial" | "final" | "any"
 
 export interface PhonologicalTextRequest {
     language: string
@@ -450,13 +454,16 @@ export function generatePhonologicalSequenceWord(request: PhonologicalSequenceWo
 
     const model = modelFor(request.corpus, profile)
     const pool = poolFor(model, allowed)
-    const surrounds = request.surroundSequence ?? true
+    const position = request.position ?? (request.surroundSequence === false ? "any" : "medial")
     return generateNovelWord(model, profile, pool, allowed, required, request.excluded ?? new Set(), rng, (word) => {
-        if (!surrounds) return true
         const points = [...word]
         const target = [...required]
-        for (let index = 1; index + target.length < points.length; index += 1) {
-            if (target.every((character, offset) => points[index + offset] === character)) return true
+        for (let index = 0; index + target.length <= points.length; index += 1) {
+            if (!target.every((character, offset) => points[index + offset] === character)) continue
+            if (position === "any") return true
+            if (position === "initial" && index === 0 && target.length < points.length) return true
+            if (position === "medial" && index > 0 && index + target.length < points.length) return true
+            if (position === "final" && index > 0 && index + target.length === points.length) return true
         }
         return false
     })
@@ -465,8 +472,8 @@ export function generatePhonologicalSequenceWord(request: PhonologicalSequenceWo
 /**
  * Build a bounded CV frame from the active language inventory when corpus
  * evidence is too sparse to license a whole generated word. The selected focus
- * remains exact and internal while supporting characters keep the token
- * pronounceable enough to type rather than mechanically repeating the focus.
+ * remains exact while supporting characters keep the token pronounceable
+ * enough to type rather than mechanically repeating the focus.
  */
 export function generatePhonologicalFocusCarrier(request: PhonologicalFocusCarrierRequest): string | null {
     const profile = profileFor(request.language)
@@ -478,7 +485,14 @@ export function generatePhonologicalFocusCarrier(request: PhonologicalFocusCarri
     const preferredConsonants = [..."mnlrstpkbdfv"].filter((character) => profile.phones[character])
     if (vowels.length === 0 || preferredConsonants.length === 0) return null
     const sample = (values: readonly string[]) => values[Math.floor(rng() * values.length)]!
-    return `${sample(preferredConsonants)}${sample(vowels)}${focus}${sample(preferredConsonants)}${sample(vowels)}`
+    const left = `${sample(preferredConsonants)}${sample(vowels)}`
+    const right = `${sample(preferredConsonants)}${sample(vowels)}`
+    switch (request.position ?? "medial") {
+        case "initial": return `${focus}${right}`
+        case "final": return `${left}${focus}`
+        case "any": return rng() < 0.5 ? `${focus}${right}` : `${left}${focus}`
+        default: return `${left}${focus}${right}`
+    }
 }
 
 /**
