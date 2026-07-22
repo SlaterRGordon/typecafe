@@ -1,5 +1,6 @@
 import type { Page, Route } from "@playwright/test";
 import superjson from "superjson";
+import { mergeCustomGramsPreferences } from "../../../src/lib/customGramsPreference";
 
 type ProcedureInput = Record<string, unknown> | undefined;
 interface MockTrpcOptions {
@@ -20,7 +21,10 @@ interface MockTrpcOptions {
   // Per-key practice stats for the /progress lifetime heatmap.
   keyStats?: { character: string; total: number; correct: number }[];
   transitionStats?: { pair: string; count: number; totalMs: number; errors: number }[];
-  coachingSession?: unknown;
+  timelineEvidence?: unknown[];
+  progressLanguage?: string;
+  customGramsPreference?: unknown;
+  customGramsPreferences?: Record<string, unknown>;
   // Make the progress history flat (a plateau) instead of rising.
   flatProgress?: boolean;
   // Make the progress history fall so hero sign-specific layout can be tested.
@@ -32,6 +36,9 @@ interface MockTrpcOptions {
   // Put pairs of tests on the same practiced day so trend tests can prove that
   // every metric plots daily groups rather than raw attempts.
   sameDayProgress?: boolean;
+  // Confirm only the first guest Timeline on the first import call so the
+  // client retry/confirmed-only clearing path can be exercised.
+  partialGuestEvidenceImport?: boolean;
   // Procedures listed here resolve to a tRPC error instead of data, so tests can
   // exercise client-side failure handling (e.g. a save that fails on the network).
   errorProcedures?: string[];
@@ -159,7 +166,7 @@ function makeScoreSnapshot() {
 
 // A rising WPM history over the last ~60 days, generated relative to now so the
 // /progress headline delta is deterministic (current window beats the prior).
-function makeProgressRecords(flat = false, mixed = false, sameDay = false, falling = false) {
+function makeProgressRecords(flat = false, mixed = false, sameDay = false, falling = false, language = "english") {
   const dayMs = 24 * 60 * 60 * 1000;
   const now = Date.now();
   return Array.from({ length: 24 }, (_, i) => {
@@ -176,7 +183,7 @@ function makeProgressRecords(flat = false, mixed = false, sameDay = false, falli
       day: new Date(now - daysAgo * dayMs).toISOString().slice(0, 10),
       mode: 0,
       subMode: wordsRecord ? 1 : 0,
-      language: "english",
+      language,
     };
   });
 }
@@ -215,7 +222,14 @@ function progressRollupsFromEntries(input: ProcedureInput) {
   }));
 }
 
-function responseForProcedure(procedure: string, input: ProcedureInput, options: MockTrpcOptions, state: { importedTrainProgress: boolean; syncedProgressRollups: unknown[]; coachingSession: unknown }) {
+interface MockTrpcState {
+  importedTrainProgress: boolean;
+  syncedProgressRollups: unknown[];
+  customGramsPreferences: Record<string, unknown>;
+  guestEvidenceImportCalls: number;
+}
+
+function responseForProcedure(procedure: string, input: ProcedureInput, options: MockTrpcOptions, state: MockTrpcState) {
   switch (procedure) {
     case "type.get":
       return {
@@ -251,6 +265,15 @@ function responseForProcedure(procedure: string, input: ProcedureInput, options:
     }
     case "test.create":
       return { ...makeScore({ ...input, userId: profileUser.id }), brag: "Faster than 72% of similar starters", avgDelta: 3.2, streak: 5 };
+    case "test.importGuestEvidence": {
+      const localIds = Array.isArray(input?.tests)
+        ? input.tests.flatMap((item) => item && typeof item === "object" && typeof (item as { localId?: unknown }).localId === "string" ? [(item as { localId: string }).localId] : [])
+        : [];
+      const confirmedLocalIds = options.partialGuestEvidenceImport && state.guestEvidenceImportCalls++ === 0
+        ? localIds.slice(0, 1)
+        : localIds;
+      return { confirmedLocalIds, rejected: localIds.length - confirmedLocalIds.length };
+    }
     case "test.syncProgressHistory":
       state.syncedProgressRollups = progressRollupsFromEntries(input);
       return { count: Array.isArray(input?.entries) ? input.entries.length : 0, days: state.syncedProgressRollups.length, rollups: state.syncedProgressRollups };
@@ -343,7 +366,9 @@ function responseForProcedure(procedure: string, input: ProcedureInput, options:
           layout: "qwerty",
         },
       ];
-      return makeProgressRecords(options.flatProgress, options.mixedProgress, options.sameDayProgress, options.fallingProgress);
+      return makeProgressRecords(options.flatProgress, options.mixedProgress, options.sameDayProgress, options.fallingProgress, options.progressLanguage);
+    case "test.getLatestTimelines":
+      return options.timelineEvidence ?? [];
     case "test.getActivityByDate":
       // Recent consecutive days so the profile streak chip has data.
       return Array.from({ length: 5 }, (_, i) => ({
@@ -396,11 +421,14 @@ function responseForProcedure(procedure: string, input: ProcedureInput, options:
       return { count: Array.isArray(input?.stats) ? input.stats.length : 0 };
     case "practiceStats.batchSync":
       return { count: Array.isArray(input?.stats) ? input.stats.length : 0 };
-    case "coachingSession.getToday":
-      return state.coachingSession;
-    case "coachingSession.save":
-      state.coachingSession = input?.snapshot ?? null;
-      return state.coachingSession;
+    case "customGramsPreference.get":
+      return typeof input?.language === "string" ? state.customGramsPreferences[input.language] ?? null : null;
+    case "customGramsPreference.merge": {
+      const incoming = input?.snapshot as { language?: unknown } | undefined;
+      const language = typeof incoming?.language === "string" ? incoming.language : "english";
+      state.customGramsPreferences[language] = mergeCustomGramsPreferences(language, state.customGramsPreferences[language], incoming);
+      return state.customGramsPreferences[language];
+    }
     case "user.get":
       return currentProfileUser;
     case "user.getProfileByUsername":
@@ -592,7 +620,17 @@ function responseForProcedure(procedure: string, input: ProcedureInput, options:
 
 export async function mockTrpc(page: Page, options: MockTrpcOptions = {}) {
   currentProfileUser = { ...profileUser, image: options.profileImage ?? profileUser.image };
-  const state = { importedTrainProgress: false, syncedProgressRollups: [] as unknown[], coachingSession: options.coachingSession ?? null };
+  const legacyCustomGramsPreference = options.customGramsPreference as { language?: unknown } | null | undefined;
+  const customGramsPreferences = { ...options.customGramsPreferences };
+  if (legacyCustomGramsPreference && typeof legacyCustomGramsPreference.language === "string") {
+    customGramsPreferences[legacyCustomGramsPreference.language] = legacyCustomGramsPreference;
+  }
+  const state: MockTrpcState = {
+    importedTrainProgress: false,
+    syncedProgressRollups: [],
+    customGramsPreferences,
+    guestEvidenceImportCalls: 0,
+  };
 
   await page.route("**/api/trpc/**", async (route: Route) => {
     const url = new URL(route.request().url());

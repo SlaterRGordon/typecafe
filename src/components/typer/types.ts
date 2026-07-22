@@ -1,11 +1,12 @@
 import type { KeyAccuracy, TypedSegment, WpmSample } from "~/lib/stats"
-import type { EncodedKeystroke } from "~/lib/keystrokes"
+import type { EncodedTimeline } from "~/lib/keystrokes"
+import type { EvidenceContext } from "~/lib/evidenceContext"
 
 export interface TestCompletionResult {
     worstKeys?: KeyAccuracy[],
-    // Compact per-keystroke timeline ([charCode, correct, dtMs] deltas) - the
-    // foundation diagnosis and later trends read from. Empty for a no-keystroke test.
-    timeline: EncodedKeystroke[],
+    // Versioned compact per-keystroke timeline. Correct attempts store no
+    // duplicate typed character; misses retain the actual character for coaching.
+    timeline: EncodedTimeline,
     speed: number,
     rawWpm: number,
     netWpm: number,
@@ -44,6 +45,8 @@ export enum TestModes {
     quotes
 }
 
+export type { EvidenceContext }
+
 // Quote length buckets shown in the toolbar; "all" draws from every bucket.
 export type QuoteLength = "all" | "short" | "medium" | "long"
 
@@ -55,17 +58,4 @@ export type WordSize = "1k" | "5k" | "10k" | "25k"
 export enum TestSubModes {
     timed,
     words
-}
-
-export enum TestGramSources {
-    bigrams,
-    trigrams,
-    tetragrams,
-    words
-}
-
-export enum TestGramScopes {
-    fifty = 50,
-    oneHundred = 100,
-    twoHundred = 200,
 }

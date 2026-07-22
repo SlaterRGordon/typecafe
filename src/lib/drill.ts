@@ -1,6 +1,8 @@
 import { isDrillableKey } from "./drillKeys"
+import type { CoachingTarget } from "./coachingTarget"
 
 export interface CompileDrillTextInput {
+    target?: CoachingTarget,
     keys?: string[],
     transitions?: string[],
     // Specific words to drill verbatim (e.g. the words a test stumbled on). When
@@ -19,7 +21,6 @@ export interface DrillWordCandidate {
 
 const DEFAULT_LENGTH = 80
 const TOP_POOL_MIN = 24
-
 // Any-letter words (not just [a-z]): non-English word lists carry accented
 // words (é, ü, ł …) and dropping them would gut the pool - nearly half of the
 // top-1k Polish words carry diacritics. Target keys are any lowercase letter
@@ -192,11 +193,78 @@ function buildText(pool: string[], length: number, rng: () => number): string {
     return words.join(" ")
 }
 
+function occurrences(word: string, needle: string): number {
+    if (!needle) return 0
+    let count = 0
+    for (let index = 0; index + needle.length <= word.length; index += 1) {
+        if (word.slice(index, index + needle.length) === needle) count += 1
+    }
+    return count
+}
+
+function targetOccurrences(word: string, target: CoachingTarget): number {
+    if (target.kind === "key") return countChars(word, new Set(target.keys))
+    if (target.kind === "transition") return countPair(word, target.pair)
+    if (target.kind === "gram") return occurrences(word, target.gram)
+    if (target.kind === "word") {
+        if (target.sharedGram) return occurrences(word, target.sharedGram)
+        return target.words.includes(word) ? 1 : 0
+    }
+    if (target.kind === "movement") return target.anchors.reduce((sum, anchor) => sum + occurrences(word, anchor), 0)
+    if (target.kind === "correction") return occurrences(word, target.expected)
+    return 0
+}
+
+function targetCarrierPool(target: CoachingTarget, wordList: string[]): string[] {
+    const corpus = genericWords(wordList)
+    let carriers: string[]
+    if (target.kind === "word" && !target.sharedGram) {
+        carriers = target.words.map(normalizeWord).filter((word): word is string => word !== null)
+    } else {
+        carriers = corpus.filter((word) => targetOccurrences(word, target) > 0)
+    }
+    if (carriers.length > 0) {
+        return carriers.sort((a, b) => targetOccurrences(b, target) - targetOccurrences(a, target) || a.length - b.length || a.localeCompare(b))
+    }
+    if (target.kind === "transition") return fallbackTransitionTokens([target.pair])
+    if (target.kind === "movement") return fallbackTransitionTokens(target.anchors)
+    if (target.kind === "gram") return [target.gram, `${target.gram}a`, `a${target.gram}`]
+    if (target.kind === "correction") return fallbackKeyTokens([target.expected])
+    if (target.kind === "key") return fallbackKeyTokens(target.keys)
+    return target.kind === "word" ? target.words : []
+}
+
+function compileTargetDrillText(
+    target: CoachingTarget,
+    wordList: string[],
+    length: number,
+    rng: () => number,
+): string {
+    if (target.kind === "endurance") return buildText(genericWords(wordList), length, rng)
+    const carriers = targetCarrierPool(target, wordList)
+    if (carriers.length === 0) return ""
+    const movementCarriers = target.kind === "movement"
+        ? target.anchors.map((anchor) => carriers.find((word) => word.includes(anchor))).filter((word): word is string => !!word)
+        : []
+    const required = [...new Set(movementCarriers)].slice(0, length)
+    const rest = buildText(carriers, length - required.length, rng).split(" ").filter(Boolean)
+    return [...required, ...rest].join(" ")
+}
+
 export function compileDrillText(input: CompileDrillTextInput): string {
     const length = Math.max(0, Math.floor(input.length ?? DEFAULT_LENGTH))
     if (length === 0) return ""
 
     const rng = input.rng ?? Math.random
+
+    if (input.target) {
+        return compileTargetDrillText(
+            input.target,
+            input.wordList,
+            length,
+            rng,
+        )
+    }
 
     // Verbatim word drill: cycle the given words (deduped, letters-only) to fill
     // the length. buildText already avoids immediate repeats.

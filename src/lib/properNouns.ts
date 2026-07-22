@@ -18,6 +18,35 @@ const LOCALES: Record<string, string> = {
     hindi: "hi",
 }
 
+// Intl covers countries but not their first-level administrative divisions,
+// and lowercased frequency lists lose the canonical form of initialisms. Keep
+// this deliberately small and unambiguous: these are common English word-list
+// tokens whose casing cannot be recovered from the surrounding random words.
+const ENGLISH_CANONICAL_TERMS = [
+    // Explicit country/demonym fallbacks keep these stable across ICU builds.
+    "Australia", "Australian",
+    // US states and the state-name components that also occur independently in
+    // frequency lists. Full multi-word names still win when they occur together.
+    "Alabama", "Alaska", "Arizona", "Arkansas", "California", "Colorado",
+    "Connecticut", "Delaware", "Florida", "Georgia", "Hawaii", "Idaho",
+    "Illinois", "Indiana", "Iowa", "Kansas", "Kentucky", "Louisiana",
+    "Maine", "Maryland", "Massachusetts", "Michigan", "Minnesota",
+    "Mississippi", "Missouri", "Montana", "Nebraska", "Nevada",
+    "Ohio", "Oklahoma", "Oregon", "Pennsylvania", "Tennessee", "Texas",
+    "Utah", "Vermont", "Virginia", "Washington", "Wisconsin", "Wyoming",
+    "New York", "New Jersey", "New Mexico", "North Carolina", "South Carolina",
+    "North Dakota", "South Dakota", "Rhode Island", "West Virginia",
+    "Carolina", "Dakota", "District of Columbia",
+    // Australian states and territories.
+    "New South Wales", "Queensland", "South Australia", "Tasmania", "Victoria",
+    "Western Australia", "Australian Capital Territory", "Northern Territory",
+    // Common, unambiguous initialisms present in the English frequency lists.
+    "AI", "API", "BBC", "CEO", "CIA", "CPU", "CSS", "DNA", "DVD", "FAQ",
+    "FBI", "GMT", "GPS", "HTML", "HTTP", "HTTPS", "IBM", "ISBN", "NASA",
+    "NATO", "NBA", "NFL", "NHL", "PDF", "PHP", "RAM", "SQL", "TV", "UK",
+    "UN", "URL", "USA", "USB", "XML",
+]
+
 interface ProperNoun {
     normalized: string[]
     canonical: string[]
@@ -43,6 +72,9 @@ function termsFor(language: string): ProperNoun[] {
     if (cached) return cached
 
     const terms = new Map<string, ProperNoun>()
+    if (locale === "en") {
+        for (const term of ENGLISH_CANONICAL_TERMS) addTerm(terms, term, locale)
+    }
     const regions = new Intl.DisplayNames([locale], { type: "region" })
     // Intl has no supportedValuesOf("region"). Asking for every alpha-2 pair
     // and ignoring unchanged codes derives the runtime's complete CLDR region

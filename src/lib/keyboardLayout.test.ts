@@ -13,6 +13,7 @@ import {
     sequenceFor,
     statsPoolFor,
 } from "./keyboardLayout"
+import { classifyMovement } from "./movementClassification"
 import { HEATMAP_ROWS } from "./heatmap"
 import { levels } from "~/components/typer/train/levels"
 
@@ -283,6 +284,31 @@ describe("statsPoolFor", () => {
         expect(statsPoolFor("qwerty")).toBe("qwerty")
         expect(statsPoolFor(DE)).toBe("qwerty")
         expect(statsPoolFor("corrupt-storage-value")).toBe("qwerty")
+    })
+})
+
+describe("classifyMovement", () => {
+    it("classifies the conventional geometry without claiming observed fingers", () => {
+        expect(classifyMovement("f", "r", "qwerty")).toMatchObject({
+            sameFinger: true,
+            reach: true,
+            kind: "same-finger",
+            from: { hand: "left", assignedFinger: "index" },
+            to: { hand: "left", assignedFinger: "index" },
+        })
+        expect(classifyMovement("a", "s", "qwerty")).toMatchObject({ roll: "inward", kind: "inward-roll" })
+        expect(classifyMovement("s", "a", "qwerty")).toMatchObject({ roll: "outward", kind: "outward-roll" })
+        expect(classifyMovement("d", "r", "qwerty")).toMatchObject({ reach: true, kind: "row-reach" })
+    })
+
+    it("classifies the same characters through each layout's own geometry", () => {
+        expect(classifyMovement("f", "r", "qwerty")?.kind).toBe("same-finger")
+        expect(classifyMovement("f", "r", "colemak")?.kind).toBe("row-reach")
+    })
+
+    it("returns null when either character is not on the board", () => {
+        expect(classifyMovement("a", " ", "qwerty")).toBeNull()
+        expect(classifyMovement("a", "ð•’", "qwerty")).toBeNull()
     })
 })
 

@@ -20,6 +20,10 @@ declare global {
       events: { input: number, processing: number, duration: number }[],
       loaf: number[],
     }
+    __practicePerf: {
+      readyAt: number,
+      loaf: { startTime: number, duration: number }[],
+    }
   }
 }
 
@@ -27,6 +31,7 @@ const CPU_THROTTLE = 4;
 const KEY_DELAY_MS = 45; // ≈200 WPM target before protocol overhead
 
 test.skip(({ isMobile }) => isMobile, "perf baseline is desktop-only (throttled desktop ≈ small laptop)");
+test.skip(() => test.info().config.workers > 1, "perf baseline must run alone: npx playwright test tests/e2e/perf.spec.ts --project=desktop-chromium --workers=1");
 
 async function gotoHomeInstrumented(page: Page): Promise<CDPSession> {
   await page.addInitScript(() => {
@@ -111,6 +116,14 @@ async function collectAndReport(
   typed: { chars: number, wpm: number },
   budget: { p95: number, hitches: number },
 ) {
+  // Under the full eight-worker suite, keyboard.type can finish while RAF
+  // callbacks from the final burst are still queued. Wait for instrumentation
+  // to drain before judging sample coverage or latency.
+  const minimumSamples = Math.floor(typed.chars * 0.9);
+  await expect.poll(
+    () => page.evaluate(() => window.__perf.keyToFrame.length),
+    { timeout: 10_000 },
+  ).toBeGreaterThanOrEqual(minimumSamples);
   const perf = await page.evaluate(() => window.__perf);
   const k = perf.keyToFrame;
   const worst = [...k].map((v, i) => ({ v, i })).sort((a, b) => b.v - a.v).slice(0, 5);
@@ -127,7 +140,7 @@ async function collectAndReport(
     ``,
   ].join("\n"));
 
-  expect(k.length).toBeGreaterThanOrEqual(Math.floor(typed.chars * 0.9));
+  expect(k.length).toBeGreaterThanOrEqual(minimumSamples);
   expect(p95, `key→frame p95 blew the ${budget.p95}ms budget`).toBeLessThan(budget.p95);
   expect(hitches.length, `long-frame count blew the ${budget.hitches} budget`).toBeLessThan(budget.hitches);
 }
@@ -152,18 +165,201 @@ test.describe("typing perf baseline", () => {
     await collectAndReport(page, "timed (default home)", typed, { p95: 60, hitches: 15 });
   });
 
-  // Scenario 2: practice mode - the on-screen keyboard is visible, the page
-  // re-renders per keystroke, and this is where lag is felt most today.
-  test("practice mode with keyboard: keystroke latency under throttle", async ({ page }) => {
-    test.setTimeout(120_000);
-    await gotoHomeInstrumented(page);
-    await page.getByTestId("mode-bar").getByRole("button", { name: "Practice" }).click();
-    await expect(page.locator(".typecafe-keyboard")).toBeVisible();
-    await expect(page.locator("#words .char").first()).toBeVisible();
-    await page.locator("#text").click();
+});
 
-    await warmUpFirstKeystroke(page);
-    const typed = await typePromptChars(page, 150);
-    await collectAndReport(page, "practice (keyboard visible)", typed, { p95: 70, hitches: 20 });
+type PracticePerfSample = {
+  refreshMs: number,
+  refreshLoaf: number[],
+}
+
+const PRACTICE_REFRESH_ROUNDS = 3;
+// Post-fix 4× baselines: Keys 1.50–1.70× Home, Grams 1.31–1.46×;
+// selection paint q 99–107ms and er 62–68ms; prompt ready q 197–213ms and
+// er 81–128ms. These retain machine headroom while failing the old
+// 2.68× / 3.40× and 332ms / 1,008ms behavior.
+const PRACTICE_REFRESH_RATIO_BUDGET = { keys: 1.85, grams: 1.7 };
+const PRACTICE_EDIT_BUDGET_MS = 150;
+const PRACTICE_EDIT_READY_BUDGET_MS = 300;
+const PRACTICE_EDIT_LOAF_BUDGET_MS = 110;
+const PRACTICE_REFRESH_LOAF_BUDGET_MS = 300;
+
+async function installPracticePerfInstrumentation(page: Page) {
+  await page.addInitScript(() => {
+    window.__practicePerf = { readyAt: 0, loaf: [] };
+    const markReady = () => {
+      if (window.__practicePerf.readyAt > 0) return;
+      const first = document.querySelector("#c0.active-char");
+      if (!first) return;
+      requestAnimationFrame(() => {
+        window.__practicePerf.readyAt = performance.now();
+      });
+    };
+    new MutationObserver(markReady).observe(document, {
+      attributes: true,
+      childList: true,
+      subtree: true,
+    });
+    try {
+      new PerformanceObserver((list) => {
+        for (const entry of list.getEntries()) {
+          window.__practicePerf.loaf.push({ startTime: entry.startTime, duration: entry.duration });
+        }
+      }).observe({ type: "long-animation-frame" });
+    } catch { /* Chromium without LoAF support reports no edit hitches. */ }
+  });
+}
+
+async function refreshToReady(page: Page, path: string): Promise<PracticePerfSample> {
+  await page.goto(path);
+  await expect.poll(
+    () => page.evaluate(() => window.__practicePerf.readyAt),
+    { timeout: 30_000 },
+  ).toBeGreaterThan(0);
+  await page.waitForTimeout(100);
+  return page.evaluate(() => ({
+    refreshMs: window.__practicePerf.readyAt,
+    refreshLoaf: window.__practicePerf.loaf
+      .filter((entry) => entry.startTime <= window.__practicePerf.readyAt)
+      .map((entry) => entry.duration),
+  }));
+}
+
+async function measurePaintedEdit(page: Page, input: {
+  clickSelector: string,
+  selectionSelector: string,
+  readySelector: string,
+  selectedAttribute?: { name: string, value: string },
+  selectedText?: string,
+}): Promise<{ latency: number, readyLatency: number, loaf: number[] }> {
+  const result = await page.evaluate(async ({ clickSelector, selectionSelector, readySelector, selectedAttribute, selectedText }) => {
+    const clickTarget = document.querySelector<HTMLElement>(clickSelector);
+    const selectionTarget = document.querySelector(selectionSelector);
+    const readyTarget = document.querySelector(readySelector);
+    if (!clickTarget || !selectionTarget || !readyTarget) throw new Error("Practice performance target not found");
+    const selected = () => selectedAttribute
+      ? selectionTarget.getAttribute(selectedAttribute.name) === selectedAttribute.value
+      : selectionTarget.textContent?.includes(selectedText ?? "") ?? false;
+    await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+    const startedAt = performance.now();
+    return await new Promise<{ latency: number, readyLatency: number, startedAt: number }>((resolve) => {
+      let latency: number | null = null;
+      const finishIfReady = () => {
+        if (latency === null || readyTarget.getAttribute("data-prompt-ready") !== "true") return;
+        selectionObserver.disconnect();
+        readyObserver.disconnect();
+        requestAnimationFrame(() => resolve({ latency, readyLatency: performance.now() - startedAt, startedAt }));
+      };
+      const markSelection = () => requestAnimationFrame(() => {
+        latency = performance.now() - startedAt;
+        finishIfReady();
+      });
+      const selectionObserver = new MutationObserver(() => {
+        if (!selected()) return;
+        selectionObserver.disconnect();
+        markSelection();
+      });
+      const readyObserver = new MutationObserver(finishIfReady);
+      if (selected()) markSelection();
+      else selectionObserver.observe(selectionTarget, { attributes: true, childList: true, subtree: true });
+      readyObserver.observe(readyTarget, { attributes: true });
+      clickTarget.click();
+    });
+  }, {
+    clickSelector: input.clickSelector,
+    selectionSelector: input.selectionSelector,
+    readySelector: input.readySelector,
+    selectedAttribute: input.selectedAttribute,
+    selectedText: input.selectedText,
+  });
+  await page.waitForTimeout(100);
+  const loaf = await page.evaluate(({ startedAt, endedAt }) => window.__practicePerf.loaf
+    .filter((entry) => entry.startTime <= endedAt && entry.startTime + entry.duration >= startedAt)
+    .map((entry) => entry.duration), {
+      startedAt: result.startedAt,
+      endedAt: result.startedAt + result.readyLatency,
+    });
+  return { latency: result.latency, readyLatency: result.readyLatency, loaf };
+}
+
+function median(values: number[]): number {
+  return percentile(values, 50);
+}
+
+function loafSummary(values: number[]): string {
+  const long = values.filter((value) => value >= 50);
+  return long.length === 0 ? "none" : `${long.length} frames · worst ${fmt(Math.max(...long))}`;
+}
+
+test.describe.serial("Practice performance regression", () => {
+  test("refresh and focus edits stay responsive under throttle", async ({ page }) => {
+    test.setTimeout(180_000);
+    await page.addInitScript(() => {
+      window.localStorage.setItem("typecafe:practice:custom-keys", JSON.stringify({
+        keys: ["e", "r"],
+        durationSeconds: 60,
+        textStyle: "varied",
+      }));
+    });
+    await installPracticePerfInstrumentation(page);
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send("Emulation.setCPUThrottlingRate", { rate: CPU_THROTTLE });
+
+    const samples: Record<"Home" | "Custom Keys" | "Custom Grams", PracticePerfSample[]> = {
+      Home: [],
+      "Custom Keys": [],
+      "Custom Grams": [],
+    };
+    for (let round = 0; round < PRACTICE_REFRESH_ROUNDS; round += 1) {
+      samples.Home.push(await refreshToReady(page, "/?mode=timed&count=60"));
+      samples["Custom Keys"].push(await refreshToReady(page, "/practice?custom=keys"));
+      samples["Custom Grams"].push(await refreshToReady(page, "/practice?custom=grams"));
+    }
+
+    await page.goto("/practice?custom=keys");
+    await expect(page.locator("#c0")).toHaveClass(/active-char/);
+    const keyEdit = await measurePaintedEdit(page, {
+      clickSelector: '[data-kb-key="q"]',
+      selectionSelector: '[data-kb-key="q"]',
+      readySelector: '[aria-label="Practice run"]',
+      selectedAttribute: { name: "aria-pressed", value: "true" },
+    });
+
+    await page.goto("/practice?custom=grams");
+    await expect(page.locator("#c0")).toHaveClass(/active-char/);
+    await page.getByTestId("custom-gram-input").fill("er");
+    const gramEdit = await measurePaintedEdit(page, {
+      clickSelector: 'form button[type="submit"]',
+      selectionSelector: '[data-testid="selected-practice-grams"]',
+      readySelector: '[aria-label="Practice run"]',
+      selectedText: "er",
+    });
+
+    const homeRefresh = median(samples.Home.map((sample) => sample.refreshMs));
+    const keysRefresh = median(samples["Custom Keys"].map((sample) => sample.refreshMs));
+    const gramsRefresh = median(samples["Custom Grams"].map((sample) => sample.refreshMs));
+    const refreshLoaf = Object.fromEntries(Object.entries(samples).map(([scenario, scenarioSamples]) => [
+      scenario,
+      scenarioSamples.flatMap((sample) => sample.refreshLoaf),
+    ])) as Record<keyof typeof samples, number[]>;
+    console.log([
+      "",
+      `── Practice perf (cpu ×${CPU_THROTTLE}, ${PRACTICE_REFRESH_ROUNDS} serial rounds) ──`,
+      `refresh-to-ready median: Home ${fmt(homeRefresh)} · Keys ${fmt(keysRefresh)} (${(keysRefresh / homeRefresh).toFixed(2)}×) · Grams ${fmt(gramsRefresh)} (${(gramsRefresh / homeRefresh).toFixed(2)}×)`,
+      `refresh LoAF: Home ${loafSummary(refreshLoaf.Home)} · Keys ${loafSummary(refreshLoaf["Custom Keys"])} · Grams ${loafSummary(refreshLoaf["Custom Grams"])}`,
+      `add q: selection ${fmt(keyEdit.latency)} · prompt ready ${fmt(keyEdit.readyLatency)} · LoAF ${keyEdit.loaf.map((value) => fmt(value)).join(", ") || "none"}`,
+      `add er: selection ${fmt(gramEdit.latency)} · prompt ready ${fmt(gramEdit.readyLatency)} · LoAF ${gramEdit.loaf.map((value) => fmt(value)).join(", ") || "none"}`,
+      "",
+    ].join("\n"));
+
+    expect(keysRefresh / homeRefresh, "Custom Keys refresh regressed against Home").toBeLessThan(PRACTICE_REFRESH_RATIO_BUDGET.keys);
+    expect(gramsRefresh / homeRefresh, "Custom Grams refresh regressed against Home").toBeLessThan(PRACTICE_REFRESH_RATIO_BUDGET.grams);
+    expect(keyEdit.latency, "adding a Custom Key stalled selection paint").toBeLessThan(PRACTICE_EDIT_BUDGET_MS);
+    expect(gramEdit.latency, "adding a Custom Gram stalled selection paint").toBeLessThan(PRACTICE_EDIT_BUDGET_MS);
+    expect(keyEdit.readyLatency, "adding a Custom Key stalled prompt readiness").toBeLessThan(PRACTICE_EDIT_READY_BUDGET_MS);
+    expect(gramEdit.readyLatency, "adding a Custom Gram stalled prompt readiness").toBeLessThan(PRACTICE_EDIT_READY_BUDGET_MS);
+    expect(keyEdit.loaf.filter((duration) => duration >= PRACTICE_EDIT_LOAF_BUDGET_MS)).toEqual([]);
+    expect(gramEdit.loaf.filter((duration) => duration >= PRACTICE_EDIT_LOAF_BUDGET_MS)).toEqual([]);
+    expect(refreshLoaf["Custom Keys"].filter((duration) => duration >= PRACTICE_REFRESH_LOAF_BUDGET_MS)).toEqual([]);
+    expect(refreshLoaf["Custom Grams"].filter((duration) => duration >= PRACTICE_REFRESH_LOAF_BUDGET_MS)).toEqual([]);
   });
 });

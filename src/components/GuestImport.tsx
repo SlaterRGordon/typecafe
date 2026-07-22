@@ -4,6 +4,7 @@ import { clearLocalKeyStats, readLocalKeyStats } from "~/lib/localSync";
 import { clearLocalTransitions, readLocalTransitions } from "~/lib/localTransitions";
 import { STATS_POOLS } from "~/lib/keyboardLayout";
 import { clearLocalProgress, readLocalProgress } from "~/lib/progressHistory";
+import { GUEST_EVIDENCE_IMPORT_BATCH_SIZE } from "~/lib/guestEvidenceLimits";
 import { api } from "~/utils/api";
 
 // On sign-in, import the guest's local-first evidence into the account: progress
@@ -19,6 +20,7 @@ export function GuestImport() {
     const progressForUserRef = useRef<string | null>(null);
     const keyStatsForUserRef = useRef<string | null>(null);
     const transitionsForUserRef = useRef<string | null>(null);
+    const timelinesForUserRef = useRef<string | null>(null);
 
     const syncProgress = api.test.syncProgressHistory.useMutation({
         onSuccess: async (result) => {
@@ -42,6 +44,7 @@ export function GuestImport() {
         },
         onError: () => { transitionsForUserRef.current = null; },
     });
+    const importGuestEvidence = api.test.importGuestEvidence.useMutation();
 
     useEffect(() => {
         if (!userId) return;
@@ -80,6 +83,34 @@ export function GuestImport() {
             }
         }
     }, [userId, syncProgress, syncKeyStats, syncTransitions]);
+
+    useEffect(() => {
+        if (!userId || timelinesForUserRef.current === userId) return;
+        timelinesForUserRef.current = userId;
+
+        void (async () => {
+            const { readGuestEvidenceTests, removeGuestEvidenceTests } = await import("~/lib/guestEvidenceStore");
+            const tests = await readGuestEvidenceTests();
+            for (let offset = 0; offset < tests.length; offset += GUEST_EVIDENCE_IMPORT_BATCH_SIZE) {
+                let pending = tests.slice(offset, offset + GUEST_EVIDENCE_IMPORT_BATCH_SIZE);
+
+                // Retry one partial/network failure in-place. Confirmed ids are
+                // removed immediately; anything else remains durable for a later
+                // page load, and the server's user+localId key makes that retry safe.
+                for (let attempt = 0; attempt < 2 && pending.length > 0; attempt++) {
+                    try {
+                        const result = await importGuestEvidence.mutateAsync({ tests: pending });
+                        const confirmed = new Set(result.confirmedLocalIds);
+                        await removeGuestEvidenceTests(result.confirmedLocalIds);
+                        pending = pending.filter((test) => !confirmed.has(test.localId));
+                    } catch {
+                        // Keep the whole unconfirmed remainder for the retry.
+                    }
+                }
+
+            }
+        })();
+    }, [userId, importGuestEvidence]);
 
     return null;
 }

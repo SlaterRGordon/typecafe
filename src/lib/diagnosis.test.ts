@@ -18,13 +18,13 @@ function events(pairs: [string, number, boolean?][], startAt = 1_000_000): Keyst
     let t = startAt
     return pairs.map(([key, gap, correct = true], i) => {
         if (i > 0) t += gap
-        return { key, correct, t }
+        return { key, typed: correct ? key : "?", correct, t }
     })
 }
 
 // A steady stream of `count` correct keystrokes of `key`, each `gap` ms apart.
 function steady(key: string, count: number, gap: number, startAt = 1_000_000): KeystrokeEvent[] {
-    return Array.from({ length: count }, (_, i) => ({ key, correct: true, t: startAt + i * gap }))
+    return Array.from({ length: count }, (_, i) => ({ key, typed: key, correct: true, t: startAt + i * gap }))
 }
 
 
@@ -82,7 +82,7 @@ describe("toughestWords", () => {
         const evts = events([
             ["c", 100], ["a", 100], ["t", 100], [" ", 100],
             ["d", 100], ["o", 100], ["g", 100, false], [" ", 100],
-            ["f", 300], ["l", 300], ["y", 300],
+            ["f", 300], ["l", 300], ["y", 300], [" ", 100],
         ])
         const tough = toughestWords(evts, 100)
         // "cat" is clean and on-pace → excluded; error word leads, slow word follows.
@@ -93,6 +93,33 @@ describe("toughestWords", () => {
     it("skips single-character runs as noise", () => {
         const evts = events([["a", 100], [" ", 100], ["b", 100, false]])
         expect(toughestWords(evts, 100)).toEqual([])
+    })
+
+    it("excludes a fast, accurate word fragment left incomplete at Test end", () => {
+        const evts = events([
+            ["c", 100], ["a", 100], ["t", 100], [" ", 100],
+            ["p", 100], ["a", 100],
+        ])
+
+        expect(toughestWords(evts, 50)).toEqual([])
+    })
+
+    it("excludes an inaccurate word fragment left incomplete at Test end", () => {
+        const evts = events([
+            ["c", 100], ["a", 100], ["t", 100], [" ", 100],
+            ["p", 100], ["a", 100, false],
+        ])
+
+        expect(toughestWords(evts, 100)).toEqual([])
+    })
+
+    it("keeps completed evidence for a weak word when a later attempt is partial", () => {
+        const evts = events([
+            ["p", 100], ["a", 100], ["p", 100], ["e", 100], ["r", 100, false], [" ", 100],
+            ["p", 100], ["a", 100],
+        ])
+
+        expect(toughestWords(evts, 100).map((word) => word.word)).toEqual(["paper"])
     })
 })
 

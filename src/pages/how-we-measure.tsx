@@ -14,6 +14,7 @@ import { STANCE_THRESHOLDS } from "~/lib/stance";
 import { PLATEAU_CONFIG } from "~/lib/trajectory";
 import { TRANSITION_MIN_COUNT, TRANSITION_SLOW_RATIO, TRANSITION_SAMPLE_CAP } from "~/lib/transitions";
 import { KEY_ATTEMPT_CAP } from "~/lib/practiceAttempts";
+import { SKILL_EVIDENCE_THRESHOLDS } from "~/lib/skillEvidence";
 
 const HowWeMeasure: NextPage = () => {
   return (
@@ -28,7 +29,7 @@ const HowWeMeasure: NextPage = () => {
       <DocumentPage
         eyebrow="Measurement"
         title="How TypeCafe Measures Typing"
-        updated="July 11, 2026"
+        updated="July 15, 2026"
         intro="TypeCafe is a typing coach, so the numbers have to be boringly honest. This page explains the formulas and thresholds used on score cards, progress charts, coach notes, and ranked surfaces."
       >
         <DocumentSection title="Words Per Minute">
@@ -89,8 +90,33 @@ const HowWeMeasure: NextPage = () => {
           <p>Diagnosis only speaks when there is enough evidence. Short tests and one-off slips should not become fake coaching.</p>
           <ul>
             <li><strong>Slow transitions:</strong> a letter pair must appear at least {TRANSITION_MIN_COUNT} times and be at least {TRANSITION_SLOW_RATIO}x slower than your overall transition pace.</li>
+            <li><strong>Weak Words:</strong> only complete words confirmed by a following space are classified. An unfinished word at Test end is excluded, even when its fragment contains an error or appears slow.</li>
             <li><strong>Recent, not lifetime:</strong> per-key accuracy and per-pair speed are rolling windows - roughly your last {KEY_ATTEMPT_CAP} attempts on a key and {TRANSITION_SAMPLE_CAP} occurrences of a pair. Older samples fade out proportionally, so the coach reflects how you type <em>now</em>, and a weakness you fix stops being flagged once recent typing proves it.</li>
           </ul>
+        </DocumentSection>
+
+        <DocumentSection title="Coach Target Impact">
+          <p>Progress ranks supported Weaknesses by estimated time cost, not raw slowness. A common Transition that is moderately slow can outrank a rare Transition that is much slower because fixing it affects more of your typing.</p>
+          <p><code>Impact = (latency cost + correction cost) × confidence × recency weight</code>, reported as approximate milliseconds lost per 1,000 natural characters. Latency cost is the positive gap above your robust personal median multiplied by natural frequency. Error cost is the error rate multiplied by your median correction cost and natural frequency; until personal correction evidence exists, the fallback is {SKILL_EVIDENCE_THRESHOLDS.correctionFallbackLatencyMultiplier} times your robust inter-key median.</p>
+          <ul>
+            <li><strong>Robust timing:</strong> non-positive gaps are excluded. An interruption is any gap above the smaller of {SKILL_EVIDENCE_THRESHOLDS.interruptionMaxMs.toLocaleString()}ms or the Test median plus {SKILL_EVIDENCE_THRESHOLDS.interruptionMadMultiplier} median absolute deviations; it is flagged as sample quality, never called a weakness.</li>
+            <li><strong>Key latency:</strong> at least {SKILL_EVIDENCE_THRESHOLDS.keyLatencyMinSamples} timed arrivals from at least {SKILL_EVIDENCE_THRESHOLDS.keyLatencyMinPredecessors} predecessor keys, at least {SKILL_EVIDENCE_THRESHOLDS.keyLatencyMinRatio}x the personal median, and at least {SKILL_EVIDENCE_THRESHOLDS.latencyNoiseFloorMs}ms slower.</li>
+            <li><strong>Key accuracy:</strong> at least {SKILL_EVIDENCE_THRESHOLDS.keyAccuracyMinAttempts} attempts across two Tests (or one coverage-shaped diagnostic Test), below {SKILL_EVIDENCE_THRESHOLDS.keyAccuracyFloorPct}%.</li>
+            <li><strong>Transition evidence:</strong> at least {SKILL_EVIDENCE_THRESHOLDS.transitionMinSamples} occurrences across {SKILL_EVIDENCE_THRESHOLDS.transitionMinTests} Tests or {SKILL_EVIDENCE_THRESHOLDS.transitionMinWords} distinct words. Latency needs the same {SKILL_EVIDENCE_THRESHOLDS.transitionLatencyMinRatio}x and {SKILL_EVIDENCE_THRESHOLDS.latencyNoiseFloorMs}ms floors; accuracy becomes a candidate at a {SKILL_EVIDENCE_THRESHOLDS.transitionErrorRateFloorPct}% error rate.</li>
+            <li><strong>Trigrams:</strong> at least {SKILL_EVIDENCE_THRESHOLDS.trigramMinSamples} within-word occurrences across {SKILL_EVIDENCE_THRESHOLDS.trigramMinTests} Tests and {SKILL_EVIDENCE_THRESHOLDS.trigramMinWords} distinct words.</li>
+            <li><strong>Tetragrams:</strong> at least {SKILL_EVIDENCE_THRESHOLDS.tetragramMinSamples} within-word occurrences across {SKILL_EVIDENCE_THRESHOLDS.tetragramMinTests} Tests and {SKILL_EVIDENCE_THRESHOLDS.tetragramMinWords} distinct words.</li>
+            <li><strong>Recurring words:</strong> at least {SKILL_EVIDENCE_THRESHOLDS.wordMinSamples} occurrences across {SKILL_EVIDENCE_THRESHOLDS.wordMinTests} Tests. Timing counts only the word&apos;s internal arrivals, never the pause before the word.</li>
+            <li><strong>Higher-order timing:</strong> Grams and words must be at least {SKILL_EVIDENCE_THRESHOLDS.higherOrderLatencyMinRatio}x the matching personal rhythm and clear the {SKILL_EVIDENCE_THRESHOLDS.latencyNoiseFloorMs}ms noise floor. Gram cost is summed from internal keystroke gaps; TypeCafe does not invent a synthetic Gram WPM.</li>
+            <li><strong>Language frequency:</strong> once natural history reaches {SKILL_EVIDENCE_THRESHOLDS.naturalFrequencyMinCharacters.toLocaleString()} characters it supplies occurrence rates directly. Before then, TypeCafe derives a bounded prior from the active language&apos;s bundled common-word list.</li>
+            <li><strong>Correction confusion:</strong> the same expected/typed confusion must recur at least {SKILL_EVIDENCE_THRESHOLDS.correctionMinErrors} times across {SKILL_EVIDENCE_THRESHOLDS.correctionMinTests} Tests.</li>
+            <li><strong>Movement classes:</strong> TypeCafe classifies the expected layout geometry, not the finger a person actually used. A movement needs at least {SKILL_EVIDENCE_THRESHOLDS.movementMinSamples} occurrences across {SKILL_EVIDENCE_THRESHOLDS.movementMinSequences} concrete key sequences before it can become a Target.</li>
+            <li><strong>Endurance:</strong> a short/long gap needs at least {SKILL_EVIDENCE_THRESHOLDS.enduranceMinTestsPerLength} natural Tests at each duration, with language, layout stats pool, Test kind, options, punctuation, capitals, and numbers held fixed. Short Tests are at most {SKILL_EVIDENCE_THRESHOLDS.enduranceShortMaxSeconds}s, long Tests are at least {SKILL_EVIDENCE_THRESHOLDS.enduranceLongMinSeconds}s, and the median gap must reach {SKILL_EVIDENCE_THRESHOLDS.enduranceMinGapWpm} WPM.</li>
+            <li><strong>Option costs:</strong> punctuation, capital, and number costs compare at least {SKILL_EVIDENCE_THRESHOLDS.optionCostMinTests} matched natural Tests on each side, changing only that option. Gaps below {SKILL_EVIDENCE_THRESHOLDS.optionCostMinGapWpm} WPM stay hidden.</li>
+            <li><strong>Focused Practice:</strong> generated text saturates the selected Target. Inaccurate Transition and correction Targets use a no-rush 100% Accuracy goal.</li>
+            <li><strong>Confidence:</strong> rises with sample count and required Test, word, or predecessor diversity, and is capped at 1. Recency follows typed volume rather than wall-clock time, so a vacation does not erase evidence.</li>
+            <li><strong>Progress ledger ability:</strong> a Target&apos;s Earlier vs Recent compares its natural evidence older than the newest {SKILL_EVIDENCE_THRESHOLDS.abilityRecentTestWindow} Target-containing Tests against those newest Tests, with at least {SKILL_EVIDENCE_THRESHOLDS.abilitySplitMinSamplesPerHalf} samples on each side. Worth stays measured over the full evidence window.</li>
+          </ul>
+          <p>Only natural and diagnostic Timelines can discover a Weakness. Focused Drill attempts are kept separately as Acquisition response: they can show that Practice changed, but they cannot invent a natural Weakness or prove representative improvement. A Drill counts toward a Target&apos;s Practice only when it was launched for that Target, and a practised Target reads &quot;awaiting a Test&quot; until a newer natural Test actually contains it.</p>
         </DocumentSection>
 
         <DocumentSection title="Ranked and Unranked Runs">

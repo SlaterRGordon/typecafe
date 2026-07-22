@@ -1,0 +1,110 @@
+import { describe, expect, it } from "vitest"
+import {
+    drillTargetToken,
+    parseCoachingTargetQuery,
+    parseDrillTargetToken,
+    targetAccuracyPolicy,
+    targetAction,
+    targetDisplayLabel,
+    targetRepresentativeSequences,
+    type CoachingTarget,
+} from "./coachingTarget"
+
+describe("coaching target query adapter", () => {
+    it("keeps legacy key, Transition, and word links readable", () => {
+        expect(parseCoachingTargetQuery({ keys: "x,é" })).toMatchObject({
+            target: { kind: "key", keys: ["x", "é"], metric: "accuracy" },
+            legacy: true,
+        })
+        expect(parseCoachingTargetQuery({ transitions: "e:" })).toMatchObject({
+            target: { kind: "transition", pair: "e:", metric: "latency" },
+            legacy: true,
+        })
+        expect(parseCoachingTargetQuery({ words: "Rhythm,syzygy" })).toMatchObject({
+            target: { kind: "word", words: ["rhythm", "syzygy"] },
+            legacy: true,
+        })
+        expect(parseCoachingTargetQuery({ target: "word", words: "L’esprit,co‑operate,tiny" })).toMatchObject({
+            target: { kind: "word", words: ["l'esprit", "co-operate", "tiny"] },
+        })
+    })
+
+    it("round-trips a movement Target", () => {
+        const target: CoachingTarget = { kind: "movement", movement: "row-reach", anchors: ["fr", "de", "sw", "aq"] }
+        const action = targetAction(target)
+        const url = new URL(action.href, "https://typecafe.test")
+        const query = Object.fromEntries(url.searchParams)
+
+        expect(parseCoachingTargetQuery(query)).toEqual({
+            target,
+            evidence: null,
+            legacy: false,
+        })
+        expect(action.label).toBe("Practice this movement")
+        expect(action.href).toContain("/practice?target=movement")
+        expect(targetDisplayLabel(target)).toBe("row-reach movement")
+        expect(targetRepresentativeSequences(target)).toEqual(["f→r", "d→e", "s→w", "a→q"])
+    })
+
+    it("round-trips the measured handoff into the shared Practice workspace", () => {
+        const evidence = { metric: "ms" as const, baseline: 110, observed: 186, sampleCount: 12, reason: "Recent Tests measured this transition slowly." }
+        const action = targetAction({ kind: "transition", pair: "th", metric: "latency" }, { evidence })
+        const parsed = parseCoachingTargetQuery(Object.fromEntries(new URL(action.href, "https://typecafe.test").searchParams))
+
+        expect(action.href).toContain("/practice?target=transition")
+        expect(parsed?.evidence).toEqual(evidence)
+    })
+
+    it("keeps Word Targets whole in labels and visual identity", () => {
+        const target: CoachingTarget = { kind: "word", words: ["action", "station"], sharedGram: "tion" }
+        expect(targetDisplayLabel(target)).toBe("action, station")
+        expect(targetAction(target).href).toContain("words=action,station")
+    })
+
+    it("preserves complete short Weak Words through the score-card handoff", () => {
+        const target: CoachingTarget = { kind: "word", words: ["to", "dog", "that", "typing"] }
+        const url = new URL(targetAction(target).href, "https://typecafe.test")
+
+        expect(parseCoachingTargetQuery(Object.fromEntries(url.searchParams))?.target).toEqual(target)
+    })
+
+    it("persists short guided Word Targets for attribution", () => {
+        const target: CoachingTarget = { kind: "word", words: ["to", "dog", "that", "typing"] }
+
+        expect(parseDrillTargetToken(drillTargetToken(target))).toEqual(target)
+    })
+
+    it("hands endurance to the matched normal Test surface", () => {
+        const action = targetAction({ kind: "endurance", shortSeconds: 30, longSeconds: 60 })
+        expect(action).toMatchObject({ surface: "test", label: "Check endurance" })
+        expect(action.href).toContain("/?mode=timed&count=60")
+        expect(action.href).toContain("shortSeconds=30&longSeconds=60")
+        expect(action.href).not.toContain("policy=")
+    })
+
+    it("round-trips every target kind through the persisted drill token and stays within the options cap", () => {
+        const targets: CoachingTarget[] = [
+            { kind: "key", keys: ["e", "é"], metric: "latency" },
+            { kind: "transition", pair: "br", metric: "accuracy" },
+            { kind: "gram", gram: "ing" },
+            { kind: "word", words: ["together", "thought", "through", "whether", "weather", "brother"], sharedGram: "ther" },
+            { kind: "movement", movement: "same-finger", anchors: ["fr", "de", "sw", "aq", "lo", "ki", "ju", "hy"] },
+            { kind: "correction", expected: "q", typed: "x" },
+        ]
+        for (const target of targets) {
+            const token = drillTargetToken(target)
+            expect(token.length).toBeLessThanOrEqual(250)
+            expect(parseDrillTargetToken(token)).toEqual(target)
+        }
+        expect(parseDrillTargetToken("")).toBeNull()
+        expect(parseDrillTargetToken("Level 3")).toBeNull()
+        expect(parseDrillTargetToken("target:{broken")).toBeNull()
+        expect(parseDrillTargetToken('target:{"kind":"key","keys":[],"metric":"latency"}')).toBeNull()
+    })
+
+    it("uses a no-rush perfect-accuracy policy for inaccurate transitions and corrections", () => {
+        expect(targetAccuracyPolicy({ kind: "transition", pair: "th", metric: "accuracy" })).toEqual({ goalPct: 100, noRush: true })
+        expect(targetAccuracyPolicy({ kind: "correction", expected: "q", typed: "x" })).toEqual({ goalPct: 100, noRush: true })
+        expect(targetAccuracyPolicy({ kind: "transition", pair: "th", metric: "latency" })).toBeNull()
+    })
+})

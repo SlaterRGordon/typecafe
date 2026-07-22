@@ -3,16 +3,17 @@ import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { useSession } from "next-auth/react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { TrendChart } from "~/components/progress/TrendChart";
 import { GoalCard } from "~/components/progress/GoalCard";
+import { ProgressCoach } from "~/components/progress/ProgressCoach";
 import { KeyHeatmap, KeyHeatmapLegend } from "~/components/heatmap/KeyHeatmap";
 import { KeyboardLayerSwitch } from "~/components/heatmap/KeyboardLayerSwitch";
 import { Chip } from "~/components/ui/Chip";
 import { Tooltip } from "~/components/ui/Tooltip";
 import { HEATMAP_CONFIG, type KeyAttempt } from "~/lib/heatmap";
 import { useGuestEvidence } from "~/hooks/useGuestEvidence";
-import { keySpeedBars, worstTransitions, type TransitionAggregate } from "~/lib/transitions";
+import { keySpeedBars, type TransitionAggregate } from "~/lib/transitions";
 import {
     PROGRESS_PERIODS,
     bestWpm,
@@ -22,7 +23,6 @@ import {
     heroDelta,
     linearTrend,
     mergeDailyRollups,
-    personalRecords,
     recordsForLanguage,
     recordsForPool,
     rejectOutliers,
@@ -33,12 +33,13 @@ import { useLanguage } from "~/hooks/useLanguage";
 import { useLayout } from "~/hooks/useLayout";
 import { languageMeta } from "~/lib/languageMeta";
 import { boardFor, layoutMeta, statsPoolFor } from "~/lib/keyboardLayout";
-import { composeWeakKeys, worstKeysFromAttempts } from "~/lib/stats";
-import { isDrillableOn } from "~/lib/drillKeys";
-import { accentsFor, ensureLanguageLoaded } from "~/components/typer/utils";
 import { detectPlateau } from "~/lib/trajectory";
 import { api } from "~/utils/api";
 import { openSignInModal } from "~/lib/modals";
+import { useCoachingEvidence } from "~/hooks/useCoachingEvidence";
+import { projectProgressCoach, type ProgressCoachProjection } from "~/lib/progressCoach";
+import { projectNaturalKeyboardEvidence } from "~/lib/skillEvidence";
+import { getWords } from "~/components/typer/utils";
 
 function periodLabel(period: ProgressPeriod): string {
     return period === "all" ? "All" : `${period}d`;
@@ -234,10 +235,12 @@ function ProgressLoadingSkeleton() {
     );
 }
 
-const ProgressDashboard = (props: { language: string; records: ProgressRecord[]; keyAttempts: Record<string, KeyAttempt>; transitions: TransitionAggregate[]; canShare?: boolean; username?: string | null }) => {
+const ProgressDashboard = (props: { language: string; records: ProgressRecord[]; keyAttempts: Record<string, KeyAttempt>; transitions: TransitionAggregate[]; coach: ProgressCoachProjection | null; coachLoading: boolean; canShare?: boolean; username?: string | null }) => {
     const [period, setPeriod] = useState<ProgressPeriod>(30);
     const [trendMetric, setTrendMetric] = useState<TrendMetric>("wpm");
     const [shareState, setShareState] = useState<"idle" | "sharing" | "copied">("idle");
+    const leftColumnRef = useRef<HTMLDivElement>(null);
+    const [coachHeight, setCoachHeight] = useState<number | null>(null);
     // The board the heatmap below renders (and whose stats pool feeds it).
     const [activeBoardLayout] = useLayout();
     // Heatmap layer switches: attempts are stored unfolded (char-keyed), so the
@@ -250,6 +253,23 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
     const now = useMemo(() => new Date(), []);
     const utcOffsetMinutes = -now.getTimezoneOffset();
     const createProgressShare = api.scoreShare.createProgress.useMutation();
+
+    useEffect(() => {
+        const leftColumn = leftColumnRef.current;
+        if (!leftColumn || typeof ResizeObserver === "undefined") return;
+        const update = () => {
+            const height = Math.ceil(leftColumn.getBoundingClientRect().height);
+            if (height > 0) setCoachHeight((current) => current === height ? current : height);
+        };
+        update();
+        const observer = new ResizeObserver(update);
+        observer.observe(leftColumn);
+        return () => observer.disconnect();
+    }, []);
+    const coachColumnStyle = useMemo<React.CSSProperties | undefined>(
+        () => coachHeight ? { "--progress-coach-height": `${coachHeight}px` } as React.CSSProperties : undefined,
+        [coachHeight],
+    );
 
     // Drop junk tests (stopped typing, key-mash restarts) once, up front, so the
     // delta, trend line, records and best chip are all computed from clean data.
@@ -266,7 +286,6 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
         () => dailyProgressSeries(cleanRecords, period, now, utcOffsetMinutes),
         [cleanRecords, period, now, utcOffsetMinutes],
     );
-    const records = useMemo(() => personalRecords(cleanRecords), [cleanRecords]);
 
     // Straight least-squares fit per metric - one readable line instead of a
     // wiggly rolling average, aligned 1:1 with the scatter points.
@@ -295,28 +314,9 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
     // selected period → latest practiced day. The chart keeps its fitted trend.
     const hero = useMemo(() => heroDelta(dailyProgress.points), [dailyProgress.points]);
     const plateau = useMemo(() => detectPlateau(cleanRecords, now), [cleanRecords, now]);
-    const slowTransitions = useMemo(() => worstTransitions(props.transitions, Infinity), [props.transitions]);
     // Per-key speed bars for the heatmap (Option A) - normalized against the
     // user's own pace, base layer only inside the component.
     const speedBars = useMemo(() => keySpeedBars(props.transitions), [props.transitions]);
-    // The active language's accent chars (loaded on demand; [] for English) -
-    // they let weak é/ü/ą show as drillable keys, and gate out keys from other
-    // languages/layouts the user isn't currently on.
-    const [accentChars, setAccentChars] = useState<string[]>([]);
-    useEffect(() => {
-        let alive = true;
-        void ensureLanguageLoaded(props.language).then(() => { if (alive) setAccentChars(accentsFor(props.language)); });
-        return () => { alive = false; };
-    }, [props.language]);
-    // Top weak keys for the one-click "drill your weakest keys" CTA. Only keys
-    // drillable on the current language/layout count; rank every key, then
-    // compose a letter-led set (≤3 punctuation/capitals) so a user who rarely
-    // types marks doesn't get a CTA that's all symbols.
-    const topWeakKeys = useMemo(
-        () => composeWeakKeys(worstKeysFromAttempts(new Map(Object.entries(props.keyAttempts)), Infinity)
-            .filter((entry) => isDrillableOn(entry.key, activeBoardLayout, accentChars))),
-        [props.keyAttempts, activeBoardLayout, accentChars],
-    );
 
     // One toggled trend chart instead of three stacked ones (saves height): WPM by
     // default, accuracy/consistency a tab away. Falls back to WPM if a filter
@@ -421,16 +421,13 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
                 </div>
             </div>
 
-            {/* Above the fold: "am I getting faster?" (the delta + the WPM proof)
-                sits beside the single highest-leverage action (drill your weak
-                spots). The three things that matter, no scrolling. */}
-            <div className="grid min-w-0 gap-4 lg:grid-cols-3">
-                <div className="min-w-0 space-y-4 lg:col-span-2">
-                    <div data-testid="headline-delta" className="rounded-xl border border-base-content/10 bg-base-100/45 p-4">
+            <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-12 lg:items-start">
+                <div ref={leftColumnRef} data-testid="progress-left-column" className="contents min-w-0 lg:col-span-6 lg:block lg:space-y-4">
+                    <div data-testid="headline-delta" className="order-1 rounded-xl border border-base-content/10 bg-base-100/45 p-4">
                         {plateau.plateaued ? (
                             <div data-testid="plateau-headline">
                                 <div className="font-mono text-3xl font-bold text-base-content">Plateaued for {plateau.weeks} weeks</div>
-                                <p className="mt-2 text-base-content/60">Your recent net WPM trend has stayed nearly flat. Drill the weak spot beside it, then re-measure.</p>
+                                <p className="mt-2 text-base-content/60">Your recent net WPM trend has stayed nearly flat. Practise a high-worth Target, then re-measure.</p>
                             </div>
                         ) : hero.delta !== null ? (
                             <HeroDeltaLine
@@ -459,6 +456,7 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
                         {hasData && <GoalCard records={inPeriod} now={now} />}
                     </div>
 
+                    <div className="order-3">
                     {hasData ? (
                         <TrendChart
                             title={trendConfig.title}
@@ -492,14 +490,15 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
                             Complete a few tests and your WPM, accuracy, and consistency trend appears here.
                         </div>
                     )}
+                    </div>
 
-                    <div data-testid="lifetime-keyboard-card" className="rounded-lg border border-base-content/10 bg-base-100/45 p-3">
+                    <div data-testid="lifetime-keyboard-card" className="order-4 rounded-lg border border-base-content/10 bg-base-100/45 p-3">
                         <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                            {/* "Your keyboard", not "Lifetime": per-key accuracy is a rolling
-                                window of recent attempts (ADR-0005), not an all-time sum. */}
+                            {/* Progress proof is derived from the bounded natural-Test Timeline
+                                window; Practice aggregates remain available on Practice itself. */}
                             <div className="flex items-center gap-1.5">
                                 <div className="text-base font-semibold text-base-content">Your keyboard</div>
-                                <Tooltip content="Colors show your rolling accuracy from recent attempts. Hover any key to compare its Base, Shift, and AltGr layers.">
+                                <Tooltip content="Colors show accuracy from recent natural Tests. Hover any key to compare its Base, Shift, and AltGr layers.">
                                     <Link
                                         href="/how-we-measure"
                                         aria-label="How keyboard accuracy is calculated"
@@ -533,88 +532,13 @@ const ProgressDashboard = (props: { language: string; records: ProgressRecord[];
                     </div>
                 </div>
 
-                <div className="space-y-4 lg:col-span-1">
-                {/* Weak spots → drill has its own height; long evidence scrolls
-                    inside without changing the rhythm of the left column. */}
-                <div data-testid="weak-spots" className="flex flex-col gap-3 rounded-xl border border-primary/25 bg-primary/5 p-4">
-                        <div className="text-lg font-semibold text-base-content">Weak spots → drill</div>
-
-                        {/* Center the content so a sparse card reads as balanced, not
-                            top-heavy with a void; a long transitions list scrolls. */}
-                        <div className="flex min-h-0 flex-1 flex-col gap-3">
-                            {topWeakKeys.length === 0 && slowTransitions.length === 0 && (
-                                <p data-testid="weak-spots-empty" className="m-auto max-w-[16rem] text-center text-sm text-base-content/45">
-                                    Take more tests to reveal your weakest keys and slowest transitions to drill.
-                                </p>
-                            )}
-                            {topWeakKeys.length > 0 && (
-                                <div>
-                                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-base-content/45">Weakest keys</p>
-                                    <div className="mb-3 flex flex-wrap gap-1.5">
-                                        {topWeakKeys.map((k) => (
-                                            <span key={k.key} className="rounded-md border border-base-content/15 bg-base-200/60 px-2 py-1 font-mono text-sm font-bold text-base-content">
-                                                {k.key} <span className="text-xs font-normal text-base-content/50">{k.accuracy.toFixed(0)}%</span>
-                                            </span>
-                                        ))}
-                                    </div>
-                                    <Link
-                                        href={`/drill?keys=${topWeakKeys.map((k) => k.key).join(",")}`}
-                                        className="inline-flex w-full items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85"
-                                    >
-                                        Drill weakest keys
-                                    </Link>
-                                </div>
-                            )}
-
-                            {slowTransitions.length > 0 && (
-                                <div data-testid="worst-transitions" className="flex min-h-0 flex-col">
-                                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-base-content/45">Slowest transitions</p>
-                                    <ul
-                                        aria-label="Slowest transitions"
-                                        tabIndex={0}
-                                        className="flex flex-col gap-2 pr-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary lg:max-h-72 lg:overflow-y-auto lg:overscroll-contain"
-                                    >
-                                        {slowTransitions.map((t) => (
-                                            <li key={t.pair} className="flex items-center justify-between gap-2 rounded-md border border-base-content/10 bg-base-200/40 px-3 py-2">
-                                                <span className="text-sm text-base-content/90">
-                                                    <span className="font-mono font-bold text-base-content">{t.from}→{t.to}</span> · {t.ratio.toFixed(1)}× avg
-                                                </span>
-                                                <Link
-                                                    href={`/drill?transitions=${t.from}${t.to}`}
-                                                    className="inline-flex shrink-0 items-center justify-center rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-content transition hover:opacity-85"
-                                                >
-                                                    Drill {t.from}{t.to}
-                                                </Link>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                <div data-testid="records-timeline" className="flex flex-col rounded-lg border border-base-content/10 bg-base-100/45 p-4">
-                    <div className="mb-3 text-lg font-semibold text-base-content">Records</div>
-                    {records.length > 0 ? (
-                        <ul
-                            aria-label="Personal records"
-                            tabIndex={0}
-                            className="space-y-2 pr-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary lg:max-h-72 lg:overflow-y-auto lg:overscroll-contain"
-                        >
-                            {records.map((event) => (
-                                <li key={event.t} className="flex items-center justify-between gap-3 border-b border-base-content/10 pb-2 text-sm last:border-b-0 last:pb-0">
-                                    <span className="shrink-0 text-base-content/60">{new Date(event.t).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}</span>
-                                    <span className="text-right font-medium text-base-content">
-                                        {event.kind === "threshold" ? `First ${event.threshold}+ WPM test` : `${event.wpm.toFixed(1)} WPM personal best`}
-                                    </span>
-                                </li>
-                            ))}
-                        </ul>
-                    ) : (
-                        <p className="text-sm text-base-content/45">Your personal bests and first-milestone tests land here as you improve.</p>
-                    )}
+                <div
+                    data-testid="progress-coach-column"
+                    className="order-2 min-h-0 lg:col-span-6 lg:h-[var(--progress-coach-height)] lg:self-start"
+                    style={coachColumnStyle}
+                >
+                    <ProgressCoach projection={props.coach} loading={props.coachLoading} />
                 </div>
-            </div>
             </div>
         </div>
     );
@@ -633,6 +557,15 @@ const Progress: NextPage = () => {
     // language (recordsForPool), so a remap layout keeps its own WPM history.
     const [activeLayout] = useLayout();
     const pool = statsPoolFor(activeLayout);
+    const coaching = useCoachingEvidence();
+    const coachProjection = useMemo(
+        () => coaching.analysis ? projectProgressCoach(coaching.analysis) : null,
+        [coaching.analysis],
+    );
+    const naturalKeyboard = useMemo(
+        () => projectNaturalKeyboardEvidence(coaching.evidence?.timelines ?? [], getWords(language)),
+        [coaching.evidence?.timelines, language],
+    );
     const recordsQuery = api.test.getProgressRecords.useQuery(undefined, {
         enabled: !!sessionData?.user,
     });
@@ -662,19 +595,6 @@ const Progress: NextPage = () => {
         [rawRecords, rollupsQuery.data, language, pool],
     );
 
-    // Lifetime per-key accuracy for the heatmap: DB practice stats when signed
-    // in, the localStorage key-stat mirror for guests (useGuestEvidence follows
-    // the pool itself). Both read the active layout's stats pool (decision 6).
-    const practiceStatsQuery = api.practiceStats.get.useQuery({ pool }, { enabled: !!sessionData?.user });
-    const dbKeyAttempts = useMemo(() => {
-        const out: Record<string, KeyAttempt> = {};
-        for (const stat of practiceStatsQuery.data ?? []) out[stat.character] = { attempts: stat.total, correct: stat.correct };
-        return out;
-    }, [practiceStatsQuery.data]);
-
-    const transitionsQuery = api.transitionStats.get.useQuery({ pool }, { enabled: !!sessionData?.user });
-    const dbTransitions: TransitionAggregate[] = transitionsQuery.data ?? [];
-
     // Guest evidence lives in localStorage (read client-side after mount to avoid
     // an SSR mismatch). A guest with history gets the real dashboard + a keep-it
     // banner; a guest with none gets the signup pitch.
@@ -686,12 +606,6 @@ const Progress: NextPage = () => {
         ), pool),
         [guest, language, pool],
     );
-    const guestKeyAttempts = useMemo(() => {
-        const attempts: Record<string, KeyAttempt> = {};
-        for (const stat of guest?.keyStats ?? []) attempts[stat.key] = { attempts: stat.attempts, correct: stat.correct };
-        return attempts;
-    }, [guest]);
-    const guestTransitions: TransitionAggregate[] = guest?.transitions ?? [];
     // Dashboard-vs-signup-pitch keys off having ANY progress, not the language-
     // filtered slice - otherwise a guest with English history sees the signup pitch
     // the moment they switch to a language they haven't typed.
@@ -715,7 +629,7 @@ const Progress: NextPage = () => {
                                     Sign in to keep it forever
                                 </button>
                             </div>
-                            <ProgressDashboard language={language} records={guestRecords} keyAttempts={guestKeyAttempts} transitions={guestTransitions} />
+                            <ProgressDashboard language={language} records={guestRecords} keyAttempts={naturalKeyboard.attempts} transitions={naturalKeyboard.transitions} coach={coachProjection} coachLoading={coaching.loading} />
                         </div>
                     ) : (
                         // No local history yet - the page is the signup pitch.
@@ -735,7 +649,7 @@ const Progress: NextPage = () => {
                         </div>
                     )
                 ) : (
-                    <ProgressDashboard language={language} records={records} keyAttempts={dbKeyAttempts} transitions={dbTransitions} canShare username={sessionData.user.username ?? sessionData.user.name} />
+                    <ProgressDashboard language={language} records={records} keyAttempts={naturalKeyboard.attempts} transitions={naturalKeyboard.transitions} coach={coachProjection} coachLoading={coaching.loading} canShare username={sessionData.user.username ?? sessionData.user.name} />
                 )}
             </div>
         </>

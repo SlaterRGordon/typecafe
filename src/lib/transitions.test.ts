@@ -8,7 +8,7 @@ function events(pairs: [string, number, boolean?][]): KeystrokeEvent[] {
     let t = 0
     return pairs.map(([key, gap, correct = true], i) => {
         if (i > 0) t += gap
-        return { key, correct, t }
+        return { key, typed: correct ? key : "?", correct, t }
     })
 }
 

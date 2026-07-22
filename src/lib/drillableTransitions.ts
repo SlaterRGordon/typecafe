@@ -2,17 +2,24 @@ import english1k from "~/components/typer/languages/english1k.json"
 
 export const MIN_REAL_TRANSITION_WORDS = 2
 
-const transitionWordCounts = new Map<string, number>()
-
-for (const word of english1k.words) {
-    const pairs = new Set<string>()
-    for (let i = 0; i < word.length - 1; i += 1) {
-        pairs.add(word.slice(i, i + 2))
+function transitionCounts(words: readonly string[]): Map<string, number> {
+    const counts = new Map<string, number>()
+    for (const rawWord of words) {
+        const characters = [...rawWord.toLocaleLowerCase()]
+        const pairs = new Set<string>()
+        for (let index = 0; index < characters.length - 1; index += 1) {
+            const pair = characters[index]! + characters[index + 1]!
+            if (/^\p{L}{2}$/u.test(pair)) pairs.add(pair)
+        }
+        for (const pair of pairs) counts.set(pair, (counts.get(pair) ?? 0) + 1)
     }
-    for (const pair of pairs) {
-        transitionWordCounts.set(pair, (transitionWordCounts.get(pair) ?? 0) + 1)
-    }
+    return counts
 }
+
+const transitionWordCounts = transitionCounts(english1k.words)
+const englishTrackableTransitionPairs = new Set(
+    [...transitionWordCounts].filter(([, count]) => count >= MIN_REAL_TRANSITION_WORDS).map(([pair]) => pair),
+)
 
 export function realTransitionWordCount(pair: string): number {
     return transitionWordCounts.get(pair.toLowerCase()) ?? 0
@@ -22,9 +29,15 @@ export function realTransitionWordCount(pair: string): number {
 // english1k words). This is the *coaching* gate: what worstTransitions ranks and
 // what the baseline mean is measured over. Space pairs are deliberately excluded
 // - you can't drill "e→space".
-export function isTrackableTransitionPair(pair: string): boolean {
+export function trackableTransitionPairs(words: readonly string[]): ReadonlySet<string> {
+    return new Set(
+        [...transitionCounts(words)].filter(([, count]) => count >= MIN_REAL_TRANSITION_WORDS).map(([pair]) => pair),
+    )
+}
+
+export function isTrackableTransitionPair(pair: string, eligiblePairs: ReadonlySet<string> = englishTrackableTransitionPairs): boolean {
     const normalized = pair.toLowerCase()
-    return /^[a-z]{2}$/.test(normalized) && realTransitionWordCount(normalized) >= MIN_REAL_TRANSITION_WORDS
+    return /^\p{L}{2}$/u.test(normalized) && eligiblePairs.has(normalized)
 }
 
 // Tracked = what gets *stored* and rolled up (per-key speed), a superset of

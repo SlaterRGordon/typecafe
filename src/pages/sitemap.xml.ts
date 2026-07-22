@@ -7,7 +7,7 @@ const EXTERNAL_DATA_URL = "https://typecafe.app";
 // Real lastmod dates. Emitting `new Date()` on every fetch tells Google every
 // page changed "just now" on every crawl, so it learns to ignore the field.
 // Bump this when static/guide content meaningfully changes.
-const STATIC_LASTMOD = "2026-07-12";
+const STATIC_LASTMOD = "2026-07-20";
 
 interface User {
     username: string;
@@ -19,12 +19,11 @@ interface User {
 // surfaces should not be advertised as public landing pages.
 export const STATIC_ROUTES = [
     "/",
-    "/drill",
+    "/practice",
     "/train",
     "/progress",
     "/leaderboard",
     "/challenge",
-    "/plan",
     "/guides",
     "/how-to-type-faster",
     "/how-ngrams-work",
@@ -47,7 +46,7 @@ function priorityFor(route: string): { priority: string; changefreq: string } {
     if (route === "/guides" || GUIDE_ROUTES.includes(route)) {
         return { priority: "0.7", changefreq: "monthly" };
     }
-    if (["/progress", "/train", "/drill", "/plan"].includes(route)) {
+    if (["/progress", "/practice", "/train"].includes(route)) {
         return { priority: "0.5", changefreq: "weekly" };
     }
     return { priority: "0.3", changefreq: "monthly" };

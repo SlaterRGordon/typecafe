@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import english10k from "~/components/typer/languages/english10k.json"
-import { generatePhonologicalText, generatePhonologicalWord } from "."
+import { generatePhonologicalFocusCarrier, generatePhonologicalText, generatePhonologicalWord } from "."
 
 const cyclingRng = () => {
     let value = 0
@@ -69,6 +69,8 @@ describe("generatePhonologicalWord", () => {
             allowedCharacters: ["你"],
             requiredCharacter: "你",
         })).toBeNull()
+        expect(generatePhonologicalFocusCarrier({ language: "chinese", focus: "你" })).toBeNull()
+        expect(generatePhonologicalFocusCarrier({ language: "hindi", focus: "न" })).toBeNull()
     })
 
     it("is deterministic with an injected random source", () => {

@@ -16,6 +16,26 @@ export interface PhonologicalWordRequest {
     rng?: Random
 }
 
+export interface PhonologicalSequenceWordRequest {
+    language: string
+    corpus: readonly string[]
+    allowedCharacters: readonly string[]
+    requiredSequence: string
+    excluded?: ReadonlySet<string>
+    surroundSequence?: boolean
+    position?: PhonologicalSequencePosition
+    rng?: Random
+}
+
+export interface PhonologicalFocusCarrierRequest {
+    language: string
+    focus: string
+    position?: PhonologicalSequencePosition
+    rng?: Random
+}
+
+export type PhonologicalSequencePosition = "initial" | "medial" | "final" | "any"
+
 export interface PhonologicalTextRequest {
     language: string
     corpus: readonly string[]
@@ -353,13 +373,14 @@ const generateNovelWord = (
     required: string | null,
     excluded: ReadonlySet<string>,
     rng: Random,
+    accepts: (word: string) => boolean = () => true,
 ): string | null => generateOrthographicWord({
     model: model.orthography,
     allowed,
     required,
     excluded,
     forbidden: model.words,
-    accepts: (word) => isPhonologicallyLicensed(word, model, profile),
+    accepts: (word) => isPhonologicallyLicensed(word, model, profile) && accepts(word),
     rng,
 }) ?? generateFromPool(
     model,
@@ -367,7 +388,7 @@ const generateNovelWord = (
     required ?? [...allowed][Math.floor(rng() * allowed.size)]!,
     excluded,
     rng,
-    (word) => isPhonologicallyLicensed(word, model, profile),
+    (word) => isPhonologicallyLicensed(word, model, profile) && accepts(word),
 )
 
 const sampleCarrier = (
@@ -411,17 +432,67 @@ const normalizedAlphabet = (characters: readonly string[]): string[] =>
  * Models and per-alphabet pools are memoized by corpus-array identity.
  */
 export function generatePhonologicalWord(request: PhonologicalWordRequest): string | null {
+    return generatePhonologicalSequenceWord({
+        language: request.language,
+        corpus: request.corpus,
+        allowedCharacters: request.allowedCharacters,
+        requiredSequence: request.requiredCharacter,
+        surroundSequence: false,
+        rng: request.rng,
+    })
+}
+
+/** Generate one novel licensed spelling containing an exact focus sequence. */
+export function generatePhonologicalSequenceWord(request: PhonologicalSequenceWordRequest): string | null {
     const profile = profileFor(request.language)
     if (!profile) return null
     const rng = request.rng ?? Math.random
     const alphabet = normalizedAlphabet(request.allowedCharacters)
     const allowed = new Set(alphabet)
-    const required = request.requiredCharacter.toLowerCase().normalize("NFC")
-    if (!allowed.has(required)) return null
+    const required = request.requiredSequence.toLowerCase().normalize("NFC")
+    if (!required || ![...required].every((character) => allowed.has(character))) return null
 
     const model = modelFor(request.corpus, profile)
     const pool = poolFor(model, allowed)
-    return generateNovelWord(model, profile, pool, allowed, required, new Set(), rng)
+    const position = request.position ?? (request.surroundSequence === false ? "any" : "medial")
+    return generateNovelWord(model, profile, pool, allowed, required, request.excluded ?? new Set(), rng, (word) => {
+        const points = [...word]
+        const target = [...required]
+        for (let index = 0; index + target.length <= points.length; index += 1) {
+            if (!target.every((character, offset) => points[index + offset] === character)) continue
+            if (position === "any") return true
+            if (position === "initial" && index === 0 && target.length < points.length) return true
+            if (position === "medial" && index > 0 && index + target.length < points.length) return true
+            if (position === "final" && index > 0 && index + target.length === points.length) return true
+        }
+        return false
+    })
+}
+
+/**
+ * Build a bounded CV frame from the active language inventory when corpus
+ * evidence is too sparse to license a whole generated word. The selected focus
+ * remains exact while supporting characters keep the token pronounceable
+ * enough to type rather than mechanically repeating the focus.
+ */
+export function generatePhonologicalFocusCarrier(request: PhonologicalFocusCarrierRequest): string | null {
+    const profile = profileFor(request.language)
+    if (!profile) return null
+    const rng = request.rng ?? Math.random
+    const focus = request.focus.toLowerCase().normalize("NFC")
+    if (!focus || ![...focus].every((character) => /\p{L}/u.test(character))) return null
+    const vowels = [...profile.vowels]
+    const preferredConsonants = [..."mnlrstpkbdfv"].filter((character) => profile.phones[character])
+    if (vowels.length === 0 || preferredConsonants.length === 0) return null
+    const sample = (values: readonly string[]) => values[Math.floor(rng() * values.length)]!
+    const left = `${sample(preferredConsonants)}${sample(vowels)}`
+    const right = `${sample(preferredConsonants)}${sample(vowels)}`
+    switch (request.position ?? "medial") {
+        case "initial": return `${focus}${right}`
+        case "final": return `${left}${focus}`
+        case "any": return rng() < 0.5 ? `${focus}${right}` : `${left}${focus}`
+        default: return `${left}${focus}${right}`
+    }
 }
 
 /**

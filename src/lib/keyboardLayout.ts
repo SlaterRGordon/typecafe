@@ -306,7 +306,6 @@ function buildGeometry(id: string, spec: LayoutSpec): Geometry {
     const composedToKey = new Map<string, string>()
     const deadToComposed = new Map<string, string[]>()
     const charToSteps = new Map<string, Step[]>()
-
     for (const row of board.rows) {
         for (const cap of row) {
             if (!capByBase.has(cap.base)) capByBase.set(cap.base, cap)
@@ -435,6 +434,10 @@ export function statsPoolFor(layout: string): string {
 // Every pool the catalog can produce ("qwerty" + one per remap) - lets the
 // sign-in import enumerate the guest mirrors without guessing storage keys.
 export const STATS_POOLS: string[] = [...new Set(LAYOUT_IDS.map(statsPoolFor))]
+
+export function layoutsForStatsPool(pool: string): string[] {
+    return LAYOUT_IDS.filter((layout) => statsPoolFor(layout) === pool)
+}
 
 // ---------------------------------------------------------------------------
 // Setting resolution (ledger decision 4). The stored setting is AUTO_LAYOUT or

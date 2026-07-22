@@ -27,6 +27,9 @@ interface TextProps {
     // Challenge runs use fixed seeded text; never append generated words (which
     // would break the byte-identical-across-clients guarantee).
     noAppend?: boolean,
+    // Practice infinity supplies its own focus-aware chunks instead of falling
+    // back to generic language text.
+    appendText?: () => string,
     // Boss levels: a pacer line glides across the text at this net WPM. If it
     // catches the typist's cursor the run ends early (overtake = death).
     pacerWpm?: number,
@@ -45,6 +48,10 @@ interface TextProps {
 }
 
 type TypingKeyEvent = Pick<KeyboardEvent, "key" | "code">
+
+const PRACTICE_INITIAL_CHARACTERS = 500
+const PRACTICE_APPEND_CHARACTERS = 500
+const APPEND_MARGIN_CHARACTERS = 300
 
 // True for editable form controls. The toolbar and its subpanels live inside
 // #typer, so their inputs would otherwise have focus yanked back to the hidden
@@ -74,6 +81,7 @@ export const Text = memo(function Text(props: TextProps) {
         capitals = false,
         numbers = false,
         noAppend = false,
+        appendText,
         pacerWpm,
         onPacerCaught,
         failOnMiss,
@@ -96,6 +104,7 @@ export const Text = memo(function Text(props: TextProps) {
     const textContainerRef = useRef<HTMLDivElement>(null)
     const charStatesRef = useRef<Map<number, 'correct' | 'incorrect'>>(new Map())
     const currentTextRef = useRef(text)
+    const renderedLengthRef = useRef(0)
     const isAppendingRef = useRef(false)
     const completedRef = useRef(false)
     const callbacksRef = useRef({ onKeyChange })
@@ -178,20 +187,24 @@ export const Text = memo(function Text(props: TextProps) {
         textContainerRef.current.innerHTML = ''
         const fragment = document.createDocumentFragment()
 
-        value.split('').forEach((char, index) => {
+        const initialText = noAppend && mode === TestModes.practice
+            ? value.slice(0, PRACTICE_INITIAL_CHARACTERS)
+            : value
+        initialText.split('').forEach((char, index) => {
             const span = createCharSpan(char, index)
             fragment.appendChild(span)
         })
 
         textContainerRef.current.appendChild(fragment)
+        renderedLengthRef.current = initialText.length
         setLoadingText(false)
-    }, [createCharSpan])
+    }, [createCharSpan, mode, noAppend])
 
     const appendNewText = useCallback((newText: string) => {
         if (!textContainerRef.current) return
 
         const fragment = document.createDocumentFragment()
-        const startIndex = currentTextRef.current.length
+        const startIndex = renderedLengthRef.current
 
         newText.split('').forEach((char, offset) => {
             const index = startIndex + offset
@@ -200,6 +213,7 @@ export const Text = memo(function Text(props: TextProps) {
         })
 
         textContainerRef.current.appendChild(fragment)
+        renderedLengthRef.current += newText.length
     }, [createCharSpan])
 
     // event listeners to focus input
@@ -270,6 +284,7 @@ export const Text = memo(function Text(props: TextProps) {
         const restartBtn = document.getElementById("restart") as HTMLButtonElement
         if (restartBtn) restartBtn.classList.remove("blinking", "text-primary")
         const input = inputRef.current
+        if (input) input.disabled = false
         // A config change (e.g. editing a grams-subpanel field) regenerates text
         // and lands here; don't yank focus away from a control the user is editing.
         const active = document.activeElement
@@ -283,8 +298,8 @@ export const Text = memo(function Text(props: TextProps) {
         (mode === TestModes.normal && subMode === TestSubModes.timed))
     // Latest append inputs, readable from the idle callback without re-wiring
     // it on every option change.
-    const appendConfigRef = useRef({ appendsText, appendKeys, language, punctuation, capitals, numbers })
-    appendConfigRef.current = { appendsText, appendKeys, language, punctuation, capitals, numbers }
+    const appendConfigRef = useRef({ appendsText, appendKeys, appendText, language, punctuation, capitals, numbers })
+    appendConfigRef.current = { appendsText, appendKeys, appendText, language, punctuation, capitals, numbers }
     // Bumped on restart so a scheduled append can't land on a regenerated test.
     const appendEpochRef = useRef(0)
 
@@ -293,8 +308,22 @@ export const Text = memo(function Text(props: TextProps) {
     // seconds of margin at any human speed, so the 1s timeout always lands in time.
     const scheduleAppendIfNeeded = () => {
         const config = appendConfigRef.current
+        const hasBufferedPracticeText = noAppend && mode === TestModes.practice
+            && renderedLengthRef.current < currentTextRef.current.length
+        if (hasBufferedPracticeText) {
+            if (isAppendingRef.current || positionRef.current < renderedLengthRef.current - APPEND_MARGIN_CHARACTERS) return
+            isAppendingRef.current = true
+            const epoch = appendEpochRef.current
+            runWhenIdle(() => {
+                isAppendingRef.current = false
+                if (epoch !== appendEpochRef.current) return
+                const start = renderedLengthRef.current
+                appendNewText(currentTextRef.current.slice(start, start + PRACTICE_APPEND_CHARACTERS))
+            })
+            return
+        }
         if (!config.appendsText || isAppendingRef.current) return
-        if (positionRef.current < currentTextRef.current.length - 300) return
+        if (positionRef.current < currentTextRef.current.length - APPEND_MARGIN_CHARACTERS) return
         isAppendingRef.current = true
         const epoch = appendEpochRef.current
         const run = () => {
@@ -302,13 +331,15 @@ export const Text = memo(function Text(props: TextProps) {
             if (epoch !== appendEpochRef.current) return
             const current = appendConfigRef.current
             if (!current.appendsText) return
-            const generated = current.appendKeys
-                ? generateBetterPseudoText(100, current.appendKeys.split(""), parseLanguage(current.language).base)
-                : generateText(100, current.language)
-            const newText = applyTextOptions(generated, current.punctuation, current.capitals, {
-                digits: current.numbers ? ALL_DIGITS : [],
-                language: parseLanguage(current.language).base,
-            })
+            const generated = current.appendText
+                ? current.appendText()
+                : current.appendKeys
+                    ? generateBetterPseudoText(100, current.appendKeys.split(""), parseLanguage(current.language).base)
+                    : generateText(100, current.language)
+            const newText = current.appendText ? generated : applyTextOptions(generated, current.punctuation, current.capitals, {
+                    digits: current.numbers ? ALL_DIGITS : [],
+                    language: parseLanguage(current.language).base,
+                })
             appendNewText(" " + newText)
             currentTextRef.current += " " + newText
         }
@@ -386,15 +417,12 @@ export const Text = memo(function Text(props: TextProps) {
             // check for correct key or incorrect
             if ((expected === '' && e.key === ' ') || expected === e.key) {
                 nextLetter(true, e.key)
-                // start timer
-                if (currentPosition === 0 && !started) startAttempt()
                 return true
             } else if (e.code == 'Space' || e.key.length == 1) {
                 // Any single printable key (letter, capital, punctuation, symbol) that
                 // does not match the expected character counts as an incorrect attempt -
                 // including on the very first character, which also starts the timer.
                 nextLetter(false, e.key)
-                if (currentPosition === 0 && !started) startAttempt()
                 return true
             } else if (currentPosition > 0 && e.code === 'Backspace') {
                 prevLetter()
@@ -426,6 +454,11 @@ export const Text = memo(function Text(props: TextProps) {
             attempts.attempts += 1;
             if (correct) attempts.correct += 1;
             charAttempts.set(char, attempts);
+
+            // Register the first keystroke before any completion path runs. A
+            // one-character Grams word can complete on this same keystroke, and
+            // its completion guard needs the active attempt already initialized.
+            if (currentIndex === 0 && !started) startAttempt()
 
             positionRef.current = currentIndex + 1
 

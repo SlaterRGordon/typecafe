@@ -4,33 +4,25 @@
 
 import { worstKeysFromAttempts } from "./stats"
 import { boardFor, composedFor, keyFor, sequenceFor, type KeyCap, type Layer } from "./keyboardLayout"
+import {
+    isDrillDigit,
+    isDrillableKey,
+    isDrillMark,
+    isPracticeLetter,
+    isPracticeVowel,
+} from "./drillCharacters"
 
-// Punctuation the drill sprinkles at word boundaries, split by where it lands in
-// a sentence (enders close a clause; mids sit between words).
-export const ENDER_MARKS = ['.', '?', '!']
-export const MID_MARKS = [',', ';', ':', '-']
-export const DRILL_MARKS = [...ENDER_MARKS, ...MID_MARKS]
-
-export const isDrillMark = (key: string) => DRILL_MARKS.includes(key)
-export const isDrillDigit = (key: string) => /^[0-9]$/.test(key)
-// The full digit pool the numbers toggle sprinkles into normal-mode text.
-export const ALL_DIGITS = "0123456789".split("")
-
-// One drillable key: a lowercase letter, a digit, or a drill mark. Capitals fold
-// to their base letter before this check - capitals are diagnosed but not drilled
-// directly (the shift motion rides on the base key), so they're not their own key.
-export const isDrillableKey = (key: string) =>
-    /^[a-z]$/.test(key) || isDrillDigit(key) || isDrillMark(key)
-
-const VOWELS = "aeiou"
-
-// Practice accepts lowercase Unicode letters. Decomposing covers the accented
-// vowels used by the shipped language lists (ü → u, é → e, ą → a) without a
-// locale table; every other letter is a consonant for the generation floor.
-export const isPracticeLetter = (key: string) => /^\p{Ll}$/u.test(key)
-export const isPracticeVowel = (key: string) =>
-    isPracticeLetter(key) && VOWELS.includes(key.normalize("NFD")[0] ?? "")
-
+export {
+    ALL_DIGITS,
+    DRILL_MARKS,
+    ENDER_MARKS,
+    isDrillDigit,
+    isDrillableKey,
+    isDrillMark,
+    isPracticeLetter,
+    isPracticeVowel,
+    MID_MARKS,
+} from "./drillCharacters"
 
 // Weak-key surfaces (progress, coach tab) only show keys the user can drill
 // *right now*: ASCII drillables plus the active language's accent chars, and

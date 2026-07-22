@@ -10,10 +10,11 @@
 
 ## Problem
 
-Net WPM is the canonical headline metric (CONTEXT: _"the headline speed
-number"_) yet has no home. Both sources store the same raw fields — guest
-`localStorage` and the DB both persist `speed` (raw WPM) + `accuracy` — and net
-is derived on read. Most sites call `netFromRaw(speed, accuracy)` =
+At the time of this review, net WPM was the canonical headline metric (CONTEXT:
+_"the headline speed number"_) but had no storage home. Both sources stored the
+same raw fields — guest `localStorage` and the DB persisted `speed` (raw WPM) +
+`accuracy` — and net was derived on read. Most sites called
+`netFromRaw(speed, accuracy)` =
 `raw·(2a−1)`, but the share cards derive it **differently**:
 
 - `src/lib/stats.ts:41` → `raw·(2a−1)` — /progress, leaderboard, challenge.
@@ -26,8 +27,8 @@ divergent definitions of the headline number.
 
 ## Solution
 
-A reader that takes a stored row (`{ speed, accuracy }`, either source) and
-returns net WPM; the formula `net = raw·(2a−1)` lives behind it. Callers ask
+A reader that takes a raw stored row (`{ speed, accuracy }`) and returns net
+WPM; the formula `net = raw·(2a−1)` lives behind it. Callers ask
 "what's the net WPM of this row?" instead of recomputing it.
 
 ## Before / After
@@ -77,3 +78,10 @@ full-site audit found profile best/percentile queries ordering the legacy
 `raw·accuracy` score, plus daily rollups trying to reconstruct net from two
 separate averages. Migration `20260711140000_canonical_net_wpm` backfills Test
 scores; version-2 daily rows average per-test net values before folding.
+
+Slice 0 of adaptive skill coaching completed the other storage boundary on
+2026-07-14: signed-in Progress reads `Test.score`, guest progress v2 stores
+canonical net WPM, and legacy unversioned guest entries convert from raw WPM
+and saved Accuracy on read. Raw `speed` and `accuracy` remain available for
+explanation and compatibility; `netScores.ts` still derives net only for older
+aggregation paths that intentionally select those raw fields.

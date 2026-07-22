@@ -7,11 +7,13 @@ import { addLocalTransitions } from "~/lib/localTransitions"
 import { EVIDENCE_SYNCED_EVENT } from "~/hooks/useGuestEvidence"
 import { aggregateTransitions } from "~/lib/transitions"
 import { drainSyncedAttempts } from "~/lib/practiceAttempts"
-import type { EncodedKeystroke, KeystrokeEvent } from "~/lib/keystrokes"
+import type { EncodedTimeline, KeystrokeEvent } from "~/lib/keystrokes"
 import { api } from "~/utils/api"
 import { statsPoolFor } from "~/lib/keyboardLayout"
+import type { EvidenceTestConfiguration } from "~/lib/guestEvidence"
+import type { EvidenceContext, PracticeRecord } from "~/lib/evidenceContext"
 import { useLayout } from "~/hooks/useLayout"
-import type { TestCompletionResult, TestModes } from "../types"
+import type { TestCompletionResult } from "../types"
 
 export interface CreateTestInput {
     typeId: string,
@@ -20,13 +22,15 @@ export interface CreateTestInput {
     punctuation: boolean,
     capitals: boolean,
     numbers: boolean,
-    timeline: EncodedKeystroke[],
+    timeline: EncodedTimeline,
+    context?: EvidenceContext,
+    practice?: PracticeRecord,
     utcOffsetMinutes?: number,
     challengeDate?: string,
 }
 
 interface UseTestPersistenceArgs {
-    mode: TestModes,
+    evidenceContext: EvidenceContext,
     charAttemptsRef: React.MutableRefObject<Map<string, { attempts: number, correct: number }>>,
     onTestComplete?: (result: TestCompletionResult) => void,
     // Show the result instantly instead of waiting for the save round-trip: report
@@ -39,7 +43,7 @@ interface UseTestPersistenceArgs {
 // Owns everything that talks to the server after a test: saving the score (and
 // reporting completion back once the save settles) and syncing per-character
 // practice stats.
-export function useTestPersistence({ charAttemptsRef, onTestComplete, eagerResult = false }: UseTestPersistenceArgs) {
+export function useTestPersistence({ evidenceContext, charAttemptsRef, onTestComplete, eagerResult = false }: UseTestPersistenceArgs) {
     const { data: sessionData } = useSession()
     const dispatch = useDispatch()
     const utils = api.useUtils()
@@ -48,6 +52,9 @@ export function useTestPersistence({ charAttemptsRef, onTestComplete, eagerResul
     const [layout] = useLayout()
     const pool = statsPoolFor(layout)
     const pendingCompletionRef = useRef<TestCompletionResult | null>(null)
+    const practiceSyncInFlightRef = useRef(false)
+    const practiceSyncQueuedRef = useRef(false)
+    const syncCharAttemptsRef = useRef<() => void>(() => undefined)
 
     const createTest = api.test.create.useMutation({
         onSuccess: (test) => {
@@ -80,9 +87,39 @@ export function useTestPersistence({ charAttemptsRef, onTestComplete, eagerResul
     const persistCompletion = useCallback((completion: TestCompletionResult, input: CreateTestInput) => {
         pendingCompletionRef.current = completion
         if (eagerResult) onTestComplete?.(completion)
-        createTest.mutate({ ...input, layout })
+        createTest.mutate({ ...input, layout, context: evidenceContext })
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [createTest.mutate, eagerResult, onTestComplete, layout])
+    }, [createTest.mutate, eagerResult, onTestComplete, layout, evidenceContext])
+
+    // Stopped/restarted Practice is activity-only and must never race the next
+    // completed run's result callback through pendingCompletionRef.
+    const practiceActivity = api.test.create.useMutation({
+        onError: (error) => console.error(error),
+    })
+    const persistActivity = useCallback((input: CreateTestInput) => {
+        practiceActivity.mutate({ ...input, layout, context: evidenceContext })
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [practiceActivity.mutate, layout, evidenceContext])
+
+    const persistGuestTimeline = useCallback((
+        completion: TestCompletionResult,
+        config: Omit<EvidenceTestConfiguration, "layout">,
+        practice?: PracticeRecord,
+    ) => {
+        if (sessionData?.user) return
+        void import("~/lib/guestEvidenceStore").then(({ addGuestEvidenceTest, createGuestEvidenceId }) => (
+            addGuestEvidenceTest({
+                localId: createGuestEvidenceId(),
+                completedAt: Date.now(),
+                context: evidenceContext,
+                practice,
+                config: { ...config, layout },
+                timeline: completion.timeline,
+            })
+        )).then((saved) => {
+            if (saved) window.dispatchEvent(new Event(EVIDENCE_SYNCED_EVENT))
+        })
+    }, [sessionData?.user, evidenceContext, layout])
 
     // Both sync mutations invalidate their lifetime read so always-mounted
     // surfaces (the coach tab) recompute from data that includes this test.
@@ -95,9 +132,16 @@ export function useTestPersistence({ charAttemptsRef, onTestComplete, eagerResul
     const { mutate: syncPracticeStats } = api.practiceStats.batchSync.useMutation({
         onSuccess: (_data, variables) => {
             drainSyncedAttempts(charAttemptsRef.current, variables.stats)
+            practiceSyncInFlightRef.current = false
             void utils.practiceStats.get.invalidate()
+            if (practiceSyncQueuedRef.current) {
+                practiceSyncQueuedRef.current = false
+                queueMicrotask(() => syncCharAttemptsRef.current())
+            }
         },
         onError: (error) => {
+            practiceSyncInFlightRef.current = false
+            practiceSyncQueuedRef.current = false
             console.error(error)
         },
     })
@@ -128,6 +172,15 @@ export function useTestPersistence({ charAttemptsRef, onTestComplete, eagerResul
     // wherever it happens. Ngrams is excluded by the callers in Typer because its
     // repeated-gram text would skew the per-key picture.
     const syncCharAttempts = useCallback(() => {
+        // Completion and restart can both schedule an idle flush before the
+        // first request settles. Keep one lifetime-stats write in flight so the
+        // same snapshot is never counted twice; later attempts remain in the
+        // map and are picked up by the next flush.
+        if (practiceSyncInFlightRef.current) {
+            practiceSyncQueuedRef.current = true
+            return
+        }
+
         const stats = Array.from(charAttemptsRef.current.entries()).map(
             ([character, value]) => ({
                 character,
@@ -152,8 +205,11 @@ export function useTestPersistence({ charAttemptsRef, onTestComplete, eagerResul
             return
         }
 
+        practiceSyncInFlightRef.current = true
         syncPracticeStats({ stats, pool })
     }, [charAttemptsRef, sessionData?.user, syncPracticeStats, pool])
 
-    return { sessionData, persistCompletion, syncCharAttempts, syncTransitions, isSaving: createTest.isPending }
+    syncCharAttemptsRef.current = syncCharAttempts
+
+    return { sessionData, persistCompletion, persistActivity, persistGuestTimeline, syncCharAttempts, syncTransitions, isSaving: createTest.isPending || practiceActivity.isPending }
 }

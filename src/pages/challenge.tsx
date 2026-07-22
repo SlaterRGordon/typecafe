@@ -9,7 +9,6 @@ import { useRestartShortcut } from "~/components/typer/hooks/useRestartShortcut"
 import { typingFocusFadeClass } from "~/components/typer/typingFocus";
 import { TestModes, TestSubModes } from "~/components/typer/types";
 import { getWords } from "~/components/typer/utils";
-import { DEFAULT_TEST_SETTINGS } from "~/hooks/useTestSettings";
 import { challengeDateKey, challengeShareBrag, challengeText, formatCountdown, msUntilNextChallenge } from "~/lib/challenge";
 import { recordLocalChallenge } from "~/lib/challengeHistory";
 import { isAnyModalOpen } from "~/lib/modals";
@@ -284,12 +283,6 @@ const Challenge: NextPage = () => {
                             count={CHALLENGE_SECONDS}
                             fixedText={text}
                             challengeDate={dateKey}
-                            gramSource={DEFAULT_TEST_SETTINGS.gramSource}
-                            gramScope={DEFAULT_TEST_SETTINGS.gramScope}
-                            gramCombination={DEFAULT_TEST_SETTINGS.gramCombination}
-                            gramRepetition={DEFAULT_TEST_SETTINGS.gramRepetition}
-                            gramWpmThreshold={DEFAULT_TEST_SETTINGS.gramWpmThreshold}
-                            gramAccuracyThreshold={DEFAULT_TEST_SETTINGS.gramAccuracyThreshold}
                             showStats={true}
                             modalOpen={false}
                             restartSignal={restartSignal}

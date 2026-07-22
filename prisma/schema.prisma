@@ -60,7 +60,7 @@ model User {
     practiceStats       PracticeStats[]
     transitionStats     TransitionStat[]
     trainProgress       TrainProgress[]
-    coachingSessions    CoachingSession[]
+    customGramsPreferences CustomGramsPreference[]
 }
 
 model VerificationToken {
@@ -105,10 +105,17 @@ model Test {
     // honesty metadata for score surfaces; aggregation uses statsPoolFor
     // (docs/features/keyboard-layouts.md decisions 6/10). Legacy rows = qwerty.
     layout    String   @default("qwerty")
-    // Full keystroke timeline (locked constraint #2): compact
-    // [charCode, correct, dtMs] triples from src/lib/keystrokes.ts. Evidence
-    // for replay/re-diagnosis under future heuristics; null on legacy rows.
+    // Full versioned keystroke timeline (locked constraint #2) from
+    // src/lib/keystrokes.ts. v2 stores expected/timing for every action and the
+    // actual typed code point only for misses; null on pre-timeline rows.
     timeline    Json?
+    // Additive, versioned Guided/Custom Practice contract. Null for ordinary
+    // Tests and legacy rows; the Timeline remains the keystroke evidence.
+    practice    Json?
+    // Context separates ordinary typing from focused coaching evidence. Guest
+    // imports carry their local id so retries converge on one unranked row.
+    evidenceContext String?
+    guestLocalId String?
     summaryDate DateTime  @db.Date
     // The daily-challenge day this test belongs to (null = not a challenge run).
     challengeDate DateTime? @db.Date
@@ -119,6 +126,7 @@ model Test {
     shares    ScoreShare[]
 
     @@index([userId])
+    @@unique([userId, guestLocalId])
     @@index([typeId])
     @@index([challengeDate])
 }
@@ -247,14 +255,11 @@ model TrainProgress {
     @@map("LearnProgress")
 }
 
-// One dated coaching prescription per language/stats pool. The snapshot is the
-// same validated shape guests keep locally, so sign-in and cross-device resume
-// converge on the most-complete copy instead of a second implementation.
-model CoachingSession {
+// Per-language account preference snapshot. The JSON contract starts with
+// Recent Custom Grams and can carry the remaining setup in issue #167.
+model CustomGramsPreference {
     id        String   @id @default(cuid())
     userId    String
-    dateKey   String   @db.VarChar(10)
-    pool      String   @default("qwerty")
     language  String
     snapshot  Json
     createdAt DateTime @default(now())
@@ -262,6 +267,6 @@ model CoachingSession {
 
     user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-    @@unique([userId, dateKey, pool, language])
+    @@unique([userId, language])
     @@index([userId])
 }

@@ -1,14 +1,15 @@
 // Per-keystroke timeline capture + the compact encoding that gets persisted.
-// Pure and React-free so it can be unit-tested and reused by diagnosis (this
-// phase), trends (Phase 2), and transitions (Phase 3). Everything downstream
-// reads from this timeline, so the shape is deliberately minimal and stable.
+// Pure and React-free: this is the compatibility seam for every historical
+// timeline and every scoring, replay, and diagnosis consumer.
 
-// One forward keystroke against an expected character. Backspaces are not
-// recorded here - diagnosis cares about the latency and correctness of the keys
-// the user actually committed to.
+// One forward keystroke against an expected character. Legacy incorrect events
+// cannot recover the actual key, so `typed` is null only when decoding v1 data.
 export interface KeystrokeEvent {
     // The character the user was meant to type at this position.
     key: string,
+    // The character actually typed. Correct attempts are reconstructed from the
+    // expected character because v2 stores them as zero to stay compact.
+    typed: string | null,
     correct: boolean,
     // Wall-clock time of the keystroke, in ms.
     t: number,
@@ -23,68 +24,123 @@ export interface BackspaceEvent {
 
 export type TestEvidenceEvent = KeystrokeEvent | BackspaceEvent
 
-// Compact wire format: one [charCode, state, dtMs] triple per action, where dtMs
-// is the gap since the previous action (the first is 0). Deltas,
-// not absolute times, so a 60s test stays a few KB. This is exactly the JSON we
-// persist on Test.timeline.
-// The middle value is 0/1 for an incorrect/correct forward keystroke and 2 for
-// a backspace. Existing timelines remain valid because their forward encoding
-// is unchanged.
-export type EncodedKeystroke = [number, 0 | 1 | 2, number]
+// Legacy compact wire format. The middle value is 0/1 for an
+// incorrect/correct forward keystroke and 2 for a backspace.
+export type EncodedKeystroke = [expectedCodeUnit: number, state: 0 | 1 | 2, dtMs: number]
+export type EncodedTimelineV1 = EncodedKeystroke[]
 
-// Total elapsed typing time of an encoded timeline (sum of inter-key gaps, in
-// ms). The first keystroke contributes 0, so this is the span from the first to
-// the last committed key - the duration figure used to judge whether a sample is
-// substantial enough to rank.
-export function timelineDurationMs(encoded: EncodedKeystroke[]): number {
-    let total = 0
-    for (const [, , dtMs] of encoded) total += Math.max(0, dtMs)
-    return total
+// Current compact wire format. Correct attempts use typedCodePoint=0 (same as
+// expected), incorrect attempts retain the actual typed character, and
+// Backspace uses zero for both character fields.
+export type EncodedKeystrokeV2 = [
+    expectedCodePoint: number,
+    typedCodePointOrZero: number,
+    state: 0 | 1 | 2,
+    dtMs: number,
+]
+export interface EncodedTimelineV2 {
+    v: 2,
+    events: EncodedKeystrokeV2[],
 }
 
-export function encodeTimeline(events: TestEvidenceEvent[]): EncodedKeystroke[] {
-    const encoded: EncodedKeystroke[] = []
+export type EncodedTimeline = EncodedTimelineV1 | EncodedTimelineV2
+
+function isUnicodeScalar(value: number): boolean {
+    if (!Number.isInteger(value) || value < 1 || value > 0x10ffff) return false
+    return value < 0xd800 || value > 0xdfff
+}
+
+function codePoint(character: string): number {
+    return character.codePointAt(0) ?? 0
+}
+
+function encodedDeltas(encoded: EncodedTimeline): number[] {
+    return Array.isArray(encoded)
+        ? encoded.map(([, , dtMs]) => dtMs)
+        : encoded.events.map(([, , , dtMs]) => dtMs)
+}
+
+// Inter-action deltas are the only timeline detail anti-cheat needs. Keeping the
+// normalization here guarantees v1/v2 rankability checks stay identical.
+export function timelineDeltasMs(encoded: EncodedTimeline): number[] {
+    return encodedDeltas(encoded).map((dtMs) => Math.max(0, dtMs))
+}
+
+// Total elapsed typing time (sum of inter-key gaps). The first keystroke
+// contributes 0, so this is the span from the first to the last action.
+export function timelineDurationMs(encoded: EncodedTimeline): number {
+    return timelineDeltasMs(encoded).reduce((total, dtMs) => total + dtMs, 0)
+}
+
+export function encodeTimeline(events: TestEvidenceEvent[]): EncodedTimelineV2 {
+    const encoded: EncodedKeystrokeV2[] = []
     let prevT: number | null = null
     for (const event of events) {
         const dtMs = prevT == null ? 0 : Math.max(event.t - prevT, 0)
-        encoded.push("action" in event
-            ? [8, 2, dtMs]
-            : [event.key.charCodeAt(0), event.correct ? 1 : 0, dtMs])
+        if ("action" in event) {
+            encoded.push([0, 0, 2, dtMs])
+        } else {
+            const expected = codePoint(event.key)
+            const typed = event.correct ? 0 : codePoint(event.typed ?? "")
+            if (!isUnicodeScalar(expected) || (!event.correct && !isUnicodeScalar(typed))) {
+                throw new Error("Timeline events require one valid expected and typed code point")
+            }
+            encoded.push([expected, typed, event.correct ? 1 : 0, dtMs])
+        }
         prevT = event.t
     }
-    return encoded
+    return { v: 2, events: encoded }
 }
 
-// Decode the complete replay stream, including edits. Metric derivation uses
-// this; diagnosis/transition consumers use decodeTimeline below and continue to
-// receive only committed forward attempts.
-export function decodeEvidenceTimeline(encoded: EncodedKeystroke[]): TestEvidenceEvent[] {
+// Decode the complete replay stream, including edits, to one domain shape.
+export function decodeEvidenceTimeline(encoded: EncodedTimeline): TestEvidenceEvent[] {
     const events: TestEvidenceEvent[] = []
     let t = 0
-    for (const [code, state, dtMs] of encoded) {
-        t += dtMs
-        if (state === 2) events.push({ action: "backspace", t })
-        else events.push({ key: String.fromCharCode(code), correct: state === 1, t })
+
+    if (Array.isArray(encoded)) {
+        for (const [code, state, rawDtMs] of encoded) {
+            t += Math.max(0, rawDtMs)
+            if (state === 2) {
+                events.push({ action: "backspace", t })
+            } else {
+                const key = String.fromCharCode(code)
+                events.push({ key, typed: state === 1 ? key : null, correct: state === 1, t })
+            }
+        }
+        return events
+    }
+
+    for (const [expectedCode, typedCode, state, rawDtMs] of encoded.events) {
+        t += Math.max(0, rawDtMs)
+        if (state === 2) {
+            events.push({ action: "backspace", t })
+        } else {
+            const key = String.fromCodePoint(expectedCode)
+            events.push({
+                key,
+                typed: state === 1 ? key : String.fromCodePoint(typedCode),
+                correct: state === 1,
+                t,
+            })
+        }
     }
     return events
 }
 
-// Rebuild events from the compact form. Absolute time is reconstructed from a
-// base of 0 (only inter-key gaps are meaningful, so the base is arbitrary).
-export function decodeTimeline(encoded: EncodedKeystroke[]): KeystrokeEvent[] {
+// Rebuild forward attempts from the compact form. Absolute time is reconstructed
+// from a base of 0 because only inter-key gaps are meaningful.
+export function decodeTimeline(encoded: EncodedTimeline): KeystrokeEvent[] {
     return decodeEvidenceTimeline(encoded).filter((event): event is KeystrokeEvent => !("action" in event))
 }
 
 export interface KeyLatency {
     key: string,
-    // Mean inter-key latency (ms) of keystrokes that landed on this key.
     meanMs: number,
     samples: number,
 }
 
 // Per-key latency aggregation. The latency "of" a keystroke is the gap from the
-// previous keystroke to it - i.e. how long the user took to produce that key -
-// so the very first keystroke (no predecessor) is excluded.
+// previous keystroke to it, so the first keystroke is excluded.
 export function aggregateKeyLatency(events: KeystrokeEvent[]): Map<string, { totalMs: number, samples: number }> {
     const byKey = new Map<string, { totalMs: number, samples: number }>()
     for (let i = 1; i < events.length; i++) {
@@ -98,9 +154,6 @@ export function aggregateKeyLatency(events: KeystrokeEvent[]): Map<string, { tot
     return byKey
 }
 
-// Mean latency across every measured keystroke (the whole test's rhythm). Used
-// as the baseline a single key is judged "slow" against. Returns 0 when there
-// is nothing measurable (0 or 1 keystrokes).
 export function overallMeanLatency(events: KeystrokeEvent[]): number {
     let totalMs = 0
     let samples = 0
@@ -111,8 +164,6 @@ export function overallMeanLatency(events: KeystrokeEvent[]): number {
     return samples === 0 ? 0 : totalMs / samples
 }
 
-// Per-key mean latency as a sorted list (slowest first), filtered to keys with
-// enough samples to be a pattern rather than a single slip.
 export function keyLatencies(events: KeystrokeEvent[], minSamples = 1): KeyLatency[] {
     return Array.from(aggregateKeyLatency(events).entries())
         .filter(([, value]) => value.samples >= minSamples)

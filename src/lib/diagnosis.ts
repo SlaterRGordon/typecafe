@@ -209,10 +209,12 @@ export function costliestTransitions(events: KeystrokeEvent[]): SlowTransition[]
         .slice(0, MAX_KEYS_PER_FINDING)
 }
 
-// Words the user stumbled on: split the timeline on spaces into words, then keep
-// those with an error or notably slow chars, hardest first (errors, then slowest
-// mean per-char latency). Words are rebuilt from the *expected* char of each
-// keystroke, so a misspelled word still reads as the word it was meant to be.
+// Words the user stumbled on: a following space commits a complete word in the
+// timeline. The unterminated run at Test end is excluded because the compact
+// timeline cannot distinguish a completed final prompt word from a fragment;
+// incomplete evidence must not manufacture a Weak Word. Completed occurrences
+// of the same prompted word remain eligible. Words are rebuilt from expected
+// characters, so a misspelled word still reads as the word it was meant to be.
 // Single-char runs are skipped as noise.
 export function toughestWords(events: KeystrokeEvent[], baselineMeanMs?: number): ToughWord[] {
     const baseline = effectiveBaseline(events, baselineMeanMs)
@@ -230,8 +232,6 @@ export function toughestWords(events: KeystrokeEvent[], baselineMeanMs?: number)
         if (!event.correct) errors += 1
         letters += event.key
     }
-    flush()
-
     return words
         .filter((word) => word.errors > 0 || (baseline > 0 && word.meanMs >= baseline * SLOW_KEY_RATIO))
         .sort((a, b) => (b.errors - a.errors) || (b.meanMs - a.meanMs))

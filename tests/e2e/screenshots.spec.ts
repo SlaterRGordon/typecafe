@@ -1,13 +1,7 @@
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 import { mockAuthenticatedSession, mockTrpc } from "./helpers/trpc";
+import { brDrillTimeline, higherOrderTimeline, impactTimeline, keyboardEvidenceTimeline, movementTimeline } from "./helpers/evidence";
 import { typeCurrentCharacter, typeVisibleTestText, typeWrongCharacter } from "./helpers/typing";
-import {
-  createDailySession,
-  DAILY_COACHING_STORAGE_KEY,
-  localDateKey,
-  recordDailySet,
-  type DailyCoachingSession,
-} from "../../src/lib/dailyCoaching";
 import { readdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { runStartFile } from "./globalSetup";
@@ -57,6 +51,140 @@ async function gotoHome(page: Page) {
   await expect(page.locator("#words .char").first()).toBeVisible();
 }
 
+test("Custom Keys Practice workspace", async ({ page }, testInfo) => {
+  await mockAuthenticatedSession(page)
+  await mockTrpc(page, { timelineEvidence: [keyboardEvidenceTimeline(1)] })
+  await page.addInitScript(() => {
+    window.localStorage.setItem("typecafe:practice:custom-keys", JSON.stringify({ keys: ["h"], durationSeconds: 60, textStyle: "varied" }))
+  })
+  await page.goto("/practice?custom=keys")
+  await expect(page.getByTestId("custom-practice-workspace")).toBeVisible()
+  await expect(page.locator("#c0")).toHaveClass(/active-char/, { timeout: 20_000 })
+  await expect(page.getByRole("region", { name: "Focus key editor" })).toBeVisible()
+  await capture(page, testInfo, "67-custom-keys-practice")
+})
+
+test("Custom mixed Grams & words Practice workspace", async ({ page }, testInfo) => {
+  await mockAuthenticatedSession(page)
+  await mockTrpc(page, {
+    timelineEvidence: [higherOrderTimeline(1), higherOrderTimeline(2)],
+    customGramsPreference: {
+      version: 2,
+      language: "english",
+      entries: [{ gram: "co-operate", lastUsedAt: 20 }, { gram: "ing", lastUsedAt: 10 }],
+      setup: { grams: ["th", "ing", "tion", "co-operate"], durationSeconds: 60, textStyle: "varied", updatedAt: 30 },
+    },
+  })
+  await page.goto("/practice?custom=grams")
+  await expect(page.getByTestId("custom-practice-workspace")).toBeVisible()
+  await expect(page.locator("#c0")).toHaveClass(/active-char/, { timeout: 20_000 })
+  await expect(page.getByRole("region", { name: "Grams and words editor" })).toBeVisible()
+  await expect(page.getByTestId("selected-practice-grams").getByRole("button", { name: "Remove co-operate" })).toBeVisible()
+  await expect(page.getByRole("tab", { name: "From your Tests" })).toHaveAttribute("aria-selected", "true")
+  await expect(page.getByTestId("measured-test-grams")).toContainText(/\+\d+ ms/)
+  await capture(page, testInfo, "68-custom-mixed-grams-practice")
+})
+
+test("Guided Practice workspace and awaiting-Test recap", async ({ page }, testInfo) => {
+  await page.clock.install()
+  const evidence = encodeURIComponent(JSON.stringify({
+    metric: "ms", baseline: 110, observed: 186, sampleCount: 12,
+    reason: "Recent Tests measured tion with 76 ms of extra pause.",
+  }))
+  await page.goto(`/drill?target=gram&gram=tion&policy=acquisition&evidence=${evidence}`)
+  await expect(page).toHaveURL(/\/practice\?target=gram.*gram=tion/)
+  await expect(page.getByRole("heading", { name: "Practise tion", exact: true })).toBeVisible()
+  await expect(page.locator("#c0")).toHaveClass(/active-char/, { timeout: 20_000 })
+  await capture(page, testInfo, "69-guided-practice")
+
+  await page.getByRole("region", { name: "Practice controls" }).getByRole("button", { name: "30s" }).click()
+  await expect(page.locator("#c0")).toHaveClass(/active-char/)
+  await expect(async () => {
+    await typeCurrentCharacter(page, 0)
+    await expect(page.getByTestId("practice-workspace-configuration")).toHaveCSS("opacity", "0", { timeout: 500 })
+  }).toPass({ timeout: 5_000 })
+  await capture(page, testInfo, "69b-practice-active-typing")
+  for (let index = 1; index < 80; index += 1) {
+    await typeCurrentCharacter(page, index)
+    await page.clock.runFor(30)
+  }
+  await page.clock.runFor(30_000)
+  const recap = page.getByTestId("practice-recap")
+  await expect(page.getByTestId("guided-awaiting-test")).toBeVisible()
+  await expect(recap.getByTestId("guided-target-metric")).not.toHaveClass(/rounded|bg-base-200/)
+  await expect(recap).not.toContainText("Guided Drill complete")
+  await expect(recap).not.toContainText("Secondary")
+  await capture(page, testInfo, "70-guided-practice-awaiting-test")
+})
+
+test("Grouped movement Guided Practice identity", async ({ page }, testInfo) => {
+  await page.goto("/practice?target=movement&movement=same-finger&anchors=fr,de,sw,aq")
+  await expect(page.getByRole("heading", { name: "Practise same-finger movement" })).toBeVisible()
+  const scope = page.getByTestId("movement-scope")
+  await expect(scope).toContainText("Representative sequences")
+  for (const sequence of ["f→r", "d→e", "s→w", "a→q"]) await expect(scope).toContainText(sequence)
+  await expect(page.locator("#c0")).toHaveClass(/active-char/, { timeout: 20_000 })
+  await capture(page, testInfo, "69c-guided-movement-scope")
+})
+
+test("Guided whole Word Practice identity", async ({ page }, testInfo) => {
+  await page.goto("/practice?target=word&words=action,station&sharedGram=tion")
+  await expect(page.getByRole("heading", { name: "Practise action, station", exact: true })).toBeVisible()
+  const selected = page.getByTestId("selected-practice-grams")
+  await expect(selected.getByRole("button", { name: "Remove action" })).toBeVisible()
+  await expect(selected.getByRole("button", { name: "Remove station" })).toBeVisible()
+  await expect(page.locator("#c0")).toHaveClass(/active-char/, { timeout: 20_000 })
+  await capture(page, testInfo, "69d-guided-whole-word-target")
+})
+
+test("Custom Practice fullscreen", async ({ page }, testInfo) => {
+  await page.addInitScript(() => {
+    window.localStorage.setItem("typecafe:practice:custom-keys", JSON.stringify({ keys: ["e", "r"], durationSeconds: 15, textStyle: "varied" }))
+  })
+  await page.goto("/practice?custom=keys")
+  await expect(page.locator("#c0")).toHaveClass(/active-char/, { timeout: 20_000 })
+  await page.getByRole("region", { name: "Practice controls" }).getByRole("button", { name: "Enter fullscreen" }).click()
+  await expect(page.getByTestId("custom-practice-workspace")).toHaveAttribute("data-fullscreen", "true")
+  await capture(page, testInfo, "69e-custom-practice-fullscreen")
+})
+
+test("Guided infinite Practice", async ({ page }, testInfo) => {
+  await page.goto("/practice?target=word&words=action,station&sharedGram=tion")
+  await page.getByRole("region", { name: "Practice controls" }).getByRole("button", { name: "Infinite Practice" }).click()
+  await expect(page.getByRole("heading", { name: "Practise action, station", exact: true })).toBeVisible()
+  await expect(page.getByTestId("timed-countdown")).toHaveText("0")
+  await expect(page.locator("#c0")).toHaveClass(/active-char/, { timeout: 20_000 })
+  await capture(page, testInfo, "69f-guided-infinite-practice")
+})
+
+test("Custom Grams & words Practice completion", async ({ page }, testInfo) => {
+  await page.clock.install()
+  await page.addInitScript(() => {
+    window.localStorage.setItem("typecafe:practice:recent-custom-grams", JSON.stringify({
+      version: 2,
+      languages: { english: { version: 2, language: "english", entries: [], setup: { grams: ["th", "the", "tion"], durationSeconds: 30, textStyle: "varied", updatedAt: 30 } } },
+    }))
+  })
+  await page.goto("/practice?custom=grams")
+  await expect(page.locator("#c0")).toHaveClass(/active-char/, { timeout: 20_000 })
+  for (let index = 0; index < 80; index += 1) {
+    await typeCurrentCharacter(page, index)
+    await page.clock.runFor(30)
+  }
+  await page.clock.runFor(30_000)
+
+  const recap = page.getByTestId("practice-recap")
+  await expect(recap.getByTestId("practice-gram-th")).toBeVisible()
+  await expect(recap.locator("article")).toHaveCount(0)
+  await expect(recap).not.toContainText("Overall")
+  await expect(recap.getByRole("button", { name: "Repeat with fresh text" })).toBeVisible()
+  expect(await page.evaluate(() => ({
+    fits: document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+    scrollX: window.scrollX,
+  }))).toEqual({ fits: true, scrollX: 0 })
+  await capture(page, testInfo, "71-custom-grams-practice-completion")
+})
+
 // /train lands on the level map; Continue zooms into the resume level.
 async function gotoTrainLevel(page: Page) {
   await page.goto("/train");
@@ -71,7 +199,7 @@ async function openSettingsMenu(page: Page) {
 }
 
 // Mode switches on the inline mode bar (the modal holds everything else).
-function selectMode(page: Page, name: "Timed" | "Words" | "Practice" | "Grams") {
+function selectMode(page: Page, name: "Timed" | "Words") {
   return page.getByTestId("mode-bar").getByRole("button", { name }).click();
 }
 
@@ -150,6 +278,17 @@ test.describe("screenshot tour", () => {
       });
     });
     await gotoHome(page);
+    await expect(page.getByTestId("mode-bar").getByRole("button")).toHaveText(["timed", "words"]);
+    const viewport = page.viewportSize();
+    const toolbarBox = await page.getByTestId("typer-toolbar").boundingBox();
+    const promptBox = await page.locator("#text").boundingBox();
+    expect(viewport).not.toBeNull();
+    expect(toolbarBox).not.toBeNull();
+    expect(promptBox).not.toBeNull();
+    // Home shares Practice's responsive config -> prompt rhythm instead of
+    // pinning the shorter Home stack to a fixed viewport coordinate.
+    expect(toolbarBox!.y / viewport!.height).toBeLessThan(0.3);
+    expect(promptBox!.y / viewport!.height).toBeLessThan(0.38);
     await capture(page, testInfo, "01-home-default");
 
     // Type a few characters, including one mistake, to show progress and
@@ -200,25 +339,6 @@ test.describe("screenshot tour", () => {
     await expect(page.locator("#customLengthInput")).toBeVisible();
     await capture(page, testInfo, "06-settings-timed-custom-length");
 
-    // Grams: sources/scopes as settings-line segments; the numeric knobs render
-    // as dotted-underline inline edits on the advanced line.
-    await selectMode(page, "Grams");
-    await expect(page.getByTestId("grams-panel")).toBeVisible();
-    await capture(page, testInfo, "05-settings-grams");
-
-    // Show one knob mid-edit.
-    await page.getByTestId("grams-panel").getByRole("button", { name: "Edit WPM needed to advance" }).click();
-    await expect(page.locator("#testGramWpmThresholdInput")).toBeVisible();
-    await capture(page, testInfo, "59-settings-grams-advanced");
-
-    // Practice switches inline with no modal round-trip; the gear now carries the
-    // punctuation toggle (gates the locked mark keys) alongside capitals.
-    await selectMode(page, "Practice");
-    await expect(page.locator(".typecafe-keyboard")).toBeVisible();
-    await openSettingsMenu(page);
-    await capture(page, testInfo, "07-settings-practice-mode");
-    await page.keyboard.press("Escape");
-
     // ∞ (no timer) - the relaxed engine, now a length option on Timed.
     await selectMode(page, "Timed");
     await page.getByTestId("toolbar-context").getByRole("button", { name: "No timer" }).click();
@@ -237,7 +357,16 @@ test.describe("screenshot tour", () => {
   });
 
   test("timed mode: punctuation, capitals and numbers test view", async ({ page }, testInfo) => {
+    // Cycle through known 5k entries so the tour visibly covers canonical
+    // country, state, and initialism casing instead of relying on random luck.
+    await page.addInitScript(() => {
+      const values = [656, 558, 1016, 3589].map((index) => (index + 0.5) / 4971);
+      let call = 0;
+      Math.random = () => values[call++ % values.length]!;
+    });
     await gotoHome(page);
+    await page.getByTestId("typer-toolbar").getByRole("button", { name: /^Language: English/ }).click();
+    await page.getByTestId("language-menu").getByRole("button", { name: "English 5k", exact: true }).click();
     await openSettingsMenu(page);
     await page.getByTestId("settings-menu").getByRole("button", { name: /punctuation/ }).click();
     await page.getByTestId("settings-menu").getByRole("button", { name: /capitals/ }).click();
@@ -248,20 +377,9 @@ test.describe("screenshot tour", () => {
     // Numbers guarantees realistic numeric tokens without changing the test's
     // configured token count.
     await expect(page.locator("#words")).toContainText(/[0-9]/);
+    await expect(page.locator("#words")).toContainText(/Australia|Texas/);
+    await expect(page.locator("#words")).toContainText(/PDF|NASA/);
     await capture(page, testInfo, "24-test-view-punctuation-capitals");
-  });
-
-  test("grams mode: test view with level progression stats", async ({ page }, testInfo) => {
-    await gotoHome(page);
-    await selectMode(page, "Grams");
-
-    await expect(page.locator("#words .char").first()).toBeVisible();
-    await capture(page, testInfo, "25-test-view-grams-level");
-
-    // Type the first characters so the per-level average and accuracy render.
-    await typeCurrentCharacter(page, 0);
-    await typeCurrentCharacter(page, 1);
-    await capture(page, testInfo, "26-test-view-grams-mid-level");
   });
 
   test("no-timer (∞) test view", async ({ page }, testInfo) => {
@@ -287,181 +405,6 @@ test.describe("screenshot tour", () => {
     await page.locator("[aria-label='Enter fullscreen']").click();
     await expect(page.locator("[aria-label='Exit fullscreen']")).toBeVisible();
     await capture(page, testInfo, "28-test-view-fullscreen");
-  });
-
-  test("practice mode: keyboard key selection, alerts, and analytics view", async ({ page }, testInfo) => {
-    await gotoHome(page);
-    await selectMode(page, "Practice");
-
-    await expect(page.locator(".typecafe-keyboard")).toBeVisible();
-    await expect(page.getByTestId("practice-status-bar")).toBeVisible();
-    await capture(page, testInfo, "09-home-practice-keyboard");
-
-    // The merged practice keyboard always shows per-key accuracy + lock state.
-    const keyboardKey = (key: string) =>
-      page.locator(`.typecafe-keyboard kbd[data-kb-key="${key}"]`);
-
-    // A fresh guest board is under the sample floor everywhere, so keys read the
-    // neutral no-data state until enough keystrokes land.
-    await keyboardKey("e").hover();
-    await expect(page.getByRole("tooltip")).toContainText("No data yet");
-    await capture(page, testInfo, "66-practice-key-tooltip");
-
-    // The default nine-key set is repaired to the two-vowel floor on entry
-    // (adds "e"), so it renders unlocked; "w" sits outside the set and starts
-    // locked - one click unlocks it.
-    await expect(keyboardKey("e").locator("svg")).toHaveCount(0);
-    await expect(keyboardKey("w").locator("svg")).toHaveCount(1);
-    await keyboardKey("w").click();
-    await expect(keyboardKey("w").locator("svg")).toHaveCount(0);
-    await capture(page, testInfo, "29-practice-key-added");
-
-    // Locking a vowel at the two-vowel floor must be rejected with an alert toast.
-    await keyboardKey("a").click();
-    await expect(page.getByText("Must include at least 2 vowels!")).toBeVisible();
-    await capture(page, testInfo, "30-practice-vowel-alert");
-
-    // Smart drill without enough typing history surfaces the warning toast.
-    await page.getByRole("button", { name: "Drill your eight least accurate keys" }).click();
-    await expect(page.getByText("Not enough typing data yet - practice a little first!")).toBeVisible();
-    await capture(page, testInfo, "31-practice-smart-drill-no-data");
-
-    // Type a few characters so the keyboard's per-key accuracy reflects the session.
-    await page.locator("#text").click();
-    await typeCurrentCharacter(page, 0);
-    await typeCurrentCharacter(page, 1);
-    await page.keyboard.press("0");
-    await typeCurrentCharacter(page, 2);
-    await page.keyboard.down("Tab");
-    await page.keyboard.press("Enter");
-    await page.keyboard.up("Tab");
-
-    // Accuracy is always available now - no toggle. Exact values live in the
-    // per-layer key tooltips so the heatmap face stays readable.
-    await capture(page, testInfo, "32-practice-keyboard-analytics");
-
-    // Shift layer: holding Shift peeks the shifted twins (; → :, / → ?); releasing
-    // returns to base. The layout never moves. The keyboard's layer rail tracks
-    // the held peek as well as sticky clicks.
-    const shiftLabel = page.getByRole("button", { name: "Show shifted keys (capitals and symbols)" });
-    await expect(shiftLabel).toHaveAttribute("aria-pressed", "false");
-    await page.keyboard.down("Shift");
-    await expect(keyboardKey(":")).toHaveCount(1);
-    await expect(keyboardKey(";")).toHaveCount(0);
-    await expect(shiftLabel).toHaveAttribute("aria-pressed", "true");
-    await page.keyboard.up("Shift");
-    await expect(keyboardKey(";")).toHaveCount(1);
-    await expect(shiftLabel).toHaveAttribute("aria-pressed", "false");
-
-    // The sticky toggle button does the same, but stays put (touch / lingering).
-    await page.getByRole("button", { name: "Show shifted keys (capitals and symbols)" }).click();
-    await expect(keyboardKey(":")).toHaveCount(1);
-    await expect(keyboardKey(";")).toHaveCount(0);
-    await capture(page, testInfo, "59-practice-shift-layer");
-
-    // Shifted marks lock from the shift layer: ? starts locked (punctuation off),
-    // and unlocking it flips the punctuation add-on on in the same click.
-    await expect(keyboardKey("?").locator("svg")).toHaveCount(1);
-    await keyboardKey("?").click();
-    await expect(keyboardKey("?").locator("svg")).toHaveCount(0);
-
-    // Capitals ride the capitals add-on: while it's off every capital reads
-    // locked; clicking one flips the add-on on, then each capital mirrors its
-    // lowercase base key ('a' selected → A unlocked; 'r' not → R locked).
-    await expect(keyboardKey("A").locator("svg")).toHaveCount(1);
-    await keyboardKey("A").click();
-    await expect(keyboardKey("A").locator("svg")).toHaveCount(0);
-    await expect(keyboardKey("R").locator("svg")).toHaveCount(1);
-    await capture(page, testInfo, "64-practice-capitals-unlocked");
-  });
-
-  test("practice language engine: sparse alphabet stays word-shaped", async ({ page }, testInfo) => {
-    await page.addInitScript(() => {
-      window.localStorage.setItem("typecafe:testSettings", JSON.stringify({ selectedKeys: "auvixjbz".split("") }));
-    });
-    await gotoHome(page);
-    await selectMode(page, "Practice");
-
-    await expect(page.getByTestId("practice-active-count")).toHaveText("8 keys active");
-    await expect.poll(async () => {
-      const words = ((await page.locator("#words").textContent()) ?? "").trim().split(/\s+/).slice(0, 30);
-      return words.length === 30 && words.every((word) => word.length >= 3 && word.length <= 10);
-    }).toBe(true);
-    await capture(page, testInfo, "65-practice-sparse-language-engine");
-  });
-
-  test("national layout: German QWERTZ board with umlauts and AltGr layer", async ({ page }, testInfo) => {
-    await page.addInitScript(() => {
-      // A minimal valid pool: adding ü makes für a permitted German word.
-      window.localStorage.setItem("typecafe:testSettings", JSON.stringify({ selectedKeys: "abcdfgir".split("") }));
-    });
-    await gotoHome(page);
-
-    // Auto layout follows the nav language: German resolves to QWERTZ (DE).
-    await page.getByTestId("nav-language-trigger").click();
-    await page.getByTestId("nav-language-menu").getByRole("button", { name: "German" }).click();
-    await expect(page.getByTestId("nav-layout-trigger")).toHaveText(/Auto - QWERTZ \(DE\)/);
-
-    // The practice board renders the national layout: real ü/ö/ä caps, the ISO
-    // extra key, and dead keys (´ ^) dash-marked.
-    await selectMode(page, "Practice");
-    const board = page.locator(".typecafe-keyboard");
-    await expect(board.locator('[data-kb-key="ü"]')).toBeVisible();
-    await capture(page, testInfo, "60-practice-qwertz-board");
-
-    // The AltGr layer shows the third glyphs (@ € µ) with their own accuracy.
-    await page.getByRole("button", { name: "Show AltGr keys (accents and symbols)" }).click();
-    await expect(board.locator('[data-kb-key="@"]')).toBeVisible();
-    await capture(page, testInfo, "61-practice-qwertz-altgr-layer");
-    await page.getByRole("button", { name: "Show AltGr keys (accents and symbols)" }).click();
-
-    // Accent keys are drill targets now: clicking ü unlocks it (the lock badge
-    // drops) once the language's accent set has loaded.
-    // Seed only the post-unlock generator: globally replacing Math.random before
-    // Home mounts stalls its initial text generator.
-    await page.evaluate(() => {
-      (window as typeof window & { originalMathRandom?: typeof Math.random }).originalMathRandom = Math.random;
-      Math.random = () => 0;
-    });
-    const uml = board.locator('[data-kb-key="ü"]');
-    const consonant = board.locator('[data-kb-key="c"]');
-    await expect(async () => {
-      await uml.click();
-      await expect(uml.locator("svg")).toHaveCount(0, { timeout: 250 });
-    }).toPass();
-    // ü counts as a letter anchor, so c can return to its visibly locked state
-    // while the selected pool remains at the eight-letter floor.
-    await expect(consonant.locator("svg")).toHaveCount(0);
-    await consonant.click();
-    await expect(consonant.locator("svg")).toHaveCount(1);
-    await expect(page.getByTestId("practice-active-count")).toHaveText("8 keys active");
-    await expect(page.getByText("Must include at least 8 keys!", { exact: true })).toHaveCount(0);
-    // The text stays scoped to the remaining anchors, including the umlaut.
-    await expect(page.locator("#words")).toContainText("für");
-    await page.evaluate(() => {
-      const original = (window as typeof window & { originalMathRandom?: typeof Math.random }).originalMathRandom;
-      if (original) Math.random = original;
-    });
-    await capture(page, testInfo, "63-practice-qwertz-umlaut-unlocked");
-  });
-
-  test("national layout: French shifted digit selected in Practice", async ({ page }, testInfo) => {
-    await page.addInitScript(() => {
-      window.localStorage.setItem("typecafe:testSettings", JSON.stringify({ selectedKeys: "aeiousdf".split("") }));
-    });
-    await gotoHome(page);
-    await page.getByTestId("nav-language-trigger").click();
-    await page.getByTestId("nav-language-menu").getByRole("button", { name: "French" }).click();
-    await selectMode(page, "Practice");
-
-    const board = page.locator(".typecafe-keyboard");
-    await page.getByRole("button", { name: "Show shifted keys (capitals and symbols)" }).click();
-    const digit = board.locator('[data-kb-key="2"]');
-    await expect(digit).toHaveAttribute("role", "button");
-    await expect(digit.locator("svg")).toHaveCount(1);
-    await digit.click();
-    await expect(digit.locator("svg")).toHaveCount(0);
-    await capture(page, testInfo, "62-practice-azerty-shift-digit-selected");
   });
 
   test("train page: level map and tier switching", async ({ page }, testInfo) => {
@@ -520,7 +463,8 @@ test.describe("screenshot tour", () => {
   });
 
   test("home: post-test diagnosis panel and drill handoff", async ({ page }, testInfo) => {
-    await mockTrpc(page);
+    await mockAuthenticatedSession(page);
+    await mockTrpc(page, { timelineEvidence: [higherOrderTimeline(1), higherOrderTimeline(2)] });
     await gotoHome(page);
 
     // A short custom timed test, long enough to clear the 30-keystroke diagnosis
@@ -531,6 +475,8 @@ test.describe("screenshot tour", () => {
 
     await expect(page.getByRole("button", { name: "Test Again" })).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText("Diagnosis", { exact: true })).toBeVisible();
+    // Recent history alone must not leak a stale pattern into this score card.
+    await expect(page.getByTestId("diagnosis-higher-order")).toHaveCount(0);
     // The mini per-key heatmap renders alongside the findings (Phase 1.5).
     await expect(page.getByTestId("diagnosis-heatmap")).toBeVisible();
     const diagnosisBox = await page.getByTestId("diagnosis-panel").boundingBox();
@@ -540,53 +486,10 @@ test.describe("screenshot tour", () => {
     expect((authBox?.x ?? 0) + (authBox?.width ?? 0)).toBeLessThanOrEqual(page.viewportSize()?.width ?? 0);
     await capture(page, testInfo, "35-score-card-diagnosis");
 
-    // The one-click drill hands off to the unified /drill surface on the keys.
-    await page.getByRole("link", { name: /Drill these keys/ }).first().click();
-    await expect(page.getByTestId("drill-typer")).toBeVisible();
-    await capture(page, testInfo, "36-drill-handoff");
-  });
-
-  test("re-measure: drill result CTA and home before/after delta", async ({ page }, testInfo) => {
-    // Guest lifetime evidence so the result card shows its full state: the
-    // lifetime-vs-rep delta line and the next-drill pick.
-    await page.addInitScript(() => {
-      window.localStorage.setItem("typecafe:keyStats", JSON.stringify([
-        { key: "x", attempts: 20, correct: 10 },
-        { key: "q", attempts: 10, correct: 4 },
-      ]));
-    });
-    await mockTrpc(page);
-
-    // The token a diagnosis forwards: the diagnosed test's before-WPM + config.
-    const rm = JSON.stringify({
-      beforeWpm: 40,
-      config: { subMode: 1, count: 4, language: "english", customLength: true, punctuation: false, capitals: false, options: "" },
-    });
-
-    // /drill's result card offers the Re-measure CTA (href carries the token back
-    // home - asserted in drill.spec); capture the prompt here.
-    await page.goto(`/drill?keys=x&length=4&rm=${encodeURIComponent(rm)}`);
-    await expect(page.getByTestId("drill-typer")).toBeVisible();
-    await typeVisibleTestText(page);
-    await expect(page.getByTestId("drill-result")).toBeVisible();
-    await expect(page.getByTestId("drill-delta")).toBeVisible();
-    await expect(page.getByTestId("drill-next")).toBeVisible();
-    // The header's session trail (per-rep progress) rides in this capture.
-    await expect(page.getByTestId("drill-session")).toBeVisible();
-    await capture(page, testInfo, "37-re-measure-prompt");
-
-    // Landing home with the token re-runs the diagnosed test → before→after delta.
-    // Wait for the rm config to actually apply (its 4-word counter replaces the
-    // default timed countdown) before reading the prompt - typing against the
-    // pre-switch text loses the race when the restart regenerates it.
-    await page.goto(`/?rm=${encodeURIComponent(rm)}`);
-    await expect(page.getByTestId("word-counter")).toContainText("/ 4");
-    // …and for the 4-word prompt itself (the long default text stays rendered
-    // until regeneration lands, so char presence alone isn't enough).
-    await expect.poll(() => page.locator("#words .char").count()).toBeLessThan(60);
-    await typeVisibleTestText(page);
-    await expect(page.getByTestId("re-measure-delta")).toBeVisible({ timeout: 15_000 });
-    await capture(page, testInfo, "38-re-measure-delta");
+    // The one-click Finding hands off to the shared Guided Practice workspace.
+    await page.getByRole("link", { name: /Practise these keys/ }).first().click();
+    await expect(page.getByRole("heading", { name: /Practise/ })).toBeVisible();
+    await capture(page, testInfo, "36-guided-practice-handoff");
   });
 
   test("train page", async ({ page }, testInfo) => {
@@ -769,9 +672,8 @@ test.describe("screenshot tour", () => {
         { pair: "th", count: 1000, totalMs: 100000, errors: 0 },
       ],
       sameDayProgress: true,
+      timelineEvidence: [impactTimeline(1), impactTimeline(2)],
     });
-    // Suppress the weekly recap so this captures the steady-state dashboard.
-    await page.addInitScript(() => window.localStorage.setItem("typecafe:lastRecapAt", String(Date.now())));
     await page.goto("/progress");
     await expect(page.getByTestId("headline-delta")).toBeVisible();
     await expect(page.getByTestId("headline-start-current")).toContainText("Start");
@@ -789,9 +691,9 @@ test.describe("screenshot tour", () => {
     await expect(page.getByText("WPM over time", { exact: true })).toBeVisible();
     await expect(page.getByText("Daily median trend", { exact: true })).toBeVisible();
     await expect(page.getByText("Daily best trend", { exact: true })).toBeVisible();
-    await expect(page.getByTestId("weak-spots")).toContainText("b→r");
-    await expect(page.getByTestId("worst-transitions").locator("li")).toHaveCount(6);
-    expect(await page.getByTestId("records-timeline").locator("li").count()).toBeGreaterThan(5);
+    await expect(page.getByTestId("progress-coach")).toContainText("Work on b→r");
+    await expect(page.getByTestId("progress-coach")).not.toContainText("Coach ·");
+    await expect(page.getByTestId("records-timeline")).toHaveCount(0);
     await expect(page.getByTestId("lifetime-heatmap")).toBeVisible();
     await capture(page, testInfo, "40-progress-dashboard");
     if (!testInfo.project.name.includes("mobile")) {
@@ -801,21 +703,14 @@ test.describe("screenshot tour", () => {
       await page.getByTestId("trend-tabs").getByRole("button", { name: "Consistency" }).click();
       await capture(page, testInfo, "40e-progress-daily-consistency");
       await page.getByTestId("trend-tabs").getByRole("button", { name: "WPM" }).click();
-      await page.getByRole("list", { name: "Slowest transitions" }).evaluate((list) => { list.scrollTop = list.scrollHeight; });
-      await page.getByRole("list", { name: "Personal records" }).evaluate((list) => { list.scrollTop = list.scrollHeight; });
-      await capture(page, testInfo, "40c-progress-scrolled-lists");
-    }
-    if (!testInfo.project.name.includes("mobile")) {
-      const tab = page.getByTestId("home-coach-tab-daily");
-      await expect(tab).toBeVisible();
-      await tab.hover();
-      await expect(page.getByTestId("home-coach-tab-daily-panel")).toBeVisible();
-      await capture(page, testInfo, "62-progress-daily-coaching-tab");
+      await page.getByTestId("progress-coach").getByRole("button", { name: /i→o/ }).click();
+      await expect(page.getByTestId("coach-detail")).toContainText("Target detail");
+      await capture(page, testInfo, "40c-progress-target-detail");
     }
     await page.getByTestId("lifetime-keyboard-card").scrollIntoViewIfNeeded();
     await capture(page, testInfo, "40-progress-lifetime-keyboard");
     await page.getByRole("link", { name: "How keyboard accuracy is calculated" }).hover();
-    await expect(page.getByRole("tooltip")).toContainText("rolling accuracy from recent attempts");
+    await expect(page.getByRole("tooltip")).toContainText("accuracy from recent natural Tests");
     await capture(page, testInfo, "40c-progress-keyboard-help-tooltip");
     // The layer switch flips the lifetime heatmap to the shift layer.
     await page.getByTestId("lifetime-heatmap-layers").getByRole("button", { name: "Show shifted keys (capitals and symbols)" }).click();
@@ -823,10 +718,45 @@ test.describe("screenshot tour", () => {
     await capture(page, testInfo, "40b-progress-lifetime-keyboard-shift");
   });
 
-  test("progress dashboard (plateau coach voice)", async ({ page }, testInfo) => {
+  test("progress dashboard (Practice activity awaiting Test)", async ({ page }, testInfo) => {
+    await mockAuthenticatedSession(page);
+    await mockTrpc(page, {
+      timelineEvidence: [brDrillTimeline(3), impactTimeline(1), impactTimeline(2)],
+    });
+    await page.goto("/progress");
+    const coach = page.getByTestId("progress-coach");
+    if (testInfo.project.name.includes("mobile")) await coach.getByRole("button", { name: /b→r/ }).click();
+    const detail = testInfo.project.name.includes("mobile")
+      ? coach.getByTestId("coach-inline-detail")
+      : coach.getByTestId("coach-detail");
+    const practiceActivity = detail.getByTestId("target-practice-summary");
+    await expect(practiceActivity).toContainText("Practice activity");
+    await expect(practiceActivity).not.toHaveAttribute("open", "");
+    await expect(detail).toContainText("Needs work");
+    await expect(detail.getByRole("link", { name: "Take a Test" })).toBeVisible();
+    await expect(detail.getByRole("link")).toHaveCount(1);
+    if (testInfo.project.name.includes("mobile")) await practiceActivity.scrollIntoViewIfNeeded();
+    await capture(page, testInfo, "40g-progress-practice-awaiting-test");
+  });
+
+  test("progress dashboard (grouped movement Target)", async ({ page }, testInfo) => {
+    await mockAuthenticatedSession(page);
+    await mockTrpc(page, { timelineEvidence: [movementTimeline(1), movementTimeline(2)] });
+    await page.goto("/progress");
+    const coach = page.getByTestId("progress-coach");
+    await coach.getByTestId("coach-target-filters").getByRole("button", { name: /Movements/ }).click();
+    await coach.getByRole("button", { name: /same-finger movement/ }).click();
+    const detail = testInfo.project.name.includes("mobile")
+      ? coach.getByTestId("coach-inline-detail")
+      : coach.getByTestId("coach-detail");
+    await expect(detail).toContainText("same-finger movement");
+    await expect(detail.getByTestId("movement-scope")).toContainText("Representative sequences");
+    await capture(page, testInfo, "40h-progress-grouped-movement-target");
+  });
+
+  test("progress dashboard (plateau Target guidance)", async ({ page }, testInfo) => {
     await mockAuthenticatedSession(page);
     await mockTrpc(page, { flatProgress: true });
-    await page.addInitScript(() => window.localStorage.setItem("typecafe:lastRecapAt", String(Date.now())));
     await page.goto("/progress");
     await expect(page.getByTestId("plateau-headline")).toBeVisible();
     // The plateau headline is the single coach voice here - the stance card must
@@ -839,7 +769,6 @@ test.describe("screenshot tour", () => {
     await mockAuthenticatedSession(page);
     await mockTrpc(page);
     await page.addInitScript(() => {
-      window.localStorage.setItem("typecafe:lastRecapAt", String(Date.now()));
       window.localStorage.setItem("typecafe:goal", JSON.stringify({ targetWpm: 100, targetDate: "2027-12-31" }));
     });
     await page.goto("/progress");
@@ -895,129 +824,6 @@ test.describe("screenshot tour", () => {
     await page.getByTestId("nav-more").click();
     await expect(page.getByTestId("nav-more-menu")).toBeVisible();
     await capture(page, testInfo, "58-nav-more-popover");
-  });
-
-  test("home: daily coaching tab", async ({ page }, testInfo) => {
-    test.skip(testInfo.project.name.includes("mobile"), "The rail coach tabs are desktop-only.");
-    await mockAuthenticatedSession(page);
-    await mockTrpc(page);
-    await gotoHome(page);
-    const tab = page.getByTestId("home-coach-tab-daily");
-    await expect(tab).toBeVisible();
-    await tab.hover();
-    await expect(page.getByTestId("home-coach-tab-daily-panel")).toBeVisible();
-    await capture(page, testInfo, "57-home-daily-coaching-tab");
-  });
-
-  test("home: targeted drill coach tab", async ({ page }, testInfo) => {
-    test.skip(testInfo.project.name.includes("mobile"), "The rail coach tabs are desktop-only.");
-    await mockAuthenticatedSession(page);
-    await mockTrpc(page);
-    await gotoHome(page);
-    const tab = page.getByTestId("home-coach-tab-drill");
-    await expect(tab).toBeVisible();
-    await tab.hover();
-    await expect(page.getByTestId("home-coach-tab-drill-panel")).toBeVisible();
-    await capture(page, testInfo, "69-home-drill-coach-tab");
-  });
-
-  test("home: guest daily coaching tab", async ({ page }, testInfo) => {
-    test.skip(testInfo.project.name.includes("mobile"), "The rail coach tabs are desktop-only.");
-    await page.addInitScript(() => {
-      window.localStorage.setItem("typecafe:transitionStats", JSON.stringify([
-        { pair: "br", count: 12, totalMs: 4800, errors: 3 },
-        { pair: "th", count: 30, totalMs: 3000, errors: 0 },
-        { pair: "he", count: 25, totalMs: 3000, errors: 0 },
-        { pair: "io", count: 10, totalMs: 3000, errors: 1 },
-      ]));
-    });
-    await mockTrpc(page);
-    await gotoHome(page);
-    const tab = page.getByTestId("home-coach-tab-daily");
-    await expect(tab).toBeVisible();
-    await tab.hover();
-    await expect(page.getByTestId("home-coach-tab-daily-panel")).toBeVisible();
-    await capture(page, testInfo, "63-home-guest-daily-coaching-tab");
-  });
-
-  test("daily coaching (targeted)", async ({ page }, testInfo) => {
-    await mockAuthenticatedSession(page);
-    await mockTrpc(page, { keyStats: [{ character: "r", total: 100, correct: 70 }, { character: "t", total: 80, correct: 62 }] });
-    await page.goto("/plan");
-    await expect(page.getByTestId("daily-session-active")).toBeVisible();
-    await capture(page, testInfo, "48-daily-coaching-targeted");
-  });
-
-  test("daily coaching (calibration)", async ({ page }, testInfo) => {
-    await page.goto("/plan");
-    await expect(page.getByText(/still learning how you type/i)).toBeVisible();
-    await expect(page.getByTestId("daily-session-active")).toBeVisible();
-    await capture(page, testInfo, "54-daily-coaching-calibration");
-  });
-
-  // A guest daily session mid-flight, seeded straight into the local mirror.
-  function guestDailySession(): DailyCoachingSession {
-    const session = createDailySession({
-      dateKey: localDateKey(), pool: "qwerty", language: "english",
-      attempts: new Map(),
-      transitions: [
-        { pair: "br", count: 12, totalMs: 4800, errors: 1 },
-        { pair: "th", count: 12, totalMs: 1800, errors: 0 },
-      ],
-      yesterday: { label: "b→r", target: { kind: "transition", pair: "br" }, unit: "ms", before: 410, after: 350 },
-      now: Date.now(),
-    });
-    return recordDailySet(session, session.steps[0]!.id, { netWpm: 62.4, accuracy: 96.1, completedAt: Date.now() });
-  }
-
-  async function seedGuestDailySession(page: Page, session: DailyCoachingSession) {
-    await page.addInitScript(({ key, value }) => {
-      window.localStorage.setItem(key, JSON.stringify([value]));
-    }, { key: `${DAILY_COACHING_STORAGE_KEY}:guest`, value: session });
-  }
-
-  test("daily coaching (complete, with cold check)", async ({ page }, testInfo) => {
-    let session = guestDailySession();
-    const focusId = session.steps[session.steps.length - 1]!.id;
-    session = recordDailySet(session, focusId, {
-      netWpm: 63, accuracy: 96.4, completedAt: Date.now(),
-      targetDelta: { label: "b→r", before: 400, after: 345, unit: "ms", improved: true },
-    });
-    session = recordDailySet(session, focusId, {
-      netWpm: 64, accuracy: 96.8, completedAt: Date.now(),
-      targetDelta: { label: "b→r", before: 400, after: 331, unit: "ms", improved: true },
-    });
-    await seedGuestDailySession(page, session);
-    await page.goto("/plan");
-    await expect(page.getByTestId("daily-session-complete")).toBeVisible();
-    await capture(page, testInfo, "49-daily-coaching-complete");
-  });
-
-  test("daily coaching drill strip", async ({ page }, testInfo) => {
-    await seedGuestDailySession(page, guestDailySession());
-    await mockTrpc(page);
-    await page.goto("/drill?transitions=br&length=8");
-    await expect(page.getByTestId("daily-session-strip")).toBeVisible();
-    await expect(page.getByTestId("drill-typer")).toBeVisible();
-    await capture(page, testInfo, "50-daily-coaching-drill-strip");
-  });
-
-  test("drill surface", async ({ page }, testInfo) => {
-    // Lifetime evidence so the header shows its full state: baseline stat +
-    // next-drill pick.
-    await page.addInitScript(() => {
-      window.localStorage.setItem("typecafe:keyStats", JSON.stringify([
-        { key: "x", attempts: 20, correct: 10 },
-        { key: "q", attempts: 10, correct: 4 },
-      ]));
-    });
-    await mockTrpc(page);
-    await page.goto("/drill?keys=x&length=8");
-    await expect(page.getByTestId("drill-typer")).toBeVisible();
-    await expect(page.getByRole("heading", { name: "x" })).toBeVisible();
-    await expect(page.getByTestId("drill-header-stat")).toBeVisible();
-    await expect(page.getByTestId("drill-header-next")).toBeVisible();
-    await capture(page, testInfo, "56-drill-surface");
   });
 
   test("shared progress card", async ({ page }, testInfo) => {
@@ -1076,6 +882,9 @@ test.describe("screenshot tour", () => {
     await expect(page.getByRole("heading", { name: "How TypeCafe Measures Typing" })).toBeVisible();
     await expect(page.getByText(/replayed on the server from the full keystroke and backspace timeline/i)).toBeVisible();
     await expect(page.getByText(/calculating net WPM for each test first/i)).toBeVisible();
+    await expect(page.getByText(/classifies the expected layout geometry, not the finger/i)).toBeVisible();
+    await expect(page.getByText(/generated text saturates the selected Target/i)).toBeVisible();
+    await expect(page.getByText(/cannot invent a natural Weakness or prove representative improvement/i)).toBeVisible();
     await capture(page, testInfo, "55-how-we-measure");
 
     await page.goto("/guides");
@@ -1118,6 +927,7 @@ test.describe("screenshot tour", () => {
 
     await page.goto("/privacy-policy");
     await expect(page.getByRole("heading", { name: "Privacy Policy for TypeCafe" })).toBeVisible();
+    await expect(page.getByText(/actual mistyped character.*does not record typing outside/i)).toBeVisible();
     await capture(page, testInfo, "21-privacy-policy");
 
     await page.goto("/terms-and-conditions");

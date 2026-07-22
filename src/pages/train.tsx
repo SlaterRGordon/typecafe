@@ -1,7 +1,7 @@
 import { type NextPage } from "next";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Typer } from "~/components/typer/Typer";
-import { TestGramScopes, TestGramSources, TestModes } from "~/components/typer/types";
+import { TestModes } from "~/components/typer/types";
 import type { Level } from "~/components/typer/train/levels";
 import { levelsFor, reachableAccentsFor, withLanguageAccents } from "~/components/typer/train/levels";
 import { accentsFor, ensureLanguageLoaded } from "~/components/typer/utils";
@@ -161,12 +161,6 @@ const Train: NextPage = () => {
         return () => { active = false }
     }, [language, activeLayout])
     const mode = TestModes.normal
-    const gramSource = TestGramSources.bigrams
-    const gramScope = TestGramScopes.fifty
-    const gramCombination = 1
-    const gramRepetition = 0
-    const gramWpmThreshold = 20
-    const gramAccuracyThreshold = 100
     const [difficulty, setDifficulty] = useState<DifficultyName>("easy")
     const [view, setView] = useState<TrainView>("map")
     // The ladder follows the active layout (docs/features/keyboard-layouts.md
@@ -590,12 +584,6 @@ const Train: NextPage = () => {
                                     modalOpen={false}
                                     mode={mode}
                                     subMode={subMode}
-                                    gramSource={gramSource}
-                                    gramScope={gramScope}
-                                    gramCombination={gramCombination}
-                                    gramRepetition={gramRepetition}
-                                    gramWpmThreshold={gramWpmThreshold}
-                                    gramAccuracyThreshold={gramAccuracyThreshold}
                                     count={level.count}
                                     level={typerLevel}
                                     levelRequirements={{ wpm: criteria.oneStarNetWpm, accuracy: 0 }}

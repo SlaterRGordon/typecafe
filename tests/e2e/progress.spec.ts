@@ -1,5 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { mockAuthenticatedSession, mockTrpc } from "./helpers/trpc";
+import { brDrillTimeline, frenchTransitionTimeline, impactTimeline, movementTimeline, recentWorthTimeline } from "./helpers/evidence";
+import { typeCurrentCharacter } from "./helpers/typing";
 
 async function gotoProgress(page: Page) {
   await page.goto("/progress");
@@ -42,7 +44,6 @@ test.describe("progress dashboard", () => {
   test("progress rescopes to the global language", async ({ page }) => {
     await mockAuthenticatedSession(page);
     await mockTrpc(page);
-    await page.addInitScript(() => window.localStorage.setItem("typecafe:lastRecapAt", String(Date.now())));
     await gotoProgress(page);
 
     // Default English view: the mocked records are English, so there is history.
@@ -59,7 +60,6 @@ test.describe("progress dashboard", () => {
   test("progress rescopes to the active layout's stats pool", async ({ page }) => {
     await mockAuthenticatedSession(page);
     await mockTrpc(page);
-    await page.addInitScript(() => window.localStorage.setItem("typecafe:lastRecapAt", String(Date.now())));
     await gotoProgress(page);
 
     // Default qwerty view: the mocked (untagged → qwerty pool) records have history.
@@ -81,7 +81,7 @@ test.describe("progress dashboard", () => {
     await expect(page.getByText("No tests yet")).toHaveCount(0);
   });
 
-  test("a signed-in user with history sees their delta, trends, and weak spots", async ({ page }) => {
+  test("a signed-in user with history sees their delta, trends, and Target ledger", async ({ page }) => {
     await mockAuthenticatedSession(page);
     await mockTrpc(page, {
       keyStats: [{ character: "r", total: 120, correct: 96 }, { character: "e", total: 300, correct: 290 }],
@@ -95,8 +95,8 @@ test.describe("progress dashboard", () => {
         { pair: "th", count: 1000, totalMs: 100000, errors: 0 },
       ],
       sameDayProgress: true,
+      timelineEvidence: [impactTimeline(1), impactTimeline(2)],
     });
-    await page.addInitScript(() => window.localStorage.setItem("typecafe:lastRecapAt", String(Date.now())));
     await gotoProgress(page);
 
     // The headline delta is the largest number on the page and answers
@@ -112,6 +112,47 @@ test.describe("progress dashboard", () => {
 
     // The practice streak chip shows (the mocked history reaches today).
     await expect(page.getByTestId("streak-chip")).toBeVisible();
+    const targets = page.getByTestId("progress-coach");
+    await expect(targets).toContainText("Your targets");
+    await expect(targets.getByTestId("coach-window-note")).toContainText("measured from your last 2 Tests");
+    await expect(targets).toContainText("b→r");
+    await expect(targets).toContainText("Transition");
+    await expect(targets).toContainText("b→r pause is slow");
+    // "Needs work" belongs to the detail card's status only, never to the rows.
+    await expect(targets.getByText("Needs work", { exact: true })).toHaveCount(1);
+    const targetFilters = page.getByTestId("coach-target-filters");
+    await expect(targetFilters.getByRole("button", { name: /Transitions/ })).toBeVisible();
+    await expect(targetFilters.getByRole("button", { name: /Keys/ })).toBeVisible();
+    await expect(targetFilters.getByRole("button", { name: /Patterns/ })).toBeVisible();
+    await expect(targetFilters.getByRole("button", { name: /Movements/ })).toBeVisible();
+    const brButton = targets.getByRole("button", { name: /b→r/ });
+    if ((page.viewportSize()?.width ?? 0) < 640) await brButton.click();
+    else await brButton.hover();
+    const brPractice = brButton.locator("../..").getByRole("link", { name: "Practice this transition" });
+    await expect(brPractice).toHaveAttribute("href", /transitions=br/);
+    if ((page.viewportSize()?.width ?? 0) >= 1024) await expect(brPractice).toHaveCSS("opacity", "1");
+    if ((page.viewportSize()?.width ?? 0) >= 1024) {
+      await expect.poll(async () => brPractice.evaluate((element) => getComputedStyle(element).backgroundColor))
+        .not.toBe("rgba(0, 0, 0, 0)");
+    }
+    await expect(page.getByTestId("progress-recap")).toHaveCount(0);
+    if ((page.viewportSize()?.width ?? 0) >= 1024) {
+      const left = await page.getByTestId("progress-left-column").boundingBox();
+      const right = await page.getByTestId("progress-coach-column").boundingBox();
+      const targetsBox = await targets.getByTestId("coach-targets").boundingBox();
+      expect(left).not.toBeNull();
+      expect(right).not.toBeNull();
+      expect(targetsBox).not.toBeNull();
+      expect(Math.abs(left!.width - right!.width)).toBeLessThanOrEqual(2);
+      expect(Math.abs(left!.height - right!.height)).toBeLessThanOrEqual(2);
+      expect(targetsBox!.height).toBeLessThan(left!.height);
+      expect(Math.abs((targetsBox!.y + targetsBox!.height) - (right!.y + right!.height))).toBeLessThanOrEqual(2);
+      const targetScroll = page.getByTestId("coach-target-scroll");
+      await expect(targetScroll).toHaveCSS("overflow-y", "auto");
+      await expect(targets.getByText("Ability", { exact: true })).toBeVisible();
+      await expect(targets.getByText("Progress", { exact: true })).toBeVisible();
+      await expect(targets.getByText("Worth", { exact: true })).toBeVisible();
+    }
 
     // One big trend chart, WPM by default, with metric tabs to toggle it.
     await expect(page.getByText("WPM over time", { exact: true })).toBeVisible();
@@ -154,15 +195,17 @@ test.describe("progress dashboard", () => {
     // Best WPM is a header chip now (the rest of the stat cells are gone).
     await expect(page.getByTestId("best-wpm-chip")).toContainText("Best");
 
-    // Weak spots → drill (§6.4): top weak keys + slowest transitions, each → /drill.
-    const weak = page.getByTestId("weak-spots");
-    await expect(weak).toBeVisible();
-    // r (80%) is weaker than e (96.7%), so it leads the weakest-keys CTA - the
-    // keys show as chips above the button; the button just carries the action,
-    // and the drill href preserves their order.
-    const drillWeak = weak.getByRole("link", { name: /Drill weakest keys/ });
-    await expect(drillWeak).toBeVisible();
-    await expect(drillWeak).toHaveAttribute("href", /keys=r,e/);
+    const coach = page.getByTestId("progress-coach");
+    await expect(coach).toContainText("Target detail");
+    await expect(coach.getByTestId("target-practice-summary")).toHaveCount(0);
+    if ((page.viewportSize()?.width ?? 0) >= 1024) {
+      await expect(coach).toContainText("Work on b→r");
+      await expect(coach).not.toContainText("Baseline");
+    } else {
+      await expect(page.getByTestId("coach-inline-detail")).toContainText("Recent 140 ms");
+      await expect(page.getByTestId("coach-inline-detail").getByRole("link", { name: "Practice this transition" })).toBeVisible();
+    }
+    await expect(page.getByTestId("records-timeline")).toHaveCount(0);
     await expect(page.getByTestId("lifetime-keyboard-card")).toContainText("Your keyboard");
     // The legend now shares the Practice board's vocabulary (accuracy / speed / no data).
     const keyboardCard = page.getByTestId("lifetime-keyboard-card");
@@ -176,11 +219,13 @@ test.describe("progress dashboard", () => {
     // and its tooltip states the avg latency alongside accuracy.
     await expect(rKey.locator("[data-kb-speed]")).toHaveCount(1);
     await rKey.hover();
-    await expect(page.getByRole("tooltip")).toContainText("Base r: 80% accuracy");
+    // The drill-inclusive practiceStats mock is 80%; Progress keyboard proof
+    // must instead reflect the context-tagged natural Timelines (100%).
+    await expect(page.getByRole("tooltip")).toContainText("Base r: 100% accuracy");
     await expect(page.getByRole("tooltip")).toContainText("Speed:");
     const keyboardHelp = page.getByRole("link", { name: "How keyboard accuracy is calculated" });
     await keyboardHelp.hover();
-    await expect(page.getByRole("tooltip")).toContainText("rolling accuracy from recent attempts");
+    await expect(page.getByRole("tooltip")).toContainText("accuracy from recent natural Tests");
     // The heatmap flips layers: shift renders each cell's shifted twin with its
     // own tally (1 → !), and flipping back restores the base glyphs.
     const heatmap = page.getByTestId("lifetime-heatmap");
@@ -193,32 +238,12 @@ test.describe("progress dashboard", () => {
     await expect(heatmap.locator('[data-kb-speed]')).toHaveCount(0);
     await shiftLayerButton.click();
     await expect(heatmap.locator('[data-kb-key="1"]')).toBeVisible();
-    const transitions = page.getByTestId("worst-transitions");
-    await expect(transitions).toContainText("b→r");
-    await expect(transitions.getByRole("link", { name: "Drill br" })).toBeVisible();
-    await expect(transitions.locator("li")).toHaveCount(6);
-    await expect(page.getByTestId("transitions-disclosure")).toHaveCount(0);
-    const transitionList = transitions.getByRole("list", { name: "Slowest transitions" });
-
-    // Long evidence stays available in an inline scroll region-no disclosure
-    // state or arbitrary result cutoff.
-    const records = page.getByTestId("records-timeline");
-    await expect(records).toBeVisible();
-    expect(await records.locator("li").count()).toBeGreaterThan(5);
-    await expect(page.getByTestId("records-disclosure")).toHaveCount(0);
-    const recordsList = records.getByRole("list", { name: "Personal records" });
-
     if ((page.viewportSize()?.width ?? 0) >= 1024) {
-      await expect.poll(() => transitionList.evaluate((list) => list.scrollHeight > list.clientHeight)).toBe(true);
-      await expect.poll(() => recordsList.evaluate((list) => list.scrollHeight > list.clientHeight)).toBe(true);
-
-      // The dashboard columns stack independently: the keyboard starts while
-      // the taller drill card is still running beside it, rather than waiting.
       const keyboardBox = await page.getByTestId("lifetime-keyboard-card").boundingBox();
-      const weakBox = await page.getByTestId("weak-spots").boundingBox();
+      const coachBox = await coach.boundingBox();
       expect(keyboardBox).not.toBeNull();
-      expect(weakBox).not.toBeNull();
-      expect(keyboardBox!.y).toBeLessThan(weakBox!.y + weakBox!.height);
+      expect(coachBox).not.toBeNull();
+      expect(coachBox!.width).toBeGreaterThan(keyboardBox!.width * 0.55);
     }
 
     // Removed in slice 6: the 1-user self-league trap and the on-page challenge.
@@ -245,7 +270,6 @@ test.describe("progress dashboard", () => {
   test("progress combines all modes and lengths with no filter controls", async ({ page }) => {
     await mockAuthenticatedSession(page);
     await mockTrpc(page, { mixedProgress: true });
-    await page.addInitScript(() => window.localStorage.setItem("typecafe:lastRecapAt", String(Date.now())));
     await gotoProgress(page);
 
     // Mode/length filters are gone - every test rolls into one combined view.
@@ -268,7 +292,6 @@ test.describe("progress dashboard", () => {
   test("setting a goal projects an honest trajectory", async ({ page }) => {
     await mockAuthenticatedSession(page);
     await mockTrpc(page);
-    await page.addInitScript(() => window.localStorage.setItem("typecafe:lastRecapAt", String(Date.now())));
     await gotoProgress(page);
 
     // Demoted to a one-liner: expand it before setting a goal.
@@ -294,14 +317,205 @@ test.describe("progress dashboard", () => {
   test("a flat trend shows the plateau coach voice", async ({ page }) => {
     await mockAuthenticatedSession(page);
     await mockTrpc(page, { flatProgress: true });
-    await page.addInitScript(() => window.localStorage.setItem("typecafe:lastRecapAt", String(Date.now())));
     await gotoProgress(page);
 
     const plateau = page.getByTestId("plateau-headline");
     await expect(plateau).toBeVisible();
     await expect(plateau).toContainText("Plateaued for");
-    await expect(plateau).toContainText("Your recent net WPM trend has stayed nearly flat. Drill the weak spot beside it, then re-measure.");
+    await expect(plateau).toContainText("Your recent net WPM trend has stayed nearly flat. Practise a high-worth Target, then re-measure.");
     await expect(plateau.getByRole("link", { name: "Try transition drills" })).toHaveCount(0);
+  });
+
+  test("inspects another Target without changing order or saving state", async ({ page }) => {
+    await mockAuthenticatedSession(page);
+    await mockTrpc(page, {
+      timelineEvidence: [impactTimeline(1), impactTimeline(2)],
+    });
+    await gotoProgress(page);
+
+    const coach = page.getByTestId("progress-coach");
+    await expect(coach).toContainText("Work on b→r");
+    const coachDetail = coach.getByTestId("coach-detail");
+    const targetsSurface = coach.getByTestId("coach-targets");
+    if ((page.viewportSize()?.width ?? 0) >= 1024) await expect(coachDetail).toBeVisible();
+    else await expect(coachDetail).toBeHidden();
+    await expect(targetsSurface).toBeVisible();
+    if ((page.viewportSize()?.width ?? 0) >= 1024) {
+      await expect.poll(async () => {
+        const [detailBox, targetsBox] = await Promise.all([coachDetail.boundingBox(), targetsSurface.boundingBox()]);
+        return detailBox && targetsBox ? targetsBox.y > detailBox.y + detailBox.height : false;
+      }).toBe(true);
+    }
+    const ioRow = coach.getByRole("button", { name: /i→o/ });
+    await ioRow.focus();
+    await ioRow.press("Enter");
+    await expect(ioRow).toHaveAttribute("aria-expanded", "true");
+    await expect(ioRow.locator("xpath=ancestor::li[1]")).toHaveAttribute("data-selected", "");
+
+    if ((page.viewportSize()?.width ?? 0) >= 1024) {
+      await expect(targetsSurface.getByRole("list", { name: "Recent typing Targets" }).locator(":scope > li").first()).toContainText("b→r");
+      const detail = page.getByTestId("coach-detail");
+      await expect(detail).toContainText("Target detail");
+      await expect(detail).toContainText("Work on i→o");
+      await expect(detail).toContainText("Recent 200 ms");
+      await expect(detail.getByRole("button", { name: /Back to/ })).toHaveCount(0);
+      await ioRow.click();
+      await expect(ioRow).toHaveAttribute("aria-expanded", "false");
+      await expect(detail).toContainText("Work on b→r");
+    } else {
+      await expect(page.getByTestId("coach-inline-detail")).toContainText("Work on i→o");
+      await ioRow.click();
+      await expect(ioRow).toHaveAttribute("aria-expanded", "false");
+    }
+
+    await page.getByTestId("coach-target-filters").getByRole("button", { name: /Keys/ }).click();
+    await expect(page.getByTestId("coach-inline-detail")).toHaveCount(0);
+    await expect(page.getByTestId("coach-detail")).toContainText("Work on b→r");
+    await expect(page.getByTestId("records-timeline")).toHaveCount(0);
+  });
+
+  test("qualifies exact Transitions from the active language corpus", async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem("typecafe:language", JSON.stringify("french")));
+    await mockAuthenticatedSession(page);
+    await mockTrpc(page, {
+      progressLanguage: "french",
+      timelineEvidence: [frenchTransitionTimeline(1), frenchTransitionTimeline(2)],
+    });
+    await gotoProgress(page);
+
+    await expect(page.getByTestId("progress-language-chip")).toHaveText("French");
+    const coach = page.getByTestId("progress-coach");
+    await expect(coach.getByRole("button", { name: /ç→a/ })).toBeVisible();
+  });
+
+  test("orders Targets by the recent Worth displayed in the ledger", async ({ page }) => {
+    await mockAuthenticatedSession(page);
+    await mockTrpc(page, {
+      timelineEvidence: Array.from({ length: 10 }, (_, index) => recentWorthTimeline(index + 1, index < 5 ? 200 : 105)),
+    });
+    await gotoProgress(page);
+
+    const rows = page.getByRole("list", { name: "Recent typing Targets" }).locator(":scope > li");
+    await expect(rows.first()).toContainText("i→o");
+    await expect(rows.nth(1)).toContainText("b→r");
+  });
+
+  test("shows the full grouped movement description before preserving every sequence in Practice", async ({ page }) => {
+    await mockAuthenticatedSession(page);
+    await mockTrpc(page, { timelineEvidence: [movementTimeline(1), movementTimeline(2)] });
+    await gotoProgress(page);
+
+    const coach = page.getByTestId("progress-coach");
+    await coach.getByTestId("coach-target-filters").getByRole("button", { name: /Movements/ }).click();
+    const movementRow = coach.getByRole("button", { name: /same-finger movement/ });
+    await expect(movementRow).toContainText("+2 related");
+    await expect(movementRow).toContainText("~1.6s / 1k chars");
+    for (const sequence of ["f→r", "d→e", "s→w", "a→q"]) await expect(movementRow).toContainText(sequence);
+    const description = movementRow.getByText("same-finger movement · a→q, d→e, f→r, s→w", { exact: true });
+    await expect(description).toBeVisible();
+    expect(await description.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return {
+        fitsHorizontally: element.scrollWidth <= element.clientWidth,
+        fitsVertically: element.scrollHeight <= element.clientHeight,
+        textOverflow: style.textOverflow,
+      };
+    })).toEqual({ fitsHorizontally: true, fitsVertically: true, textOverflow: "clip" });
+    await movementRow.click();
+
+    const desktop = (page.viewportSize()?.width ?? 0) >= 1024;
+    const detail = desktop ? coach.getByTestId("coach-detail") : coach.getByTestId("coach-inline-detail");
+    await expect(detail).toContainText("same-finger movement");
+    const scope = detail.getByTestId("movement-scope");
+    await expect(scope).toContainText("Representative sequences");
+    for (const sequence of ["f→r", "d→e", "s→w", "a→q"]) await expect(scope).toContainText(sequence);
+    const related = detail.getByTestId("related-target-evidence");
+    await expect(related).toContainText("Transition d→e");
+    await expect(related).toContainText("Transition f→r");
+    await expect(related).toContainText("estimated Worth is counted once");
+    await coach.getByTestId("coach-target-filters").getByRole("button", { name: /Transitions/ }).click();
+    await expect(movementRow).toBeVisible();
+    await detail.getByRole("link", { name: "Practice this movement" }).click();
+
+    await expect(page).toHaveURL(/\/practice\?target=movement&movement=same-finger/);
+    await expect(page.getByRole("heading", { name: "Practise same-finger movement" })).toBeVisible();
+    await expect(page.getByTestId("movement-scope")).toContainText("f→r");
+    const selected = page.getByTestId("selected-practice-grams");
+    for (const anchor of ["fr", "de", "sw", "aq"]) await expect(selected.getByRole("button", { name: `Remove ${anchor}` })).toBeVisible();
+  });
+
+  test("a drilled Target asks for a Test until natural typing measures it again", async ({ page }) => {
+    await mockAuthenticatedSession(page);
+    await mockTrpc(page, {
+      // The drill is newer than every natural test, so br is drilled but unmeasured.
+      timelineEvidence: [brDrillTimeline(3), impactTimeline(1), impactTimeline(2)],
+    });
+    await gotoProgress(page);
+
+    const coach = page.getByTestId("progress-coach");
+    await expect(coach).toContainText("practised · awaiting Test");
+    const brRow = coach.getByRole("button", { name: /b→r/ });
+    if ((page.viewportSize()?.width ?? 0) >= 1024) {
+      const detail = coach.getByTestId("coach-detail");
+      await expect(detail.getByRole("link", { name: "Take a Test" })).toHaveAttribute("href", "/?mode=timed&count=30");
+      await expect(detail.getByRole("link")).toHaveCount(1);
+      const activity = detail.getByTestId("target-practice-summary");
+      await expect(activity.getByText("Practice activity", { exact: true })).toBeVisible();
+      await expect(activity).not.toHaveAttribute("open", "");
+      await expect(activity.getByText("Focused time", { exact: true })).toBeHidden();
+      await activity.getByText("Practice activity", { exact: true }).click();
+      await expect(activity).toHaveAttribute("open", "");
+      await expect(activity).toContainText("Focused time1m");
+      await expect(activity).toContainText("Completed runs1");
+      await expect(activity).toContainText("Target attempts10");
+      await expect(activity).toContainText("Practice-context performance90 ms");
+      await expect(activity).not.toContainText(/improved|fixed/i);
+      await brRow.hover();
+      await expect(brRow.locator("../..").getByRole("link", { name: "Take a Test" })).toBeVisible();
+    } else {
+      await brRow.click();
+      const inline = page.getByTestId("coach-inline-detail");
+      await expect(inline.getByRole("link", { name: "Take a Test" })).toHaveAttribute("href", "/?mode=timed&count=30");
+      await expect(inline.getByRole("link")).toHaveCount(1);
+      const activity = inline.getByTestId("target-practice-summary");
+      await expect(activity.getByText("Practice activity", { exact: true })).toBeVisible();
+      await expect(activity.getByText("Focused time", { exact: true })).toBeHidden();
+      await activity.getByText("Practice activity", { exact: true }).click();
+      await expect(activity.getByText("Focused time", { exact: true })).toBeVisible();
+    }
+  });
+
+  test("keeps the Target loop intact from Progress through Practice to the ordinary Home Test", async ({ page }) => {
+    await page.clock.install();
+    await mockAuthenticatedSession(page);
+    await mockTrpc(page, {
+      timelineEvidence: [impactTimeline(1), impactTimeline(2)],
+    });
+    await gotoProgress(page);
+
+    const coach = page.getByTestId("progress-coach");
+    const desktop = (page.viewportSize()?.width ?? 0) >= 1024;
+    if (!desktop) await coach.getByRole("button", { name: /b→r/ }).click();
+    const detail = desktop ? coach.getByTestId("coach-detail") : coach.getByTestId("coach-inline-detail");
+    await detail.getByRole("link", { name: "Practice this transition" }).click();
+    await expect(page).toHaveURL(/\/practice\?target=transition/);
+    await expect(page.getByTestId("custom-practice-workspace")).toHaveAttribute("data-practice-kind", "guided");
+    await page.getByRole("region", { name: "Practice controls" }).getByRole("button", { name: "30s" }).click();
+    for (let index = 0; index < 8; index += 1) {
+      await typeCurrentCharacter(page, index);
+      await page.clock.runFor(30);
+    }
+    await page.clock.runFor(30_000);
+
+    const recap = page.getByTestId("practice-recap");
+    await expect(recap.getByRole("heading", { name: "b→r" })).toBeVisible();
+    await expect(recap).toContainText("Transition latency");
+    await expect(recap).toContainText("Target attempt");
+    await recap.getByRole("link", { name: "Take a Test" }).click();
+    await expect(page).toHaveURL(/\/$/);
+    await expect(page.locator("#c0")).toHaveClass(/active-char/, { timeout: 20_000 });
+    await expect(page.getByTestId("score-card")).toHaveCount(0);
+    await expect(page.getByText(/awaiting Test/i)).toHaveCount(0);
   });
 
   test("signed-in Progress displays the canonical net score without recalculating it", async ({ page }) => {
@@ -404,12 +618,25 @@ test.describe("progress dashboard", () => {
     await page.addInitScript(({ now, day }) => {
       const entries = Array.from({ length: 12 }, (_, i) => ({ wpm: 55 + i * 1.5, accuracy: 95, t: now - (28 - i * 2.5) * day }));
       window.localStorage.setItem("typecafe:progressHistory", JSON.stringify(entries));
+      window.localStorage.setItem("typecafe:dailyCoaching:guest", "stale retired state");
+      const storage = window.localStorage;
+      const getItem = storage.getItem.bind(storage);
+      Object.defineProperty(window, "__dailyCoachReads", { configurable: true, value: 0, writable: true });
+      Object.defineProperty(storage, "getItem", { configurable: true, value: (key: string) => {
+          if (key.startsWith("typecafe:dailyCoaching")) {
+            (window as typeof window & { __dailyCoachReads: number }).__dailyCoachReads += 1;
+          }
+          return getItem(key);
+        },
+      });
     }, { now, day });
 
     await gotoProgress(page);
 
     await expect(page.getByTestId("guest-keep-banner")).toBeVisible();
     await expect(page.getByTestId("trend-chart").first()).toBeVisible();
+    await expect(page.getByTestId("progress-coach")).toContainText("Map your typing to find a stable Target");
+    expect(await page.evaluate(() => (window as typeof window & { __dailyCoachReads: number }).__dailyCoachReads)).toBe(0);
     await expect(page.getByTestId("progress-signed-out")).toHaveCount(0);
   });
 
@@ -427,7 +654,6 @@ test.describe("progress dashboard", () => {
     // and rot the test (this one broke exactly 30 days after it was written).
     await page.addInitScript(() => {
       const day = 24 * 60 * 60 * 1000;
-      window.localStorage.setItem("typecafe:lastRecapAt", String(Date.now()));
       window.localStorage.setItem("typecafe:progressHistory", JSON.stringify([
         { wpm: 100, accuracy: 90, c: 72, t: Date.now() - 6 * day },
         { wpm: 68, accuracy: 96, c: 78, t: Date.now() - 4 * day },

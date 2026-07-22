@@ -8,17 +8,17 @@ import { createKeystrokeRecorder } from "./keystrokeRecorder"
 describe("createKeystrokeRecorder", () => {
     it("records a clean forward run with timeline, counts, events and attempts", () => {
         const r = createKeystrokeRecorder()
-        r.append("a", true, 100)
-        r.append("b", true, 150)
+        r.append("a", "a", true, 100)
+        r.append("b", "b", true, 150)
 
         expect(r.finalize()).toEqual({
             events: [
-                { key: "a", correct: true, t: 100 },
-                { key: "b", correct: true, t: 150 },
+                { key: "a", typed: "a", correct: true, t: 100 },
+                { key: "b", typed: "b", correct: true, t: 150 },
             ],
             evidence: [
-                { key: "a", correct: true, t: 100 },
-                { key: "b", correct: true, t: 150 },
+                { key: "a", typed: "a", correct: true, t: 100 },
+                { key: "b", typed: "b", correct: true, t: 150 },
             ],
             timeline: [
                 { t: 100, chars: 1 },
@@ -35,7 +35,7 @@ describe("createKeystrokeRecorder", () => {
 
     it("counts an incorrect keystroke without crediting the attempt", () => {
         const r = createKeystrokeRecorder()
-        r.append("a", false, 100)
+        r.append("a", "x", false, 100)
 
         expect(r.incorrectCount).toBe(1)
         expect(r.characterCount).toBe(1)
@@ -44,10 +44,10 @@ describe("createKeystrokeRecorder", () => {
 
     it("walks the count back on backspace but leaves events and attempts intact", () => {
         const r = createKeystrokeRecorder()
-        r.append("a", false, 100) // wrong attempt at position 0
+        r.append("a", "x", false, 100) // wrong attempt at position 0
         r.backspace(120)
-        r.append("a", true, 140) // retype correctly
-        r.append("b", true, 160)
+        r.append("a", "a", true, 140) // retype correctly
+        r.append("b", "b", true, 160)
 
         const bundle = r.finalize()
         // Backspace undoes the incorrect count exactly once.
@@ -55,17 +55,17 @@ describe("createKeystrokeRecorder", () => {
         expect(bundle.characterCount).toBe(2)
         // Events keep every committed key, including the corrected-away one.
         expect(bundle.events).toEqual([
-            { key: "a", correct: false, t: 100 },
-            { key: "a", correct: true, t: 140 },
-            { key: "b", correct: true, t: 160 },
+            { key: "a", typed: "x", correct: false, t: 100 },
+            { key: "a", typed: "a", correct: true, t: 140 },
+            { key: "b", typed: "b", correct: true, t: 160 },
         ])
         // Persisted evidence additionally records the edit, so replay can derive
         // the same final cursor and error counts.
         expect(bundle.evidence).toEqual([
-            { key: "a", correct: false, t: 100 },
+            { key: "a", typed: "x", correct: false, t: 100 },
             { action: "backspace", t: 120 },
-            { key: "a", correct: true, t: 140 },
-            { key: "b", correct: true, t: 160 },
+            { key: "a", typed: "a", correct: true, t: 140 },
+            { key: "b", typed: "b", correct: true, t: 160 },
         ])
         // Timeline records the backspace as a net-count dip.
         expect(bundle.timeline).toEqual([
@@ -81,8 +81,8 @@ describe("createKeystrokeRecorder", () => {
 
     it("does not decrement incorrect when backspacing over a correct keystroke", () => {
         const r = createKeystrokeRecorder()
-        r.append("a", true, 100)
-        r.append("b", false, 150)
+        r.append("a", "a", true, 100)
+        r.append("b", "x", false, 150)
         r.backspace(160) // undo the wrong 'b'
         r.backspace(170) // undo the correct 'a'
 
@@ -105,7 +105,7 @@ describe("createKeystrokeRecorder", () => {
 
     it("reset clears every capture for the next attempt", () => {
         const r = createKeystrokeRecorder()
-        r.append("a", true, 100)
+        r.append("a", "a", true, 100)
         r.reset()
         expect(r.finalize()).toEqual({
             events: [],

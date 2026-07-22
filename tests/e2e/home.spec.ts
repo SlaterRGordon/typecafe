@@ -1,6 +1,8 @@
 import { expect, test, type Page } from "@playwright/test";
 import { mockAuthenticatedSession, mockTrpc } from "./helpers/trpc";
 import { typeCurrentCharacter, typeVisibleTestText, typeWrongCharacter } from "./helpers/typing";
+import { higherOrderTimeline, impactTimeline } from "./helpers/evidence";
+import { TestModes, TestSubModes } from "../../src/components/typer/types";
 import english1k from "../../src/components/typer/languages/english1k.json";
 
 async function gotoHome(page: Page) {
@@ -16,7 +18,7 @@ async function selectQuotesLanguage(page: Page) {
   await page.getByTestId("language-menu").getByRole("button", { name: "Quotes", exact: true }).click();
 }
 
-function selectMode(page: Page, name: "Timed" | "Words" | "Practice" | "Grams", options?: { force?: boolean }) {
+function selectMode(page: Page, name: "Timed" | "Words", options?: { force?: boolean }) {
   const button = page.getByTestId("mode-bar").getByRole("button", { name });
   if (options?.force) return button.evaluate((element: HTMLElement) => element.click());
   return button.click();
@@ -47,6 +49,63 @@ async function typeWrongZeroes(page: Page, count: number) {
 }
 
 test.describe("home typing test", () => {
+  test("Home follows Practice's vertical rhythm on a tall desktop viewport", async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== "desktop-chromium", "Tall desktop layout comparison");
+    await page.setViewportSize({ width: 1855, height: 1262 });
+    await mockAuthenticatedSession(page);
+    await mockTrpc(page, {
+      timelineEvidence: [higherOrderTimeline(1), higherOrderTimeline(2)],
+      customGramsPreference: {
+        version: 2,
+        language: "english",
+        entries: [],
+        setup: { grams: ["ju", "res"], durationSeconds: 60, textStyle: "varied", updatedAt: 30 },
+      },
+    });
+
+    await gotoHome(page);
+    const homeConfiguration = await page.getByTestId("typer-toolbar").boundingBox();
+    const homePrompt = await page.locator("#text").boundingBox();
+
+    await page.goto("/practice?custom=grams");
+    await expect(page.getByTestId("custom-practice-workspace")).toBeVisible();
+    await expect(page.locator("#c0")).toHaveClass(/active-char/, { timeout: 20_000 });
+    const practiceConfiguration = await page.getByTestId("practice-workspace-configuration").boundingBox();
+    const practicePrompt = await page.locator("#text").boundingBox();
+
+    expect(homeConfiguration).not.toBeNull();
+    expect(homePrompt).not.toBeNull();
+    expect(practiceConfiguration).not.toBeNull();
+    expect(practicePrompt).not.toBeNull();
+    expect(Math.abs(homeConfiguration!.y - practiceConfiguration!.y)).toBeLessThanOrEqual(16);
+    expect(Math.abs(homePrompt!.y - practicePrompt!.y)).toBeLessThanOrEqual(16);
+  });
+
+  test("a one-character word Test completes instead of stalling", async ({ page }) => {
+    const aIndex = english1k.words.indexOf("a");
+    await page.addInitScript(({ mode, subMode, randomValue }) => {
+      window.localStorage.setItem("typecafe:testSettings", JSON.stringify({
+        mode,
+        subMode,
+        language: "english",
+        count: 1,
+        customLength: true,
+      }));
+      Math.random = () => randomValue;
+    }, {
+      mode: TestModes.normal,
+      subMode: TestSubModes.words,
+      randomValue: (aIndex + 0.5) / english1k.words.length,
+    });
+    await gotoHome(page);
+
+    await expect(page.locator("#words")).toHaveText("a");
+    await page.locator("#input").focus();
+    await page.keyboard.press("a");
+
+    await expect(page.getByRole("button", { name: "Test Again" })).toBeVisible();
+  });
+
   test("renders typing text and advances when the active character is typed", async ({ page }) => {
     await gotoHome(page);
 
@@ -70,43 +129,6 @@ test.describe("home typing test", () => {
 
     await expect(page.locator("#c0")).toHaveClass(/active-char/);
     await expect(page.locator("#c0")).not.toHaveClass(/text-base-300/);
-  });
-
-  test("returning to a persisted grams mode loads grams text, not normal words", async ({ page }) => {
-    // Regression: settings load in an effect after mount, so the typer first mounts
-    // in the default (normal) mode and must switch. The restart coalescing has to
-    // keep the *latest* (grams) config - the old first-fired-wins flag loaded the
-    // 500-char normal buffer over the returning grams drill (mode 2 = ngrams).
-    await page.addInitScript(() => {
-      window.localStorage.setItem("typecafe:testSettings", JSON.stringify({ mode: 2 }));
-    });
-    await page.goto("/");
-    await expect(page.locator("#typer")).toBeVisible();
-    await expect(page.locator("#words .char").first()).toBeVisible();
-    // Grams renders its own progress bar + running-average stat; normal never does.
-    await expect(page.getByTestId("gram-progress")).toBeVisible();
-    await expect(page.getByTestId("stat-avg")).toBeVisible();
-    // A gram is a couple of characters; the normal buffer would be ~500.
-    const text = (await page.locator("#words").innerText()).trim();
-    expect(text.length).toBeLessThan(20);
-  });
-
-  test("grams mode derives grams in the active language", async ({ page }) => {
-    // A French guest returning to a persisted grams drill. The grams must derive
-    // from the French list (no static French gram files) and render - an under-deep
-    // derivation would index past its list and print "undefined".
-    await page.addInitScript(() => {
-      window.localStorage.setItem("typecafe:language", JSON.stringify("french"));
-      window.localStorage.setItem("typecafe:testSettings", JSON.stringify({ mode: 2 }));
-    });
-    await page.goto("/");
-    await expect(page.locator("#typer")).toBeVisible();
-    await expect(page.locator("#words .char").first()).toBeVisible();
-    await expect(page.getByTestId("gram-progress")).toBeVisible();
-    const text = (await page.locator("#words").innerText()).trim();
-    expect(text.length).toBeGreaterThan(0);
-    expect(text.length).toBeLessThan(20); // a gram, not the ~500-char normal buffer
-    expect(text).not.toContain("undefined");
   });
 
   test("Tab+Space restarts the test (Tab swallows the chord key)", async ({ page }) => {
@@ -200,14 +222,10 @@ test.describe("home typing test", () => {
     await toolbar.getByRole("button", { name: "Exit fullscreen" }).click();
     await expect(toolbar.getByRole("button", { name: "Enter fullscreen" })).toBeVisible();
 
-    // Grams: sources and scopes are settings-line text segments; the numeric
-    // knobs live on the advanced line below (grams-panel).
-    await selectMode(page, "Grams");
-    await expect(page.getByTestId("grams-panel")).toBeVisible();
-    await expect(context.getByRole("button", { name: "bigrams" })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByTestId("mode-bar").getByRole("button")).toHaveText(["timed", "words"]);
   });
 
-  test("language icon shows only on word-list modes", async ({ page }) => {
+  test("language icon stays available across ordinary Test modes", async ({ page }) => {
     await gotoHome(page);
     const toolbar = page.getByTestId("typer-toolbar");
     const langButton = toolbar.getByRole("button", { name: /^Language:/ });
@@ -218,12 +236,6 @@ test.describe("home typing test", () => {
     await expect(langButton).toBeVisible();
     await page.getByTestId("toolbar-context").getByRole("button", { name: "Infinite words" }).click();
     await expect(langButton).toBeVisible();
-
-    // Grams + Practice generate from n-grams / selected keys → icon hidden.
-    await selectMode(page, "Grams");
-    await expect(langButton).toHaveCount(0);
-    await selectMode(page, "Practice");
-    await expect(langButton).toHaveCount(0);
 
     // Quotes is a text source in the picker, so the icon stays - now labelled Quotes.
     await selectMode(page, "Timed");
@@ -267,15 +279,15 @@ test.describe("home typing test", () => {
     await expect(page.locator("#words .char").first()).toBeVisible();
   });
 
-  test("landing on /?mode=grams starts in grams, not a words flash", async ({ page }) => {
+  test("legacy Home Practice and Grams links reach canonical Practice", async ({ page }) => {
     await mockTrpc(page);
     await page.goto("/?mode=grams");
+    await expect(page).toHaveURL(/\/practice\?custom=grams/);
+    await expect(page.getByRole("region", { name: "Grams and words editor" })).toBeVisible();
 
-    // The grams subpanel + Grams mode are the steady state; the typer never
-    // settles into a words test on the way in.
-    await expect(page.getByTestId("grams-panel")).toBeVisible();
-    await expect(page.getByTestId("mode-bar").getByRole("button", { name: "Grams" })).toHaveAttribute("aria-pressed", "true");
-    await expect(page.locator("#words .char").first()).toBeVisible();
+    await page.goto("/?mode=practice&keys=x");
+    await expect(page).toHaveURL(/\/practice\?target=key.*keys=x/);
+    await expect(page.getByTestId("custom-practice-workspace")).toHaveAttribute("data-practice-kind", "guided");
   });
 
   test("does not log a score when switching modes mid-test", async ({ page }) => {
@@ -299,137 +311,6 @@ test.describe("home typing test", () => {
     await expect(page.getByTestId("mode-bar").getByRole("button", { name: "Timed" })).toHaveAttribute("aria-pressed", "true");
 
     expect(scoreCreates).toBe(0);
-  });
-
-  test("signed-in users get today's targeted coaching session", async ({ page }, testInfo) => {
-    await mockAuthenticatedSession(page);
-    await mockTrpc(page);
-    await gotoHome(page);
-
-    if (testInfo.project.name.includes("mobile")) {
-      const inlineTab = page.getByTestId("home-coach-tab-daily-inline");
-      await expect(inlineTab).toBeVisible();
-      await expect(inlineTab).toContainText("Warm up: 30-second Test");
-      await expect(inlineTab.getByRole("link", { name: "Start session" })).toHaveAttribute("href", "/?mode=timed&count=30");
-      return;
-    }
-
-    const tab = page.getByTestId("home-coach-tab-daily");
-    await expect(tab).toBeVisible();
-    const collapsedLink = tab.getByRole("link", { name: "Today's coaching" });
-    await expect(collapsedLink).toHaveAttribute("href", "/?mode=timed&count=30");
-    await expect(tab.getByText("0/2")).toBeVisible();
-    await tab.hover();
-    const panel = page.getByTestId("home-coach-tab-daily-panel");
-    await expect(collapsedLink).toHaveCSS("opacity", "0");
-    await expect(panel).toContainText("Warm up: 30-second Test");
-    await expect(panel).toContainText("about 4 min");
-    await expect(panel.getByRole("link", { name: "Start session" })).toHaveAttribute("href", "/?mode=timed&count=30");
-  });
-
-  test("signed-in users get a coach tab that drills their slowest transition", async ({ page }, testInfo) => {
-    await mockAuthenticatedSession(page);
-    await mockTrpc(page);
-    await gotoHome(page);
-
-    if (testInfo.project.name.includes("mobile")) {
-      const inlineTab = page.getByTestId("home-coach-tab-drill-inline");
-      await expect(inlineTab).toBeVisible();
-      await expect(inlineTab.getByText("Fix this")).toBeVisible();
-      await expect(inlineTab).toContainText("b->r");
-      await expect(inlineTab.getByRole("link", { name: "Start drill" })).toHaveAttribute("href", "/drill?transitions=br");
-      await inlineTab.getByRole("button", { name: "Dismiss drill suggestion" }).click();
-      await expect(inlineTab).toBeHidden();
-      return;
-    }
-
-    const tab = page.getByTestId("home-coach-tab-drill");
-    await expect(tab).toBeVisible();
-    const collapsedLink = tab.getByRole("link", { name: "Targeted drill" });
-    await expect(collapsedLink).toHaveAttribute("href", "/drill?transitions=br");
-    const collapsedLabel = tab.getByText("Fix this");
-    await expect(collapsedLabel).toBeVisible();
-    await tab.hover();
-    const panel = page.getByTestId("home-coach-tab-drill-panel");
-    await expect(collapsedLink).toHaveCSS("opacity", "0");
-    await expect(panel).toContainText("b->r");
-    await expect(panel).toContainText("2.2x avg");
-    await expect(panel.getByRole("link", { name: "Start drill" })).toHaveAttribute("href", "/drill?transitions=br");
-
-    // Dismissible - and stays gone for the session.
-    await panel.getByRole("button", { name: "Dismiss drill suggestion" }).click();
-    await expect(tab).toBeHidden();
-  });
-
-  test("guests without history see no drill coach tab", async ({ page }) => {
-    await mockTrpc(page);
-    await gotoHome(page);
-    await expect(page.getByTestId("home-coach-tab-drill")).toBeHidden();
-    await expect(page.getByTestId("home-coach-tab-drill-inline")).toBeHidden();
-  });
-
-  test("guests with local history get the drill coach tab", async ({ page }, testInfo) => {
-    // Local-first: same transitions the signed-in mock serves, seeded as guest evidence.
-    await page.addInitScript(() => {
-      window.localStorage.setItem("typecafe:transitionStats", JSON.stringify([
-        { pair: "br", count: 12, totalMs: 4800, errors: 3 },
-        { pair: "th", count: 30, totalMs: 3000, errors: 0 },
-        { pair: "he", count: 25, totalMs: 3000, errors: 0 },
-        { pair: "io", count: 10, totalMs: 3000, errors: 1 },
-      ]));
-    });
-    await mockTrpc(page);
-    await gotoHome(page);
-
-    if (testInfo.project.name.includes("mobile")) {
-      const inlineTab = page.getByTestId("home-coach-tab-drill-inline");
-      await expect(inlineTab).toBeVisible();
-      await expect(inlineTab).toContainText("b->r");
-      await expect(inlineTab.getByRole("link", { name: "Start drill" })).toHaveAttribute("href", "/drill?transitions=br");
-      return;
-    }
-
-    const tab = page.getByTestId("home-coach-tab-drill");
-    await expect(tab).toBeVisible();
-    await tab.hover();
-    const panel = page.getByTestId("home-coach-tab-drill-panel");
-    await expect(panel).toContainText("b->r");
-    await expect(panel.getByRole("link", { name: "Start drill" })).toHaveAttribute("href", "/drill?transitions=br");
-  });
-
-  test("desktop coach tabs persist after leaving home", async ({ page }, testInfo) => {
-    test.skip(testInfo.project.name.includes("mobile"), "Rail coach tabs are desktop-only.");
-    await mockAuthenticatedSession(page);
-    await mockTrpc(page);
-    await gotoHome(page);
-
-    await expect(page.getByTestId("home-coach-tab-daily")).toBeVisible();
-    const nav = page.getByTestId("side-primary-nav");
-    const tabBox = await page.getByTestId("home-coach-tab-daily").boundingBox();
-    const dailyBox = await nav.getByRole("link", { name: "Daily coaching" }).boundingBox();
-    const progressBox = await nav.getByRole("link", { name: "Progress" }).boundingBox();
-    expect(tabBox).not.toBeNull();
-    expect(dailyBox).not.toBeNull();
-    expect(progressBox).not.toBeNull();
-    // Each flyout is its nav entry's live detail - it sits beside it: the
-    // daily tab beside Daily Coach, the drill tab beside Progress.
-    const tabCenterY = tabBox!.y + tabBox!.height / 2;
-    const dailyCenterY = dailyBox!.y + dailyBox!.height / 2;
-    const progressCenterY = progressBox!.y + progressBox!.height / 2;
-    expect(Math.abs(tabCenterY - dailyCenterY)).toBeLessThanOrEqual(2);
-    expect(Math.abs(tabCenterY - progressCenterY)).toBeGreaterThan(16);
-    const drillBox = await page.getByTestId("home-coach-tab-drill").boundingBox();
-    expect(drillBox).not.toBeNull();
-    const drillCenterY = drillBox!.y + drillBox!.height / 2;
-    expect(Math.abs(drillCenterY - progressCenterY)).toBeLessThanOrEqual(2);
-    await page.getByRole("link", { name: "Progress" }).click();
-    await expect(page).toHaveURL(/\/progress$/);
-    await expect(page.getByTestId("headline-delta")).toBeVisible();
-
-    const tab = page.getByTestId("home-coach-tab-daily");
-    await expect(tab).toBeVisible();
-    await tab.hover();
-    await expect(page.getByTestId("home-coach-tab-daily-panel")).toContainText("Warm up: 30-second Test");
   });
 
   // Honest-review #1 (honest-review-2026-07.md): a zero-history visitor must
@@ -459,69 +340,6 @@ test.describe("home typing test", () => {
     await expect(page.getByTestId("first-visit-promise")).toHaveCount(0);
   });
 
-  test("guests without history get a calibration coach tab", async ({ page }, testInfo) => {
-    await mockTrpc(page);
-    await gotoHome(page);
-    const testId = testInfo.project.name.includes("mobile") ? "home-coach-tab-daily-inline" : "home-coach-tab-daily";
-    const tab = page.getByTestId(testId);
-    await expect(tab).toBeVisible();
-    await expect(tab).toContainText("Map your typing");
-  });
-
-  test("guests with local history get a frozen targeted daily session", async ({ page }, testInfo) => {
-    // Local-first: same transitions the signed-in mock serves, seeded as guest evidence.
-    await page.addInitScript(() => {
-      window.localStorage.setItem("typecafe:transitionStats", JSON.stringify([
-        { pair: "br", count: 12, totalMs: 4800, errors: 3 },
-        { pair: "th", count: 30, totalMs: 3000, errors: 0 },
-        { pair: "he", count: 25, totalMs: 3000, errors: 0 },
-        { pair: "io", count: 10, totalMs: 3000, errors: 1 },
-      ]));
-    });
-    await mockTrpc(page);
-    await gotoHome(page);
-
-    if (testInfo.project.name.includes("mobile")) {
-      const inlineTab = page.getByTestId("home-coach-tab-daily-inline");
-      await expect(inlineTab).toBeVisible();
-      await expect(inlineTab).toContainText("Warm up: 30-second Test");
-      return;
-    }
-
-    const tab = page.getByTestId("home-coach-tab-daily");
-    await expect(tab).toBeVisible();
-    await tab.hover();
-    const panel = page.getByTestId("home-coach-tab-daily-panel");
-    await expect(panel).toContainText("Warm up: 30-second Test");
-    const stored: unknown = await page.evaluate(() => JSON.parse(window.localStorage.getItem("typecafe:dailyCoaching:guest") ?? "[]") as unknown);
-    expect(Array.isArray(stored)).toBe(true);
-    const first = (stored as Array<{ kind?: string, reason?: string }>)[0];
-    expect(first?.kind).toBe("targeted");
-    expect(first?.reason).toContain("b→r");
-  });
-
-  test("grams numeric knobs edit inline on the advanced line", async ({ page }) => {
-    await gotoHome(page);
-    await selectMode(page, "Grams");
-    const panel = page.getByTestId("grams-panel");
-    await expect(panel).toBeVisible();
-
-    // Source + scope are settings-line segments; the knobs render as
-    // dotted-underline values until clicked.
-    const context = page.getByTestId("toolbar-context");
-    await expect(context.getByRole("button", { name: "bigrams" })).toHaveAttribute("aria-pressed", "true");
-    await expect(context.getByRole("button", { name: "top 50" })).toHaveAttribute("aria-pressed", "true");
-    await expect(page.locator("#testGramWpmThresholdInput")).toHaveCount(0);
-
-    // Click-to-edit: commit on Enter, and the new value renders back as text.
-    await panel.getByRole("button", { name: "Edit WPM needed to advance" }).click();
-    const input = page.locator("#testGramWpmThresholdInput");
-    await expect(input).toBeVisible();
-    await input.fill("35");
-    await input.press("Enter");
-    await expect(panel.getByRole("button", { name: "Edit WPM needed to advance" })).toContainText("35 wpm");
-  });
-
   test("keyboard layout is chosen globally in the nav and persists", async ({ page }) => {
     await gotoHome(page);
 
@@ -549,22 +367,16 @@ test.describe("home typing test", () => {
     await page.getByTestId("nav-language-menu").getByRole("button", { name: "German" }).click();
     await expect(trigger).toHaveText(/Auto - QWERTZ \(DE\)/);
 
-    // … and the practice board grows real umlaut keys (with an AltGr layer).
-    await selectMode(page, "Practice");
-    const board = page.locator(".typecafe-keyboard");
-    await expect(board.locator('[data-kb-key="ü"]')).toBeVisible();
-    await expect(board.locator('[data-kb-key="ö"]')).toBeVisible();
-    await expect(page.getByRole("button", { name: "Show AltGr keys (accents and symbols)" })).toHaveAttribute("aria-pressed", "false");
-
-    // An explicit pick pins: QWERTY stays through a language change (no AZERTY),
-    // and the umlaut keys leave the board.
+    // An explicit pick pins: QWERTY stays through a language change.
     await trigger.click();
     await page.getByTestId("nav-layout-menu").getByRole("button", { name: "QWERTY", exact: true }).click();
     await expect(trigger).toHaveText(/^QWERTY$/);
     await page.getByTestId("nav-language-trigger").click();
-    await page.getByTestId("nav-language-menu").getByRole("button", { name: "French" }).click();
+    await expect(page.getByTestId("nav-language-menu")).toBeVisible();
+    const french = page.getByTestId("nav-language-menu").getByRole("button", { name: "French" });
+    await expect(french).toBeVisible();
+    await french.evaluate((button: HTMLButtonElement) => button.click());
     await expect(trigger).toHaveText(/^QWERTY$/);
-    await expect(board.locator('[data-kb-key="ü"]')).toHaveCount(0);
 
     // The Auto entry keeps previewing what Auto *would* resolve to (French →
     // AZERTY), never the pinned QWERTY - a pin doesn't redefine what Auto means.
@@ -593,63 +405,7 @@ test.describe("home typing test", () => {
     await expect(page.getByTestId("typer-toolbar").getByRole("button", { name: "Language: English" })).toBeVisible();
   });
 
-  test("practice counts an unlocked umlaut toward the selection floor and toggles dead-key accents", async ({ page }) => {
-    await page.addInitScript(() => {
-      // A minimal valid pool: adding ü makes für a permitted German word.
-      window.localStorage.setItem("typecafe:language", JSON.stringify("german"));
-      window.localStorage.setItem("typecafe:testSettings", JSON.stringify({ selectedKeys: [..."abcdfgir", "ü"] }));
-    });
-    await gotoHome(page);
-
-    // German + auto layout renders QWERTZ; umlauts are real keys.
-    await expect(page.getByTestId("nav-layout-trigger")).toHaveText(/Auto - QWERTZ \(DE\)/);
-    await selectMode(page, "Practice");
-
-    const board = page.locator(".typecafe-keyboard");
-    const uml = board.locator('[data-kb-key="ü"]');
-    const consonant = board.locator('[data-kb-key="c"]');
-    await expect(uml).toBeVisible();
-    // Seed only the post-unlock generator: globally replacing Math.random before
-    // Home mounts stalls its initial text generator.
-    await page.evaluate(() => {
-      (window as typeof window & { originalMathRandom?: typeof Math.random }).originalMathRandom = Math.random;
-      Math.random = () => 0;
-    });
-    await expect(uml.locator("svg")).toHaveCount(0);
-
-    // ü is an actual letter anchor: with it expanding the eight-letter pool to
-    // nine, one selected ASCII consonant can be locked without an alert.
-    await expect(consonant.locator("svg")).toHaveCount(0);
-    await consonant.click();
-    await expect(consonant.locator("svg")).toHaveCount(1);
-    await expect(page.getByTestId("practice-active-count")).toHaveText("8 keys active");
-    await expect(page.getByText("Must include at least 8 keys!", { exact: true })).toHaveCount(0);
-    await expect(page.locator("#words")).toContainText("für");
-
-    // The regenerated text retains the umlaut word after the floor-allowed removal.
-    await page.evaluate(() => {
-      const original = (window as typeof window & { originalMathRandom?: typeof Math.random }).originalMathRandom;
-      if (original) Math.random = original;
-    });
-
-    // French flips the auto board to AZERTY. The unlocked ü rides its physical
-    // cap across the switch (QWERTZ ü → AZERTY dead ^), and a dead target cap
-    // carries its language's whole composed set (ê â î ô û) - so the circumflex
-    // arrives unlocked, one toggle for the set.
-    await page.getByTestId("nav-language-trigger").click();
-    await page.getByTestId("nav-language-menu").getByRole("button", { name: "French" }).click();
-    const dead = board.locator('[data-kb-key="^"]');
-    await expect(dead).toHaveAttribute("data-kb-dead", "");
-    // Unlocked only once the French accent set has loaded and the remap landed.
-    await expect(dead.locator("svg")).toHaveCount(0);
-    // Locking it drops the whole set in one click; unlocking re-adds it.
-    await dead.click();
-    await expect(dead.locator("svg")).toHaveCount(1);
-    await dead.click();
-    await expect(dead.locator("svg")).toHaveCount(0);
-  });
-
-  test("settings cover language, text add-ons, practice keyboard, and no-timer length", async ({ page }) => {
+  test("settings cover language, text add-ons, and no-timer length", async ({ page }) => {
     await gotoHome(page);
 
     await page.getByTestId("nav-language-trigger").click();
@@ -667,22 +423,6 @@ test.describe("home typing test", () => {
 
     await expect(page.getByTestId("live-stats")).toBeVisible();
     await expect(page.locator(".typecafe-keyboard")).toHaveCount(0);
-
-    // Mode switches on the inline bar, no modal round-trip.
-    await selectMode(page, "Practice");
-    await expect(page.locator(".typecafe-keyboard")).toBeVisible();
-
-    // Practice exposes both text add-ons - the punctuation toggle gates the
-    // locked mark keys, so it must be reachable (not just capitals).
-    await openSettingsMenu(page);
-    const practiceSettings = page.getByTestId("settings-menu");
-    const practicePunct = practiceSettings.getByRole("button", { name: /punctuation/ });
-    await expect(practicePunct).toBeVisible();
-    await expect(practicePunct).toHaveAttribute("aria-pressed", "false");
-    await practicePunct.click();
-    await expect(practicePunct).toHaveAttribute("aria-pressed", "true");
-    await page.keyboard.press("Escape");
-    await expect(practiceSettings).toBeHidden();
 
     // ∞ (no timer) runs the relaxed engine while keeping the Timed sub-mode lit,
     // and shows an elapsed count-up clock instead of a countdown.
@@ -783,7 +523,7 @@ test.describe("home typing test", () => {
     await expect(page.getByTestId("toolbar-context").getByRole("button", { name: "25", exact: true })).toHaveAttribute("aria-pressed", "true");
   });
 
-  test("numbers guarantee practice and remain visible on the result", async ({ page }) => {
+  test("numbers are guaranteed in ordinary word Tests and remain visible on the result", async ({ page }) => {
     await gotoHome(page);
     await selectMode(page, "Words");
     await page.getByTestId("toolbar-context").getByRole("button", { name: "10", exact: true }).click();
@@ -795,6 +535,29 @@ test.describe("home typing test", () => {
     await typeVisibleTestText(page);
     await expect(page.getByRole("button", { name: "Test Again" })).toBeVisible();
     await expect(page.getByText("Numbers", { exact: true })).toBeVisible();
+  });
+
+  test("capitals recover country, state, and initialism casing in the typing surface", async ({ page }) => {
+    // Keep the generated 5k prompt on four known corpus indexes so the browser
+    // path proves canonical casing without depending on a lucky random draw.
+    await page.addInitScript(() => {
+      const values = [656, 558, 1016, 3589].map((index) => (index + 0.5) / 4971);
+      let call = 0;
+      Math.random = () => values[call++ % values.length]!;
+    });
+    await gotoHome(page);
+
+    await page.getByTestId("typer-toolbar").getByRole("button", { name: /^Language: English/ }).click();
+    await page.getByTestId("language-menu").getByRole("button", { name: "English 5k", exact: true }).click();
+    await openSettingsMenu(page);
+    await page.getByTestId("settings-menu").getByRole("button", { name: /capitals/ }).click();
+    await page.keyboard.press("Escape");
+
+    const prompt = page.locator("#words");
+    await expect(prompt).toContainText("Australia");
+    await expect(prompt).toContainText("Texas");
+    await expect(prompt).toContainText("PDF");
+    await expect(prompt).toContainText("NASA");
   });
 
   // Honest-review 2026-07 §2: flattery shares the ranking quality bar. A 3s
@@ -820,6 +583,25 @@ test.describe("home typing test", () => {
     await expect(page.getByTestId("avg-delta")).toHaveCount(0);
     await expect(page.getByTestId("score-streak")).toHaveCount(0);
     await expect(page.getByText("similar starters")).toHaveCount(0);
+  });
+
+  test("keeps Target suggestions in Progress rather than adding a Home coach tab", async ({ page }) => {
+    await mockAuthenticatedSession(page);
+    await mockTrpc(page, {
+      transitionStats: [
+        { pair: "th", count: 100, totalMs: 10_000, errors: 0 },
+        { pair: "br", count: 40, totalMs: 5_600, errors: 0 },
+        { pair: "io", count: 8, totalMs: 1_600, errors: 0 },
+      ],
+      timelineEvidence: [impactTimeline(1), impactTimeline(2)],
+    });
+    await gotoHome(page);
+    await page.waitForLoadState("networkidle");
+    await expect(page.getByTestId("home-coach-tabs")).toHaveCount(0);
+    await expect(page.getByTestId("home-coach-tabs-inline")).toHaveCount(0);
+
+    await page.goto("/progress");
+    await expect(page.getByTestId("coach-targets")).toContainText("b→r");
   });
 
   test("registers the first keystroke after the typing input loses focus", async ({ page }) => {
@@ -964,7 +746,20 @@ test.describe("home typing test", () => {
     )).toBeNull();
   });
 
-  test("timed test completes when the timer expires", async ({ page }) => {
+  test("timed test completes without reading or adopting retired coaching state", async ({ page }) => {
+    await page.addInitScript(() => {
+      window.localStorage.setItem("typecafe:dailyCoaching:guest", "stale retired state");
+      const storage = window.localStorage;
+      const getItem = storage.getItem.bind(storage);
+      Object.defineProperty(window, "__dailyCoachReads", { configurable: true, value: 0, writable: true });
+      Object.defineProperty(storage, "getItem", { configurable: true, value: (key: string) => {
+          if (key.startsWith("typecafe:dailyCoaching")) {
+            (window as typeof window & { __dailyCoachReads: number }).__dailyCoachReads += 1;
+          }
+          return getItem(key);
+        },
+      });
+    });
     await gotoHome(page);
 
     // Shorten the test to 3 seconds via a custom timed length.
@@ -975,6 +770,8 @@ test.describe("home typing test", () => {
     await page.locator("#text").click();
     await typeCurrentCharacter(page);
     await expect(page.getByRole("button", { name: "Test Again" })).toBeVisible({ timeout: 10_000 });
+    await expect(page).toHaveURL(/\/$/);
+    expect(await page.evaluate(() => (window as typeof window & { __dailyCoachReads: number }).__dailyCoachReads)).toBe(0);
   });
 
   // Regression guards for the live-accuracy undercount (phase-0-trust.md 0.1):
@@ -1003,22 +800,6 @@ test.describe("home typing test", () => {
   // Regression guard for the grams micro-sample WPM (phase-0-trust.md 0.1): the
   // default 2-char gram level used to read "500.0 wpm (500.0avg)". A sample that
   // small can't be measured, so WPM and its average must show "-" instead.
-  test("grams mode shows - instead of an inflated WPM on a micro-sample level", async ({ page }) => {
-    await gotoHome(page);
-
-    await selectMode(page, "Grams");
-
-    await expect(page.locator("#words .char").first()).toBeVisible();
-    await typeVisibleTestText(page);
-
-    // The WPM and its running average render "-", never an inflated number like 500.
-    await expect(page.getByTestId("stat-wpm")).toHaveText("-");
-    await expect(page.getByTestId("stat-avg")).toHaveText("-");
-  });
-
-  // Regression guard for the swallowed-save bug (phase-0-trust.md 0.1): a signed-in
-  // user whose score save fails used to get a blank screen. The results must still
-  // render (unpersisted) and a toast must explain the failure.
   test("a failed score save still shows results, with a toast", async ({ page }) => {
     await mockAuthenticatedSession(page);
     await mockTrpc(page, { errorProcedures: ["test.create"] });
@@ -1043,20 +824,38 @@ test.describe("home typing test", () => {
   });
 
   // Phase 1.2/1.3 + Slice 5c: a finished test must surface at least one honest
-  // finding and a one-click drill that lands on the unified /drill surface built
+  // finding and a one-click drill that lands on the unified Practice surface
   // from those keys - the first two clicks of the improvement loop, available to a
   // guest with no account.
-  test("diagnosis panel offers a one-click drill on /drill (guest)", async ({ page }) => {
+  test("diagnosis panel preserves short Weak Words in exact Guided Practice (guest)", async ({ page }) => {
     await mockTrpc(page);
     await gotoHome(page);
 
     // A short custom timed test, long enough to clear the 30-keystroke floor.
     await setToolbarCustomLength(page, "4");
 
-    // 50 deliberately-wrong keystrokes: every expected key is missed, so several
-    // keys land under 100% - enough for an honest "least accurate keys" finding
-    // regardless of the (machine-uniform) keystroke timing.
-    await typeWrongZeroes(page, 50);
+    // Make one complete 2-4-character word weak after the diagnosis floor while
+    // typing its surroundings correctly. The following space commits the Word.
+    await expect(page.locator("#c0")).toHaveClass(/active-char/);
+    const promptCharacters = await page.locator("#words .char").allTextContents();
+    const promptText = promptCharacters.join("");
+    const shortMatch = [...promptText.matchAll(/(?:^| )([a-z]{2,4})(?= )/g)]
+      .find((match) => (match.index ?? 0) >= 30);
+    expect(shortMatch).toBeDefined();
+    const shortWord = shortMatch![1]!;
+    const shortStart = (shortMatch!.index ?? 0) + (shortMatch![0].startsWith(" ") ? 1 : 0);
+    const shortEnd = shortStart + shortWord.length;
+    const pressPromptCharacter = async (index: number) => {
+      const expected = promptCharacters[index]!;
+      if (index >= shortStart && index < shortEnd) await page.keyboard.press(expected === "a" ? "b" : "a");
+      else await page.keyboard.press(expected === " " ? "Space" : expected);
+    };
+    await page.locator("#input").focus();
+    await expect(async () => {
+      await pressPromptCharacter(0);
+      await expect(page.locator("#c0")).not.toHaveClass(/active-char/, { timeout: 500 });
+    }).toPass({ timeout: 5_000 });
+    for (let index = 1; index <= shortEnd; index += 1) await pressPromptCharacter(index);
 
     // Timer expiry renders the results card with the diagnosis panel.
     await expect(page.getByRole("button", { name: "Test Again" })).toBeVisible({ timeout: 15_000 });
@@ -1070,22 +869,105 @@ test.describe("home typing test", () => {
       return chart ? Boolean(panel.compareDocumentPosition(chart) & Node.DOCUMENT_POSITION_FOLLOWING) : false;
     })).toBe(true);
 
-    // Toughest-words row: same one-click handoff, but drills those exact words
-    // verbatim via /drill?words= (checked by href so we don't navigate away yet).
-    const wordsDrill = page.getByRole("link", { name: /Drill these words/ });
+    // Toughest-words row: the handoff preserves complete short Words and drills
+    // every diagnosed Word verbatim rather than reclassifying it as a Gram.
+    const wordsDrill = page.getByRole("link", { name: /Practise these words/ });
     await expect(wordsDrill).toBeVisible();
-    await expect(wordsDrill).toHaveAttribute("href", /\/drill\?words=/);
+    await expect(wordsDrill).toHaveAttribute("href", /\/practice\?target=word.*evidence=/);
+    const wordsLabel = await wordsDrill.getAttribute("aria-label");
+    expect(wordsLabel).toMatch(/^Practise these words: /);
+    const diagnosedWords = wordsLabel!.replace(/^Practise these words: /, "").split(", ");
+    expect(diagnosedWords).toContain(shortWord);
+    const wordsHref = await wordsDrill.getAttribute("href");
+    expect(new URL(wordsHref!, page.url()).searchParams.get("words")).toBe(diagnosedWords.join(","));
 
-    const drillButton = page.getByRole("link", { name: /Drill these keys/ }).first();
-    await expect(drillButton).toBeVisible();
-    await drillButton.click();
+    const keysDrill = page.getByRole("link", { name: /Practise these keys/ }).first();
+    await expect(keysDrill).toBeVisible();
+    const keysLabel = await keysDrill.getAttribute("aria-label");
+    expect(keysLabel).toMatch(/^Practise these keys: /);
+    const diagnosedKeys = keysLabel!.replace(/^Practise these keys: /, "").split(", ");
+    const keysHref = await keysDrill.getAttribute("href");
+    expect(new URL(keysHref!, page.url()).searchParams.get("keys")).toBe(diagnosedKeys.join(","));
 
-    // Handoff lands on /drill, ready on the diagnosed keys, and carries the
-    // diagnosed test's config (rm token) so Re-measure can round-trip a delta.
-    await expect(page).toHaveURL(/\/drill\?/);
-    await expect(page).toHaveURL(/[?&]rm=/);
-    await expect(page.getByTestId("drill-typer")).toBeVisible();
-    await expect(page.getByText("Key drill")).toBeVisible();
+    await wordsDrill.click();
+
+    await expect(page).toHaveURL(/\/practice\?target=word/);
+    await expect(page).toHaveURL(/[?&]evidence=/);
+    expect(new URL(page.url()).searchParams.get("words")).toBe(diagnosedWords.join(","));
+    await expect(page.getByTestId("custom-practice-workspace")).toHaveAttribute("data-practice-kind", "guided");
+    await expect(page.getByRole("heading", { name: `Practise ${diagnosedWords.join(", ")}`, exact: true })).toBeVisible();
+    await expect(page.getByTestId("selected-practice-grams").getByRole("button")).toHaveCount(diagnosedWords.length);
+    await expect(page.locator("#c0")).toHaveClass(/active-char/, { timeout: 20_000 });
+    const prompt = (await page.locator("#words .char").allTextContents()).join("").trim().split(/\s+/);
+    expect(prompt.slice(0, -1).every((word) => diagnosedWords.includes(word))).toBe(true);
+    for (const word of diagnosedWords) expect(prompt).toContain(word);
+    await expect(page.getByTestId("guided-practice-intent")).toHaveCount(0);
+
+    await page.goto(keysHref!);
+    await expect(page.getByTestId("custom-practice-workspace")).toHaveAttribute("data-practice-kind", "guided");
+    await expect(page.getByRole("heading", { name: `Practise ${diagnosedKeys.join(" ")}`, exact: true })).toBeVisible();
+  });
+
+  for (const legacyMode of [1, 2]) {
+    test(`sanitizes persisted legacy Home mode ${legacyMode} to a safe ordinary Test`, async ({ page }) => {
+      await page.addInitScript((mode) => {
+        window.localStorage.setItem("typecafe:testSettings", JSON.stringify({ mode, subMode: 99, count: -1, customLength: true }));
+      }, legacyMode);
+      await gotoHome(page);
+
+      const modeBar = page.getByTestId("mode-bar");
+      await expect(modeBar.getByRole("button")).toHaveText(["timed", "words"]);
+      await expect(modeBar.getByRole("button", { name: "timed" })).toHaveAttribute("aria-pressed", "true");
+      await expect(page.getByTestId("toolbar-context").getByRole("button", { name: "15", exact: true })).toHaveAttribute("aria-pressed", "true");
+    });
+  }
+
+  test("diagnosis excludes an inaccurate word fragment when a timed Test ends", async ({ page }) => {
+    await mockTrpc(page);
+    await gotoHome(page);
+    await setToolbarCustomLength(page, "10");
+
+    // Clear the diagnosis floor, then stop immediately after two inaccurate
+    // letters in a fresh word. Before #144 this tail was displayed as though it
+    // were a complete Weak Word.
+    const active = page.locator("#words .active-char");
+    const typeActiveCorrectly = async () => {
+      const char = await active.textContent();
+      expect(char).not.toBeNull();
+      await page.keyboard.press(char === " " ? "Space" : char!);
+    };
+    for (let i = 0; i < 30; i++) await typeActiveCorrectly();
+    for (let i = 0; i < 20 && await active.textContent() !== " "; i++) {
+      await typeActiveCorrectly();
+    }
+    await expect(active).toHaveText(" ");
+    await typeActiveCorrectly();
+
+    let fragment = "";
+    for (let i = 0; i < 2; i++) {
+      const expected = await active.textContent();
+      expect(expected).not.toBeNull();
+      fragment += expected;
+      await page.keyboard.press(expected === "a" ? "b" : "a");
+    }
+
+    await expect(page.getByRole("button", { name: "Test Again" })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText("Diagnosis", { exact: true })).toBeVisible();
+    await expect(page.getByText(`Toughest words: ${fragment}.`, { exact: true })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: new RegExp(`Practise these words: ${fragment}$`) })).toHaveCount(0);
+  });
+
+  test("diagnosis does not leak a history-only higher-order pattern into this score", async ({ page }) => {
+    await mockAuthenticatedSession(page);
+    await mockTrpc(page, { timelineEvidence: [higherOrderTimeline(1), higherOrderTimeline(2)] });
+    await gotoHome(page);
+    await setToolbarCustomLength(page, "4");
+    await typeWrongZeroes(page, 50);
+
+    await expect(page.getByRole("button", { name: "Test Again" })).toBeVisible({ timeout: 15_000 });
+    const higherOrder = page.getByTestId("diagnosis-higher-order");
+    await expect(higherOrder).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Practise the tion pattern" })).toHaveCount(0);
   });
 
   // Regression guard: Practice (and any non-Normal mode) carries a leftover
@@ -1093,24 +975,6 @@ test.describe("home typing test", () => {
   // countdown to 0 that fires the instant the test starts - rendering a stuck
   // "0" and ending the session immediately. Verify both: no countdown, and the
   // drill keeps running as keys are typed.
-  test("practice mode has no countdown and keeps running", async ({ page }) => {
-    await gotoHome(page);
-
-    await selectMode(page, "Practice");
-    await expect(page.locator(".typecafe-keyboard")).toBeVisible();
-
-    // The countdown counter must not be present.
-    await expect(page.getByTestId("timed-countdown")).toHaveCount(0);
-
-    // Typing accrues live stats - proof the session is running, not instantly
-    // completed (which would leave the stats pending at "-" forever).
-    for (let i = 0; i < 6; i++) await typeCurrentCharacter(page, i);
-    await expect(page.getByTestId("stat-acc")).toHaveText("100", { timeout: 3000 });
-  });
-
-  // The vertical caret is positioned imperatively (no React render per
-  // keystroke - typing-feel §2); guard that it shows, glides forward with a
-  // typed character, and blinks only when typing pauses.
   test("vertical caret tracks typing and blinks when idle", async ({ page }) => {
     await gotoHome(page);
 
@@ -1136,317 +1000,6 @@ test.describe("home typing test", () => {
 
   // The next-key ring on the practice board is applied imperatively (no React
   // render per keystroke - typing-feel §1); guard that it actually follows.
-  test("practice keyboard rings the next expected key as you type", async ({ page }) => {
-    await gotoHome(page);
-
-    // Non-keyboard modes keep their established standalone stats + restart layout.
-    await expect(page.getByTestId("practice-status-bar")).toHaveCount(0);
-
-    await selectMode(page, "Practice");
-    await expect(page.locator(".typecafe-keyboard")).toBeVisible();
-    await expect(page.getByRole("region", { name: "Practice keyboard" })).toBeVisible();
-    await expect(page.getByRole("group", { name: "Keyboard layer" })).toBeVisible();
-    await expect(page.getByTestId("practice-status-bar")).toContainText("wpm");
-    await expect(page.getByTestId("practice-status-bar")).toContainText("accuracy");
-
-    // The layer rail is centered over the board instead of floating off to one side.
-    const practiceRegion = page.getByRole("region", { name: "Practice keyboard" });
-    const regionBox = await practiceRegion.boundingBox();
-    const layerBox = await page.getByRole("group", { name: "Keyboard layer" }).boundingBox();
-    expect(Math.abs(
-      ((regionBox?.x ?? 0) + (regionBox?.width ?? 0) / 2) -
-      ((layerBox?.x ?? 0) + (layerBox?.width ?? 0) / 2),
-    )).toBeLessThan(2);
-    const qKey = page.locator('.typecafe-key-heatmap [data-kb-key="q"]');
-    await expect(qKey).not.toContainText("%");
-    // A guest with no history: every key is under the sample floor, so it reads
-    // the neutral no-data state (no heat, no speed bar) and its own tooltip.
-    await expect(qKey.locator("[data-kb-speed]")).toHaveCount(0);
-    await qKey.hover();
-    await expect(page.getByRole("tooltip")).toContainText("No data yet - unlock to start drilling");
-
-    await expect(page.locator("#c0")).toHaveClass(/active-char/);
-    const first = await page.locator("#c0").textContent();
-    const firstCell = page.locator(`.typecafe-key-heatmap [data-kb-key="${first}"]`);
-    await expect(firstCell).toHaveClass(/ring-primary/);
-
-    await typeCurrentCharacter(page, 0);
-    const second = await page.locator("#c1").textContent();
-    await expect(page.locator(`.typecafe-key-heatmap [data-kb-key="${second}"]`)).toHaveClass(/ring-primary/);
-    if (second !== first) await expect(firstCell).not.toHaveClass(/ring-primary/);
-  });
-
-  test("practice keyboard shows per-key speed bars, the no-data state, and the full legend", async ({ page }) => {
-    await mockAuthenticatedSession(page);
-    await mockTrpc(page, {
-      // Accuracy per key, above the sample floor so these clear the no-data state.
-      keyStats: [
-        { character: "r", total: 40, correct: 34 },
-        { character: "h", total: 40, correct: 40 },
-        { character: "e", total: 60, correct: 58 },
-        { character: "o", total: 30, correct: 27 },
-      ],
-      transitionStats: [
-        { pair: "br", count: 20, totalMs: 8000, errors: 2 }, // r → 400ms
-        { pair: "th", count: 40, totalMs: 4000, errors: 0 }, // h → 100ms
-        { pair: "he", count: 30, totalMs: 3600, errors: 0 }, // e
-        { pair: "io", count: 20, totalMs: 4000, errors: 1 }, // o
-      ],
-    });
-    await gotoHome(page);
-    await selectMode(page, "Practice");
-    const board = page.locator(".typecafe-key-heatmap");
-    await expect(board).toBeVisible();
-
-    // A key with accuracy + speed data carries a bar; its tooltip states WPM.
-    const rKey = board.locator('[data-kb-key="r"]');
-    await expect(rKey.locator("[data-kb-speed]")).toHaveCount(1);
-    await rKey.hover();
-    await expect(page.getByRole("tooltip")).toContainText("WPM");
-
-    // A key with no data shows the neutral state and no bar.
-    await expect(board.locator('[data-kb-key="z"] [data-kb-speed]')).toHaveCount(0);
-
-    // Legend covers all four groups and stays on a single line (no wrap).
-    const legend = page.locator(".typecafe-keyboard-legend");
-    for (const text of ["locked = click to add", "accuracy", "high → low", "speed", "no data yet"]) {
-      await expect(legend).toContainText(text);
-    }
-    const box = await legend.boundingBox();
-    expect(box!.height).toBeLessThan(28);
-
-    // Speed bars are base-layer only: flipping to Shift re-renders without them.
-    await page.getByRole("button", { name: "Show shifted keys (capitals and symbols)" }).click();
-    await expect(board.locator("[data-kb-speed]")).toHaveCount(0);
-  });
-
-  // Heatmap cells sweep the full theme gradient, so each derives a legible
-  // black/white text color from its own background luminance rather than a
-  // fixed white that washed out on light cells (aqua's bright-cyan low end).
-  test("practice keyboard keys use legible black/white text on any cell color", async ({ page }) => {
-    // A key with data gets a heat colour; its foreground must be legible black or
-    // white against it. (No-data keys keep the muted default text by design.)
-    await mockAuthenticatedSession(page);
-    await mockTrpc(page, { keyStats: [{ character: "e", total: 40, correct: 30 }] });
-    await gotoHome(page);
-    await selectMode(page, "Practice");
-    await expect(page.locator(".typecafe-keyboard")).toBeVisible();
-
-    const cell = page.locator('.typecafe-key-heatmap [data-kb-key="e"]');
-    await expect(cell).toBeVisible();
-    const color = await cell.evaluate((el) => getComputedStyle(el).color);
-    expect(["rgb(0, 0, 0)", "rgb(255, 255, 255)"]).toContain(color);
-  });
-
-  test("practice remaps a selected cap and keeps text viable after a language layout change", async ({ page }) => {
-    // `a` is the only source vowel. Its AZERTY counterpart at the same physical
-    // cap is `q`, so the language/layout transition must both move the selection
-    // and restore a vowel before Practice regenerates its prompt.
-    await page.addInitScript(() => {
-      window.localStorage.setItem("typecafe:testSettings", JSON.stringify({ selectedKeys: "asdfghjk".split("") }));
-    });
-    await gotoHome(page);
-    await selectMode(page, "Practice");
-
-    const board = page.locator(".typecafe-keyboard");
-    const sourceCap = board.locator('[data-kb-cell="a"]');
-    await expect(sourceCap).toHaveAttribute("data-kb-key", "a");
-    await expect(sourceCap.locator("svg")).toHaveCount(0);
-
-    await page.getByTestId("nav-language-trigger").click();
-    await page.getByTestId("nav-language-menu").getByRole("button", { name: "French" }).click();
-    await expect(page.getByTestId("nav-layout-trigger")).toHaveText(/Auto - AZERTY \(FR\)/);
-
-    // The source cap's AZERTY physical position is named `q`, not old glyph `a`.
-    const remappedCap = board.locator('[data-kb-cell="q"]');
-    await expect(remappedCap).toHaveAttribute("data-kb-key", "q");
-    await expect(remappedCap.locator("svg")).toHaveCount(0);
-    // Remapping must not leave the pseudo-word pool vowel-less / empty.
-    await expect(page.locator("#words .char").nth(5)).toBeVisible();
-  });
-
-  test("practice sticky layers exclude each other and AZERTY shifted digits unlock", async ({ page }) => {
-    await page.addInitScript(() => {
-      window.localStorage.setItem("typecafe:testSettings", JSON.stringify({ selectedKeys: "aeiousdf".split("") }));
-    });
-    await gotoHome(page);
-    await page.getByTestId("nav-language-trigger").click();
-    await page.getByTestId("nav-language-menu").getByRole("button", { name: "French" }).click();
-    await selectMode(page, "Practice");
-
-    const board = page.locator(".typecafe-keyboard");
-    const shift = page.getByRole("button", { name: "Show shifted keys (capitals and symbols)" });
-    const altgr = page.getByRole("button", { name: "Show AltGr keys (accents and symbols)" });
-
-    await shift.click();
-    await expect(shift).toHaveAttribute("aria-pressed", "true");
-    await expect(altgr).toHaveAttribute("aria-pressed", "false");
-    await expect(board.locator('[data-kb-key="2"]')).toBeVisible();
-
-    await altgr.click();
-    await expect(shift).toHaveAttribute("aria-pressed", "false");
-    await expect(altgr).toHaveAttribute("aria-pressed", "true");
-    await expect(board.locator('[data-kb-key="€"]')).toBeVisible();
-
-    await shift.click();
-    await expect(shift).toHaveAttribute("aria-pressed", "true");
-    await expect(altgr).toHaveAttribute("aria-pressed", "false");
-    const digit = board.locator('[data-kb-key="2"]');
-    await expect(digit).toHaveAttribute("role", "button");
-    await expect(digit.locator("svg")).toHaveCount(1);
-    await digit.click();
-    await expect(digit.locator("svg")).toHaveCount(0);
-    // Unlocking a digit while the numbers add-on is off flips it on in the same
-    // click - no gear-menu trip.
-    await expect.poll(async () =>
-      page.evaluate(() => window.localStorage.getItem("typecafe:testSettings")),
-    ).toContain('"numbers":true');
-  });
-
-  test("practice: toggled-off add-ons lock their keys; unlocking flips the add-on on", async ({ page }) => {
-    await gotoHome(page);
-    await selectMode(page, "Practice");
-    const board = page.locator(".typecafe-keyboard");
-    await expect(board).toBeVisible();
-    const settings = () => page.evaluate(() => window.localStorage.getItem("typecafe:testSettings"));
-
-    // Numbers off (default) → every digit key reads locked; one click unlocks
-    // the key AND turns the numbers add-on on.
-    const seven = board.locator('[data-kb-key="7"]');
-    await expect(seven).toHaveAttribute("data-kb-state", "locked");
-    await expect(seven).toHaveAttribute("aria-pressed", "false");
-    await expect(seven.locator("svg")).toHaveCount(1);
-    await seven.press("Enter");
-    await expect(seven).toHaveAttribute("data-kb-state", "unlocked");
-    await expect(seven).toHaveAttribute("aria-pressed", "true");
-    await expect(seven.locator("svg")).toHaveCount(0);
-    await expect.poll(settings).toContain('"numbers":true');
-
-    // Same for punctuation: a mark unlock flips the punctuation add-on on.
-    const comma = board.locator('[data-kb-key=","]');
-    await expect(comma.locator("svg")).toHaveCount(1);
-    await comma.click();
-    await expect(comma.locator("svg")).toHaveCount(0);
-    await expect.poll(settings).toContain('"punctuation":true');
-
-    // With the add-on now on, clicking the unlocked key locks just that key
-    // again (per-key selection), leaving the add-on untouched.
-    await comma.click();
-    await expect(comma.locator("svg")).toHaveCount(1);
-    await expect.poll(settings).toContain('"punctuation":true');
-
-    // Capitals: on the shift layer every capital reads locked while the add-on
-    // is off; clicking one flips capitals on, and each capital then mirrors its
-    // lowercase base key ('a' selected → A unlocked).
-    await page.getByRole("button", { name: "Show shifted keys (capitals and symbols)" }).click();
-    const capitalA = board.locator('[data-kb-key="A"]');
-    await expect(capitalA.locator("svg")).toHaveCount(1);
-    await capitalA.click();
-    await expect(capitalA.locator("svg")).toHaveCount(0);
-    await expect.poll(settings).toContain('"capitals":true');
-  });
-
-  // Regression guard: a diagnosis can surface all-consonant weak keys, and the
-  // drill handoff used to hand Practice a vowel-less key set, which froze the
-  // pseudo-word generator (an infinite loop) and hung the whole page. The drill
-  // must stay responsive and render a usable test. The Playwright timeout turns a
-  // re-introduced hang into a clean failure rather than a wedged run.
-  test("drilling an all-consonant weakness stays responsive", async ({ page }) => {
-    await mockTrpc(page);
-    await page.goto("/?mode=practice&keys=b,c,d");
-
-    await expect(page.locator(".typecafe-keyboard")).toBeVisible({ timeout: 8000 });
-    await expect(page.locator("#words .char").nth(5)).toBeVisible({ timeout: 8000 });
-
-    // The handoff selection (b,c,d + auto vowel) is then repaired to the letter
-    // floor (two vowels, eight letters), which regenerates the text once more.
-    // Wait for the repaired state - the count hits 8 and an "a" appears (the
-    // b/c/d/e-only text can't contain one) - so typing can't race that regen.
-    await expect(page.getByTestId("practice-active-count")).toHaveText("8 keys active");
-    await expect(page.locator("#words")).toContainText("a", { timeout: 8000 });
-
-    // Practice now routes the complete passage through the language engine. It
-    // should prefer natural carriers while keeping every fallback word-shaped.
-    const corpus = new Set(english1k.words);
-    await expect.poll(async () => {
-      const words = ((await page.locator("#words").textContent()) ?? "").trim().split(/\s+/).slice(0, 25);
-      return words.length === 25
-        && words.every((word) => word.length >= 3 && word.length <= 10)
-        && words.some((word) => corpus.has(word));
-    }).toBe(true);
-
-    // The main thread is responsive and the drill is interactive (not frozen).
-    for (let i = 0; i < 4; i++) await typeCurrentCharacter(page, i);
-    await expect(page.getByTestId("stat-acc")).toHaveText("100", { timeout: 4000 });
-  });
-
-  // Phase 1.3 + Slice 5c: the loop's last mile - /drill's "Re-measure" CTA returns
-  // home as /?rm=<token>, which rebuilds the offer, re-runs the diagnosed test on
-  // its original config, and headlines a before→after delta. Proven for a guest.
-  test("re-measure round-trip: drill then Re-measure shows a before/after delta (guest)", async ({ page }) => {
-    await mockTrpc(page);
-
-    // The token a diagnosis forwards: the diagnosed test's before-WPM + exact config
-    // (a short ranked 4-word words test, customLength false → a fixed 4 words).
-    const rm = encodeURIComponent(JSON.stringify({
-      beforeWpm: 40,
-      config: { subMode: 1, count: 4, language: "english", customLength: false, punctuation: false, capitals: false, options: "" },
-    }));
-
-    // Drill the diagnosed keys, then follow /drill's Re-measure CTA (a client-side
-    // nav to /?rm=) - the real product path back into the diagnosed test.
-    await page.goto(`/drill?keys=x&length=4&rm=${rm}`);
-    await expect(page.getByTestId("drill-typer")).toBeVisible();
-    await typeVisibleTestText(page);
-    await page.getByRole("link", { name: "Re-measure" }).click();
-
-    // Home rebuilds the offer, switches into the diagnosed config and starts it.
-    // Wait for the rm config to actually apply (its 4-word counter replaces the
-    // default timed countdown) before reading the prompt - typing against the
-    // pre-switch text loses the race when the restart regenerates it.
-    await expect(page.getByTestId("word-counter")).toContainText("/ 4");
-    // …and for the 4-word prompt itself (the long default text stays rendered
-    // until regeneration lands, so char presence alone isn't enough).
-    await expect.poll(() => page.locator("#words .char").count()).toBeLessThan(60);
-    await typeVisibleTestText(page);
-
-    // The result headlines the before → after delta, then the offer is retired.
-    await expect(page.getByTestId("re-measure-delta")).toBeVisible({ timeout: 15_000 });
-  });
-
-  test("guest practice aggregates import after sign in", async ({ page }) => {
-    let importedStats: unknown[] = [];
-
-    await mockTrpc(page, {
-      onProcedure: (procedure, input) => {
-        if (procedure === "practiceStats.batchSync" && Array.isArray(input?.stats)) {
-          importedStats = input.stats;
-        }
-      },
-    });
-    await gotoHome(page);
-
-    await selectMode(page, "Practice");
-    await expect(page.locator(".typecafe-keyboard")).toBeVisible();
-    for (let i = 0; i < 6; i++) await typeCurrentCharacter(page, i);
-
-    await page.keyboard.down("Tab");
-    await page.keyboard.press("Enter");
-    await page.keyboard.up("Tab");
-    await expect.poll(async () =>
-      page.evaluate(() => window.localStorage.getItem("typecafe:keyStats")),
-    ).toContain('"attempts"');
-
-    await mockAuthenticatedSession(page);
-    await page.reload();
-    await expect(page.locator("#words .char").first()).toBeVisible();
-
-    await expect.poll(() => importedStats.length).toBeGreaterThan(0);
-    await expect.poll(async () =>
-      page.evaluate(() => window.localStorage.getItem("typecafe:keyStats")),
-    ).toBeNull();
-  });
-
   test("saves a home screenshot artifact for agent inspection", async ({ page }, testInfo) => {
     await gotoHome(page);
 

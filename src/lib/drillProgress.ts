@@ -1,48 +1,11 @@
-// Post-drill progression (Phase 4): the "what next" pick shared by the home
-// coach tab and the drill result card, and the lifetime-vs-this-rep delta the
-// result card headlines. Pure and React-free - the numbers are the product.
+// Post-drill progression: lifetime-vs-this-rep deltas used by Practice results.
+// Pure and React-free - the numbers are the product.
 
 import type { KeystrokeEvent } from "./keystrokes"
 import type { LocalKeyStat } from "./localSync"
-import { composeWeakKeys, worstKeysFromAttempts } from "./stats"
-import { aggregateTransitions, overallTransitionMeanMs, worstTransitions, TRANSITION_MIN_COUNT, type TransitionAggregate } from "./transitions"
+import { aggregateTransitions, overallTransitionMeanMs, TRANSITION_MIN_COUNT, type TransitionAggregate } from "./transitions"
 
 export type KeyAttempts = Map<string, { attempts: number, correct: number }>
-
-// The single next thing worth drilling: the slowest recurring transition first
-// (the coach's real edge), weakest keys as the fallback. `id` is the dismissal
-// token the coach tab stores; `href` is the drill deep-link.
-export type DrillFinding =
-    | { kind: "transition", id: string, href: string, pair: string, from: string, to: string, ratio: number }
-    | { kind: "keys", id: string, href: string, keys: string[] }
-
-// `exclude` drops the just-drilled target so a post-drill "next" never
-// re-suggests the drill the user only just finished.
-export function nextDrillFinding(
-    transitions: TransitionAggregate[],
-    attempts: KeyAttempts,
-    exclude?: { pairs?: string[], keys?: string[] },
-): DrillFinding | null {
-    const excludedPairs = new Set(exclude?.pairs ?? [])
-    const slowest = worstTransitions(transitions).find((t) => !excludedPairs.has(t.pair))
-    if (slowest) {
-        return {
-            kind: "transition",
-            id: `transition:${slowest.pair}`,
-            href: `/drill?transitions=${slowest.pair}`,
-            pair: slowest.pair,
-            from: slowest.from,
-            to: slowest.to,
-            ratio: slowest.ratio,
-        }
-    }
-
-    const excludedKeys = new Set(exclude?.keys ?? [])
-    const ranked = worstKeysFromAttempts(attempts, Infinity).filter((k) => !excludedKeys.has(k.key))
-    const keys = composeWeakKeys(ranked).slice(0, 4).map((k) => k.key)
-    if (keys.length === 0) return null
-    return { kind: "keys", id: `keys:${keys.join(",")}`, href: `/drill?keys=${keys.join(",")}`, keys }
-}
 
 // Roll a test's timeline into per-key attempt counts - the same shape the
 // lifetime key stats use, so rep and lifetime data merge and compare directly.
@@ -80,7 +43,8 @@ export interface DrillDelta {
     label: string
     before: number
     after: number
-    unit: "ms" | "%"
+    unit: "ms" | "%" | "wpm"
+    direction?: "lower" | "higher"
     improved: boolean
 }
 

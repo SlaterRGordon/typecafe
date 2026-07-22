@@ -1,8 +1,8 @@
 import { TestModes, TestSubModes } from "../types"
-import type { QuoteLength, TestGramScopes, TestGramSources } from "../types"
+import type { QuoteLength } from "../types"
 import type { Level } from "../train/levels"
-import { applyTextOptions, ensureQuotesLoaded, ensureSizedLoaded, generateBetterPseudoText, generateNGram, generatePracticeText, generateQuote, generateText, isDrillDigit, isDrillMark, parseLanguage } from "../utils"
-import { ALL_DIGITS, isPracticeLetter } from "~/lib/drillKeys"
+import { applyTextOptions, ensureQuotesLoaded, ensureSizedLoaded, generateBetterPseudoText, generateQuote, generateText, parseLanguage } from "../utils"
+import { ALL_DIGITS } from "~/lib/drillKeys"
 
 export interface TestTextConfig {
     mode: TestModes,
@@ -14,19 +14,14 @@ export interface TestTextConfig {
     capitals: boolean,
     numbers: boolean,
     level?: Level,
-    selectedKeys?: string[],
-    gramSource: TestGramSources,
-    gramScope: TestGramScopes,
-    gramCombination: number,
-    gramRepetition: number,
 }
 
 // The one place that decides what text a test starts with, per mode/submode.
 // Timed and relaxed tests start with a buffer that Text.tsx extends as the user
 // approaches the end, so the initial size only needs to outrun the first append.
 // Async because non-English word lists load on demand.
-export async function generateTestText(config: TestTextConfig, gramLevel: number): Promise<string> {
-    const { mode, subMode, count, language, punctuation, capitals, numbers, level, selectedKeys } = config
+export async function generateTestText(config: TestTextConfig): Promise<string> {
+    const { mode, subMode, count, language, punctuation, capitals, numbers, level } = config
     // The numbers toggle sprinkles standalone digit tokens into word-list text,
     // exactly like punctuation/capitals ride applyTextOptions.
     const numberPool = numbers ? ALL_DIGITS : []
@@ -53,29 +48,6 @@ export async function generateTestText(config: TestTextConfig, gramLevel: number
             return applyTextOptions(generateText(count, language), punctuation, capitals, { digits: numberPool, language: base })
         }
         return ""
-    }
-
-    if (mode === TestModes.practice) {
-        if (!selectedKeys) return ""
-        const practiceLanguage = base === "chinese" || base === "hindi" ? "english" : base
-        await ensureSizedLoaded(practiceLanguage, "10k")
-        // Practice uses ONLY unlocked keys: selected letters build words;
-        // numbers/punctuation are injected as drill targets. The selection floor
-        // keeps at least eight letters, including two vowels and a consonant.
-        // Lowercase Unicode letters (ü, é, dead-composed ê) join the word pool;
-        // the language list decides whether they appear.
-        const letters = selectedKeys.filter(isPracticeLetter)
-        // The punctuation/numbers toggles gate the locked mark/digit keys: off →
-        // none sprinkled even if unlocked; on → sprinkle *only* the unlocked ones
-        // (never the full natural pool, so Practice stays scoped to unlocked
-        // keys). `capitals` stays as the one Capitalize add-on.
-        const marks = punctuation ? selectedKeys.filter(isDrillMark) : []
-        const digits = numbers ? selectedKeys.filter(isDrillDigit) : []
-        return applyTextOptions(generatePracticeText(500, letters, base), false, capitals, { marks, digits, language: base, targeted: true })
-    }
-
-    if (mode === TestModes.ngrams) {
-        return generateNGram(config.gramSource, config.gramScope, config.gramCombination, config.gramRepetition, gramLevel, base)
     }
 
     if (mode === TestModes.relaxed) {

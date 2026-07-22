@@ -62,8 +62,7 @@ test.describe("authenticated profile", () => {
     await expect(page.locator("#confirmModal")).not.toBeChecked();
   });
 
-  test("does not surface stale untrackable transitions in profile coach tabs", async ({ page }, testInfo) => {
-    test.skip(testInfo.project.name.includes("mobile"), "Rail coach tabs are desktop-only off home.");
+  test("keeps Target suggestions on Progress rather than Profile", async ({ page }) => {
     await mockAuthenticatedSession(page);
     await mockTrpc(page, {
       transitionStats: [
@@ -74,7 +73,6 @@ test.describe("authenticated profile", () => {
     await page.goto("/profile");
 
     await expect(page.getByTestId("profile-typing-style")).toBeVisible();
-    await expect(page.getByTestId("home-coach-tab-daily")).toBeVisible();
     await expect(page.getByText("x->i")).toHaveCount(0);
   });
 

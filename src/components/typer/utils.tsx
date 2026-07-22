@@ -1,14 +1,9 @@
-import biGrams from './languages/nGrams/biGrams.json'
-import triGrams from './languages/nGrams/triGrams.json'
-import tetraGrams from './languages/nGrams/tetraGrams.json'
-
 import english1k from './languages/english1k.json'
 
-import { TestGramScopes, TestGramSources, type QuoteLength, type WordSize } from './types'
+import { type QuoteLength, type WordSize } from './types'
 // Drillable-key definitions live in lib (single source shared with diagnosis and
 // the drill page); re-exported here for the typer modules that import from utils.
 import { DRILL_MARKS, isDrillMark, isDrillDigit } from '~/lib/drillKeys'
-import { generatePhonologicalText } from '~/lib/phonology'
 import { generateRestrictedText } from '~/lib/restrictedText'
 export { DRILL_MARKS, isDrillMark, isDrillDigit }
 export { applyTextOptions } from '~/lib/textOptions'
@@ -129,55 +124,6 @@ export const getSizedWords = (language: string, size: WordSize): string[] => {
     return language === "english" ? words : words.slice(0, SIZE_COUNTS[size])
 }
 
-interface NGrams {
-    biGrams: string[],
-    triGrams: string[],
-    tetraGrams: string[],
-}
-
-const ngrams: NGrams = {
-    biGrams: biGrams.grams,
-    triGrams: triGrams.grams,
-    tetraGrams: tetraGrams.grams,
-}
-
-// Frequency-ranked character n-grams across a word list (most common first).
-// Ties keep first-seen order (Map insertion), so results are deterministic.
-export const rankNGrams = (words: string[], n: number, limit: number): string[] => {
-    const freq = new Map<string, number>()
-    for (const word of words) {
-        for (let i = 0; i + n <= word.length; i++) {
-            const gram = word.slice(i, i + n)
-            freq.set(gram, (freq.get(gram) ?? 0) + 1)
-        }
-    }
-    return [...freq.entries()].sort((a, b) => b[1] - a[1]).slice(0, limit).map(([gram]) => gram)
-}
-
-// Non-English Grams derive their n-grams from the language's word list on first use
-// (no gram data files - derived-on-read), memoized per base. English keeps its
-// curated static arrays. generateNGram slices to its scope before the level walk,
-// so the deepest scope the bar offers (200) is all the depth ever read.
-const NGRAM_DEPTH = 200
-const derivedNGrams = new Map<string, NGrams>()
-
-const gramsFor = (base: string): NGrams => {
-    if (base === "english") return ngrams
-    // List not loaded yet (callers ensureSizedLoaded first) - fall back to the
-    // English grams *without* memoizing them under this base.
-    if (!languages[base]) return ngrams
-    const cached = derivedNGrams.get(base)
-    if (cached) return cached
-    const words = getWords(base)
-    const derived: NGrams = {
-        biGrams: rankNGrams(words, 2, NGRAM_DEPTH),
-        triGrams: rankNGrams(words, 3, NGRAM_DEPTH),
-        tetraGrams: rankNGrams(words, 4, NGRAM_DEPTH),
-    }
-    derivedNGrams.set(base, derived)
-    return derived
-}
-
 // The extra letters a language uses beyond a–z (é, ü, ł …), most frequent across
 // its word list first. Pure; ties keep first-seen order so results are stable.
 export const accentChars = (words: string[]): string[] => {
@@ -219,20 +165,6 @@ export const generateBetterPseudoText = (count: number, characters: string[], la
     })
 }
 
-// The phonology module owns Practice's complete passage policy: natural carrier
-// words, generated coverage for missing keys, and repetition control. Train
-// remains on the separate level-oriented policy above.
-export const generatePracticeText = (count: number, characters: string[], language = "english") => {
-    const phonologyLanguage = language === "chinese" || language === "hindi" ? "english" : language
-    const corpusKey = phonologyLanguage === "english" ? "english10k" : phonologyLanguage
-    return generatePhonologicalText({
-        language: phonologyLanguage,
-        corpus: getWords(corpusKey),
-        allowedCharacters: characters,
-        count,
-    })
-}
-
 export const generateText = (count: number, language: string) => {
     let text = ''
 
@@ -254,60 +186,4 @@ export const generateText = (count: number, language: string) => {
 
     // Remove last space
     return text.toLowerCase().slice(0, -1)
-}
-
-const MAX_NGRAM_COPIES = 20
-
-export const generateNGram = (source: TestGramSources, scope: TestGramScopes, combination: number, repetition: number, level: number, language = "english") => {
-    let ngram = ''
-    let words: string[] = []
-
-    // Grams follow the active language: whole-word source and derived character
-    // n-grams both come from the language's list (English uses its curated grams).
-    const { base } = parseLanguage(language)
-    const grams = gramsFor(base)
-    if (source === TestGramSources.words) {
-        words = getWords(base)
-    } else if (source === TestGramSources.bigrams) {
-        words = grams.biGrams
-    } else if (source === TestGramSources.trigrams) {
-        words = grams.triGrams
-    } else if (source === TestGramSources.tetragrams) {
-        words = grams.tetraGrams
-    }
-
-    if (scope === TestGramScopes.fifty) words = words.slice(0, 50)
-    else if (scope === TestGramScopes.oneHundred) words = words.slice(0, 100)
-    else if (scope === TestGramScopes.twoHundred) words = words.slice(0, 200)
-
-    for (let i = 0; i < combination; i++) {
-        const levelGram = words[(level * combination) + i] as string
-        ngram = ngram += levelGram + ' '
-    }
-
-    // `repetition` extra copies on top of the base, clamped so a large input
-    // can't generate an unrenderably long string.
-    const copies = Math.min(repetition + 1, MAX_NGRAM_COPIES)
-    ngram = ngram.repeat(copies)
-
-    // Remove last space
-    return ngram.toLowerCase().slice(0, -1)
-}
-
-export const getGramLevelText = (level: number, combination: number, scope: TestGramScopes) => {
-    if (scope === TestGramScopes.fifty) {
-        const total: number = Math.ceil(50 / combination)
-
-        return `${level}/${total}`
-    }
-    else if (scope === TestGramScopes.oneHundred) {
-        const total: number = Math.ceil(100 / combination)
-
-        return `${level}/${total}`
-    }
-    else {
-        const total: number = Math.ceil(200 / combination)
-
-        return `${level}/${total}`
-    }
 }

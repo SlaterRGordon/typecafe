@@ -1,4 +1,5 @@
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { type CSSProperties, type ReactNode, useEffect, useId, useMemo, useRef, useState } from "react";
 
 import { ToolbarMenu } from "~/components/typer/config/ToolbarMenu";
@@ -7,13 +8,19 @@ import { TestModes, TestSubModes } from "~/components/typer/types";
 import { ShareableScoreImage } from "./ShareableScoreImage";
 import { consistencyFromSamples, cumulativeWpmAtTimes, netFromRaw, wpmImprovement } from "~/lib/stats";
 import type { KeyAccuracy, TypedSegment, WpmSample as ScoreWpmSample } from "~/lib/stats";
-import { decodeTimeline } from "~/lib/keystrokes";
-import type { EncodedKeystroke } from "~/lib/keystrokes";
+import { decodeTimeline, overallMeanLatency } from "~/lib/keystrokes";
+import type { EncodedTimeline } from "~/lib/keystrokes";
 import { diagnose, toDrillKeys } from "~/lib/diagnosis";
 import { aggregateTransitions, worstTransitions } from "~/lib/transitions";
 import { attemptsFromEvents } from "~/lib/heatmap";
 import { KeyHeatmap } from "~/components/heatmap/KeyHeatmap";
 import { Chip } from "~/components/ui/Chip";
+import { targetAction } from "~/lib/coachingTarget";
+
+const HigherOrderResultFinding = dynamic(
+  () => import("./HigherOrderResultFinding").then((module) => module.HigherOrderResultFinding),
+  { ssr: false },
+);
 
 export type { TypedSegment, WpmSample as ScoreWpmSample } from "~/lib/stats";
 
@@ -31,10 +38,9 @@ export interface ScoreSnapshot {
   typedText: string;
   typedSegments?: TypedSegment[];
   worstKeys?: KeyAccuracy[];
-  // Compact per-keystroke timeline ([charCode, correct, dtMs]) for the post-test
-  // diagnosis panel. Present on a freshly completed normal test; absent on legacy
-  // or shared snapshots (the panel is owner-only and not shown there anyway).
-  timeline?: EncodedKeystroke[];
+  // Versioned compact per-keystroke timeline for the post-test diagnosis panel.
+  // Present on a freshly completed normal test; absent on legacy/shared snapshots.
+  timeline?: EncodedTimeline;
   brag?: string | null;
   // WPM vs the user's 30-day average at save time (vision §7 - deltas everywhere).
   avgDelta?: number | null;
@@ -431,7 +437,7 @@ interface ChartLine {
   animate?: boolean;
 }
 
-function WpmChart(props: { samples: ScoreWpmSample[]; durationSeconds: number; rawWpm: number; accuracy: number; timeline?: EncodedKeystroke[] }) {
+function WpmChart(props: { samples: ScoreWpmSample[]; durationSeconds: number; rawWpm: number; accuracy: number; timeline?: EncodedTimeline }) {
   const chartTitleId = useId();
   const chartDescriptionId = useId();
   // Which sample the pointer is nearest, for the hover readout. Null = no hover.
@@ -491,25 +497,25 @@ function WpmChart(props: { samples: ScoreWpmSample[]; durationSeconds: number; r
     // (on top). The headline is always the last entry so its dot anchors the hover.
     const lines: ChartLine[] = hasCumulative
       ? [
-          { path: buildSmoothPath(pointsFor(cumulative.map((c) => c.rawWpm))), width: 2.5, dashed: true },
-          { path: buildSmoothPath(burstNetPoints), width: 2, neutral: true },
-          { path: buildSmoothPath(headlinePoints), width: 4, animate: true },
-        ]
+        { path: buildSmoothPath(pointsFor(cumulative.map((c) => c.rawWpm))), width: 2.5, dashed: true },
+        { path: buildSmoothPath(burstNetPoints), width: 2, neutral: true },
+        { path: buildSmoothPath(headlinePoints), width: 4, animate: true },
+      ]
       : [
-          { path: buildSmoothPath(pointsFor(samples.map((s) => s.wpm))), width: 2.5, dashed: true, neutral: true },
-          { path: buildSmoothPath(burstNetPoints), width: 4, animate: true },
-        ];
+        { path: buildSmoothPath(pointsFor(samples.map((s) => s.wpm))), width: 2.5, dashed: true, neutral: true },
+        { path: buildSmoothPath(burstNetPoints), width: 4, animate: true },
+      ];
 
     const legend = hasCumulative
       ? [
-          { label: "Cumulative net", kind: "solid" as const, neutral: false },
-          { label: "Cumulative raw", kind: "dashed" as const, neutral: false },
-          { label: "Burst net", kind: "solid" as const, neutral: true },
-        ]
+        { label: "Cumulative net", kind: "solid" as const, neutral: false },
+        { label: "Cumulative raw", kind: "dashed" as const, neutral: false },
+        { label: "Burst net", kind: "solid" as const, neutral: true },
+      ]
       : [
-          { label: "Net", kind: "solid" as const, neutral: false },
-          { label: "Raw", kind: "dashed" as const, neutral: true },
-        ];
+        { label: "Net", kind: "solid" as const, neutral: false },
+        { label: "Raw", kind: "dashed" as const, neutral: true },
+      ];
 
     // Hover readout per sample: the y that the headline dot sits at, plus the
     // exact values for whichever lines are on screen.
@@ -518,14 +524,14 @@ function WpmChart(props: { samples: ScoreWpmSample[]; durationSeconds: number; r
       const headlineWpm = hasCumulative ? cumulative[i]!.netWpm : burstNet[i]!;
       const readouts = hasCumulative
         ? [
-            { label: "net", value: cumulative[i]!.netWpm, className: "text-primary" },
-            { label: "raw", value: cumulative[i]!.rawWpm, className: "text-primary/70" },
-            { label: "burst", value: burstNet[i]!, className: "text-base-content/60" },
-          ]
+          { label: "net", value: cumulative[i]!.netWpm, className: "text-primary" },
+          { label: "raw", value: cumulative[i]!.rawWpm, className: "text-primary/70" },
+          { label: "burst", value: burstNet[i]!, className: "text-base-content/60" },
+        ]
         : [
-            { label: "net", value: burstNet[i]!, className: "text-primary" },
-            { label: "raw", value: sample.wpm, className: "text-base-content/60" },
-          ];
+          { label: "net", value: burstNet[i]!, className: "text-primary" },
+          { label: "raw", value: sample.wpm, className: "text-base-content/60" },
+        ];
       return { second, x: xAt(second), headlineY: yAt(headlineWpm), readouts };
     });
 
@@ -717,12 +723,13 @@ function ReMeasureStrip(props: { beforeWpm: number; afterWpm: number }) {
   );
 }
 
-// Turns the just-completed test's keystroke timeline into up to three honest,
-// actionable findings, each ending in a one-click drill on /drill built from
-// exactly those keys. Owner-only: rendered on the live results card, never on a
-// read-only shared score (which carries no timeline anyway).
+// Turns the just-completed Test plus bounded natural history into a short list
+// of honest, actionable findings. Owner-only: rendered on the live results
+// card, never on a read-only shared score (which carries no timeline anyway).
 function DiagnosisPanel(props: { score: ShareableScore }) {
   const boardLayout = props.score.layout ?? "qwerty";
+  const [hasHigherOrderFinding, setHasHigherOrderFinding] = useState(false);
+
   const { diagnosis, attempts, transitions } = useMemo(() => {
     const events = props.score.timeline ? decodeTimeline(props.score.timeline) : [];
     return {
@@ -737,33 +744,14 @@ function DiagnosisPanel(props: { score: ShareableScore }) {
 
   // Only normal-mode tests carry a per-key timeline; without one there is nothing
   // to diagnose, so the panel stays hidden rather than showing an empty shell.
-  if (!props.score.timeline || props.score.timeline.length === 0) return null;
-
-  // Carry this exact test's config to /drill so its "Re-measure" CTA can round-trip
-  // back home and headline a before→after delta (Phase 1.3, the loop's payoff).
-  const s = props.score;
-  const reMeasureParam = encodeURIComponent(JSON.stringify({
-    beforeWpm: s.netWpm,
-    config: {
-      subMode: s.subMode,
-      count: s.count,
-      language: s.language,
-      customLength: s.ranked === false,
-      punctuation: s.punctuation ?? false,
-      capitals: s.capitals ?? false,
-      numbers: s.numbers ?? false,
-      options: s.options ?? "",
-    },
-  }));
-  const withReMeasure = (href: string) =>
-    href.startsWith("/drill") ? `${href}&rm=${reMeasureParam}` : href;
+  if (!props.score.timeline || decodeTimeline(props.score.timeline).length === 0) return null;
 
   return (
     <div data-testid="diagnosis-panel" className="score-reveal mt-5 rounded-lg border border-base-content/10 bg-base-100/45 p-5" style={{ "--reveal-delay": "200ms" } as CSSProperties}>
-      
+
       <div className="mb-4 flex items-center gap-2 text-lg font-semibold text-base-content">
         <span>Diagnosis</span>
-        <InfoIcon label="The keys and transitions that cost you the most this test, computed from your keystroke timeline. Each finding opens a targeted drill built from those keys." />
+        <InfoIcon label="The keys, transitions, and recurring patterns supported by this Test and your recent natural typing. Each finding opens Guided Practice." />
       </div>
 
       {diagnosis.tooShort ?
@@ -779,12 +767,12 @@ function DiagnosisPanel(props: { score: ShareableScore }) {
               the right (stacks on mobile) - keeps the panel short. The subtitle
               lives in this column so it lines up with the heatmap's caption. */}
           <div className="flex flex-col gap-4">
-            <p className="text-sm text-base-content/60">What slowed you down this test - and the one-click fix.</p>
+            <p className="text-sm text-base-content/60">What this Test and your recent natural typing reveal - and the one-click fix.</p>
             {(() => {
               // Transitions get their own richer "N× your average" treatment below,
               // so drop the generic slow-transitions finding from this list.
               const keyFindings = diagnosis.findings.filter((f) => f.kind !== "slow-transitions");
-              if (keyFindings.length === 0 && transitions.length === 0) {
+              if (keyFindings.length === 0 && transitions.length === 0 && !hasHigherOrderFinding) {
                 return (
                   <div className="flex flex-col items-start gap-3">
                     <p className="text-base-content/75">No clear weak spots this test - a clean, even run. Keep the pace up.</p>
@@ -796,6 +784,11 @@ function DiagnosisPanel(props: { score: ShareableScore }) {
               }
               return (
                 <>
+                  <HigherOrderResultFinding
+                    score={props.score}
+                    boardLayout={boardLayout}
+                    onFindingChange={setHasHigherOrderFinding}
+                  />
                   {keyFindings.length > 0 &&
                     <ul className="flex flex-col gap-3">
                       {keyFindings.map((finding) => {
@@ -804,7 +797,23 @@ function DiagnosisPanel(props: { score: ShareableScore }) {
                         const words = finding.kind === "tough-words" ? finding.detail.map((w) => w.word) : [];
                         const drillKeys = finding.kind === "tough-words" ? [] : toDrillKeys(finding.keys);
                         const targets = words.length > 0 ? words : drillKeys;
-                        const href = words.length > 0 ? `/drill?words=${words.join(",")}` : `/drill?keys=${drillKeys.join(",")}`;
+                        const eventBaseline = overallMeanLatency(decodeTimeline(props.score.timeline!));
+                        const target = words.length > 0
+                          ? { kind: "word" as const, words }
+                          : { kind: "key" as const, keys: drillKeys, metric: finding.kind === "inaccurate-keys" ? "accuracy" as const : "latency" as const };
+                        const sampleCount = finding.detail.reduce((sum, item) => sum + ("samples" in item ? item.samples : "attempts" in item ? item.attempts : "chars" in item ? item.chars : 0), 0);
+                        const observed = finding.kind === "inaccurate-keys"
+                          ? finding.detail.reduce((sum, item) => sum + item.accuracy * item.attempts, 0) / Math.max(1, sampleCount)
+                          : finding.detail.reduce((sum, item) => sum + item.meanMs * ("samples" in item ? item.samples : "chars" in item ? item.chars : 1), 0) / Math.max(1, sampleCount);
+                        const href = targetAction(target, {
+                          evidence: {
+                            metric: finding.kind === "inaccurate-keys" ? "%" : "ms",
+                            baseline: finding.kind === "inaccurate-keys" ? 100 : eventBaseline,
+                            observed,
+                            sampleCount: Math.max(1, sampleCount),
+                            reason: finding.summary,
+                          }
+                        }).href;
                         const noun = words.length > 0 ? "words" : "keys";
                         return (
                           <li
@@ -815,11 +824,11 @@ function DiagnosisPanel(props: { score: ShareableScore }) {
                             {targets.length > 0 ?
                               <Link
                                 className="inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-                                href={withReMeasure(href)}
-                                aria-label={`Drill these ${noun}: ${targets.join(", ")}`}
-                                title={`Drill ${targets.join(", ")}`}
+                                href={href}
+                                aria-label={`Practise these ${noun}: ${targets.join(", ")}`}
+                                title={`Practise ${targets.join(", ")}`}
                               >
-                                Drill these {noun}
+                                Practise these {noun}
                               </Link>
                               :
                               null
@@ -838,10 +847,21 @@ function DiagnosisPanel(props: { score: ShareableScore }) {
                           </span>
                           <Link
                             className="inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-                            href={withReMeasure(`/drill?transitions=${t.from}${t.to}`)}
-                            aria-label={`Drill the ${t.from} to ${t.to} transition`}
+                            href={targetAction(
+                              { kind: "transition", pair: `${t.from}${t.to}`, metric: "latency" },
+                              {
+                                evidence: {
+                                  metric: "ms",
+                                  baseline: t.meanMs / t.ratio,
+                                  observed: t.meanMs,
+                                  sampleCount: t.count,
+                                  reason: `${t.from}→${t.to} takes ${t.ratio.toFixed(1)}× your average pace in this Test.`,
+                                }
+                              },
+                            ).href}
+                            aria-label={`Practise the ${t.from} to ${t.to} transition`}
                           >
-                            Drill {t.from}{t.to}
+                            Practise {t.from}{t.to}
                           </Link>
                         </li>
                       ))}
@@ -1028,9 +1048,7 @@ export function ShareableScoreCard(props: ShareableScoreCardProps) {
                     {score.streak}-day streak
                   </Chip>
                 }
-              </div>
-              {showFlattery && typeof score.avgDelta === "number" &&
-                <div className="mb-2">
+                {showFlattery && typeof score.avgDelta === "number" &&
                   <Chip
                     testId="avg-delta"
                     tone={score.avgDelta >= 0 ? "success" : "error"}
@@ -1039,8 +1057,8 @@ export function ShareableScoreCard(props: ShareableScoreCardProps) {
                   >
                     {formatNumber(Math.abs(score.avgDelta), 1)} WPM {score.avgDelta >= 0 ? "over" : "under"} your 30-day average
                   </Chip>
-                </div>
-              }
+                }
+              </div>
               <p className="text-sm text-base-content/65">{modeText} / {formatDate(score.createdAt)}</p>
               {(score.punctuation || score.capitals || score.numbers || score.ranked === false) &&
                 <div className="mt-2 flex flex-wrap gap-2">
@@ -1121,77 +1139,77 @@ export function ShareableScoreCard(props: ShareableScoreCardProps) {
                 <span>Sign in to save &amp; share</span>
               </label>
               : (!readonly || shareUrl) ?
-              <ToolbarMenu
-                open={shareMenuOpen}
-                onClose={() => setShareMenuOpen(false)}
-                testId="share-menu"
-                widthClassName="min-w-56"
-                trigger={
-                  <button
-                    className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50"
-                    type="button"
-                    disabled={isSaving || (!shareUrl && !canCreateShare)}
-                    onClick={() => (shareMenuOpen ? setShareMenuOpen(false) : openShareMenu())}
-                    aria-haspopup="menu"
-                    aria-expanded={shareMenuOpen}
-                    aria-label="Share Score"
-                    title={isSaving ? "Saving your score" : "Share your score"}
-                  >
-                    {isSaving ? <Spinner /> : <ShareIcon />}
-                    <span>{isSaving ? "Saving..." : "Share Score"}</span>
-                    <ChevronDownIcon />
-                  </button>
-                }
-              >
-                <div role="menu" className="flex flex-col gap-1">
-                  <ShareMenuButton
-                    icon={<i className="fa-solid fa-link w-4 text-center" aria-hidden="true" />}
-                    label={linkState === "copied" ? "Link copied" : "Copy link"}
-                    onClick={handleCopyLink}
-                    disabled={!shareUrl}
-                    loading={!shareUrl && !shareFailed}
-                  />
-                  <ShareMenuLink
-                    icon={<i className="fa-brands fa-x-twitter w-4 text-center" aria-hidden="true" />}
-                    label="Share on X"
-                    href={shareUrl ? tweetHref(shareText, shareUrl) : undefined}
-                    loading={!shareUrl && !shareFailed}
-                    onSelect={() => setShareMenuOpen(false)}
-                  />
-                  <ShareMenuLink
-                    icon={<i className="fa-brands fa-reddit-alien w-4 text-center" aria-hidden="true" />}
-                    label="Share on Reddit"
-                    href={shareUrl ? redditHref(shareText, shareUrl) : undefined}
-                    loading={!shareUrl && !shareFailed}
-                    onSelect={() => setShareMenuOpen(false)}
-                  />
-                  {canNativeShare &&
+                <ToolbarMenu
+                  open={shareMenuOpen}
+                  onClose={() => setShareMenuOpen(false)}
+                  testId="share-menu"
+                  widthClassName="min-w-56"
+                  trigger={
+                    <button
+                      className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50"
+                      type="button"
+                      disabled={isSaving || (!shareUrl && !canCreateShare)}
+                      onClick={() => (shareMenuOpen ? setShareMenuOpen(false) : openShareMenu())}
+                      aria-haspopup="menu"
+                      aria-expanded={shareMenuOpen}
+                      aria-label="Share Score"
+                      title={isSaving ? "Saving your score" : "Share your score"}
+                    >
+                      {isSaving ? <Spinner /> : <ShareIcon />}
+                      <span>{isSaving ? "Saving..." : "Share Score"}</span>
+                      <ChevronDownIcon />
+                    </button>
+                  }
+                >
+                  <div role="menu" className="flex flex-col gap-1">
                     <ShareMenuButton
-                      icon={<i className="fa-solid fa-share-nodes w-4 text-center" aria-hidden="true" />}
-                      label="Share via device"
-                      onClick={() => { void handleNativeShare(); setShareMenuOpen(false); }}
+                      icon={<i className="fa-solid fa-link w-4 text-center" aria-hidden="true" />}
+                      label={linkState === "copied" ? "Link copied" : "Copy link"}
+                      onClick={handleCopyLink}
                       disabled={!shareUrl}
                       loading={!shareUrl && !shareFailed}
                     />
-                  }
-                  {shareFailed &&
-                    <ShareMenuButton
-                      icon={<i className="fa-solid fa-rotate-right w-4 text-center" aria-hidden="true" />}
-                      label="Couldn't create link - Retry"
-                      onClick={() => void startMint()}
+                    <ShareMenuLink
+                      icon={<i className="fa-brands fa-x-twitter w-4 text-center" aria-hidden="true" />}
+                      label="Share on X"
+                      href={shareUrl ? tweetHref(shareText, shareUrl) : undefined}
+                      loading={!shareUrl && !shareFailed}
+                      onSelect={() => setShareMenuOpen(false)}
                     />
-                  }
-                  <div className="my-1 border-t border-base-content/10" />
-                  <ShareMenuButton
-                    testId="share-menu-screenshot"
-                    icon={<i className="fa-solid fa-image w-4 text-center" aria-hidden="true" />}
-                    label={screenshotButtonLabel}
-                    onClick={handleCopyImage}
-                  />
-                </div>
-              </ToolbarMenu>
-              :
-              null
+                    <ShareMenuLink
+                      icon={<i className="fa-brands fa-reddit-alien w-4 text-center" aria-hidden="true" />}
+                      label="Share on Reddit"
+                      href={shareUrl ? redditHref(shareText, shareUrl) : undefined}
+                      loading={!shareUrl && !shareFailed}
+                      onSelect={() => setShareMenuOpen(false)}
+                    />
+                    {canNativeShare &&
+                      <ShareMenuButton
+                        icon={<i className="fa-solid fa-share-nodes w-4 text-center" aria-hidden="true" />}
+                        label="Share via device"
+                        onClick={() => { void handleNativeShare(); setShareMenuOpen(false); }}
+                        disabled={!shareUrl}
+                        loading={!shareUrl && !shareFailed}
+                      />
+                    }
+                    {shareFailed &&
+                      <ShareMenuButton
+                        icon={<i className="fa-solid fa-rotate-right w-4 text-center" aria-hidden="true" />}
+                        label="Couldn't create link - Retry"
+                        onClick={() => void startMint()}
+                      />
+                    }
+                    <div className="my-1 border-t border-base-content/10" />
+                    <ShareMenuButton
+                      testId="share-menu-screenshot"
+                      icon={<i className="fa-solid fa-image w-4 text-center" aria-hidden="true" />}
+                      label={screenshotButtonLabel}
+                      onClick={handleCopyImage}
+                    />
+                  </div>
+                </ToolbarMenu>
+                :
+                null
             }
           </div>
         </div>

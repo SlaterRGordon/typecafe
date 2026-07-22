@@ -1,16 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { addAlert } from "~/state/alert/alertSlice";
 import { TestModes } from "./types";
 import { getActiveKey, subscribeActiveKey } from "./keySignal";
-import { useDispatch } from "react-redux";
 import { accentsFor, ensureLanguageLoaded, isDrillDigit, isDrillMark } from "./utils";
 import { KeyHeatmap, KeyHeatmapLegend } from "~/components/heatmap/KeyHeatmap";
 import { KeyboardLayerSwitch } from "~/components/heatmap/KeyboardLayerSwitch";
-import { HEATMAP_CONFIG } from "~/lib/heatmap";
-import { boardFor, composedFor, sequenceFor, keyFor, type Layer } from "~/lib/keyboardLayout";
+import { HEATMAP_CONFIG, type KeyAttempt } from "~/lib/heatmap";
+import { boardFor, composedFor, sequenceFor, keyFor } from "~/lib/keyboardLayout";
 import { useLayout } from "~/hooks/useLayout";
 import { useLanguage } from "~/hooks/useLanguage";
-import { isDrillableKey, isPracticeLetter, isPracticeVowel } from "~/lib/drillKeys";
+import { isDrillableKey, isPracticeLetter } from "~/lib/drillKeys";
+import { effectivePracticeKeyboardLayer } from "~/lib/practiceKeyboard";
 
 const isDrillable = isDrillableKey
 // The train/guide board is display-only: no tallies, ever.
@@ -21,13 +20,12 @@ interface KeyboardProps {
     selectedKeys?: string[],
     setSelectedKeys?: (keys: string[]) => void,
     charAttemptsRef: React.MutableRefObject<Map<string, { attempts: number, correct: number }>>,
-    baseAttemptsRef?: React.MutableRefObject<Map<string, { attempts: number, correct: number }>>,
+    evidenceAttempts?: ReadonlyMap<string, KeyAttempt> | Record<string, KeyAttempt>,
     // Per-key speed bars for the Practice heatmap, normalized against the user's
     // own pace (see keySpeedBars). Lifetime data threaded from the page.
     speedBars?: ReadonlyMap<string, { fraction: number, meanMs: number, wpm: number, count: number }>,
     highlightKeys?: string[],
-    // Practice: the combined shift-layer state (sticky board-rail toggle OR a
-    // held-Shift peek) - both owned by the page so the rail and caps stay in sync.
+    // Practice's sticky on-screen layer choice. Physical holds are applied here.
     shiftToggle?: boolean,
     // Practice: the AltGr layer equivalent (sticky toggle OR held AltGr). Only
     // wired by pages when the active layout has AltGr glyphs.
@@ -35,9 +33,8 @@ interface KeyboardProps {
     onToggleShift?: () => void,
     onToggleAltgr?: () => void,
     hasAltGr?: boolean,
-    // Practice text add-ons. A toggled-off add-on locks its keys on the board
-    // (no marks/digits/capitals in the text regardless of selection); clicking a
-    // locked key flips the add-on back on, so nobody digs through the gear menu.
+    // Practice text add-ons. Clicking a disabled family can enable it without a
+    // trip through the gear menu.
     punctuation?: boolean,
     capitals?: boolean,
     numbers?: boolean,
@@ -45,18 +42,6 @@ interface KeyboardProps {
     setCapitals?: (value: boolean) => void,
     setNumbers?: (value: boolean) => void,
 }
-
-// Layer picking, shared by the lock and interactive sets so they always agree
-// with the glyph KeyHeatmap renders (its shiftAltgr layer falls back to altgr).
-const activeLayer = (shift: boolean, altgr: boolean): Layer =>
-    altgr ? (shift ? "shiftAltgr" : "altgr") : shift ? "shift" : "base"
-
-// Small padlock glyph, matching the on-key lock badge.
-const LockGlyph = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-2.5 w-2.5" viewBox="0 0 24 24" aria-hidden="true">
-        <path fill="currentColor" d="M6 22q-.825 0-1.413-.588T4 20V10q0-.825.588-1.413T6 8h1V6q0-2.075 1.463-3.538T12 1q2.075 0 3.538 1.463T17 6v2h1q.825 0 1.413.588T20 10v10q0 .825-.588 1.413T18 22H6Zm0-2h12V10H6v10ZM9 8h6V6q0-1.25-.875-2.125T12 3q-1.25 0-2.125.875T9 6v2Z" />
-    </svg>
-)
 
 // Practice board legend: one non-wrapping row (scrolls horizontally on narrow
 // screens rather than breaking to two lines). Reads left to right: drill
@@ -66,25 +51,22 @@ function PracticeKeyboardLegend() {
     return (
         <div className="typecafe-keyboard-legend mt-2 flex flex-nowrap items-center gap-x-3 overflow-x-auto whitespace-nowrap text-[0.65rem] text-base-content/55 [scrollbar-width:none] sm:justify-center sm:text-xs">
             <span className="inline-flex shrink-0 items-center gap-1.5">
-                <span className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-base-content/20 bg-base-300" aria-hidden="true">
-                    <LockGlyph />
-                </span>
-                locked = click to add
+                <span className="inline-flex h-3 w-3 rounded-full border-2 border-base-100 bg-primary outline outline-1 outline-primary" aria-hidden="true" />
+                outlined = focus
             </span>
-            <KeyHeatmapLegend className="flex-nowrap" />
+            <KeyHeatmapLegend className="!flex-nowrap gap-x-3" />
         </div>
     )
 }
 
 export const Keyboard = (props: KeyboardProps) => {
     const {
-        mode, selectedKeys, setSelectedKeys, charAttemptsRef, baseAttemptsRef, speedBars, highlightKeys,
+        mode, selectedKeys, setSelectedKeys, charAttemptsRef, evidenceAttempts, speedBars, highlightKeys,
         shiftToggle = false, altgrToggle = false,
         onToggleShift, onToggleAltgr, hasAltGr = false,
         punctuation = false, capitals = false, numbers = false,
         setPunctuation, setCapitals, setNumbers,
     } = props
-    const dispatch = useDispatch()
     const [layout] = useLayout()
     const board = useMemo(() => boardFor(layout), [layout])
     const [language] = useLanguage()
@@ -139,14 +121,11 @@ export const Keyboard = (props: KeyboardProps) => {
         }
     }, [mode])
 
-    // Held-modifier peek for the non-practice (train/guide) board: the pages
-    // don't wire toggles here, so the board itself listens - holding Shift or
-    // AltGr peeks that layer, releasing (or blurring) returns to base. The
-    // practice board keeps the page-owned combined toggles instead.
+    // Held modifiers temporarily own the visible layer. Practice restores its
+    // sticky on-screen choice on release; display-only boards restore Base.
     const [heldShift, setHeldShift] = useState(false)
     const [heldAltgr, setHeldAltgr] = useState(false)
     useEffect(() => {
-        if (mode === TestModes.practice) return
         const onDown = (e: KeyboardEvent) => {
             if (e.key === "Shift") setHeldShift(true)
             if (e.key === "AltGraph") setHeldAltgr(true)
@@ -225,10 +204,12 @@ export const Keyboard = (props: KeyboardProps) => {
         }
     }, [mode, highlightKeys, layout, heldShift, heldAltgr])
 
-    // Layer state: the page owns the combined sticky rail + held-modifier peeks,
-    // passed in as shiftToggle/altgrToggle.
-    const shiftLayer = shiftToggle
-    const altgrLayer = altgrToggle
+    const stickyLayer = shiftToggle ? "shift" : altgrToggle ? "altgr" : "base"
+    const visibleLayer = mode === TestModes.practice
+        ? effectivePracticeKeyboardLayer(stickyLayer, heldShift, heldAltgr)
+        : effectivePracticeKeyboardLayer("base", heldShift, heldAltgr)
+    const shiftLayer = visibleLayer === "shift" || visibleLayer === "shiftAltgr"
+    const altgrLayer = visibleLayer === "altgr" || visibleLayer === "shiftAltgr"
 
     // A shifted letter twin (R, Ü) - not its own drill target; it mirrors the
     // base key and rides the capitals add-on.
@@ -236,30 +217,24 @@ export const Keyboard = (props: KeyboardProps) => {
         (glyph: string) => !isUnlockable(glyph) && glyph.toLowerCase() !== glyph && isPracticeLetter(glyph.toLowerCase()),
         [isUnlockable],
     )
-    // A toggled-off text add-on locks its whole key family, whatever the
-    // selection says - the text can't contain them, so the board shouldn't
-    // claim otherwise.
-    const addOnLocked = (glyph: string) =>
-        (isDrillMark(glyph) && !punctuation) || (isDrillDigit(glyph) && !numbers) || (isCapitalMirror(glyph) && !capitals)
-
-    // Lock badges read off the active layer. A typeable drill glyph owns its
+    // Focus markers read off the active layer. A typeable drill glyph owns its
     // selection on every layer (French Shift+1, AltGr accents, marks); shifted
     // letters still mirror their lowercase base key. Dead keys unlock when any
     // character in their composed set is selected.
-    const lockedKeys = new Set<string>()
+    const focusedKeys = new Set<string>()
     if (selectedKeys) {
-        const layer = activeLayer(shiftLayer, altgrLayer)
+        const layer = visibleLayer
         for (const row of board.rows) {
             for (const cap of row) {
                 const glyph = cap[layer] ?? (layer === "shiftAltgr" ? cap.altgr : undefined)
                 if (!glyph) continue
-                const unlocked =
+                const selected =
                     accents.byDead.has(glyph) ? accents.byDead.get(glyph)!.some((ch) => selectedKeys.includes(ch))
                     : accents.direct.has(glyph) ? selectedKeys.includes(glyph)
                     : layer === "base" ? selectedKeys.includes(glyph)
                     : layer === "shift" ? selectedKeys.includes(isUnlockable(glyph) ? glyph : cap.base)
                     : isUnlockable(glyph) && selectedKeys.includes(glyph)
-                if (!unlocked || addOnLocked(glyph)) lockedKeys.add(glyph)
+                if (selected) focusedKeys.add(glyph)
             }
         }
     }
@@ -267,7 +242,7 @@ export const Keyboard = (props: KeyboardProps) => {
     // typeable glyph on a shifted/AltGr layer is directly unlockable; capital
     // twins are clickable too - their click flips the capitals add-on.
     const interactiveKeys = useMemo(() => {
-        const layer = activeLayer(shiftLayer, altgrLayer)
+        const layer = visibleLayer
         if (layer === "base") return undefined
         const allow = new Set<string>()
         for (const row of board.rows) {
@@ -278,7 +253,7 @@ export const Keyboard = (props: KeyboardProps) => {
             }
         }
         return allow
-    }, [board, shiftLayer, altgrLayer, isCapitalMirror, isUnlockable])
+    }, [board, visibleLayer, isCapitalMirror, isUnlockable])
 
     const handleKeyClicked = (key: string) => {
         if (!selectedKeys || !setSelectedKeys || mode !== TestModes.practice) return
@@ -288,7 +263,7 @@ export const Keyboard = (props: KeyboardProps) => {
             setCapitals?.(!capitals)
             return
         }
-        // Only drillable keys toggle; display-only filler stays permanently locked.
+        // Only drillable keys toggle; display-only filler remains inert.
         if (!isUnlockable(key)) return
 
         // Unlocking a mark/digit while its add-on is off turns the add-on on in
@@ -305,7 +280,7 @@ export const Keyboard = (props: KeyboardProps) => {
         }
 
         // A dead key is one toggle for its whole composed set (ê â î ô û ride ^).
-        // A partial selection reads as unlocked, so clicking converges: any
+        // A partial selection reads as focused, so clicking converges: any
         // selected → drop them all; none → add them all.
         const composed = accents.byDead.get(key)
         if (composed) {
@@ -317,49 +292,15 @@ export const Keyboard = (props: KeyboardProps) => {
         }
 
         if (selectedKeys.includes(key)) {
-            // Letters anchor word generation, so keep enough of them: at least 8,
-            // including two vowels and a consonant. International letters count
-            // too; numbers/punctuation remain add-on drill targets.
-            if (isPracticeLetter(key)) {
-                const letters = selectedKeys.filter(isPracticeLetter)
-                if (letters.length <= 8) {
-                    dispatch(addAlert({ message: "Must include at least 8 keys!", type: "error" }))
-                    return
-                }
-                if (isPracticeVowel(key) && letters.filter(isPracticeVowel).length <= 2) {
-                    dispatch(addAlert({ message: "Must include at least 2 vowels!", type: "error" }))
-                    return
-                }
-                if (!isPracticeVowel(key) && letters.filter((letter) => !isPracticeVowel(letter)).length <= 1) {
-                    dispatch(addAlert({ message: "Must include at least 1 consonant!", type: "error" }))
-                    return
-                }
-            }
-
             setSelectedKeys(selectedKeys.filter(k => k != key))
         } else {
             setSelectedKeys([...selectedKeys, key])
         }
     }
 
-    // Combined lifetime + live-session per-key tally that feeds the analytics
-    // heatmap, kept *unfolded* (keyed by the actual char) so the base layer reads
-    // r/;/1 and the shift layer reads R/:/! - each glyph its own accuracy.
-    const buildStatsAttempts = () => {
-        const merged = new Map<string, { attempts: number, correct: number }>()
-        const addAll = (m?: Map<string, { attempts: number, correct: number }>) => {
-            if (!m) return
-            for (const [key, value] of m) {
-                const entry = merged.get(key) ?? { attempts: 0, correct: 0 }
-                entry.attempts += value.attempts
-                entry.correct += value.correct
-                merged.set(key, entry)
-            }
-        }
-        addAll(baseAttemptsRef?.current)
-        addAll(charAttemptsRef.current)
-        return merged
-    }
+    // Practice evidence is a page-owned frozen natural-Test projection. Train
+    // has no projection and keeps its display-only empty board.
+    const statsAttempts = evidenceAttempts ?? charAttemptsRef.current
 
     return (
         <div
@@ -369,16 +310,17 @@ export const Keyboard = (props: KeyboardProps) => {
             {mode === TestModes.practice ?
                 <section
                     aria-label="Practice keyboard"
+                    data-kb-layer={visibleLayer}
                     className="w-full max-w-3xl"
                 >
-                    <div className="mb-2 mt-8 flex justify-center">
+                    <div className="mb-2 mt-1 flex justify-center">
                         <KeyboardLayerSwitch
                             shiftLayer={shiftLayer}
                             altgrLayer={altgrLayer}
                             hasAltGr={hasAltGr}
                             onSelectBase={() => {
-                                if (shiftLayer) onToggleShift?.()
-                                if (altgrLayer) onToggleAltgr?.()
+                                if (shiftToggle) onToggleShift?.()
+                                if (altgrToggle) onToggleAltgr?.()
                             }}
                             onToggleShift={() => onToggleShift?.()}
                             onToggleAltgr={() => onToggleAltgr?.()}
@@ -387,13 +329,12 @@ export const Keyboard = (props: KeyboardProps) => {
 
                     <KeyHeatmap
                         size="full"
-                        attempts={buildStatsAttempts()}
+                        attempts={statsAttempts}
                         speedBars={speedBars}
                         minSamples={HEATMAP_CONFIG.minSamples}
                         showPercent={false}
-                        lockedKeys={lockedKeys}
+                        selectedKeys={focusedKeys}
                         onKeyClick={handleKeyClicked}
-                        followActiveKey
                         highlightKeys={highlightKeys}
                         shiftLayer={shiftLayer}
                         altgrLayer={altgrLayer}

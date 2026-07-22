@@ -3,16 +3,14 @@ import Link from "next/link";
 import { Avatar } from "../Avatar";
 import { useRouter } from "next/router";
 import { MaterialNavIcon } from "./MaterialNavIcon";
-import { useDailySessionBadge } from "~/hooks/useDailyCoachingSession";
 
 export const BottomNavigation = () => {
     const router = useRouter();
     const { data: sessionData } = useSession();
-    const dailyBadge = useDailySessionBadge();
     const getNavButtonClass = (href: string) => {
         const isActive = router.pathname === href || (href !== "/" && router.pathname.startsWith(href))
 
-        return `flex h-full flex-1 cursor-pointer items-center justify-center px-4 py-3 transition-colors hover:bg-base-300 active:bg-base-300 ${isActive ? "bg-base-300 text-base-content" : ""}`
+        return `flex h-full min-w-0 flex-1 cursor-pointer items-center justify-center px-2 py-3 transition-colors hover:bg-base-300 active:bg-base-300 ${isActive ? "bg-base-300 text-base-content" : ""}`
     }
     const navIconClass = "h-6 w-6 shrink-0"
 
@@ -26,6 +24,10 @@ export const BottomNavigation = () => {
                 <Link href="/" className={getNavButtonClass('/')} aria-label="Home" title="Home">
                     <MaterialNavIcon name="home" className={navIconClass} />
                 </Link>
+                {/* Practice */}
+                <Link href="/practice" className={getNavButtonClass('/practice')} aria-label="Practice" title="Practice">
+                    <MaterialNavIcon name="keyboard" className={navIconClass} />
+                </Link>
                 {/* Progress */}
                 <Link href="/progress" className={getNavButtonClass('/progress')} aria-label="Progress" title="Progress">
                     <MaterialNavIcon name="trending_up" className={navIconClass} />
@@ -33,15 +35,6 @@ export const BottomNavigation = () => {
                 {/* Train */}
                 <Link href="/train" className={getNavButtonClass('/train')} aria-label="Train" title="Train">
                     <MaterialNavIcon name="fitness_center" className={navIconClass} />
-                </Link>
-                {/* Daily coaching - dot marks an unfinished session. */}
-                <Link href="/plan" className={getNavButtonClass('/plan')} aria-label="Daily coaching" title="Daily coaching" data-testid="nav-today">
-                    <span className="relative">
-                        <MaterialNavIcon name="today" className={navIconClass} />
-                        {dailyBadge === "active" &&
-                            <span data-testid="nav-today-dot" aria-hidden="true" className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-primary" />
-                        }
-                    </span>
                 </Link>
                 {/* Daily Challenge hidden for now (2026-07) - see SideNavigation. */}
                 {/* Leaderboard */}
