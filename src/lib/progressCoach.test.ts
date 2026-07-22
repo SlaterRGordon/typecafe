@@ -128,6 +128,32 @@ describe("Progress Target projection", () => {
         expect(filterProgressCoachTargets(result.targets, "key").map((row) => row.label)).toEqual(["q"])
     })
 
+    it("groups broad and exact explanations of the same measured slowdown", () => {
+        const transition = candidate({ kind: "transition", pair: "br", metric: "latency" }, 1_000)
+        const key = candidate({ kind: "key", keys: ["r"], metric: "latency" }, 900, {
+            reason: { code: "key_latency_above_baseline", key: "r", observedMs: 140, baselineMs: 100, ratio: 1.4 },
+        })
+        const movement = candidate({ kind: "movement", movement: "row-reach", anchors: ["br", "de", "sw", "aq"] }, 800, {
+            reason: { code: "movement_latency_high", movement: "row-reach", observedMs: 140, baselineMs: 100, anchors: ["br", "de", "sw", "aq"] },
+        })
+        const gram = candidate({ kind: "gram", gram: "bri" }, 700, {
+            reason: { code: "gram_internal_latency_high", gram: "bri", observedMs: 280, baselineMs: 200, excessMs: 80, carrierWords: ["bright"] },
+        })
+
+        const result = projectProgressCoach(analysis([transition, key, movement, gram]))
+
+        expect(result.targets).toHaveLength(1)
+        expect(result.defaultTarget.label).toBe("b→r")
+        expect(result.defaultTarget.relatedTargets).toEqual([
+            expect.objectContaining({ label: "r", typeLabel: "Key", filter: "key" }),
+            expect.objectContaining({ label: "row-reach movement", typeLabel: "Movement", filter: "movement" }),
+            expect.objectContaining({ label: "bri", typeLabel: "Pattern", filter: "pattern" }),
+        ])
+        expect(filterProgressCoachTargets(result.targets, "key")).toEqual(result.targets)
+        expect(filterProgressCoachTargets(result.targets, "pattern")).toEqual(result.targets)
+        expect(filterProgressCoachTargets(result.targets, "movement")).toEqual(result.targets)
+    })
+
     it("calibrates only when current evidence names no actionable Target", () => {
         const result = projectProgressCoach(analysis([]))
 

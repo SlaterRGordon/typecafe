@@ -382,6 +382,7 @@ test.describe("progress dashboard", () => {
     const coach = page.getByTestId("progress-coach");
     await coach.getByTestId("coach-target-filters").getByRole("button", { name: /Movements/ }).click();
     const movementRow = coach.getByRole("button", { name: /same-finger movement/ });
+    await expect(movementRow).toContainText("+2 related");
     for (const sequence of ["f→r", "d→e", "s→w", "a→q"]) await expect(movementRow).toContainText(sequence);
     const description = movementRow.getByText("same-finger movement · a→q, d→e, f→r, s→w", { exact: true });
     await expect(description).toBeVisible();
@@ -401,6 +402,12 @@ test.describe("progress dashboard", () => {
     const scope = detail.getByTestId("movement-scope");
     await expect(scope).toContainText("Representative sequences");
     for (const sequence of ["f→r", "d→e", "s→w", "a→q"]) await expect(scope).toContainText(sequence);
+    const related = detail.getByTestId("related-target-evidence");
+    await expect(related).toContainText("Transition d→e");
+    await expect(related).toContainText("Transition f→r");
+    await expect(related).toContainText("estimated Worth is counted once");
+    await coach.getByTestId("coach-target-filters").getByRole("button", { name: /Transitions/ }).click();
+    await expect(movementRow).toBeVisible();
     await detail.getByRole("link", { name: "Practice this movement" }).click();
 
     await expect(page).toHaveURL(/\/practice\?target=movement&movement=same-finger/);

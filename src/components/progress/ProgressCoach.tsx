@@ -162,6 +162,24 @@ function MovementScope({ target }: { target: ProgressCoachTarget }) {
     )
 }
 
+function RelatedEvidence({ target }: { target: ProgressCoachTarget }) {
+    if (target.relatedTargets.length === 0) return null
+    const visible = target.relatedTargets.slice(0, 4)
+    const remaining = target.relatedTargets.length - visible.length
+    return (
+        <div data-testid="related-target-evidence" className="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-base-content/55">
+            <span>Related evidence</span>
+            {visible.map((related) => (
+                <span key={`${related.typeLabel}:${related.label}`} className="rounded border border-base-content/15 bg-base-200/55 px-1.5 py-0.5">
+                    <span className="text-base-content/40">{related.typeLabel}</span> <span className="font-mono font-semibold text-base-content/75">{related.label}</span>
+                </span>
+            ))}
+            {remaining > 0 && <span className="font-mono text-base-content/45">+{remaining} more</span>}
+            <span className="basis-full text-[0.65rem] text-base-content/40">Shares measured keystrokes with this Target; estimated Worth is counted once.</span>
+        </div>
+    )
+}
+
 function CoachSummary({ target, color, contextLabel, action }: { target: ProgressCoachTarget, color: string, contextLabel: string, action: ReactNode }) {
     return (
         <div className="flex min-w-0 flex-1 items-center justify-between gap-4">
@@ -173,6 +191,7 @@ function CoachSummary({ target, color, contextLabel, action }: { target: Progres
                 </div>
                 <CoachHeadline target={target} color={color} />
                 <MovementScope target={target} />
+                <RelatedEvidence target={target} />
                 <ProofLine target={target} />
                 <PracticeLine target={target} />
             </div>
@@ -216,7 +235,7 @@ export function ProgressCoach({ projection, loading }: ProgressCoachProps) {
     )
     const counts = useMemo(() => new Map(FILTERS.map((item) => [
         item.key,
-        item.key === "all" ? projection?.targets.length ?? 0 : projection?.targets.filter((target) => target.filter === item.key).length ?? 0,
+        item.key === "all" ? projection?.targets.length ?? 0 : filterProgressCoachTargets(projection?.targets ?? [], item.key).length,
     ])), [projection])
     if (loading || !projection || !detail) {
         return (
@@ -257,7 +276,7 @@ export function ProgressCoach({ projection, loading }: ProgressCoachProps) {
                                 onClick={() => {
                                     setFilter(item.key)
                                     setShowAllTargets(false)
-                                    if (selected && item.key !== "all" && selected.filter !== item.key) setSelectedId(null)
+                                    if (selected && item.key !== "all" && filterProgressCoachTargets([selected], item.key).length === 0) setSelectedId(null)
                                 }}
                                 className={`min-h-8 flex-1 whitespace-nowrap rounded-md px-2 text-[0.65rem] font-medium transition-colors ${filter === item.key ? "bg-primary text-primary-content shadow-sm" : "text-base-content/65 hover:bg-base-content/5"}`}
                             >
@@ -300,6 +319,7 @@ export function ProgressCoach({ projection, loading }: ProgressCoachProps) {
                                                     <span className="min-w-0">
                                                         <span className="flex items-center gap-1.5">
                                                             <span className="truncate text-xs font-semibold text-base-content">{row.typeLabel}</span>
+                                                            {row.relatedTargets.length > 0 && <span className="shrink-0 text-[0.58rem] text-base-content/40">+{row.relatedTargets.length} related</span>}
                                                             {status && (
                                                                 <span className={`flex shrink-0 items-center gap-1 text-[0.6rem] ${status.className}`}>
                                                                     <span className="h-1 w-1 rounded-full bg-current" />{status.label}
@@ -345,6 +365,7 @@ export function ProgressCoach({ projection, loading }: ProgressCoachProps) {
                                                 <p className="text-[0.65rem] font-bold uppercase tracking-[0.12em] text-primary">{row.statusLabel}</p>
                                                 <CoachHeadline target={row} color={color} />
                                                 <MovementScope target={row} />
+                                                <RelatedEvidence target={row} />
                                                 <ProofLine target={row} />
                                                 <PracticeLine target={row} />
                                                 {row.action && <div className="mt-3"><ActionLink target={row} /></div>}

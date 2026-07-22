@@ -768,7 +768,9 @@ rate, and WPM only for endurance. Acquisition may be supporting context but can
 never be styled as retained proof.
 
 A single Target may state its estimated `impactMsPer1000`, with "estimated" in
-the copy. Do not sum Impact across overlapping Targets, attribute global WPM to
+the copy. Group directly overlapping broad/exact explanations under the
+highest-current-Worth action and keep every related family discoverable through
+filters. Do not sum Impact across overlapping Targets, attribute global WPM to
 Drills, call retained Targets "fixed," or promise a fixed action duration unless
 the rendered session actually derives it. Safe summary counts include completed
 Coaching sessions, latest-unique retained gains, and checks currently due.

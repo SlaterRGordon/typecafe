@@ -28,6 +28,13 @@ export interface ProgressPracticeSummary {
     value: string | null
 }
 
+export interface ProgressCoachRelatedTarget {
+    label: string
+    typeLabel: string
+    description: string
+    filter: ProgressCoachCategory
+}
+
 export type ProgressImpactTone = "urgent" | "material" | "moderate" | "minor"
 
 /**
@@ -68,6 +75,8 @@ export interface ProgressCoachTarget {
     worthDelta: ProgressCoachTrend | null
     trend: ProgressCoachTrend | null
     practice: ProgressPracticeSummary | null
+    /** Alternate broad/exact explanations backed by overlapping evidence. */
+    relatedTargets: ProgressCoachRelatedTarget[]
     /** Drilled since its last natural evidence — the next step is a Test. */
     awaitingMeasurement: boolean
 }
@@ -167,36 +176,80 @@ function targetFamily(target: CoachingTarget): ProgressTargetFamily {
     return target.kind
 }
 
+function transitionOverlapsTarget(
+    transition: Extract<CoachingTarget, { kind: "transition" }>,
+    other: CoachingTarget,
+): boolean {
+    const destination = [...transition.pair].at(-1) ?? ""
+    if (other.kind === "key") return other.metric === transition.metric && other.keys.includes(destination)
+    if (other.kind === "correction") return transition.metric === "accuracy" && other.expected === destination
+    if (transition.metric !== "latency") return false
+    if (other.kind === "movement") return other.anchors.includes(transition.pair)
+    if (other.kind === "gram") return other.gram.includes(transition.pair)
+    if (other.kind === "word") return other.words.some((word) => word.includes(transition.pair)) || other.sharedGram?.includes(transition.pair) === true
+    return false
+}
+
+function targetsOverlap(a: CoachingTarget, b: CoachingTarget): boolean {
+    if (a.kind === "transition") return transitionOverlapsTarget(a, b)
+    if (b.kind === "transition") return transitionOverlapsTarget(b, a)
+    if (a.kind === "key" && b.kind === "correction") return a.metric === "accuracy" && a.keys.includes(b.expected)
+    if (b.kind === "key" && a.kind === "correction") return b.metric === "accuracy" && b.keys.includes(a.expected)
+    if (a.kind === "gram" && b.kind === "word") return b.sharedGram === a.gram || b.words.some((word) => word.includes(a.gram))
+    if (b.kind === "gram" && a.kind === "word") return a.sharedGram === b.gram || a.words.some((word) => word.includes(b.gram))
+    if (a.kind === "word" && b.kind === "word") return a.words.some((word) => b.words.includes(word))
+    return false
+}
+
+interface CandidateGroup {
+    primary: SkillCandidate
+    related: SkillCandidate[]
+}
+
+function compareCandidateWorth(a: SkillCandidate, b: SkillCandidate): number {
+    return currentWorthImpact(b) - currentWorthImpact(a)
+        || b.frequencyPer1000 - a.frequencyPer1000
+        || b.confidence - a.confidence
+        || a.id.localeCompare(b.id)
+}
+
+function groupOverlappingCandidates(candidates: readonly SkillCandidate[]): CandidateGroup[] {
+    const groups: CandidateGroup[] = []
+    for (const candidate of [...candidates].sort(compareCandidateWorth)) {
+        const overlapping = groups.find((group) => targetsOverlap(group.primary.target, candidate.target))
+        if (overlapping) overlapping.related.push(candidate)
+        else groups.push({ primary: candidate, related: [] })
+    }
+    return groups
+}
+
 /**
  * Keep the leading Targets honest to Impact, then surface the best comparable
  * Target from another supported family before filling the rest by Impact.
  * This prevents a long run of one evidence kind from hiding useful alternatives
  * without promoting a tiny pattern above a weakness that costs orders more.
  */
-function selectCurrentWeaknesses(candidates: readonly SkillCandidate[], limit: number): SkillCandidate[] {
-    if (limit <= 0 || candidates.length === 0) return []
-    const ranked = [...candidates].sort((a, b) => currentWorthImpact(b) - currentWorthImpact(a)
-        || b.frequencyPer1000 - a.frequencyPer1000
-        || b.confidence - a.confidence
-        || a.id.localeCompare(b.id))
+function selectCurrentWeaknesses(groups: readonly CandidateGroup[], limit: number): CandidateGroup[] {
+    if (limit <= 0 || groups.length === 0) return []
+    const ranked = [...groups].sort((a, b) => compareCandidateWorth(a.primary, b.primary))
     const selected = ranked.slice(0, Math.min(LEADING_IMPACT_TARGETS, limit))
-    const selectedIds = new Set(selected.map((candidate) => candidate.id))
-    const selectedFamilies = new Set(selected.map((candidate) => targetFamily(candidate.target)))
-    const comparableFloor = currentWorthImpact(ranked[0]!) * COMPARABLE_FAMILY_RATIO
+    const selectedIds = new Set(selected.map((group) => group.primary.id))
+    const selectedFamilies = new Set(selected.map((group) => targetFamily(group.primary.target)))
+    const comparableFloor = currentWorthImpact(ranked[0]!.primary) * COMPARABLE_FAMILY_RATIO
 
-    for (const candidate of ranked) {
-        if (selected.length >= limit || currentWorthImpact(candidate) < comparableFloor) break
-        const family = targetFamily(candidate.target)
-        if (selectedIds.has(candidate.id) || selectedFamilies.has(family)) continue
-        selected.push(candidate)
-        selectedIds.add(candidate.id)
+    for (const group of ranked) {
+        if (selected.length >= limit || currentWorthImpact(group.primary) < comparableFloor) break
+        const family = targetFamily(group.primary.target)
+        if (selectedIds.has(group.primary.id) || selectedFamilies.has(family)) continue
+        selected.push(group)
+        selectedIds.add(group.primary.id)
         selectedFamilies.add(family)
     }
-    for (const candidate of ranked) {
+    for (const group of ranked) {
         if (selected.length >= limit) break
-        if (selectedIds.has(candidate.id)) continue
-        selected.push(candidate)
-        selectedIds.add(candidate.id)
+        if (selectedIds.has(group.primary.id)) continue
+        selected.push(group)
+        selectedIds.add(group.primary.id)
     }
     return selected
 }
@@ -304,7 +357,7 @@ function candidateDetail(reason: SkillReason): string {
     return `Your recent ${reason.longSeconds}s tests trail your ${reason.shortSeconds}s tests by ${reason.gapWpm.toFixed(1)} WPM.`
 }
 
-function candidateTarget(candidate: SkillCandidate): ProgressCoachTarget {
+function candidateTarget(candidate: SkillCandidate, related: readonly SkillCandidate[]): ProgressCoachTarget {
     const label = targetDisplayLabel(candidate.target)
     const action = targetAction(candidate.target, { length: 30, evidence: guidedEvidenceFromCandidate(candidate) })
     const presentation = targetPresentation(candidate.target)
@@ -339,6 +392,15 @@ function candidateTarget(candidate: SkillCandidate): ProgressCoachTarget {
             sampleCount: candidate.response.sampleCount,
             value: metricValue(candidate.response.value, candidate.metric),
         } : null,
+        relatedTargets: related.map((item) => {
+            const relatedPresentation = targetPresentation(item.target)
+            return {
+                label: targetDisplayLabel(item.target),
+                typeLabel: relatedPresentation.typeLabel,
+                description: relatedPresentation.description,
+                filter: relatedPresentation.filter,
+            }
+        }),
     }
 }
 
@@ -366,13 +428,17 @@ function calibrationTarget(): ProgressCoachTarget {
         worthDelta: null,
         trend: null,
         practice: null,
+        relatedTargets: [],
         awaitingMeasurement: false,
     }
 }
 
 /** Pure Progress view-model over current natural Weaknesses and Practice activity. */
 export function projectProgressCoach(analysis: SkillAnalysis): ProgressCoachProjection {
-    const targets = selectCurrentWeaknesses(analysis.candidates, CURRENT_WEAKNESS_LIMIT).map(candidateTarget)
+    const targets = selectCurrentWeaknesses(
+        groupOverlappingCandidates(analysis.candidates),
+        CURRENT_WEAKNESS_LIMIT,
+    ).map((group) => candidateTarget(group.primary, group.related))
 
     // The default detail follows the same Impact ordering as the ledger. There
     // is no separate prescribed Target; selecting any row is equally valid.
@@ -389,5 +455,7 @@ export function filterProgressCoachTargets(
     targets: readonly ProgressCoachTarget[],
     filter: ProgressCoachFilter,
 ): ProgressCoachTarget[] {
-    return filter === "all" ? [...targets] : targets.filter((row) => row.filter === filter)
+    return filter === "all" ? [...targets] : targets.filter((row) =>
+        row.filter === filter || row.relatedTargets.some((related) => related.filter === filter),
+    )
 }
