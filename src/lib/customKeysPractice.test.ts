@@ -276,6 +276,8 @@ describe("parseCustomKeysPracticePreferences", () => {
         expect(parseCustomKeysPracticePreferences({ keys: ["é", "5"], durationSeconds: 120, textStyle: "pseudo" }))
             .toEqual({ keys: ["é", "5"], durationSeconds: 120, textStyle: "pseudo" })
         expect(parseCustomKeysPracticePreferences({ durationSeconds: 45, textStyle: "dense" }))
+            .toEqual({ keys: [], durationSeconds: 45, textStyle: "varied" })
+        expect(parseCustomKeysPracticePreferences({ durationSeconds: 3_601 }))
             .toEqual({ keys: [], durationSeconds: 60, textStyle: "varied" })
     })
 })

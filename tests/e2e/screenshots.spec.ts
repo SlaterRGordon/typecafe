@@ -137,6 +137,17 @@ test("Guided whole Word Practice identity", async ({ page }, testInfo) => {
   await capture(page, testInfo, "69d-guided-whole-word-target")
 })
 
+test("Custom Practice fullscreen", async ({ page }, testInfo) => {
+  await page.addInitScript(() => {
+    window.localStorage.setItem("typecafe:practice:custom-keys", JSON.stringify({ keys: ["e", "r"], durationSeconds: 15, textStyle: "varied" }))
+  })
+  await page.goto("/practice?custom=keys")
+  await expect(page.locator("#c0")).toHaveClass(/active-char/, { timeout: 20_000 })
+  await page.getByRole("region", { name: "Practice controls" }).getByRole("button", { name: "Enter fullscreen" }).click()
+  await expect(page.getByTestId("custom-practice-workspace")).toHaveAttribute("data-fullscreen", "true")
+  await capture(page, testInfo, "69e-custom-practice-fullscreen")
+})
+
 test("Custom Grams & words Practice completion", async ({ page }, testInfo) => {
   await page.clock.install()
   await page.addInitScript(() => {

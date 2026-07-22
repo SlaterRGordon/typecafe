@@ -24,7 +24,7 @@ async function guestPracticeRecords(page: Page) {
     try {
       const transaction = database.transaction("guestEvidenceTests", "readonly")
       const rows = transaction.objectStore("guestEvidenceTests").getAll()
-      return await new Promise<Array<{ practice?: { kind?: string, target?: unknown, completed?: boolean, elapsedActivityMs?: number } }>>((resolve, reject) => {
+      return await new Promise<Array<{ practice?: { kind?: string, target?: unknown, durationSeconds?: number, completed?: boolean, elapsedActivityMs?: number } }>>((resolve, reject) => {
         rows.onsuccess = () => resolve(rows.result)
         rows.onerror = () => reject(new Error(rows.error?.message ?? "IndexedDB read failed"))
       })
@@ -63,6 +63,15 @@ async function pendingCustomGramsSetupTimestamp(page: Page, language: string): P
     const updatedAt = (setup as { updatedAt?: unknown }).updatedAt
     return typeof updatedAt === "number" ? updatedAt : null
   }, language)
+}
+
+async function savedCustomKeysDuration(page: Page): Promise<number | null> {
+  return page.evaluate(() => {
+    const value = JSON.parse(window.localStorage.getItem("typecafe:practice:custom-keys") ?? "null") as unknown
+    if (!value || typeof value !== "object") return null
+    const durationSeconds = (value as { durationSeconds?: unknown }).durationSeconds
+    return typeof durationSeconds === "number" ? durationSeconds : null
+  })
 }
 
 async function setPracticeLanguage(page: Page, language: string) {
@@ -279,6 +288,107 @@ test.describe("Custom Practice", () => {
     await expect(controls.getByRole("button", { name: "30s" })).toHaveClass(/text-primary/)
     await expect(controls.getByRole("button", { name: "pseudo", exact: true })).toHaveClass(/text-primary/)
     await expect(page.getByRole("button", { name: /^q key, selected focus/ })).toBeVisible()
+  })
+
+  test("uses Home's finite duration bounds and keeps fullscreen setup intact", async ({ page }) => {
+    await page.goto("/practice?custom=keys")
+    const workspace = page.getByTestId("custom-practice-workspace")
+    const controls = page.getByRole("region", { name: "Practice controls" })
+    const durations = controls.getByRole("group", { name: "Duration" })
+
+    await expect(durations.getByRole("button")).toHaveText(["15", "30", "60", "120", "custom"])
+    await expect(controls.getByRole("button", { name: "Open typing settings" })).toHaveCount(0)
+
+    await durations.getByRole("button", { name: "custom", exact: true }).click()
+    const customDuration = durations.getByRole("spinbutton", { name: "Custom Practice duration" })
+    await customDuration.fill("0")
+    await customDuration.press("Enter")
+    await expect.poll(() => savedCustomKeysDuration(page)).toBe(1)
+
+    await durations.getByRole("button", { name: "custom", exact: true }).click()
+    await durations.getByRole("spinbutton", { name: "Custom Practice duration" }).fill("3601")
+    await durations.getByRole("spinbutton", { name: "Custom Practice duration" }).press("Enter")
+    await expect.poll(() => savedCustomKeysDuration(page)).toBe(3_600)
+
+    await page.reload()
+    await expect(durations.getByRole("button", { name: "custom", exact: true })).toHaveClass(/text-primary/)
+    await controls.getByRole("button", { name: "Enter fullscreen" }).click()
+    await expect(workspace).toHaveAttribute("data-fullscreen", "true")
+    expect(await workspace.evaluate((element) => ({
+      position: getComputedStyle(element).position,
+      zIndex: getComputedStyle(element).zIndex,
+      width: element.getBoundingClientRect().width,
+      height: element.getBoundingClientRect().height,
+      viewportWidth: window.innerWidth,
+      viewportHeight: window.innerHeight,
+    }))).toEqual({ position: "fixed", zIndex: "500", width: await page.evaluate(() => window.innerWidth), height: await page.evaluate(() => window.innerHeight), viewportWidth: await page.evaluate(() => window.innerWidth), viewportHeight: await page.evaluate(() => window.innerHeight) })
+    await controls.getByRole("button", { name: "Exit fullscreen" }).click()
+    await expect(workspace).toHaveAttribute("data-fullscreen", "false")
+    await expect(durations.getByRole("button", { name: "custom", exact: true })).toHaveClass(/text-primary/)
+  })
+
+  test("completes one-second custom and Guided Practice without losing attribution", async ({ page }) => {
+    await page.clock.install()
+    await gotoPractice(page)
+    let durations = page.getByRole("group", { name: "Duration" })
+    await durations.getByRole("button", { name: "custom", exact: true }).click()
+    await durations.getByRole("spinbutton", { name: "Custom Practice duration" }).fill("1")
+    await durations.getByRole("spinbutton", { name: "Custom Practice duration" }).press("Enter")
+    await page.clock.runFor(50)
+    await expect(page.locator("#c0")).toHaveClass(/active-char/, { timeout: 20_000 })
+    await expect(async () => {
+      await typeCurrentCharacter(page, 0)
+      await expect(page.getByTestId("practice-workspace-configuration")).toHaveCSS("opacity", "0")
+    }).toPass({ timeout: 5_000 })
+    await page.clock.runFor(1_100)
+    await expect(page.getByTestId("practice-recap")).toBeVisible()
+    await expect.poll(async () => (await guestPracticeRecords(page)).length).toBe(1)
+    expect((await guestPracticeRecords(page))[0]?.practice).toMatchObject({ kind: "custom", durationSeconds: 1, completed: true })
+
+    await page.goto("/practice?target=gram&gram=tion")
+    durations = page.getByRole("group", { name: "Duration" })
+    await durations.getByRole("button", { name: "custom", exact: true }).click()
+    await durations.getByRole("spinbutton", { name: "Custom Practice duration" }).fill("1")
+    await durations.getByRole("spinbutton", { name: "Custom Practice duration" }).press("Enter")
+    await page.clock.runFor(50)
+    await expect(page.getByRole("heading", { name: "Practise tion" })).toBeVisible()
+    await expect(page.locator("#c0")).toHaveClass(/active-char/, { timeout: 20_000 })
+    await expect(async () => {
+      await typeCurrentCharacter(page, 0)
+      await expect(page.getByTestId("practice-workspace-configuration")).toHaveCSS("opacity", "0")
+    }).toPass({ timeout: 5_000 })
+    await page.clock.runFor(1_100)
+    await expect(page.getByTestId("practice-recap")).toBeVisible()
+    await expect.poll(async () => (await guestPracticeRecords(page)).length).toBe(2)
+    expect((await guestPracticeRecords(page)).find((record) => record.practice?.kind === "guided")?.practice)
+      .toMatchObject({ kind: "guided", target: { kind: "gram", gram: "tion" }, durationSeconds: 1, completed: true })
+  })
+
+  test("restarts with fresh text and records only interrupted finite activity", async ({ page }) => {
+    await page.clock.install()
+    await gotoPractice(page)
+    const controls = page.getByRole("region", { name: "Practice controls" })
+    const firstPrompt = await page.locator("#words").textContent()
+    await controls.getByRole("button", { name: "Restart Practice" }).click()
+    await expect(page.locator("#c0")).toHaveClass(/active-char/, { timeout: 20_000 })
+    const restartedPrompt = await page.locator("#words").textContent()
+    expect(restartedPrompt).not.toBe(firstPrompt)
+    expect(await guestPracticeRecords(page)).toHaveLength(0)
+
+    await typeCurrentCharacter(page, 0)
+    await page.clock.runFor(250)
+    await page.keyboard.press("Tab")
+    await page.keyboard.press("Enter")
+    await expect(page.locator("#c0")).toHaveClass(/active-char/, { timeout: 20_000 })
+    await expect.poll(async () => (await guestPracticeRecords(page)).length).toBe(1)
+    const interrupted = (await guestPracticeRecords(page))[0]?.practice
+    expect(interrupted).toMatchObject({ kind: "custom", completed: false })
+    expect(interrupted?.elapsedActivityMs).toBeGreaterThan(0)
+    expect(interrupted?.elapsedActivityMs).toBeLessThan(60_000)
+
+    await controls.getByRole("button", { name: "Restart Practice" }).click()
+    await page.clock.runFor(100)
+    expect(await guestPracticeRecords(page)).toHaveLength(1)
   })
 
   test("shows only frozen natural-Test evidence without hiding focus", async ({ page }) => {
@@ -530,7 +640,7 @@ test.describe("Custom Practice", () => {
       version: 2,
       languages: {
         english: { version: 2, language: "english", entries: [], setup: { grams: ["th"], durationSeconds: 30, textStyle: "varied", updatedAt: 10 } },
-        french: { version: 2, language: "french", entries: [], setup: { grams: ["éé"], durationSeconds: 240, textStyle: "pseudo", updatedAt: 20 } },
+        french: { version: 2, language: "french", entries: [], setup: { grams: ["éé"], durationSeconds: 47, textStyle: "pseudo", updatedAt: 20 } },
       },
     })))
     await page.goto("/practice?custom=grams")
@@ -541,7 +651,10 @@ test.describe("Custom Practice", () => {
     await setPracticeLanguage(page, "french")
     await expect(page.getByRole("tab", { name: "Common in French" })).toBeVisible()
     await expect(page.getByTestId("selected-practice-grams").getByLabel("Remove éé")).toBeVisible()
-    await expect(controls.getByRole("button", { name: "240s" })).toHaveClass(/text-primary/)
+    await expect(controls.getByRole("button", { name: "custom", exact: true })).toHaveClass(/text-primary/)
+    await controls.getByRole("button", { name: "custom", exact: true }).click()
+    await expect(controls.getByRole("spinbutton", { name: "Custom Practice duration" })).toHaveValue("47")
+    await controls.getByRole("spinbutton", { name: "Custom Practice duration" }).press("Escape")
     await expect(controls.getByRole("button", { name: "Pseudo" })).toHaveClass(/text-primary/)
 
     await controls.getByRole("button", { name: "120s" }).click()
@@ -602,7 +715,7 @@ test.describe("Custom Practice", () => {
     await expect(page.getByRole("region", { name: "Practice controls" })).toHaveCount(0)
 
     await expect(page.getByTestId("selected-practice-grams").getByLabel("Remove éé")).toBeVisible()
-    await expect(page.getByRole("region", { name: "Practice controls" }).getByRole("button", { name: "240s" })).toHaveClass(/text-primary/)
+    await expect(page.getByRole("region", { name: "Practice controls" }).getByRole("button", { name: "custom", exact: true })).toHaveClass(/text-primary/)
   })
 
   test("merges pending guest Recent Grams into the signed-in per-language account", async ({ page }) => {

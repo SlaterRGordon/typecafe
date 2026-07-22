@@ -45,7 +45,7 @@ function run(input: {
     completedAt: number
     grams: string[]
     style?: "varied" | "pseudo"
-    duration?: 30 | 60 | 120 | 240
+    duration?: number
     completed?: boolean
     events: Array<{ key: string, correct?: boolean, dt?: number }>
 }): CustomGramsPracticeRun {
@@ -311,6 +311,8 @@ describe("Custom Grams preferences", () => {
         expect(parseCustomGramsPracticePreferences({ grams: ["TH", "été", "tion"], durationSeconds: 120, textStyle: "pseudo" }))
             .toEqual({ grams: ["th", "été", "tion"], durationSeconds: 120, textStyle: "pseudo" })
         expect(parseCustomGramsPracticePreferences({ grams: ["x"], durationSeconds: 45, textStyle: "dense" }))
+            .toEqual({ grams: ["th", "the", "tion"], durationSeconds: 45, textStyle: "varied" })
+        expect(parseCustomGramsPracticePreferences({ grams: ["x"], durationSeconds: 0 }))
             .toEqual({ grams: ["th", "the", "tion"], durationSeconds: 60, textStyle: "varied" })
     })
 })

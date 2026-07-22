@@ -1,5 +1,4 @@
 import {
-    PRACTICE_DURATIONS_SECONDS,
     PRACTICE_RECORD_VERSION,
     PRACTICE_TEXT_STYLES,
     practiceComparisonWindow,
@@ -10,6 +9,7 @@ import {
 import { isDrillDigit, isDrillMark } from "./drillCharacters"
 import { decodeTimeline, type EncodedTimeline, type KeystrokeEvent } from "./keystrokes"
 import { generatePhonologicalFocusCarrier, generatePhonologicalWord } from "./phonology"
+import { isFiniteTimedSeconds } from "./testConfig"
 
 export interface CustomKeysPracticePreferences {
     keys: string[]
@@ -346,8 +346,8 @@ export function parseCustomKeysPracticePreferences(value: unknown): CustomKeysPr
         : []
     return {
         keys,
-        durationSeconds: PRACTICE_DURATIONS_SECONDS.includes(raw.durationSeconds as PracticeDurationSeconds)
-            ? raw.durationSeconds as PracticeDurationSeconds
+        durationSeconds: isFiniteTimedSeconds(raw.durationSeconds)
+            ? raw.durationSeconds
             : 60,
         textStyle: PRACTICE_TEXT_STYLES.includes(raw.textStyle as PracticeTextStyle)
             ? raw.textStyle as PracticeTextStyle

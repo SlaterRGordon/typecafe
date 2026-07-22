@@ -1,5 +1,6 @@
 import { parseCoachingTarget, sameCoachingTarget, type CoachingTarget } from "./coachingTarget"
 import { normalizePracticeWord } from "./practiceItem"
+import { isFiniteTimedSeconds, TIMED_TEST_PRESETS } from "./testConfig"
 
 export const EVIDENCE_CONTEXTS = [
     "natural",
@@ -16,10 +17,10 @@ export type TypingSurface = "test" | "drill" | "train"
 
 export const PRACTICE_RECORD_VERSION = 1 as const
 export const PRACTICE_TEXT_STYLES = ["varied", "pseudo"] as const
-export const PRACTICE_DURATIONS_SECONDS = [30, 60, 120, 240] as const
+export const PRACTICE_DURATIONS_SECONDS = TIMED_TEST_PRESETS
 
 export type PracticeTextStyle = typeof PRACTICE_TEXT_STYLES[number]
-export type PracticeDurationSeconds = typeof PRACTICE_DURATIONS_SECONDS[number]
+export type PracticeDurationSeconds = number
 export type PracticeFocus =
     | { kind: "keys", items: string[] }
     | { kind: "grams", items: string[] }
@@ -70,7 +71,7 @@ export function parsePracticeRecord(value: unknown): PracticeRecord | null {
     if (!raw || raw.v !== PRACTICE_RECORD_VERSION || (raw.kind !== "guided" && raw.kind !== "custom")) return null
     const focus = validFocus(raw.focus)
     if (!focus || !PRACTICE_TEXT_STYLES.includes(raw.textStyle as PracticeTextStyle)) return null
-    if (!PRACTICE_DURATIONS_SECONDS.includes(raw.durationSeconds as PracticeDurationSeconds)) return null
+    if (!isFiniteTimedSeconds(raw.durationSeconds)) return null
     if (!Number.isInteger(raw.elapsedActivityMs) || (raw.elapsedActivityMs as number) < 0 || (raw.elapsedActivityMs as number) > 86_400_000) return null
     if (typeof raw.completed !== "boolean") return null
 
@@ -78,7 +79,7 @@ export function parsePracticeRecord(value: unknown): PracticeRecord | null {
         v: PRACTICE_RECORD_VERSION,
         focus,
         textStyle: raw.textStyle as PracticeTextStyle,
-        durationSeconds: raw.durationSeconds as PracticeDurationSeconds,
+        durationSeconds: raw.durationSeconds,
         elapsedActivityMs: raw.elapsedActivityMs as number,
         completed: raw.completed,
     }

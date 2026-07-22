@@ -8,6 +8,7 @@ import { startTransition, useDeferredValue, useEffect, useMemo, useRef, useState
 import { TargetGlyph } from "~/components/coaching/TargetGlyph"
 import { Keyboard } from "~/components/typer/Keyboard"
 import { Typer, type TestCompletionResult } from "~/components/typer/Typer"
+import { FullscreenIcon, RestartIcon, toolbarIconButtonClass } from "~/components/typer/config/ToolbarActions"
 import { typingFocusFadeClass } from "~/components/typer/typingFocus"
 import { TestModes, TestSubModes } from "~/components/typer/types"
 import { ensureLanguageLoaded, getWords } from "~/components/typer/utils"
@@ -51,6 +52,7 @@ import { keySpeedBars } from "~/lib/transitions"
 import { languageMeta, supportsCustomPractice } from "~/lib/languageMeta"
 import { parsePracticePath, readPracticePath, resolvePracticeEntry, writePracticePath, type PracticePath } from "~/lib/practiceEntry"
 import { practiceWordCapacity } from "~/lib/practiceCapacity"
+import { normalizeTimedSeconds } from "~/lib/testConfig"
 import { addAlert } from "~/state/alert/alertSlice"
 import { api } from "~/utils/api"
 
@@ -90,7 +92,9 @@ const Practice: NextPage = () => {
     const [corpus, setCorpus] = useState<string[]>([])
     const [seed, setSeed] = useState(1)
     const [running, setRunning] = useState(false)
-    const [restartSignal, setRestartSignal] = useState(0)
+    const [fullscreen, setFullscreen] = useState(false)
+    const [customDurationOpen, setCustomDurationOpen] = useState(false)
+    const [customDurationText, setCustomDurationText] = useState("60")
     const [completed, setCompleted] = useState<CompletedRun | null>(null)
     const [stickyLayer, setStickyLayer] = useState<StickyPracticeLayer>("base")
     const charAttemptsRef = useRef(new Map<string, { attempts: number, correct: number }>())
@@ -344,6 +348,21 @@ const Practice: NextPage = () => {
         if (path === "keys") updateKeys(patch)
         else updateGrams(patch)
     }
+    const openCustomDuration = () => {
+        setCustomDurationText(String(activePreferences.durationSeconds))
+        setCustomDurationOpen(true)
+    }
+    const commitCustomDuration = () => {
+        const durationSeconds = normalizeTimedSeconds(customDurationText, activePreferences.durationSeconds)
+        setCustomDurationText(String(durationSeconds))
+        setCustomDurationOpen(false)
+        if (durationSeconds !== activePreferences.durationSeconds) updateActive({ durationSeconds })
+    }
+    const cancelCustomDuration = () => {
+        setCustomDurationText(String(activePreferences.durationSeconds))
+        setCustomDurationOpen(false)
+        ;(document.getElementById("input") as HTMLInputElement | null)?.focus()
+    }
     const setKeys = (keys: string[]) => {
         const unique = [...new Set(keys.map((key) => key.normalize("NFC")))]
             .filter((key) => sequenceFor(key, layout).length > 0).slice(0, 8)
@@ -391,7 +410,6 @@ const Practice: NextPage = () => {
         setCompleted(null)
         charAttemptsRef.current = new Map()
         setSeed((value) => value + 1)
-        setRestartSignal((value) => value + 1)
     }
     const onComplete = (result: TestCompletionResult) => {
         const completedAt = Date.now()
@@ -478,7 +496,7 @@ const Practice: NextPage = () => {
     )
 
     return (
-        <div data-testid="custom-practice-workspace" data-practice-kind={guided ? "guided" : "custom"} className="h-full w-full overflow-y-auto bg-base-100 px-3 py-6 sm:px-6 md:py-10">
+        <div data-testid="custom-practice-workspace" data-practice-kind={guided ? "guided" : "custom"} data-fullscreen={fullscreen ? "true" : "false"} className={`${fullscreen ? "fixed inset-0 z-[500]" : "h-full"} w-full overflow-y-auto bg-base-100 px-3 py-6 sm:px-6 md:py-10`}>
             <Head><title>{guided ? "Guided" : "Custom"} Practice | TypeCafe</title></Head>
             <div className="relative mx-auto flex min-h-full w-full max-w-5xl flex-col justify-center gap-5">
                 <header data-testid="practice-workspace-identity" className={typingFocusFadeClass(running, "relative z-20 flex w-full flex-wrap items-center justify-between gap-3 pb-3 sm:absolute sm:left-0 sm:top-0 sm:w-auto sm:pb-0")}>
@@ -529,12 +547,39 @@ const Practice: NextPage = () => {
                         </button>
                         <span aria-hidden="true" className="text-base-content/20">|</span>
                         <div className="flex items-center gap-3" role="group" aria-label="Duration">
-                            {PRACTICE_DURATIONS_SECONDS.map((duration) => <button key={duration} type="button" disabled={running} onClick={() => updateActive({ durationSeconds: duration as PracticeDurationSeconds })} className={`cursor-pointer text-md transition-colors disabled:cursor-default disabled:opacity-50 ${activePreferences.durationSeconds === duration ? "font-semibold text-primary" : "text-base-content/50 hover:text-base-content"}`}>{duration}s</button>)}
+                            {!customDurationOpen && <>
+                                {PRACTICE_DURATIONS_SECONDS.map((duration) => <button key={duration} type="button" disabled={running} aria-label={`${duration}s`} onClick={() => updateActive({ durationSeconds: duration })} className={`cursor-pointer text-md transition-colors disabled:cursor-default disabled:opacity-50 ${activePreferences.durationSeconds === duration ? "font-semibold text-primary" : "text-base-content/50 hover:text-base-content"}`}>{duration}</button>)}
+                                <button type="button" disabled={running} onClick={openCustomDuration} className={`cursor-pointer text-md transition-colors disabled:cursor-default disabled:opacity-50 ${!(PRACTICE_DURATIONS_SECONDS as readonly number[]).includes(activePreferences.durationSeconds) ? "font-semibold text-primary" : "text-base-content/50 hover:text-base-content"}`}>custom</button>
+                            </>}
+                            <span data-testid="practice-custom-duration-panel" aria-hidden={!customDurationOpen} className={customDurationOpen ? "inline-flex items-center gap-1.5 rounded border border-primary/35 bg-base-200 px-2 py-0.5" : "hidden"}>
+                                <input
+                                    type="number"
+                                    min={1}
+                                    max={3_600}
+                                    tabIndex={customDurationOpen ? 0 : -1}
+                                    value={customDurationText}
+                                    onChange={(event) => setCustomDurationText(event.target.value)}
+                                    onBlur={commitCustomDuration}
+                                    onKeyDown={(event) => {
+                                        if (event.key === "Enter") event.currentTarget.blur()
+                                        if (event.key === "Escape") cancelCustomDuration()
+                                    }}
+                                    className="h-5 w-16 bg-transparent font-mono text-md text-base-content outline-none"
+                                    aria-label="Custom Practice duration"
+                                />
+                                <span className="shrink-0 text-xs font-medium text-base-content/45">sec</span>
+                                <button type="button" className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded text-base-content/55 transition hover:text-base-content" onMouseDown={(event) => event.preventDefault()} onClick={cancelCustomDuration} aria-label="Cancel custom duration" title="Cancel custom duration">
+                                    <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
+                                </button>
+                            </span>
                         </div>
                         <span aria-hidden="true" className="text-base-content/20">|</span>
                         <div className="flex items-center gap-3" role="group" aria-label="Text style">
                             {PRACTICE_TEXT_STYLES.map((style) => <button key={style} type="button" disabled={running} onClick={() => updateActive({ textStyle: style as PracticeTextStyle })} className={`cursor-pointer text-md transition-colors disabled:cursor-default disabled:opacity-50 ${activePreferences.textStyle === style ? "font-semibold text-primary" : "text-base-content/50 hover:text-base-content"}`}>{style}</button>)}
                         </div>
+                        <span aria-hidden="true" className="text-base-content/20">|</span>
+                        <button type="button" className={toolbarIconButtonClass} onClick={repeat} aria-label="Restart Practice" title="Restart Practice"><RestartIcon /></button>
+                        <button type="button" className={toolbarIconButtonClass} onClick={() => setFullscreen((value) => !value)} aria-label={fullscreen ? "Exit fullscreen" : "Enter fullscreen"} title={fullscreen ? "Exit fullscreen" : "Enter fullscreen"}><FullscreenIcon fullscreen={fullscreen} /></button>
                     </div>
                 </section>
 
@@ -598,7 +643,6 @@ const Practice: NextPage = () => {
                             onTypingFocusChange={setRunning}
                             onRestart={() => setRunning(false)}
                             onRunRestart={() => setSeed((value) => value + 1)}
-                            restartSignal={restartSignal}
                             showStats
                             modalOpen={false}
                             charAttemptsRef={charAttemptsRef}

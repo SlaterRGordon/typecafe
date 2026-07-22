@@ -1,5 +1,4 @@
 import {
-    PRACTICE_DURATIONS_SECONDS,
     PRACTICE_RECORD_VERSION,
     PRACTICE_TEXT_STYLES,
     practiceComparisonWindow,
@@ -14,6 +13,7 @@ import {
     type PhonologicalSequencePosition,
 } from "./phonology"
 import { normalizePracticeGram, normalizePracticeItem, practiceItemKind } from "./practiceItem"
+import { isFiniteTimedSeconds } from "./testConfig"
 
 export interface CustomGramsPracticePreferences {
     grams: string[]
@@ -382,8 +382,8 @@ export function parseCustomGramsPracticePreferences(value: unknown): CustomGrams
         : []
     return {
         grams: grams.length > 0 ? grams : DEFAULT_GRAMS,
-        durationSeconds: PRACTICE_DURATIONS_SECONDS.includes(raw.durationSeconds as PracticeDurationSeconds)
-            ? raw.durationSeconds as PracticeDurationSeconds
+        durationSeconds: isFiniteTimedSeconds(raw.durationSeconds)
+            ? raw.durationSeconds
             : 60,
         textStyle: PRACTICE_TEXT_STYLES.includes(raw.textStyle as PracticeTextStyle)
             ? raw.textStyle as PracticeTextStyle

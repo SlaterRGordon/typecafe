@@ -15,6 +15,7 @@ describe("practiceWordCapacity", () => {
         [60, 350],
         [120, 700],
         [240, 1_400],
+        [3_600, 21_000],
     ] as const)("budgets enough deterministic prompt material for a %d-second run", (durationSeconds, words) => {
         expect(practiceWordCapacity(durationSeconds)).toBe(words)
     })
