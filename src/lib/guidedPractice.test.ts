@@ -59,6 +59,21 @@ describe("Guided Practice policy", () => {
         expect(tokens.filter((word) => word === "station")).toHaveLength(6)
     })
 
+    it.each(["varied", "pseudo"] as const)("keeps short guided Words whole in %s generation", (textStyle) => {
+        const words = ["to", "dog", "that", "typing"]
+        const setup = { ...guidedPracticeSetup({ kind: "word", words })!, textStyle }
+        const tokens = compileGuidedPractice({
+            setup,
+            corpus: ["to", "together", "dog", "dogma", "that", "thatch", "typing"],
+            language: "english",
+            seed: 5,
+            wordCount: 12,
+        }).split(" ")
+
+        expect(tokens.every((word) => words.includes(word))).toBe(true)
+        for (const word of words) expect(tokens.filter((token) => token === word)).toHaveLength(3)
+    })
+
     it("keeps attribution for duration/style only and converts on any prescribed focus edit", () => {
         const target: CoachingTarget = { kind: "movement", movement: "row-reach", anchors: ["fr", "dr", "sw", "aq"] }
         const setup = guidedPracticeSetup(target)!

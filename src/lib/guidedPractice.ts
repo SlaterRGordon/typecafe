@@ -57,6 +57,21 @@ function randomFor(seed: number): () => number {
     }
 }
 
+function compileGuidedWords(words: readonly string[], seed: number, wordCount: number): string {
+    const pool = unique(words)
+    if (pool.length === 0) return ""
+    const count = Math.max(wordCount, pool.length * 2)
+    const tokens = Array.from({ length: count }, (_, index) => pool[index % pool.length]!)
+    const rng = randomFor(seed)
+    for (let index = tokens.length - 1; index > 0; index -= 1) {
+        const swapIndex = Math.floor(rng() * (index + 1))
+        const current = tokens[index]!
+        tokens[index] = tokens[swapIndex]!
+        tokens[swapIndex] = current
+    }
+    return tokens.join(" ")
+}
+
 /** One pure matrix owns the concrete editor focus for every Guided Target. */
 export function guidedFocusForTarget(target: CoachingTarget): PracticeFocus | null {
     if (target.kind === "endurance") return null
@@ -108,7 +123,7 @@ export function compileGuidedPractice(input: {
     const { setup } = input
     const wordCount = input.wordCount ?? 1_200
     if (setup.target.kind === "word") {
-        return compileCustomGramsPractice({ grams: setup.focus.items, corpus: input.corpus, language: input.language, textStyle: setup.textStyle, seed: input.seed, wordCount })
+        return compileGuidedWords(setup.target.words, input.seed, wordCount)
     }
     if (setup.textStyle === "pseudo") {
         return setup.focus.kind === "keys"

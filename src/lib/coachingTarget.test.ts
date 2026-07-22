@@ -25,7 +25,7 @@ describe("coaching target query adapter", () => {
             legacy: true,
         })
         expect(parseCoachingTargetQuery({ target: "word", words: "L’esprit,co‑operate,tiny" })).toMatchObject({
-            target: { kind: "word", words: ["l'esprit", "co-operate"] },
+            target: { kind: "word", words: ["l'esprit", "co-operate", "tiny"] },
         })
     })
 
@@ -59,6 +59,19 @@ describe("coaching target query adapter", () => {
         const target: CoachingTarget = { kind: "word", words: ["action", "station"], sharedGram: "tion" }
         expect(targetDisplayLabel(target)).toBe("action, station")
         expect(targetAction(target).href).toContain("words=action,station")
+    })
+
+    it("preserves complete short Weak Words through the score-card handoff", () => {
+        const target: CoachingTarget = { kind: "word", words: ["to", "dog", "that", "typing"] }
+        const url = new URL(targetAction(target).href, "https://typecafe.test")
+
+        expect(parseCoachingTargetQuery(Object.fromEntries(url.searchParams))?.target).toEqual(target)
+    })
+
+    it("persists short guided Word Targets for attribution", () => {
+        const target: CoachingTarget = { kind: "word", words: ["to", "dog", "that", "typing"] }
+
+        expect(parseDrillTargetToken(drillTargetToken(target))).toEqual(target)
     })
 
     it("hands endurance to the matched normal Test surface", () => {

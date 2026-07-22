@@ -1374,12 +1374,14 @@ tracer-bullet implementation graph recorded as native sub-issues
   representative sequences; never attribute exact-pair Practice to a broader
   hidden movement family.
 - Rename the Custom surface to `Grams & words`. Grams remain 2-4 characters.
-  Words are complete 5-32-character Unicode tokens with no spaces; internal
-  apostrophes and hyphens are valid. Guided Word Targets and direct-entry Words
-  stay whole in both Varied and Pseudo generation. Balance every selected Gram
-  or Word in a mixed setup. Measured and common-language suggestions remain
-  Grams; direct entry, Recent, saved setups, and Guided Targets may contain
-  Words.
+  Custom-entered Words are complete 5-32-character Unicode tokens with no
+  spaces; internal apostrophes and hyphens are valid. Explicitly typed Guided
+  Weak Word Targets may be complete 2-32-character tokens so short diagnosed
+  Words remain Words rather than being dropped or reclassified as Grams. Guided
+  Word Targets and direct-entry Words stay whole in both Varied and Pseudo
+  generation. Balance every selected Gram or Word in a mixed setup. Measured
+  and common-language suggestions remain Grams; direct entry, Recent, saved
+  setups, and Guided Targets may contain Words.
 - Add Home-style restart and in-app fullscreen actions to Practice. Finite
   restart records an interrupted run and generates fresh text. Fullscreen uses
   the same application overlay as Home. Do not show a settings gear until

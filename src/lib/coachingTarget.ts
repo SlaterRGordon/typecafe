@@ -1,6 +1,6 @@
 import type { MovementKind } from "./movementClassification"
 import { isDrillableKey, isPracticeLetter } from "./drillCharacters"
-import { normalizePracticeGram, normalizePracticeWord } from "./practiceItem"
+import { normalizeGuidedWord, normalizePracticeGram } from "./practiceItem"
 
 export type CoachingTarget =
     | { kind: "key", keys: string[], metric: "accuracy" | "latency" }
@@ -58,7 +58,7 @@ export function parseCoachingTarget(value: unknown): CoachingTarget | null {
         return { kind: "gram", gram: raw.gram }
     }
     if (raw.kind === "word" && Array.isArray(raw.words) && raw.words.length > 0 && raw.words.length <= MAX_ITEMS &&
-        raw.words.every((word): word is string => typeof word === "string" && normalizePracticeWord(word) === word) &&
+        raw.words.every((word): word is string => typeof word === "string" && normalizeGuidedWord(word) === word) &&
         (raw.sharedGram === undefined || (typeof raw.sharedGram === "string" && normalizePracticeGram(raw.sharedGram) === raw.sharedGram))) {
         return { kind: "word", words: raw.words, ...(raw.sharedGram ? { sharedGram: raw.sharedGram } : {}) }
     }
@@ -118,7 +118,7 @@ function keys(value: QueryValue, max = MAX_ITEMS): string[] {
 }
 
 function words(value: QueryValue, max = MAX_ITEMS): string[] {
-    return list(value, max).map(normalizePracticeWord).filter((item): item is string => item !== null)
+    return list(value, max).map(normalizeGuidedWord).filter((item): item is string => item !== null)
 }
 
 function pair(value: QueryValue): string | null {

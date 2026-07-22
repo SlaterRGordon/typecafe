@@ -905,17 +905,35 @@ test.describe("home typing test", () => {
   // finding and a one-click drill that lands on the unified Practice surface
   // from those keys - the first two clicks of the improvement loop, available to a
   // guest with no account.
-  test("diagnosis panel opens exact Guided Practice directly (guest)", async ({ page }) => {
+  test("diagnosis panel preserves short Weak Words in exact Guided Practice (guest)", async ({ page }) => {
     await mockTrpc(page);
     await gotoHome(page);
 
     // A short custom timed test, long enough to clear the 30-keystroke floor.
     await setToolbarCustomLength(page, "4");
 
-    // 50 deliberately-wrong keystrokes: every expected key is missed, so several
-    // keys land under 100% - enough for an honest "least accurate keys" finding
-    // regardless of the (machine-uniform) keystroke timing.
-    await typeWrongZeroes(page, 50);
+    // Make one complete 2-4-character word weak after the diagnosis floor while
+    // typing its surroundings correctly. The following space commits the Word.
+    await expect(page.locator("#c0")).toHaveClass(/active-char/);
+    const promptCharacters = await page.locator("#words .char").allTextContents();
+    const promptText = promptCharacters.join("");
+    const shortMatch = [...promptText.matchAll(/(?:^| )([a-z]{2,4})(?= )/g)]
+      .find((match) => (match.index ?? 0) >= 30);
+    expect(shortMatch).toBeDefined();
+    const shortWord = shortMatch![1]!;
+    const shortStart = (shortMatch!.index ?? 0) + (shortMatch![0].startsWith(" ") ? 1 : 0);
+    const shortEnd = shortStart + shortWord.length;
+    const pressPromptCharacter = async (index: number) => {
+      const expected = promptCharacters[index]!;
+      if (index >= shortStart && index < shortEnd) await page.keyboard.press(expected === "a" ? "b" : "a");
+      else await page.keyboard.press(expected === " " ? "Space" : expected);
+    };
+    await page.locator("#input").focus();
+    await expect(async () => {
+      await pressPromptCharacter(0);
+      await expect(page.locator("#c0")).not.toHaveClass(/active-char/, { timeout: 500 });
+    }).toPass({ timeout: 5_000 });
+    for (let index = 1; index <= shortEnd; index += 1) await pressPromptCharacter(index);
 
     // Timer expiry renders the results card with the diagnosis panel.
     await expect(page.getByRole("button", { name: "Test Again" })).toBeVisible({ timeout: 15_000 });
@@ -929,27 +947,43 @@ test.describe("home typing test", () => {
       return chart ? Boolean(panel.compareDocumentPosition(chart) & Node.DOCUMENT_POSITION_FOLLOWING) : false;
     })).toBe(true);
 
-    // Toughest-words row: same one-click handoff, but drills those exact words
-    // verbatim via Guided Practice (checked by href so we don't navigate away yet).
+    // Toughest-words row: the handoff preserves complete short Words and drills
+    // every diagnosed Word verbatim rather than reclassifying it as a Gram.
     const wordsDrill = page.getByRole("link", { name: /Practise these words/ });
     await expect(wordsDrill).toBeVisible();
     await expect(wordsDrill).toHaveAttribute("href", /\/practice\?target=word.*evidence=/);
+    const wordsLabel = await wordsDrill.getAttribute("aria-label");
+    expect(wordsLabel).toMatch(/^Practise these words: /);
+    const diagnosedWords = wordsLabel!.replace(/^Practise these words: /, "").split(", ");
+    expect(diagnosedWords).toContain(shortWord);
+    const wordsHref = await wordsDrill.getAttribute("href");
+    expect(new URL(wordsHref!, page.url()).searchParams.get("words")).toBe(diagnosedWords.join(","));
 
-    const drillButton = page.getByRole("link", { name: /Practise these keys/ }).first();
-    await expect(drillButton).toBeVisible();
-    const drillLabel = await drillButton.getAttribute("aria-label");
-    expect(drillLabel).toMatch(/^Practise these keys: /);
-    const diagnosedKeys = drillLabel!.replace(/^Practise these keys: /, "").split(", ");
-    const drillHref = await drillButton.getAttribute("href");
-    expect(new URL(drillHref!, page.url()).searchParams.get("keys")).toBe(diagnosedKeys.join(","));
-    await drillButton.click();
+    const keysDrill = page.getByRole("link", { name: /Practise these keys/ }).first();
+    await expect(keysDrill).toBeVisible();
+    const keysLabel = await keysDrill.getAttribute("aria-label");
+    expect(keysLabel).toMatch(/^Practise these keys: /);
+    const diagnosedKeys = keysLabel!.replace(/^Practise these keys: /, "").split(", ");
+    const keysHref = await keysDrill.getAttribute("href");
+    expect(new URL(keysHref!, page.url()).searchParams.get("keys")).toBe(diagnosedKeys.join(","));
 
-    await expect(page).toHaveURL(/\/practice\?target=key/);
+    await wordsDrill.click();
+
+    await expect(page).toHaveURL(/\/practice\?target=word/);
     await expect(page).toHaveURL(/[?&]evidence=/);
-    expect(new URL(page.url()).searchParams.get("keys")).toBe(diagnosedKeys.join(","));
+    expect(new URL(page.url()).searchParams.get("words")).toBe(diagnosedWords.join(","));
+    await expect(page.getByTestId("custom-practice-workspace")).toHaveAttribute("data-practice-kind", "guided");
+    await expect(page.getByRole("heading", { name: `Practise ${diagnosedWords.join(", ")}`, exact: true })).toBeVisible();
+    await expect(page.getByTestId("selected-practice-grams").getByRole("button")).toHaveCount(diagnosedWords.length);
+    await expect(page.locator("#c0")).toHaveClass(/active-char/, { timeout: 20_000 });
+    const prompt = (await page.locator("#words .char").allTextContents()).join("").trim().split(/\s+/);
+    expect(prompt.slice(0, -1).every((word) => diagnosedWords.includes(word))).toBe(true);
+    for (const word of diagnosedWords) expect(prompt).toContain(word);
+    await expect(page.getByTestId("guided-practice-intent")).toHaveCount(0);
+
+    await page.goto(keysHref!);
     await expect(page.getByTestId("custom-practice-workspace")).toHaveAttribute("data-practice-kind", "guided");
     await expect(page.getByRole("heading", { name: `Practise ${diagnosedKeys.join(" ")}`, exact: true })).toBeVisible();
-    await expect(page.getByTestId("guided-practice-intent")).toHaveCount(0);
   });
 
   for (const legacyMode of [1, 2]) {

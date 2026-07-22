@@ -12,6 +12,12 @@ function normalized(value: string): string {
         .replace(/[‐‑‒–—]/gu, "-")
 }
 
+function normalizeWord(value: string, minimumLength: number): string | null {
+    const item = normalized(value)
+    const length = characters(item).length
+    return length >= minimumLength && length <= 32 && WORD_PATTERN.test(item) ? item : null
+}
+
 /** Grams are complete 2–4-code-point letter sequences. */
 export function normalizePracticeGram(value: string): string | null {
     const item = normalized(value)
@@ -23,9 +29,12 @@ export function normalizePracticeGram(value: string): string | null {
 
 /** Words are complete 5–32-code-point tokens, optionally joined internally. */
 export function normalizePracticeWord(value: string): string | null {
-    const item = normalized(value)
-    const length = characters(item).length
-    return length >= 5 && length <= 32 && WORD_PATTERN.test(item) ? item : null
+    return normalizeWord(value, 5)
+}
+
+/** Guided Weak Words may be short, but remain complete word tokens. */
+export function normalizeGuidedWord(value: string): string | null {
+    return normalizeWord(value, 2)
 }
 
 export function normalizePracticeItem(value: string): string | null {
