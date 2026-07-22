@@ -547,7 +547,7 @@ const Home: NextPage = () => {
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
       </Head>
-      <div id="typer" className={`flex flex-col h-full overflow-auto ${completedScore ? "py-4" : "[justify-content:safe_center]"} ${fullscreen ? 'absolute top-0 left-0 w-full h-full bg-base-100 z-[500] sm:px-8' : 'w-full max-w-screen-xl mx-auto'}`}>
+      <div id="typer" className={`flex flex-col h-full overflow-auto ${completedScore ? "py-4" : fullscreen ? "[justify-content:safe_center]" : "justify-start pt-14 md:pt-32"} ${fullscreen ? 'absolute top-0 left-0 w-full h-full bg-base-100 z-[500] sm:px-8' : 'w-full max-w-screen-xl mx-auto'}`}>
         {/* A real page heading for crawlers + screen readers without disturbing
             the minimal test-first hero (growth-seo §E). */}
         <h1 className="sr-only">TypeCafe - the typing coach that makes you faster</h1>
@@ -555,8 +555,12 @@ const Home: NextPage = () => {
           <LazyHomeCoachTabs className={typingFocusFadeClass(typingFocused, "")} desktop={false} />
         }
         {!completedScore &&
-          <div data-testid="typing-focus-home-controls" className={typingFocusFadeClass(typingFocused, "w-full")}>
-            {!fullscreen && <FirstVisitPromise />}
+          <div data-testid="typing-focus-home-controls" className={typingFocusFadeClass(typingFocused, "relative w-full")}>
+            {!fullscreen &&
+              <div className="absolute inset-x-0 bottom-full pb-3">
+                <FirstVisitPromise />
+              </div>
+            }
             <ModeBar
               mode={mode} subMode={subMode} setMode={setMode}
               setSubMode={setSubMode}

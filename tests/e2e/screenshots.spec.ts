@@ -236,6 +236,16 @@ test.describe("screenshot tour", () => {
     });
     await gotoHome(page);
     await expect(page.getByTestId("mode-bar").getByRole("button")).toHaveText(["timed", "words"]);
+    const viewport = page.viewportSize();
+    const toolbarBox = await page.getByTestId("typer-toolbar").boundingBox();
+    const promptBox = await page.locator("#text").boundingBox();
+    expect(viewport).not.toBeNull();
+    expect(toolbarBox).not.toBeNull();
+    expect(promptBox).not.toBeNull();
+    // Home shares Practice's top-weighted config -> prompt rhythm instead of
+    // independently centering its shorter stack near the middle of the page.
+    expect(toolbarBox!.y / viewport!.height).toBeLessThan(0.3);
+    expect(promptBox!.y / viewport!.height).toBeLessThan(0.38);
     await capture(page, testInfo, "01-home-default");
 
     // Type a few characters, including one mistake, to show progress and
