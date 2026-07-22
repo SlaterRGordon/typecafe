@@ -795,6 +795,19 @@ test.describe("Guided Practice", () => {
     await expect(page.getByText("Changed to Custom Practice", { exact: true })).toBeVisible()
   })
 
+  test("keeps an exact Transition on only its displayed pair", async ({ page }) => {
+    await page.goto("/practice?target=transition&transitions=ju&metric=latency")
+
+    const title = page.getByRole("heading", { name: "Practise j→u", exact: true })
+    await expect(title).toBeVisible()
+    await expect(title.locator("kbd")).toHaveText(["j", "u"])
+    const selected = page.getByTestId("selected-practice-grams")
+    await expect(selected.getByRole("button")).toHaveCount(1)
+    await expect(selected.getByRole("button", { name: "Remove ju" })).toBeVisible()
+    await expect(page.getByTestId("practice-focus-summary")).toHaveAttribute("aria-label", "Edit Gram focus: ju")
+    await expect(page.locator("#c0")).toHaveClass(/active-char/, { timeout: 20_000 })
+  })
+
   test("records exactly one Target and leads completion with Target response, Test reference, and ordinary Test action", async ({ page }) => {
     await page.clock.install()
     await page.goto(href)

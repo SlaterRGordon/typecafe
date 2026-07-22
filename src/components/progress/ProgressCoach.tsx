@@ -2,7 +2,7 @@ import Link from "next/link"
 import { useMemo, useState, type ReactNode } from "react"
 import { TargetGlyph } from "~/components/coaching/TargetGlyph"
 import { useHeatmapColors } from "~/components/heatmap/KeyHeatmap"
-import { targetUsesArrow } from "~/lib/coachingTarget"
+import { targetRepresentativeSequences, targetUsesArrow } from "~/lib/coachingTarget"
 import { accuracyColor } from "~/lib/heatmap"
 import {
     filterProgressCoachTargets,
@@ -85,7 +85,9 @@ function CoachHeadline({ target, color }: { target: ProgressCoachTarget, color: 
             <span className="sr-only">{target.headline}</span>
             <span aria-hidden="true" className="flex flex-wrap items-center gap-2">
                 <span>{before}</span>
-                <TargetGlyph keys={target.visualKeys} label={target.label} arrows={usesArrow(target)} color={color} headline />
+                {target.target.kind === "movement"
+                    ? <span className="text-base" style={{ color }}>{target.label}</span>
+                    : <TargetGlyph keys={target.visualKeys} label={target.label} arrows={usesArrow(target)} color={color} headline />}
                 {target.impactMsPer1000 !== null && <span className="font-mono text-base" style={{ color }}>{worthLabel(target)}</span>}
                 <WorthDelta target={target} className="text-sm" />
             </span>
@@ -148,6 +150,18 @@ function PracticeLine({ target }: { target: ProgressCoachTarget }) {
     )
 }
 
+function MovementScope({ target }: { target: ProgressCoachTarget }) {
+    if (target.target?.kind !== "movement") return null
+    return (
+        <div data-testid="movement-scope" className="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-base-content/55">
+            <span>Representative sequences</span>
+            {targetRepresentativeSequences(target.target).map((sequence) => (
+                <span key={sequence} className="rounded border border-primary/25 bg-primary/10 px-1.5 py-0.5 font-mono font-semibold text-primary">{sequence}</span>
+            ))}
+        </div>
+    )
+}
+
 function CoachSummary({ target, color, contextLabel, action }: { target: ProgressCoachTarget, color: string, contextLabel: string, action: ReactNode }) {
     return (
         <div className="flex min-w-0 flex-1 items-center justify-between gap-4">
@@ -158,6 +172,7 @@ function CoachSummary({ target, color, contextLabel, action }: { target: Progres
                     <span className="text-primary">{target.statusLabel}</span>
                 </div>
                 <CoachHeadline target={target} color={color} />
+                <MovementScope target={target} />
                 <ProofLine target={target} />
                 <PracticeLine target={target} />
             </div>
@@ -329,6 +344,7 @@ export function ProgressCoach({ projection, loading }: ProgressCoachProps) {
                                             <div data-testid="coach-inline-detail" className="mx-3 mb-3 rounded-lg border border-base-content/15 bg-base-200/35 p-3 lg:hidden">
                                                 <p className="text-[0.65rem] font-bold uppercase tracking-[0.12em] text-primary">{row.statusLabel}</p>
                                                 <CoachHeadline target={row} color={color} />
+                                                <MovementScope target={row} />
                                                 <ProofLine target={row} />
                                                 <PracticeLine target={row} />
                                                 {row.action && <div className="mt-3"><ActionLink target={row} /></div>}

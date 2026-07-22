@@ -229,9 +229,16 @@ export function targetDisplayLabel(target: CoachingTarget): string {
     if (target.kind === "transition") return `${target.pair[0]}→${target.pair[1]}`
     if (target.kind === "gram") return target.gram
     if (target.kind === "word") return target.sharedGram ?? target.words.join(", ")
-    if (target.kind === "movement") return "this movement"
+    if (target.kind === "movement") return `${target.movement} movement`
     if (target.kind === "correction") return `these ${target.expected}/${target.typed} keys`
     return `${target.shortSeconds}s → ${target.longSeconds}s`
+}
+
+export function targetRepresentativeSequences(target: CoachingTarget): string[] {
+    if (target.kind !== "movement") return []
+    return [...new Set(target.anchors.map((anchor) => anchor.normalize("NFC")))]
+        .slice(0, 4)
+        .map((anchor) => [...anchor].join("→"))
 }
 
 export function targetVisualKeys(target: CoachingTarget): string[] {

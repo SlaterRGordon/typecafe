@@ -39,6 +39,41 @@ export function impactTimeline(testId: number): TimelineEvidence {
   };
 }
 
+/** Four slow same-finger sequences over a stable natural baseline. */
+export function movementTimeline(testId: number): TimelineEvidence {
+  const events: TestEvidenceEvent[] = [];
+  let t = 0;
+  const addPairs = (pair: string, gap: number, repeats: number) => {
+    for (let index = 0; index < repeats; index += 1) {
+      t += 100;
+      events.push({ key: pair[0]!, typed: pair[0]!, correct: true, t });
+      t += gap;
+      events.push({ key: pair[1]!, typed: pair[1]!, correct: true, t });
+      t += 100;
+      events.push({ key: " ", typed: " ", correct: true, t });
+    }
+  };
+  addPairs("th", 80, 34);
+  addPairs("th", 100, 33);
+  addPairs("th", 120, 33);
+  for (const pair of ["fr", "de", "sw", "aq"]) addPairs(pair, 170, 8);
+  return {
+    completedAt: Date.now() + testId,
+    context: "natural",
+    mode: 0,
+    subMode: 0,
+    count: 60,
+    options: "",
+    punctuation: false,
+    capitals: false,
+    numbers: false,
+    layout: "qwerty",
+    pool: "qwerty",
+    language: "english",
+    timeline: encodeTimeline(events),
+  };
+}
+
 /** Natural accuracy + speed evidence with contradictory Practice reps. */
 export function keyboardEvidenceTimeline(testId: number, context: "natural" | "custom-practice" = "natural"): TimelineEvidence {
   const events: TestEvidenceEvent[] = [];

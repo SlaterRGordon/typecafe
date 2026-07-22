@@ -1,6 +1,6 @@
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 import { mockAuthenticatedSession, mockTrpc } from "./helpers/trpc";
-import { brDrillTimeline, higherOrderTimeline, impactTimeline, keyboardEvidenceTimeline } from "./helpers/evidence";
+import { brDrillTimeline, higherOrderTimeline, impactTimeline, keyboardEvidenceTimeline, movementTimeline } from "./helpers/evidence";
 import { typeCurrentCharacter, typeVisibleTestText, typeWrongCharacter } from "./helpers/typing";
 import { readdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
@@ -97,8 +97,11 @@ test("Guided Practice workspace and awaiting-Test recap", async ({ page }, testI
   await capture(page, testInfo, "69-guided-practice")
 
   await page.getByRole("region", { name: "Practice controls" }).getByRole("button", { name: "30s" }).click()
-  await typeCurrentCharacter(page, 0)
-  await expect(page.getByTestId("practice-workspace-configuration")).toHaveCSS("opacity", "0")
+  await expect(page.locator("#c0")).toHaveClass(/active-char/)
+  await expect(async () => {
+    await typeCurrentCharacter(page, 0)
+    await expect(page.getByTestId("practice-workspace-configuration")).toHaveCSS("opacity", "0", { timeout: 500 })
+  }).toPass({ timeout: 5_000 })
   await capture(page, testInfo, "69b-practice-active-typing")
   for (let index = 1; index < 80; index += 1) {
     await typeCurrentCharacter(page, index)
@@ -111,6 +114,16 @@ test("Guided Practice workspace and awaiting-Test recap", async ({ page }, testI
   await expect(recap).not.toContainText("Guided Drill complete")
   await expect(recap).not.toContainText("Secondary")
   await capture(page, testInfo, "70-guided-practice-awaiting-test")
+})
+
+test("Grouped movement Guided Practice identity", async ({ page }, testInfo) => {
+  await page.goto("/practice?target=movement&movement=same-finger&anchors=fr,de,sw,aq")
+  await expect(page.getByRole("heading", { name: "Practise same-finger movement" })).toBeVisible()
+  const scope = page.getByTestId("movement-scope")
+  await expect(scope).toContainText("Representative sequences")
+  for (const sequence of ["f→r", "d→e", "s→w", "a→q"]) await expect(scope).toContainText(sequence)
+  await expect(page.locator("#c0")).toHaveClass(/active-char/, { timeout: 20_000 })
+  await capture(page, testInfo, "69c-guided-movement-scope")
 })
 
 test("Custom Grams Practice completion", async ({ page }, testInfo) => {
@@ -693,6 +706,21 @@ test.describe("screenshot tour", () => {
     await expect(detail.getByRole("link")).toHaveCount(1);
     if (testInfo.project.name.includes("mobile")) await practiceActivity.scrollIntoViewIfNeeded();
     await capture(page, testInfo, "40g-progress-practice-awaiting-test");
+  });
+
+  test("progress dashboard (grouped movement Target)", async ({ page }, testInfo) => {
+    await mockAuthenticatedSession(page);
+    await mockTrpc(page, { timelineEvidence: [movementTimeline(1), movementTimeline(2)] });
+    await page.goto("/progress");
+    const coach = page.getByTestId("progress-coach");
+    await coach.getByTestId("coach-target-filters").getByRole("button", { name: /Movements/ }).click();
+    await coach.getByRole("button", { name: /same-finger movement/ }).click();
+    const detail = testInfo.project.name.includes("mobile")
+      ? coach.getByTestId("coach-inline-detail")
+      : coach.getByTestId("coach-detail");
+    await expect(detail).toContainText("same-finger movement");
+    await expect(detail.getByTestId("movement-scope")).toContainText("Representative sequences");
+    await capture(page, testInfo, "40h-progress-grouped-movement-target");
   });
 
   test("progress dashboard (plateau Target guidance)", async ({ page }, testInfo) => {

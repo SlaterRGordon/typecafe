@@ -1,4 +1,4 @@
-import { targetAction, targetDisplayLabel, targetVisualKeys, type CoachingTarget } from "./coachingTarget"
+import { targetAction, targetDisplayLabel, targetRepresentativeSequences, targetVisualKeys, type CoachingTarget } from "./coachingTarget"
 import type { NaturalAbility, SkillAnalysis, SkillCandidate, SkillReason } from "./skillEvidence"
 import { guidedEvidenceFromCandidate } from "./guidedPractice"
 
@@ -138,12 +138,10 @@ function targetPresentation(target: CoachingTarget): Pick<ProgressCoachTarget, "
         }
     }
     if (target.kind === "movement") {
-        const anchor = target.anchors[0] ?? ""
-        const anchorLabel = [...anchor].join("→")
         return {
             family,
             typeLabel: "Movement",
-            description: `${anchorLabel}${anchorLabel ? " · " : ""}${movementLabel(target.movement)} runs slow`,
+            description: `${movementLabel(target.movement)} movement · ${targetRepresentativeSequences(target).join(", ")}`,
             visualKeys: targetVisualKeys(target),
             filter: "movement",
         }

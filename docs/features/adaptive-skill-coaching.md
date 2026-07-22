@@ -1398,7 +1398,7 @@ tracer-bullet implementation graph recorded as native sub-issues
       influence, documentation, and coverage at the boundary above.
 - [x] Simplify Target detail and make the Progress columns equal-height without
       changing natural evidence or Worth derivation.
-- [ ] Make exact Transition and explicit movement-family identity agree from
+- [x] Make exact Transition and explicit movement-family identity agree from
       Progress through Guided Practice and persisted attribution.
 - [ ] Add whole Word entry, persistence, compilation, recurrence, and recap
       behavior alongside 2-4-character Grams.

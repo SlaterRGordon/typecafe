@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { mockAuthenticatedSession, mockTrpc } from "./helpers/trpc";
-import { brDrillTimeline, impactTimeline } from "./helpers/evidence";
+import { brDrillTimeline, impactTimeline, movementTimeline } from "./helpers/evidence";
 import { typeCurrentCharacter } from "./helpers/typing";
 
 async function gotoProgress(page: Page) {
@@ -372,6 +372,32 @@ test.describe("progress dashboard", () => {
     await expect(page.getByTestId("coach-inline-detail")).toHaveCount(0);
     await expect(page.getByTestId("coach-detail")).toContainText("Work on b→r");
     await expect(page.getByTestId("records-timeline")).toHaveCount(0);
+  });
+
+  test("names grouped movement scope before preserving every representative sequence in Practice", async ({ page }) => {
+    await mockAuthenticatedSession(page);
+    await mockTrpc(page, { timelineEvidence: [movementTimeline(1), movementTimeline(2)] });
+    await gotoProgress(page);
+
+    const coach = page.getByTestId("progress-coach");
+    await coach.getByTestId("coach-target-filters").getByRole("button", { name: /Movements/ }).click();
+    const movementRow = coach.getByRole("button", { name: /same-finger movement/ });
+    for (const sequence of ["f→r", "d→e", "s→w", "a→q"]) await expect(movementRow).toContainText(sequence);
+    await movementRow.click();
+
+    const desktop = (page.viewportSize()?.width ?? 0) >= 1024;
+    const detail = desktop ? coach.getByTestId("coach-detail") : coach.getByTestId("coach-inline-detail");
+    await expect(detail).toContainText("same-finger movement");
+    const scope = detail.getByTestId("movement-scope");
+    await expect(scope).toContainText("Representative sequences");
+    for (const sequence of ["f→r", "d→e", "s→w", "a→q"]) await expect(scope).toContainText(sequence);
+    await detail.getByRole("link", { name: "Practice this movement" }).click();
+
+    await expect(page).toHaveURL(/\/practice\?target=movement&movement=same-finger/);
+    await expect(page.getByRole("heading", { name: "Practise same-finger movement" })).toBeVisible();
+    await expect(page.getByTestId("movement-scope")).toContainText("f→r");
+    const selected = page.getByTestId("selected-practice-grams");
+    for (const anchor of ["fr", "de", "sw", "aq"]) await expect(selected.getByRole("button", { name: `Remove ${anchor}` })).toBeVisible();
   });
 
   test("a drilled Target asks for a Test until natural typing measures it again", async ({ page }) => {

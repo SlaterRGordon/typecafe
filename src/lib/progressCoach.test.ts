@@ -84,6 +84,21 @@ describe("Progress Target projection", () => {
         expect(result.defaultTarget.awaitingMeasurement).toBe(true)
     })
 
+    it("names grouped movement scope and exposes several representative sequences", () => {
+        const target = { kind: "movement", movement: "same-finger", anchors: ["fr", "de", "sw", "aq"] } as const
+        const result = projectProgressCoach(analysis([candidate(target, 900, {
+            reason: { code: "movement_latency_high", movement: "same-finger", observedMs: 170, baselineMs: 100, anchors: [...target.anchors] },
+        })]))
+
+        expect(result.defaultTarget).toMatchObject({
+            label: "same-finger movement",
+            typeLabel: "Movement",
+            description: "same-finger movement · f→r, d→e, s→w, a→q",
+            target,
+        })
+        expect(result.defaultTarget.action?.href).toContain("target=movement&movement=same-finger&anchors=fr,de,sw,aq")
+    })
+
     it("keeps Impact order while surfacing a comparable supported family", () => {
         const targets = [
             candidate({ kind: "transition", pair: "br", metric: "latency" }, 1_000),

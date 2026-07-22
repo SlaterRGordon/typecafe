@@ -34,7 +34,7 @@ import {
 } from "~/lib/customKeysPractice"
 import { readCustomKeysPracticePreferences, writeCustomKeysPracticePreferences } from "~/lib/customKeysPreferences"
 import { PRACTICE_DURATIONS_SECONDS, PRACTICE_TEXT_STYLES, type PracticeDurationSeconds, type PracticeTextStyle } from "~/lib/evidenceContext"
-import { parseCoachingTargetQuery, targetDisplayLabel, targetUsesArrow, targetVisualKeys, type GuidedTargetEvidence, type ParsedCoachingTarget } from "~/lib/coachingTarget"
+import { parseCoachingTargetQuery, targetDisplayLabel, targetRepresentativeSequences, targetUsesArrow, targetVisualKeys, type GuidedTargetEvidence, type ParsedCoachingTarget } from "~/lib/coachingTarget"
 import {
     compileGuidedPractice,
     completeGuidedPractice,
@@ -481,16 +481,28 @@ const Practice: NextPage = () => {
         <div data-testid="custom-practice-workspace" data-practice-kind={guided ? "guided" : "custom"} className="h-full w-full overflow-y-auto bg-base-100 px-3 py-6 sm:px-6 md:py-10">
             <Head><title>{guided ? "Guided" : "Custom"} Practice | TypeCafe</title></Head>
             <div className="relative mx-auto flex min-h-full w-full max-w-5xl flex-col justify-center gap-5">
-                <header data-testid="practice-workspace-identity" className={typingFocusFadeClass(running, "absolute left-0 top-0 z-20 flex flex-wrap items-center justify-between gap-3")}>
+                <header data-testid="practice-workspace-identity" className={typingFocusFadeClass(running, "relative z-20 flex w-full flex-wrap items-center justify-between gap-3 pb-3 sm:absolute sm:left-0 sm:top-0 sm:w-auto sm:pb-0")}>
                     <div className="min-w-0">
                         {guided ? (
-                            <h1 aria-label={`Practise ${targetDisplayLabel(guided.target)}`} className="flex flex-wrap items-center gap-2 text-lg font-semibold">
-                                <TargetGlyph
-                                    keys={targetVisualKeys(guided.target)}
-                                    label={targetDisplayLabel(guided.target)}
-                                    arrows={targetUsesArrow(guided.target)}
-                                />
-                            </h1>
+                            <div>
+                                <h1 aria-label={`Practise ${targetDisplayLabel(guided.target)}`} className="flex flex-wrap items-center gap-2 text-lg font-semibold">
+                                    {guided.target.kind === "movement"
+                                        ? <span>{targetDisplayLabel(guided.target)}</span>
+                                        : <TargetGlyph
+                                            keys={targetVisualKeys(guided.target)}
+                                            label={targetDisplayLabel(guided.target)}
+                                            arrows={targetUsesArrow(guided.target)}
+                                        />}
+                                </h1>
+                                {guided.target.kind === "movement" && (
+                                    <div data-testid="movement-scope" className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-base-content/55">
+                                        <span>Representative sequences</span>
+                                        {targetRepresentativeSequences(guided.target).map((sequence) => (
+                                            <span key={sequence} className="rounded border border-primary/25 bg-primary/10 px-1.5 py-0.5 font-mono font-semibold text-primary">{sequence}</span>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
                         ) : <h1 className="sr-only">{path === "keys" ? "Custom Keys Practice" : "Custom Grams Practice"}</h1>}
                     </div>
                 </header>

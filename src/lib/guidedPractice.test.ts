@@ -37,6 +37,16 @@ describe("Guided Practice policy", () => {
         else expect(targetAction(target).href).toContain("/practice?target=")
     })
 
+    it("keeps an exact Transition on its displayed pair in focus, generation, and attribution", () => {
+        const target: CoachingTarget = { kind: "transition", pair: "ju", metric: "latency" }
+        const setup = guidedPracticeSetup(target)!
+        const text = compileGuidedPractice({ setup, corpus: ["juice", "jungle", "from", "dream"], language: "english", seed: 9, wordCount: 24 })
+
+        expect(setup.focus).toEqual({ kind: "grams", items: ["ju"] })
+        expect(text.split(" ").every((word) => word.includes("ju"))).toBe(true)
+        expect(guidedPracticeRecord(setup, 60_000, true)).toMatchObject({ target, focus: { kind: "grams", items: ["ju"] } })
+    })
+
     it("keeps attribution for duration/style only and converts on any prescribed focus edit", () => {
         const target: CoachingTarget = { kind: "movement", movement: "row-reach", anchors: ["fr", "dr", "sw", "aq"] }
         const setup = guidedPracticeSetup(target)!

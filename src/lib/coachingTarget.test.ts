@@ -6,6 +6,7 @@ import {
     targetAccuracyPolicy,
     targetAction,
     targetDisplayLabel,
+    targetRepresentativeSequences,
     type CoachingTarget,
 } from "./coachingTarget"
 
@@ -38,7 +39,8 @@ describe("coaching target query adapter", () => {
         })
         expect(action.label).toBe("Practice this movement")
         expect(action.href).toContain("/practice?target=movement")
-        expect(targetDisplayLabel(target)).toBe("this movement")
+        expect(targetDisplayLabel(target)).toBe("row-reach movement")
+        expect(targetRepresentativeSequences(target)).toEqual(["f→r", "d→e", "s→w", "a→q"])
     })
 
     it("round-trips the measured handoff into the shared Practice workspace", () => {
