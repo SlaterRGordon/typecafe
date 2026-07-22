@@ -175,17 +175,17 @@ function targetFamily(target: CoachingTarget): ProgressTargetFamily {
  */
 function selectCurrentWeaknesses(candidates: readonly SkillCandidate[], limit: number): SkillCandidate[] {
     if (limit <= 0 || candidates.length === 0) return []
-    const ranked = [...candidates].sort((a, b) => b.impactMsPer1000 - a.impactMsPer1000
+    const ranked = [...candidates].sort((a, b) => currentWorthImpact(b) - currentWorthImpact(a)
         || b.frequencyPer1000 - a.frequencyPer1000
         || b.confidence - a.confidence
         || a.id.localeCompare(b.id))
     const selected = ranked.slice(0, Math.min(LEADING_IMPACT_TARGETS, limit))
     const selectedIds = new Set(selected.map((candidate) => candidate.id))
     const selectedFamilies = new Set(selected.map((candidate) => targetFamily(candidate.target)))
-    const comparableFloor = ranked[0]!.impactMsPer1000 * COMPARABLE_FAMILY_RATIO
+    const comparableFloor = currentWorthImpact(ranked[0]!) * COMPARABLE_FAMILY_RATIO
 
     for (const candidate of ranked) {
-        if (selected.length >= limit || candidate.impactMsPer1000 < comparableFloor) break
+        if (selected.length >= limit || currentWorthImpact(candidate) < comparableFloor) break
         const family = targetFamily(candidate.target)
         if (selectedIds.has(candidate.id) || selectedFamilies.has(family)) continue
         selected.push(candidate)
@@ -258,6 +258,13 @@ function worthFor(candidate: SkillCandidate | null): { impactMsPer1000: number |
             outcome: deltaTenths > 0 ? "bad" : "good",
         },
     }
+}
+
+function currentWorthImpact(candidate: SkillCandidate): number {
+    const split = candidate.ability?.split
+    const base = costBasis(candidate.observed, candidate.metric, candidate.direction, candidate.baseline)
+    if (!split || base <= 0) return candidate.impactMsPer1000
+    return candidate.impactMsPer1000 * Math.max(0, costBasis(split.recent, candidate.metric, candidate.direction, candidate.baseline)) / base
 }
 
 function trendBetween(before: number, after: number, direction: "lower" | "higher", metric: "ms" | "%" | "wpm"): ProgressCoachTrend | null {

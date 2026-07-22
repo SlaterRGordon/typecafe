@@ -77,6 +77,19 @@ describe("Progress Target projection", () => {
         expect(result.defaultTarget.worthDelta).toEqual({ label: "1.0s", arrow: "down", outcome: "good" })
     })
 
+    it("ranks Targets by the same recent Worth displayed in each row", () => {
+        const historicallyHighNowImproved = candidate({ kind: "transition", pair: "br", metric: "latency" }, 1_000, {
+            ability: { value: 104, sampleCount: 12, split: { earlier: 160, recent: 104, earlierSamples: 8, recentSamples: 4 } },
+        })
+        const currentlyCostly = candidate({ kind: "transition", pair: "io", metric: "latency" }, 900)
+
+        const result = projectProgressCoach(analysis([historicallyHighNowImproved, currentlyCostly]))
+
+        expect(result.targets.map((row) => row.label)).toEqual(["i→o", "b→r"])
+        expect(result.targets.map((row) => row.impactMsPer1000)).toEqual([900, 100])
+        expect(result.defaultTarget.label).toBe("i→o")
+    })
+
     it("asks for an ordinary Test after completed Guided Practice", () => {
         const result = projectProgressCoach(analysis([candidate(undefined, 1_000, { awaitingMeasurement: true })]))
 

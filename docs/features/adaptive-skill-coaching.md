@@ -731,7 +731,8 @@ surfaces:
   for the common inspect-and-practise paths. `All` remains the complete view and
   continues to include correction and endurance Targets without forcing those
   less-common kinds into misleading categories;
-- order the entire displayed list by estimated Impact, including today's frozen
+- order the entire displayed list by the same current estimated Worth rendered
+  in each row, including today's frozen
   focus and coached Mastery rows. This display order does not change Coach
   priority: due, regressed, and today's frozen Prescription still choose the
   action independently. Keep the first three current weaknesses strictly
