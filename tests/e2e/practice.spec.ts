@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test"
-import { brDrillTimeline, crowdedAccuracyTimeline, impactTimeline, keyboardEvidenceTimeline, tionDrillTimeline } from "./helpers/evidence"
+import { crowdedAccuracyTimeline, keyboardEvidenceTimeline, tionDrillTimeline } from "./helpers/evidence"
 import { mockAuthenticatedSession, mockTrpc } from "./helpers/trpc"
 import { typeCurrentCharacter } from "./helpers/typing"
 
@@ -72,71 +72,59 @@ async function setPracticeLanguage(page: Page, language: string) {
   }, language)
 }
 
-test.describe("Practice landing", () => {
-  test("leads with Progress's highest-Impact Target and opens Guided directly", async ({ page }) => {
-    await mockAuthenticatedSession(page)
-    await mockTrpc(page, { timelineEvidence: [impactTimeline(1), impactTimeline(2)] })
+test.describe("Practice entry", () => {
+  test("defaults first use to Keys and saves a selected Custom path immediately", async ({ page }) => {
     await page.goto("/practice")
+    await expect(page.getByRole("region", { name: "Focus key editor" })).toBeVisible()
 
-    const recommendation = page.getByTestId("practice-recommendation")
-    await expect(recommendation).toContainText("Recommended for you")
-    const target = recommendation.getByRole("heading", { name: "b→r" })
-    await expect(target.locator("kbd")).toHaveText(["b", "r"])
-    await expect(target).toContainText("→")
-    await expect(recommendation).toContainText("Recent natural typing shows this transition taking 1.4× your typical transition time.")
-    await expect(recommendation.getByRole("link", { name: "Practice this transition" })).toHaveAttribute("href", /\/practice\?target=transition.*transitions=br.*evidence=/)
-    await expect(recommendation).not.toHaveClass(/rounded|border|bg-primary/)
-    await expect(page.getByTestId("practice-path-keys")).toBeVisible()
-    await expect(page.getByTestId("practice-path-grams")).toBeVisible()
-    await expect(page.getByTestId("practice-landing").locator("article")).toHaveCount(0)
-    await expect(page.getByTestId("practice-landing").locator(".material-symbols-rounded")).toHaveCount(0)
+    await page.getByRole("region", { name: "Practice controls" }).getByRole("button", { name: "Grams" }).click()
+    await expect.poll(() => page.evaluate(() => window.localStorage.getItem("typecafe:practice:last-custom-path"))).toBe("grams")
+    await page.reload()
+    await expect(page.getByRole("region", { name: "Gram editor" })).toBeVisible()
   })
 
-  test("keeps an awaiting Target and makes a normal Test primary", async ({ page }) => {
-    await mockAuthenticatedSession(page)
-    await mockTrpc(page, { timelineEvidence: [brDrillTimeline(3), impactTimeline(1), impactTimeline(2)] })
+  test("uses one global remembered path and keeps an empty language-specific Grams setup", async ({ page }) => {
+    await page.addInitScript(() => window.localStorage.setItem("typecafe:practice:last-custom-path", "grams"))
     await page.goto("/practice")
-
-    const recommendation = page.getByTestId("practice-recommendation")
-    await expect(recommendation).toContainText("b→r")
-    await expect(recommendation).toContainText("practised · awaiting Test")
-    await expect(recommendation.getByRole("link", { name: "Take a Test" })).toHaveAttribute("href", "/?mode=timed&count=30")
-    await expect(recommendation.getByRole("link", { name: "Practise again" })).toHaveAttribute("href", /\/practice\?target=transition.*transitions=br.*evidence=/)
-  })
-
-  test("shows an honest empty state and independent lightweight continuations", async ({ page }) => {
-    await page.addInitScript(() => {
-      window.localStorage.setItem("typecafe:practice:custom-keys", JSON.stringify({ keys: ["q", "r"], durationSeconds: 30, textStyle: "pseudo" }))
-      window.localStorage.setItem("typecafe:practice:recent-custom-grams", JSON.stringify({
-        version: 2,
-        languages: {
-          english: { version: 2, language: "english", entries: [], setup: { grams: ["th", "tion"], durationSeconds: 120, textStyle: "varied", updatedAt: 10 } },
-          french: { version: 2, language: "french", entries: [], setup: { grams: ["ét", "tion"], durationSeconds: 240, textStyle: "pseudo", updatedAt: 20 } },
-        },
-      }))
-    })
-    await page.goto("/practice")
-
-    const empty = page.getByTestId("practice-empty")
-    await expect(empty).toContainText("Find your focus")
-    await expect(empty).toContainText("we won’t invent a Weakness")
-    await expect(empty.getByRole("link", { name: "Take a Test" })).toHaveAttribute("href", "/?mode=timed&count=60")
-    await expect(page.getByTestId("practice-recommendation")).toHaveCount(0)
-
-    const keys = page.getByTestId("practice-path-keys")
-    const grams = page.getByTestId("practice-path-grams")
-    await expect(keys).toContainText("q · r")
-    await expect(keys).toContainText("30s · Pseudo")
-    await expect(keys.getByRole("link", { name: "Continue Keys" })).toHaveAttribute("href", "/practice?custom=keys")
-    await expect(grams).toContainText("th · tion")
-    await expect(grams).toContainText("120s · Varied")
-    await expect(grams.getByRole("link", { name: "Continue Grams" })).toHaveAttribute("href", "/practice?custom=grams")
+    await expect(page.getByRole("region", { name: "Gram editor" })).toBeVisible()
+    await expect(page.getByTestId("selected-practice-grams").getByRole("button")).toHaveCount(0)
 
     await setPracticeLanguage(page, "french")
-    await expect(grams).toContainText("ét · tion")
-    await expect(grams).toContainText("240s · Pseudo")
-    await expect(keys).toContainText("q · r")
-    await expect(page.getByTestId("practice-landing").locator("article")).toHaveCount(0)
+    await page.reload()
+    await expect(page.getByRole("region", { name: "Gram editor" })).toBeVisible()
+    await expect(page.getByTestId("selected-practice-grams").getByRole("button")).toHaveCount(0)
+    await expect(page.evaluate(() => window.localStorage.getItem("typecafe:practice:last-custom-path"))).resolves.toBe("grams")
+  })
+
+  test("lets an explicit Custom path win and become remembered", async ({ page }) => {
+    await page.addInitScript(() => window.localStorage.setItem("typecafe:practice:last-custom-path", "keys"))
+    await page.goto("/practice?custom=grams&target=key&keys=x&metric=accuracy")
+
+    await expect(page.getByTestId("custom-practice-workspace")).toHaveAttribute("data-practice-kind", "custom")
+    await expect(page.getByRole("region", { name: "Gram editor" })).toBeVisible()
+    await expect(page.evaluate(() => window.localStorage.getItem("typecafe:practice:last-custom-path"))).resolves.toBe("grams")
+  })
+
+  test("gives a valid Guided Target precedence without changing Custom resume", async ({ page }) => {
+    await page.addInitScript(() => window.localStorage.setItem("typecafe:practice:last-custom-path", "grams"))
+    await page.goto("/practice?target=key&keys=x&metric=accuracy&policy=acquisition")
+
+    await expect(page.getByTestId("custom-practice-workspace")).toHaveAttribute("data-practice-kind", "guided")
+    await expect(page.getByTestId("practice-focus-summary")).toContainText("x")
+    await expect(page.evaluate(() => window.localStorage.getItem("typecafe:practice:last-custom-path"))).resolves.toBe("grams")
+
+    await page.goto("/practice")
+    await expect(page.getByRole("region", { name: "Gram editor" })).toBeVisible()
+  })
+
+  test("explains an invalid Target once and falls back without false attribution", async ({ page }) => {
+    await page.addInitScript(() => window.localStorage.setItem("typecafe:practice:last-custom-path", "grams"))
+    await page.goto("/practice?target=gram&gram=x")
+
+    await expect(page.getByText("That Guided Target is no longer available. Resuming Custom Grams.")).toBeVisible()
+    await expect(page.getByTestId("custom-practice-workspace")).toHaveAttribute("data-practice-kind", "custom")
+    await expect(page.getByRole("region", { name: "Gram editor" })).toBeVisible()
+    await expect(page.getByRole("heading", { name: /Practise/ })).toHaveCount(0)
   })
 })
 
@@ -161,7 +149,7 @@ test.describe("legacy Drill compatibility", () => {
   test("lands truthfully when no Target can be proved", async ({ page }) => {
     await page.goto("/drill?target=gram&gram=x")
     await expect(page).toHaveURL(/\/practice$/)
-    await expect(page.getByTestId("practice-empty")).toContainText("Find your focus")
+    await expect(page.getByRole("region", { name: "Focus key editor" })).toBeVisible()
   })
 })
 

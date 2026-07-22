@@ -1290,7 +1290,7 @@ visible workspace headings, a selected-key marker, active-key following,
 non-collapsing surroundings during typing, or carrier-derived Pseudo text. The
 Guided/Custom attribution and natural-evidence contracts remain unchanged.
 
-- [ ] Retire the Practice landing. Resolve normal, explicit Custom, valid
+- [x] Retire the Practice landing. Resolve normal, explicit Custom, valid
       Guided, and invalid Guided entry through the resume-first precedence above;
       persist only the last Custom path in browser-local storage.
 - [ ] Remove the visible workspace title while retaining an accessible document

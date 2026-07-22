@@ -48,7 +48,7 @@ describe("drillCompatibilityDestination", () => {
         expect(drillCompatibilityDestination({ seconds: "15" })).toBe("/?mode=timed&count=15")
     })
 
-    it("falls back to the truthful Practice landing when Target intent is absent or malformed", () => {
+    it("falls back to ordinary resume-first Practice when Target intent is absent or malformed", () => {
         expect(drillCompatibilityDestination({})).toBe("/practice")
         expect(drillCompatibilityDestination({ target: "gram", gram: "x" })).toBe("/practice")
     })

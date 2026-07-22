@@ -52,28 +52,6 @@ async function gotoHome(page: Page) {
   await expect(page.locator("#words .char").first()).toBeVisible();
 }
 
-test("Practice landing with measured recommendation", async ({ page }, testInfo) => {
-  await mockAuthenticatedSession(page)
-  await mockTrpc(page, { timelineEvidence: [impactTimeline(1), impactTimeline(2)] })
-  await page.goto("/practice")
-  await expect(page.getByTestId("practice-recommendation")).toContainText("b→r")
-  if (!testInfo.project.name.includes("mobile")) await page.getByTestId("side-primary-nav").hover()
-  await capture(page, testInfo, "67-practice-landing-recommended")
-})
-
-test("Practice landing without measured evidence", async ({ page }, testInfo) => {
-  await page.addInitScript(() => {
-    window.localStorage.setItem("typecafe:practice:custom-keys", JSON.stringify({ keys: ["q", "r"], durationSeconds: 30, textStyle: "pseudo" }))
-    window.localStorage.setItem("typecafe:practice:recent-custom-grams", JSON.stringify({
-      version: 2,
-      languages: { english: { version: 2, language: "english", entries: [], setup: { grams: ["th", "tion"], durationSeconds: 120, textStyle: "varied", updatedAt: 10 } } },
-    }))
-  })
-  await page.goto("/practice")
-  await expect(page.getByTestId("practice-empty")).toBeVisible()
-  await capture(page, testInfo, "67b-practice-landing-find-focus")
-})
-
 test("Custom Keys Practice workspace", async ({ page }, testInfo) => {
   await mockAuthenticatedSession(page)
   await mockTrpc(page, { timelineEvidence: [keyboardEvidenceTimeline(1)] })

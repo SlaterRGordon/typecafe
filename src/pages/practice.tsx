@@ -48,13 +48,11 @@ import { initialPracticeKeys, nextStickyPracticeLayer, type StickyPracticeLayer 
 import { projectNaturalKeyboardEvidence, type NaturalKeyboardEvidence } from "~/lib/skillEvidence"
 import { keySpeedBars } from "~/lib/transitions"
 import { languageMeta } from "~/lib/languageMeta"
-import { projectPracticeLanding, type PracticeLandingProjection } from "~/lib/practiceLanding"
-import { projectProgressCoach } from "~/lib/progressCoach"
+import { parsePracticePath, readPracticePath, resolvePracticeEntry, writePracticePath, type PracticePath } from "~/lib/practiceEntry"
 import { practiceWordCapacity } from "~/lib/practiceCapacity"
 import { addAlert } from "~/state/alert/alertSlice"
 import { api } from "~/utils/api"
 
-type PracticePath = "keys" | "grams"
 type CompletedRun =
     | { path: "keys", result: TestCompletionResult, run: CustomKeysPracticeRun }
     | { path: "grams", result: TestCompletionResult, run: CustomGramsPracticeRun }
@@ -62,75 +60,6 @@ type CompletedRun =
 
 function signed(value: number): string {
     return `${value >= 0 ? "+" : ""}${Math.round(value)}`
-}
-
-function customIntent(value: string | string[] | undefined): PracticePath | null {
-    const intent = Array.isArray(value) ? value[0] : value
-    return intent === "keys" || intent === "grams" ? intent : null
-}
-
-function PracticeLanding({ projection, loading }: { projection: PracticeLandingProjection | null, loading: boolean }) {
-    return (
-        <div data-testid="practice-landing" className="h-full w-full overflow-y-auto bg-base-100 px-3 pb-24 pt-8 sm:px-6 md:py-12">
-            <Head><title>Practice | TypeCafe</title></Head>
-            <main className="mx-auto w-full max-w-3xl md:px-4">
-                <header>
-                    <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">Practice</h1>
-                </header>
-
-                <section aria-label="Practice recommendation" className="mt-10">
-                    {loading || !projection ? (
-                        <div data-testid="practice-landing-loading" className="animate-pulse py-2">
-                            <div className="h-3 w-36 rounded bg-primary/20" />
-                            <div className="mt-4 h-8 w-64 max-w-full rounded bg-base-content/10" />
-                            <div className="mt-3 h-4 w-full max-w-xl rounded bg-base-content/10" />
-                            <div className="mt-6 h-10 w-36 rounded bg-primary/20" />
-                        </div>
-                    ) : projection.recommendation ? (
-                        <div data-testid="practice-recommendation" className="grid gap-5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
-                            <div>
-                                <p className="font-mono text-xs font-bold uppercase tracking-[0.16em] text-primary">Recommended for you</p>
-                                <h2 className="mt-3 w-fit text-2xl font-bold sm:text-3xl">
-                                    <TargetGlyph keys={projection.recommendation.visualKeys} label={projection.recommendation.label} arrows={projection.recommendation.arrows} headline />
-                                </h2>
-                                <p className="mt-3 max-w-2xl text-base text-base-content/70">{projection.recommendation.reason}</p>
-                                {projection.recommendation.awaitingMeasurement && <p className="mt-3 font-mono text-xs font-semibold text-success">{projection.recommendation.statusLabel}</p>}
-                            </div>
-                            <div className="flex min-w-40 flex-col gap-2">
-                                <Link href={projection.recommendation.primaryAction.href} className="btn btn-primary">
-                                    {projection.recommendation.primaryAction.label}
-                                </Link>
-                                {projection.recommendation.secondaryAction && <Link href={projection.recommendation.secondaryAction.href} className="btn btn-ghost border-base-content/15">{projection.recommendation.secondaryAction.label}</Link>}
-                            </div>
-                        </div>
-                    ) : (
-                        <div data-testid="practice-empty" className="grid gap-5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
-                            <div>
-                                <h2 className="text-2xl font-bold sm:text-3xl">Find your focus</h2>
-                                <p className="mt-3 max-w-2xl text-base text-base-content/70">A normal Test identifies what is slowing you down. Until then, we won’t invent a Weakness.</p>
-                            </div>
-                            <Link href={projection.emptyAction.href} className="btn btn-primary min-w-40">{projection.emptyAction.label}</Link>
-                        </div>
-                    )}
-                </section>
-
-                <section aria-label="Custom Practice" className="mt-12 border-t border-base-content/15 pt-3">
-                    <div className="divide-y divide-base-content/10">
-                        {(projection?.customPaths ?? []).map((path) => (
-                            <div key={path.kind} data-testid={`practice-path-${path.kind}`} className="grid min-h-24 grid-cols-[minmax(0,1fr)_auto] items-center gap-4 py-4">
-                                <div className="min-w-0">
-                                    <h3 className="text-xl font-bold">{path.title}</h3>
-                                    <p className="mt-1 truncate font-mono text-sm font-semibold text-base-content/75">{path.focus || "No saved focus"}</p>
-                                    <p className="mt-1 font-mono text-xs text-base-content/45">{path.settings}</p>
-                                </div>
-                                <Link href={path.href} className="btn btn-sm btn-ghost border-base-content/15">Continue {path.title}</Link>
-                            </div>
-                        ))}
-                    </div>
-                </section>
-            </main>
-        </div>
-    )
 }
 
 const Practice: NextPage = () => {
@@ -146,7 +75,7 @@ const Practice: NextPage = () => {
     const [path, setPath] = useState<PracticePath>("keys")
     const [guided, setGuided] = useState<ParsedCoachingTarget | null>(null)
     const [keysPreferences, setKeysPreferences] = useState<CustomKeysPracticePreferences>({ keys: [], durationSeconds: 60, textStyle: "varied" })
-    const [gramsPreferences, setGramsPreferences] = useState<CustomGramsPracticePreferences>({ grams: ["th", "the", "tion"], durationSeconds: 60, textStyle: "varied" })
+    const [gramsPreferences, setGramsPreferences] = useState<CustomGramsPracticePreferences>({ grams: [], durationSeconds: 60, textStyle: "varied" })
     const [gramEntry, setGramEntry] = useState("")
     const [gramEntryError, setGramEntryError] = useState<string | null>(null)
     const customGramsPreference = useCustomGramsPreference(language, signedIn)
@@ -164,10 +93,11 @@ const Practice: NextPage = () => {
     const keysEditorRef = useRef<HTMLElement>(null)
     const gramsEditorRef = useRef<HTMLElement>(null)
     const gramInputRef = useRef<HTMLInputElement>(null)
+    const explainedInvalidTarget = useRef<string | null>(null)
     const board = useMemo(() => boardFor(layout), [layout])
     const hasAltGr = board.rows.some((row) => row.some((key) => key.altgr !== undefined))
     const activePreferences = path === "keys" ? keysPreferences : gramsPreferences
-    const requestedCustomPath = customIntent(router.query.custom)
+    const requestedCustomPath = parsePracticePath(router.query.custom)
     const hasTargetIntent = router.query.target !== undefined
 
     useEffect(() => {
@@ -175,20 +105,34 @@ const Practice: NextPage = () => {
         const parsed = parseCoachingTargetQuery(router.query)
         const setup = parsed ? guidedPracticeSetup(parsed.target) : null
         const savedKeys = readCustomKeysPracticePreferences()
-        if (parsed && setup) {
+        const entry = resolvePracticeEntry({
+            explicitPath: requestedCustomPath,
+            guidedPath: parsed && setup ? setup.focus.kind : null,
+            rememberedPath: readPracticePath(),
+            hasTargetIntent,
+        })
+        if (entry.rememberPath) writePracticePath(entry.path)
+        if (entry.kind === "guided" && parsed && setup) {
             setGuided(parsed)
-            setPath(setup.focus.kind)
+            setPath(entry.path)
             if (setup.focus.kind === "keys") setKeysPreferences({ keys: setup.focus.items, durationSeconds: setup.durationSeconds, textStyle: setup.textStyle })
             else setGramsPreferences({ grams: setup.focus.items, durationSeconds: setup.durationSeconds, textStyle: setup.textStyle })
             setKeysInitialized(true)
         } else {
-            if (requestedCustomPath) setPath(requestedCustomPath)
+            setGuided(null)
+            setPath(entry.path)
             setKeysPreferences(savedKeys)
             setKeysInitialized(false)
         }
+        if (entry.invalidTarget && explainedInvalidTarget.current !== router.asPath) {
+            explainedInvalidTarget.current = router.asPath
+            dispatch(addAlert({ message: `That Guided Target is no longer available. Resuming Custom ${entry.path === "keys" ? "Keys" : "Grams"}.`, type: "warning" }))
+        } else if (!entry.invalidTarget) {
+            explainedInvalidTarget.current = null
+        }
         setSeed(Date.now())
         setReady(true)
-    }, [requestedCustomPath, router.isReady, router.query])
+    }, [dispatch, hasTargetIntent, requestedCustomPath, router.asPath, router.isReady, router.query])
 
     useEffect(() => {
         if (!ready) return
@@ -214,7 +158,7 @@ const Practice: NextPage = () => {
     useEffect(() => {
         if (!ready || guided || !customGramsPreference.loaded || appliedCustomGramsSetup.current === customGramsSetupScope) return
         appliedCustomGramsSetup.current = customGramsSetupScope
-        setGramsPreferences(customGramsPreference.setup ?? { grams: ["th", "the", "tion"], durationSeconds: 60, textStyle: "varied" })
+        setGramsPreferences(customGramsPreference.setup ?? { grams: [], durationSeconds: 60, textStyle: "varied" })
     }, [customGramsPreference.loaded, customGramsPreference.setup, customGramsSetupScope, guided, ready])
 
     const timelines = api.test.getLatestTimelines.useQuery(
@@ -268,12 +212,6 @@ const Practice: NextPage = () => {
         ? naturalKeyboardSnapshot.evidence
         : null
     const naturalSpeedBars = useMemo(() => keySpeedBars(naturalKeyboard?.transitions ?? []), [naturalKeyboard?.transitions])
-    const progressProjection = useMemo(() => coaching.analysis ? projectProgressCoach(coaching.analysis) : null, [coaching.analysis])
-    const landingProjection = useMemo(() => progressProjection ? projectPracticeLanding({
-        progress: progressProjection,
-        keys: keysPreferences,
-        grams: gramsPreferences,
-    }) : null, [gramsPreferences, keysPreferences, progressProjection])
     const activeFocus = useMemo(() => path === "keys"
         ? { kind: "keys" as const, items: keysPreferences.keys }
         : { kind: "grams" as const, items: gramsPreferences.grams }, [gramsPreferences.grams, keysPreferences.keys, path])
@@ -359,7 +297,9 @@ const Practice: NextPage = () => {
         dispatch(addAlert({ message: "Changed to Custom Practice", type: "success" }))
     }
     const selectPath = (next: PracticePath) => {
-        if (running || path === next) return
+        if (running) return
+        writePracticePath(next)
+        if (path === next) return
         suspendCurrentPrompt()
         convertGuidedToCustom()
         setPath(next)
@@ -494,7 +434,14 @@ const Practice: NextPage = () => {
     }
     const customGramsSetupReady = customGramsPreference.loaded && appliedCustomGramsSetup.current === customGramsSetupScope
 
-    if (!guided && !requestedCustomPath && !hasTargetIntent) return <PracticeLanding projection={landingProjection} loading={!ready || coaching.loading} />
+    if (!ready) return (
+        <div data-testid="custom-practice-workspace" className="h-full w-full overflow-y-auto bg-base-100 px-3 py-6 sm:px-6 md:py-10">
+            <Head><title>Practice | TypeCafe</title></Head>
+            <main data-testid="practice-entry-loading" className="mx-auto flex min-h-[20rem] w-full max-w-5xl items-center justify-center md:px-4">
+                <span className="loading loading-spinner loading-md text-primary" aria-label="Loading Practice" />
+            </main>
+        </div>
+    )
 
     if (!guided && (path === "grams" || requestedCustomPath === "grams") && !customGramsSetupReady) return (
         <div data-testid="custom-practice-workspace" className="h-full w-full overflow-y-auto bg-base-100 px-3 py-6 sm:px-6 md:py-10">

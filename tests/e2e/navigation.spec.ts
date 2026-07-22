@@ -40,7 +40,7 @@ test.describe("app navigation", () => {
     );
 
     // Daily Challenge is hidden for now (2026-07) - no /challenge entry point.
-    // Practice is the action-first destination between measuring and proof.
+    // Practice is the resume-first focused-work destination between measuring and proof.
     expect(labels.slice(0, 5)).toEqual(["Home", "Practice", "Progress", "Train", "Leaderboard"]);
     expect(icons.slice(0, 5)).toEqual(["home", "keyboard", "trending_up", "fitness_center", "leaderboard"]);
     expect(labels).not.toContain("Daily coaching");
@@ -54,7 +54,8 @@ test.describe("app navigation", () => {
 
     await page.getByRole("link", { name: "Practice" }).click();
     await expect(page).toHaveURL(/\/practice$/);
-    await expect(page.getByTestId("practice-landing")).toBeVisible();
+    await expect(page.getByTestId("custom-practice-workspace")).toHaveAttribute("data-practice-kind", "custom");
+    await expect(page.getByRole("region", { name: "Focus key editor" })).toBeVisible();
 
     await page.getByRole("link", { name: "Train" }).click();
     await expect(page).toHaveURL(/\/train$/);

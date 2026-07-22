@@ -1,4 +1,3 @@
-import type { CustomGramsPracticePreferences } from "./customGramsPractice"
 import {
     parseCustomGramsPreference,
     type CustomGramsPreferenceSnapshot,
@@ -73,18 +72,5 @@ export function clearPendingCustomGramsPreference(
         storage.setItem(CUSTOM_GRAMS_PREFERENCE_STORAGE_KEY, JSON.stringify({ ...payload, languages }))
     } catch {
         // A failed clear leaves the pending merge available for a later retry.
-    }
-}
-
-export interface CustomGramsPracticeContinuation {
-    focus: string
-    settings: string
-}
-
-/** Read-only landing copy for the last Custom Grams setup. */
-export function summarizeCustomGramsPracticePreferences(preferences: CustomGramsPracticePreferences): CustomGramsPracticeContinuation {
-    return {
-        focus: preferences.grams.join(" · "),
-        settings: `${preferences.durationSeconds}s · ${preferences.textStyle === "pseudo" ? "Pseudo" : "Varied"}`,
     }
 }

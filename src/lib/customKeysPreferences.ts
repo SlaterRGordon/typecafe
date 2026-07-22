@@ -2,19 +2,6 @@ import { parseCustomKeysPracticePreferences, type CustomKeysPracticePreferences 
 
 const STORAGE_KEY = "typecafe:practice:custom-keys"
 
-export interface CustomKeysPracticeContinuation {
-    focus: string
-    settings: string
-}
-
-/** Read-only landing copy for the last Custom Keys setup. */
-export function summarizeCustomKeysPracticePreferences(preferences: CustomKeysPracticePreferences): CustomKeysPracticeContinuation {
-    return {
-        focus: preferences.keys.join(" · "),
-        settings: `${preferences.durationSeconds}s · ${preferences.textStyle === "pseudo" ? "Pseudo" : "Varied"}`,
-    }
-}
-
 export function readCustomKeysPracticePreferences(): CustomKeysPracticePreferences {
     if (typeof window === "undefined") return parseCustomKeysPracticePreferences(null)
     try {
