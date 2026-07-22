@@ -672,6 +672,11 @@ function sampleRecency(samples: readonly { recencyWeight: number }[]): number {
     return samples.length === 0 ? 1 : mean(samples.map((sample) => sample.recencyWeight))
 }
 
+function averageMovementLatency(samples: readonly ArrivalSample[]): number {
+    const sequences = grouped(samples, (sample) => sample.sequence)
+    return mean([...sequences.values()].map((sequence) => median(sequence.map((sample) => sample.dtMs))))
+}
+
 function frequencyPer1000(count: number, characters: number): number {
     return characters <= 0 ? 0 : count / characters * 1_000
 }
@@ -740,7 +745,7 @@ function targetSamples(
     if (target.kind === "movement") {
         return {
             samples: pools.arrivals.filter((sample) => sample.movement === target.movement),
-            valueOf: (subset) => median((subset as readonly ArrivalSample[]).map((sample) => sample.dtMs)),
+            valueOf: (subset) => averageMovementLatency(subset as readonly ArrivalSample[]),
         }
     }
     return null
@@ -1293,7 +1298,17 @@ function movementCandidates(evidence: PreparedEvidence, arrivals: readonly Arriv
             samples.length < SKILL_EVIDENCE_THRESHOLDS.movementMinSamples ||
             sequences.size < SKILL_EVIDENCE_THRESHOLDS.movementMinSequences
         ) continue
-        const observedMs = median(samples.map((sample) => sample.dtMs))
+        const sequenceProfiles = [...sequences.values()].map((sequenceSamples) => {
+            const frequencySamples = evidence.quality.naturalTimelines > 0
+                ? sequenceSamples.filter((sample) => sample.context === "natural")
+                : sequenceSamples
+            return {
+                observedMs: median(sequenceSamples.map((sample) => sample.dtMs)),
+                frequencyPer1000: frequencyPer1000(frequencySamples.length, evidence.frequencyCharacters),
+                recencyWeight: sampleRecency(sequenceSamples),
+            }
+        })
+        const observedMs = mean(sequenceProfiles.map((profile) => profile.observedMs))
         if (
             observedMs - baselineMs < SKILL_EVIDENCE_THRESHOLDS.latencyNoiseFloorMs ||
             observedMs / baselineMs < SKILL_EVIDENCE_THRESHOLDS.transitionLatencyMinRatio
@@ -1308,9 +1323,11 @@ function movementCandidates(evidence: PreparedEvidence, arrivals: readonly Arriv
             sequences.size,
             SKILL_EVIDENCE_THRESHOLDS.movementMinSequences,
         )
-        const naturalSamples = samples.filter((sample) => sample.context === "natural")
-        const frequency = frequencyPer1000(naturalSamples.length || samples.length, evidence.frequencyCharacters)
-        const recencyWeight = sampleRecency(samples)
+        const frequency = mean(sequenceProfiles.map((profile) => profile.frequencyPer1000))
+        const recencyWeight = mean(sequenceProfiles.map((profile) => profile.recencyWeight))
+        const averageSequenceImpact = mean(sequenceProfiles.map((profile) =>
+            Math.max(0, profile.observedMs - baselineMs) * profile.frequencyPer1000 * profile.recencyWeight,
+        ))
         const candidate = createCandidate({
             id: `movement:${movement}`,
             target: { kind: "movement", movement, anchors },
@@ -1324,7 +1341,7 @@ function movementCandidates(evidence: PreparedEvidence, arrivals: readonly Arriv
             frequencyPer1000: frequency,
             confidence: candidateConfidence,
             recencyWeight,
-            impactMsPer1000: (observedMs - baselineMs) * frequency * candidateConfidence * recencyWeight,
+            impactMsPer1000: averageSequenceImpact * candidateConfidence,
             reason: { code: "movement_latency_high", movement, observedMs, baselineMs, anchors },
         }, evidence)
         if (candidate) candidates.push(candidate)

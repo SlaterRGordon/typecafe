@@ -614,18 +614,41 @@ describe("analyzeTypingEvidence", () => {
             { pair: "aq", gap: 170, repeats: 8 },
         ]
         const timelines = [1, 2].map((testId) => pairTimeline(testId, [...baseline(100), ...movements]))
-        const candidate = analyzeTypingEvidence({ timelines }).candidates
-            .find((item) => item.id === "movement:same-finger")
+        const analysis = analyzeTypingEvidence({ timelines })
+        const candidate = analysis.candidates.find((item) => item.id === "movement:same-finger")
 
         expect(candidate).toMatchObject({
             target: { kind: "movement", movement: "same-finger" },
             sampleCount: 64,
             reason: { code: "movement_latency_high" },
         })
+        expect(candidate?.frequencyPer1000).toBeCloseTo(16 / analysis.quality.discoveryCharacters * 1_000)
         expect(candidate?.target.kind === "movement" ? candidate.target.anchors : []).toHaveLength(4)
 
         const thin = [1, 2].map((testId) => pairTimeline(testId, [...baseline(100), ...movements.slice(0, 3)]))
         expect(analyzeTypingEvidence({ timelines: thin }).candidates.some((item) => item.target.kind === "movement")).toBe(false)
+    })
+
+    it("averages Movement latency and Worth across concrete Transitions", () => {
+        const timelines = [1, 2].map((testId) => pairTimeline(testId, [
+            ...baseline(80),
+            { pair: "fr", gap: 200, repeats: 20 },
+            { pair: "de", gap: 140, repeats: 4 },
+            { pair: "sw", gap: 140, repeats: 4 },
+            { pair: "aq", gap: 140, repeats: 4 },
+        ]))
+        const analysis = analyzeTypingEvidence({ timelines })
+        const candidate = analysis.candidates.find((item) => item.id === "movement:same-finger")
+
+        expect(candidate?.observed).toBe(155)
+        expect(candidate?.frequencyPer1000).toBeCloseTo(16 / analysis.quality.discoveryCharacters * 1_000)
+
+        const characters = analysis.quality.discoveryCharacters
+        const averagePairWorth = (
+            (200 - candidate!.baseline) * (40 / characters * 1_000) * candidate!.recencyWeight +
+            3 * (140 - candidate!.baseline) * (8 / characters * 1_000) * candidate!.recencyWeight
+        ) / 4
+        expect(candidate?.impactMsPer1000).toBeCloseTo(averagePairWorth * candidate!.confidence)
     })
 
     it("derives endurance only from matched short and long Test families", () => {

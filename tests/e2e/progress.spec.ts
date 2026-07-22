@@ -409,6 +409,7 @@ test.describe("progress dashboard", () => {
     await coach.getByTestId("coach-target-filters").getByRole("button", { name: /Movements/ }).click();
     const movementRow = coach.getByRole("button", { name: /same-finger movement/ });
     await expect(movementRow).toContainText("+2 related");
+    await expect(movementRow).toContainText("~1.6s / 1k chars");
     for (const sequence of ["f→r", "d→e", "s→w", "a→q"]) await expect(movementRow).toContainText(sequence);
     const description = movementRow.getByText("same-finger movement · a→q, d→e, f→r, s→w", { exact: true });
     await expect(description).toBeVisible();

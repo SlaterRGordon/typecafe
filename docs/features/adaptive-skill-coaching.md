@@ -929,6 +929,8 @@ its pairs; a one-off slow word cannot become a Finding.
 - [x] Add prescribed movement classification behind `keyboardLayout.ts`: hand,
       assigned finger, row change, same-finger, reach, and roll direction.
 - [x] Require four concrete sequences for a movement candidate.
+- [x] Average movement ability and Worth across concrete Transitions so a
+      broader family cannot rank higher merely because it contains more pairs.
 - [x] Say "this movement" or "these keys," never claim an observed finger.
 - [x] Add matched Test-family endurance and punctuation/capital/number costs.
 - [x] Keep language, pool, Test kind, and options fixed in comparisons.
