@@ -382,9 +382,7 @@ test.describe("Custom Practice", () => {
     await expect(page.getByTestId("custom-gram-input")).toBeFocused()
 
     await expect(page.getByTestId("selected-practice-grams")).toContainText("th")
-    await expect(page.getByTestId("selected-practice-grams").getByLabel("2-Gram").first()).toBeVisible()
-    await expect(page.getByTestId("selected-practice-grams").getByLabel("3-Gram").first()).toBeVisible()
-    await expect(page.getByTestId("selected-practice-grams").getByLabel("4-Gram").first()).toBeVisible()
+    await expect(page.getByTestId("selected-practice-grams").getByRole("button")).toHaveText(["th×", "the×", "tion×"])
     await expect(gramEditor.getByRole("tab", { name: "Common in English" })).toHaveAttribute("aria-selected", "true")
     await expect(page.getByText(/Frequency-ranked Custom material/)).toHaveCount(0)
     await expect(page.getByText(/Only Grams measured directly/)).toHaveCount(0)
@@ -431,12 +429,12 @@ test.describe("Custom Practice", () => {
     const editor = page.getByRole("region", { name: "Gram editor" })
     await expect(editor.getByRole("tab", { name: "From your Tests" })).toHaveAttribute("aria-selected", "true")
     await expect(editor.getByText("extra pause in recent Tests")).toBeVisible()
-    const measuredChoice = editor.getByTestId("measured-test-grams").getByRole("button", { name: /tion, 4-Gram, \d+ ms extra pause/ })
-    await expect(measuredChoice).toContainText(/^tion4\+\d+ ms$/)
+    const measuredChoice = editor.getByTestId("measured-test-grams").getByRole("button", { name: /tion, \d+ ms extra pause/ })
+    await expect(measuredChoice).toContainText(/^tion\+\d+ ms$/)
     await expect(measuredChoice).toHaveAttribute("aria-pressed", "true")
 
     await editor.getByRole("tab", { name: "Recent" }).click()
-    await expect(editor.getByTestId("recent-custom-grams").getByRole("button", { name: "er, 2-Gram" })).toBeVisible()
+    await expect(editor.getByTestId("recent-custom-grams").getByRole("button", { name: "er", exact: true })).toBeVisible()
   })
 
   test("remembers only directly entered Grams as compact guest Recent choices", async ({ page }) => {
@@ -451,8 +449,8 @@ test.describe("Custom Practice", () => {
 
     await editor.getByRole("tab", { name: "Recent" }).click()
     const recent = page.getByTestId("recent-custom-grams")
-    await expect(recent.getByRole("button")).toHaveText(["er2"])
-    await expect(recent.getByRole("button", { name: "er, 2-Gram" })).toHaveAttribute("aria-pressed", "true")
+    await expect(recent.getByRole("button")).toHaveText(["er"])
+    await expect(recent.getByRole("button", { name: "er", exact: true })).toHaveAttribute("aria-pressed", "true")
 
     await editor.getByRole("tab", { name: "Common in English" }).click()
     await page.getByTestId("common-language-grams").getByRole("button").first().click()
@@ -464,10 +462,10 @@ test.describe("Custom Practice", () => {
     await input.fill("er")
     await input.press("Enter")
     await editor.getByRole("tab", { name: "Recent" }).click()
-    await expect(recent.getByRole("button")).toHaveText(["er2", "ing3"])
+    await expect(recent.getByRole("button")).toHaveText(["er", "ing"])
 
     await page.reload()
-    await expect(page.getByTestId("recent-custom-grams").getByRole("button")).toHaveText(["er2", "ing3"])
+    await expect(page.getByTestId("recent-custom-grams").getByRole("button")).toHaveText(["er", "ing"])
 
     await page.evaluate(() => {
       const payload = JSON.parse(window.localStorage.getItem("typecafe:practice:recent-custom-grams")!) as { version: 1, languages: Record<string, unknown> }
@@ -476,7 +474,7 @@ test.describe("Custom Practice", () => {
       window.localStorage.setItem("typecafe:language", JSON.stringify("french"))
       window.dispatchEvent(new Event("typecafe:language-changed"))
     })
-    await expect(page.getByTestId("recent-custom-grams").getByRole("button")).toHaveText(["éé2"])
+    await expect(page.getByTestId("recent-custom-grams").getByRole("button")).toHaveText(["éé"])
     await expect(page.getByRole("tab", { name: "Common in French" })).toBeVisible()
   })
 
@@ -491,17 +489,17 @@ test.describe("Custom Practice", () => {
     await page.goto("/practice?custom=grams")
     const controls = page.getByRole("region", { name: "Practice controls" })
 
-    await expect(page.getByTestId("selected-practice-grams").getByLabel("Remove th, 2-Gram")).toBeVisible()
+    await expect(page.getByTestId("selected-practice-grams").getByLabel("Remove th")).toBeVisible()
     await expect(controls.getByRole("button", { name: "30s" })).toHaveClass(/text-primary/)
     await setPracticeLanguage(page, "french")
     await expect(page.getByRole("tab", { name: "Common in French" })).toBeVisible()
-    await expect(page.getByTestId("selected-practice-grams").getByLabel("Remove éé, 2-Gram")).toBeVisible()
+    await expect(page.getByTestId("selected-practice-grams").getByLabel("Remove éé")).toBeVisible()
     await expect(controls.getByRole("button", { name: "240s" })).toHaveClass(/text-primary/)
     await expect(controls.getByRole("button", { name: "Pseudo" })).toHaveClass(/text-primary/)
 
     await controls.getByRole("button", { name: "120s" }).click()
     await setPracticeLanguage(page, "english")
-    await expect(page.getByTestId("selected-practice-grams").getByLabel("Remove th, 2-Gram")).toBeVisible()
+    await expect(page.getByTestId("selected-practice-grams").getByLabel("Remove th")).toBeVisible()
     await setPracticeLanguage(page, "french")
     await expect(controls.getByRole("button", { name: "120s" })).toHaveClass(/text-primary/)
   })
@@ -521,20 +519,20 @@ test.describe("Custom Practice", () => {
     await page.goto("/practice?custom=grams")
     const controls = page.getByRole("region", { name: "Practice controls" })
 
-    await expect(page.getByTestId("selected-practice-grams").getByLabel("Remove th, 2-Gram")).toBeVisible()
+    await expect(page.getByTestId("selected-practice-grams").getByLabel("Remove th")).toBeVisible()
     await setPracticeLanguage(page, "french")
-    await expect(page.getByTestId("selected-practice-grams").getByLabel("Remove été, 3-Gram")).toBeVisible()
+    await expect(page.getByTestId("selected-practice-grams").getByLabel("Remove été")).toBeVisible()
     await expect(controls.getByRole("button", { name: "120s" })).toHaveClass(/text-primary/)
     await expect.poll(() => pendingCustomGramsSetupTimestamp(page, "french")).toBeNull()
 
     await setPracticeLanguage(page, "english")
-    await expect(page.getByTestId("selected-practice-grams").getByLabel("Remove th, 2-Gram")).toBeVisible()
+    await expect(page.getByTestId("selected-practice-grams").getByLabel("Remove th")).toBeVisible()
     await setPracticeLanguage(page, "french")
-    await expect(page.getByTestId("selected-practice-grams").getByLabel("Remove été, 3-Gram")).toBeVisible()
+    await expect(page.getByTestId("selected-practice-grams").getByLabel("Remove été")).toBeVisible()
 
     await page.evaluate(() => window.localStorage.removeItem("typecafe:practice:recent-custom-grams"))
     await page.reload()
-    await expect(page.getByTestId("selected-practice-grams").getByLabel("Remove été, 3-Gram")).toBeVisible()
+    await expect(page.getByTestId("selected-practice-grams").getByLabel("Remove été")).toBeVisible()
     await expect(controls.getByRole("button", { name: "120s" })).toHaveClass(/text-primary/)
   })
 
@@ -549,14 +547,14 @@ test.describe("Custom Practice", () => {
       delayProcedures: delays,
     })
     await page.goto("/practice?custom=grams")
-    await expect(page.getByTestId("selected-practice-grams").getByLabel("Remove th, 2-Gram")).toBeVisible()
+    await expect(page.getByTestId("selected-practice-grams").getByLabel("Remove th")).toBeVisible()
 
     delays["customGramsPreference.get"] = 800
     await setPracticeLanguage(page, "french")
     await expect(page.getByTestId("custom-grams-setup-loading")).toBeVisible()
     await expect(page.getByRole("region", { name: "Practice controls" })).toHaveCount(0)
 
-    await expect(page.getByTestId("selected-practice-grams").getByLabel("Remove éé, 2-Gram")).toBeVisible()
+    await expect(page.getByTestId("selected-practice-grams").getByLabel("Remove éé")).toBeVisible()
     await expect(page.getByRole("region", { name: "Practice controls" }).getByRole("button", { name: "240s" })).toHaveClass(/text-primary/)
   })
 
@@ -572,12 +570,12 @@ test.describe("Custom Practice", () => {
     await page.goto("/practice?custom=grams")
 
     const recent = page.getByTestId("recent-custom-grams")
-    await expect(recent.getByRole("button")).toHaveText(["er2", "th2"])
+    await expect(recent.getByRole("button")).toHaveText(["er", "th"])
     await expect.poll(() => pendingRecentGrams(page, "english")).toEqual([])
 
     await page.evaluate(() => window.localStorage.removeItem("typecafe:practice:recent-custom-grams"))
     await page.reload()
-    await expect(page.getByTestId("recent-custom-grams").getByRole("button")).toHaveText(["er2", "th2"])
+    await expect(page.getByTestId("recent-custom-grams").getByRole("button")).toHaveText(["er", "th"])
   })
 
   test("retains pending guest Recent Grams when the account merge fails", async ({ page }) => {
@@ -592,7 +590,7 @@ test.describe("Custom Practice", () => {
     })
     await page.goto("/practice?custom=grams")
 
-    await expect(page.getByTestId("recent-custom-grams").getByRole("button")).toHaveText(["er2", "th2"])
+    await expect(page.getByTestId("recent-custom-grams").getByRole("button")).toHaveText(["er", "th"])
     await expect.poll(() => pendingRecentGrams(page, "english")).toEqual(["er"])
   })
 

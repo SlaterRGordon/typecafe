@@ -1323,6 +1323,7 @@ Guided/Custom attribution and natural-evidence contracts remain unchanged.
 - [x] Make the Custom Grams editor selection-first and source-tabbed. Keep Recent,
       natural-Test, and common-language choices compact, while every measured
       Gram exposes its rounded extra-pause milliseconds directly on the choice.
+      Omit self-evident 2-4 letter-count badges from all Gram chips.
 
 **Refinement acceptance:** Primary navigation resumes the last Custom path;
 Guided links retain truthful Target attribution; configuration reads like Home;
