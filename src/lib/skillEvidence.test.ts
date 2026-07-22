@@ -166,6 +166,19 @@ describe("analyzeTypingEvidence", () => {
         expect(analysis.recommendation?.id).toBe("transition:latency:br")
     })
 
+    it("uses the active language corpus to qualify exact Transitions", () => {
+        const timelines = [1, 2].map((testId) => pairTimeline(testId, [
+            ...baseline(),
+            { pair: "ça", gap: 170, repeats: 8 },
+        ]))
+
+        const defaultAnalysis = analyzeTypingEvidence({ timelines })
+        const frenchAnalysis = analyzeTypingEvidence({ timelines, corpusWords: ["ça", "façade"] })
+
+        expect(defaultAnalysis.candidates.some((candidate) => candidate.id === "transition:latency:ça")).toBe(false)
+        expect(frenchAnalysis.candidates.some((candidate) => candidate.id === "transition:latency:ça")).toBe(true)
+    })
+
     it("recommends a high-error pair even when its speed is normal", () => {
         const timelines = [1, 2].map((testId) => pairTimeline(testId, [
             ...baseline(40),
@@ -361,6 +374,15 @@ describe("analyzeTypingEvidence", () => {
         expect(proof.attempts.b).toEqual({ attempts: 2, correct: 2 })
         expect(proof.attempts.r).toEqual({ attempts: 2, correct: 2 })
         expect(proof.transitions.find((item) => item.pair === "br")).toMatchObject({ count: 2, totalMs: 320 })
+    })
+
+    it("uses active-language Transition eligibility in natural keyboard proof", () => {
+        const proof = projectNaturalKeyboardEvidence(
+            [pairTimeline(1, [{ pair: "ça", gap: 170, repeats: 4 }])],
+            ["ça", "façade"],
+        )
+
+        expect(proof.transitions.find((item) => item.pair === "ça")).toMatchObject({ count: 4, totalMs: 680 })
     })
 
     it("reports the discovery evidence window span", () => {

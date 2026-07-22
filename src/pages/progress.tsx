@@ -39,6 +39,7 @@ import { openSignInModal } from "~/lib/modals";
 import { useCoachingEvidence } from "~/hooks/useCoachingEvidence";
 import { projectProgressCoach, type ProgressCoachProjection } from "~/lib/progressCoach";
 import { projectNaturalKeyboardEvidence } from "~/lib/skillEvidence";
+import { getWords } from "~/components/typer/utils";
 
 function periodLabel(period: ProgressPeriod): string {
     return period === "all" ? "All" : `${period}d`;
@@ -562,8 +563,8 @@ const Progress: NextPage = () => {
         [coaching.analysis],
     );
     const naturalKeyboard = useMemo(
-        () => projectNaturalKeyboardEvidence(coaching.evidence?.timelines ?? []),
-        [coaching.evidence?.timelines],
+        () => projectNaturalKeyboardEvidence(coaching.evidence?.timelines ?? [], getWords(language)),
+        [coaching.evidence?.timelines, language],
     );
     const recordsQuery = api.test.getProgressRecords.useQuery(undefined, {
         enabled: !!sessionData?.user,

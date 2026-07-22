@@ -196,8 +196,8 @@ const Practice: NextPage = () => {
         if (fallback) setGramSource(fallback)
     }, [coaching.loading, commonGrams.length, customGramsPreference.entries.length, customGramsPreference.loaded, gramSource, measuredGrams.length, path])
     const projectedNaturalKeyboard = useMemo(
-        () => projectNaturalKeyboardEvidence(coaching.evidence?.timelines ?? []),
-        [coaching.evidence?.timelines],
+        () => projectNaturalKeyboardEvidence(coaching.evidence?.timelines ?? [], corpus),
+        [coaching.evidence?.timelines, corpus],
     )
     useEffect(() => {
         if (!ready || guided || keysInitialized || coaching.loading) return

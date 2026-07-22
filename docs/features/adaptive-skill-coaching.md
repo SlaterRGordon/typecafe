@@ -893,6 +893,8 @@ mistaken for one another across reload or signup.
       confidence, Impact, and stable tie-breaking.
 - [x] Generate key latency/accuracy, Transition latency/accuracy, and correction
       candidates.
+- [x] Derive exact Transition eligibility from the active-language corpus rather
+      than the English 1k list used by legacy global aggregates.
 - [x] Use Transition error rate in recommendations.
 - [x] Separate natural baseline from acquisition response despite ADR 0004's
       shared rolling aggregates.

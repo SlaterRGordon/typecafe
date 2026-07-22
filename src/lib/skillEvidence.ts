@@ -6,7 +6,7 @@ import { correctionEpisodes } from "./corrections"
 import { discoversWeakness, practiceRecordMatchesEvidence, type EvidenceContext, type PracticeRecord } from "./evidenceContext"
 import type { TimelineEvidence } from "./evidenceNormalization"
 import { attemptsFromEvents, type KeyAttempt } from "./heatmap"
-import { isTrackableTransitionPair } from "./drillableTransitions"
+import { isTrackableTransitionPair, trackableTransitionPairs } from "./drillableTransitions"
 import { decodeEvidenceTimeline, decodeTimeline, timelineDurationMs, type KeystrokeEvent, type TestEvidenceEvent } from "./keystrokes"
 import { classifyMovement, type MovementKind } from "./movementClassification"
 import { evaluateTestEvidence } from "./testEvidence"
@@ -166,7 +166,14 @@ export interface NaturalKeyboardEvidence {
 }
 
 /** Progress keyboard proof comes only from explicitly tagged ordinary Tests. */
-export function projectNaturalKeyboardEvidence(timelines: readonly TimelineEvidence[]): NaturalKeyboardEvidence {
+export function projectNaturalKeyboardEvidence(
+    timelines: readonly TimelineEvidence[],
+    corpusWords?: readonly string[],
+): NaturalKeyboardEvidence {
+    const eligiblePairs = corpusWords ? trackableTransitionPairs(corpusWords) : null
+    const eligiblePair = eligiblePairs
+        ? (pair: string) => isTrackableTransitionPair(pair, eligiblePairs)
+        : isTrackableTransitionPair
     const attempts = new Map<string, KeyAttempt>()
     let transitions: TransitionAggregate[] = []
     for (const timeline of timelines) {
@@ -176,7 +183,7 @@ export function projectNaturalKeyboardEvidence(timelines: readonly TimelineEvide
             const current = attempts.get(key) ?? { attempts: 0, correct: 0 }
             attempts.set(key, { attempts: current.attempts + value.attempts, correct: current.correct + value.correct })
         }
-        transitions = mergeTransitions(transitions, aggregateTransitions(events))
+        transitions = mergeTransitions(transitions, aggregateTransitions(events, eligiblePair), eligiblePair)
     }
     return { attempts: Object.fromEntries(attempts), transitions }
 }
@@ -321,7 +328,10 @@ function replayFinalEvents(events: readonly TestEvidenceEvent[]): KeystrokeEvent
     return stack
 }
 
-function finalFrequency(events: readonly TestEvidenceEvent[]): {
+function finalFrequency(
+    events: readonly TestEvidenceEvent[],
+    eligiblePair: (pair: string) => boolean = isTrackableTransitionPair,
+): {
     characters: number
     keys: Map<string, number>
     pairs: Map<string, number>
@@ -341,7 +351,7 @@ function finalFrequency(events: readonly TestEvidenceEvent[]): {
         keys.set(key, (keys.get(key) ?? 0) + 1)
         if (previous) {
             const pair = previous + key
-            if (isTrackableTransitionPair(pair)) pairs.set(pair, (pairs.get(pair) ?? 0) + 1)
+            if (eligiblePair(pair)) pairs.set(pair, (pairs.get(pair) ?? 0) + 1)
         }
         previous = key
     }
@@ -405,7 +415,10 @@ function timelineVolumeWeights(timelines: readonly TimelineEvidence[]): Map<numb
     return weights
 }
 
-function prepareEvidence(timelines: readonly TimelineEvidence[]): PreparedEvidence {
+function prepareEvidence(
+    timelines: readonly TimelineEvidence[],
+    eligiblePair: (pair: string) => boolean = isTrackableTransitionPair,
+): PreparedEvidence {
     const arrivals: ArrivalSample[] = []
     const attempts: AttemptSample[] = []
     const corrections: CorrectionSample[] = []
@@ -450,7 +463,7 @@ function prepareEvidence(timelines: readonly TimelineEvidence[]): PreparedEviden
         }
 
         const events = decodeEvidenceTimeline(timeline.timeline)
-        const frequency = finalFrequency(events)
+        const frequency = finalFrequency(events, eligiblePair)
         if (discovery) discoveryCharacters += frequency.characters
         // Prefer ordinary natural occurrence rates. Diagnostic frequency is a
         // first-prescription fallback only when no natural text exists.
@@ -522,7 +535,7 @@ function prepareEvidence(timelines: readonly TimelineEvidence[]): PreparedEviden
                     arrivals.push({
                         key,
                         predecessor,
-                        pair: isTrackableTransitionPair(pair) ? pair : null,
+                        pair: eligiblePair(pair) ? pair : null,
                         dtMs,
                         correct: event.correct,
                         testId,
@@ -599,7 +612,7 @@ function prepareEvidence(timelines: readonly TimelineEvidence[]): PreparedEviden
         keyFrequency.clear()
         pairFrequency.clear()
         for (const timeline of timelines.filter((item) => item.context === "natural")) {
-            const frequency = finalFrequency(decodeEvidenceTimeline(timeline.timeline))
+            const frequency = finalFrequency(decodeEvidenceTimeline(timeline.timeline), eligiblePair)
             frequencyCharacters += frequency.characters
             addCounts(keyFrequency, frequency.keys)
             addCounts(pairFrequency, frequency.pairs)
@@ -1320,7 +1333,11 @@ function movementCandidates(evidence: PreparedEvidence, arrivals: readonly Arriv
 }
 
 export function analyzeTypingEvidence(input: SkillEvidenceInput): SkillAnalysis {
-    const evidence = prepareEvidence(input.timelines)
+    const eligiblePairs = input.corpusWords ? trackableTransitionPairs(input.corpusWords) : null
+    const eligiblePair = eligiblePairs
+        ? (pair: string) => isTrackableTransitionPair(pair, eligiblePairs)
+        : isTrackableTransitionPair
+    const evidence = prepareEvidence(input.timelines, eligiblePair)
     const discoveryArrivals = evidence.arrivals.filter((sample) => discoversWeakness(sample.context))
     const discoveryAttempts = evidence.attempts.filter((sample) => discoversWeakness(sample.context))
     const discoveryCorrections = evidence.corrections.filter((sample) => discoversWeakness(sample.context))

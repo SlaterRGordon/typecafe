@@ -34,13 +34,16 @@ export interface TransitionAggregate {
 // Roll one test's timeline into per-pair aggregates. Tracked pairs only:
 // letter→letter bigrams plus space pairs (word boundaries); punctuation/digits
 // are dropped. isTrackedPair does the whole filter (charset + real-word gate).
-export function aggregateTransitions(events: KeystrokeEvent[]): TransitionAggregate[] {
+export function aggregateTransitions(
+    events: KeystrokeEvent[],
+    eligiblePair: (pair: string) => boolean = isTrackableTransitionPair,
+): TransitionAggregate[] {
     const byPair = new Map<string, TransitionAggregate>()
     for (let i = 1; i < events.length; i++) {
         const from = events[i - 1]!.key.toLowerCase()
         const to = events[i]!.key.toLowerCase()
         const pair = from + to
-        if (!isTrackedPair(pair)) continue
+        if (!(pair.includes(" ") ? isTrackedPair(pair) : eligiblePair(pair))) continue
         const dt = Math.max(events[i]!.t - events[i - 1]!.t, 0)
         const entry = byPair.get(pair) ?? { pair, count: 0, totalMs: 0, errors: 0 }
         entry.count += 1
@@ -118,12 +121,16 @@ function capTransitionAggregate(a: TransitionAggregate): TransitionAggregate {
 // Merge two sets of aggregates (lifetime + a new test, or local + incoming) by
 // summing, then capping each pair to the rolling window - the same arithmetic
 // the DB upsert applies (transitionStats.batchSync).
-export function mergeTransitions(existing: TransitionAggregate[], incoming: TransitionAggregate[]): TransitionAggregate[] {
+export function mergeTransitions(
+    existing: TransitionAggregate[],
+    incoming: TransitionAggregate[],
+    eligiblePair: (pair: string) => boolean = isTrackableTransitionPair,
+): TransitionAggregate[] {
     const byPair = new Map<string, TransitionAggregate>()
     for (const a of [...existing, ...incoming]) {
         if (a.count <= 0) continue
         const pair = a.pair.toLowerCase()
-        if (!isTrackedPair(pair)) continue
+        if (!(pair.includes(" ") ? isTrackedPair(pair) : eligiblePair(pair))) continue
         const entry = byPair.get(pair) ?? { pair, count: 0, totalMs: 0, errors: 0 }
         entry.count += a.count
         entry.totalMs += a.totalMs
