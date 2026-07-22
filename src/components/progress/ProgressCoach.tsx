@@ -84,7 +84,7 @@ function CoachHeadline({ target, color }: { target: ProgressCoachTarget, color: 
         <h2 className="mt-1.5 text-xl font-bold leading-tight text-base-content">
             <span className="sr-only">{target.headline}</span>
             <span aria-hidden="true" className="flex flex-wrap items-center gap-2">
-                <span>{before}</span>
+                <span className="text-xl">{before}</span>
                 {target.target.kind === "movement"
                     ? <span className="text-base" style={{ color }}>{target.label}</span>
                     : <TargetGlyph keys={target.visualKeys} label={target.label} arrows={usesArrow(target)} color={color} headline />}

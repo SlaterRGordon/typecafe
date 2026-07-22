@@ -497,25 +497,25 @@ function WpmChart(props: { samples: ScoreWpmSample[]; durationSeconds: number; r
     // (on top). The headline is always the last entry so its dot anchors the hover.
     const lines: ChartLine[] = hasCumulative
       ? [
-          { path: buildSmoothPath(pointsFor(cumulative.map((c) => c.rawWpm))), width: 2.5, dashed: true },
-          { path: buildSmoothPath(burstNetPoints), width: 2, neutral: true },
-          { path: buildSmoothPath(headlinePoints), width: 4, animate: true },
-        ]
+        { path: buildSmoothPath(pointsFor(cumulative.map((c) => c.rawWpm))), width: 2.5, dashed: true },
+        { path: buildSmoothPath(burstNetPoints), width: 2, neutral: true },
+        { path: buildSmoothPath(headlinePoints), width: 4, animate: true },
+      ]
       : [
-          { path: buildSmoothPath(pointsFor(samples.map((s) => s.wpm))), width: 2.5, dashed: true, neutral: true },
-          { path: buildSmoothPath(burstNetPoints), width: 4, animate: true },
-        ];
+        { path: buildSmoothPath(pointsFor(samples.map((s) => s.wpm))), width: 2.5, dashed: true, neutral: true },
+        { path: buildSmoothPath(burstNetPoints), width: 4, animate: true },
+      ];
 
     const legend = hasCumulative
       ? [
-          { label: "Cumulative net", kind: "solid" as const, neutral: false },
-          { label: "Cumulative raw", kind: "dashed" as const, neutral: false },
-          { label: "Burst net", kind: "solid" as const, neutral: true },
-        ]
+        { label: "Cumulative net", kind: "solid" as const, neutral: false },
+        { label: "Cumulative raw", kind: "dashed" as const, neutral: false },
+        { label: "Burst net", kind: "solid" as const, neutral: true },
+      ]
       : [
-          { label: "Net", kind: "solid" as const, neutral: false },
-          { label: "Raw", kind: "dashed" as const, neutral: true },
-        ];
+        { label: "Net", kind: "solid" as const, neutral: false },
+        { label: "Raw", kind: "dashed" as const, neutral: true },
+      ];
 
     // Hover readout per sample: the y that the headline dot sits at, plus the
     // exact values for whichever lines are on screen.
@@ -524,14 +524,14 @@ function WpmChart(props: { samples: ScoreWpmSample[]; durationSeconds: number; r
       const headlineWpm = hasCumulative ? cumulative[i]!.netWpm : burstNet[i]!;
       const readouts = hasCumulative
         ? [
-            { label: "net", value: cumulative[i]!.netWpm, className: "text-primary" },
-            { label: "raw", value: cumulative[i]!.rawWpm, className: "text-primary/70" },
-            { label: "burst", value: burstNet[i]!, className: "text-base-content/60" },
-          ]
+          { label: "net", value: cumulative[i]!.netWpm, className: "text-primary" },
+          { label: "raw", value: cumulative[i]!.rawWpm, className: "text-primary/70" },
+          { label: "burst", value: burstNet[i]!, className: "text-base-content/60" },
+        ]
         : [
-            { label: "net", value: burstNet[i]!, className: "text-primary" },
-            { label: "raw", value: sample.wpm, className: "text-base-content/60" },
-          ];
+          { label: "net", value: burstNet[i]!, className: "text-primary" },
+          { label: "raw", value: sample.wpm, className: "text-base-content/60" },
+        ];
       return { second, x: xAt(second), headlineY: yAt(headlineWpm), readouts };
     });
 
@@ -748,7 +748,7 @@ function DiagnosisPanel(props: { score: ShareableScore }) {
 
   return (
     <div data-testid="diagnosis-panel" className="score-reveal mt-5 rounded-lg border border-base-content/10 bg-base-100/45 p-5" style={{ "--reveal-delay": "200ms" } as CSSProperties}>
-      
+
       <div className="mb-4 flex items-center gap-2 text-lg font-semibold text-base-content">
         <span>Diagnosis</span>
         <InfoIcon label="The keys, transitions, and recurring patterns supported by this Test and your recent natural typing. Each finding opens Guided Practice." />
@@ -805,13 +805,15 @@ function DiagnosisPanel(props: { score: ShareableScore }) {
                         const observed = finding.kind === "inaccurate-keys"
                           ? finding.detail.reduce((sum, item) => sum + item.accuracy * item.attempts, 0) / Math.max(1, sampleCount)
                           : finding.detail.reduce((sum, item) => sum + item.meanMs * ("samples" in item ? item.samples : "chars" in item ? item.chars : 1), 0) / Math.max(1, sampleCount);
-                        const href = targetAction(target, { evidence: {
-                          metric: finding.kind === "inaccurate-keys" ? "%" : "ms",
-                          baseline: finding.kind === "inaccurate-keys" ? 100 : eventBaseline,
-                          observed,
-                          sampleCount: Math.max(1, sampleCount),
-                          reason: finding.summary,
-                        } }).href;
+                        const href = targetAction(target, {
+                          evidence: {
+                            metric: finding.kind === "inaccurate-keys" ? "%" : "ms",
+                            baseline: finding.kind === "inaccurate-keys" ? 100 : eventBaseline,
+                            observed,
+                            sampleCount: Math.max(1, sampleCount),
+                            reason: finding.summary,
+                          }
+                        }).href;
                         const noun = words.length > 0 ? "words" : "keys";
                         return (
                           <li
@@ -847,13 +849,15 @@ function DiagnosisPanel(props: { score: ShareableScore }) {
                             className="inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                             href={targetAction(
                               { kind: "transition", pair: `${t.from}${t.to}`, metric: "latency" },
-                              { evidence: {
-                                metric: "ms",
-                                baseline: t.meanMs / t.ratio,
-                                observed: t.meanMs,
-                                sampleCount: t.count,
-                                reason: `${t.from}→${t.to} takes ${t.ratio.toFixed(1)}× your average pace in this Test.`,
-                              } },
+                              {
+                                evidence: {
+                                  metric: "ms",
+                                  baseline: t.meanMs / t.ratio,
+                                  observed: t.meanMs,
+                                  sampleCount: t.count,
+                                  reason: `${t.from}→${t.to} takes ${t.ratio.toFixed(1)}× your average pace in this Test.`,
+                                }
+                              },
                             ).href}
                             aria-label={`Practise the ${t.from} to ${t.to} transition`}
                           >
@@ -1044,9 +1048,7 @@ export function ShareableScoreCard(props: ShareableScoreCardProps) {
                     {score.streak}-day streak
                   </Chip>
                 }
-              </div>
-              {showFlattery && typeof score.avgDelta === "number" &&
-                <div className="mb-2">
+                {showFlattery && typeof score.avgDelta === "number" &&
                   <Chip
                     testId="avg-delta"
                     tone={score.avgDelta >= 0 ? "success" : "error"}
@@ -1055,8 +1057,8 @@ export function ShareableScoreCard(props: ShareableScoreCardProps) {
                   >
                     {formatNumber(Math.abs(score.avgDelta), 1)} WPM {score.avgDelta >= 0 ? "over" : "under"} your 30-day average
                   </Chip>
-                </div>
-              }
+                }
+              </div>
               <p className="text-sm text-base-content/65">{modeText} / {formatDate(score.createdAt)}</p>
               {(score.punctuation || score.capitals || score.numbers || score.ranked === false) &&
                 <div className="mt-2 flex flex-wrap gap-2">
@@ -1137,77 +1139,77 @@ export function ShareableScoreCard(props: ShareableScoreCardProps) {
                 <span>Sign in to save &amp; share</span>
               </label>
               : (!readonly || shareUrl) ?
-              <ToolbarMenu
-                open={shareMenuOpen}
-                onClose={() => setShareMenuOpen(false)}
-                testId="share-menu"
-                widthClassName="min-w-56"
-                trigger={
-                  <button
-                    className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50"
-                    type="button"
-                    disabled={isSaving || (!shareUrl && !canCreateShare)}
-                    onClick={() => (shareMenuOpen ? setShareMenuOpen(false) : openShareMenu())}
-                    aria-haspopup="menu"
-                    aria-expanded={shareMenuOpen}
-                    aria-label="Share Score"
-                    title={isSaving ? "Saving your score" : "Share your score"}
-                  >
-                    {isSaving ? <Spinner /> : <ShareIcon />}
-                    <span>{isSaving ? "Saving..." : "Share Score"}</span>
-                    <ChevronDownIcon />
-                  </button>
-                }
-              >
-                <div role="menu" className="flex flex-col gap-1">
-                  <ShareMenuButton
-                    icon={<i className="fa-solid fa-link w-4 text-center" aria-hidden="true" />}
-                    label={linkState === "copied" ? "Link copied" : "Copy link"}
-                    onClick={handleCopyLink}
-                    disabled={!shareUrl}
-                    loading={!shareUrl && !shareFailed}
-                  />
-                  <ShareMenuLink
-                    icon={<i className="fa-brands fa-x-twitter w-4 text-center" aria-hidden="true" />}
-                    label="Share on X"
-                    href={shareUrl ? tweetHref(shareText, shareUrl) : undefined}
-                    loading={!shareUrl && !shareFailed}
-                    onSelect={() => setShareMenuOpen(false)}
-                  />
-                  <ShareMenuLink
-                    icon={<i className="fa-brands fa-reddit-alien w-4 text-center" aria-hidden="true" />}
-                    label="Share on Reddit"
-                    href={shareUrl ? redditHref(shareText, shareUrl) : undefined}
-                    loading={!shareUrl && !shareFailed}
-                    onSelect={() => setShareMenuOpen(false)}
-                  />
-                  {canNativeShare &&
+                <ToolbarMenu
+                  open={shareMenuOpen}
+                  onClose={() => setShareMenuOpen(false)}
+                  testId="share-menu"
+                  widthClassName="min-w-56"
+                  trigger={
+                    <button
+                      className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50"
+                      type="button"
+                      disabled={isSaving || (!shareUrl && !canCreateShare)}
+                      onClick={() => (shareMenuOpen ? setShareMenuOpen(false) : openShareMenu())}
+                      aria-haspopup="menu"
+                      aria-expanded={shareMenuOpen}
+                      aria-label="Share Score"
+                      title={isSaving ? "Saving your score" : "Share your score"}
+                    >
+                      {isSaving ? <Spinner /> : <ShareIcon />}
+                      <span>{isSaving ? "Saving..." : "Share Score"}</span>
+                      <ChevronDownIcon />
+                    </button>
+                  }
+                >
+                  <div role="menu" className="flex flex-col gap-1">
                     <ShareMenuButton
-                      icon={<i className="fa-solid fa-share-nodes w-4 text-center" aria-hidden="true" />}
-                      label="Share via device"
-                      onClick={() => { void handleNativeShare(); setShareMenuOpen(false); }}
+                      icon={<i className="fa-solid fa-link w-4 text-center" aria-hidden="true" />}
+                      label={linkState === "copied" ? "Link copied" : "Copy link"}
+                      onClick={handleCopyLink}
                       disabled={!shareUrl}
                       loading={!shareUrl && !shareFailed}
                     />
-                  }
-                  {shareFailed &&
-                    <ShareMenuButton
-                      icon={<i className="fa-solid fa-rotate-right w-4 text-center" aria-hidden="true" />}
-                      label="Couldn't create link - Retry"
-                      onClick={() => void startMint()}
+                    <ShareMenuLink
+                      icon={<i className="fa-brands fa-x-twitter w-4 text-center" aria-hidden="true" />}
+                      label="Share on X"
+                      href={shareUrl ? tweetHref(shareText, shareUrl) : undefined}
+                      loading={!shareUrl && !shareFailed}
+                      onSelect={() => setShareMenuOpen(false)}
                     />
-                  }
-                  <div className="my-1 border-t border-base-content/10" />
-                  <ShareMenuButton
-                    testId="share-menu-screenshot"
-                    icon={<i className="fa-solid fa-image w-4 text-center" aria-hidden="true" />}
-                    label={screenshotButtonLabel}
-                    onClick={handleCopyImage}
-                  />
-                </div>
-              </ToolbarMenu>
-              :
-              null
+                    <ShareMenuLink
+                      icon={<i className="fa-brands fa-reddit-alien w-4 text-center" aria-hidden="true" />}
+                      label="Share on Reddit"
+                      href={shareUrl ? redditHref(shareText, shareUrl) : undefined}
+                      loading={!shareUrl && !shareFailed}
+                      onSelect={() => setShareMenuOpen(false)}
+                    />
+                    {canNativeShare &&
+                      <ShareMenuButton
+                        icon={<i className="fa-solid fa-share-nodes w-4 text-center" aria-hidden="true" />}
+                        label="Share via device"
+                        onClick={() => { void handleNativeShare(); setShareMenuOpen(false); }}
+                        disabled={!shareUrl}
+                        loading={!shareUrl && !shareFailed}
+                      />
+                    }
+                    {shareFailed &&
+                      <ShareMenuButton
+                        icon={<i className="fa-solid fa-rotate-right w-4 text-center" aria-hidden="true" />}
+                        label="Couldn't create link - Retry"
+                        onClick={() => void startMint()}
+                      />
+                    }
+                    <div className="my-1 border-t border-base-content/10" />
+                    <ShareMenuButton
+                      testId="share-menu-screenshot"
+                      icon={<i className="fa-solid fa-image w-4 text-center" aria-hidden="true" />}
+                      label={screenshotButtonLabel}
+                      onClick={handleCopyImage}
+                    />
+                  </div>
+                </ToolbarMenu>
+                :
+                null
             }
           </div>
         </div>

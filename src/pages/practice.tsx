@@ -477,7 +477,7 @@ const Practice: NextPage = () => {
         <div data-testid="custom-practice-workspace" className="h-full w-full overflow-y-auto bg-base-100 px-3 py-6 sm:px-6 md:py-10">
             <Head><title>Practice | TypeCafe</title></Head>
             <main data-testid="custom-grams-setup-loading" className="mx-auto flex min-h-[20rem] w-full max-w-5xl items-center justify-center md:px-4">
-                <p className="font-mono text-sm text-base-content/55">Loading saved Gramsâ€¦</p>
+                <p className="font-mono text-sm text-base-content/55">Loading saved Grams</p>
             </main>
         </div>
     )
