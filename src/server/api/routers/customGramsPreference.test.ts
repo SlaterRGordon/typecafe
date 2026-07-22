@@ -46,7 +46,7 @@ describe("Custom Grams preference router", () => {
 
     it("keeps a newer account setup while independently accepting newer Recent activity", async () => {
         const existing = updateCustomGramsSetup(emptyCustomGramsPreference("english"), {
-            grams: ["th"], durationSeconds: 120, textStyle: "pseudo",
+            grams: ["th", "station"], durationSeconds: 47, infinite: true, textStyle: "pseudo",
         }, 200)
         const incoming = addRecentCustomGram(updateCustomGramsSetup(emptyCustomGramsPreference("english"), {
             grams: ["er"], durationSeconds: 30, textStyle: "varied",
@@ -62,6 +62,23 @@ describe("Custom Grams preference router", () => {
 
         expect(merged.setup).toEqual(existing.setup)
         expect(merged.entries).toEqual([{ gram: "er", lastUsedAt: 300 }])
+    })
+
+    it("accepts and persists mixed Words with custom seconds and infinity", async () => {
+        const incoming = addRecentCustomGram(updateCustomGramsSetup(emptyCustomGramsPreference("english"), {
+            grams: ["th", "l'esprit", "co-operate"], durationSeconds: 47, infinite: true, textStyle: "pseudo",
+        }, 200), "station", 300)
+        let persisted: unknown
+        const upsert = vi.fn((input: { create: { snapshot: unknown } }) => {
+            persisted = input.create.snapshot
+            return Promise.resolve(input)
+        })
+        const delegate = { findUnique: vi.fn().mockResolvedValue(null), upsert }
+        const transaction = vi.fn(async (work: (client: unknown) => Promise<unknown>) => work({ customGramsPreference: delegate }))
+        const caller = customGramsPreferenceRouter.createCaller(callerContext({ customGramsPreference: delegate, $transaction: transaction }))
+
+        await expect(caller.merge({ snapshot: incoming })).resolves.toEqual(incoming)
+        expect(persisted).toEqual(incoming)
     })
 
     it("serializes concurrent device merges so neither new Gram is lost", async () => {

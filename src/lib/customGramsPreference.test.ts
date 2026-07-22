@@ -76,14 +76,51 @@ describe("Custom Grams preference", () => {
         const storage = memoryStorage()
         const snapshot = updateCustomGramsSetup(
             addRecentCustomGram(emptyCustomGramsPreference("english"), "L’esprit", 30),
-            { grams: ["th", "l'esprit", "co-operate"], durationSeconds: 60, textStyle: "pseudo" },
+            { grams: ["th", "l'esprit", "co-operate"], durationSeconds: 47, infinite: true, textStyle: "pseudo" },
             40,
         )
 
         writePendingCustomGramsPreference(snapshot, storage)
         expect(readPendingCustomGramsPreference("english", storage)).toMatchObject({
             entries: [{ gram: "l'esprit", lastUsedAt: 30 }],
-            setup: { grams: ["th", "l'esprit", "co-operate"], textStyle: "pseudo" },
+            setup: {
+                grams: ["th", "l'esprit", "co-operate"],
+                durationSeconds: 47,
+                infinite: true,
+                textStyle: "pseudo",
+            },
+        })
+    })
+
+    it("keeps Gram validation strict while accepting complete Words", () => {
+        const snapshot = parseCustomGramsPreference({
+            version: 2,
+            language: "english",
+            entries: [
+                { gram: "x", lastUsedAt: 50 },
+                { gram: "two words", lastUsedAt: 40 },
+                { gram: " action ", lastUsedAt: 30 },
+                { gram: "TH", lastUsedAt: 20 },
+            ],
+            setup: {
+                grams: ["x", "two words", "action", "th"],
+                durationSeconds: 47,
+                infinite: true,
+                textStyle: "pseudo",
+                updatedAt: 60,
+            },
+        }, "english")
+
+        expect(snapshot.entries).toEqual([
+            { gram: "action", lastUsedAt: 30 },
+            { gram: "th", lastUsedAt: 20 },
+        ])
+        expect(snapshot.setup).toEqual({
+            grams: ["action", "th"],
+            durationSeconds: 47,
+            infinite: true,
+            textStyle: "pseudo",
+            updatedAt: 60,
         })
     })
 
@@ -121,11 +158,22 @@ describe("Custom Grams preference", () => {
             entries: [{ gram: "th", lastUsedAt: 9 }],
             setup: null,
         })
+        expect(parseCustomGramsPreference({
+            version: 2,
+            language: "english",
+            entries: "malformed",
+            setup: { grams: ["th"], durationSeconds: 60, infinite: true, textStyle: "varied", updatedAt: "new" },
+        }, "english")).toEqual({
+            version: 2,
+            language: "english",
+            entries: [],
+            setup: null,
+        })
     })
 
     it("is idempotent and never lets a stale setup timestamp replace a newer tuple", () => {
         const current = updateCustomGramsSetup(emptyCustomGramsPreference("english"), {
-            grams: ["th"], durationSeconds: 240, textStyle: "pseudo",
+            grams: ["th", "station"], durationSeconds: 47, infinite: true, textStyle: "pseudo",
         }, 20)
         const stale = updateCustomGramsSetup(emptyCustomGramsPreference("english"), {
             grams: ["er"], durationSeconds: 30, textStyle: "varied",

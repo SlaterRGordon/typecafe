@@ -722,11 +722,16 @@ test.describe("Custom Practice", () => {
     await expect(controls.getByRole("button", { name: "120s" })).toHaveClass(/text-primary/)
   })
 
-  test("merges the newest guest setup into signed-in per-language cross-device state", async ({ page }) => {
+  test("merges Words and infinity into signed-in per-language cross-device state", async ({ page }) => {
     await page.addInitScript(() => window.localStorage.setItem("typecafe:practice:recent-custom-grams", JSON.stringify({
       version: 2,
       languages: {
-        french: { version: 2, language: "french", entries: [], setup: { grams: ["été"], durationSeconds: 120, textStyle: "pseudo", updatedAt: 300 } },
+        french: {
+          version: 2,
+          language: "french",
+          entries: [{ gram: "l'esprit", lastUsedAt: 310 }],
+          setup: { grams: ["été", "l'esprit"], durationSeconds: 47, infinite: true, textStyle: "pseudo", updatedAt: 300 },
+        },
       },
     })))
     await mockAuthenticatedSession(page)
@@ -740,18 +745,40 @@ test.describe("Custom Practice", () => {
     await expect(page.getByTestId("selected-practice-grams").getByLabel("Remove th")).toBeVisible()
     await setPracticeLanguage(page, "french")
     await expect(page.getByTestId("selected-practice-grams").getByLabel("Remove été")).toBeVisible()
-    await expect(controls.getByRole("button", { name: "120s" })).toHaveClass(/text-primary/)
+    await expect(page.getByTestId("selected-practice-grams").getByLabel("Remove l'esprit")).toBeVisible()
+    await expect(controls.getByRole("button", { name: "Infinite Practice" })).toHaveClass(/text-primary/)
+    await expect(controls.getByRole("button", { name: "Pseudo" })).toHaveClass(/text-primary/)
     await expect.poll(() => pendingCustomGramsSetupTimestamp(page, "french")).toBeNull()
 
-    await setPracticeLanguage(page, "english")
-    await expect(page.getByTestId("selected-practice-grams").getByLabel("Remove th")).toBeVisible()
-    await setPracticeLanguage(page, "french")
-    await expect(page.getByTestId("selected-practice-grams").getByLabel("Remove été")).toBeVisible()
+    await controls.getByRole("button", { name: "custom", exact: true }).click()
+    await controls.getByRole("spinbutton", { name: "Custom Practice duration" }).press("Enter")
+    await expect(controls.getByRole("button", { name: "custom", exact: true })).toHaveClass(/text-primary/)
+    await expect.poll(() => pendingCustomGramsSetupTimestamp(page, "french")).toBeNull()
 
     await page.evaluate(() => window.localStorage.removeItem("typecafe:practice:recent-custom-grams"))
     await page.reload()
     await expect(page.getByTestId("selected-practice-grams").getByLabel("Remove été")).toBeVisible()
-    await expect(controls.getByRole("button", { name: "120s" })).toHaveClass(/text-primary/)
+    await expect(page.getByTestId("selected-practice-grams").getByLabel("Remove l'esprit")).toBeVisible()
+    await expect(controls.getByRole("button", { name: "custom", exact: true })).toHaveClass(/text-primary/)
+    await controls.getByRole("button", { name: "custom", exact: true }).click()
+    await expect(controls.getByRole("spinbutton", { name: "Custom Practice duration" })).toHaveValue("47")
+  })
+
+  test("syncs a directly entered Word into signed-in Recent readback", async ({ page }) => {
+    await mockAuthenticatedSession(page)
+    await mockTrpc(page)
+    await page.goto("/practice?custom=grams")
+
+    await page.getByTestId("custom-gram-input").fill("L’esprit")
+    await page.getByRole("region", { name: "Grams and words editor" }).getByRole("button", { name: "Add" }).click()
+    await page.getByRole("tab", { name: "Recent" }).click()
+    await expect(page.getByTestId("recent-custom-grams").getByRole("button")).toHaveText(["l'esprit"])
+    await expect.poll(() => pendingRecentGrams(page, "english")).toEqual([])
+
+    await page.evaluate(() => window.localStorage.removeItem("typecafe:practice:recent-custom-grams"))
+    await page.reload()
+    await page.getByRole("tab", { name: "Recent" }).click()
+    await expect(page.getByTestId("recent-custom-grams").getByRole("button")).toHaveText(["l'esprit"])
   })
 
   test("blocks blended Gram edits while a signed-in language setup is loading", async ({ page }) => {
@@ -796,10 +823,15 @@ test.describe("Custom Practice", () => {
     await expect(page.getByTestId("recent-custom-grams").getByRole("button")).toHaveText(["er", "th"])
   })
 
-  test("retains pending guest Recent Grams when the account merge fails", async ({ page }) => {
+  test("retains a pending mixed infinite setup when the account merge fails", async ({ page }) => {
     await page.addInitScript(() => window.localStorage.setItem("typecafe:practice:recent-custom-grams", JSON.stringify({
-      version: 1,
-      languages: { english: { version: 1, language: "english", entries: [{ gram: "er", lastUsedAt: 20 }] } },
+      version: 2,
+      languages: { english: {
+        version: 2,
+        language: "english",
+        entries: [{ gram: "station", lastUsedAt: 20 }],
+        setup: { grams: ["th", "station"], durationSeconds: 47, infinite: true, textStyle: "pseudo", updatedAt: 30 },
+      } },
     })))
     await mockAuthenticatedSession(page)
     await mockTrpc(page, {
@@ -808,8 +840,10 @@ test.describe("Custom Practice", () => {
     })
     await page.goto("/practice?custom=grams")
 
-    await expect(page.getByTestId("recent-custom-grams").getByRole("button")).toHaveText(["er", "th"])
-    await expect.poll(() => pendingRecentGrams(page, "english")).toEqual(["er"])
+    await expect(page.getByTestId("selected-practice-grams").getByLabel("Remove station")).toBeVisible()
+    await expect(page.getByRole("region", { name: "Practice controls" }).getByRole("button", { name: "Infinite Practice" })).toHaveClass(/text-primary/)
+    await expect.poll(() => pendingCustomGramsSetupTimestamp(page, "english")).toBe(30)
+    await expect.poll(() => pendingRecentGrams(page, "english")).toEqual(["station"])
   })
 
   test("timer completion shows focus-first per-key recap with no attempt floor", async ({ page }) => {
