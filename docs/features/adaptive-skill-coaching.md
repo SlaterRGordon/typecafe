@@ -1339,6 +1339,75 @@ contract while reading as one minimal workspace: Home-like controls and typer,
 one bottom editor surface, natural-Test weakness guidance, pronounceable focus
 text, and concise results that point back to measurement.
 
+#### 13.9 Owner-confirmed Progress and Practice cleanup
+
+Approved 2026-07-21 through a docs-backed batch design-tree review. This
+decision supersedes the retained Daily Coach history in section 12 and
+[daily-coaching.md](daily-coaching.md), the 2-4-only direct-entry restriction above, and the fixed
+30/60/120/240-second Practice duration set. The design is confirmed; the
+implementation items below remain unchecked.
+
+- Remove Daily Coach completely rather than translating or archiving its
+  history. Delete every runtime read/write, Home adoption path, state
+  derivation, status, API, client helper, `/plan` route, exclusive
+  Transfer/Cold/Mastery machinery, test, fixture, screenshot, and explanatory
+  document. Drop the Prisma model and database table, including existing rows,
+  in a destructive migration. Old browser-local keys become inert and unread;
+  do not retain legacy cleanup code merely to erase them.
+- Keep the desktop Target master/detail layout but make the two outer Progress
+  columns equal height. The detail and ledger header stay fixed while only
+  Target rows scroll. Target detail contains the Target and plain status,
+  Earlier -> Recent natural evidence, current estimated Worth, and one primary
+  action. Hide empty Practice data; expose non-zero focused time, completed
+  runs, attempts, and Practice-context performance behind one collapsed
+  `Practice activity` disclosure. Do not invent a replacement Target-history
+  model: a Target may leave the ledger when it no longer qualifies.
+- A Target rendered as one ordered pair, such as `j->u`, is an exact Transition
+  Target and its Guided Practice selects only that pair. Movement-family Targets
+  remain grouped only when the UI names the movement and shows multiple
+  representative sequences; never attribute exact-pair Practice to a broader
+  hidden movement family.
+- Rename the Custom surface to `Grams & words`. Grams remain 2-4 characters.
+  Words are complete 5-32-character Unicode tokens with no spaces; internal
+  apostrophes and hyphens are valid. Guided Word Targets and direct-entry Words
+  stay whole in both Varied and Pseudo generation. Balance every selected Gram
+  or Word in a mixed setup. Measured and common-language suggestions remain
+  Grams; direct entry, Recent, saved setups, and Guided Targets may contain
+  Words.
+- Add Home-style restart and in-app fullscreen actions to Practice. Finite
+  restart records an interrupted run and generates fresh text. Fullscreen uses
+  the same application overlay as Home. Do not show a settings gear until
+  Practice genuinely supports generic punctuation, capitals, and number
+  add-ons in its compiler and evidence contract.
+- Match Home's timed length controls exactly: `15 / 30 / 60 / 120 / infinity /
+  custom`, with custom integer seconds clamped to 1-3600. Finite custom lengths
+  work in Guided and Custom Practice. Infinity counts upward and streams
+  focus-aware text indefinitely, with no Finish action, completion, recap, run
+  persistence, or evidence. It may remain visually Guided, but cannot record
+  Acquisition or change Target status; switching back to a finite duration
+  restores normal Guided completion. Remember the infinity preference
+  separately for Keys and each language's Grams & words setup.
+
+- [ ] Remove Daily Coach code, routes, persisted server data, schema, historical
+      influence, documentation, and coverage at the boundary above.
+- [ ] Simplify Target detail and make the Progress columns equal-height without
+      changing natural evidence or Worth derivation.
+- [ ] Make exact Transition and explicit movement-family identity agree from
+      Progress through Guided Practice and persisted attribution.
+- [ ] Add whole Word entry, persistence, compilation, recurrence, and recap
+      behavior alongside 2-4-character Grams.
+- [ ] Add the shared Practice actions and exact Home duration model, including
+      focus-aware, evidence-free infinity streaming.
+- [ ] Update focused unit/e2e coverage and only the affected canonical Progress
+      and Practice screenshots; run the broad integration checkpoint after all
+      slices land.
+
+**Cleanup acceptance:** Daily Coach cannot affect any active behavior or data;
+Target detail is concise and its column fits Progress; an exact Transition
+action practises only the displayed pair; Words remain whole; and Practice
+matches Home's restart, fullscreen, finite custom, and evidence-free infinity
+semantics without claiming unsupported settings or improvement.
+
 **Acceptance:** Home remains ordinary Tests; every supported Target opens the
 same Practice workspace; Custom Keys and mixed Grams require only meaningful
 focus, duration, and style choices; completed Practice produces honest
