@@ -18,6 +18,7 @@ import { isFiniteTimedSeconds } from "./testConfig"
 export interface CustomGramsPracticePreferences {
     grams: string[]
     durationSeconds: PracticeDurationSeconds
+    infinite?: boolean
     textStyle: PracticeTextStyle
 }
 
@@ -385,6 +386,7 @@ export function parseCustomGramsPracticePreferences(value: unknown): CustomGrams
         durationSeconds: isFiniteTimedSeconds(raw.durationSeconds)
             ? raw.durationSeconds
             : 60,
+        infinite: raw.infinite === true,
         textStyle: PRACTICE_TEXT_STYLES.includes(raw.textStyle as PracticeTextStyle)
             ? raw.textStyle as PracticeTextStyle
             : "varied",

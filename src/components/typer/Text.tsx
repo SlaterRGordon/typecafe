@@ -27,6 +27,9 @@ interface TextProps {
     // Challenge runs use fixed seeded text; never append generated words (which
     // would break the byte-identical-across-clients guarantee).
     noAppend?: boolean,
+    // Practice infinity supplies its own focus-aware chunks instead of falling
+    // back to generic language text.
+    appendText?: () => string,
     // Boss levels: a pacer line glides across the text at this net WPM. If it
     // catches the typist's cursor the run ends early (overtake = death).
     pacerWpm?: number,
@@ -78,6 +81,7 @@ export const Text = memo(function Text(props: TextProps) {
         capitals = false,
         numbers = false,
         noAppend = false,
+        appendText,
         pacerWpm,
         onPacerCaught,
         failOnMiss,
@@ -294,8 +298,8 @@ export const Text = memo(function Text(props: TextProps) {
         (mode === TestModes.normal && subMode === TestSubModes.timed))
     // Latest append inputs, readable from the idle callback without re-wiring
     // it on every option change.
-    const appendConfigRef = useRef({ appendsText, appendKeys, language, punctuation, capitals, numbers })
-    appendConfigRef.current = { appendsText, appendKeys, language, punctuation, capitals, numbers }
+    const appendConfigRef = useRef({ appendsText, appendKeys, appendText, language, punctuation, capitals, numbers })
+    appendConfigRef.current = { appendsText, appendKeys, appendText, language, punctuation, capitals, numbers }
     // Bumped on restart so a scheduled append can't land on a regenerated test.
     const appendEpochRef = useRef(0)
 
@@ -327,13 +331,15 @@ export const Text = memo(function Text(props: TextProps) {
             if (epoch !== appendEpochRef.current) return
             const current = appendConfigRef.current
             if (!current.appendsText) return
-            const generated = current.appendKeys
-                ? generateBetterPseudoText(100, current.appendKeys.split(""), parseLanguage(current.language).base)
-                : generateText(100, current.language)
-            const newText = applyTextOptions(generated, current.punctuation, current.capitals, {
-                digits: current.numbers ? ALL_DIGITS : [],
-                language: parseLanguage(current.language).base,
-            })
+            const generated = current.appendText
+                ? current.appendText()
+                : current.appendKeys
+                    ? generateBetterPseudoText(100, current.appendKeys.split(""), parseLanguage(current.language).base)
+                    : generateText(100, current.language)
+            const newText = current.appendText ? generated : applyTextOptions(generated, current.punctuation, current.capitals, {
+                    digits: current.numbers ? ALL_DIGITS : [],
+                    language: parseLanguage(current.language).base,
+                })
             appendNewText(" " + newText)
             currentTextRef.current += " " + newText
         }

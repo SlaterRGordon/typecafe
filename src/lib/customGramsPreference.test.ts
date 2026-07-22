@@ -45,6 +45,7 @@ describe("Custom Grams preference", () => {
         expect(merged.setup).toEqual({
             grams: ["er", "ing"],
             durationSeconds: 120,
+            infinite: false,
             textStyle: "pseudo",
             updatedAt: 200,
         })
@@ -108,7 +109,7 @@ describe("Custom Grams preference", () => {
             entries: [],
             setup: { grams: ["x"], durationSeconds: 45, textStyle: "dense", updatedAt: 7 },
         }, "english").setup).toEqual({
-            grams: ["th", "the", "tion"], durationSeconds: 60, textStyle: "varied", updatedAt: 7,
+            grams: ["th", "the", "tion"], durationSeconds: 45, infinite: false, textStyle: "varied", updatedAt: 7,
         })
         expect(parseCustomGramsPreference({
             version: 1,

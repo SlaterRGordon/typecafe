@@ -46,6 +46,10 @@ interface TyperProps {
     // Custom/Guided Practice metadata. A supplied record turns Practice into a
     // finite timer run; Typer stamps elapsed/completed at the persistence seam.
     practiceRecord?: PracticeRecord,
+    // Evidence-free Practice infinity keeps Practice visuals while using the
+    // relaxed count-up engine and a focus-aware text stream.
+    practiceInfinite?: boolean,
+    streamText?: () => string,
     // The coaching Target a drill was launched for; persisted in the saved
     // test's options slot so analysis can attribute the run to that Target.
     drillTarget?: CoachingTarget,
@@ -644,7 +648,8 @@ export const Typer = (props: TyperProps) => {
             punctuation={punctuation}
             capitals={capitals}
             numbers={numbers}
-            noAppend={!!props.fixedText}
+            noAppend={!!props.fixedText && !props.streamText}
+            appendText={props.streamText}
             pacerWpm={props.pacerWpm}
             onPacerCaught={handlePacerCaught}
             failOnMiss={props.failOnMiss}
@@ -674,7 +679,7 @@ export const Typer = (props: TyperProps) => {
                             prompt sits right above the live stats with no gap. */}
                         {textNode}
                     </div>
-                    {showStats && (mode === TestModes.practice ?
+                    {showStats && (mode === TestModes.practice || props.practiceInfinite ?
                         <div
                             data-testid="practice-status-bar"
                             className="flex items-center justify-center gap-4 font-mono text-xs text-base-content/45 select-none"
@@ -709,7 +714,7 @@ export const Typer = (props: TyperProps) => {
                             </div>
                         </div>
                     }
-                    {mode !== TestModes.practice &&
+                    {mode !== TestModes.practice && !props.practiceInfinite &&
                         <p className={typingFocusFadeClass(started, "mt-6 font-mono text-sm text-base-content/40 select-none")}>
                             <kbd className="kbd kbd-xs">tab</kbd> + <kbd className="kbd kbd-xs">enter</kbd> / <kbd className="kbd kbd-xs">space</kbd> - restart
                         </p>

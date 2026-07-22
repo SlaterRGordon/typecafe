@@ -14,6 +14,7 @@ import { isFiniteTimedSeconds } from "./testConfig"
 export interface CustomKeysPracticePreferences {
     keys: string[]
     durationSeconds: PracticeDurationSeconds
+    infinite?: boolean
     textStyle: PracticeTextStyle
 }
 
@@ -349,6 +350,7 @@ export function parseCustomKeysPracticePreferences(value: unknown): CustomKeysPr
         durationSeconds: isFiniteTimedSeconds(raw.durationSeconds)
             ? raw.durationSeconds
             : 60,
+        infinite: raw.infinite === true,
         textStyle: PRACTICE_TEXT_STYLES.includes(raw.textStyle as PracticeTextStyle)
             ? raw.textStyle as PracticeTextStyle
             : "varied",

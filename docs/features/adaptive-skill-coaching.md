@@ -1402,7 +1402,7 @@ tracer-bullet implementation graph recorded as native sub-issues
       Progress through Guided Practice and persisted attribution.
 - [x] Add whole Word entry, persistence, compilation, recurrence, and recap
       behavior alongside 2-4-character Grams.
-- [ ] Add the shared Practice actions and exact Home duration model, including
+- [x] Add the shared Practice actions and exact Home duration model, including
       focus-aware, evidence-free infinity streaming.
 - [ ] Update focused unit/e2e coverage and only the affected canonical Progress
       and Practice screenshots; run the broad integration checkpoint after all

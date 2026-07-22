@@ -148,6 +148,15 @@ test("Custom Practice fullscreen", async ({ page }, testInfo) => {
   await capture(page, testInfo, "69e-custom-practice-fullscreen")
 })
 
+test("Guided infinite Practice", async ({ page }, testInfo) => {
+  await page.goto("/practice?target=word&words=action,station&sharedGram=tion")
+  await page.getByRole("region", { name: "Practice controls" }).getByRole("button", { name: "Infinite Practice" }).click()
+  await expect(page.getByRole("heading", { name: "Practise action, station", exact: true })).toBeVisible()
+  await expect(page.getByTestId("timed-countdown")).toHaveText("0")
+  await expect(page.locator("#c0")).toHaveClass(/active-char/, { timeout: 20_000 })
+  await capture(page, testInfo, "69f-guided-infinite-practice")
+})
+
 test("Custom Grams & words Practice completion", async ({ page }, testInfo) => {
   await page.clock.install()
   await page.addInitScript(() => {

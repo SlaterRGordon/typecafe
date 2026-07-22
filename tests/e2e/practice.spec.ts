@@ -296,7 +296,7 @@ test.describe("Custom Practice", () => {
     const controls = page.getByRole("region", { name: "Practice controls" })
     const durations = controls.getByRole("group", { name: "Duration" })
 
-    await expect(durations.getByRole("button")).toHaveText(["15", "30", "60", "120", "custom"])
+    await expect(durations.getByRole("button")).toHaveText(["15", "30", "60", "120", "∞", "custom"])
     await expect(controls.getByRole("button", { name: "Open typing settings" })).toHaveCount(0)
 
     await durations.getByRole("button", { name: "custom", exact: true }).click()
@@ -389,6 +389,64 @@ test.describe("Custom Practice", () => {
     await controls.getByRole("button", { name: "Restart Practice" }).click()
     await page.clock.runFor(100)
     expect(await guestPracticeRecords(page)).toHaveLength(1)
+  })
+
+  test("restores infinity locally for Keys and each Grams & words language", async ({ page }) => {
+    await page.addInitScript(() => {
+      window.localStorage.setItem("typecafe:practice:custom-keys", JSON.stringify({ keys: ["e", "r"], durationSeconds: 47, infinite: true, textStyle: "varied" }))
+      window.localStorage.setItem("typecafe:practice:recent-custom-grams", JSON.stringify({
+        version: 2,
+        languages: {
+          english: { version: 2, language: "english", entries: [], setup: { grams: ["th"], durationSeconds: 30, infinite: false, textStyle: "varied", updatedAt: 10 } },
+          french: { version: 2, language: "french", entries: [], setup: { grams: ["éé"], durationSeconds: 47, infinite: true, textStyle: "pseudo", updatedAt: 20 } },
+        },
+      }))
+    })
+    await page.goto("/practice?custom=keys")
+    const controls = page.getByRole("region", { name: "Practice controls" })
+    await expect(controls.getByRole("button", { name: "Infinite Practice" })).toHaveClass(/text-primary/)
+    await expect(page.getByTestId("timed-countdown")).toHaveText("0")
+
+    await controls.getByRole("button", { name: "Grams & words", exact: true }).click()
+    await expect(controls.getByRole("button", { name: "30s" })).toHaveClass(/text-primary/)
+    await setPracticeLanguage(page, "french")
+    await expect(page.getByTestId("selected-practice-grams").getByLabel("Remove éé")).toBeVisible()
+    await expect(controls.getByRole("button", { name: "Infinite Practice" })).toHaveClass(/text-primary/)
+    await expect(controls.getByRole("button", { name: "Pseudo" })).toHaveClass(/text-primary/)
+
+    await page.reload()
+    await expect(controls.getByRole("button", { name: "Infinite Practice" })).toHaveClass(/text-primary/)
+  })
+
+  test("streams focus-aware infinity beyond its initial buffer without recording", async ({ page }) => {
+    await page.addInitScript(() => window.localStorage.setItem("typecafe:practice:recent-custom-grams", JSON.stringify({
+      version: 2,
+      languages: { english: { version: 2, language: "english", entries: [], setup: { grams: ["th", "action"], durationSeconds: 30, infinite: true, textStyle: "pseudo", updatedAt: 10 } } },
+    })))
+    await page.goto("/practice?custom=grams")
+    await expect(page.getByRole("button", { name: "Infinite Practice" })).toHaveClass(/text-primary/)
+    await expect(page.getByRole("button", { name: /Finish/i })).toHaveCount(0)
+    await expect(page.locator("#c0")).toHaveClass(/active-char/, { timeout: 20_000 })
+
+    const initialCharacterCount = await page.locator("#words .char").count()
+    const streamedCharacterCount = initialCharacterCount + 50
+    for (let index = 0; index < streamedCharacterCount; index += 1) {
+      await typeCurrentCharacter(page, index)
+      if (index % 50 === 0) await page.waitForTimeout(5)
+    }
+    await expect(page.locator(`#c${streamedCharacterCount}`)).toHaveClass(/active-char/)
+    await expect.poll(async () => Number(await page.getByTestId("stat-time").textContent())).toBeGreaterThan(0)
+    await expect(page.getByTestId("practice-recap")).toHaveCount(0)
+    expect(await guestPracticeRecords(page)).toHaveLength(0)
+
+    await page.keyboard.press("Tab")
+    await page.keyboard.press("Enter")
+    await expect(page.locator("#c0")).toHaveClass(/active-char/, { timeout: 20_000 })
+    await expect(page.getByTestId("stat-time")).toHaveText("0")
+    expect(await guestPracticeRecords(page)).toHaveLength(0)
+
+    await page.goto("/progress")
+    expect(await guestPracticeRecords(page)).toHaveLength(0)
   })
 
   test("shows only frozen natural-Test evidence without hiding focus", async ({ page }) => {
@@ -985,6 +1043,45 @@ test.describe("Guided Practice", () => {
     prompt = (await page.locator("#words .char").allTextContents()).join("").trim().split(/\s+/)
     expect(prompt.slice(0, -1).every((word) => word === "action" || word === "station")).toBe(true)
     expect(prompt).toEqual(expect.arrayContaining(["action", "station"]))
+  })
+
+  test("keeps Guided infinity visible but evidence-free, then restores finite attribution", async ({ page }) => {
+    await page.clock.install()
+    await page.goto("/practice?target=word&words=action,station&sharedGram=tion")
+    const controls = page.getByRole("region", { name: "Practice controls" })
+    await controls.getByRole("button", { name: "Infinite Practice" }).click()
+    await page.clock.runFor(50)
+
+    await expect(page.getByRole("heading", { name: "Practise action, station", exact: true })).toBeVisible()
+    await expect(page.getByTestId("selected-practice-grams").getByRole("button")).toHaveCount(2)
+    await expect(page.locator("#c0")).toHaveClass(/active-char/, { timeout: 20_000 })
+    await expect(async () => {
+      await typeCurrentCharacter(page, 0)
+      await expect(page.getByTestId("practice-workspace-configuration")).toHaveCSS("opacity", "0")
+    }).toPass({ timeout: 5_000 })
+    for (let index = 1; index < 80; index += 1) await typeCurrentCharacter(page, index)
+    const elapsedBeforeAdvance = Number(await page.getByTestId("stat-time").textContent())
+    await page.clock.runFor(2_000)
+    await expect.poll(async () => Number(await page.getByTestId("stat-time").textContent())).toBeGreaterThanOrEqual(elapsedBeforeAdvance + 2)
+    await expect(page.getByTestId("practice-recap")).toHaveCount(0)
+    await expect(page.getByTestId("guided-awaiting-test")).toHaveCount(0)
+    expect(await guestPracticeRecords(page)).toHaveLength(0)
+
+    await page.keyboard.press("Tab")
+    await page.keyboard.press("Enter")
+    await page.clock.runFor(50)
+    await controls.getByRole("button", { name: "15s" }).click()
+    await page.clock.runFor(50)
+    await expect(page.getByRole("heading", { name: "Practise action, station", exact: true })).toBeVisible()
+    await expect(async () => {
+      await typeCurrentCharacter(page, 0)
+      await expect(page.getByTestId("practice-workspace-configuration")).toHaveCSS("opacity", "0")
+    }).toPass({ timeout: 5_000 })
+    for (let index = 1; index < 80; index += 1) await typeCurrentCharacter(page, index)
+    await page.clock.runFor(15_000)
+    await expect(page.getByTestId("guided-awaiting-test")).toBeVisible()
+    await expect.poll(async () => (await guestPracticeRecords(page)).length).toBe(1)
+    expect((await guestPracticeRecords(page))[0]?.practice).toMatchObject({ kind: "guided", target: { kind: "word", words: ["action", "station"] }, durationSeconds: 15, completed: true })
   })
 
   test("records exactly one Target and leads completion with Target response, Test reference, and ordinary Test action", async ({ page }) => {

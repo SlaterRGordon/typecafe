@@ -4,7 +4,7 @@ import Link from "next/link"
 import { useRouter } from "next/router"
 import { useSession } from "next-auth/react"
 import { useDispatch } from "react-redux"
-import { startTransition, useDeferredValue, useEffect, useMemo, useRef, useState } from "react"
+import { startTransition, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react"
 import { TargetGlyph } from "~/components/coaching/TargetGlyph"
 import { Keyboard } from "~/components/typer/Keyboard"
 import { Typer, type TestCompletionResult } from "~/components/typer/Typer"
@@ -18,7 +18,6 @@ import { useLanguage } from "~/hooks/useLanguage"
 import { useLayout } from "~/hooks/useLayout"
 import { useCustomGramsPreference } from "~/hooks/useCustomGramsPreference"
 import {
-    compileCustomGramsPractice,
     completeCustomGramsPractice,
     customGramsPracticeRecord,
     rankCommonGrams,
@@ -26,7 +25,6 @@ import {
     type CustomGramsPracticeRun,
 } from "~/lib/customGramsPractice"
 import {
-    compileCustomKeysPractice,
     completeCustomKeysPractice,
     customKeysPracticeRecord,
     type CustomKeysPracticePreferences,
@@ -36,7 +34,6 @@ import { readCustomKeysPracticePreferences, writeCustomKeysPracticePreferences }
 import { PRACTICE_DURATIONS_SECONDS, PRACTICE_TEXT_STYLES, type PracticeDurationSeconds, type PracticeTextStyle } from "~/lib/evidenceContext"
 import { parseCoachingTargetQuery, targetDisplayLabel, targetRepresentativeSequences, targetUsesArrow, targetVisualKeys, type GuidedTargetEvidence, type ParsedCoachingTarget } from "~/lib/coachingTarget"
 import {
-    compileGuidedPractice,
     completeGuidedPractice,
     focusMatchesPrescription,
     guidedPracticeRecord,
@@ -51,7 +48,7 @@ import { projectNaturalKeyboardEvidence, type NaturalKeyboardEvidence } from "~/
 import { keySpeedBars } from "~/lib/transitions"
 import { languageMeta, supportsCustomPractice } from "~/lib/languageMeta"
 import { parsePracticePath, readPracticePath, resolvePracticeEntry, writePracticePath, type PracticePath } from "~/lib/practiceEntry"
-import { practiceWordCapacity } from "~/lib/practiceCapacity"
+import { compilePracticeText, planPracticeRun, practiceStreamSeed, type PracticeTextConfiguration } from "~/lib/practiceRun"
 import { normalizeTimedSeconds } from "~/lib/testConfig"
 import { addAlert } from "~/state/alert/alertSlice"
 import { api } from "~/utils/api"
@@ -79,8 +76,8 @@ const Practice: NextPage = () => {
     const coaching = useCoachingEvidence()
     const [path, setPath] = useState<PracticePath>("keys")
     const [guided, setGuided] = useState<ParsedCoachingTarget | null>(null)
-    const [keysPreferences, setKeysPreferences] = useState<CustomKeysPracticePreferences>({ keys: [], durationSeconds: 60, textStyle: "varied" })
-    const [gramsPreferences, setGramsPreferences] = useState<CustomGramsPracticePreferences>({ grams: [], durationSeconds: 60, textStyle: "varied" })
+    const [keysPreferences, setKeysPreferences] = useState<CustomKeysPracticePreferences>({ keys: [], durationSeconds: 60, infinite: false, textStyle: "varied" })
+    const [gramsPreferences, setGramsPreferences] = useState<CustomGramsPracticePreferences>({ grams: [], durationSeconds: 60, infinite: false, textStyle: "varied" })
     const [gramEntry, setGramEntry] = useState("")
     const [gramEntryError, setGramEntryError] = useState<string | null>(null)
     const [gramSource, setGramSource] = useState<GramSource>("measured")
@@ -166,7 +163,7 @@ const Practice: NextPage = () => {
     useEffect(() => {
         if (!ready || guided || !customGramsPreference.loaded || appliedCustomGramsSetup.current === customGramsSetupScope) return
         appliedCustomGramsSetup.current = customGramsSetupScope
-        setGramsPreferences(customGramsPreference.setup ?? { grams: [], durationSeconds: 60, textStyle: "varied" })
+        setGramsPreferences(customGramsPreference.setup ?? { grams: [], durationSeconds: 60, infinite: false, textStyle: "varied" })
     }, [customGramsPreference.loaded, customGramsPreference.setup, customGramsSetupScope, guided, ready])
 
     const timelines = api.test.getLatestTimelines.useQuery(
@@ -247,44 +244,34 @@ const Practice: NextPage = () => {
             textStyle: activePreferences.textStyle,
         }
     }, [activeFocus, activePreferences.durationSeconds, activePreferences.textStyle, guided])
+    const runPlan = useMemo(() => planPracticeRun(activePreferences), [activePreferences])
     const completionContextRef = useRef({ activeGuidedSetup, guided, gramsPreferences, keysPreferences, path })
     completionContextRef.current = { activeGuidedSetup, guided, gramsPreferences, keysPreferences, path }
-    const compilationConfiguration = useMemo(() => ({
-        activeGuidedSetup,
-        gramsPreferences,
-        keysPreferences,
-        language,
-        path,
-        typeableCorpus,
-    }), [activeGuidedSetup, gramsPreferences, keysPreferences, language, path, typeableCorpus])
+    const textConfiguration = useMemo<PracticeTextConfiguration>(() => activeGuidedSetup
+        ? { kind: "guided", setup: activeGuidedSetup, corpus: typeableCorpus, language }
+        : path === "keys"
+            ? { kind: "keys", preferences: keysPreferences, corpus: typeableCorpus, language }
+            : { kind: "grams", preferences: gramsPreferences, corpus: typeableCorpus, language }, [activeGuidedSetup, gramsPreferences, keysPreferences, language, path, typeableCorpus])
+    const compilationConfiguration = useMemo(() => ({ runPlan, textConfiguration }), [runPlan, textConfiguration])
     const deferredCompilationConfiguration = useDeferredValue(compilationConfiguration)
     const promptPending = deferredCompilationConfiguration !== compilationConfiguration
-    const prompt = useMemo(() => deferredCompilationConfiguration.activeGuidedSetup ? compileGuidedPractice({
-        setup: deferredCompilationConfiguration.activeGuidedSetup,
-        corpus: deferredCompilationConfiguration.typeableCorpus,
-        language: deferredCompilationConfiguration.language,
-        seed,
-        wordCount: practiceWordCapacity(deferredCompilationConfiguration.activeGuidedSetup.durationSeconds),
-    }) : deferredCompilationConfiguration.path === "keys" ? compileCustomKeysPractice({
-        keys: deferredCompilationConfiguration.keysPreferences.keys,
-        corpus: deferredCompilationConfiguration.typeableCorpus,
-        language: deferredCompilationConfiguration.language,
-        textStyle: deferredCompilationConfiguration.keysPreferences.textStyle,
-        seed,
-        wordCount: practiceWordCapacity(deferredCompilationConfiguration.keysPreferences.durationSeconds),
-    }) : compileCustomGramsPractice({
-        grams: deferredCompilationConfiguration.gramsPreferences.grams,
-        corpus: deferredCompilationConfiguration.typeableCorpus,
-        language: deferredCompilationConfiguration.language,
-        textStyle: deferredCompilationConfiguration.gramsPreferences.textStyle,
-        seed,
-        wordCount: practiceWordCapacity(deferredCompilationConfiguration.gramsPreferences.durationSeconds),
-    }), [deferredCompilationConfiguration, seed])
-    const baseRecord = useMemo(() => activeGuidedSetup
+    const prompt = useMemo(() => compilePracticeText(
+        deferredCompilationConfiguration.textConfiguration,
+        practiceStreamSeed(seed, 0),
+        deferredCompilationConfiguration.runPlan.wordCount,
+    ), [deferredCompilationConfiguration, seed])
+    const streamChunkIndexRef = useRef(1)
+    useEffect(() => { streamChunkIndexRef.current = 1 }, [deferredCompilationConfiguration, seed])
+    const streamText = useCallback(() => compilePracticeText(
+        deferredCompilationConfiguration.textConfiguration,
+        practiceStreamSeed(seed, streamChunkIndexRef.current++),
+        deferredCompilationConfiguration.runPlan.wordCount,
+    ), [deferredCompilationConfiguration, seed])
+    const baseRecord = useMemo(() => runPlan.kind === "infinite" ? null : activeGuidedSetup
         ? guidedPracticeRecord(activeGuidedSetup, 0, false)
         : path === "keys"
-        ? customKeysPracticeRecord(keysPreferences, 0, false)
-        : customGramsPracticeRecord(gramsPreferences, 0, false), [activeGuidedSetup, gramsPreferences, keysPreferences, path])
+            ? customKeysPracticeRecord(keysPreferences, 0, false)
+            : customGramsPracticeRecord(gramsPreferences, 0, false), [activeGuidedSetup, gramsPreferences, keysPreferences, path, runPlan.kind])
 
     const keyRecap = useMemo(() => completed?.path === "keys" ? completeCustomKeysPractice({
         current: completed.run,
@@ -344,7 +331,7 @@ const Practice: NextPage = () => {
         }
         refreshPrompt()
     }
-    const updateActive = (patch: { durationSeconds?: PracticeDurationSeconds, textStyle?: PracticeTextStyle }) => {
+    const updateActive = (patch: { durationSeconds?: PracticeDurationSeconds, infinite?: boolean, textStyle?: PracticeTextStyle }) => {
         if (path === "keys") updateKeys(patch)
         else updateGrams(patch)
     }
@@ -356,7 +343,7 @@ const Practice: NextPage = () => {
         const durationSeconds = normalizeTimedSeconds(customDurationText, activePreferences.durationSeconds)
         setCustomDurationText(String(durationSeconds))
         setCustomDurationOpen(false)
-        if (durationSeconds !== activePreferences.durationSeconds) updateActive({ durationSeconds })
+        if (durationSeconds !== activePreferences.durationSeconds || activePreferences.infinite) updateActive({ durationSeconds, infinite: false })
     }
     const cancelCustomDuration = () => {
         setCustomDurationText(String(activePreferences.durationSeconds))
@@ -548,8 +535,9 @@ const Practice: NextPage = () => {
                         <span aria-hidden="true" className="text-base-content/20">|</span>
                         <div className="flex items-center gap-3" role="group" aria-label="Duration">
                             {!customDurationOpen && <>
-                                {PRACTICE_DURATIONS_SECONDS.map((duration) => <button key={duration} type="button" disabled={running} aria-label={`${duration}s`} onClick={() => updateActive({ durationSeconds: duration })} className={`cursor-pointer text-md transition-colors disabled:cursor-default disabled:opacity-50 ${activePreferences.durationSeconds === duration ? "font-semibold text-primary" : "text-base-content/50 hover:text-base-content"}`}>{duration}</button>)}
-                                <button type="button" disabled={running} onClick={openCustomDuration} className={`cursor-pointer text-md transition-colors disabled:cursor-default disabled:opacity-50 ${!(PRACTICE_DURATIONS_SECONDS as readonly number[]).includes(activePreferences.durationSeconds) ? "font-semibold text-primary" : "text-base-content/50 hover:text-base-content"}`}>custom</button>
+                                {PRACTICE_DURATIONS_SECONDS.map((duration) => <button key={duration} type="button" disabled={running} aria-label={`${duration}s`} onClick={() => updateActive({ durationSeconds: duration, infinite: false })} className={`cursor-pointer text-md transition-colors disabled:cursor-default disabled:opacity-50 ${!activePreferences.infinite && activePreferences.durationSeconds === duration ? "font-semibold text-primary" : "text-base-content/50 hover:text-base-content"}`}>{duration}</button>)}
+                                <button type="button" disabled={running} onClick={() => updateActive({ infinite: true })} aria-label="Infinite Practice" title="Infinite Practice" className={`cursor-pointer text-md transition-colors disabled:cursor-default disabled:opacity-50 ${activePreferences.infinite ? "font-semibold text-primary" : "text-base-content/50 hover:text-base-content"}`}>∞</button>
+                                <button type="button" disabled={running} onClick={openCustomDuration} className={`cursor-pointer text-md transition-colors disabled:cursor-default disabled:opacity-50 ${!activePreferences.infinite && !(PRACTICE_DURATIONS_SECONDS as readonly number[]).includes(activePreferences.durationSeconds) ? "font-semibold text-primary" : "text-base-content/50 hover:text-base-content"}`}>custom</button>
                             </>}
                             <span data-testid="practice-custom-duration-panel" aria-hidden={!customDurationOpen} className={customDurationOpen ? "inline-flex items-center gap-1.5 rounded border border-primary/35 bg-base-200 px-2 py-0.5" : "hidden"}>
                                 <input
@@ -631,15 +619,17 @@ const Practice: NextPage = () => {
                     ) : prompt && hasFocus ? (
                         <Typer
                             language={language}
-                            mode={TestModes.practice}
+                            mode={runPlan.kind === "infinite" ? TestModes.relaxed : TestModes.practice}
                             subMode={TestSubModes.timed}
-                            count={activePreferences.durationSeconds}
+                            count={runPlan.count}
                             customLength
-                            evidenceContext={guided ? "acquisition" : "custom-practice"}
-                            practiceRecord={baseRecord}
-                            drillTarget={guided?.target}
+                            evidenceContext={runPlan.kind === "infinite" ? undefined : guided ? "acquisition" : "custom-practice"}
+                            practiceRecord={baseRecord ?? undefined}
+                            practiceInfinite={runPlan.kind === "infinite"}
+                            streamText={runPlan.kind === "infinite" ? streamText : undefined}
+                            drillTarget={runPlan.kind === "infinite" ? undefined : guided?.target}
                             fixedText={prompt}
-                            onTestComplete={onComplete}
+                            onTestComplete={runPlan.kind === "infinite" ? undefined : onComplete}
                             onTypingFocusChange={setRunning}
                             onRestart={() => setRunning(false)}
                             onRunRestart={() => setSeed((value) => value + 1)}

@@ -274,10 +274,12 @@ describe("completeCustomKeysPractice", () => {
 describe("parseCustomKeysPracticePreferences", () => {
     it("restores valid choices and repairs corrupt storage to the 60s varied default", () => {
         expect(parseCustomKeysPracticePreferences({ keys: ["é", "5"], durationSeconds: 120, textStyle: "pseudo" }))
-            .toEqual({ keys: ["é", "5"], durationSeconds: 120, textStyle: "pseudo" })
+            .toEqual({ keys: ["é", "5"], durationSeconds: 120, infinite: false, textStyle: "pseudo" })
         expect(parseCustomKeysPracticePreferences({ durationSeconds: 45, textStyle: "dense" }))
-            .toEqual({ keys: [], durationSeconds: 45, textStyle: "varied" })
+            .toEqual({ keys: [], durationSeconds: 45, infinite: false, textStyle: "varied" })
         expect(parseCustomKeysPracticePreferences({ durationSeconds: 3_601 }))
-            .toEqual({ keys: [], durationSeconds: 60, textStyle: "varied" })
+            .toEqual({ keys: [], durationSeconds: 60, infinite: false, textStyle: "varied" })
+        expect(parseCustomKeysPracticePreferences({ durationSeconds: 47, infinite: true }))
+            .toEqual({ keys: [], durationSeconds: 47, infinite: true, textStyle: "varied" })
     })
 })
