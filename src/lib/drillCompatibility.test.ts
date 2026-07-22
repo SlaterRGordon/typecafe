@@ -15,13 +15,11 @@ describe("drillCompatibilityDestination", () => {
         expect(decodeURIComponent(destination)).toContain(decodeURIComponent(expected))
     })
 
-    it("preserves policy, seen words, evidence, length, and re-measure compatibility context", () => {
+    it("preserves evidence, length, and re-measure context", () => {
         const evidence = JSON.stringify({ metric: "ms", baseline: 100, observed: 180, sampleCount: 8, reason: "Measured." })
         const destination = drillCompatibilityDestination({
             target: "gram",
             gram: "tion",
-            policy: "cold",
-            seen: "action,station",
             evidence,
             length: "30",
             rm: "opaque token",
@@ -31,8 +29,6 @@ describe("drillCompatibilityDestination", () => {
         expect(Object.fromEntries(url.searchParams)).toMatchObject({
             target: "gram",
             gram: "tion",
-            policy: "cold",
-            seen: "action,station",
             evidence,
             length: "30",
             rm: "opaque token",
@@ -40,8 +36,8 @@ describe("drillCompatibilityDestination", () => {
     })
 
     it("routes endurance to its ordinary timed Home Test", () => {
-        expect(drillCompatibilityDestination({ target: "endurance", shortSeconds: "30", longSeconds: "60", policy: "cold" }))
-            .toBe("/?mode=timed&count=60&coaching=endurance&target=endurance&shortSeconds=30&longSeconds=60&policy=cold")
+        expect(drillCompatibilityDestination({ target: "endurance", shortSeconds: "30", longSeconds: "60" }))
+            .toBe("/?mode=timed&count=60&target=endurance&shortSeconds=30&longSeconds=60")
     })
 
     it("routes a legacy timed warm-up to an ordinary timed Home Test", () => {

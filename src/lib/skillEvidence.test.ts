@@ -164,8 +164,6 @@ describe("analyzeTypingEvidence", () => {
 
         expect(common?.impactMsPer1000).toBeGreaterThan(rare?.impactMsPer1000 ?? Infinity)
         expect(analysis.recommendation?.id).toBe("transition:latency:br")
-        expect(analysis.mastery).toEqual([])
-        expect(analysis.recap).toEqual({ retained: [], due: null, regressed: null })
     })
 
     it("recommends a high-error pair even when its speed is normal", () => {
@@ -291,7 +289,6 @@ describe("analyzeTypingEvidence", () => {
 
         expect(withPractice.candidates.map(({ practice: _practice, ...candidate }) => candidate)).toEqual(naturalOnly.candidates)
         expect(withPractice.candidates[0]?.practice).toEqual({ focusedTimeMs: 75_000, completedRuns: 1, sampleCount: 20, value: 70 })
-        expect(withPractice.mastery).toEqual(naturalOnly.mastery)
         expect(withPractice.evidenceWindow).toEqual(naturalOnly.evidenceWindow)
         expect(withPractice.quality.acquisitionTimelines).toBe(0)
     })
@@ -332,7 +329,7 @@ describe("analyzeTypingEvidence", () => {
         expect(after.practice).toEqual({ focusedTimeMs: 132_000, completedRuns: 2, sampleCount: 18, value: 80 })
         expect(after.response).toEqual({ context: "acquisition", value: 90, sampleCount: 8, runCount: 1 })
 
-        // Practice activity cannot move ability, worth order, Mastery, or the
+        // Practice activity cannot move ability, worth order, or the
         // discovery window; only the separate Practice projection changes.
         const stripPractice = (analysis: ReturnType<typeof analyzeTypingEvidence>) => analysis.candidates.map(({
             practice: _practice,
@@ -341,7 +338,6 @@ describe("analyzeTypingEvidence", () => {
             ...candidate
         }) => candidate)
         expect(stripPractice(afterGuided)).toEqual(stripPractice(analyzeTypingEvidence({ timelines: natural })))
-        expect(afterGuided.mastery).toEqual(beforeGuided.mastery)
         expect(afterGuided.evidenceWindow).toEqual(beforeGuided.evidenceWindow)
     })
 

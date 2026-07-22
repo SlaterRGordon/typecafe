@@ -22,8 +22,6 @@ interface MockTrpcOptions {
   keyStats?: { character: string; total: number; correct: number }[];
   transitionStats?: { pair: string; count: number; totalMs: number; errors: number }[];
   timelineEvidence?: unknown[];
-  coachingSession?: unknown;
-  coachingHistory?: unknown[];
   customGramsPreference?: unknown;
   customGramsPreferences?: Record<string, unknown>;
   // Make the progress history flat (a plateau) instead of rising.
@@ -226,7 +224,6 @@ function progressRollupsFromEntries(input: ProcedureInput) {
 interface MockTrpcState {
   importedTrainProgress: boolean;
   syncedProgressRollups: unknown[];
-  coachingSession: unknown;
   customGramsPreferences: Record<string, unknown>;
   guestEvidenceImportCalls: number;
 }
@@ -423,13 +420,6 @@ function responseForProcedure(procedure: string, input: ProcedureInput, options:
       return { count: Array.isArray(input?.stats) ? input.stats.length : 0 };
     case "practiceStats.batchSync":
       return { count: Array.isArray(input?.stats) ? input.stats.length : 0 };
-    case "coachingSession.getToday":
-      return state.coachingSession;
-    case "coachingSession.getHistory":
-      return options.coachingHistory ?? [];
-    case "coachingSession.save":
-      state.coachingSession = input?.snapshot ?? null;
-      return state.coachingSession;
     case "customGramsPreference.get":
       return typeof input?.language === "string" ? state.customGramsPreferences[input.language] ?? null : null;
     case "customGramsPreference.merge": {
@@ -637,7 +627,6 @@ export async function mockTrpc(page: Page, options: MockTrpcOptions = {}) {
   const state: MockTrpcState = {
     importedTrainProgress: false,
     syncedProgressRollups: [],
-    coachingSession: options.coachingSession ?? null,
     customGramsPreferences,
     guestEvidenceImportCalls: 0,
   };

@@ -15,7 +15,7 @@ import { useTestSettings } from "~/hooks/useTestSettings";
 import { useLanguage } from "~/hooks/useLanguage";
 import { useLayout } from "~/hooks/useLayout";
 import { clampSize, composeLanguage, parseLanguage } from "~/components/typer/utils";
-import { parseEvidenceContext, type EvidenceContext } from "~/lib/evidenceContext";
+import type { EvidenceContext } from "~/lib/evidenceContext";
 import { appendLocalProgress } from "~/lib/progressHistory";
 import { consistencyFromSamples } from "~/lib/stats";
 import { api } from "~/utils/api";
@@ -121,11 +121,9 @@ const Home: NextPage = () => {
   const attemptReMeasureRef = useRef<{ beforeWpm: number } | undefined>(undefined)
   const { data: sessionData } = useSession()
   const router = useRouter()
-  const queryCoachingContext: EvidenceContext | null = router.query.target === "endurance"
-    ? parseEvidenceContext(Array.isArray(router.query.policy) ? router.query.policy[0] : router.query.policy) ?? "natural"
-    : null
-  const [coachingRunContext, setCoachingRunContext] = useState<EvidenceContext | null>(null)
-  const coachingEvidenceContext = coachingRunContext ?? queryCoachingContext ?? "natural"
+  const queryTargetContext: EvidenceContext | null = router.query.target === "endurance" ? "acquisition" : null
+  const [targetRunContext, setTargetRunContext] = useState<EvidenceContext | null>(null)
+  const runEvidenceContext = targetRunContext ?? queryTargetContext ?? "natural"
   const [activeLayout] = useLayout()
   const createShare = api.scoreShare.create.useMutation()
   const createGuestScore = api.scoreShare.createGuestScore.useMutation()
@@ -378,7 +376,7 @@ const Home: NextPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router.isReady, router.query.rm])
 
-  // Config handoff: a diagnosis or coaching link lands here as a Timed/Words
+  // Config handoff: a diagnosis or Target link lands here as a Timed/Words
   // ordinary Test, then cleans the URL.
   useEffect(() => {
     if (!router.isReady) return
@@ -386,7 +384,7 @@ const Home: NextPage = () => {
     if (mode !== "timed" && mode !== "words") return
 
     if (router.query.target === "endurance") {
-      setCoachingRunContext(parseEvidenceContext(Array.isArray(router.query.policy) ? router.query.policy[0] : router.query.policy) ?? "acquisition")
+      setTargetRunContext("acquisition")
     }
 
     updateSetting("mode", TestModes.normal)
@@ -527,7 +525,7 @@ const Home: NextPage = () => {
           language={activeTestLanguage}
           quoteLength={quoteLength}
           mode={mode}
-          evidenceContext={coachingEvidenceContext}
+          evidenceContext={runEvidenceContext}
           subMode={subMode}
           count={count}
           punctuation={punctuation}

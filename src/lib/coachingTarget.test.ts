@@ -13,7 +13,6 @@ describe("coaching target query adapter", () => {
     it("keeps legacy key, Transition, and word links readable", () => {
         expect(parseCoachingTargetQuery({ keys: "x,é" })).toMatchObject({
             target: { kind: "key", keys: ["x", "é"], metric: "accuracy" },
-            policy: "acquisition",
             legacy: true,
         })
         expect(parseCoachingTargetQuery({ transitions: "e:" })).toMatchObject({
@@ -26,16 +25,14 @@ describe("coaching target query adapter", () => {
         })
     })
 
-    it("round-trips a frozen movement target, policy, and seen carriers", () => {
+    it("round-trips a movement Target", () => {
         const target: CoachingTarget = { kind: "movement", movement: "row-reach", anchors: ["fr", "de", "sw", "aq"] }
-        const action = targetAction(target, "cold", { seenWords: ["from", "desk"] })
+        const action = targetAction(target)
         const url = new URL(action.href, "https://typecafe.test")
         const query = Object.fromEntries(url.searchParams)
 
         expect(parseCoachingTargetQuery(query)).toEqual({
             target,
-            policy: "cold",
-            seenWords: ["from", "desk"],
             evidence: null,
             legacy: false,
         })
@@ -46,7 +43,7 @@ describe("coaching target query adapter", () => {
 
     it("round-trips the measured handoff into the shared Practice workspace", () => {
         const evidence = { metric: "ms" as const, baseline: 110, observed: 186, sampleCount: 12, reason: "Recent Tests measured this transition slowly." }
-        const action = targetAction({ kind: "transition", pair: "th", metric: "latency" }, "acquisition", { evidence })
+        const action = targetAction({ kind: "transition", pair: "th", metric: "latency" }, { evidence })
         const parsed = parseCoachingTargetQuery(Object.fromEntries(new URL(action.href, "https://typecafe.test").searchParams))
 
         expect(action.href).toContain("/practice?target=transition")
@@ -54,10 +51,11 @@ describe("coaching target query adapter", () => {
     })
 
     it("hands endurance to the matched normal Test surface", () => {
-        const action = targetAction({ kind: "endurance", shortSeconds: 30, longSeconds: 60 }, "transfer")
+        const action = targetAction({ kind: "endurance", shortSeconds: 30, longSeconds: 60 })
         expect(action).toMatchObject({ surface: "test", label: "Check endurance" })
         expect(action.href).toContain("/?mode=timed&count=60")
-        expect(action.href).toContain("shortSeconds=30&longSeconds=60&policy=transfer")
+        expect(action.href).toContain("shortSeconds=30&longSeconds=60")
+        expect(action.href).not.toContain("policy=")
     })
 
     it("round-trips every target kind through the persisted drill token and stays within the options cap", () => {

@@ -1,6 +1,6 @@
 # TypeCafe system map
 
-**Last verified:** 2026-07-20 through the unified Practice retirement slice
+**Last verified:** 2026-07-22 through the Progress evidence cleanup
 
 **Purpose:** a compact map of the current system. It records stable ownership and
 invariants, then points to code for details. Product history belongs in the
@@ -34,7 +34,6 @@ flowchart TD
     Practice["/practice — Guided and Custom Practice"]
     Progress["/progress — Progress"]
     Train["/train — Train ladder"]
-    Coach["/plan — legacy redirect to Progress"]
     Leaderboard["/leaderboard — Leaderboard"]
     Profile["/profile — Your profile"]
 
@@ -46,8 +45,6 @@ flowchart TD
 
     Progress --> Practice
     Progress --> ShareProgress["Progress share"]
-    Coach --> Practice
-    Coach --> Home
     Train --> TrainTest["Test / level result"]
     TrainTest --> Train
     Profile --> Progress
@@ -106,7 +103,6 @@ The app intentionally has no ports/adapters repository seam around tRPC. See
 | `/leaderboard` | competitive Test rankings | `components/scores/LeaderboardList.tsx`, `server/api/routers/test.ts` |
 | `/score/[slug]` | read-only share and beat-my-run flow | `pages/score/[slug].tsx`, `components/scores/ShareableScoreCard.tsx` |
 | `/challenge` | parked daily Challenge, still deep-linkable | `pages/challenge.tsx`, `lib/challenge.ts` |
-| `/plan` | compatibility redirect for old Daily Coach links | `pages/plan.tsx` |
 | `/guides` | guide index for the measurable typing method | `pages/guides.tsx`, `pages/how-to-type-faster.tsx`, `pages/how-ngrams-work.tsx`, `pages/keyboard-layouts.tsx` |
 | `/how-we-measure` | public explanation of WPM, accuracy, and evidence | `pages/how-we-measure.tsx`, `lib/stats.ts`, `lib/testEvidence.ts` |
 | `/support`, `/contact` | support and contact surfaces | `pages/support.tsx`, `pages/contact.tsx` |
@@ -168,7 +164,6 @@ Guest evidence must support the full loop before sign-up (ADR-0001):
 | Per-key attempts | `lib/localSync.ts` | Prisma `PracticeStats` |
 | Transitions | `lib/localTransitions.ts` | Prisma `TransitionStat` |
 | Train progress | `hooks/useTrainProgress.ts` | Prisma `TrainProgress` |
-| Coaching session | `lib/dailyCoaching.ts` | Prisma `CoachingSession` |
 | Practice timelines and run metadata | `lib/guestEvidenceStore.ts` (IndexedDB) | Prisma `Test.timeline`, `Test.practice` |
 | Custom Practice continuation preferences | `lib/customKeysPreferences.ts`, `lib/customGramsPreferences.ts` | same browser-local preferences |
 
@@ -176,15 +171,6 @@ Guest evidence must support the full loop before sign-up (ADR-0001):
 mirror only after its own successful sync. `hooks/useGuestEvidence.ts` provides a
 shared client read. National layouts share the `qwerty` stats pool; true remaps
 have separate pools (`statsPoolFor`).
-
-`hooks/useDailyCoachingSession.ts` converges the local and account Coaching-session
-snapshots wherever the always-mounted Coaching tab appears. Local mirrors are
-scoped per account (or `guest`) so shared browsers cannot leak sessions across
-accounts; the guest mirror is adopted on sign-in and cleared after the save
-lands. The more-complete snapshot wins locally and on the server, so an offline
-or stale device cannot rewind today's Prescription. Test qualification and
-Target-bound Practice attribution are derived from persisted evidence, never a
-URL visit.
 
 Per-key and Transition aggregates are rolling windows, not lifetime totals. See
 [ADR-0005](../adr/0005-rolling-window-aggregates.md). Full timelines remain the
@@ -204,7 +190,6 @@ carry an expiry and expired rows are cleaned during writes. See
 - `transitionStats`: rolling Transition synchronization.
 - `trainProgress`: per-difficulty/per-pool Level progress.
 - `scoreShare`: Test, guest, beat-run, and progress share records.
-- `coachingSession`: frozen dated Prescription snapshots for cross-device resume.
 - `user`: registration, profile reads/updates, account deletion.
 - `type`: TestType lookup.
 - `color`: saved theme configurations.

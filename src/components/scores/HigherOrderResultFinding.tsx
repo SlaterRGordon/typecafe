@@ -123,7 +123,7 @@ export function HigherOrderResultFinding({
           Across recent natural typing, recurring hard words share <span className="font-mono font-bold">{target.sharedGram}</span>: {words.join(", ")}.
         </>
       : <>Across recent natural typing, a hard word recurred: <span className="font-mono font-bold">{words[0]}</span>.</>;
-  const href = targetAction(target, "acquisition", { seenWords: words, evidence: guidedEvidenceFromCandidate(finding) }).href;
+  const href = targetAction(target, { evidence: guidedEvidenceFromCandidate(finding) }).href;
 
   return (
     <ul data-testid="diagnosis-higher-order" className="flex flex-col gap-3">

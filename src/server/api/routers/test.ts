@@ -773,7 +773,7 @@ export const testRouter = createTRPCRouter({
         type: { select: { mode: true, subMode: true, language: true } },
       };
       const take = input.limit ?? DEFAULT_EVIDENCE_HISTORY_LIMIT;
-      // Discovery (natural/diagnostic) and response (acquisition/transfer/cold)
+      // Discovery (natural/diagnostic) and focused Practice response (acquisition)
       // timelines each get their own window: a run of drills must never push
       // the natural evidence that ranks weaknesses out of the bounded history.
       // Legacy rows without a context count as discovery when the old ranking

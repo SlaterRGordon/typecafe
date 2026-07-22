@@ -805,7 +805,7 @@ function DiagnosisPanel(props: { score: ShareableScore }) {
                         const observed = finding.kind === "inaccurate-keys"
                           ? finding.detail.reduce((sum, item) => sum + item.accuracy * item.attempts, 0) / Math.max(1, sampleCount)
                           : finding.detail.reduce((sum, item) => sum + item.meanMs * ("samples" in item ? item.samples : "chars" in item ? item.chars : 1), 0) / Math.max(1, sampleCount);
-                        const href = targetAction(target, "acquisition", { evidence: {
+                        const href = targetAction(target, { evidence: {
                           metric: finding.kind === "inaccurate-keys" ? "%" : "ms",
                           baseline: finding.kind === "inaccurate-keys" ? 100 : eventBaseline,
                           observed,
@@ -847,7 +847,6 @@ function DiagnosisPanel(props: { score: ShareableScore }) {
                             className="inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-content transition hover:opacity-85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                             href={targetAction(
                               { kind: "transition", pair: `${t.from}${t.to}`, metric: "latency" },
-                              "acquisition",
                               { evidence: {
                                 metric: "ms",
                                 baseline: t.meanMs / t.ratio,

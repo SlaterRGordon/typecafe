@@ -33,7 +33,7 @@ describe("Guided Practice policy", () => {
 
     it.each(matrix)("maps $kind to one concrete editor focus", (target, kind, items) => {
         expect(guidedFocusForTarget(target)).toEqual(kind ? { kind, items } : null)
-        if (target.kind === "endurance") expect(targetAction(target).href).toBe("/?mode=timed&count=60&coaching=endurance&target=endurance&shortSeconds=30&longSeconds=60&policy=acquisition")
+        if (target.kind === "endurance") expect(targetAction(target).href).toBe("/?mode=timed&count=60&target=endurance&shortSeconds=30&longSeconds=60")
         else expect(targetAction(target).href).toContain("/practice?target=")
     })
 

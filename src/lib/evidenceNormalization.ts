@@ -55,7 +55,7 @@ function normalizedLanguage(language: string): string {
 
 /**
  * Bound the evidence history per context family, not overall: discovery
- * (natural/diagnostic) timelines and response (acquisition/transfer/cold)
+ * (natural/diagnostic) timelines and focused Practice response (acquisition)
  * timelines each keep their own newest `limit`. A run of focused drills must
  * never evict the natural evidence that weakness ranking, frequency, and
  * recency weighting are computed from — a shared cap made every Target's

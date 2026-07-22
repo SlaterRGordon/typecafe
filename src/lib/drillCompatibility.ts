@@ -13,8 +13,7 @@ function positiveSeconds(value: string | string[] | undefined): number | null {
 export function drillCompatibilityDestination(query: DrillQuery): string {
     const parsed = parseCoachingTargetQuery(query)
     if (parsed) {
-        const destination = targetAction(parsed.target, parsed.policy, {
-            seenWords: parsed.seenWords,
+        const destination = targetAction(parsed.target, {
             length: positiveSeconds(query.length) ?? undefined,
             evidence: parsed.evidence ?? undefined,
         }).href

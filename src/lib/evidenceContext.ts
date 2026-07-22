@@ -4,8 +4,6 @@ export const EVIDENCE_CONTEXTS = [
     "natural",
     "diagnostic",
     "acquisition",
-    "transfer",
-    "cold",
     "train",
     "grams",
     "custom-practice",
@@ -14,7 +12,6 @@ export const EVIDENCE_CONTEXTS = [
 export type EvidenceContext = typeof EVIDENCE_CONTEXTS[number]
 
 export type TypingSurface = "test" | "drill" | "train"
-export type CoachingStepContext = "baseline" | "calibration" | "recheck" | "focus"
 
 export const PRACTICE_RECORD_VERSION = 1 as const
 export const PRACTICE_TEXT_STYLES = ["varied", "pseudo"] as const
@@ -137,13 +134,6 @@ export function evidenceContextForRun(input: { surface: TypingSurface, mode: num
     return input.mode === 2 ? "grams" : "natural"
 }
 
-export function evidenceContextForCoachingStep(kind: CoachingStepContext): EvidenceContext {
-    if (kind === "calibration") return "diagnostic"
-    if (kind === "recheck") return "cold"
-    if (kind === "focus") return "acquisition"
-    return "natural"
-}
-
 // Rows created before evidenceContext existed are useful only when their old
 // public-ranking contract proves they were ordinary normal Tests.
 export function evidenceContextForStoredTest(input: {
@@ -159,34 +149,18 @@ export function evidenceContextForStoredTest(input: {
 // Wire-level mirrors of discoversWeakness/updatesTargetResponse for SQL and
 // storage filters that cannot call a predicate.
 export const DISCOVERY_EVIDENCE_CONTEXTS = ["natural", "diagnostic"] as const
-export const RESPONSE_EVIDENCE_CONTEXTS = ["acquisition", "transfer", "cold"] as const
+export const RESPONSE_EVIDENCE_CONTEXTS = ["acquisition"] as const
 
 export function discoversWeakness(context: EvidenceContext | null): boolean {
     return context === "natural" || context === "diagnostic"
 }
 
 export function updatesTargetResponse(context: EvidenceContext | null): boolean {
-    return context === "acquisition" || context === "transfer" || context === "cold"
-}
-
-export function provesTransfer(context: EvidenceContext | null): boolean {
-    return context === "transfer" || context === "cold"
-}
-
-export function provesMastery(context: EvidenceContext | null): boolean {
-    return context === "cold"
+    return context === "acquisition"
 }
 
 export function completedRunUpdatesTargetResponse(context: EvidenceContext | null, practice: PracticeRecord | null): boolean {
     return (practice?.completed ?? true) && updatesTargetResponse(context)
-}
-
-export function completedRunProvesTransfer(context: EvidenceContext | null, practice: PracticeRecord | null): boolean {
-    return (practice?.completed ?? true) && provesTransfer(context)
-}
-
-export function completedRunProvesMastery(context: EvidenceContext | null, practice: PracticeRecord | null): boolean {
-    return (practice?.completed ?? true) && provesMastery(context)
 }
 
 // Train and user-directed Grams attempts do not discover coaching Weaknesses.

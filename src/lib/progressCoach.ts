@@ -1,9 +1,8 @@
-import type { FrozenRecommendation } from "./dailyCoaching"
-import { sameCoachingTarget, targetAction, targetDisplayLabel, targetVisualKeys, type CoachingTarget } from "./coachingTarget"
-import type { MasteryRecord, NaturalAbility, SkillAnalysis, SkillCandidate, SkillReason } from "./skillEvidence"
+import { targetAction, targetDisplayLabel, targetVisualKeys, type CoachingTarget } from "./coachingTarget"
+import type { NaturalAbility, SkillAnalysis, SkillCandidate, SkillReason } from "./skillEvidence"
 import { guidedEvidenceFromCandidate } from "./guidedPractice"
 
-export type ProgressCoachState = MasteryRecord["state"] | "needs-work" | "calibrating"
+export type ProgressCoachState = "needs-work" | "calibrating"
 export type ProgressCoachFilter = "all" | "transition" | "key" | "pattern" | "movement"
 export type ProgressTargetFamily = Exclude<ProgressCoachFilter, "all"> | "correction" | "endurance"
 type ProgressCoachCategory = Exclude<ProgressCoachFilter, "all"> | "other"
@@ -280,38 +279,6 @@ function trendBetween(before: number, after: number, direction: "lower" | "highe
     }
 }
 
-function directionFor(prescription: FrozenRecommendation): "lower" | "higher" {
-    return prescription.direction
-}
-
-function statusCopy(state: MasteryRecord["state"], label: string, record: MasteryRecord): Pick<ProgressCoachTarget, "statusLabel" | "headline" | "detail"> {
-    if (state === "due") return {
-        statusLabel: "Ready to revisit",
-        headline: `Practise ${label} again`,
-        detail: "The earlier gain is old enough to be worth a fresh rep.",
-    }
-    if (state === "regressed") return {
-        statusLabel: "Needs a refresh",
-        headline: `Refresh ${label}`,
-        detail: "Recent natural typing slipped back past the earlier weakness threshold.",
-    }
-    if (state === "retained") return {
-        statusLabel: "Held",
-        headline: `Your ${label} gain held`,
-        detail: `The gain held across ${record.heldColdChecks} delayed ${record.heldColdChecks === 1 ? "check" : "checks"}.`,
-    }
-    if (state === "transferred") return {
-        statusLabel: "Improved",
-        headline: `${label} improved in recent typing`,
-        detail: "Representative typing beat the earlier baseline.",
-    }
-    return {
-        statusLabel: "Practising",
-        headline: `Keep building ${label}`,
-        detail: "Drills log as practice; ability moves only with representative typing.",
-    }
-}
-
 const MEASURE_TEST_ACTION = { href: "/?mode=timed&count=30", label: "Take a Test" }
 
 // Once a Target has been drilled, the loop closes in a normal Test — measuring
@@ -320,64 +287,6 @@ function actionPair(practice: { href: string, label: string }, awaiting: boolean
     return awaiting
         ? { action: { ...MEASURE_TEST_ACTION }, secondaryAction: { ...practice, label: "Practise again" }, awaitingMeasurement: true }
         : { action: practice, secondaryAction: null, awaitingMeasurement: false }
-}
-
-function actionFor(record: MasteryRecord, candidate: SkillCandidate | null): { href: string, label: string } {
-    const action = targetAction(record.target, "acquisition", {
-        length: 30,
-        seenWords: record.prescription.seenWords,
-        evidence: candidate ? guidedEvidenceFromCandidate(candidate) : {
-            metric: record.proof.metric,
-            baseline: record.proof.baseline,
-            observed: record.ability?.value ?? record.proof.baseline,
-            sampleCount: record.ability?.sampleCount ?? Math.max(1, record.proof.sampleCounts.baseline),
-            reason: record.prescription.reason,
-        },
-    })
-    return { href: action.href, label: action.label }
-}
-
-function rowFromRecord(record: MasteryRecord, records: readonly MasteryRecord[], candidate: SkillCandidate | null): ProgressCoachTarget {
-    const label = targetDisplayLabel(record.target)
-    // A warm/varied result can coexist with a still-weak rolling natural score
-    // on the same day. In that case the honest visible state is practising,
-    // not improved; only representative evidence may support the latter.
-    const state = record.state === "transferred" && candidate ? "training" : record.state
-    const copy = statusCopy(state, label, record)
-    const stages = abilityStages(record.ability, record.proof.metric)
-    const presentation = targetPresentation(record.target)
-    const practiceSets = records.reduce((sum, episode) => sum + (episode.practiceSets ?? 0), 0)
-    const practiceSamples = records.reduce((sum, episode) => sum + (episode.practiceSamples ?? 0), 0)
-    const response = record.response ?? candidate?.response
-    const activity = record.practice ?? candidate?.practice
-    const practice = activity
-        ? { focusedTimeMs: activity.focusedTimeMs, completedRuns: activity.completedRuns, sampleCount: activity.sampleCount, value: activity.value === undefined ? null : metricValue(activity.value, record.proof.metric) }
-        : response
-        ? { focusedTimeMs: 0, completedRuns: response.runCount, sampleCount: response.sampleCount, value: metricValue(response.value, record.proof.metric) }
-        : practiceSets > 0 || record.proof.bestAcquisition !== undefined
-            ? { focusedTimeMs: 0, completedRuns: practiceSets, sampleCount: practiceSamples, value: record.proof.bestAcquisition === undefined ? null : metricValue(record.proof.bestAcquisition, record.proof.metric) }
-            : null
-    return {
-        id: targetKey(record.target),
-        target: record.target,
-        label,
-        ...presentation,
-        state,
-        ...copy,
-        stages,
-        direction: directionFor(record.prescription),
-        metric: record.proof.metric,
-        ...actionPair(actionFor(record, candidate), record.awaitingMeasurement === true),
-        episodeCount: records.length,
-        lastEvidenceDate: record.lastEvidenceDate,
-        // Worth is the *remaining* estimated cost, so it follows the live
-        // weakness ranking. A coached Target whose weakness no longer registers
-        // has nothing left to buy; the prescription-time impact is history, and
-        // freezing it made improvement look like standing still.
-        ...worthFor(candidate),
-        trend: abilityTrend(record.ability, directionFor(record.prescription), record.proof.metric),
-        practice,
-    }
 }
 
 function candidateDetail(reason: SkillReason): string {
@@ -392,15 +301,9 @@ function candidateDetail(reason: SkillReason): string {
     return `Your recent ${reason.longSeconds}s tests trail your ${reason.shortSeconds}s tests by ${reason.gapWpm.toFixed(1)} WPM.`
 }
 
-function candidateSeenWords(candidate: SkillCandidate): readonly string[] | undefined {
-    if (candidate.reason.code === "gram_internal_latency_high") return candidate.reason.carrierWords
-    if (candidate.reason.code === "word_internal_latency_high") return candidate.reason.words
-    return undefined
-}
-
 function candidateTarget(candidate: SkillCandidate): ProgressCoachTarget {
     const label = targetDisplayLabel(candidate.target)
-    const action = targetAction(candidate.target, "acquisition", { length: 30, seenWords: candidateSeenWords(candidate), evidence: guidedEvidenceFromCandidate(candidate) })
+    const action = targetAction(candidate.target, { length: 30, evidence: guidedEvidenceFromCandidate(candidate) })
     const presentation = targetPresentation(candidate.target)
     // Endurance (and any future sample-less kind) has no per-sample ability;
     // fall back to the observed value as a single Recent stage.
@@ -465,46 +368,9 @@ function calibrationTarget(): ProgressCoachTarget {
     }
 }
 
-/** Pure Progress view-model: merges detected weaknesses and coached proof by Target identity. */
+/** Pure Progress view-model over current natural Weaknesses and Practice activity. */
 export function projectProgressCoach(analysis: SkillAnalysis): ProgressCoachProjection {
-    const episodes = new Map<string, MasteryRecord[]>()
-    for (const record of analysis.mastery) {
-        const key = targetKey(record.target)
-        episodes.set(key, [...(episodes.get(key) ?? []), record])
-    }
-    const masteryTargets = [...episodes.values()].map((records) => rowFromRecord(
-        [...records].sort((a, b) => b.lastEvidenceDate.localeCompare(a.lastEvidenceDate) || b.id.localeCompare(a.id))[0]!,
-        records,
-        analysis.candidates.find((candidate) => sameCoachingTarget(candidate.target, records[0]!.target)) ?? null,
-    ))
-    const masteryIds = new Set(masteryTargets.map((row) => row.id))
-    const availableCandidates = analysis.candidates
-        .filter((candidate) => !masteryIds.has(targetKey(candidate.target)))
-    // Coached proof is durable evidence, so current weakness volume must never
-    // crowd it out of the bounded list. This also keeps a just-completed Target
-    // available to the latest-result card.
-    const currentWeaknessCapacity = Math.min(
-        CURRENT_WEAKNESS_LIMIT,
-        Math.max(0, TARGET_LIMIT - Math.min(TARGET_LIMIT, masteryTargets.length)),
-    )
-    const selectedCandidates = selectCurrentWeaknesses(availableCandidates, currentWeaknessCapacity)
-    const detectedTargets = selectedCandidates
-        .map(candidateTarget)
-    const statePriority: Record<ProgressCoachState, number> = {
-        due: 0,
-        regressed: 1,
-        "needs-work": 2,
-        training: 3,
-        transferred: 4,
-        retained: 5,
-        calibrating: 6,
-    }
-    const targets = [...masteryTargets, ...detectedTargets]
-        .sort((a, b) => (b.impactMsPer1000 ?? -1) - (a.impactMsPer1000 ?? -1)
-            || statePriority[a.state] - statePriority[b.state]
-            || (b.lastEvidenceDate ?? "").localeCompare(a.lastEvidenceDate ?? "")
-            || a.label.localeCompare(b.label))
-        .slice(0, TARGET_LIMIT)
+    const targets = selectCurrentWeaknesses(analysis.candidates, CURRENT_WEAKNESS_LIMIT).map(candidateTarget)
 
     // The default detail follows the same Impact ordering as the ledger. There
     // is no separate prescribed Target; selecting any row is equally valid.

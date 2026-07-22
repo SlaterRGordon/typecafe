@@ -1,8 +1,7 @@
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 import { mockAuthenticatedSession, mockTrpc } from "./helpers/trpc";
-import { brDrillTimeline, crowdedAccuracyTimeline, higherOrderTimeline, impactTimeline, keyboardEvidenceTimeline } from "./helpers/evidence";
+import { brDrillTimeline, higherOrderTimeline, impactTimeline, keyboardEvidenceTimeline } from "./helpers/evidence";
 import { typeCurrentCharacter, typeVisibleTestText, typeWrongCharacter } from "./helpers/typing";
-import { completedKeyAccuracySession, progressCoachingHistory } from "./helpers/coachingFixtures";
 import { readdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { runStartFile } from "./globalSetup";
@@ -629,7 +628,6 @@ test.describe("screenshot tour", () => {
         { pair: "th", count: 1000, totalMs: 100000, errors: 0 },
       ],
       sameDayProgress: true,
-      coachingHistory: progressCoachingHistory(),
       timelineEvidence: [impactTimeline(1), impactTimeline(2)],
     });
     await page.goto("/progress");
@@ -661,7 +659,7 @@ test.describe("screenshot tour", () => {
       await page.getByTestId("trend-tabs").getByRole("button", { name: "Consistency" }).click();
       await capture(page, testInfo, "40e-progress-daily-consistency");
       await page.getByTestId("trend-tabs").getByRole("button", { name: "WPM" }).click();
-      await page.getByTestId("progress-coach").getByRole("button", { name: /e→r/ }).click();
+      await page.getByTestId("progress-coach").getByRole("button", { name: /i→o/ }).click();
       await expect(page.getByTestId("coach-detail")).toContainText("Target detail");
       await capture(page, testInfo, "40c-progress-target-detail");
     }
@@ -674,21 +672,6 @@ test.describe("screenshot tour", () => {
     await page.getByTestId("lifetime-heatmap-layers").getByRole("button", { name: "Show shifted keys (capitals and symbols)" }).click();
     await expect(page.getByTestId("lifetime-heatmap").locator('[data-kb-key="R"]')).toBeVisible();
     await capture(page, testInfo, "40b-progress-lifetime-keyboard-shift");
-  });
-
-  test("progress dashboard (completed Target in ledger)", async ({ page }, testInfo) => {
-    await mockAuthenticatedSession(page);
-    await mockTrpc(page, {
-      coachingSession: completedKeyAccuracySession(),
-      coachingHistory: [],
-      timelineEvidence: [crowdedAccuracyTimeline(1), crowdedAccuracyTimeline(2)],
-    });
-    await page.goto("/progress");
-    const rRow = page.getByTestId("progress-coach").getByRole("button", { name: /^r Key/ });
-    await expect(rRow).toContainText("80.0%");
-    await rRow.click();
-    await expect(page.getByTestId("target-practice-summary").last()).toContainText("Practice-context performance100.0%");
-    await capture(page, testInfo, "40f-progress-completed-target");
   });
 
   test("progress dashboard (Practice track awaiting Test)", async ({ page }, testInfo) => {
@@ -852,8 +835,8 @@ test.describe("screenshot tour", () => {
     await expect(page.getByText(/replayed on the server from the full keystroke and backspace timeline/i)).toBeVisible();
     await expect(page.getByText(/calculating net WPM for each test first/i)).toBeVisible();
     await expect(page.getByText(/classifies the expected layout geometry, not the finger/i)).toBeVisible();
-    await expect(page.getByText(/Transfer and Cold checks target at least 6 samples/i)).toBeVisible();
-    await expect(page.getByText(/first held Cold check returns after 3 practiced days/i)).toBeVisible();
+    await expect(page.getByText(/generated text saturates the selected Target/i)).toBeVisible();
+    await expect(page.getByText(/cannot invent a natural Weakness or prove representative improvement/i)).toBeVisible();
     await capture(page, testInfo, "55-how-we-measure");
 
     await page.goto("/guides");

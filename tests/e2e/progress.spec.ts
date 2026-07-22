@@ -196,7 +196,6 @@ test.describe("progress dashboard", () => {
 
     const coach = page.getByTestId("progress-coach");
     await expect(coach).toContainText("Target detail");
-    await expect(coach).not.toContainText("Ready to revisit");
     if ((page.viewportSize()?.width ?? 0) >= 1024) {
       await expect(coach).toContainText("Work on b→r");
       await expect(coach).not.toContainText("Baseline");
@@ -326,11 +325,9 @@ test.describe("progress dashboard", () => {
   });
 
   test("inspects another Target without changing order or saving state", async ({ page }) => {
-    const calls: string[] = [];
     await mockAuthenticatedSession(page);
     await mockTrpc(page, {
       timelineEvidence: [impactTimeline(1), impactTimeline(2)],
-      onProcedure: (procedure) => calls.push(procedure),
     });
     await gotoProgress(page);
 
@@ -372,7 +369,6 @@ test.describe("progress dashboard", () => {
     await page.getByTestId("coach-target-filters").getByRole("button", { name: /Keys/ }).click();
     await expect(page.getByTestId("coach-inline-detail")).toHaveCount(0);
     await expect(page.getByTestId("coach-detail")).toContainText("Work on b→r");
-    expect(calls.some((procedure) => procedure.startsWith("coachingSession."))).toBe(false);
     await expect(page.getByTestId("records-timeline")).toHaveCount(0);
   });
 

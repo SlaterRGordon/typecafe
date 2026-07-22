@@ -12,7 +12,7 @@ const timeline = encodeTimeline([
 const guest: GuestEvidenceTest = {
     localId: "guest-1",
     completedAt: 1_752_500_000_000,
-    context: "transfer",
+    context: "acquisition",
     config: {
         mode: 0,
         subMode: 1,
@@ -57,7 +57,7 @@ describe("Timeline evidence normalization", () => {
         })
 
         expect(fromDatabase).toEqual(fromGuest)
-        expect(fromGuest).toMatchObject({ language: "english", pool: "qwerty", context: "transfer" })
+        expect(fromGuest).toMatchObject({ language: "english", pool: "qwerty", context: "acquisition" })
     })
 
     it("normalizes versioned Practice metadata identically for guest and signed-in evidence", () => {

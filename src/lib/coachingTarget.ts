@@ -10,15 +10,11 @@ export type CoachingTarget =
     | { kind: "correction", expected: string, typed: string }
     | { kind: "endurance", shortSeconds: number, longSeconds: number }
 
-export type DrillPolicy = "acquisition" | "transfer" | "cold"
-
 type QueryValue = string | string[] | undefined
 export type DrillQuery = Record<string, QueryValue>
 
 export interface ParsedCoachingTarget {
     target: CoachingTarget
-    policy: DrillPolicy
-    seenWords: string[]
     evidence: GuidedTargetEvidence | null
     legacy: boolean
 }
@@ -134,11 +130,6 @@ function positiveInt(value: QueryValue, max = 600): number | null {
     return Number.isInteger(parsed) && parsed > 0 && parsed <= max ? parsed : null
 }
 
-function policyFrom(value: QueryValue): DrillPolicy {
-    const policy = first(value)
-    return policy === "transfer" || policy === "cold" ? policy : "acquisition"
-}
-
 function guidedEvidence(value: QueryValue): GuidedTargetEvidence | null {
     const encoded = first(value)
     if (!encoded) return null
@@ -166,8 +157,6 @@ function metricFrom(value: QueryValue, fallback: "accuracy" | "latency"): "accur
 }
 
 export function parseCoachingTargetQuery(query: DrillQuery): ParsedCoachingTarget | null {
-    const policy = policyFrom(query.policy)
-    const seenWords = words(query.seen, 40)
     const evidence = guidedEvidence(query.evidence)
     const explicitKind = first(query.target)
     const legacy = explicitKind.length === 0 && !query.gram && !query.movement && !query.correction
@@ -178,8 +167,6 @@ export function parseCoachingTargetQuery(query: DrillQuery): ParsedCoachingTarge
         const sharedGram = words(query.sharedGram, 1)[0]
         return {
             target: { kind: "word", words: wordTargets, ...(sharedGram ? { sharedGram } : {}) },
-            policy,
-            seenWords,
             evidence,
             legacy,
         }
@@ -188,39 +175,39 @@ export function parseCoachingTargetQuery(query: DrillQuery): ParsedCoachingTarge
     const transition = pair(query.transitions)
     if (explicitKind === "transition" || (legacy && transition)) {
         if (!transition) return null
-        return { target: { kind: "transition", pair: transition, metric: metricFrom(query.metric, "latency") }, policy, seenWords, evidence, legacy }
+        return { target: { kind: "transition", pair: transition, metric: metricFrom(query.metric, "latency") }, evidence, legacy }
     }
 
     const keyTargets = keys(query.keys)
     if (explicitKind === "key" || (legacy && keyTargets.length > 0)) {
         if (keyTargets.length === 0) return null
-        return { target: { kind: "key", keys: keyTargets, metric: metricFrom(query.metric, "accuracy") }, policy, seenWords, evidence, legacy }
+        return { target: { kind: "key", keys: keyTargets, metric: metricFrom(query.metric, "accuracy") }, evidence, legacy }
     }
 
     if (explicitKind === "gram" || query.gram) {
         const gram = words(query.gram, 1)[0]
         if (!gram || [...gram].length < 3 || [...gram].length > 4) return null
-        return { target: { kind: "gram", gram }, policy, seenWords, evidence, legacy: false }
+        return { target: { kind: "gram", gram }, evidence, legacy: false }
     }
 
     if (explicitKind === "movement" || query.movement) {
         const movement = first(query.movement) as MovementKind
         const anchors = list(query.anchors).map((anchor) => [...anchor].slice(0, 2).join("")).filter((anchor) => [...anchor].length === 2)
         if (!MOVEMENTS.includes(movement) || anchors.length < 4) return null
-        return { target: { kind: "movement", movement, anchors }, policy, seenWords, evidence, legacy: false }
+        return { target: { kind: "movement", movement, anchors }, evidence, legacy: false }
     }
 
     if (explicitKind === "correction" || query.correction) {
         const [expected, typed] = list(query.correction, 2)
         if (!expected || !typed || !(isDrillableKey(expected) || isPracticeLetter(expected)) || !(isDrillableKey(typed) || isPracticeLetter(typed))) return null
-        return { target: { kind: "correction", expected, typed }, policy, seenWords, evidence, legacy: false }
+        return { target: { kind: "correction", expected, typed }, evidence, legacy: false }
     }
 
     if (explicitKind === "endurance") {
         const shortSeconds = positiveInt(query.shortSeconds)
         const longSeconds = positiveInt(query.longSeconds)
         if (!shortSeconds || !longSeconds || shortSeconds >= longSeconds) return null
-        return { target: { kind: "endurance", shortSeconds, longSeconds }, policy, seenWords, evidence, legacy: false }
+        return { target: { kind: "endurance", shortSeconds, longSeconds }, evidence, legacy: false }
     }
 
     return null
@@ -263,19 +250,16 @@ export function targetUsesArrow(target: CoachingTarget): boolean {
 
 export function targetAction(
     target: CoachingTarget,
-    policy: DrillPolicy = "acquisition",
-    options: { seenWords?: readonly string[], length?: number, evidence?: GuidedTargetEvidence } = {},
+    options: { length?: number, evidence?: GuidedTargetEvidence } = {},
 ): TargetAction {
     const suffix = [
-        `policy=${policy}`,
         ...(options.length ? [`length=${Math.max(1, Math.min(120, Math.floor(options.length)))}`] : []),
-        ...(options.seenWords?.length ? [`seen=${encodedList(options.seenWords)}`] : []),
         ...(options.evidence ? [`evidence=${encodeURIComponent(JSON.stringify(options.evidence))}`] : []),
     ].join("&")
     const workspace = "/practice"
     if (target.kind === "endurance") {
         return {
-            href: `/?mode=timed&count=${target.longSeconds}&coaching=endurance&target=endurance&shortSeconds=${target.shortSeconds}&longSeconds=${target.longSeconds}&policy=${policy}`,
+            href: `/?mode=timed&count=${target.longSeconds}&target=endurance&shortSeconds=${target.shortSeconds}&longSeconds=${target.longSeconds}`,
             label: "Check endurance",
             surface: "test",
         }

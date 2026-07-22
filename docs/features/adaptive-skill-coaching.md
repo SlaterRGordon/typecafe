@@ -1342,8 +1342,8 @@ text, and concise results that point back to measurement.
 #### 13.9 Owner-confirmed Progress and Practice cleanup
 
 Approved 2026-07-21 through a docs-backed batch design-tree review. This
-decision supersedes the retained Daily Coach history in section 12 and
-[daily-coaching.md](daily-coaching.md), the 2-4-only direct-entry restriction above, and the fixed
+decision supersedes the retained Daily Coach history in section 12, the
+2-4-only direct-entry restriction above, and the fixed
 30/60/120/240-second Practice duration set. The design is confirmed; the
 implementation items below remain unchecked.
 
@@ -1394,7 +1394,7 @@ tracer-bullet implementation graph recorded as native sub-issues
   restores normal Guided completion. Remember the infinity preference
   separately for Keys and each language's Grams & words setup.
 
-- [ ] Remove Daily Coach code, routes, persisted server data, schema, historical
+- [x] Remove Daily Coach code, routes, persisted server data, schema, historical
       influence, documentation, and coverage at the boundary above.
 - [ ] Simplify Target detail and make the Progress columns equal-height without
       changing natural evidence or Worth derivation.

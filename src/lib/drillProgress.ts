@@ -29,7 +29,7 @@ export function drillFindingFromCandidate(candidate: SkillCandidate | null): Dri
         return {
             kind: "transition",
             id: candidate.id,
-            href: targetAction(target, "acquisition", { evidence: guidedEvidenceFromCandidate(candidate) }).href,
+            href: targetAction(target, { evidence: guidedEvidenceFromCandidate(candidate) }).href,
             pair: target.pair,
             from: target.pair[0]!,
             to: target.pair[1]!,
@@ -41,7 +41,7 @@ export function drillFindingFromCandidate(candidate: SkillCandidate | null): Dri
         return {
             kind: "keys",
             id: candidate.id,
-            href: targetAction(target, "acquisition", { evidence: guidedEvidenceFromCandidate(candidate) }).href,
+            href: targetAction(target, { evidence: guidedEvidenceFromCandidate(candidate) }).href,
             keys: target.keys,
             evidence: candidate,
         }
@@ -50,7 +50,7 @@ export function drillFindingFromCandidate(candidate: SkillCandidate | null): Dri
         return {
             kind: "keys",
             id: candidate.id,
-            href: targetAction(target, "acquisition", { evidence: guidedEvidenceFromCandidate(candidate) }).href,
+            href: targetAction(target, { evidence: guidedEvidenceFromCandidate(candidate) }).href,
             keys: [target.expected],
             evidence: candidate,
         }
@@ -72,7 +72,7 @@ export function nextDrillFinding(
         return {
             kind: "transition",
             id: `transition:${slowest.pair}`,
-            href: targetAction(target, "acquisition", { evidence: {
+            href: targetAction(target, { evidence: {
                 metric: "ms",
                 baseline: slowest.meanMs / slowest.ratio,
                 observed: slowest.meanMs,
@@ -97,7 +97,7 @@ export function nextDrillFinding(
     return {
         kind: "keys",
         id: `keys:${keys.join(",")}`,
-        href: targetAction(target, "acquisition", { evidence: {
+        href: targetAction(target, { evidence: {
             metric: "%",
             baseline: 100,
             observed: accuracy,

@@ -1,19 +1,14 @@
 import { describe, expect, it } from "vitest"
 import type { CoachingTarget } from "./coachingTarget"
 import {
-    completedRunProvesMastery,
-    completedRunProvesTransfer,
     completedRunUpdatesTargetResponse,
     discoversWeakness,
     EVIDENCE_CONTEXTS,
-    evidenceContextForCoachingStep,
     evidenceContextForRun,
     evidenceContextForStoredTest,
     parsePracticeRecord,
     practiceComparisonWindow,
     practiceRecordMatchesEvidence,
-    provesMastery,
-    provesTransfer,
     updatesTargetResponse,
 } from "./evidenceContext"
 
@@ -48,32 +43,18 @@ describe("evidence context", () => {
         expect(evidenceContextForRun({ surface: "train", mode: 0 })).toBe("train")
     })
 
-    it("freezes known Coaching steps into their honest contexts", () => {
-        expect(evidenceContextForCoachingStep("baseline")).toBe("natural")
-        expect(evidenceContextForCoachingStep("calibration")).toBe("diagnostic")
-        expect(evidenceContextForCoachingStep("focus")).toBe("acquisition")
-        expect(evidenceContextForCoachingStep("recheck")).toBe("cold")
-    })
-
     it("classifies only legacy ranked normal Tests as natural", () => {
         expect(evidenceContextForStoredTest({ storedContext: null, ranked: true, mode: 0 })).toBe("natural")
         expect(evidenceContextForStoredTest({ storedContext: null, ranked: false, mode: 0 })).toBeNull()
         expect(evidenceContextForStoredTest({ storedContext: null, ranked: true, mode: 4 })).toBeNull()
         expect(evidenceContextForStoredTest({ storedContext: "broken", ranked: true, mode: 0 })).toBeNull()
-        expect(evidenceContextForStoredTest({ storedContext: "transfer", ranked: false, mode: 0 })).toBe("transfer")
     })
 
-    it("keeps discovery, response, Transfer, and Mastery proof distinct", () => {
+    it("keeps natural discovery and focused Practice response distinct", () => {
         expect(EVIDENCE_CONTEXTS.filter(discoveriesWeakness)).toEqual(["natural", "diagnostic"])
-        expect(EVIDENCE_CONTEXTS.filter(updatesTargetResponse)).toEqual(["acquisition", "transfer", "cold"])
-        expect(provesTransfer("transfer")).toBe(true)
-        expect(provesMastery("transfer")).toBe(false)
-        expect(provesMastery("cold")).toBe(true)
-        expect(provesMastery(null)).toBe(false)
+        expect(EVIDENCE_CONTEXTS.filter(updatesTargetResponse)).toEqual(["acquisition"])
         expect(discoversWeakness("custom-practice")).toBe(false)
         expect(updatesTargetResponse("custom-practice")).toBe(false)
-        expect(provesTransfer("custom-practice")).toBe(false)
-        expect(provesMastery("custom-practice")).toBe(false)
     })
 
     it("parses versioned Guided and Custom Practice records conservatively", () => {
@@ -90,8 +71,6 @@ describe("evidence context", () => {
         expect(practiceRecordMatchesEvidence(null, "custom-practice", null)).toBe(false)
         expect(practiceRecordMatchesEvidence(null, "acquisition", null)).toBe(true)
         expect(completedRunUpdatesTargetResponse("acquisition", { ...guided, completed: false })).toBe(false)
-        expect(completedRunProvesTransfer("transfer", { ...guided, completed: false })).toBe(false)
-        expect(completedRunProvesMastery("cold", { ...guided, completed: false })).toBe(false)
     })
 
     it("uses the previous ten completed same-cohort runs without duration or activity bias", () => {

@@ -34,14 +34,6 @@ const IMPACT_ACCURACY: Record<ProgressImpactTone, number> = {
     minor: 100,
 }
 
-function stateTone(target: ProgressCoachTarget): string {
-    if (target.state === "due") return "text-warning"
-    if (target.state === "regressed") return "text-error"
-    if (target.state === "retained") return "text-success"
-    if (target.state === "transferred") return "text-info"
-    return "text-primary"
-}
-
 function trendTone(target: ProgressCoachTarget): string {
     if (target.trend?.outcome === "good") return "text-success"
     if (target.trend?.outcome === "bad") return "text-error"
@@ -50,9 +42,6 @@ function trendTone(target: ProgressCoachTarget): string {
 
 function rowStatus(target: ProgressCoachTarget): { label: string, className: string } | null {
     if (target.awaitingMeasurement) return { label: "practised · awaiting Test", className: "text-info" }
-    if (target.state === "transferred" || target.state === "retained") {
-        return { label: "improved", className: "text-success" }
-    }
     return null
 }
 
@@ -90,19 +79,12 @@ function usesArrow(target: ProgressCoachTarget): boolean {
 
 function CoachHeadline({ target, color }: { target: ProgressCoachTarget, color: string }) {
     if (!target.target) return <h2 className="text-xl font-bold leading-tight text-base-content">{target.headline}</h2>
-    const before: Record<Exclude<ProgressCoachTarget["state"], "calibrating">, string> = {
-        "needs-work": target.metric === "%" ? "Sharpen" : "Speed up",
-        due: "Practise",
-        regressed: "Refresh",
-        training: "Keep building",
-        transferred: "Improved in recent typing",
-        retained: "Gain held for",
-    }
+    const before = target.metric === "%" ? "Sharpen" : "Speed up"
     return (
         <h2 className="mt-1.5 text-xl font-bold leading-tight text-base-content">
             <span className="sr-only">{target.headline}</span>
             <span aria-hidden="true" className="flex flex-wrap items-center gap-2">
-                <span>{before[target.state as Exclude<ProgressCoachTarget["state"], "calibrating">]}</span>
+                <span>{before}</span>
                 <TargetGlyph keys={target.visualKeys} label={target.label} arrows={usesArrow(target)} color={color} headline />
                 {target.impactMsPer1000 !== null && <span className="font-mono text-base" style={{ color }}>{worthLabel(target)}</span>}
                 <WorthDelta target={target} className="text-sm" />
@@ -174,9 +156,9 @@ function CoachSummary({ target, color, contextLabel, action }: { target: Progres
         <div className="flex min-w-0 flex-1 items-center justify-between gap-4">
             <div className="min-w-0">
                 <div className="flex items-center gap-2 text-[0.65rem] font-bold uppercase tracking-[0.12em] text-base-content/50">
-                    <span className={`h-1.5 w-1.5 rounded-full ${target.state === "regressed" ? "bg-error" : target.state === "due" ? "bg-warning" : "bg-primary"}`} />
+                    <span className="h-1.5 w-1.5 rounded-full bg-primary" />
                     <span>{contextLabel}</span>
-                    <span className={stateTone(target)}>{target.statusLabel}</span>
+                    <span className="text-primary">{target.statusLabel}</span>
                 </div>
                 <CoachHeadline target={target} color={color} />
                 <ProofLine target={target} />
@@ -350,7 +332,7 @@ export function ProgressCoach({ projection, loading }: ProgressCoachProps) {
                                                         aria-label={row.action.label}
                                                         className="absolute left-1/2 inline-flex min-h-8 -translate-x-1/2 items-center rounded-md bg-primary px-2 text-[0.65rem] font-semibold text-primary-content opacity-0 shadow-sm transition hover:bg-primary/80 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                                                     >
-                                                        {row.awaitingMeasurement ? "Take a Test" : row.state === "due" ? "Check" : row.state === "regressed" ? "Refresh" : "Practice"}
+                                                        {row.awaitingMeasurement ? "Take a Test" : "Practice"}
                                                     </Link>
                                                 )}
                                             </div>

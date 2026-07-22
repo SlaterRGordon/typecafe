@@ -126,7 +126,7 @@ export function compileGuidedPractice(input: {
     if (setup.target.kind === "key" || setup.target.kind === "correction") {
         return compileCustomKeysPractice({ keys: setup.focus.items, corpus: input.corpus, language: input.language, textStyle: "varied", seed: input.seed, wordCount })
     }
-    return compileDrillText({ target: setup.target, policy: "acquisition", wordList: [...input.corpus], length: wordCount, rng: randomFor(input.seed) })
+    return compileDrillText({ target: setup.target, wordList: [...input.corpus], length: wordCount, rng: randomFor(input.seed) })
 }
 
 function median(values: readonly number[]): number {

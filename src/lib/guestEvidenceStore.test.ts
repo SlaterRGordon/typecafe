@@ -86,12 +86,12 @@ describe("guest evidence store", () => {
     it("replaces duplicate local ids and deletes only confirmed ids", async () => {
         const memory = memoryStorage([evidence("first", 1), evidence("second", 2)])
         const store = createGuestEvidenceStore(memory.storage)
-        await store.add(evidence("first", 3, "transfer"))
+        await store.add(evidence("first", 3, "acquisition"))
         await store.remove(["second"])
 
         const items = await store.read()
         expect(items).toHaveLength(1)
-        expect(items[0]).toMatchObject({ localId: "first", completedAt: 3, context: "transfer" })
+        expect(items[0]).toMatchObject({ localId: "first", completedAt: 3, context: "acquisition" })
     })
 
     it("round-trips Guided and Custom Practice metadata without accepting false attribution", async () => {

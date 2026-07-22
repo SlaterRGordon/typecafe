@@ -43,7 +43,6 @@ test.describe("app navigation", () => {
     // Practice is the resume-first focused-work destination between measuring and proof.
     expect(labels.slice(0, 5)).toEqual(["Home", "Practice", "Progress", "Train", "Leaderboard"]);
     expect(icons.slice(0, 5)).toEqual(["home", "keyboard", "trending_up", "fitness_center", "leaderboard"]);
-    expect(labels).not.toContain("Daily coaching");
     expect(labels).not.toContain("Daily Challenge");
     await expect(nav.locator(".fa-dumbbell")).toHaveCount(0);
   });
