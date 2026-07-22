@@ -374,7 +374,7 @@ test.describe("progress dashboard", () => {
     await expect(page.getByTestId("records-timeline")).toHaveCount(0);
   });
 
-  test("names grouped movement scope before preserving every representative sequence in Practice", async ({ page }) => {
+  test("shows the full grouped movement description before preserving every sequence in Practice", async ({ page }) => {
     await mockAuthenticatedSession(page);
     await mockTrpc(page, { timelineEvidence: [movementTimeline(1), movementTimeline(2)] });
     await gotoProgress(page);
@@ -383,6 +383,16 @@ test.describe("progress dashboard", () => {
     await coach.getByTestId("coach-target-filters").getByRole("button", { name: /Movements/ }).click();
     const movementRow = coach.getByRole("button", { name: /same-finger movement/ });
     for (const sequence of ["f→r", "d→e", "s→w", "a→q"]) await expect(movementRow).toContainText(sequence);
+    const description = movementRow.getByText("same-finger movement · a→q, d→e, f→r, s→w", { exact: true });
+    await expect(description).toBeVisible();
+    expect(await description.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return {
+        fitsHorizontally: element.scrollWidth <= element.clientWidth,
+        fitsVertically: element.scrollHeight <= element.clientHeight,
+        textOverflow: style.textOverflow,
+      };
+    })).toEqual({ fitsHorizontally: true, fitsVertically: true, textOverflow: "clip" });
     await movementRow.click();
 
     const desktop = (page.viewportSize()?.width ?? 0) >= 1024;

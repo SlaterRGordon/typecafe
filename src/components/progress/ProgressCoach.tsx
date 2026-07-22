@@ -267,7 +267,7 @@ export function ProgressCoach({ projection, loading }: ProgressCoachProps) {
                     </div>
                 </div>
 
-                <div className="hidden grid-cols-[minmax(0,1fr)_5.25rem_8.25rem_8.25rem] gap-2 border-y border-base-content/10 px-3 py-2 font-mono text-[0.6rem] uppercase tracking-[0.1em] text-base-content/40 lg:grid">
+                <div className="hidden grid-cols-[minmax(0,1fr)_5rem_7rem_7.5rem] gap-2 border-y border-base-content/10 px-3 py-2 font-mono text-[0.6rem] uppercase tracking-[0.1em] text-base-content/40 lg:grid">
                     <span>Target</span><span className="text-center">Ability</span><span className="text-center">Progress</span><span className="text-center">Worth</span>
                 </div>
 
@@ -288,14 +288,14 @@ export function ProgressCoach({ projection, loading }: ProgressCoachProps) {
                                 return (
                                     <li key={row.id} data-testid={`coach-target-row-${row.id}`} data-selected={expanded ? "" : undefined} className={`group relative ${index >= 5 && !showAllTargets ? "hidden lg:list-item" : ""}`}>
                                         <span aria-hidden="true" className="absolute bottom-1.5 left-0 top-1.5 z-10 w-1 rounded-r-full" style={{ backgroundColor: color }} />
-                                        <div className={`relative px-3 transition ${expanded ? "bg-primary/15 ring-1 ring-inset ring-primary/35" : "hover:bg-base-content/5"} lg:grid lg:grid-cols-[minmax(0,1fr)_8.25rem]`}>
+                                        <div className={`relative px-3 transition ${expanded ? "bg-primary/15 ring-1 ring-inset ring-primary/35" : "hover:bg-base-content/5"} lg:grid lg:grid-cols-[minmax(0,1fr)_7.5rem]`}>
                                             <button
                                                 type="button"
                                                 aria-expanded={expanded}
                                                 onClick={() => setSelectedId(expanded ? null : row.id)}
-                                                className="grid min-h-[4.25rem] w-full min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 py-2 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary lg:col-span-1 lg:grid-cols-[minmax(0,1fr)_6.25rem_8.25rem]"
+                                                className="grid min-h-[4.25rem] w-full min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 py-2 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary lg:col-span-1 lg:grid-cols-[minmax(0,1fr)_5rem_7rem]"
                                             >
-                                                <span className="grid min-w-0 grid-cols-[7rem_minmax(0,1fr)] items-center">
+                                                <span className="grid min-w-0 grid-cols-[6.25rem_minmax(0,1fr)] items-center">
                                                     <TargetGlyph keys={row.visualKeys} label={row.label} arrows={usesArrow(row)} color={color} />
                                                     <span className="min-w-0">
                                                         <span className="flex items-center gap-1.5">
@@ -306,7 +306,7 @@ export function ProgressCoach({ projection, loading }: ProgressCoachProps) {
                                                                 </span>
                                                             )}
                                                         </span>
-                                                        <span className="mt-1 block truncate font-mono text-[0.62rem] text-base-content/40">{row.description}</span>
+                                                        <span className="mt-1 block break-words font-mono text-[0.62rem] leading-tight text-base-content/40">{row.description}</span>
                                                     </span>
                                                 </span>
                                                 <span className="font-mono text-[0.65rem] text-base-content/80 lg:text-center">
