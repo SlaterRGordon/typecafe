@@ -824,7 +824,20 @@ test.describe("home typing test", () => {
     )).toBeNull();
   });
 
-  test("timed test completes when the timer expires", async ({ page }) => {
+  test("timed test completes without reading or adopting retired coaching state", async ({ page }) => {
+    await page.addInitScript(() => {
+      window.localStorage.setItem("typecafe:dailyCoaching:guest", "stale retired state");
+      const storage = window.localStorage;
+      const getItem = storage.getItem.bind(storage);
+      Object.defineProperty(window, "__dailyCoachReads", { configurable: true, value: 0, writable: true });
+      Object.defineProperty(storage, "getItem", { configurable: true, value: (key: string) => {
+          if (key.startsWith("typecafe:dailyCoaching")) {
+            (window as typeof window & { __dailyCoachReads: number }).__dailyCoachReads += 1;
+          }
+          return getItem(key);
+        },
+      });
+    });
     await gotoHome(page);
 
     // Shorten the test to 3 seconds via a custom timed length.
@@ -835,6 +848,8 @@ test.describe("home typing test", () => {
     await page.locator("#text").click();
     await typeCurrentCharacter(page);
     await expect(page.getByRole("button", { name: "Test Again" })).toBeVisible({ timeout: 10_000 });
+    await expect(page).toHaveURL(/\/$/);
+    expect(await page.evaluate(() => (window as typeof window & { __dailyCoachReads: number }).__dailyCoachReads)).toBe(0);
   });
 
   // Regression guards for the live-accuracy undercount (phase-0-trust.md 0.1):

@@ -1,7 +1,8 @@
 import { expect, test } from "@playwright/test"
 
-test("legacy daily-plan links return to target-first Progress", async ({ page }) => {
-  await page.goto("/plan")
+test("the retired plan route is unavailable", async ({ page }) => {
+  const response = await page.goto("/plan")
 
-  await expect(page).toHaveURL(/\/progress$/)
+  expect(response?.status()).toBe(404)
+  await expect(page).toHaveURL(/\/plan$/)
 })

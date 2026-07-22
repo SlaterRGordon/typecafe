@@ -164,6 +164,8 @@ describe("analyzeTypingEvidence", () => {
 
         expect(common?.impactMsPer1000).toBeGreaterThan(rare?.impactMsPer1000 ?? Infinity)
         expect(analysis.recommendation?.id).toBe("transition:latency:br")
+        expect(analysis.mastery).toEqual([])
+        expect(analysis.recap).toEqual({ retained: [], due: null, regressed: null })
     })
 
     it("recommends a high-error pair even when its speed is normal", () => {

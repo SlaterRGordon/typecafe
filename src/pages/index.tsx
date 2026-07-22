@@ -14,10 +14,8 @@ import { TestModes, TestSubModes, type QuoteLength } from "~/components/typer/ty
 import { useTestSettings } from "~/hooks/useTestSettings";
 import { useLanguage } from "~/hooks/useLanguage";
 import { useLayout } from "~/hooks/useLayout";
-import { statsPoolFor } from "~/lib/keyboardLayout";
 import { clampSize, composeLanguage, parseLanguage } from "~/components/typer/utils";
 import { parseEvidenceContext, type EvidenceContext } from "~/lib/evidenceContext";
-import type * as DailyCoachingModule from "~/lib/dailyCoaching";
 import { appendLocalProgress } from "~/lib/progressHistory";
 import { consistencyFromSamples } from "~/lib/stats";
 import { api } from "~/utils/api";
@@ -110,8 +108,6 @@ const Home: NextPage = () => {
   // The pending re-measure offer. The ref is the synchronous source of truth (read
   // inside completion handling); the state drives the drill-view prompt's render.
   const reMeasureRef = useRef<ReMeasureState | null>(null)
-  // The just-finished Test advanced today's coaching session (its measure was
-  // adopted); the result card banners the next step. Reset with the card.
   const charAttemptsRef = useRef<Map<string, { attempts: number, correct: number }>>(new Map())
   const hasSavedPendingRef = useRef(false)
   // Invalidates a guest-score import when its restored card is dismissed. The DB
@@ -130,12 +126,6 @@ const Home: NextPage = () => {
     : null
   const [coachingRunContext, setCoachingRunContext] = useState<EvidenceContext | null>(null)
   const coachingEvidenceContext = coachingRunContext ?? queryCoachingContext ?? "natural"
-  const dailyCoachingRef = useRef<typeof DailyCoachingModule | null>(null)
-  useEffect(() => {
-    let active = true
-    void import("~/lib/dailyCoaching").then((module) => { if (active) dailyCoachingRef.current = module })
-    return () => { active = false }
-  }, [])
   const [activeLayout] = useLayout()
   const createShare = api.scoreShare.create.useMutation()
   const createGuestScore = api.scoreShare.createGuestScore.useMutation()
@@ -199,44 +189,6 @@ const Home: NextPage = () => {
     // user already dismissed/restarted that card (its eager render set the flag).
     if (result.persisted && !cardActiveRef.current) return
     cardActiveRef.current = true
-    // Today's coaching adopts a qualifying Test as its measure, however it was
-    // launched - the session never demands a run the user just did. Only the
-    // eager report records (the persisted upgrade is the same run).
-    let adopted = false
-    if (!result.persisted && dailyCoachingRef.current && mode === TestModes.normal && (subMode === TestSubModes.timed || subMode === TestSubModes.words)) {
-      const {
-        currentDailyStep,
-        GUEST_DAILY_SCOPE,
-        localDateKey,
-        measureQualifies,
-        measureEnduranceDailyStep,
-        readLocalDailySession,
-        recordDailySet,
-        writeLocalDailySession,
-      } = dailyCoachingRef.current
-      const scope = sessionData?.user?.id ?? GUEST_DAILY_SCOPE
-      const context = { dateKey: localDateKey(), pool: statsPoolFor(activeLayout), language: globalLanguage }
-      const daily = readLocalDailySession(scope, context)
-      const active = daily ? currentDailyStep(daily) : null
-      const run = { subMode: subMode === TestSubModes.timed ? "timed" as const : "words" as const, count }
-      if (daily && active && (measureQualifies(active.kind, run) || (
-        active.target?.kind === "endurance" && active.context === coachingEvidenceContext &&
-        coachingRunContext !== null
-      ))) {
-        const measured = active.target?.kind === "endurance"
-          ? measureEnduranceDailyStep(daily, active, result.netWpm)
-          : null
-        const advanced = recordDailySet(daily, active.id, {
-          netWpm: result.netWpm,
-          accuracy: result.accuracy,
-          ...(measured ?? {}),
-        })
-        if (advanced !== daily) {
-          writeLocalDailySession(scope, advanced)
-          adopted = true
-        }
-      }
-    }
     // Resolve the re-measure offer once, on the first (eager) report; the later
     // save upgrade reuses it so the before→after strip doesn't vanish.
     if (!result.persisted) {
@@ -276,17 +228,8 @@ const Home: NextPage = () => {
       testId: result.testId,
       reMeasure: attemptReMeasureRef.current,
     }
-    if (adopted && !attemptReMeasureRef.current) {
-      // An adopted measure returns straight to the daily hub - /plan shows the
-      // recorded step and what's next. The generic score card with a coaching
-      // banner bolted on read as two competing screens. The score still saves
-      // and the local mirrors below still record. A re-measured run is exempt:
-      // its before→after delta is the payoff and must stay on screen.
-      void router.replace("/plan")
-    } else {
-      setCompletedScore(score)
-      setShareUrl(undefined)
-    }
+    setCompletedScore(score)
+    setShareUrl(undefined)
 
     const consistency = consistencyFromSamples(result.wpmSamples)
 

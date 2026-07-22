@@ -205,11 +205,6 @@ export interface SkillEvidenceInput {
     // Frequency-ranked words for the active language. Persistence and loading
     // stay outside this pure module; analysis derives bounded priors on demand.
     corpusWords?: readonly string[]
-    // Parsed, same-language/pool Coaching snapshots. Mastery is derived on read;
-    // callers retain ownership of persistence and scoping.
-    sessions?: readonly DailyCoachingSession[]
-    todayDateKey?: string
-    scope?: { language: string, pool: string }
 }
 
 export interface NaturalKeyboardEvidence {
@@ -1407,7 +1402,7 @@ function recordTargetKey(record: Pick<MasteryRecord, "target">): string {
     return JSON.stringify(record.target)
 }
 
-function deriveMastery(
+export function deriveMastery(
     sessions: readonly DailyCoachingSession[],
     candidates: readonly SkillCandidate[],
     todayDateKey: string | undefined,
@@ -1724,20 +1719,6 @@ export function analyzeTypingEvidence(input: SkillEvidenceInput): SkillAnalysis 
         if (practice) candidate.practice = practice
         if (awaitingMeasurement(candidate.target, evidence)) candidate.awaitingMeasurement = true
     }
-    const scope = input.scope
-    const scopedSessions = scope
-        ? (input.sessions ?? []).filter((session) => session.language === scope.language && session.pool === scope.pool)
-        : input.sessions ?? []
-    const history = deriveMastery(scopedSessions, candidates, input.todayDateKey)
-    for (const record of history.mastery) {
-        const response = acquisitionResponse({ target: record.target, metric: record.proof.metric }, evidence)
-        if (response) record.response = response
-        const ability = naturalAbility(record.target, evidence)
-        if (ability) record.ability = ability
-        const practice = practiceActivity(record.target, evidence)
-        if (practice) record.practice = practice
-        if (awaitingMeasurement(record.target, evidence)) record.awaitingMeasurement = true
-    }
     evidence.quality.status = evidence.quality.discoveryTimelines === 0
         ? "none"
         : candidates.length > 0 ? "ready" : "thin"
@@ -1748,8 +1729,8 @@ export function analyzeTypingEvidence(input: SkillEvidenceInput): SkillAnalysis 
         quality: evidence.quality,
         candidates,
         recommendation: candidates[0] ?? null,
-        mastery: history.mastery,
-        recap: history.recap,
+        mastery: [],
+        recap: { retained: [], due: null, regressed: null },
         testFamilyCosts: matchedRuns.testFamilyCosts,
         evidenceWindow: discoveryTimes.length > 0
             ? { tests: discoveryTimes.length, fromMs: Math.min(...discoveryTimes), toMs: Math.max(...discoveryTimes) }

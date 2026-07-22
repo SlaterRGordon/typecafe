@@ -7,7 +7,7 @@ import {
 } from "./dailyCoaching"
 import type { TimelineEvidence } from "./evidenceNormalization"
 import { encodeTimeline, type TestEvidenceEvent } from "./keystrokes"
-import { analyzeTypingEvidence, type SkillCandidate } from "./skillEvidence"
+import { analyzeTypingEvidence, deriveMastery, type SkillCandidate } from "./skillEvidence"
 
 const candidate: SkillCandidate = {
     id: "transition:latency:br",
@@ -119,12 +119,13 @@ function naturalWeakness(testId: number): TimelineEvidence {
 }
 
 function analyze(sessions: DailyCoachingSession[], todayDateKey: string, timelines: TimelineEvidence[] = []) {
-    return analyzeTypingEvidence({
-        timelines,
-        sessions,
+    const current = analyzeTypingEvidence({ timelines })
+    const history = deriveMastery(
+        sessions.filter((session) => session.language === "english" && session.pool === "qwerty"),
+        current.candidates,
         todayDateKey,
-        scope: { language: "english", pool: "qwerty" },
-    })
+    )
+    return { ...current, ...history }
 }
 
 describe("Mastery derivation", () => {

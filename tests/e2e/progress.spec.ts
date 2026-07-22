@@ -1,8 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { mockAuthenticatedSession, mockTrpc } from "./helpers/trpc";
-import { completedKeyAccuracySession, progressCoachingHistory } from "./helpers/coachingFixtures";
-import { brDrillTimeline, crowdedAccuracyTimeline, impactTimeline } from "./helpers/evidence";
-import { DAILY_COACHING_STORAGE_KEY, GUEST_DAILY_SCOPE } from "../../src/lib/dailyCoaching";
+import { brDrillTimeline, impactTimeline } from "./helpers/evidence";
 import { typeCurrentCharacter } from "./helpers/typing";
 
 async function gotoProgress(page: Page) {
@@ -97,7 +95,6 @@ test.describe("progress dashboard", () => {
         { pair: "th", count: 1000, totalMs: 100000, errors: 0 },
       ],
       sameDayProgress: true,
-      coachingHistory: progressCoachingHistory(),
       timelineEvidence: [impactTimeline(1), impactTimeline(2)],
     });
     await gotoProgress(page);
@@ -199,20 +196,10 @@ test.describe("progress dashboard", () => {
 
     const coach = page.getByTestId("progress-coach");
     await expect(coach).toContainText("Target detail");
-    await expect(coach).not.toContainText("Coach ·");
+    await expect(coach).not.toContainText("Ready to revisit");
     if ((page.viewportSize()?.width ?? 0) >= 1024) {
-      // Detail defaults to the top live weakness; selecting a coached row
-      // swaps in its historical proof.
       await expect(coach).toContainText("Work on b→r");
-      // Every row derives its evidence from natural typing only; the coached
-      // tion Target has no natural occurrences in this fixture, so its detail
-      // says so instead of showing a frozen daily-coach baseline.
-      await coach.getByRole("button", { name: /^tion Pattern/ }).click();
-      await expect(coach).toContainText("Practise tion again");
-      await expect(coach.getByRole("link", { name: "Practice this pattern" }).first()).toHaveAttribute("href", /\/practice\?target=gram.*evidence=/);
-      await expect(coach).toContainText("No recent natural evidence for this Target.");
       await expect(coach).not.toContainText("Baseline");
-      await expect(coach.getByTestId("coach-detail").getByTestId("target-practice-summary")).toContainText("Completed runs");
     } else {
       await expect(page.getByTestId("coach-inline-detail")).toContainText("Recent 140 ms");
       await expect(page.getByTestId("coach-inline-detail").getByRole("link", { name: "Practice this transition" })).toBeVisible();
@@ -342,7 +329,6 @@ test.describe("progress dashboard", () => {
     const calls: string[] = [];
     await mockAuthenticatedSession(page);
     await mockTrpc(page, {
-      coachingHistory: progressCoachingHistory(),
       timelineEvidence: [impactTimeline(1), impactTimeline(2)],
       onProcedure: (procedure) => calls.push(procedure),
     });
@@ -361,34 +347,32 @@ test.describe("progress dashboard", () => {
         return detailBox && targetsBox ? targetsBox.y > detailBox.y + detailBox.height : false;
       }).toBe(true);
     }
-    const erRow = coach.getByRole("button", { name: /e→r/ });
-    await erRow.focus();
-    await erRow.press("Enter");
-    await expect(erRow).toHaveAttribute("aria-expanded", "true");
-    await expect(erRow.locator("xpath=ancestor::li[1]")).toHaveAttribute("data-selected", "");
+    const ioRow = coach.getByRole("button", { name: /i→o/ });
+    await ioRow.focus();
+    await ioRow.press("Enter");
+    await expect(ioRow).toHaveAttribute("aria-expanded", "true");
+    await expect(ioRow.locator("xpath=ancestor::li[1]")).toHaveAttribute("data-selected", "");
 
     if ((page.viewportSize()?.width ?? 0) >= 1024) {
       await expect(targetsSurface.getByRole("list", { name: "Recent typing Targets" }).locator(":scope > li").first()).toContainText("b→r");
-      await expect(targetsSurface.getByTestId("coach-trend-legend")).toContainText("improving");
-      await expect(targetsSurface.getByTestId("coach-trend-legend")).toContainText("slipping");
       const detail = page.getByTestId("coach-detail");
       await expect(detail).toContainText("Target detail");
-      await expect(detail).toContainText("Your e→r gain held");
-      await expect(detail).toContainText("No recent natural evidence for this Target.");
+      await expect(detail).toContainText("Work on i→o");
+      await expect(detail).toContainText("Recent 200 ms");
       await expect(detail.getByRole("button", { name: /Back to/ })).toHaveCount(0);
-      await erRow.click();
-      await expect(erRow).toHaveAttribute("aria-expanded", "false");
+      await ioRow.click();
+      await expect(ioRow).toHaveAttribute("aria-expanded", "false");
       await expect(detail).toContainText("Work on b→r");
     } else {
-      await expect(page.getByTestId("coach-inline-detail")).toContainText("gain held across");
-      await erRow.click();
-      await expect(erRow).toHaveAttribute("aria-expanded", "false");
+      await expect(page.getByTestId("coach-inline-detail")).toContainText("Work on i→o");
+      await ioRow.click();
+      await expect(ioRow).toHaveAttribute("aria-expanded", "false");
     }
 
     await page.getByTestId("coach-target-filters").getByRole("button", { name: /Keys/ }).click();
     await expect(page.getByTestId("coach-inline-detail")).toHaveCount(0);
     await expect(page.getByTestId("coach-detail")).toContainText("Work on b→r");
-    expect(calls).not.toContain("coachingSession.save");
+    expect(calls.some((procedure) => procedure.startsWith("coachingSession."))).toBe(false);
     await expect(page.getByTestId("records-timeline")).toHaveCount(0);
   });
 
@@ -455,31 +439,6 @@ test.describe("progress dashboard", () => {
     await expect(page.locator("#c0")).toHaveClass(/active-char/, { timeout: 20_000 });
     await expect(page.getByTestId("score-card")).toHaveCount(0);
     await expect(page.getByText(/awaiting Test/i)).toHaveCount(0);
-  });
-
-  test("keeps a completed Target visible while bounded history catches up", async ({ page }) => {
-    await mockAuthenticatedSession(page);
-    await mockTrpc(page, {
-      coachingSession: completedKeyAccuracySession(),
-      coachingHistory: [],
-      timelineEvidence: [crowdedAccuracyTimeline(1), crowdedAccuracyTimeline(2)],
-    });
-    await gotoProgress(page);
-
-    const coach = page.getByTestId("progress-coach");
-    const rRow = coach.getByRole("button", { name: /^r Key/ });
-    await expect(rRow).toBeVisible();
-    await expect(rRow).not.toContainText("improved");
-    await expect(rRow).toContainText("80.0%");
-    await expect(rRow).not.toContainText("100.0%");
-    await rRow.click();
-    const detail = (page.viewportSize()?.width ?? 0) >= 1024
-      ? page.getByTestId("coach-detail")
-      : page.getByTestId("coach-inline-detail");
-    await expect(detail.getByTestId("target-practice-summary")).toContainText("Practice-context performance100.0%");
-    await expect(coach).not.toContainText("Map your typing to find a stable Target");
-    await expect(coach).toContainText("ranked by estimated worth");
-    await expect(coach).toContainText(/~\d+\.\d+s \/ 1k chars/);
   });
 
   test("signed-in Progress displays the canonical net score without recalculating it", async ({ page }) => {
@@ -579,18 +538,28 @@ test.describe("progress dashboard", () => {
     // Seed a rising local history (local-first: no account needed).
     const now = Date.now();
     const day = 24 * 60 * 60 * 1000;
-    const coachingHistory = progressCoachingHistory();
-    await page.addInitScript(({ now, day, coachingHistory, coachingKey }) => {
+    await page.addInitScript(({ now, day }) => {
       const entries = Array.from({ length: 12 }, (_, i) => ({ wpm: 55 + i * 1.5, accuracy: 95, t: now - (28 - i * 2.5) * day }));
       window.localStorage.setItem("typecafe:progressHistory", JSON.stringify(entries));
-      window.localStorage.setItem(coachingKey, JSON.stringify(coachingHistory));
-    }, { now, day, coachingHistory, coachingKey: `${DAILY_COACHING_STORAGE_KEY}:${encodeURIComponent(GUEST_DAILY_SCOPE)}` });
+      window.localStorage.setItem("typecafe:dailyCoaching:guest", "stale retired state");
+      const storage = window.localStorage;
+      const getItem = storage.getItem.bind(storage);
+      Object.defineProperty(window, "__dailyCoachReads", { configurable: true, value: 0, writable: true });
+      Object.defineProperty(storage, "getItem", { configurable: true, value: (key: string) => {
+          if (key.startsWith("typecafe:dailyCoaching")) {
+            (window as typeof window & { __dailyCoachReads: number }).__dailyCoachReads += 1;
+          }
+          return getItem(key);
+        },
+      });
+    }, { now, day });
 
     await gotoProgress(page);
 
     await expect(page.getByTestId("guest-keep-banner")).toBeVisible();
     await expect(page.getByTestId("trend-chart").first()).toBeVisible();
-    await expect(page.getByTestId("progress-coach")).toContainText("Practise tion again");
+    await expect(page.getByTestId("progress-coach")).toContainText("Map your typing to find a stable Target");
+    expect(await page.evaluate(() => (window as typeof window & { __dailyCoachReads: number }).__dailyCoachReads)).toBe(0);
     await expect(page.getByTestId("progress-signed-out")).toHaveCount(0);
   });
 
