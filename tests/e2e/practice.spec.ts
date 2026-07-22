@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test"
-import { crowdedAccuracyTimeline, keyboardEvidenceTimeline, tionDrillTimeline } from "./helpers/evidence"
+import { crowdedAccuracyTimeline, higherOrderTimeline, keyboardEvidenceTimeline, tionDrillTimeline } from "./helpers/evidence"
 import { mockAuthenticatedSession, mockTrpc } from "./helpers/trpc"
 import { typeCurrentCharacter } from "./helpers/typing"
 
@@ -385,7 +385,7 @@ test.describe("Custom Practice", () => {
     await expect(page.getByTestId("selected-practice-grams").getByLabel("2-Gram").first()).toBeVisible()
     await expect(page.getByTestId("selected-practice-grams").getByLabel("3-Gram").first()).toBeVisible()
     await expect(page.getByTestId("selected-practice-grams").getByLabel("4-Gram").first()).toBeVisible()
-    await expect(page.getByRole("heading", { name: "Common in English" })).toBeVisible()
+    await expect(gramEditor.getByRole("tab", { name: "Common in English" })).toHaveAttribute("aria-selected", "true")
     await expect(page.getByText(/Frequency-ranked Custom material/)).toHaveCount(0)
     await expect(page.getByText(/Only Grams measured directly/)).toHaveCount(0)
     await expect(page.getByTestId("common-language-grams").getByRole("button").first()).toBeVisible()
@@ -415,6 +415,30 @@ test.describe("Custom Practice", () => {
     await expect(controls.getByRole("button", { name: /source|scope|combination|repetition|threshold/i })).toHaveCount(0)
   })
 
+  test("shows measured slowdown in compact From your Tests Gram choices", async ({ page }) => {
+    await mockAuthenticatedSession(page)
+    await mockTrpc(page, {
+      timelineEvidence: [higherOrderTimeline(1), higherOrderTimeline(2)],
+      customGramsPreference: {
+        version: 2,
+        language: "english",
+        entries: [{ gram: "er", lastUsedAt: 20 }],
+        setup: { grams: ["tion"], durationSeconds: 60, textStyle: "varied", updatedAt: 30 },
+      },
+    })
+    await page.goto("/practice?custom=grams")
+
+    const editor = page.getByRole("region", { name: "Gram editor" })
+    await expect(editor.getByRole("tab", { name: "From your Tests" })).toHaveAttribute("aria-selected", "true")
+    await expect(editor.getByText("extra pause in recent Tests")).toBeVisible()
+    const measuredChoice = editor.getByTestId("measured-test-grams").getByRole("button", { name: /tion, 4-Gram, \d+ ms extra pause/ })
+    await expect(measuredChoice).toContainText(/^tion4\+\d+ ms$/)
+    await expect(measuredChoice).toHaveAttribute("aria-pressed", "true")
+
+    await editor.getByRole("tab", { name: "Recent" }).click()
+    await expect(editor.getByTestId("recent-custom-grams").getByRole("button", { name: "er, 2-Gram" })).toBeVisible()
+  })
+
   test("remembers only directly entered Grams as compact guest Recent choices", async ({ page }) => {
     await page.goto("/practice?custom=grams")
     await expect(page.getByTestId("custom-practice-workspace")).toBeVisible()
@@ -425,17 +449,21 @@ test.describe("Custom Practice", () => {
     await input.fill(" ER ")
     await editor.getByRole("button", { name: "Add" }).click()
 
+    await editor.getByRole("tab", { name: "Recent" }).click()
     const recent = page.getByTestId("recent-custom-grams")
     await expect(recent.getByRole("button")).toHaveText(["er2"])
     await expect(recent.getByRole("button", { name: "er, 2-Gram" })).toHaveAttribute("aria-pressed", "true")
 
+    await editor.getByRole("tab", { name: "Common in English" }).click()
     await page.getByTestId("common-language-grams").getByRole("button").first().click()
+    await editor.getByRole("tab", { name: "Recent" }).click()
     await expect(recent.getByRole("button")).toHaveCount(1)
 
     await input.fill("ing")
     await input.press("Enter")
     await input.fill("er")
     await input.press("Enter")
+    await editor.getByRole("tab", { name: "Recent" }).click()
     await expect(recent.getByRole("button")).toHaveText(["er2", "ing3"])
 
     await page.reload()
@@ -449,7 +477,7 @@ test.describe("Custom Practice", () => {
       window.dispatchEvent(new Event("typecafe:language-changed"))
     })
     await expect(page.getByTestId("recent-custom-grams").getByRole("button")).toHaveText(["éé2"])
-    await expect(page.getByRole("heading", { name: "Common in French" })).toBeVisible()
+    await expect(page.getByRole("tab", { name: "Common in French" })).toBeVisible()
   })
 
   test("restores each guest language's complete Custom Grams setup", async ({ page }) => {
@@ -466,7 +494,7 @@ test.describe("Custom Practice", () => {
     await expect(page.getByTestId("selected-practice-grams").getByLabel("Remove th, 2-Gram")).toBeVisible()
     await expect(controls.getByRole("button", { name: "30s" })).toHaveClass(/text-primary/)
     await setPracticeLanguage(page, "french")
-    await expect(page.getByRole("heading", { name: "Common in French" })).toBeVisible()
+    await expect(page.getByRole("tab", { name: "Common in French" })).toBeVisible()
     await expect(page.getByTestId("selected-practice-grams").getByLabel("Remove éé, 2-Gram")).toBeVisible()
     await expect(controls.getByRole("button", { name: "240s" })).toHaveClass(/text-primary/)
     await expect(controls.getByRole("button", { name: "Pseudo" })).toHaveClass(/text-primary/)

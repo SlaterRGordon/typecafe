@@ -66,18 +66,22 @@ test("Custom Keys Practice workspace", async ({ page }, testInfo) => {
 })
 
 test("Custom mixed Grams Practice workspace", async ({ page }, testInfo) => {
-  await page.addInitScript(() => {
-    window.localStorage.setItem("typecafe:practice:recent-custom-grams", JSON.stringify({
+  await mockAuthenticatedSession(page)
+  await mockTrpc(page, {
+    timelineEvidence: [higherOrderTimeline(1), higherOrderTimeline(2)],
+    customGramsPreference: {
       version: 2,
-      languages: { english: { version: 2, language: "english", entries: [{ gram: "er", lastUsedAt: 20 }, { gram: "ing", lastUsedAt: 10 }], setup: { grams: ["th", "er", "ing"], durationSeconds: 60, textStyle: "varied", updatedAt: 30 } } },
-    }))
+      language: "english",
+      entries: [{ gram: "er", lastUsedAt: 20 }, { gram: "ing", lastUsedAt: 10 }],
+      setup: { grams: ["th", "er", "ing", "tion"], durationSeconds: 60, textStyle: "varied", updatedAt: 30 },
+    },
   })
   await page.goto("/practice?custom=grams")
   await expect(page.getByTestId("custom-practice-workspace")).toBeVisible()
   await expect(page.locator("#c0")).toHaveClass(/active-char/, { timeout: 20_000 })
   await expect(page.getByRole("region", { name: "Gram editor" })).toBeVisible()
-  await expect(page.getByTestId("recent-custom-grams")).toBeVisible()
-  await expect(page.getByRole("heading", { name: "Common in English" })).toBeVisible()
+  await expect(page.getByRole("tab", { name: "From your Tests" })).toHaveAttribute("aria-selected", "true")
+  await expect(page.getByTestId("measured-test-grams")).toContainText(/\+\d+ ms/)
   await capture(page, testInfo, "68-custom-mixed-grams-practice")
 })
 

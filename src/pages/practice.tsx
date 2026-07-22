@@ -59,6 +59,8 @@ type CompletedRun =
     | { path: "grams", result: TestCompletionResult, run: CustomGramsPracticeRun }
     | { path: "guided", result: TestCompletionResult, run: GuidedPracticeRun, evidence: GuidedTargetEvidence | null }
 
+type GramSource = "measured" | "recent" | "common"
+
 function signed(value: number): string {
     return `${value >= 0 ? "+" : ""}${Math.round(value)}`
 }
@@ -79,6 +81,7 @@ const Practice: NextPage = () => {
     const [gramsPreferences, setGramsPreferences] = useState<CustomGramsPracticePreferences>({ grams: [], durationSeconds: 60, textStyle: "varied" })
     const [gramEntry, setGramEntry] = useState("")
     const [gramEntryError, setGramEntryError] = useState<string | null>(null)
+    const [gramSource, setGramSource] = useState<GramSource>("measured")
     const customGramsPreference = useCustomGramsPreference(language, signedIn)
     const customGramsSetupScope = customGramsPreference.scope
     const appliedCustomGramsSetup = useRef<string | null>(null)
@@ -181,6 +184,16 @@ const Practice: NextPage = () => {
     const commonGrams = useMemo(() => path === "grams" ? rankCommonGrams(corpus, 5)
         .filter(({ gram }) => [...gram].every((character) => sequenceFor(character, layout).length > 0)) : [], [corpus, layout, path])
     const measuredGrams = useMemo(() => measuredGramSuggestions(coaching.analysis?.candidates ?? []), [coaching.analysis?.candidates])
+    useEffect(() => {
+        if (path !== "grams" || coaching.loading || !customGramsPreference.loaded) return
+        const hasRecent = customGramsPreference.entries.length > 0
+        const activeSourceHasOptions = gramSource === "measured" ? measuredGrams.length > 0
+            : gramSource === "recent" ? hasRecent
+            : commonGrams.length > 0
+        if (activeSourceHasOptions) return
+        const fallback = measuredGrams.length > 0 ? "measured" : hasRecent ? "recent" : commonGrams.length > 0 ? "common" : null
+        if (fallback) setGramSource(fallback)
+    }, [coaching.loading, commonGrams.length, customGramsPreference.entries.length, customGramsPreference.loaded, gramSource, measuredGrams.length, path])
     const projectedNaturalKeyboard = useMemo(
         () => projectNaturalKeyboardEvidence(coaching.evidence?.timelines ?? []),
         [coaching.evidence?.timelines],
@@ -601,49 +614,61 @@ const Practice: NextPage = () => {
                     </section>
                 ) : (
                     <section ref={gramsEditorRef} tabIndex={-1} aria-label="Gram editor" className={typingFocusFadeClass(running, "relative z-10 rounded-2xl border border-base-content/10 bg-base-200/25 p-3 outline-none focus-visible:border-primary/50 sm:p-4")}>
-                        <form className="flex max-w-md gap-2" onSubmit={(event) => { event.preventDefault(); addGram(gramEntry) }}>
+                        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                            <span className="text-sm font-medium text-base-content/65">Selected <span aria-hidden="true">·</span> {gramsPreferences.grams.length}</span>
+                            <div data-testid="selected-practice-grams" className="flex min-h-8 flex-wrap gap-1.5">
+                                {gramsPreferences.grams.map((gram) => (
+                                    <button key={gram} type="button" disabled={running} onClick={() => setGrams(gramsPreferences.grams.filter((item) => item !== gram))} className="btn btn-xs h-8 border-primary/30 bg-primary/15 font-mono text-primary hover:border-primary/50 hover:bg-primary/20" aria-label={`Remove ${gram}, ${[...gram].length}-Gram`}>
+                                        {gram}<span className="rounded bg-primary/15 px-1 text-[0.62rem]" aria-label={`${[...gram].length}-Gram`}>{[...gram].length}</span><span aria-hidden="true" className="opacity-50">×</span>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        <form className="mt-3 flex max-w-3xl gap-2" onSubmit={(event) => { event.preventDefault(); addGram(gramEntry) }}>
                             <input ref={gramInputRef} data-testid="custom-gram-input" disabled={running} value={gramEntry} onChange={(event) => { setGramEntry(event.target.value); setGramEntryError(null) }} className="input input-bordered input-sm min-w-0 flex-1 font-mono" aria-label="Custom Gram" placeholder="Add 2–4 letters" autoComplete="off" />
                             <button type="submit" disabled={running} className="btn btn-sm btn-primary">Add</button>
                         </form>
                         {gramEntryError && <p role="alert" className="mt-2 text-xs text-warning">{gramEntryError}</p>}
 
-                        <div data-testid="selected-practice-grams" className="mt-3 flex min-h-8 flex-wrap gap-1.5">
-                            {gramsPreferences.grams.map((gram) => (
-                                <button key={gram} type="button" disabled={running} onClick={() => setGrams(gramsPreferences.grams.filter((item) => item !== gram))} className="btn btn-xs h-8 border-primary/30 bg-primary/15 font-mono text-primary hover:border-primary/50 hover:bg-primary/20" aria-label={`Remove ${gram}, ${[...gram].length}-Gram`}>
-                                    {gram}<span className="rounded bg-primary/15 px-1 text-[0.62rem]" aria-label={`${[...gram].length}-Gram`}>{[...gram].length}</span><span aria-hidden="true" className="opacity-50">×</span>
-                                </button>
-                            ))}
-                        </div>
-
-                        <div className="mt-4 grid gap-4 md:grid-cols-3">
-                            {customGramsPreference.entries.length > 0 && <div data-testid="recent-custom-grams">
-                                <h2 className="text-xs font-semibold text-base-content/55">Recent</h2>
-                                <div className="mt-2 flex flex-wrap gap-1.5">
-                                    {customGramsPreference.entries.map(({ gram }) => {
-                                        const selected = gramsPreferences.grams.includes(gram)
-                                        const length = [...gram].length
-                                        return <button key={gram} type="button" disabled={running} aria-label={`${gram}, ${length}-Gram`} aria-pressed={selected} onClick={() => toggleGram(gram)} className={`btn btn-xs h-8 font-mono ${selected ? "border-primary/30 bg-primary/15 text-primary hover:bg-primary/20" : "btn-ghost border-base-content/15"}`}>{gram}<span className="rounded bg-base-content/10 px-1 text-[0.62rem]" aria-hidden="true">{length}</span></button>
-                                    })}
+                        <div className="mt-4 border-t border-base-content/10 pt-3">
+                            <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
+                                <div role="tablist" aria-label="Gram sources" className="flex max-w-full gap-5 overflow-x-auto sm:gap-7">
+                                    {([
+                                        ["measured", "From your Tests", measuredGrams.length === 0],
+                                        ["recent", "Recent", customGramsPreference.entries.length === 0],
+                                        ["common", `Common in ${languageMeta(language).label}`, commonGrams.length === 0],
+                                    ] as const).map(([source, label, disabled]) => (
+                                        <button key={source} type="button" role="tab" disabled={running || disabled} aria-selected={gramSource === source} aria-controls={`gram-source-${source}`} onClick={() => setGramSource(source)} className={`shrink-0 border-b-2 px-0.5 pb-2 text-xs font-semibold transition-colors ${gramSource === source ? "border-primary text-base-content" : "border-transparent text-base-content/55 hover:text-base-content/75"} disabled:cursor-default disabled:opacity-35`}>
+                                            {label}
+                                        </button>
+                                    ))}
                                 </div>
-                            </div>}
-                            {measuredGrams.length > 0 && <div data-testid="measured-test-grams">
-                                <h2 className="text-xs font-semibold text-base-content/55">From your Tests</h2>
-                                <div className="mt-2 flex flex-wrap gap-1.5">
-                                    {measuredGrams.map(({ id, gram }) => {
-                                        const selected = gramsPreferences.grams.includes(gram)
-                                        return <button key={id} type="button" disabled={running} aria-pressed={selected} onClick={() => toggleGram(gram)} className={`btn btn-xs h-8 font-mono ${selected ? "border-primary/30 bg-primary/15 text-primary hover:bg-primary/20" : "btn-ghost border-base-content/15"}`}><span className="font-semibold">{gram}</span><span className="rounded bg-base-content/10 px-1 text-[0.62rem]" aria-label={`${[...gram].length}-Gram`}>{[...gram].length}</span></button>
-                                    })}
-                                </div>
-                            </div>}
-                            <div>
-                                <h2 className="text-xs font-semibold text-base-content/55">Common in {languageMeta(language).label}</h2>
-                                <div data-testid="common-language-grams" className="mt-2 flex flex-wrap gap-1.5">
-                                    {commonGrams.map(({ gram, length }) => {
-                                        const selected = gramsPreferences.grams.includes(gram)
-                                        return <button key={gram} type="button" disabled={running} aria-pressed={selected} onClick={() => toggleGram(gram)} className={`btn btn-xs h-8 font-mono ${selected ? "border-primary/30 bg-primary/15 text-primary hover:bg-primary/20" : "btn-ghost border-base-content/15"}`}>{gram}<span className="rounded bg-base-content/10 px-1 text-[0.62rem]" aria-label={`${length}-Gram`}>{length}</span></button>
-                                    })}
-                                </div>
+                                {gramSource === "measured" && <p className="pb-2 text-xs text-base-content/45">extra pause in recent Tests</p>}
                             </div>
+
+                            {gramSource === "measured" && <div id="gram-source-measured" role="tabpanel" data-testid="measured-test-grams" className="mt-3 flex flex-wrap gap-1.5">
+                                {measuredGrams.map(({ id, gram, extraPauseMs }) => {
+                                    const selected = gramsPreferences.grams.includes(gram)
+                                    const length = [...gram].length
+                                    return <button key={id} type="button" disabled={running} aria-label={`${gram}, ${length}-Gram, ${extraPauseMs} ms extra pause`} aria-pressed={selected} onClick={() => toggleGram(gram)} className={`btn btn-xs h-8 gap-1.5 px-2.5 font-mono ${selected ? "border-primary/30 bg-primary/15 text-primary hover:bg-primary/20" : "btn-ghost border-base-content/15"}`}><span className="font-semibold">{gram}</span><span className="rounded bg-base-content/10 px-1 text-[0.62rem]" aria-hidden="true">{length}</span><span className={selected ? "text-primary/80" : "text-base-content/55"}>+{extraPauseMs} ms</span></button>
+                                })}
+                            </div>}
+
+                            {gramSource === "recent" && <div id="gram-source-recent" role="tabpanel" data-testid="recent-custom-grams" className="mt-3 flex flex-wrap gap-1.5">
+                                {customGramsPreference.entries.map(({ gram }) => {
+                                    const selected = gramsPreferences.grams.includes(gram)
+                                    const length = [...gram].length
+                                    return <button key={gram} type="button" disabled={running} aria-label={`${gram}, ${length}-Gram`} aria-pressed={selected} onClick={() => toggleGram(gram)} className={`btn btn-xs h-8 font-mono ${selected ? "border-primary/30 bg-primary/15 text-primary hover:bg-primary/20" : "btn-ghost border-base-content/15"}`}>{gram}<span className="rounded bg-base-content/10 px-1 text-[0.62rem]" aria-hidden="true">{length}</span></button>
+                                })}
+                            </div>}
+
+                            {gramSource === "common" && <div id="gram-source-common" role="tabpanel" data-testid="common-language-grams" className="mt-3 flex flex-wrap gap-1.5">
+                                {commonGrams.map(({ gram, length }) => {
+                                    const selected = gramsPreferences.grams.includes(gram)
+                                    return <button key={gram} type="button" disabled={running} aria-pressed={selected} onClick={() => toggleGram(gram)} className={`btn btn-xs h-8 font-mono ${selected ? "border-primary/30 bg-primary/15 text-primary hover:bg-primary/20" : "btn-ghost border-base-content/15"}`}>{gram}<span className="rounded bg-base-content/10 px-1 text-[0.62rem]" aria-label={`${length}-Gram`}>{length}</span></button>
+                                })}
+                            </div>}
                         </div>
                     </section>
                 )}

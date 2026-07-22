@@ -1320,6 +1320,9 @@ Guided/Custom attribution and natural-evidence contracts remain unchanged.
       Keys/Grams matrix across all eight supported languages, add focused desktop
       and mobile journeys, remove landing assertions, and update only affected
       canonical Practice screenshots.
+- [x] Make the Custom Grams editor selection-first and source-tabbed. Keep Recent,
+      natural-Test, and common-language choices compact, while every measured
+      Gram exposes its rounded extra-pause milliseconds directly on the choice.
 
 **Refinement acceptance:** Primary navigation resumes the last Custom path;
 Guided links retain truthful Target attribution; configuration reads like Home;

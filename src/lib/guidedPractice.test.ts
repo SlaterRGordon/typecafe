@@ -105,6 +105,6 @@ describe("Guided Practice policy", () => {
             { ...base, id: "key:t", target: { kind: "key" as const, keys: ["t"], metric: "latency" as const }, reason: { code: "key_latency_above_baseline" as const, key: "t", observedMs: 186, baselineMs: 110, ratio: 1.69 } },
             { ...base, id: "word:action", target: { kind: "word" as const, words: ["action"], sharedGram: "tion" }, reason: { code: "word_internal_latency_high" as const, words: ["action"], observedMs: 186, baselineMs: 110, sharedGram: "tion" } },
         ]
-        expect(measuredGramSuggestions(candidates)).toMatchObject([{ id: "gram:tion", gram: "tion" }])
+        expect(measuredGramSuggestions(candidates)).toMatchObject([{ id: "gram:tion", gram: "tion", extraPauseMs: 76 }])
     })
 })

@@ -249,9 +249,10 @@ export function guidedEvidenceFromCandidate(candidate: Pick<SkillCandidate, "met
 
 /** Corpus choices never enter this list: only directly measured Gram Targets do. */
 export function measuredGramSuggestions(candidates: readonly SkillCandidate[]) {
-    return candidates.flatMap((candidate) => candidate.target.kind === "gram" ? [{
+    return candidates.flatMap((candidate) => candidate.target.kind === "gram" && candidate.reason.code === "gram_internal_latency_high" ? [{
         id: candidate.id,
         gram: candidate.target.gram,
+        extraPauseMs: Math.max(0, Math.round(candidate.reason.excessMs)),
         reason: skillReasonText(candidate.reason),
         evidence: guidedEvidenceFromCandidate(candidate),
     }] : [])
