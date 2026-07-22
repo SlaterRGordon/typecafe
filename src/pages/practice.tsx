@@ -20,7 +20,6 @@ import {
     compileCustomGramsPractice,
     completeCustomGramsPractice,
     customGramsPracticeRecord,
-    normalizeCustomGram,
     rankCommonGrams,
     type CustomGramsPracticePreferences,
     type CustomGramsPracticeRun,
@@ -46,6 +45,7 @@ import {
 } from "~/lib/guidedPractice"
 import { boardFor, sequenceFor, statsPoolFor } from "~/lib/keyboardLayout"
 import { initialPracticeKeys, nextStickyPracticeLayer, type StickyPracticeLayer } from "~/lib/practiceKeyboard"
+import { normalizePracticeItem } from "~/lib/practiceItem"
 import { projectNaturalKeyboardEvidence, type NaturalKeyboardEvidence } from "~/lib/skillEvidence"
 import { keySpeedBars } from "~/lib/transitions"
 import { languageMeta, supportsCustomPractice } from "~/lib/languageMeta"
@@ -130,7 +130,7 @@ const Practice: NextPage = () => {
         }
         if (entry.invalidTarget && explainedInvalidTarget.current !== router.asPath) {
             explainedInvalidTarget.current = router.asPath
-            dispatch(addAlert({ message: `That Guided Target is no longer available. Resuming Custom ${entry.path === "keys" ? "Keys" : "Grams"}.`, type: "warning" }))
+            dispatch(addAlert({ message: `That Guided Target is no longer available. Resuming Custom ${entry.path === "keys" ? "Keys" : "Grams & words"}.`, type: "warning" }))
         } else if (!entry.invalidTarget) {
             explainedInvalidTarget.current = null
         }
@@ -357,7 +357,7 @@ const Practice: NextPage = () => {
         updateKeys({ keys: unique })
     }
     const setGrams = (grams: string[]) => {
-        const unique = [...new Set(grams)].slice(0, 24)
+        const unique = [...new Set(grams.map(normalizePracticeItem).filter((item): item is string => item !== null))].slice(0, 24)
         completionContextRef.current = {
             ...completionContextRef.current,
             activeGuidedSetup: null,
@@ -373,13 +373,13 @@ const Practice: NextPage = () => {
             : [...gramsPreferences.grams, gram])
     }
     const addGram = (raw: string) => {
-        const gram = normalizeCustomGram(raw)
+        const gram = normalizePracticeItem(raw)
         if (!gram) {
-            setGramEntryError("Enter 2 to 4 letters with no spaces.")
+            setGramEntryError("Enter a 2–4 letter Gram or a complete 5–32 character Word with no spaces.")
             return
         }
         if (![...gram].every((character) => sequenceFor(character, layout).length > 0)) {
-            setGramEntryError("That Gram is not available on your current keyboard layout.")
+            setGramEntryError("That Gram or Word is not available on your current keyboard layout.")
             return
         }
         customGramsPreference.recordDirect(gram)
@@ -486,7 +486,7 @@ const Practice: NextPage = () => {
                         {guided ? (
                             <div>
                                 <h1 aria-label={`Practise ${targetDisplayLabel(guided.target)}`} className="flex flex-wrap items-center gap-2 text-lg font-semibold">
-                                    {guided.target.kind === "movement"
+                                    {guided.target.kind === "movement" || guided.target.kind === "word"
                                         ? <span>{targetDisplayLabel(guided.target)}</span>
                                         : <TargetGlyph
                                             keys={targetVisualKeys(guided.target)}
@@ -503,14 +503,14 @@ const Practice: NextPage = () => {
                                     </div>
                                 )}
                             </div>
-                        ) : <h1 className="sr-only">{path === "keys" ? "Custom Keys Practice" : "Custom Grams Practice"}</h1>}
+                        ) : <h1 className="sr-only">{path === "keys" ? "Custom Keys Practice" : "Custom Grams & words Practice"}</h1>}
                     </div>
                 </header>
 
                 <section data-testid="practice-workspace-configuration" aria-label="Practice controls" className={typingFocusFadeClass(running, "relative z-20 flex shrink-0 flex-col items-center gap-2.5 py-1")}>
                     <div className="flex items-center gap-4" role="group" aria-label="Custom practice type">
                         <button type="button" disabled={running} aria-pressed={path === "keys"} onClick={() => selectPath("keys")} className={`cursor-pointer text-md transition-colors disabled:cursor-default disabled:opacity-50 ${path === "keys" ? "font-semibold text-primary" : "text-base-content/50 hover:text-base-content"}`}>keys</button>
-                        <button type="button" disabled={running} aria-pressed={path === "grams"} onClick={() => selectPath("grams")} className={`cursor-pointer text-md transition-colors disabled:cursor-default disabled:opacity-50 ${path === "grams" ? "font-semibold text-primary" : "text-base-content/50 hover:text-base-content"}`}>grams</button>
+                        <button type="button" disabled={running} aria-pressed={path === "grams"} onClick={() => selectPath("grams")} className={`cursor-pointer text-md transition-colors disabled:cursor-default disabled:opacity-50 ${path === "grams" ? "font-semibold text-primary" : "text-base-content/50 hover:text-base-content"}`}>Grams &amp; words</button>
                     </div>
                     <div className="flex w-full min-w-0 flex-wrap items-center justify-center gap-x-3 gap-y-2">
                         <button
@@ -518,7 +518,7 @@ const Practice: NextPage = () => {
                             data-testid="practice-focus-summary"
                             onClick={focusEditor}
                             className="flex min-w-0 max-w-full cursor-pointer items-center gap-1.5 overflow-x-hidden whitespace-nowrap text-sm text-base-content/55 transition-colors hover:text-base-content focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-                            aria-label={`Edit ${path === "keys" ? "key" : "Gram"} focus: ${focusItems.join(", ") || "none selected"}`}
+                            aria-label={`Edit ${path === "keys" ? "key" : "Gram or Word"} focus: ${focusItems.join(", ") || "none selected"}`}
                         >
                             <span className="shrink-0">Focus</span>
                             {focusPreview.length > 0 ? focusPreview.map((item) => path === "keys"
@@ -603,7 +603,7 @@ const Practice: NextPage = () => {
                             modalOpen={false}
                             charAttemptsRef={charAttemptsRef}
                         />
-                    ) : <p className="mx-auto text-sm text-base-content/55">{path === "keys" ? "Choose a key on the keyboard" : "Add a Gram"} to prepare a run.</p>}
+                    ) : <p className="mx-auto text-sm text-base-content/55">{path === "keys" ? "Choose a key on the keyboard" : "Add a Gram or Word"} to prepare a run.</p>}
                 </section>
 
                 {path === "keys" ? (
@@ -625,7 +625,7 @@ const Practice: NextPage = () => {
                         />
                     </section>
                 ) : (
-                    <section ref={gramsEditorRef} tabIndex={-1} aria-label="Gram editor" className={typingFocusFadeClass(running, "relative z-10 rounded-2xl border border-base-content/10 bg-base-200/25 p-3 outline-none focus-visible:border-primary/50 sm:p-4")}>
+                    <section ref={gramsEditorRef} tabIndex={-1} aria-label="Grams and words editor" className={typingFocusFadeClass(running, "relative z-10 rounded-2xl border border-base-content/10 bg-base-200/25 p-3 outline-none focus-visible:border-primary/50 sm:p-4")}>
                         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                             <span className="text-sm font-medium text-base-content/65">Selected <span aria-hidden="true">·</span> {gramsPreferences.grams.length}</span>
                             <div data-testid="selected-practice-grams" className="flex min-h-8 flex-wrap gap-1.5">
@@ -638,7 +638,7 @@ const Practice: NextPage = () => {
                         </div>
 
                         <form className="mt-3 flex max-w-3xl gap-2" onSubmit={(event) => { event.preventDefault(); addGram(gramEntry) }}>
-                            <input ref={gramInputRef} data-testid="custom-gram-input" disabled={running} value={gramEntry} onChange={(event) => { setGramEntry(event.target.value); setGramEntryError(null) }} className="input input-bordered input-sm min-w-0 flex-1 font-mono" aria-label="Custom Gram" placeholder="Add 2–4 letters" autoComplete="off" />
+                            <input ref={gramInputRef} data-testid="custom-gram-input" disabled={running} value={gramEntry} onChange={(event) => { setGramEntry(event.target.value); setGramEntryError(null) }} className="input input-bordered input-sm min-w-0 flex-1 font-mono" aria-label="Custom Gram or Word" placeholder="Add a Gram or Word" autoComplete="off" />
                             <button type="submit" disabled={running} className="btn btn-sm btn-primary">Add</button>
                         </form>
                         {gramEntryError && <p role="alert" className="mt-2 text-xs text-warning">{gramEntryError}</p>}

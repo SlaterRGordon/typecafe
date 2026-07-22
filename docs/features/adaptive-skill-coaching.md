@@ -1400,7 +1400,7 @@ tracer-bullet implementation graph recorded as native sub-issues
       changing natural evidence or Worth derivation.
 - [x] Make exact Transition and explicit movement-family identity agree from
       Progress through Guided Practice and persisted attribution.
-- [ ] Add whole Word entry, persistence, compilation, recurrence, and recap
+- [x] Add whole Word entry, persistence, compilation, recurrence, and recap
       behavior alongside 2-4-character Grams.
 - [ ] Add the shared Practice actions and exact Home duration model, including
       focus-aware, evidence-free infinity streaming.

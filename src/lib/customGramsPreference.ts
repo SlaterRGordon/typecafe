@@ -1,8 +1,8 @@
 import {
-    normalizeCustomGram,
     parseCustomGramsPracticePreferences,
     type CustomGramsPracticePreferences,
 } from "./customGramsPractice"
+import { normalizePracticeItem } from "./practiceItem"
 
 export const CUSTOM_GRAMS_PREFERENCE_VERSION = 2 as const
 export const RECENT_CUSTOM_GRAMS_LIMIT = 12
@@ -37,7 +37,7 @@ function normalizedEntries(value: unknown): RecentCustomGramEntry[] {
     for (const candidate of value) {
         if (!candidate || typeof candidate !== "object") continue
         const record = candidate as { gram?: unknown; lastUsedAt?: unknown }
-        const gram = typeof record.gram === "string" ? normalizeCustomGram(record.gram) : null
+        const gram = typeof record.gram === "string" ? normalizePracticeItem(record.gram) : null
         const lastUsedAt = normalizeTimestamp(record.lastUsedAt)
         if (!gram || lastUsedAt === null) continue
         newestByGram.set(gram, Math.max(newestByGram.get(gram) ?? 0, lastUsedAt))
@@ -72,7 +72,7 @@ export function addRecentCustomGram(snapshot: unknown, rawGram: string, lastUsed
     const language = typeof snapshot === "object" && snapshot !== null && "language" in snapshot
         && typeof snapshot.language === "string" ? snapshot.language : "english"
     const current = parseCustomGramsPreference(snapshot, language)
-    const gram = normalizeCustomGram(rawGram)
+    const gram = normalizePracticeItem(rawGram)
     const timestamp = normalizeTimestamp(lastUsedAt)
     if (!gram || timestamp === null) return current
     return {

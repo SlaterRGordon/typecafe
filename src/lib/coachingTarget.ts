@@ -1,5 +1,6 @@
 import type { MovementKind } from "./movementClassification"
 import { isDrillableKey, isPracticeLetter } from "./drillCharacters"
+import { normalizePracticeGram, normalizePracticeWord } from "./practiceItem"
 
 export type CoachingTarget =
     | { kind: "key", keys: string[], metric: "accuracy" | "latency" }
@@ -53,12 +54,12 @@ export function parseCoachingTarget(value: unknown): CoachingTarget | null {
         (raw.metric === "accuracy" || raw.metric === "latency")) {
         return { kind: "transition", pair: raw.pair, metric: raw.metric }
     }
-    if (raw.kind === "gram" && typeof raw.gram === "string" && [...raw.gram].length >= 3 && [...raw.gram].length <= 4) {
+    if (raw.kind === "gram" && typeof raw.gram === "string" && normalizePracticeGram(raw.gram) === raw.gram) {
         return { kind: "gram", gram: raw.gram }
     }
     if (raw.kind === "word" && Array.isArray(raw.words) && raw.words.length > 0 && raw.words.length <= MAX_ITEMS &&
-        raw.words.every((word): word is string => typeof word === "string" && /^\p{L}+$/u.test(word)) &&
-        (raw.sharedGram === undefined || (typeof raw.sharedGram === "string" && /^\p{L}+$/u.test(raw.sharedGram)))) {
+        raw.words.every((word): word is string => typeof word === "string" && normalizePracticeWord(word) === word) &&
+        (raw.sharedGram === undefined || (typeof raw.sharedGram === "string" && normalizePracticeGram(raw.sharedGram) === raw.sharedGram))) {
         return { kind: "word", words: raw.words, ...(raw.sharedGram ? { sharedGram: raw.sharedGram } : {}) }
     }
     if (raw.kind === "movement" && MOVEMENTS.includes(raw.movement as MovementKind) && Array.isArray(raw.anchors) &&
@@ -117,7 +118,7 @@ function keys(value: QueryValue, max = MAX_ITEMS): string[] {
 }
 
 function words(value: QueryValue, max = MAX_ITEMS): string[] {
-    return list(value, max).filter((item) => /^\p{L}+$/u.test(item))
+    return list(value, max).map(normalizePracticeWord).filter((item): item is string => item !== null)
 }
 
 function pair(value: QueryValue): string | null {
@@ -164,7 +165,7 @@ export function parseCoachingTargetQuery(query: DrillQuery): ParsedCoachingTarge
     const wordTargets = words(query.words)
     if (explicitKind === "word" || (legacy && wordTargets.length > 0)) {
         if (wordTargets.length === 0) return null
-        const sharedGram = words(query.sharedGram, 1)[0]
+        const sharedGram = normalizePracticeGram(first(query.sharedGram)) ?? undefined
         return {
             target: { kind: "word", words: wordTargets, ...(sharedGram ? { sharedGram } : {}) },
             evidence,
@@ -185,8 +186,8 @@ export function parseCoachingTargetQuery(query: DrillQuery): ParsedCoachingTarge
     }
 
     if (explicitKind === "gram" || query.gram) {
-        const gram = words(query.gram, 1)[0]
-        if (!gram || [...gram].length < 3 || [...gram].length > 4) return null
+        const gram = normalizePracticeGram(first(query.gram))
+        if (!gram) return null
         return { target: { kind: "gram", gram }, evidence, legacy: false }
     }
 
@@ -228,7 +229,7 @@ export function targetDisplayLabel(target: CoachingTarget): string {
     if (target.kind === "key") return target.keys.join(" ")
     if (target.kind === "transition") return `${target.pair[0]}→${target.pair[1]}`
     if (target.kind === "gram") return target.gram
-    if (target.kind === "word") return target.sharedGram ?? target.words.join(", ")
+    if (target.kind === "word") return target.words.join(", ")
     if (target.kind === "movement") return `${target.movement} movement`
     if (target.kind === "correction") return `these ${target.expected}/${target.typed} keys`
     return `${target.shortSeconds}s → ${target.longSeconds}s`
@@ -245,7 +246,7 @@ export function targetVisualKeys(target: CoachingTarget): string[] {
     if (target.kind === "key") return target.keys.slice(0, 4)
     if (target.kind === "transition") return [...target.pair].slice(0, 2)
     if (target.kind === "gram") return [...target.gram].slice(0, 4)
-    if (target.kind === "word") return [...(target.sharedGram ?? target.words[0] ?? "")].slice(0, 4)
+    if (target.kind === "word") return []
     if (target.kind === "movement") return [...(target.anchors[0] ?? "")].slice(0, 2)
     if (target.kind === "correction") return [target.typed, target.expected]
     return []

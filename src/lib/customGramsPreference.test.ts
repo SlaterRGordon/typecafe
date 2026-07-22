@@ -71,6 +71,21 @@ describe("Custom Grams preference", () => {
         expect(readPendingCustomGramsPreference("french", storage).setup).toEqual(french.setup)
     })
 
+    it("keeps whole Words in guest Recent entries and saved mixed setups", () => {
+        const storage = memoryStorage()
+        const snapshot = updateCustomGramsSetup(
+            addRecentCustomGram(emptyCustomGramsPreference("english"), "L’esprit", 30),
+            { grams: ["th", "l'esprit", "co-operate"], durationSeconds: 60, textStyle: "pseudo" },
+            40,
+        )
+
+        writePendingCustomGramsPreference(snapshot, storage)
+        expect(readPendingCustomGramsPreference("english", storage)).toMatchObject({
+            entries: [{ gram: "l'esprit", lastUsedAt: 30 }],
+            setup: { grams: ["th", "l'esprit", "co-operate"], textStyle: "pseudo" },
+        })
+    })
+
     it("normalizes, deduplicates, reorders, and caps Recent Grams without touching setup", () => {
         let snapshot = updateCustomGramsSetup(emptyCustomGramsPreference("english"), {
             grams: ["th"], durationSeconds: 60, textStyle: "varied",

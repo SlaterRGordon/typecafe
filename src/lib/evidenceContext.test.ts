@@ -71,6 +71,10 @@ describe("evidence context", () => {
         expect(practiceRecordMatchesEvidence(null, "custom-practice", null)).toBe(false)
         expect(practiceRecordMatchesEvidence(null, "acquisition", null)).toBe(true)
         expect(completedRunUpdatesTargetResponse("acquisition", { ...guided, completed: false })).toBe(false)
+        expect(parsePracticeRecord({ ...custom, focus: { kind: "grams", items: ["th", "l'esprit", "co-operate"] } }))
+            .toMatchObject({ focus: { items: ["th", "l'esprit", "co-operate"] } })
+        expect(parsePracticeRecord({ ...custom, focus: { kind: "grams", items: ["two words"] } })).toBeNull()
+        expect(parsePracticeRecord({ ...custom, focus: { kind: "grams", items: ["a".repeat(33)] } })).toBeNull()
     })
 
     it("uses the previous ten completed same-cohort runs without duration or activity bias", () => {

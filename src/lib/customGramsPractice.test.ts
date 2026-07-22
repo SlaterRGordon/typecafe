@@ -97,6 +97,21 @@ describe("compileCustomGramsPractice", () => {
         expect(text.split(" ").every((token) => !["th", "the", "tion"].includes(token))).toBe(true)
     })
 
+    it.each(["varied", "pseudo"] as const)("balances Grams with whole Words in %s text without fragmenting Words", (textStyle) => {
+        const items = ["th", "l'esprit", "co-operate"]
+        const tokens = compileCustomGramsPractice({ grams: items, corpus, language: "english", textStyle, seed: 17, wordCount: 18 }).split(" ")
+
+        expect(tokens).toHaveLength(18)
+        expect(tokens.filter((token) => token === "l'esprit")).toHaveLength(6)
+        expect(tokens.filter((token) => token === "co-operate")).toHaveLength(6)
+        tokens.forEach((token, index) => {
+            if (index % items.length === 1) expect(token).toBe("l'esprit")
+            if (index % items.length === 2) expect(token).toBe("co-operate")
+        })
+        expect(tokens).not.toContain("esp")
+        expect(tokens).not.toContain("operate")
+    })
+
     it("counts overlaps, preserves word boundaries, and handles Unicode targets", () => {
         const text = compileCustomGramsPractice({ grams: ["été", "tété"], corpus: ["tétée", "été", "café"], language: "french", textStyle: "varied", seed: 2, wordCount: 8 })
         expect(count(text, "été")).toBeGreaterThanOrEqual(4)
@@ -274,6 +289,15 @@ describe("completeCustomGramsPractice", () => {
         expect(recap.grams[0]!.baseline).toMatchObject({ runs: 1, attempts: 1, accuracy: 0 })
         expect(recap.baselineReady).toBe(true)
     })
+
+    it("reports a selected Word as one whole response item", () => {
+        const word = "l'esprit"
+        const current = run({ id: "current", completedAt: 2, grams: [word], events: [...word].map((key) => ({ key })) })
+        const recap = completeCustomGramsPractice({ current, history: [] })
+
+        expect(recap.grams).toHaveLength(1)
+        expect(recap.grams[0]).toMatchObject({ gram: word, attempts: 1, accuracy: 100 })
+    })
 })
 
 describe("Custom Grams preferences", () => {
@@ -282,6 +306,8 @@ describe("Custom Grams preferences", () => {
         expect(normalizeCustomGram("a")).toBeNull()
         expect(normalizeCustomGram("abcde")).toBeNull()
         expect(normalizeCustomGram("a b")).toBeNull()
+        expect(parseCustomGramsPracticePreferences({ grams: ["TH", "L’esprit", "co‑operate"], durationSeconds: 120, textStyle: "pseudo" }))
+            .toEqual({ grams: ["th", "l'esprit", "co-operate"], durationSeconds: 120, textStyle: "pseudo" })
         expect(parseCustomGramsPracticePreferences({ grams: ["TH", "été", "tion"], durationSeconds: 120, textStyle: "pseudo" }))
             .toEqual({ grams: ["th", "été", "tion"], durationSeconds: 120, textStyle: "pseudo" })
         expect(parseCustomGramsPracticePreferences({ grams: ["x"], durationSeconds: 45, textStyle: "dense" }))

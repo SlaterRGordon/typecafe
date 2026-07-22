@@ -57,24 +57,13 @@ function randomFor(seed: number): () => number {
     }
 }
 
-function derivedWordGrams(target: Extract<CoachingTarget, { kind: "word" }>): string[] {
-    if (target.sharedGram && [...target.sharedGram].length >= 2 && [...target.sharedGram].length <= 4) return [target.sharedGram]
-    const grams: string[] = []
-    for (const word of target.words) {
-        const characters = [...word]
-        if (characters.length >= 2 && characters.length <= 4) grams.push(word)
-        else for (let index = 0; index + 3 <= characters.length; index += 1) grams.push(characters.slice(index, index + 3).join(""))
-    }
-    return unique(grams).slice(0, 8)
-}
-
 /** One pure matrix owns the concrete editor focus for every Guided Target. */
 export function guidedFocusForTarget(target: CoachingTarget): PracticeFocus | null {
     if (target.kind === "endurance") return null
     if (target.kind === "key") return { kind: "keys", items: unique(target.keys).slice(0, 8) }
     if (target.kind === "transition") return { kind: "grams", items: [target.pair] }
     if (target.kind === "gram") return { kind: "grams", items: [target.gram] }
-    if (target.kind === "word") return { kind: "grams", items: derivedWordGrams(target) }
+    if (target.kind === "word") return { kind: "grams", items: unique(target.words).slice(0, 8) }
     if (target.kind === "movement") return { kind: "grams", items: unique(target.anchors).slice(0, 8) }
     return { kind: "keys", items: unique([target.expected, target.typed]).slice(0, 8) }
 }
@@ -118,6 +107,9 @@ export function compileGuidedPractice(input: {
 }): string {
     const { setup } = input
     const wordCount = input.wordCount ?? 1_200
+    if (setup.target.kind === "word") {
+        return compileCustomGramsPractice({ grams: setup.focus.items, corpus: input.corpus, language: input.language, textStyle: setup.textStyle, seed: input.seed, wordCount })
+    }
     if (setup.textStyle === "pseudo") {
         return setup.focus.kind === "keys"
             ? compileCustomKeysPractice({ keys: setup.focus.items, corpus: input.corpus, language: input.language, textStyle: "pseudo", seed: input.seed, wordCount })

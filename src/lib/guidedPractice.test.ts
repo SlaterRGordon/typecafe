@@ -25,7 +25,7 @@ describe("Guided Practice policy", () => {
         [{ kind: "key", keys: ["q"], metric: "accuracy" }, "keys", ["q"]],
         [{ kind: "transition", pair: "ti", metric: "latency" }, "grams", ["ti"]],
         [{ kind: "gram", gram: "tion" }, "grams", ["tion"]],
-        [{ kind: "word", words: ["quick", "quiet"], sharedGram: "qui" }, "grams", ["qui"]],
+        [{ kind: "word", words: ["quick", "quiet"], sharedGram: "qui" }, "grams", ["quick", "quiet"]],
         [{ kind: "movement", movement: "row-reach", anchors: ["fr", "dr", "sw", "aq"] }, "grams", ["fr", "dr", "sw", "aq"]],
         [{ kind: "correction", expected: "q", typed: "x" }, "keys", ["q", "x"]],
         [{ kind: "endurance", shortSeconds: 30, longSeconds: 60 }, null, []],
@@ -45,6 +45,18 @@ describe("Guided Practice policy", () => {
         expect(setup.focus).toEqual({ kind: "grams", items: ["ju"] })
         expect(text.split(" ").every((word) => word.includes("ju"))).toBe(true)
         expect(guidedPracticeRecord(setup, 60_000, true)).toMatchObject({ target, focus: { kind: "grams", items: ["ju"] } })
+    })
+
+    it.each(["varied", "pseudo"] as const)("keeps Guided Words whole in %s generation", (textStyle) => {
+        const target: CoachingTarget = { kind: "word", words: ["action", "station"], sharedGram: "tion" }
+        const setup = { ...guidedPracticeSetup(target)!, textStyle }
+        const tokens = compileGuidedPractice({ setup, corpus, language: "english", seed: 5, wordCount: 12 }).split(" ")
+
+        expect(setup.focus.items).toEqual(["action", "station"])
+        expect(tokens).toHaveLength(12)
+        expect(tokens.every((word) => word === "action" || word === "station")).toBe(true)
+        expect(tokens.filter((word) => word === "action")).toHaveLength(6)
+        expect(tokens.filter((word) => word === "station")).toHaveLength(6)
     })
 
     it("keeps attribution for duration/style only and converts on any prescribed focus edit", () => {

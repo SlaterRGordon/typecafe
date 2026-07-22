@@ -13,6 +13,7 @@ import {
     generatePhonologicalSequenceWord,
     type PhonologicalSequencePosition,
 } from "./phonology"
+import { normalizePracticeGram, normalizePracticeItem, practiceItemKind } from "./practiceItem"
 
 export interface CustomGramsPracticePreferences {
     grams: string[]
@@ -76,17 +77,11 @@ const normalizedCorpusCache = new WeakMap<object, string[]>()
 
 const characters = (value: string): string[] => [...value]
 
-/** Normalize one direct-entry Gram. Grams are 2-4 Unicode letters. */
-export function normalizeCustomGram(value: string): string | null {
-    const normalized = value.trim().toLowerCase().normalize("NFC")
-    const points = characters(normalized)
-    return points.length >= 2 && points.length <= 4 && points.every((point) => /\p{L}/u.test(point))
-        ? normalized
-        : null
-}
+/** Backward-compatible name for measured/common Gram-only callers. */
+export const normalizeCustomGram = normalizePracticeGram
 
-function uniqueGrams(values: readonly string[]): string[] {
-    const normalized = values.map(normalizeCustomGram).filter((value): value is string => value !== null)
+function uniquePracticeItems(values: readonly string[]): string[] {
+    const normalized = values.map(normalizePracticeItem).filter((value): value is string => value !== null)
     return [...new Set(normalized)]
 }
 
@@ -225,7 +220,7 @@ function pseudoCarrierPool(input: Omit<PseudoCarrierInput, "excluded">): string[
  * stripped, and every search is bounded for reliable sparse-corpus behavior.
  */
 export function compileCustomGramsPractice(input: CustomGramsCompilationInput): string {
-    const grams = uniqueGrams(input.grams)
+    const grams = uniquePracticeItems(input.grams)
     const words = normalizedCorpus(input.corpus)
     if (grams.length === 0 || words.length === 0) return ""
     const rng = randomFor(input.seed)
@@ -234,11 +229,11 @@ export function compileCustomGramsPractice(input: CustomGramsCompilationInput): 
     const corpusWords = new Set(words)
     const carrierPools = new Map(grams.map((gram) => [gram, {
         targetPoints: characters(gram),
-        realCarriers: words.filter((word) => isUsefulCarrier(word, gram)),
+        realCarriers: practiceItemKind(gram) === "word" ? [gram] : words.filter((word) => isUsefulCarrier(word, gram)),
     }]))
     const pseudoPools = new Map(grams.flatMap((gram) => {
         const pool = carrierPools.get(gram)!
-        return input.textStyle === "pseudo" || pool.realCarriers.length === 0
+        return practiceItemKind(gram) === "gram" && (input.textStyle === "pseudo" || pool.realCarriers.length === 0)
             ? [[gram, new Map(PSEUDO_POSITIONS.map((position) => [position, pseudoCarrierPool({
                 gram, targetPoints: pool.targetPoints, words, corpusWords, alphabet, language: input.language, position, rng,
             })]))] as const]
@@ -250,6 +245,12 @@ export function compileCustomGramsPractice(input: CustomGramsCompilationInput): 
     for (let index = 0; index < count; index += 1) {
         const gram = grams[index % grams.length]!
         const pool = carrierPools.get(gram)!
+        if (practiceItemKind(gram) === "word") {
+            output.push(gram)
+            recent.push(gram)
+            if (recent.length > RECENT_CARRIERS) recent.shift()
+            continue
+        }
         const excluded = new Set(recent)
         const realCarriers = pool.realCarriers
         const available = realCarriers.filter((word) => !excluded.has(word))
@@ -281,7 +282,7 @@ export function customGramsPracticeRecord(
     return {
         v: PRACTICE_RECORD_VERSION,
         kind: "custom",
-        focus: { kind: "grams", items: uniqueGrams(preferences.grams) },
+        focus: { kind: "grams", items: uniquePracticeItems(preferences.grams) },
         textStyle: preferences.textStyle,
         durationSeconds: preferences.durationSeconds,
         elapsedActivityMs: Math.max(0, Math.round(elapsedActivityMs)),
@@ -377,7 +378,7 @@ export function parseCustomGramsPracticePreferences(value: unknown): CustomGrams
         ? value as Record<string, unknown>
         : {}
     const grams = Array.isArray(raw.grams) && raw.grams.every((gram) => typeof gram === "string")
-        ? uniqueGrams(raw.grams).slice(0, 24)
+        ? uniquePracticeItems(raw.grams).slice(0, 24)
         : []
     return {
         grams: grams.length > 0 ? grams : DEFAULT_GRAMS,

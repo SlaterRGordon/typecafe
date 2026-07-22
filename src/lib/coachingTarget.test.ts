@@ -24,6 +24,9 @@ describe("coaching target query adapter", () => {
             target: { kind: "word", words: ["rhythm", "syzygy"] },
             legacy: true,
         })
+        expect(parseCoachingTargetQuery({ target: "word", words: "L’esprit,co‑operate,tiny" })).toMatchObject({
+            target: { kind: "word", words: ["l'esprit", "co-operate"] },
+        })
     })
 
     it("round-trips a movement Target", () => {
@@ -50,6 +53,12 @@ describe("coaching target query adapter", () => {
 
         expect(action.href).toContain("/practice?target=transition")
         expect(parsed?.evidence).toEqual(evidence)
+    })
+
+    it("keeps Word Targets whole in labels and visual identity", () => {
+        const target: CoachingTarget = { kind: "word", words: ["action", "station"], sharedGram: "tion" }
+        expect(targetDisplayLabel(target)).toBe("action, station")
+        expect(targetAction(target).href).toContain("words=action,station")
     })
 
     it("hands endurance to the matched normal Test surface", () => {

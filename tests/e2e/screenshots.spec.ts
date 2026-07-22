@@ -64,21 +64,22 @@ test("Custom Keys Practice workspace", async ({ page }, testInfo) => {
   await capture(page, testInfo, "67-custom-keys-practice")
 })
 
-test("Custom mixed Grams Practice workspace", async ({ page }, testInfo) => {
+test("Custom mixed Grams & words Practice workspace", async ({ page }, testInfo) => {
   await mockAuthenticatedSession(page)
   await mockTrpc(page, {
     timelineEvidence: [higherOrderTimeline(1), higherOrderTimeline(2)],
     customGramsPreference: {
       version: 2,
       language: "english",
-      entries: [{ gram: "er", lastUsedAt: 20 }, { gram: "ing", lastUsedAt: 10 }],
-      setup: { grams: ["th", "er", "ing", "tion"], durationSeconds: 60, textStyle: "varied", updatedAt: 30 },
+      entries: [{ gram: "co-operate", lastUsedAt: 20 }, { gram: "ing", lastUsedAt: 10 }],
+      setup: { grams: ["th", "ing", "tion", "co-operate"], durationSeconds: 60, textStyle: "varied", updatedAt: 30 },
     },
   })
   await page.goto("/practice?custom=grams")
   await expect(page.getByTestId("custom-practice-workspace")).toBeVisible()
   await expect(page.locator("#c0")).toHaveClass(/active-char/, { timeout: 20_000 })
-  await expect(page.getByRole("region", { name: "Gram editor" })).toBeVisible()
+  await expect(page.getByRole("region", { name: "Grams and words editor" })).toBeVisible()
+  await expect(page.getByTestId("selected-practice-grams").getByRole("button", { name: "Remove co-operate" })).toBeVisible()
   await expect(page.getByRole("tab", { name: "From your Tests" })).toHaveAttribute("aria-selected", "true")
   await expect(page.getByTestId("measured-test-grams")).toContainText(/\+\d+ ms/)
   await capture(page, testInfo, "68-custom-mixed-grams-practice")
@@ -126,7 +127,17 @@ test("Grouped movement Guided Practice identity", async ({ page }, testInfo) => 
   await capture(page, testInfo, "69c-guided-movement-scope")
 })
 
-test("Custom Grams Practice completion", async ({ page }, testInfo) => {
+test("Guided whole Word Practice identity", async ({ page }, testInfo) => {
+  await page.goto("/practice?target=word&words=action,station&sharedGram=tion")
+  await expect(page.getByRole("heading", { name: "Practise action, station", exact: true })).toBeVisible()
+  const selected = page.getByTestId("selected-practice-grams")
+  await expect(selected.getByRole("button", { name: "Remove action" })).toBeVisible()
+  await expect(selected.getByRole("button", { name: "Remove station" })).toBeVisible()
+  await expect(page.locator("#c0")).toHaveClass(/active-char/, { timeout: 20_000 })
+  await capture(page, testInfo, "69d-guided-whole-word-target")
+})
+
+test("Custom Grams & words Practice completion", async ({ page }, testInfo) => {
   await page.clock.install()
   await page.addInitScript(() => {
     window.localStorage.setItem("typecafe:practice:recent-custom-grams", JSON.stringify({

@@ -283,7 +283,7 @@ test.describe("home typing test", () => {
     await mockTrpc(page);
     await page.goto("/?mode=grams");
     await expect(page).toHaveURL(/\/practice\?custom=grams/);
-    await expect(page.getByRole("region", { name: "Gram editor" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Grams and words editor" })).toBeVisible();
 
     await page.goto("/?mode=practice&keys=x");
     await expect(page).toHaveURL(/\/practice\?target=key.*keys=x/);

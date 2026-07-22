@@ -1,4 +1,5 @@
 import { parseCoachingTarget, sameCoachingTarget, type CoachingTarget } from "./coachingTarget"
+import { normalizePracticeWord } from "./practiceItem"
 
 export const EVIDENCE_CONTEXTS = [
     "natural",
@@ -53,7 +54,12 @@ function validFocus(value: unknown): PracticeFocus | null {
     if (!focus || (focus.kind !== "keys" && focus.kind !== "grams") || !Array.isArray(focus.items)) return null
     const maxLength = focus.kind === "keys" ? 8 : 24
     if (focus.items.length < 1 || focus.items.length > maxLength) return null
-    if (!focus.items.every((item): item is string => typeof item === "string" && item.length > 0 && [...item].length <= 4)) return null
+    if (!focus.items.every((item): item is string => {
+        if (typeof item !== "string" || item.length === 0) return false
+        const length = [...item].length
+        if (focus.kind === "keys") return length <= 4
+        return length <= 4 || (length <= 32 && normalizePracticeWord(item) === item)
+    })) return null
     if (new Set(focus.items).size !== focus.items.length) return null
     return { kind: focus.kind, items: [...focus.items] }
 }
