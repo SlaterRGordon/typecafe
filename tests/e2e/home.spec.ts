@@ -313,76 +313,6 @@ test.describe("home typing test", () => {
     expect(scoreCreates).toBe(0);
   });
 
-  test("signed-in users get a coach tab that drills their slowest transition", async ({ page }, testInfo) => {
-    await mockAuthenticatedSession(page);
-    await mockTrpc(page);
-    await gotoHome(page);
-
-    if (testInfo.project.name.includes("mobile")) {
-      const inlineTab = page.getByTestId("home-coach-tab-drill-inline");
-      await expect(inlineTab).toBeVisible();
-      await expect(inlineTab.getByText("Practice", { exact: true })).toBeVisible();
-      await expect(inlineTab).toContainText("b->r");
-      await expect(inlineTab.getByRole("link", { name: "Practice target" })).toHaveAttribute("href", /\/practice\?target=transition.*transitions=br.*evidence=/);
-      await inlineTab.getByRole("button", { name: "Dismiss drill suggestion" }).click();
-      await expect(inlineTab).toBeHidden();
-      return;
-    }
-
-    const tab = page.getByTestId("home-coach-tab-drill");
-    await expect(tab).toBeVisible();
-    const collapsedLink = tab.getByRole("link", { name: "Suggested target" });
-    await expect(collapsedLink).toHaveAttribute("href", /\/practice\?target=transition.*transitions=br.*evidence=/);
-    const collapsedLabel = tab.getByRole("link", { name: "Suggested target" });
-    await expect(collapsedLabel).toBeVisible();
-    await tab.hover();
-    const panel = page.getByTestId("home-coach-tab-drill-panel");
-    await expect(collapsedLink).toHaveCSS("opacity", "0");
-    await expect(panel).toContainText("b->r");
-    await expect(panel).toContainText("2.2x avg");
-    await expect(panel.getByRole("link", { name: "Practice target" })).toHaveAttribute("href", /\/practice\?target=transition.*transitions=br.*evidence=/);
-
-    // Dismissible - and stays gone for the session.
-    await panel.getByRole("button", { name: "Dismiss drill suggestion" }).click();
-    await expect(tab).toBeHidden();
-  });
-
-  test("guests without history see no drill coach tab", async ({ page }) => {
-    await mockTrpc(page);
-    await gotoHome(page);
-    await expect(page.getByTestId("home-coach-tab-drill")).toBeHidden();
-    await expect(page.getByTestId("home-coach-tab-drill-inline")).toBeHidden();
-  });
-
-  test("guests with local history get the drill coach tab", async ({ page }, testInfo) => {
-    // Local-first: same transitions the signed-in mock serves, seeded as guest evidence.
-    await page.addInitScript(() => {
-      window.localStorage.setItem("typecafe:transitionStats", JSON.stringify([
-        { pair: "br", count: 12, totalMs: 4800, errors: 3 },
-        { pair: "th", count: 30, totalMs: 3000, errors: 0 },
-        { pair: "he", count: 25, totalMs: 3000, errors: 0 },
-        { pair: "io", count: 10, totalMs: 3000, errors: 1 },
-      ]));
-    });
-    await mockTrpc(page);
-    await gotoHome(page);
-
-    if (testInfo.project.name.includes("mobile")) {
-      const inlineTab = page.getByTestId("home-coach-tab-drill-inline");
-      await expect(inlineTab).toBeVisible();
-      await expect(inlineTab).toContainText("b->r");
-      await expect(inlineTab.getByRole("link", { name: "Practice target" })).toHaveAttribute("href", /\/practice\?target=transition.*transitions=br.*evidence=/);
-      return;
-    }
-
-    const tab = page.getByTestId("home-coach-tab-drill");
-    await expect(tab).toBeVisible();
-    await tab.hover();
-    const panel = page.getByTestId("home-coach-tab-drill-panel");
-    await expect(panel).toContainText("b->r");
-    await expect(panel.getByRole("link", { name: "Practice target" })).toHaveAttribute("href", /\/practice\?target=transition.*transitions=br.*evidence=/);
-  });
-
   // Honest-review #1 (honest-review-2026-07.md): a zero-history visitor must
   // see the promise before the first keystroke - and never again once any
   // evidence exists.
@@ -655,11 +585,9 @@ test.describe("home typing test", () => {
     await expect(page.getByText("similar starters")).toHaveCount(0);
   });
 
-  test("Home suggests the same Impact-ranked Target used by Progress", async ({ page }, testInfo) => {
+  test("keeps Target suggestions in Progress rather than adding a Home coach tab", async ({ page }) => {
     await mockAuthenticatedSession(page);
     await mockTrpc(page, {
-      // The aggregate fallback would choose rare io (2x slower). Timeline cost
-      // chooses common br (1.4x slower), proving the new selector won.
       transitionStats: [
         { pair: "th", count: 100, totalMs: 10_000, errors: 0 },
         { pair: "br", count: 40, totalMs: 5_600, errors: 0 },
@@ -668,15 +596,9 @@ test.describe("home typing test", () => {
       timelineEvidence: [impactTimeline(1), impactTimeline(2)],
     });
     await gotoHome(page);
-
-    const tab = page.getByTestId(testInfo.project.name.includes("mobile")
-      ? "home-coach-tab-drill-inline"
-      : "home-coach-tab-drill");
-    await expect(tab).toBeVisible();
-    if (!testInfo.project.name.includes("mobile")) await tab.hover();
-    await expect(tab).toContainText("b->r");
-    await expect(tab).toContainText("per 1k chars");
-    await expect(tab.getByRole("link", { name: "Practice target" })).toHaveAttribute("href", /\/practice\?target=transition.*transitions=br.*evidence=/);
+    await page.waitForLoadState("networkidle");
+    await expect(page.getByTestId("home-coach-tabs")).toHaveCount(0);
+    await expect(page.getByTestId("home-coach-tabs-inline")).toHaveCount(0);
 
     await page.goto("/progress");
     await expect(page.getByTestId("coach-targets")).toContainText("b→r");

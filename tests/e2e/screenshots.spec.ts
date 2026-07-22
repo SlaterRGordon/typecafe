@@ -826,18 +826,6 @@ test.describe("screenshot tour", () => {
     await capture(page, testInfo, "58-nav-more-popover");
   });
 
-  test("home: targeted drill coach tab", async ({ page }, testInfo) => {
-    test.skip(testInfo.project.name.includes("mobile"), "The rail coach tabs are desktop-only.");
-    await mockAuthenticatedSession(page);
-    await mockTrpc(page);
-    await gotoHome(page);
-    const tab = page.getByTestId("home-coach-tab-drill");
-    await expect(tab).toBeVisible();
-    await tab.hover();
-    await expect(page.getByTestId("home-coach-tab-drill-panel")).toBeVisible();
-    await capture(page, testInfo, "69-home-drill-coach-tab");
-  });
-
   test("shared progress card", async ({ page }, testInfo) => {
     await mockTrpc(page);
     await page.goto("/score/progress-test-share");

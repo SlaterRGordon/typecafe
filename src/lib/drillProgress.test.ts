@@ -4,7 +4,6 @@ import {
     keyDrillDelta,
     keysBaseline,
     mergeAttempts,
-    nextDrillFinding,
     transitionBaseline,
     transitionDrillDelta,
     type KeyAttempts,
@@ -27,40 +26,6 @@ function agg(pair: string, count: number, meanMs: number, errors = 0): Transitio
 function attempts(spec: Array<[key: string, attempts: number, correct: number]>): KeyAttempts {
     return new Map(spec.map(([key, a, c]) => [key, { attempts: a, correct: c }]))
 }
-
-describe("nextDrillFinding", () => {
-    // A slow pair needs count >= 4 and ratio >= 1.3 vs the overall mean; "th"
-    // bulk keeps the baseline low so "br"/"io" qualify.
-    const transitions = [agg("th", 40, 100), agg("br", 10, 400), agg("io", 10, 300)]
-    const weakAttempts = attempts([["q", 10, 5], ["z", 10, 7], ["e", 10, 10]])
-
-    it("prefers the slowest transition", () => {
-        const finding = nextDrillFinding(transitions, weakAttempts)
-        expect(finding).toMatchObject({ kind: "transition", pair: "br", id: "transition:br" })
-        expect(finding?.href).toMatch(/^\/practice\?target=transition.*transitions=br.*evidence=/)
-    })
-
-    it("skips excluded pairs and picks the next-worst", () => {
-        const finding = nextDrillFinding(transitions, new Map(), { pairs: ["br"] })
-        expect(finding).toMatchObject({ kind: "transition", pair: "io" })
-    })
-
-    it("falls back to weak keys when no transition is left", () => {
-        const finding = nextDrillFinding([], weakAttempts)
-        expect(finding).toMatchObject({ kind: "keys", keys: ["q", "z"], id: "keys:q,z" })
-        expect(finding?.href).toMatch(/^\/practice\?target=key.*keys=q,z.*evidence=/)
-    })
-
-    it("excludes just-drilled keys from the fallback", () => {
-        const finding = nextDrillFinding([], weakAttempts, { keys: ["q"] })
-        expect(finding).toMatchObject({ kind: "keys", keys: ["z"] })
-    })
-
-    it("returns null with no evidence left", () => {
-        expect(nextDrillFinding([], new Map())).toBeNull()
-        expect(nextDrillFinding([], weakAttempts, { keys: ["q", "z"] })).toBeNull()
-    })
-})
 
 describe("attemptsFromEvents", () => {
     it("counts attempts and correct hits per expected key", () => {

@@ -1,12 +1,10 @@
 
 import dynamic from "next/dynamic";
-import { useRouter } from "next/router";
 import { useSession } from "next-auth/react";
 import { useCallback, useEffect, useState } from "react";
 import { TopNavigation } from "./TopNavigation";
 import { SideNavigation } from "./SideNavigation";
 import { BottomNavigation } from "./BottomNavigation";
-import { LazyHomeCoachTabs } from "../home/LazyHomeCoachTabs";
 import { useApplyColors } from "../colors/applyColors";
 import { OPEN_SIGN_IN_EVENT } from "~/lib/modals";
 
@@ -25,7 +23,6 @@ const UsernameModal = dynamic(
 
 export const Navigation = () => {
     useApplyColors();
-    const router = useRouter();
     const { data: session, status } = useSession();
     const [signInLoaded, setSignInLoaded] = useState(false);
     const [signInOpen, setSignInOpen] = useState(false);
@@ -50,7 +47,6 @@ export const Navigation = () => {
         <>
             <TopNavigation onOpenSignIn={openSignIn} onOpenColors={openColors} />
             <SideNavigation />
-            {router.pathname === "/" && <LazyHomeCoachTabs className="typing-focus-global-fade" inline={false} />}
             <BottomNavigation />
             {signInLoaded && <SignInModal open={signInOpen} onClose={() => setSignInOpen(false)} />}
             {colorLoaded && <ColorModal open={colorOpen} onClose={() => setColorOpen(false)} />}

@@ -5,7 +5,6 @@ import { useRouter } from "next/router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { FirstVisitPromise } from "~/components/home/FirstVisitPromise";
-import { LazyHomeCoachTabs } from "~/components/home/LazyHomeCoachTabs";
 import type { ScoreSnapshot } from "~/components/scores/ShareableScoreCard";
 import { Typer, type TestCompletionResult } from "~/components/typer/Typer";
 import { ModeBar } from "~/components/typer/config/ModeBar";
@@ -492,9 +491,6 @@ const Home: NextPage = () => {
         {/* A real page heading for crawlers + screen readers without disturbing
             the minimal test-first hero (growth-seo §E). */}
         <h1 className="sr-only">TypeCafe - the typing coach that makes you faster</h1>
-        {!completedScore && !fullscreen &&
-          <LazyHomeCoachTabs className={typingFocusFadeClass(typingFocused, "mt-16 md:mt-0")} desktop={false} />
-        }
         {!completedScore &&
           <div data-testid="typing-focus-home-controls" className={typingFocusFadeClass(typingFocused, "w-full")}>
             {!fullscreen && <FirstVisitPromise />}

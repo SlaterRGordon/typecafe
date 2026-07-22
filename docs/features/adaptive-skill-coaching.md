@@ -1049,8 +1049,9 @@ improved, not merely whether users clicked the new UI.
 - [x] Stop Home from creating dated sessions, remove Daily Coach from primary
       navigation and the screenshot tour, and redirect legacy `/plan` links to
       Progress.
-- [ ] Add an optional Coaching tab only when it can express a useful daily drill
-      goal using the same Target ledger and evidence model.
+- [x] Keep an optional Coaching tab absent until it can express a useful daily
+      drill goal using the same Target ledger and evidence model; remove the
+      legacy Home suggestion rail backed by aggregate-only fallbacks.
 - [x] Bound discovery (natural/diagnostic) and response (acquisition/transfer/
       cold) timelines in separate windows so drill volume can never evict the
       natural evidence behind ranking, frequency, and recency weighting.

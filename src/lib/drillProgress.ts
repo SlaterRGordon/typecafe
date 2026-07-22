@@ -1,112 +1,11 @@
-// Post-drill progression (Phase 4): the "what next" pick shared by the home
-// coach tab and the drill result card, and the lifetime-vs-this-rep delta the
-// result card headlines. Pure and React-free - the numbers are the product.
+// Post-drill progression: lifetime-vs-this-rep deltas used by Practice results.
+// Pure and React-free - the numbers are the product.
 
 import type { KeystrokeEvent } from "./keystrokes"
 import type { LocalKeyStat } from "./localSync"
-import type { SkillCandidate } from "./skillEvidence"
-import { targetAction } from "./coachingTarget"
-import { guidedEvidenceFromCandidate } from "./guidedPractice"
-import { composeWeakKeys, worstKeysFromAttempts } from "./stats"
-import { aggregateTransitions, overallTransitionMeanMs, worstTransitions, TRANSITION_MIN_COUNT, type TransitionAggregate } from "./transitions"
+import { aggregateTransitions, overallTransitionMeanMs, TRANSITION_MIN_COUNT, type TransitionAggregate } from "./transitions"
 
 export type KeyAttempts = Map<string, { attempts: number, correct: number }>
-
-// The single next thing worth drilling: the slowest recurring transition first
-// (the coach's real edge), weakest keys as the fallback. `id` is the dismissal
-// token the coach tab stores; `href` is the drill deep-link.
-export type DrillFinding =
-    | { kind: "transition", id: string, href: string, pair: string, from: string, to: string, ratio: number, evidence?: SkillCandidate }
-    | { kind: "keys", id: string, href: string, keys: string[], evidence?: SkillCandidate }
-
-// Query strings and the legacy DrillTarget wire shape stay outside the deep
-// evidence module. The target adapter owns canonical links and preserves old
-// key/Transition/word deep links.
-export function drillFindingFromCandidate(candidate: SkillCandidate | null): DrillFinding | null {
-    if (!candidate) return null
-    const target = candidate.target
-    if (target.kind === "transition") {
-        return {
-            kind: "transition",
-            id: candidate.id,
-            href: targetAction(target, { evidence: guidedEvidenceFromCandidate(candidate) }).href,
-            pair: target.pair,
-            from: target.pair[0]!,
-            to: target.pair[1]!,
-            ratio: candidate.reason.code === "transition_latency_above_baseline" ? candidate.reason.ratio : 1,
-            evidence: candidate,
-        }
-    }
-    if (target.kind === "key") {
-        return {
-            kind: "keys",
-            id: candidate.id,
-            href: targetAction(target, { evidence: guidedEvidenceFromCandidate(candidate) }).href,
-            keys: target.keys,
-            evidence: candidate,
-        }
-    }
-    if (target.kind === "correction") {
-        return {
-            kind: "keys",
-            id: candidate.id,
-            href: targetAction(target, { evidence: guidedEvidenceFromCandidate(candidate) }).href,
-            keys: [target.expected],
-            evidence: candidate,
-        }
-    }
-    return null
-}
-
-// `exclude` drops the just-drilled target so a post-drill "next" never
-// re-suggests the drill the user only just finished.
-export function nextDrillFinding(
-    transitions: TransitionAggregate[],
-    attempts: KeyAttempts,
-    exclude?: { pairs?: string[], keys?: string[] },
-): DrillFinding | null {
-    const excludedPairs = new Set(exclude?.pairs ?? [])
-    const slowest = worstTransitions(transitions).find((t) => !excludedPairs.has(t.pair))
-    if (slowest) {
-        const target = { kind: "transition" as const, pair: slowest.pair, metric: "latency" as const }
-        return {
-            kind: "transition",
-            id: `transition:${slowest.pair}`,
-            href: targetAction(target, { evidence: {
-                metric: "ms",
-                baseline: slowest.meanMs / slowest.ratio,
-                observed: slowest.meanMs,
-                sampleCount: slowest.count,
-                reason: `Recent Tests measured this transition at ${Math.round(slowest.meanMs)} ms, ${slowest.ratio.toFixed(1)}× your usual rhythm.`,
-            } }).href,
-            pair: slowest.pair,
-            from: slowest.from,
-            to: slowest.to,
-            ratio: slowest.ratio,
-        }
-    }
-
-    const excludedKeys = new Set(exclude?.keys ?? [])
-    const ranked = worstKeysFromAttempts(attempts, Infinity).filter((k) => !excludedKeys.has(k.key))
-    const keys = composeWeakKeys(ranked).slice(0, 4).map((k) => k.key)
-    if (keys.length === 0) return null
-    const selected = ranked.filter((entry) => keys.includes(entry.key))
-    const attemptsCount = selected.reduce((sum, entry) => sum + entry.attempts, 0)
-    const accuracy = attemptsCount > 0 ? selected.reduce((sum, entry) => sum + entry.accuracy * entry.attempts, 0) / attemptsCount : 0
-    const target = { kind: "key" as const, keys, metric: "accuracy" as const }
-    return {
-        kind: "keys",
-        id: `keys:${keys.join(",")}`,
-        href: targetAction(target, { evidence: {
-            metric: "%",
-            baseline: 100,
-            observed: accuracy,
-            sampleCount: attemptsCount,
-            reason: `Recent Tests measured these keys at ${accuracy.toFixed(1)}% Accuracy.`,
-        } }).href,
-        keys,
-    }
-}
 
 // Roll a test's timeline into per-key attempt counts - the same shape the
 // lifetime key stats use, so rep and lifetime data merge and compare directly.

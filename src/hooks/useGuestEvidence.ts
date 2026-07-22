@@ -18,8 +18,8 @@ export interface GuestEvidence {
 }
 
 // Fired after a completed test's evidence is written (local mirror for guests,
-// DB sync for users), so always-mounted surfaces like the coach tab recompute
-// instead of serving a recommendation frozen at first page load.
+// DB sync for users), so evidence-backed surfaces recompute instead of serving
+// a projection frozen at first page load.
 export const EVIDENCE_SYNCED_EVENT = "typecafe:evidence-synced"
 
 // The guest's local-first evidence (progress entries, key stats, transitions),
