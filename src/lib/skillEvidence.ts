@@ -1365,7 +1365,10 @@ export function analyzeTypingEvidence(input: SkillEvidenceInput): SkillAnalysis 
             observedMs - baselineMs >= SKILL_EVIDENCE_THRESHOLDS.latencyNoiseFloorMs &&
             observedMs / baselineMs >= SKILL_EVIDENCE_THRESHOLDS.keyLatencyMinRatio
         ) {
-            const frequency = frequencyPer1000(evidence.keyFrequency.get(key) ?? 0, evidence.frequencyCharacters)
+            const measurableArrivals = evidence.quality.naturalTimelines > 0
+                ? samples.filter((sample) => sample.context === "natural").length
+                : samples.length
+            const frequency = frequencyPer1000(measurableArrivals, evidence.frequencyCharacters)
             const candidateConfidence = confidence(samples.length, SKILL_EVIDENCE_THRESHOLDS.keyLatencyMinSamples, predecessors, SKILL_EVIDENCE_THRESHOLDS.keyLatencyMinPredecessors)
             const recencyWeight = sampleRecency(samples)
             const rawImpact = (observedMs - baselineMs) * frequency

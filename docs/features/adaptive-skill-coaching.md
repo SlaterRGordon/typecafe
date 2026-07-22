@@ -897,6 +897,8 @@ mistaken for one another across reload or signup.
       candidates.
 - [x] Derive exact Transition eligibility from the active-language corpus rather
       than the English 1k list used by legacy global aggregates.
+- [x] Weight key-latency Impact by measurable arrivals rather than word-initial
+      key appearances that have no latency sample.
 - [x] Use Transition error rate in recommendations.
 - [x] Separate natural baseline from acquisition response despite ADR 0004's
       shared rolling aggregates.

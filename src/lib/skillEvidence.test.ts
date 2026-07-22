@@ -433,6 +433,22 @@ describe("analyzeTypingEvidence", () => {
         ]))
     })
 
+    it("weights key latency only by occurrences with a measurable arrival", () => {
+        const timelines = [1, 2].map((testId) => pairTimeline(testId, [
+            ...baseline(),
+            { pair: "aq", gap: 160, repeats: 10 },
+            { pair: "eq", gap: 160, repeats: 10 },
+            { pair: "qa", gap: 100, repeats: 20 },
+        ]))
+
+        const analysis = analyzeTypingEvidence({ timelines })
+        const candidate = analysis.candidates.find((item) => item.id === "key:latency:q")
+        const measurableQArrivals = 40
+
+        expect(candidate?.sampleCount).toBe(measurableQArrivals)
+        expect(candidate?.frequencyPer1000).toBeCloseTo(measurableQArrivals / analysis.quality.discoveryCharacters * 1_000)
+    })
+
     it("generates recurring correction confusion without double-counting final frequency", () => {
         const analysis = analyzeTypingEvidence({ timelines: [correctionTimeline(1, 2), correctionTimeline(2, 1)] })
         const candidate = analysis.candidates.find((item) => item.id === "correction:q:x")
