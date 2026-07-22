@@ -39,6 +39,52 @@ export function impactTimeline(testId: number): TimelineEvidence {
   };
 }
 
+/** Active-language exact Transition that the legacy English gate rejects. */
+export function frenchTransitionTimeline(testId: number): TimelineEvidence {
+  const timeline = impactTimeline(testId);
+  const events: TestEvidenceEvent[] = [];
+  let t = 0;
+  const addPairs = (pair: string, gap: number, repeats: number) => {
+    const [from, to] = [...pair];
+    for (let index = 0; index < repeats; index += 1) {
+      t += 100;
+      events.push({ key: from!, typed: from!, correct: true, t });
+      t += gap;
+      events.push({ key: to!, typed: to!, correct: true, t });
+      t += 100;
+      events.push({ key: " ", typed: " ", correct: true, t });
+    }
+  };
+  addPairs("th", 80, 27);
+  addPairs("th", 100, 27);
+  addPairs("th", 120, 26);
+  addPairs("ça", 170, 20);
+  return { ...timeline, language: "french", timeline: encodeTimeline(events) };
+}
+
+/** Historical br cost falls recently while io remains a larger current cost. */
+export function recentWorthTimeline(testId: number, brGap: number): TimelineEvidence {
+  const timeline = impactTimeline(testId);
+  const events: TestEvidenceEvent[] = [];
+  let t = 0;
+  const addPairs = (pair: string, gap: number, repeats: number) => {
+    for (let index = 0; index < repeats; index += 1) {
+      t += 100;
+      events.push({ key: pair[0]!, typed: pair[0]!, correct: true, t });
+      t += gap;
+      events.push({ key: pair[1]!, typed: pair[1]!, correct: true, t });
+      t += 100;
+      events.push({ key: " ", typed: " ", correct: true, t });
+    }
+  };
+  addPairs("th", 80, 30);
+  addPairs("th", 100, 30);
+  addPairs("th", 120, 30);
+  addPairs("br", brGap, 20);
+  addPairs("io", 150, 10);
+  return { ...timeline, timeline: encodeTimeline(events) };
+}
+
 /** Four slow same-finger sequences over a stable natural baseline. */
 export function movementTimeline(testId: number): TimelineEvidence {
   const events: TestEvidenceEvent[] = [];

@@ -22,6 +22,7 @@ interface MockTrpcOptions {
   keyStats?: { character: string; total: number; correct: number }[];
   transitionStats?: { pair: string; count: number; totalMs: number; errors: number }[];
   timelineEvidence?: unknown[];
+  progressLanguage?: string;
   customGramsPreference?: unknown;
   customGramsPreferences?: Record<string, unknown>;
   // Make the progress history flat (a plateau) instead of rising.
@@ -165,7 +166,7 @@ function makeScoreSnapshot() {
 
 // A rising WPM history over the last ~60 days, generated relative to now so the
 // /progress headline delta is deterministic (current window beats the prior).
-function makeProgressRecords(flat = false, mixed = false, sameDay = false, falling = false) {
+function makeProgressRecords(flat = false, mixed = false, sameDay = false, falling = false, language = "english") {
   const dayMs = 24 * 60 * 60 * 1000;
   const now = Date.now();
   return Array.from({ length: 24 }, (_, i) => {
@@ -182,7 +183,7 @@ function makeProgressRecords(flat = false, mixed = false, sameDay = false, falli
       day: new Date(now - daysAgo * dayMs).toISOString().slice(0, 10),
       mode: 0,
       subMode: wordsRecord ? 1 : 0,
-      language: "english",
+      language,
     };
   });
 }
@@ -365,7 +366,7 @@ function responseForProcedure(procedure: string, input: ProcedureInput, options:
           layout: "qwerty",
         },
       ];
-      return makeProgressRecords(options.flatProgress, options.mixedProgress, options.sameDayProgress, options.fallingProgress);
+      return makeProgressRecords(options.flatProgress, options.mixedProgress, options.sameDayProgress, options.fallingProgress, options.progressLanguage);
     case "test.getLatestTimelines":
       return options.timelineEvidence ?? [];
     case "test.getActivityByDate":

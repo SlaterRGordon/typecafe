@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { mockAuthenticatedSession, mockTrpc } from "./helpers/trpc";
-import { brDrillTimeline, impactTimeline, movementTimeline } from "./helpers/evidence";
+import { brDrillTimeline, frenchTransitionTimeline, impactTimeline, movementTimeline, recentWorthTimeline } from "./helpers/evidence";
 import { typeCurrentCharacter } from "./helpers/typing";
 
 async function gotoProgress(page: Page) {
@@ -372,6 +372,32 @@ test.describe("progress dashboard", () => {
     await expect(page.getByTestId("coach-inline-detail")).toHaveCount(0);
     await expect(page.getByTestId("coach-detail")).toContainText("Work on b→r");
     await expect(page.getByTestId("records-timeline")).toHaveCount(0);
+  });
+
+  test("qualifies exact Transitions from the active language corpus", async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem("typecafe:language", JSON.stringify("french")));
+    await mockAuthenticatedSession(page);
+    await mockTrpc(page, {
+      progressLanguage: "french",
+      timelineEvidence: [frenchTransitionTimeline(1), frenchTransitionTimeline(2)],
+    });
+    await gotoProgress(page);
+
+    await expect(page.getByTestId("progress-language-chip")).toHaveText("French");
+    const coach = page.getByTestId("progress-coach");
+    await expect(coach.getByRole("button", { name: /ç→a/ })).toBeVisible();
+  });
+
+  test("orders Targets by the recent Worth displayed in the ledger", async ({ page }) => {
+    await mockAuthenticatedSession(page);
+    await mockTrpc(page, {
+      timelineEvidence: Array.from({ length: 10 }, (_, index) => recentWorthTimeline(index + 1, index < 5 ? 200 : 105)),
+    });
+    await gotoProgress(page);
+
+    const rows = page.getByRole("list", { name: "Recent typing Targets" }).locator(":scope > li");
+    await expect(rows.first()).toContainText("i→o");
+    await expect(rows.nth(1)).toContainText("b→r");
   });
 
   test("shows the full grouped movement description before preserving every sequence in Practice", async ({ page }) => {
