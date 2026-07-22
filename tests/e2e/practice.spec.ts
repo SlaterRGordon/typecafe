@@ -217,7 +217,7 @@ test.describe("Custom Practice", () => {
     })
   })
 
-  test("uses a borderless control band and moves the one-line focus summary to the Keys editor", async ({ page }) => {
+  test("uses lowercase Home-style controls without a visible generic workspace title", async ({ page }) => {
     await page.addInitScript(() => {
       if (!window.sessionStorage.getItem("practice-minimal-workspace-seeded")) {
         window.localStorage.setItem("typecafe:practice:custom-keys", JSON.stringify({ keys: ["e", "r", "t", "i", "o"], durationSeconds: 60, textStyle: "varied" }))
@@ -230,11 +230,15 @@ test.describe("Custom Practice", () => {
     const run = page.getByRole("region", { name: "Practice run" })
     const editor = page.getByRole("region", { name: "Focus key editor" })
     const focusSummary = page.getByTestId("practice-focus-summary")
-    await expect(page.getByRole("heading", { name: "Practice keys", exact: true })).toBeVisible()
+    await expect(page).toHaveTitle("Custom Practice | TypeCafe")
+    await expect(page.locator("h1:not(.sr-only)")).toHaveCount(0)
     await expect(controls).not.toHaveClass(/rounded|border|bg-base-200/)
     await expect(run).not.toHaveClass(/rounded|border|bg-base-200/)
     await expect(controls.getByRole("button", { name: "60s" })).toHaveClass(/text-primary/)
-    await expect(controls.getByRole("button", { name: "Varied" })).toHaveClass(/text-primary/)
+    await expect(controls.getByRole("button", { name: "keys", exact: true })).toHaveText("keys")
+    await expect(controls.getByRole("button", { name: "grams", exact: true })).toHaveText("grams")
+    await expect(controls.getByRole("button", { name: "varied", exact: true })).toHaveClass(/text-primary/)
+    await expect(controls.getByRole("button", { name: "pseudo", exact: true })).toHaveText("pseudo")
     await expect(focusSummary).toContainText("+2")
     await expect(focusSummary).toHaveCSS("white-space", "nowrap")
     await expect(focusSummary).toHaveCSS("overflow-x", "hidden")
@@ -246,14 +250,14 @@ test.describe("Custom Practice", () => {
     await expect(editor).toBeFocused()
 
     await controls.getByRole("button", { name: "30s" }).click()
-    await controls.getByRole("button", { name: "Pseudo" }).click()
+    await controls.getByRole("button", { name: "pseudo", exact: true }).click()
     await page.getByRole("button", { name: /^q key, available/ }).click()
     await expect(focusSummary).toContainText("+3")
 
     await page.reload()
     await expect(page.locator("#c0")).toHaveClass(/active-char/, { timeout: 20_000 })
     await expect(controls.getByRole("button", { name: "30s" })).toHaveClass(/text-primary/)
-    await expect(controls.getByRole("button", { name: "Pseudo" })).toHaveClass(/text-primary/)
+    await expect(controls.getByRole("button", { name: "pseudo", exact: true })).toHaveClass(/text-primary/)
     await expect(page.getByRole("button", { name: /^q key, selected focus/ })).toBeVisible()
   })
 
@@ -268,6 +272,9 @@ test.describe("Custom Practice", () => {
     const h = page.getByRole("button", { name: /^h key, selected focus/ })
     await expect(h).toHaveAttribute("aria-label", /50% accuracy/)
     await expect(h.locator("[data-kb-speed]")).toHaveAttribute("data-kb-speed")
+    await expect(h).toHaveClass(/outline-primary/)
+    await expect(h).not.toHaveClass(/ring-primary/)
+    await expect(h.locator(".typecafe-key-focus")).toHaveCount(0)
     const evidenceStyle = await h.getAttribute("style")
     const speed = await h.locator("[data-kb-speed]").getAttribute("data-kb-speed")
 
@@ -338,6 +345,10 @@ test.describe("Custom Practice", () => {
   })
 
   test("combines direct mixed Grams with explicitly corpus-ranked active-language material and restores independently", async ({ page }) => {
+    await page.addInitScript(() => window.localStorage.setItem("typecafe:practice:recent-custom-grams", JSON.stringify({
+      version: 2,
+      languages: { english: { version: 2, language: "english", entries: [], setup: { grams: ["th", "the", "tion"], durationSeconds: 60, textStyle: "varied", updatedAt: 10 } } },
+    })))
     await gotoPractice(page)
     const controls = page.getByRole("region", { name: "Practice controls" })
     await controls.getByRole("button", { name: "Grams" }).click()
@@ -368,10 +379,7 @@ test.describe("Custom Practice", () => {
 
     await page.reload()
     await expect(page.locator("#c0")).toHaveClass(/active-char/, { timeout: 20_000 })
-    await expect(controls.getByRole("button", { name: "Keys" })).toHaveAttribute("aria-pressed", "true")
-    await expect(controls.getByRole("button", { name: "60s" })).toHaveClass(/text-primary/)
-    await expect(controls.getByRole("button", { name: "Varied" })).toHaveClass(/text-primary/)
-    await controls.getByRole("button", { name: "Grams" }).click()
+    await expect(controls.getByRole("button", { name: "grams", exact: true })).toHaveAttribute("aria-pressed", "true")
     await expect(controls.getByRole("button", { name: "120s" })).toHaveClass(/text-primary/)
     await expect(controls.getByRole("button", { name: "Pseudo" })).toHaveClass(/text-primary/)
     await expect(page.getByTestId("selected-practice-grams")).toContainText("er")
@@ -542,8 +550,8 @@ test.describe("Custom Practice", () => {
       await typeCurrentCharacter(page, index)
       await page.clock.runFor(50)
     }
-    await expect(page.getByRole("button", { name: "Stop run" })).toBeVisible()
-    await expect(page.getByRole("group", { name: "Text style" }).getByRole("button", { name: "Pseudo" })).toBeDisabled()
+    await expect(page.getByTestId("practice-workspace-configuration")).toHaveCSS("opacity", "0")
+    await expect(page.getByRole("group", { name: "Text style" }).getByRole("button", { name: "pseudo", exact: true })).toBeDisabled()
     await page.clock.runFor(30_000)
 
     const recap = page.getByTestId("practice-recap")
@@ -601,6 +609,10 @@ test.describe("Custom Practice", () => {
 
   test("mixed-Gram timer completion shows every occurred item before the repeat action", async ({ page }, testInfo) => {
     await page.clock.install()
+    await page.addInitScript(() => window.localStorage.setItem("typecafe:practice:recent-custom-grams", JSON.stringify({
+      version: 2,
+      languages: { english: { version: 2, language: "english", entries: [], setup: { grams: ["th", "the", "tion"], durationSeconds: 60, textStyle: "varied", updatedAt: 10 } } },
+    })))
     await gotoPractice(page)
     const controls = page.getByRole("region", { name: "Practice controls" })
     await controls.getByRole("button", { name: "Grams" }).click()
@@ -634,15 +646,33 @@ test.describe("Custom Practice", () => {
     }
   })
 
-  test("stop persists elapsed activity without producing a comparison recap", async ({ page }) => {
+  test("keeps the prompt fixed through active focus and restores the workspace on cancellation", async ({ page }) => {
     await page.clock.install()
+    await page.goto("/")
+    await expect(page.locator("#c0")).toHaveClass(/active-char/, { timeout: 20_000 })
+    const homePromptY = (await page.locator("#words").boundingBox())!.y
     await gotoPractice(page)
+    const identity = page.getByTestId("practice-workspace-identity")
+    const configuration = page.getByTestId("practice-workspace-configuration")
+    const editor = page.getByRole("region", { name: "Focus key editor" })
+    const promptY = (await page.locator("#words").boundingBox())!.y
+    expect(Math.abs(promptY - homePromptY)).toBeLessThanOrEqual(24)
     await typeCurrentCharacter(page, 0)
     await page.clock.runFor(1_500)
-    await page.getByRole("button", { name: "Stop run" }).click()
+    await expect(identity).toHaveCSS("opacity", "0")
+    await expect(configuration).toHaveCSS("opacity", "0")
+    await expect(editor).toHaveCSS("opacity", "0")
+    await expect(page.getByTestId("practice-status-bar")).toBeVisible()
+    await expect(page.getByTestId("timed-countdown")).toBeVisible()
+    expect(Math.abs((await page.locator("#words").boundingBox())!.y - promptY)).toBeLessThanOrEqual(1)
+    await page.keyboard.press("Tab")
+    await page.keyboard.press("Enter")
 
     await expect(page.getByTestId("practice-recap")).toHaveCount(0)
     await expect(page.getByTestId("timed-countdown")).toContainText("60")
+    await expect(identity).toHaveCSS("opacity", "1")
+    await expect(configuration).toHaveCSS("opacity", "1")
+    await expect(editor).toHaveCSS("opacity", "1")
     await expect.poll(async () => (await guestPracticeRecords(page)).length).toBeGreaterThan(0)
     const records = await guestPracticeRecords(page)
     expect(records.at(-1)?.practice).toMatchObject({ completed: false })
@@ -695,7 +725,7 @@ test.describe("Guided Practice", () => {
     await page.getByTestId("custom-gram-input").fill("ing")
     await page.getByRole("region", { name: "Gram editor" }).getByRole("button", { name: "Add" }).click()
     await expect(workspace).toHaveAttribute("data-practice-kind", "custom")
-    await expect(page.getByRole("heading", { name: "Practice Grams", exact: true })).toBeVisible()
+    await expect(page.locator("h1:not(.sr-only)")).toHaveCount(0)
     await expect(page.getByText("Changed to Custom Practice", { exact: true })).toBeVisible()
   })
 

@@ -94,7 +94,10 @@ test("Guided Practice workspace and awaiting-Test recap", async ({ page }, testI
   await capture(page, testInfo, "69-guided-practice")
 
   await page.getByRole("region", { name: "Practice controls" }).getByRole("button", { name: "30s" }).click()
-  for (let index = 0; index < 80; index += 1) {
+  await typeCurrentCharacter(page, 0)
+  await expect(page.getByTestId("practice-workspace-configuration")).toHaveCSS("opacity", "0")
+  await capture(page, testInfo, "69b-practice-active-typing")
+  for (let index = 1; index < 80; index += 1) {
     await typeCurrentCharacter(page, index)
     await page.clock.runFor(30)
   }

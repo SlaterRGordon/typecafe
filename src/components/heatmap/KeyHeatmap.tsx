@@ -74,14 +74,6 @@ interface KeyHeatmapProps {
     testId?: string,
 }
 
-// Small marker layered above the evidence fill for a selected Practice focus.
-function FocusBadge() {
-    return (
-        <span className="typecafe-key-focus pointer-events-none absolute -left-[0.2rem] -top-[0.2rem] z-10 h-2.5 w-2.5 rounded-full border-2 border-base-100 bg-primary shadow-sm" aria-hidden="true">
-        </span>
-    )
-}
-
 const ROW_CLASS_BY_SIZE: Record<KeyHeatmapSize, string> = {
     full: "flex justify-center gap-0.5 my-0.5 w-full md:gap-1 md:my-1",
     compact: "flex justify-center gap-0.5 w-full md:gap-1",
@@ -341,7 +333,6 @@ export function KeyHeatmap(props: KeyHeatmapProps) {
                         <span className="block h-full rounded-[2px]" style={{ width: `${Math.round(speedBar.fraction * 100)}%`, backgroundColor: speedBarColor }} />
                     </span>
                 }
-                {isSelected && <FocusBadge />}
             </kbd>
             </Tooltip>
         )

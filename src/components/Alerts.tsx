@@ -18,7 +18,7 @@ export const Alerts = () => {
     }, [alerts, dispatch])
 
     return (
-        <div className="toast toast-top toast-end mt-[4rem] z-[1000]">
+        <div className="typing-focus-global-fade toast toast-top toast-end mt-[4rem] z-[1000]">
             {/* If there are no alerts, don't render anything */}
             {alerts.length === 0 ? <></> :
                 <div className="alert bg-base-300 text-base-content">

@@ -8,6 +8,7 @@ import { startTransition, useDeferredValue, useEffect, useMemo, useRef, useState
 import { TargetGlyph } from "~/components/coaching/TargetGlyph"
 import { Keyboard } from "~/components/typer/Keyboard"
 import { Typer, type TestCompletionResult } from "~/components/typer/Typer"
+import { typingFocusFadeClass } from "~/components/typer/typingFocus"
 import { TestModes, TestSubModes } from "~/components/typer/types"
 import { ensureLanguageLoaded, getWords } from "~/components/typer/utils"
 import { useGuestEvidence } from "~/hooks/useGuestEvidence"
@@ -376,12 +377,6 @@ const Practice: NextPage = () => {
         setSeed((value) => value + 1)
         setRestartSignal((value) => value + 1)
     }
-    const stop = () => {
-        setRestartSignal((value) => value + 1)
-        setRunning(false)
-        charAttemptsRef.current = new Map()
-        setSeed((value) => value + 1)
-    }
     const onComplete = (result: TestCompletionResult) => {
         const completedAt = Date.now()
         const context = completionContextRef.current
@@ -455,29 +450,25 @@ const Practice: NextPage = () => {
     return (
         <div data-testid="custom-practice-workspace" data-practice-kind={guided ? "guided" : "custom"} className="h-full w-full overflow-y-auto bg-base-100 px-3 py-6 sm:px-6 md:py-10">
             <Head><title>{guided ? "Guided" : "Custom"} Practice | TypeCafe</title></Head>
-            <div className="mx-auto flex w-full max-w-5xl flex-col gap-5">
-                <header className="flex flex-wrap items-center justify-between gap-3">
+            <div className="relative mx-auto flex h-full w-full max-w-5xl flex-col gap-5">
+                <header data-testid="practice-workspace-identity" className={typingFocusFadeClass(running, "absolute left-0 top-0 z-20 flex flex-wrap items-center justify-between gap-3")}>
                     <div className="min-w-0">
                         {guided ? (
-                            <h1 aria-label={`Practise ${targetDisplayLabel(guided.target)}`} className="flex flex-wrap items-center gap-2 text-2xl font-bold sm:text-3xl">
-                                <span>Practise</span>
+                            <h1 aria-label={`Practise ${targetDisplayLabel(guided.target)}`} className="flex flex-wrap items-center gap-2 text-lg font-semibold">
                                 <TargetGlyph
                                     keys={targetVisualKeys(guided.target)}
                                     label={targetDisplayLabel(guided.target)}
                                     arrows={targetUsesArrow(guided.target)}
-                                    headline
                                 />
                             </h1>
-                        ) : <h1 className="text-2xl font-bold sm:text-3xl">{path === "keys" ? "Practice keys" : "Practice Grams"}</h1>}
-                        {completed?.path === "guided" && <p data-testid="guided-awaiting-test" className="mt-1 text-sm font-semibold text-success">practised · awaiting Test</p>}
+                        ) : <h1 className="sr-only">{path === "keys" ? "Custom Keys Practice" : "Custom Grams Practice"}</h1>}
                     </div>
-                    {running && <button type="button" className="btn btn-sm btn-ghost" onClick={stop}>Stop run</button>}
                 </header>
 
-                <section aria-label="Practice controls" className="flex flex-col items-center gap-2.5 py-1">
+                <section data-testid="practice-workspace-configuration" aria-label="Practice controls" className={typingFocusFadeClass(running, "absolute inset-x-0 top-0 z-20 flex flex-col items-center gap-2.5 py-1")}>
                     <div className="flex items-center gap-4" role="group" aria-label="Custom practice type">
-                        <button type="button" disabled={running} aria-pressed={path === "keys"} onClick={() => selectPath("keys")} className={`cursor-pointer text-md transition-colors disabled:cursor-default disabled:opacity-50 ${path === "keys" ? "font-semibold text-primary" : "text-base-content/50 hover:text-base-content"}`}>Keys</button>
-                        <button type="button" disabled={running} aria-pressed={path === "grams"} onClick={() => selectPath("grams")} className={`cursor-pointer text-md transition-colors disabled:cursor-default disabled:opacity-50 ${path === "grams" ? "font-semibold text-primary" : "text-base-content/50 hover:text-base-content"}`}>Grams</button>
+                        <button type="button" disabled={running} aria-pressed={path === "keys"} onClick={() => selectPath("keys")} className={`cursor-pointer text-md transition-colors disabled:cursor-default disabled:opacity-50 ${path === "keys" ? "font-semibold text-primary" : "text-base-content/50 hover:text-base-content"}`}>keys</button>
+                        <button type="button" disabled={running} aria-pressed={path === "grams"} onClick={() => selectPath("grams")} className={`cursor-pointer text-md transition-colors disabled:cursor-default disabled:opacity-50 ${path === "grams" ? "font-semibold text-primary" : "text-base-content/50 hover:text-base-content"}`}>grams</button>
                     </div>
                     <div className="flex w-full min-w-0 flex-wrap items-center justify-center gap-x-3 gap-y-2">
                         <button
@@ -500,15 +491,16 @@ const Practice: NextPage = () => {
                         </div>
                         <span aria-hidden="true" className="text-base-content/20">|</span>
                         <div className="flex items-center gap-3" role="group" aria-label="Text style">
-                            {PRACTICE_TEXT_STYLES.map((style) => <button key={style} type="button" disabled={running} onClick={() => updateActive({ textStyle: style as PracticeTextStyle })} className={`cursor-pointer text-md capitalize transition-colors disabled:cursor-default disabled:opacity-50 ${activePreferences.textStyle === style ? "font-semibold text-primary" : "text-base-content/50 hover:text-base-content"}`}>{style}</button>)}
+                            {PRACTICE_TEXT_STYLES.map((style) => <button key={style} type="button" disabled={running} onClick={() => updateActive({ textStyle: style as PracticeTextStyle })} className={`cursor-pointer text-md transition-colors disabled:cursor-default disabled:opacity-50 ${activePreferences.textStyle === style ? "font-semibold text-primary" : "text-base-content/50 hover:text-base-content"}`}>{style}</button>)}
                         </div>
                     </div>
                 </section>
 
-                <section aria-label="Practice run" data-prompt-ready={promptPending ? "false" : "true"} className="flex min-h-[16rem] items-center py-2">
+                <section aria-label="Practice run" data-prompt-ready={promptPending ? "false" : "true"} className={completed ? "flex shrink-0 pt-24" : "flex h-full shrink-0 translate-y-12 items-center py-2"}>
                     {completed?.path === "guided" && guidedRecap ? (
                         <div data-testid="practice-recap" className="w-full px-2 py-5 sm:px-4">
                             <h2 className="text-2xl font-bold">{guidedRecap.targetLabel}</h2>
+                            <p data-testid="guided-awaiting-test" className="mt-1 text-sm font-semibold text-success">practised · awaiting Test</p>
                             {guidedRecap.metric ? (
                                 <div className="mt-5 grid gap-3 border-y border-base-content/10 py-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end" data-testid="guided-target-metric">
                                     {guidedRecap.practiceDelta !== null && <p className="text-sm sm:col-span-2"><strong>Practice Delta:</strong> <span className={guidedRecap.practiceDelta >= 0 ? "text-success" : "text-warning"}>{signed(guidedRecap.practiceDelta)}{guidedRecap.metric.unit === "ms" ? " ms faster" : guidedRecap.metric.unit === "%" ? " pts" : " WPM"}</span></p>}
@@ -573,7 +565,7 @@ const Practice: NextPage = () => {
                 </section>
 
                 {path === "keys" ? (
-                    <section ref={keysEditorRef} tabIndex={-1} aria-label="Focus key editor" className="rounded-2xl border border-base-content/10 bg-base-200/25 pb-2 outline-none focus-visible:border-primary/50">
+                    <section ref={keysEditorRef} tabIndex={-1} aria-label="Focus key editor" className={typingFocusFadeClass(running, `relative z-10 rounded-2xl border border-base-content/10 bg-base-200/25 pb-2 outline-none focus-visible:border-primary/50 ${completed ? "" : "-mt-44"}`)}>
                         <Keyboard
                             mode={TestModes.practice}
                             selectedKeys={keysPreferences.keys}
@@ -591,7 +583,7 @@ const Practice: NextPage = () => {
                         />
                     </section>
                 ) : (
-                    <section ref={gramsEditorRef} tabIndex={-1} aria-label="Gram editor" className="rounded-2xl border border-base-content/10 bg-base-200/25 p-3 outline-none focus-visible:border-primary/50 sm:p-4">
+                    <section ref={gramsEditorRef} tabIndex={-1} aria-label="Gram editor" className={typingFocusFadeClass(running, `relative z-10 rounded-2xl border border-base-content/10 bg-base-200/25 p-3 outline-none focus-visible:border-primary/50 sm:p-4 ${completed ? "" : "-mt-44"}`)}>
                         <form className="flex max-w-md gap-2" onSubmit={(event) => { event.preventDefault(); addGram(gramEntry) }}>
                             <input ref={gramInputRef} data-testid="custom-gram-input" disabled={running} value={gramEntry} onChange={(event) => { setGramEntry(event.target.value); setGramEntryError(null) }} className="input input-bordered input-sm min-w-0 flex-1 font-mono" aria-label="Custom Gram" placeholder="Add 2–4 letters" autoComplete="off" />
                             <button type="submit" disabled={running} className="btn btn-sm btn-primary">Add</button>

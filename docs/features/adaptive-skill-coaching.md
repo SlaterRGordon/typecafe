@@ -1293,14 +1293,14 @@ Guided/Custom attribution and natural-evidence contracts remain unchanged.
 - [x] Retire the Practice landing. Resolve normal, explicit Custom, valid
       Guided, and invalid Guided entry through the resume-first precedence above;
       persist only the last Custom path in browser-local storage.
-- [ ] Remove the visible workspace title while retaining an accessible document
+- [x] Remove the visible workspace title while retaining an accessible document
       title and compact Guided Target identity. Render only the configuration
       rail's `keys`, `grams`, `varied`, and `pseudo` labels in Home-style
       lowercase.
-- [ ] Align the prompt vertically with Home and apply the same first-keystroke
+- [x] Align the prompt vertically with Home and apply the same first-keystroke
       focus ceremony without a prompt jump. Restore the surrounding workspace
       on cancellation and completion.
-- [ ] In the Practice key editor only, remove the active-next-key ring and the
+- [x] In the Practice key editor only, remove the active-next-key ring and the
       selected-key corner marker. Keep the theme-primary selection outline,
       natural-Test heat colour, speed bar, and other keyboard contexts intact.
 - [x] Replace every carrier mutation, clipping, extension, and concatenation

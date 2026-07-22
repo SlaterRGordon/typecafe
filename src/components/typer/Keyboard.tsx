@@ -335,7 +335,6 @@ export const Keyboard = (props: KeyboardProps) => {
                         showPercent={false}
                         selectedKeys={focusedKeys}
                         onKeyClick={handleKeyClicked}
-                        followActiveKey
                         highlightKeys={highlightKeys}
                         shiftLayer={shiftLayer}
                         altgrLayer={altgrLayer}
